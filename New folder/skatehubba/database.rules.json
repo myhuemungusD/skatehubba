@@ -1,0 +1,91 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthed() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function isOwner(resource) { return isAuthed() && resource.data.ownerUid == uid(); }
+    function isValidTimestamp(timestamp) { return timestamp is timestamp; }
+
+    // Users - strict user data validation
+    match /users/{userId} {
+      allow read: if isAuthed() && (userId == uid());
+      allow create: if isAuthed() && (userId == uid()) &&
+        request.resource.data.keys().hasOnly(['uid','displayName','email','avatarUrl','xp','createdAt','updatedAt','roles']) &&
+        request.resource.data.uid == uid() &&
+        request.resource.data.xp is int &&
+        request.resource.data.xp >= 0 &&
+        isValidTimestamp(request.resource.data.createdAt) &&
+        isValidTimestamp(request.resource.data.updatedAt);
+      allow update: if isAuthed() && (userId == uid()) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['displayName','avatarUrl','updatedAt','xp']) &&
+        isValidTimestamp(request.resource.data.updatedAt) &&
+        request.resource.data.updatedAt > resource.data.updatedAt;
+      allow delete: if false; // Never allow user deletion
+    }
+
+    // Challenges - public browse, owner control
+    match /challenges/{challengeId} {
+      allow read: if true; // Public browse permitted
+      allow create: if isAuthed() &&
+        request.resource.data.keys().hasOnly(['ownerUid','spotId','trick','status','createdAt','updatedAt','description']) &&
+        request.resource.data.ownerUid == uid() &&
+        request.resource.data.status in ['open','active','completed','cancelled'] &&
+        isValidTimestamp(request.resource.data.createdAt) &&
+        isValidTimestamp(request.resource.data.updatedAt);
+      allow update: if isAuthed() &&
+        resource.data.ownerUid == uid() &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['status','updatedAt','description']) &&
+        request.resource.data.status in ['open','active','completed','cancelled'] &&
+        isValidTimestamp(request.resource.data.updatedAt) &&
+        request.resource.data.updatedAt > resource.data.updatedAt;
+      allow delete: if isAuthed() && resource.data.ownerUid == uid();
+    }
+
+    // Sessions (game/lobby) - authenticated users only
+    match /sessions/{sessionId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed() &&
+        request.resource.data.keys().hasOnly(['ownerUid','members','status','createdAt','updatedAt','maxMembers']) &&
+        request.resource.data.ownerUid == uid() &&
+        request.resource.data.members is list &&
+        request.resource.data.members.size() <= (request.resource.data.maxMembers ?? 10) &&
+        request.resource.data.status in ['open','active','closed'] &&
+        isValidTimestamp(request.resource.data.createdAt) &&
+        isValidTimestamp(request.resource.data.updatedAt);
+      allow update: if isAuthed() &&
+        (resource.data.ownerUid == uid() || uid() in resource.data.members) &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['members','status','updatedAt']) &&
+        isValidTimestamp(request.resource.data.updatedAt) &&
+        request.resource.data.updatedAt > resource.data.updatedAt;
+      allow delete: if isAuthed() && resource.data.ownerUid == uid();
+    }
+
+    // Spots - public read, authenticated write
+    match /spots/{spotId} {
+      allow read: if true;
+      allow create: if isAuthed() &&
+        request.resource.data.keys().hasOnly(['name','location','createdBy','createdAt','updatedAt','verified']) &&
+        request.resource.data.createdBy == uid() &&
+        isValidTimestamp(request.resource.data.createdAt) &&
+        isValidTimestamp(request.resource.data.updatedAt);
+      allow update: if isAuthed() &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly(['name','updatedAt']) &&
+        isValidTimestamp(request.resource.data.updatedAt) &&
+        request.resource.data.updatedAt > resource.data.updatedAt;
+      allow delete: if isAuthed() && resource.data.createdBy == uid();
+    }
+
+    // Rate limiting - prevent spam
+    match /user_actions/{userId} {
+      allow read, write: if isAuthed() && userId == uid() &&
+        request.resource.data.keys().hasOnly(['lastAction','actionCount','windowStart']) &&
+        isValidTimestamp(request.resource.data.lastAction);
+    }
+
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,191 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users to write check-ins to their own collection
+    match /checkins/{document} {
+      allow read, write: if request.auth != null 
+                         && request.auth.uid != null
+                         && resource.data.uid == request.auth.uid;
+      allow create: if request.auth != null 
+                    && request.auth.uid != null
+                    && request.resource.data.uid == request.auth.uid;
+    }
+    
+    // Original user rules for existing functionality
+    function isAuthed() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function userDoc(u) { return get(/databases/$(database)/documents/users/$(u)); }
+    function hasRole(r) { return isAuthed() && r in (userDoc(uid()).data.roles); }
+    function isAdmin() { return hasRole("admin"); }
+    function isModerator() { return hasRole("moderator") || isAdmin(); }
+
+    match /users/{userId} {
+      allow read: if isAuthed();
+
+      allow create: if isAuthed()
+        && userId == uid()
+        && request.resource.data.keys().hasOnly([
+          'displayName','photoURL','totalPoints','roles','createdAt','updatedAt'
+        ]);
+
+      // Owner update (no self role escalation)
+      allow update: if isAuthed()
+        && userId == uid()
+        && request.resource.data.keys().hasOnly([
+          'displayName','photoURL','totalPoints','roles','createdAt','updatedAt'
+        ])
+        && (
+          // roles unchanged OR caller already admin
+          !( 'roles' in request.resource.data && !( 'roles' in resource.data ) )
+          || ( ('roles' in request.resource.data) && ('roles' in resource.data)
+               && request.resource.data.roles == resource.data.roles )
+          || isAdmin()
+        );
+
+      // Admin override update (roles management, corrections)
+      allow update: if isAdmin();
+
+      allow delete: if false;
+    }
+
+    // 3. CHALLENGES (legacy challenger/opponent model)
+    match /challenges/{cid} {
+      allow read: if true;
+
+      allow create: if isAuthed()
+        && request.resource.data.challengerUid == uid()
+        && request.resource.data.keys().hasOnly([
+          'challengerUid','opponentUid','trick','status',
+          'createdAt','updatedAt','expiresAt',
+          'challengerClipId','opponentClipId','winnerUid','points'
+        ])
+        && request.resource.data.status in ['pending','live']
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.winnerUid == null
+        && (request.resource.data.points is int && request.resource.data.points >= 0);
+
+      allow update: if isAuthed()
+        && request.resource.data.keys().hasOnly([
+          'status','updatedAt','challengerClipId','opponentClipId','winnerUid','opponentUid'
+        ])
+        && request.resource.data.updatedAt > resource.data.updatedAt
+        && (
+          (request.resource.data.challengerClipId == resource.data.challengerClipId
+             || uid() == resource.data.challengerUid)
+          &&
+          (request.resource.data.opponentClipId == resource.data.opponentClipId
+             || uid() == resource.data.opponentUid)
+        )
+        && (
+          (resource.data.winnerUid == null
+             && request.resource.data.winnerUid in [resource.data.challengerUid, resource.data.opponentUid])
+          || (request.resource.data.winnerUid == resource.data.winnerUid)
+        )
+        && (
+          (request.resource.data.opponentUid == resource.data.opponentUid)
+          || (resource.data.opponentUid == null && request.resource.data.opponentUid == uid())
+        );
+
+      allow delete: if false;
+    }
+
+    // 4. SUBMISSIONS (status workflow)
+    match /submissions/{submissionId} {
+      allow read: if isAuthed();
+
+      allow create: if isAuthed()
+        && request.resource.data.userId == uid()
+        && request.resource.data.status == "pending"
+        && request.resource.data.keys().hasOnly([
+          'challengeId','userId','videoPath','status','createdAt'
+        ])
+        && request.resource.data.challengeId is string
+        && request.resource.data.videoPath is string
+        && request.resource.data.createdAt is timestamp;
+
+      allow update: if isModerator()
+        && resource.data.userId != uid()
+        && resource.data.status == "pending"
+        && request.resource.data.keys().hasOnly([
+          'challengeId','userId','videoPath','status','createdAt','reviewedBy','reviewedAt','reason'
+        ])
+        && request.resource.data.challengeId == resource.data.challengeId
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.videoPath == resource.data.videoPath
+        && request.resource.data.status in ['approved','rejected']
+        && request.resource.data.reviewedBy == uid()
+        && request.resource.data.reviewedAt is timestamp;
+
+      allow delete: if false;
+    }
+
+    // 5. ACTIVITY (append only via moderator/admin)
+    match /activity/{activityId} {
+      allow read: if true;
+      allow create: if isModerator()
+        && request.resource.data.keys().hasOnly([
+          'type','userId','challengeId','submissionId','points','createdAt'
+        ])
+        && request.resource.data.type == 'submission-approved'
+        && request.resource.data.createdAt is timestamp;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // 6. LEADERBOARD (materialized docs)
+    match /leaderboard/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 7. LEGACY CLIPS (single level)
+    match /clips/{clipId} {
+      allow read: if true;
+      allow create: if isAuthed()
+        && request.resource.data.ownerUid == uid()
+        && request.resource.data.keys().hasOnly([
+          'ownerUid','challengeId','storagePath','durationMs','thumbUrl','createdAt'
+        ])
+        && request.resource.data.createdAt is timestamp;
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // 8. LEADS
+    match /leads/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['email','source','createdAt'])
+        && request.resource.data.createdAt is timestamp;
+      allow read, update, delete: if false;
+    }
+
+    // 9. LOGS
+    match /logs/{id} {
+      allow create: if isAuthed();
+      allow read, update, delete: if false;
+    }
+
+    // 10. GAMES (legacy)
+    function isGamePlayer(game) {
+      return isAuthed()
+        && (game.data.players.A.uid == uid()
+            || game.data.players.B.uid == uid());
+    }
+
+    match /games/{gameId} {
+      allow create: if isAuthed();
+      allow read: if isGamePlayer(resource);
+      allow update: if isGamePlayer(resource)
+        && request.resource.data.diff(resource.data).changedKeys()
+           .hasOnly(['turn','letters','winner','players','status']);
+      allow delete: if false;
+
+      match /tricks/{trickId} {
+        allow create: if isGamePlayer(get(/databases/$(database)/documents/games/$(gameId)));
+        allow read: if isGamePlayer(get(/databases/$(database)/documents/games/$(gameId)));
+        allow update, delete: if false;
+      }
+    }
+  }
+}

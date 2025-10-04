@@ -1,0 +1,209 @@
+{
+  "welcome": "¡Bienvenido a SkateHubba!",
+  "onboarding": {
+    "title": "¡Bienvenido a SkateHubba!",
+    "subtitle": "Comencemos",
+    "steps": {
+      "1": {
+        "title": "Conéctate con Skaters",
+        "description": "Encuentra skaters locales, únete a sesiones y comparte tu progreso"
+      },
+      "2": {
+        "title": "Acepta Desafíos",
+        "description": "Desafía a otros o acepta desafíos - ¡muestra tus habilidades!"
+      },
+      "3": {
+        "title": "Sigue Tu Progreso",
+        "description": "Registra tus trucos, comparte clips y mejora tu skating"
+      },
+      "4": {
+        "title": "Obtén Verificación",
+        "description": "Aterriza trucos, obtén verificación de la comunidad, gana insignias"
+      }
+    },
+    "getStarted": "Comenzar",
+    "skip": "Saltar Tutorial",
+    "next": "Siguiente",
+    "previous": "Anterior"
+  },
+  "tutorial": {
+    "tips": {
+      "profile": "Personaliza tu perfil y muestra tus mejores trucos",
+      "challenges": "Crea o únete a desafíos para probar tus habilidades",
+      "sessions": "Encuentra sesiones cercanas o inicia la tuya",
+      "verification": "Obtén tus trucos verificados por la comunidad"
+    },
+    "gotIt": "¡Entendido!",
+    "showMore": "Mostrar más consejos",
+    "hideMore": "Ocultar consejos"
+  },
+  "settings": {
+    "title": "Configuración",
+    "language": "Idioma",
+    "notifications": "Notificaciones",
+    "privacy": "Política de Privacidad",
+    "terms": "Términos de Servicio",
+    "about": "Sobre SkateHubba",
+    "contactUs": "Contáctanos",
+    "version": "Versión {{version}}",
+    "account": {
+      "title": "Cuenta",
+      "updateEmail": "Actualizar Email",
+      "updatePassword": "Actualizar Contraseña",
+      "signOut": "Cerrar Sesión",
+      "deleteAccount": "Eliminar Cuenta"
+    },
+    "danger": {
+      "title": "Zona de Peligro"
+    },
+    "reauth": {
+      "title": "Verificar Identidad",
+      "message": "Por favor, ingresa tu contraseña actual para continuar",
+      "error": "Autenticación Fallida",
+      "errorMessage": "Por favor, verifica tu contraseña e intenta de nuevo"
+    },
+    "email": {
+      "title": "Actualizar Email",
+      "message": "Ingresa tu nuevo email",
+      "success": "Email Actualizado",
+      "successMessage": "Tu email ha sido actualizado exitosamente",
+      "error": "Actualización Fallida",
+      "errorMessage": "No se pudo actualizar el email. Por favor, intenta de nuevo."
+    },
+    "password": {
+      "title": "Actualizar Contraseña",
+      "message": "Ingresa tu nueva contraseña",
+      "success": "Contraseña Actualizada",
+      "successMessage": "Tu contraseña ha sido actualizada exitosamente",
+      "error": "Actualización Fallida",
+      "errorMessage": "No se pudo actualizar la contraseña. Por favor, intenta de nuevo."
+    },
+    "delete": {
+      "title": "Eliminar Cuenta",
+      "message": "¿Estás seguro de que quieres eliminar tu cuenta? Esta acción no se puede deshacer.",
+      "confirm": "Eliminar Cuenta",
+      "success": "Cuenta Eliminada",
+      "successMessage": "Tu cuenta ha sido eliminada exitosamente",
+      "error": "Eliminación Fallida",
+      "errorMessage": "No se pudo eliminar la cuenta. Por favor, intenta de nuevo."
+    },
+    "signOut": {
+      "error": "Error al Cerrar Sesión",
+      "errorMessage": "No se pudo cerrar sesión. Por favor, intenta de nuevo."
+    }
+  },
+  "languages": {
+    "en": "English",
+    "es": "Español"
+  },
+  "profile": "Perfil",
+  "map": "Mapa",
+  "shop": "Tienda",
+  "sessions": "Sesiones",
+  "challenges": "Desafíos",
+  "lobbies": "Lobbies",
+  "checkins": "Check-Ins",
+  "archive": "Archivo",
+  "notifications": "Notificaciones",
+  "verify": "Verificar",
+  "add_clip": "Agregar Clip",
+  "check_in_here": "Registrar aquí",
+  "challenge_skater": "Desafiar a un skater",
+  "accept": "Aceptar",
+  "decline": "Rechazar",
+  "live": "EN VIVO",
+  "pro": "PRO",
+  "shop_verified": "Tienda Verificada",
+  "sponsor": "Patrocinador",
+  "followers": "Seguidores",
+  "following": "Siguiendo",
+  "ar": {
+    "title": "Modo AR",
+    "loading": "Inicializando AR...",
+    "noPermission": "Se requieren permisos de cámara y ubicación para las funciones AR",
+    "spotsFound": "{{count}} spots encontrados",
+    "dropClip": "Soltar Clip",
+    "refresh": "Actualizar",
+    "scanningRange": "Escaneando radio de {{range}}",
+    "spot": {
+      "accessibility": "{{name}}, a {{distance}}m de distancia, calificado con {{rating}} estrellas",
+      "features": "Características",
+      "activity": "Actividad",
+      "clips": "{{count}} clips",
+      "challenges": "{{count}} desafíos"
+    },
+    "directions": {
+      "title": "Direcciones",
+      "message": "Abriendo direcciones en la app de mapas...",
+      "get": "Direcciones",
+      "veryClose": "aquí mismo",
+      "close": "muy cerca",
+      "nearby": "cerca",
+      "far": "a cierta distancia"
+    },
+    "rating": {
+      "your": "Tu Calificación",
+      "rate": "Calificar Spot",
+      "submit": "Enviar Calificación",
+      "success": {
+        "title": "Calificación Enviada",
+        "message": "¡Gracias por calificar este spot!"
+      },
+      "error": {
+        "title": "Error de Calificación",
+        "noRating": "Por favor selecciona una calificación antes de enviar"
+      },
+      "confirm": {
+        "title": "Confirmar Calificación",
+        "message": "¿Calificar {{spot}} con {{rating}} estrellas?"
+      }
+    },
+    "clip": {
+      "drop": {
+        "title": "Soltar Clip",
+        "action": "Soltar Aquí"
+      },
+      "dropped": {
+        "title": "Clip Soltado",
+        "message": "¡Tu clip ha sido soltado en esta ubicación para que otros lo descubran!"
+      },
+      "title": "Título",
+      "titlePlaceholder": "Nombra tu clip...",
+      "description": "Descripción",
+      "descriptionPlaceholder": "Describe lo que hiciste...",
+      "video": "Video",
+      "videoSelected": "Video seleccionado",
+      "changeVideo": "Cambiar video",
+      "record": "Grabar",
+      "select": "Seleccionar de la biblioteca",
+      "uploading": "Subiendo...",
+      "type": "Tipo de Clip",
+      "types": {
+        "trick": "Truco",
+        "line": "Línea",
+        "spot": "Reseña de Spot",
+        "challenge": "Desafío"
+      },
+      "difficulty": {
+        "title": "Dificultad",
+        "beginner": "Principiante",
+        "intermediate": "Intermedio",
+        "advanced": "Avanzado"
+      },
+      "error": {
+        "title": "Error",
+        "noTitle": "Por favor ingresa un título para tu clip",
+        "noVideo": "Por favor selecciona o graba un video",
+        "selectVideo": "Error al seleccionar video",
+        "recordVideo": "Error al grabar video",
+        "upload": "Error al subir clip"
+      }
+    },
+    "error": {
+      "title": "Error AR",
+      "initialization": "Error al inicializar modo AR",
+      "dropClip": "Error al soltar clip",
+      "rating": "Error al enviar calificación"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "cli": {
+    "version": ">= 12.10.3"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "production": {
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "ios": {
+        "bundleIdentifier": "com.skatehubba.app"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      }
+    },
+    "production-store": {
+      "env": {
+        "NODE_ENV": "production"
+      },
+      "ios": {
+        "bundleIdentifier": "com.skatehubba.app"
+      },
+      "android": {
+        "buildType": "aab"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

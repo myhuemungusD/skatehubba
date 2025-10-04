@@ -1,0 +1,209 @@
+{
+  "welcome": "Welcome to SkateHubba!",
+  "onboarding": {
+    "title": "Welcome to SkateHubba!",
+    "subtitle": "Let's get you started",
+    "steps": {
+      "1": {
+        "title": "Connect with Skaters",
+        "description": "Find local skaters, join sessions, and share your progress"
+      },
+      "2": {
+        "title": "Take on Challenges",
+        "description": "Challenge others or get challenged - show off your skills!"
+      },
+      "3": {
+        "title": "Track Your Progress",
+        "description": "Log your tricks, share clips, and level up your skating"
+      },
+      "4": {
+        "title": "Get Verified",
+        "description": "Land tricks, get verified by the community, earn badges"
+      }
+    },
+    "getStarted": "Get Started",
+    "skip": "Skip Tutorial",
+    "next": "Next",
+    "previous": "Previous"
+  },
+  "tutorial": {
+    "tips": {
+      "profile": "Customize your profile and showcase your best tricks",
+      "challenges": "Create or join challenges to test your skills",
+      "sessions": "Find nearby sessions or start your own",
+      "verification": "Get your tricks verified by the community"
+    },
+    "gotIt": "Got it!",
+    "showMore": "Show more tips",
+    "hideMore": "Hide tips"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "notifications": "Notifications",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "about": "About SkateHubba",
+    "contactUs": "Contact Us",
+    "version": "Version {{version}}",
+    "account": {
+      "title": "Account",
+      "updateEmail": "Update Email",
+      "updatePassword": "Update Password",
+      "signOut": "Sign Out",
+      "deleteAccount": "Delete Account"
+    },
+    "danger": {
+      "title": "Danger Zone"
+    },
+    "reauth": {
+      "title": "Verify Identity",
+      "message": "Please enter your current password to continue",
+      "error": "Authentication Failed",
+      "errorMessage": "Please check your password and try again"
+    },
+    "email": {
+      "title": "Update Email",
+      "message": "Enter your new email address",
+      "success": "Email Updated",
+      "successMessage": "Your email has been successfully updated",
+      "error": "Update Failed",
+      "errorMessage": "Could not update email. Please try again."
+    },
+    "password": {
+      "title": "Update Password",
+      "message": "Enter your new password",
+      "success": "Password Updated",
+      "successMessage": "Your password has been successfully updated",
+      "error": "Update Failed",
+      "errorMessage": "Could not update password. Please try again."
+    },
+    "delete": {
+      "title": "Delete Account",
+      "message": "Are you sure you want to delete your account? This action cannot be undone.",
+      "confirm": "Delete Account",
+      "success": "Account Deleted",
+      "successMessage": "Your account has been successfully deleted",
+      "error": "Deletion Failed",
+      "errorMessage": "Could not delete account. Please try again."
+    },
+    "signOut": {
+      "error": "Sign Out Failed",
+      "errorMessage": "Could not sign out. Please try again."
+    }
+  },
+  "languages": {
+    "en": "English",
+    "es": "Español"
+  },
+  "profile": "Profile",
+  "map": "Map",
+  "shop": "Shop",
+  "sessions": "Sessions",
+  "challenges": "Challenges",
+  "lobbies": "Lobbies",
+  "checkins": "Check-Ins",
+  "archive": "Archive",
+  "notifications": "Notifications",
+  "verify": "Verify",
+  "add_clip": "Add Clip",
+  "check_in_here": "Check In Here",
+  "challenge_skater": "Challenge Skater",
+  "accept": "Accept",
+  "decline": "Decline",
+  "live": "LIVE",
+  "pro": "PRO",
+  "shop_verified": "Verified Shop",
+  "sponsor": "Sponsor",
+  "followers": "Followers",
+  "following": "Following",
+  "ar": {
+    "title": "AR Mode",
+    "loading": "Initializing AR...",
+    "noPermission": "Camera and location permissions are required for AR features",
+    "spotsFound": "{{count}} spots found",
+    "dropClip": "Drop Clip",
+    "refresh": "Refresh",
+    "scanningRange": "Scanning {{range}} radius",
+    "spot": {
+      "accessibility": "{{name}}, {{distance}}m away, rated {{rating}} stars",
+      "features": "Features",
+      "activity": "Activity",
+      "clips": "{{count}} clips",
+      "challenges": "{{count}} challenges"
+    },
+    "directions": {
+      "title": "Directions",
+      "message": "Opening directions in maps app...",
+      "get": "Directions",
+      "veryClose": "right here",
+      "close": "very close",
+      "nearby": "nearby",
+      "far": "some distance away"
+    },
+    "rating": {
+      "your": "Your Rating",
+      "rate": "Rate Spot",
+      "submit": "Submit Rating",
+      "success": {
+        "title": "Rating Submitted",
+        "message": "Thank you for rating this spot!"
+      },
+      "error": {
+        "title": "Rating Error",
+        "noRating": "Please select a rating before submitting"
+      },
+      "confirm": {
+        "title": "Confirm Rating",
+        "message": "Rate {{spot}} {{rating}} stars?"
+      }
+    },
+    "clip": {
+      "drop": {
+        "title": "Drop Clip",
+        "action": "Drop Here"
+      },
+      "dropped": {
+        "title": "Clip Dropped",
+        "message": "Your clip has been dropped at this location for others to discover!"
+      },
+      "title": "Title",
+      "titlePlaceholder": "Name your clip...",
+      "description": "Description",
+      "descriptionPlaceholder": "Describe what you did...",
+      "video": "Video",
+      "videoSelected": "Video selected",
+      "changeVideo": "Change video",
+      "record": "Record",
+      "select": "Select from library",
+      "uploading": "Uploading...",
+      "type": "Clip Type",
+      "types": {
+        "trick": "Trick",
+        "line": "Line",
+        "spot": "Spot Review",
+        "challenge": "Challenge"
+      },
+      "difficulty": {
+        "title": "Difficulty",
+        "beginner": "Beginner",
+        "intermediate": "Intermediate",
+        "advanced": "Advanced"
+      },
+      "error": {
+        "title": "Error",
+        "noTitle": "Please enter a title for your clip",
+        "noVideo": "Please select or record a video",
+        "selectVideo": "Failed to select video",
+        "recordVideo": "Failed to record video",
+        "upload": "Failed to upload clip"
+      }
+    },
+    "error": {
+      "title": "AR Error",
+      "initialization": "Failed to initialize AR mode",
+      "dropClip": "Failed to drop clip",
+      "rating": "Failed to submit rating"
+    }
+  }
+}

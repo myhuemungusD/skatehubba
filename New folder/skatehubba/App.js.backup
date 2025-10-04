@@ -1,0 +1,61 @@
+import React, { useEffect } from 'react';
+import { LogBox } from 'react-native';
+import * as Sentry from '@sentry/react-native';
+import ErrorBoundary from './components/ErrorBoundary';
+import AppNavigator from './navigation/AppNavigator';
+import GlobalErrorHandler from './services/errorHandler';
+import { analyticsService } from './services/analytics';
+
+// Ignore specific warnings
+LogBox.ignoreLogs([
+  'ViewPropTypes will be removed',
+  'ColorPropType will be removed',
+]);
+
+// Initialize Sentry
+Sentry.init({
+  dsn: 'YOUR_SENTRY_DSN', // Replace with your Sentry DSN
+  enableAutoSessionTracking: true,
+  // Enable performance monitoring
+  tracesSampleRate: 0.2,
+});
+
+const App = () => {
+  useEffect(() => {
+    // Initialize global error handler
+    GlobalErrorHandler.init();
+
+    // Track app start
+    analyticsService.logEvent('app_start', {
+      timestamp: Date.now(),
+    });
+
+    return () => {
+      // Track app close
+      analyticsService.logEvent('app_close', {
+        timestamp: Date.now(),
+      });
+    };
+  }, []);
+
+  const handleErrorBoundaryReset = async () => {
+    // Clear error state
+    await GlobalErrorHandler.clearErrorState();
+    
+    // Log recovery
+    analyticsService.logEvent('error_boundary_reset', {
+      timestamp: Date.now(),
+    });
+  };
+
+  return (
+    <ErrorBoundary
+      onReset={handleErrorBoundaryReset}
+      appVersion={process.env.APP_VERSION || '1.0.0'}
+    >
+      <AppNavigator />
+    </ErrorBoundary>
+  );
+};
+
+export default Sentry.wrap(App);

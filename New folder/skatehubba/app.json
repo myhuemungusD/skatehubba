@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "skatehubba",
+    "slug": "skatehubba",
+    "version": "1.0.0",
+    "sdkVersion": "54.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.skatehubba.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to location for GPS tracking and finding nearby skate spots.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location for GPS tracking and finding nearby skate spots."
+      }
+    },
+    "android": {
+      "package": "com.skatehubba.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "platforms": ["ios", "android", "web"],
+    "scheme": "skatehubba"
+  }
+}
+
