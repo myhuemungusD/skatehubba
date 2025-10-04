@@ -64,4 +64,10 @@ coverage/
 *.swp
 *.swo
 
+# Windows system files and cache
+AppData/
+**/AppData/
+Users/*/AppData/
+CUsersLowAnskatehubba-mock)/
+
 # @end expo-cli
