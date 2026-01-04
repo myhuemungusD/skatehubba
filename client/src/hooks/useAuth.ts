@@ -1,0 +1,56 @@
+import { useEffect, useMemo, useState } from "react";
+import type { User } from "firebase/auth";
+import { listenToAuth } from "../lib/auth";
+
+/**
+ * Determines if a Firebase user is authenticated for the application.
+ * @param user - The Firebase user object or null
+ * @returns true if the user is authenticated, false otherwise
+ * 
+ * Authentication criteria:
+ * - Anonymous users are authenticated
+ * - Users with verified emails are authenticated
+ * - Users authenticated via OAuth providers (Google, phone, etc.) are authenticated
+ */
+function isFirebaseUserAuthenticated(user: User | null): boolean {
+  if (!user) {
+    return false;
+  }
+
+  if (user.isAnonymous) {
+    return true;
+  }
+
+  if (user.emailVerified) {
+    return true;
+  }
+
+  return user.providerData.some((provider) => provider.providerId !== "password");
+}
+
+export function useAuth() {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    try {
+      const unsubscribe = listenToAuth((firebaseUser) => {
+        setUser(firebaseUser);
+        setIsLoading(false);
+      });
+
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("[useAuth] Failed to listen to auth:", error);
+      setIsLoading(false);
+    }
+  }, []);
+
+  const isAuthenticated = useMemo(() => isFirebaseUserAuthenticated(user), [user]);
+
+  return {
+    user,
+    isLoading,
+    isAuthenticated,
+  };
+}
