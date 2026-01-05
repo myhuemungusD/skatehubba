@@ -1,7 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
-import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 import { initializeFirestore } from "firebase/firestore";
 import { env } from '../config/env';
 import { logger } from './logger';
