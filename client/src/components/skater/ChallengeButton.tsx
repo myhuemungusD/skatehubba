@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useEmailVerification } from '@/hooks/useEmailVerification';
 import { auth } from '@/lib/firebase';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 
@@ -11,6 +12,7 @@ interface ChallengeButtonProps {
 
 export function ChallengeButton({ challengedId, challengedHandle }: ChallengeButtonProps) {
   const { toast } = useToast();
+  const { requiresVerification } = useEmailVerification();
   const [busy, setBusy] = useState(false);
 
   const handleChallenge = async () => {
@@ -22,6 +24,15 @@ export function ChallengeButton({ challengedId, challengedHandle }: ChallengeBut
         toast({
           title: 'Sign in required',
           description: 'Log in to issue a challenge.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      if (requiresVerification) {
+        toast({
+          title: 'Email verification required',
+          description: 'Verify your email to start S.K.A.T.E. challenges.',
           variant: 'destructive',
         });
         return;
