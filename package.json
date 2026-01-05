@@ -7,11 +7,10 @@
     "server",
     "mobile",
     "shared",
-    "infra/firebase/functions",
-    "packages/*"
+    "infra/firebase/functions"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
