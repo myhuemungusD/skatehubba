@@ -25,10 +25,14 @@ deployment_summary.md
 .firebase/
 firebase-debug.log
 firebase-debug.*.log
-
 # Secrets and credentials (CRITICAL)
 attached_assets/
 .env
 .env.local
 *.key
 *.json
+!package.json
+!package-lock.json
+!tsconfig.json
+!client/package.json
+!server/package.json

@@ -1,0 +1,23 @@
+{
+  "name": "skatehubba-monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server",
+    "shared",
+    "infra/firebase/functions",
+    "mobile"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
+    "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
+    "build": "npm run build -w client && npm run build -w server && npm run package:dist",
+    "package:dist": "rm -rf dist && mkdir -p dist/server && mkdir -p dist/public && cp -r server/dist/* dist/server/ && cp -r client/dist/* dist/public/",
+    "test": "echo \"✅ No tests defined yet (Spec-compliant stub)\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}
