@@ -1,6 +1,8 @@
 # Node / build
 node_modules/
 dist/
+*.tsbuildinfo
+client/.tsbuild/
 
 # OS
 .DS_Store
