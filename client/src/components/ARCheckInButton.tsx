@@ -4,6 +4,7 @@ import { MapPin, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { useToast } from '../hooks/use-toast';
 import { useAuth } from '../hooks/useAuth';
+import { useEmailVerification } from '../hooks/useEmailVerification';
 import { useSpotAccess } from '../store/useSpotAccess';
 import { apiRequest } from '../lib/queryClient';
 
@@ -40,6 +41,7 @@ export function ARCheckInButton({
   locationUnavailable = false,
 }: ARCheckInButtonProps) {
   const { user, isAuthenticated } = useAuth();
+  const { requiresVerification } = useEmailVerification();
   const { toast } = useToast();
   const { grantAccess, hasValidAccess, cleanupExpiredAccess } = useSpotAccess();
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -86,6 +88,15 @@ export function ARCheckInButton({
       toast({
         title: 'Login Required',
         description: 'Please log in to check in at spots.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (requiresVerification) {
+      toast({
+        title: 'Email verification required',
+        description: 'Verify your email to check in at spots.',
         variant: 'destructive',
       });
       return;
