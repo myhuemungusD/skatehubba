@@ -14,8 +14,6 @@
       "@shared/*": ["../shared/*"],
       "@shared": ["../shared/index"]
     },
-    "allowImportingTsExtensions": true,
-    "noEmit": false,
     "tsBuildInfoFile": "./.tsbuild/tsconfig.tsbuildinfo"
   },
   "include": [
