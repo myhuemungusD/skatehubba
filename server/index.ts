@@ -38,9 +38,15 @@ if (process.env.NODE_ENV === 'production') {
 
 // CORS configuration
 const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? (process.env.ALLOWED_ORIGINS?.split(',') || [])
-    : true,
+  origin: function (origin, callback) {
+    const allowed = process.env.ALLOWED_ORIGINS?.split(',') || [];
+    // Allow requests with no origin (like mobile apps) or matching allowed domains
+    if (!origin || allowed.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
 };
 app.use(cors(corsOptions));

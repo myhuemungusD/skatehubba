@@ -1,46 +1,22 @@
 name: Production Release
-
-# Trigger ONLY on pushes to main (The Drop)
 on:
-  push:
-    branches: [main]
-  # Allow manual trigger from GitHub UI for hotfixes
+  push: { branches: [main] }
   workflow_dispatch:
 
 jobs:
-  # 1. USE YOUR REAL CI
-  # We reuse the logic you already built in ci.yml, but we define it here 
-  # to ensure we have the artifacts in the same workflow run.
   build_and_test:
     name: "Build & Verify"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: 'npm' }
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with: { name: production-dist, path: dist }
 
-      - name: Install Dependencies
-        run: npm ci
-
-      - name: Strict Typecheck
-        run: npm run typecheck
-
-      - name: Production Build
-        run: npm run build
-
-      # SAVE THE BOARD (Artifact)
-      # We save the 'dist' folder so we can pass it to the deploy jobs
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: production-dist
-          path: dist
-
-  # 2. DEPLOY TO FIREBASE (Backend/Functions)
   deploy_firebase:
     needs: [build_and_test]
     name: "Deploy: Firebase"
@@ -48,24 +24,16 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      
-      # Download the build we just made
       - uses: actions/download-artifact@v4
-        with:
-          name: production-dist
-          path: dist
-
-      - name: Deploy to Firebase
-        uses: FirebaseExtended/action-hosting-deploy@v0
+        with: { name: production-dist, path: dist }
+      - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_SKATEHUBBA }}
           projectId: skatehubba-app
           channelId: live
-        env:
-          FIREBASE_CLI_PREVIEWS: hostingchannels
+        env: { FIREBASE_CLI_PREVIEWS: hostingchannels }
 
-  # 3. DEPLOY TO VERCEL (Frontend/Edge)
   deploy_vercel:
     needs: [build_and_test]
     name: "Deploy: Vercel"
@@ -73,25 +41,17 @@ jobs:
     environment: production
     steps:
       - uses: actions/checkout@v4
-      
-      # Vercel likes to build its own stuff, but we can pull the pre-built assets 
-      # OR just let Vercel handle the build. 
-      # For a "Brand" scale, we usually let Vercel build to use their Edge caching.
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
+      - uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
           vercel-args: '--prod'
 
-  # 4. HEALTH CHECK (The Landing)
   verify_production:
     needs: [deploy_firebase, deploy_vercel]
     runs-on: ubuntu-latest
     steps:
-      - name: Smoke Test
-        run: |
-          echo "Checking pulse..."
+      - run: |
           curl --fail https://skatehubba.com/api/health || exit 1
           echo "✅ Site is live and healthy."
