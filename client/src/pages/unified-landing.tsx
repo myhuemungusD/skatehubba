@@ -2,7 +2,7 @@ import BackgroundCarousel from "../components/BackgroundCarousel";
 import Navigation from "../components/Navigation";
 import { Link } from "wouter";
 import { useState, useEffect } from "react";
-import { CheckCircle, Zap, MapPin, Users, Trophy } from "lucide-react";
+import { CheckCircle, Users, Trophy } from "lucide-react";
 
 export default function UnifiedLanding() {
   const [isClient, setIsClient] = useState(false);

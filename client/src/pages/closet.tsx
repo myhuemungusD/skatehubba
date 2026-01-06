@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Navigation from '../components/Navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Package, Trophy, Star, Lock, Shirt } from 'lucide-react';
@@ -11,15 +9,14 @@ import { ClosetGrid } from '../components/skater/ClosetGrid';
 
 export default function ClosetPage() {
   const { user, isAuthenticated } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState('tricks');
 
-  const { data: inventory, isLoading } = useQuery({
+  const { data: _inventory, isLoading: _isLoading } = useQuery({
     queryKey: ['/api/inventory', user?.uid],
     enabled: !!user?.uid,
   });
 
   // Fetch user's closet items (gear)
-  const { data: closetItems, isLoading: closetLoading } = useQuery({
+  const { data: closetItems } = useQuery({
     queryKey: ['/api/closet'],
     enabled: !!user?.uid,
   });
@@ -160,7 +157,7 @@ export default function ClosetPage() {
                   Your skate gear collection - decks, trucks, wheels, shoes, and more!
                 </p>
               </div>
-              <ClosetGrid items={closetItems || []} isLoading={closetLoading} />
+              <ClosetGrid items={(closetItems as any[]) || []} />
             </TabsContent>
 
             <TabsContent value="tricks" className="mt-6">

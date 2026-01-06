@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useEmailVerification } from '@/hooks/useEmailVerification';
 import { auth } from '@/lib/firebase';
-import { apiRequest, queryClient } from '@/lib/queryClient';
+import { queryClient } from '@/lib/queryClient';
 
 interface ChallengeButtonProps {
   challengedId: string;
@@ -38,10 +38,12 @@ export function ChallengeButton({ challengedId, challengedHandle }: ChallengeBut
         return;
       }
 
-      await apiRequest('/api/challenges', {
+      const response = await fetch('/api/challenges', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ challengedId }),
       });
+      if (!response.ok) throw new Error('Failed to send challenge');
 
       queryClient.invalidateQueries({ queryKey: ['/api/challenges'] });
 

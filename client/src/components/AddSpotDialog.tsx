@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from './ui/sheet';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -6,7 +6,7 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useToast } from '../hooks/use-toast';
-import { MapPin, Camera, X, ImageIcon } from 'lucide-react';
+import { MapPin, Camera } from 'lucide-react';
 
 interface AddSpotDialogProps {
   isOpen: boolean;
@@ -42,7 +42,6 @@ const SPOT_TYPES = [
 
 export function AddSpotDialog({ isOpen, onClose, lat, lng }: AddSpotDialogProps) {
   const { toast } = useToast();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [spotType, setSpotType] = useState<string>('');
@@ -56,40 +55,6 @@ export function AddSpotDialog({ isOpen, onClose, lat, lng }: AddSpotDialogProps)
     setTier('beginner');
     setPhotoPreview(null);
     onClose();
-  };
-
-  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast({
-          title: 'Invalid File',
-          description: 'Please select an image file.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      if (file.size > 10 * 1024 * 1024) {
-        toast({
-          title: 'File Too Large',
-          description: 'Please select an image under 10MB.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setPhotoPreview(event.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removePhoto = () => {
-    setPhotoPreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
   };
 
   const handleSaveDraft = () => {

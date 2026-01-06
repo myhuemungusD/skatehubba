@@ -4,7 +4,6 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   sendEmailVerification,
-  onAuthStateChanged,
   signInWithPhoneNumber,
   RecaptchaVerifier,
   GoogleAuthProvider,

@@ -1,17 +1,29 @@
-// client/src/components/PlaySkateGame.jsx
+// client/src/components/PlaySkateGame.tsx
 import { useState, useEffect } from 'react';
-import { io } from 'socket.io-client';
-const socket = io();
+import { io, Socket } from 'socket.io-client';
 
-export default function PlaySkateGame({ spotId, userToken }) {
-  const [game, setGame] = useState(null);
+interface Game {
+  id: string;
+  players?: string[];
+  letters?: string[];
+  status?: string;
+}
+
+interface PlaySkateGameProps {
+  spotId: string;
+  userToken: { uid: string } | null;
+}
+
+const socket: Socket = io();
+
+export default function PlaySkateGame({ spotId, userToken }: PlaySkateGameProps) {
+  const [game, setGame] = useState<Game | null>(null);
   const [trick, setTrick] = useState('');
-  const [clip, setClip] = useState(null);
 
-  const create = () => fetch('/api/playskate/create', { method: 'POST', headers: { Authorization: `Bearer ${userToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({spotId}) }).then(r=>r.json()).then(d=> { setGame({id: d.gameId}); socket.emit('joinGame', d.gameId); });
-  const join = (id) => fetch(`/api/playskate/${id}/join`, { headers: { Authorization: `Bearer ${userToken}` } }).then(()=> socket.emit('joinGame', id));
+  const create = () => fetch('/api/playskate/create', { method: 'POST', headers: { Authorization: `Bearer ${userToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({spotId}) }).then(r=>r.json()).then((d: { gameId: string })=> { setGame({id: d.gameId}); socket.emit('joinGame', d.gameId); });
   const sendClip = () => {
-    // In real app you’d upload to Firebase Storage first
+    if (!game) return;
+    // In real app you'd upload to Firebase Storage first
     fetch(`/api/playskate/${game.id}/clip`, { 
       method: 'POST', 
       headers: { Authorization: `Bearer ${userToken}`, 'Content-Type': 'application/json' },
@@ -19,11 +31,14 @@ export default function PlaySkateGame({ spotId, userToken }) {
     });
   };
 
-  useEffect(() => { socket.on('update', setGame); return () => socket.off('update'); }, []);
+  useEffect(() => { 
+    socket.on('update', setGame); 
+    return () => { socket.off('update'); };
+  }, []);
 
   if (!game) return <button onClick={create} className="bg-orange-600 text-white px-6 py-3 rounded">Start Play S.K.A.T.E.</button>;
 
-  const myIdx = game.players?.indexOf(userToken?.uid) || 0;
+  const myIdx = game.players?.indexOf(userToken?.uid || '') || 0;
   const myLetters = game.letters?.[myIdx] || '';
 
   return (

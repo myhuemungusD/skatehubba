@@ -1,6 +1,6 @@
 const isDevelopment = import.meta.env.DEV;
 
-type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
+export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 
 interface Logger {
   log(...args: any[]): void;

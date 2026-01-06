@@ -8,7 +8,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Badge } from "../components/ui/badge";
 import Navigation from "../components/Navigation";
-import { ArrowLeft, DollarSign, Heart, Users, Zap } from "lucide-react";
+import { DollarSign, Heart, Users, Zap } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
 import { trackDonation, trackButtonClick, trackPageView } from "../lib/analytics";
 import { env } from '../config/env';
@@ -135,7 +135,7 @@ const DonateForm = ({ amount }: DonateFormProps) => {
 };
 
 export default function Donate() {
-  const [, setLocation] = useLocation();
+  const [, _setLocation] = useLocation();
   const [selectedAmount, setSelectedAmount] = useState(25);
   const [customAmount, setCustomAmount] = useState('');
   const [clientSecret, setClientSecret] = useState('');

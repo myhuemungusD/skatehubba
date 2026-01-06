@@ -4,7 +4,7 @@ import Navigation from '../components/Navigation';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { MapPin, Navigation as NavigationIcon, X, AlertCircle, Plus, Clock, Eye } from 'lucide-react';
+import { MapPin, Navigation as NavigationIcon, X, AlertCircle, Plus, Clock, Eye, Search } from 'lucide-react';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { calculateDistance, formatDistance, getProximity } from '../lib/distance';
 import { ARCheckInButton } from '../components/ARCheckInButton';
@@ -41,7 +41,7 @@ export default function MapPage() {
   const geolocation = useGeolocation(true);
 
   // Fetch spots from database
-  const { data: dbSpots = [] } = useQuery({
+  const { data: _dbSpots = [] } = useQuery({
     queryKey: ['/api/spots'],
   });
 

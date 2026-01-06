@@ -1,12 +1,9 @@
-        import { useState } from "react";
         import Navigation from "../components/Navigation";
         import BackgroundCarousel from "../components/BackgroundCarousel";
         import EmailSignup from "../components/EmailSignup";
         import { DonorRecognition } from "../components/DonorRecognition";
 
         export default function Home() {
-          const scrollToSignup = () =>
-            document.getElementById("signup")?.scrollIntoView({ behavior: "smooth" });
 
           return (
             <BackgroundCarousel className="text-white">

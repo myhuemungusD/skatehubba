@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MessageSquare, X, Send } from 'lucide-react';
+import { MessageSquare, Send } from 'lucide-react';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Label } from './ui/label';

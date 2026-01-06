@@ -1,8 +1,3 @@
-import { useState } from "react";
-import { Button } from "../components/ui/button";
-import { useToast } from "../hooks/use-toast";
-import { z } from "zod";
-import { NewSubscriberInput } from "../../../shared/schema";
 import EmailSignup from "../components/EmailSignup";
 import { env } from '../config/env';
 

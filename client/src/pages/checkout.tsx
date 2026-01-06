@@ -96,7 +96,7 @@ export default function Checkout() {
         items: snap.items 
       })
         .then((res: Response) => res.json())
-        .then((data: any) => {
+        .then((data: { clientSecret?: string; message?: string }) => {
           if (data.clientSecret) {
             setClientSecret(data.clientSecret);
           } else if (data.message) {

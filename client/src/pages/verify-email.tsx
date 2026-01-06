@@ -5,7 +5,6 @@ import { CheckCircle, XCircle, Mail } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useToast } from "../hooks/use-toast";
-import { apiRequest } from "../lib/queryClient";
 
 export default function VerifyEmailPage() {
   const [, setLocation] = useLocation();
@@ -19,10 +18,13 @@ export default function VerifyEmailPage() {
 
   const verifyMutation = useMutation({
     mutationFn: async (token: string) => {
-      return apiRequest('/api/auth/verify-email', {
+      const response = await fetch('/api/auth/verify-email', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token }),
       });
+      if (!response.ok) throw new Error('Verification failed');
+      return response.json();
     },
     onSuccess: (response: any) => {
       setVerificationStatus('success');

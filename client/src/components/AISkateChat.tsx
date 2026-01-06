@@ -1,3 +1,4 @@
+import type { KeyboardEvent } from 'react';
 import { useState, useRef, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { MessageCircle, X, Send, Loader2, Sparkles } from 'lucide-react';
@@ -64,10 +65,11 @@ export function AISkateChat() {
         });
       }
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = error instanceof Error ? error.message : 'Failed to send message.';
       toast({
         title: 'Chat Error',
-        description: error.message || 'Failed to send message.',
+        description: message,
         variant: 'destructive',
       });
     },
@@ -86,7 +88,7 @@ export function AISkateChat() {
     chatMutation.mutate(input);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();

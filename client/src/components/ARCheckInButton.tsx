@@ -34,8 +34,8 @@ interface CheckInResponse {
 export function ARCheckInButton({
   spotId,
   spotName,
-  spotLat,
-  spotLng,
+  spotLat: _spotLat,
+  spotLng: _spotLng,
   className,
   onCheckInSuccess,
   locationUnavailable = false,

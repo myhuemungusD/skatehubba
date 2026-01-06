@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { applyActionCode, getAuth } from "firebase/auth";
+import { applyActionCode } from "firebase/auth";
 import { Card, CardContent } from "../components/ui/card";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/button";

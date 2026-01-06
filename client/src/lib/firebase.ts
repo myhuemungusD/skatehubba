@@ -1,5 +1,4 @@
 import { initializeApp } from "firebase/app";
-import { getAnalytics, isSupported } from "firebase/analytics";
 import { getAuth } from "firebase/auth";
 import { initializeFirestore } from "firebase/firestore";
 import { env } from '../config/env';
@@ -139,7 +138,7 @@ try {
       return null;
     },
     setPersistence: async () => {},
-    _getProvider: (name: string) => ({
+    _getProvider: (_name: string) => ({
       getImmediate: () => ({
         _errorFactory: mockErrorFactory,
         _errorFactoryInstance: mockErrorFactory

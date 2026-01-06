@@ -7,8 +7,6 @@ import {
   where, 
   orderBy, 
   limit,
-  Query,
-  DocumentReference,
   QueryConstraint,
   Unsubscribe
 } from 'firebase/firestore';

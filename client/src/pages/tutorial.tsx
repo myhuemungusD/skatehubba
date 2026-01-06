@@ -27,7 +27,7 @@ export default function Tutorial({ userId }: TutorialProps) {
   const queryClient = useQueryClient();
 
   // Fetch user data
-  const { data: user } = useQuery<User>({
+  const { data: _user } = useQuery<User>({
     queryKey: [`/api/users/${userId}`],
   });
 
@@ -153,12 +153,6 @@ export default function Tutorial({ userId }: TutorialProps) {
   const handlePrevious = () => {
     if (currentStepIndex > 0) {
       setCurrentStepIndex(prev => prev - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentStepIndex < totalSteps - 1) {
-      setCurrentStepIndex(prev => prev + 1);
     }
   };
 

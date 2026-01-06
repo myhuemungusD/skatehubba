@@ -88,7 +88,7 @@ export default function TrickUpload() {
         setTimeout(() => reject(new Error("Upload timeout - Firestore write took too long")), 15000)
       );
       
-      const docRef = await Promise.race([writePromise, timeoutPromise]) as any;
+      await Promise.race([writePromise, timeoutPromise]);
 
       toast({
         title: "Trick uploaded! 🛹",

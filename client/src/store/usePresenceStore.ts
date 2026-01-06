@@ -3,10 +3,8 @@ import {
   collection,
   doc,
   setDoc,
-  deleteDoc,
   onSnapshot,
   query,
-  where,
   Timestamp,
   updateDoc,
 } from "firebase/firestore";

@@ -1,0 +1,27 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "composite": true,
+    "outDir": "./.tsbuild",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "baseUrl": "..",
+    "rootDir": "..",
+    "paths": {
+      "@/*": ["./client/src/*"],
+      "@shared/*": ["./shared/*"],
+      "@shared": ["./shared/index"]
+    },
+    "tsBuildInfoFile": "./.tsbuild/tsconfig.tsbuildinfo"
+  },
+  "include": [
+    "src",
+    "../shared",
+    "vite.config.ts",
+    "tailwind.config.ts",
+    "postcss.config.js",
+    "index.html"
+  ]
+}

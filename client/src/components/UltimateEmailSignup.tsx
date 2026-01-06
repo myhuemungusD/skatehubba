@@ -11,8 +11,6 @@ const emailSignupSchema = z.object({
   firstName: z.string().optional().transform(v => v?.trim() || null),
 });
 
-type EmailSignupData = z.infer<typeof emailSignupSchema>;
-
 interface UltimateEmailSignupProps {
   /** Layout variant for different contexts */
   variant?: 'hero' | 'inline' | 'minimal' | 'sidebar';

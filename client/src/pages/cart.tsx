@@ -1,4 +1,5 @@
 import { useCart } from "../lib/cart/store";
+import type { CartItem } from "../lib/cart/types";
 import { ShoppingCart, Trash2, Plus, Minus } from "lucide-react";
 import { Link } from "wouter";
 
@@ -49,7 +50,7 @@ export default function CartPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {snap.items.map((i) => (
+                  {snap.items.map((i: CartItem) => (
                     <tr key={i.id} className="border-t border-gray-700" data-testid={`cart-row-${i.id}`}>
                       <td className="py-4 px-6">
                         <div className="flex items-center gap-4">

@@ -3,7 +3,7 @@ import UltimateEmailSignup from './UltimateEmailSignup';
 import { trackButtonClick } from '../lib/analytics';
 
 export default function EmailSignup() {
-  const handleSuccess = (data: any) => {
+  const handleSuccess = (_data: unknown) => {
     // Track using existing analytics
     trackButtonClick('email_signup', 'landing_page');
   };

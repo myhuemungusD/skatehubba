@@ -3,7 +3,6 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useLocation } from 'wouter';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
 import { Badge } from '../components/ui/badge';
 import { User, Play, ArrowLeft } from 'lucide-react';
 import { useToast } from '../hooks/use-toast';
@@ -11,7 +10,7 @@ import type { User as UserType } from '@shared/schema';
 
 export default function Demo() {
   const [, setLocation] = useLocation();
-  const [demoUserId, setDemoUserId] = useState<number | null>(null);
+  const [demoUserId, setDemoUserId] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Create demo user mutation
@@ -28,7 +27,7 @@ export default function Demo() {
       setDemoUserId(user.id);
       toast({
         title: "Demo User Created!",
-        description: `Welcome ${user.username}! Ready to start the tutorial.`,
+        description: `Welcome ${user.firstName || 'User'}! Ready to start the tutorial.`,
       });
     },
     onError: () => {
@@ -142,7 +141,7 @@ export default function Demo() {
                       </div>
                       <p className="text-[#fafafa]">
                         Username: <Badge variant="outline" className="ml-2 border-success/50 text-success">
-                          {demoUser?.username}
+                          {demoUser?.firstName || demoUser?.email || 'Demo User'}
                         </Badge>
                       </p>
                       <p className="text-sm text-gray-300 mt-2">

@@ -12,6 +12,18 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "dependencies": {
+    "cmdk": "^1.1.1",
+    "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "^0.8.3",
+    "embla-carousel-react": "^8.6.0",
+    "input-otp": "^1.4.2",
+    "react-day-picker": "^9.13.0",
+    "react-helmet": "^6.1.0",
+    "react-icons": "^5.5.0",
+    "zod": "^4.3.5",
+    "zustand": "^5.0.9"
+  },
   "scripts": {
     "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
     "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
@@ -20,7 +32,13 @@
     "test": "echo \"✅ No tests defined yet (Spec-compliant stub)\""
   },
   "devDependencies": {
-    "concurrently": "^8.0.0",
-    "typescript": "^5.0.0"
+    "@types/leaflet": "^1.9.21",
+    "@types/react-helmet": "^6.1.11",
+    "autoprefixer": "^10.4.23",
+    "concurrently": "^9.2.1",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5.9.3"
   }
 }
