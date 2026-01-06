@@ -27,7 +27,7 @@
   "scripts": {
     "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\"",
     "typecheck": "npm run typecheck -w client && npm run typecheck -w server",
-    "build": "npm run build -w client && npm run build -w server && npm run package:dist",
+    "build": "pnpm run build -w shared && pnpm run build -w client && pnpm run build -w server && pnpm run package:dist",
     "package:dist": "node scripts/assemble-dist.mjs",
     "test": "echo \"✅ No tests defined yet (Spec-compliant stub)\""
   },

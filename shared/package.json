@@ -1,0 +1,9 @@
+{
+  "name": "shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo \"Shared package build (no compiled output required)\""
+  }
+}
