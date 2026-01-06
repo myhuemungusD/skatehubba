@@ -1,7 +1,6 @@
 packages:
-  - 'client'
-  - 'server'
-  - 'shared'
-  - 'infra/firebase/functions'
-  - 'mobile'
-  - 'apps/*'
+  - "client"
+  - "server"
+  - "mobile"
+  - "shared"
+  - "infra/firebase/functions"
