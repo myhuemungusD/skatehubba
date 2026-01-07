@@ -47,7 +47,7 @@
     "framer-motion": "^11.11.17",
     "input-otp": "^1.2.4",
     "leaflet": "^1.9.4",
-    "lucide-react": "^0.446.0",
+    "lucide-react": "^0.562.0",
     "react": "^18.2.0",
     "react-day-picker": "^8.10.1",
     "react-dom": "^18.2.0",
@@ -58,7 +58,7 @@
     "socket.io-client": "^4.8.3",
     "tailwind-merge": "^2.4.0",
     "web-vitals": "^3.5.2",
-    "wouter": "^3.0.0",
+    "wouter": "^3.9.0",
     "zod": "^3.23.8",
     "zustand": "^5.0.0"
   },
