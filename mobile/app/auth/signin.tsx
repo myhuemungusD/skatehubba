@@ -19,9 +19,9 @@ export default function SignInScreen() {
 
   // Configure Google Sign In with expo-auth-session
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    clientId: "665573979824-6ntr58d7ue2vtrit3ob6ukn9u6kcmmju.apps.googleusercontent.com", // Web Client
-    androidClientId: "665573979824-ksonb09598qlk5nqbahe34k9ijao2ee0.apps.googleusercontent.com", // Android client for com.skathubba.app
-    iosClientId: "665573979824-hmmbb9o722r57457n42n5a7kg0eo1t6t.apps.googleusercontent.com", // iOS client for com.skathubba.app
+    clientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
   });
 
   // Redirect to map if already authenticated
@@ -79,9 +79,14 @@ export default function SignInScreen() {
   };
 
   const handleGoogleSignIn = async () => {
-    if (!request) {
+    if (
+      !request ||
+      !process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+      !process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ||
+      !process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID
+    ) {
       showMessage({
-        message: 'Google Sign-In not configured. Add Web Client ID to app.json',
+        message: 'Google Sign-In not configured. Set Expo Google client IDs in environment variables.',
         type: 'warning',
         duration: 4000,
       });
