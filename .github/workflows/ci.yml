@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - uses: pnpm/action-setup@v4
       
@@ -45,7 +45,7 @@ jobs:
     name: "Security Guardrail"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Block insecure Firestore/Storage rules
         run: |
           bad=0
