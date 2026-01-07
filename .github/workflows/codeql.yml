@@ -1,0 +1,62 @@
+name: CodeQL
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  schedule:
+    - cron: "23 7 * * 1" # weekly (Mon 07:23 UTC)
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (CodeQL)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["javascript-typescript"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Setup pnpm (via Corepack)
+        shell: bash
+        run: |
+          corepack enable
+          corepack prepare pnpm@10.0.0 --activate
+          pnpm -v
+
+      - name: Install dependencies (workspace)
+        run: pnpm install --frozen-lockfile
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      # For JS/TS, CodeQL can analyze without a build,
+      # but building improves results and catches more issues.
+      - name: Build (best-effort)
+        shell: bash
+        run: |
+          pnpm --filter shared build || true
+          pnpm --filter client build || true
+          pnpm --filter server build || true
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
