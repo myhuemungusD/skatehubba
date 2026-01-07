@@ -1,0 +1,71 @@
+version: 2
+updates:
+  # JavaScript/TypeScript deps (pnpm via npm ecosystem)
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      js-patch-minor:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+
+  - package-ecosystem: "npm"
+    directory: "/client"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      js-patch-minor:
+        patterns: ["*"]
+        update-types: ["patch", "minor"]
+
+  - package-ecosystem: "npm"
+    directory: "/server"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      js-patch-minor:
+        patterns: ["*"]
+        update-types: ["patch", "minor"]
+
+  - package-ecosystem: "npm"
+    directory: "/mobile"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      js-patch-minor:
+        patterns: ["*"]
+        update-types: ["patch", "minor"]
+
+  - package-ecosystem: "npm"
+    directory: "/shared"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      js-patch-minor:
+        patterns: ["*"]
+        update-types: ["patch", "minor"]
+
+  - package-ecosystem: "npm"
+    directory: "/infra/firebase/functions"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      js-patch-minor:
+        patterns: ["*"]
+        update-types: ["patch", "minor"]
+
+  # Keep GitHub Actions up to date too
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
