@@ -21,7 +21,7 @@ const firebaseConfig = {
 let app: any;
 let auth: any;
 let db: any;
-let analytics: any = null;
+const analytics: any = null;
 
 const isFirebaseConfigured = !!(env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_API_KEY !== 'undefined' && env.VITE_FIREBASE_API_KEY.length > 10);
 

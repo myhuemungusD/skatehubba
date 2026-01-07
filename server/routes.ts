@@ -1302,7 +1302,7 @@ You're knowledgeable about skateboarding culture, tricks, spots, and the SkateHu
         });
       }
 
-      let basePoints = 10;
+      const basePoints = 10;
       const trickDifficulty: Record<string, number> = {
         ollie: 5,
         kickflip: 20,
