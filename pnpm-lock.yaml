@@ -253,8 +253,8 @@ importers:
         specifier: ^5.0.9
         version: 5.1.6
       nodemailer:
-        specifier: ^6.9.0
-        version: 6.10.1
+        specifier: ^7.0.11
+        version: 7.0.12
       openai:
         specifier: ^4.77.0
         version: 4.104.0(ws@8.18.3)(zod@3.25.76)
@@ -3285,8 +3285,8 @@ packages:
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
 
-  nodemailer@6.10.1:
-    resolution: {integrity: sha512-Z+iLaBGVaSjbIzQ4pX6XV41HrooLsQ10ZWPUehGmuantvzWoDVBnmsdUcOIDM1t+yPor5pDhVlDESgOMEGxhHA==}
+  nodemailer@7.0.12:
+    resolution: {integrity: sha512-H+rnK5bX2Pi/6ms3sN4/jRQvYSMltV6vqup/0SFOrxYYY/qoNvhXPlYq3e+Pm9RFJRwrMGbMIwi81M4dxpomhA==}
     engines: {node: '>=6.0.0'}
 
   object-assign@4.1.1:
@@ -7375,7 +7375,7 @@ snapshots:
 
   node-releases@2.0.27: {}
 
-  nodemailer@6.10.1: {}
+  nodemailer@7.0.12: {}
 
   object-assign@4.1.1: {}
 
