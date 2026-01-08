@@ -1,5 +1,0 @@
-{
-  "buildCommand": "pnpm --filter client build",
-  "outputDirectory": "dist/public",
-  "installCommand": "corepack enable && corepack prepare pnpm@10.0.0 --activate && pnpm install --frozen-lockfile"
-}
