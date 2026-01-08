@@ -1,4 +1,4 @@
-import { z, type ZodTypeAny } from "zod";
+import { z } from "zod";
 
 export const NewSubscriberInput = z.object({
   firstName: z
@@ -221,53 +221,53 @@ export const trickMastery = pgTable("trick_mastery", {
 export const insertTrickMasterySchema = createInsertSchema(trickMastery).omit({
   id: true,
   updatedAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export type TrickMastery = typeof trickMastery.$inferSelect;
 export type InsertTrickMastery = z.infer<typeof insertTrickMasterySchema>;
 
 export const insertTutorialStepSchema = createInsertSchema(tutorialSteps).omit({
   id: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
   id: true,
   completedAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export const updateUserProgressSchema = createInsertSchema(userProgress).pick({
   completed: true,
   timeSpent: true,
   interactionData: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export const insertSubscriberSchema = createInsertSchema(subscribers).omit({
   id: true,
   createdAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
-export const insertDonationSchema = createInsertSchema(donations);
+export const insertDonationSchema = createInsertSchema(donations) as unknown as z.ZodType<any>;
 
 export const insertFeedbackSchema = createInsertSchema(feedback).omit({
   id: true,
   createdAt: true,
   status: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export const insertProductSchema = createInsertSchema(products).omit({
   id: true,
   createdAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export const insertSpotSchema = createInsertSchema(spots).omit({
   id: true,
   createdAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
 // S.K.A.T.E. Games table
 export const games = pgTable("games", {
@@ -305,12 +305,12 @@ export const insertGameSchema = createInsertSchema(games).omit({
   createdAt: true,
   updatedAt: true,
   completedAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export const insertGameTurnSchema = createInsertSchema(gameTurns).omit({
   id: true,
   createdAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
 // Auth validation schemas
 export const registerSchema = z.object({
@@ -415,18 +415,18 @@ export const challenges = pgTable("challenges", {
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
   createdAt: true,
   updatedAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export const insertClosetItemSchema = createInsertSchema(closetItems).omit({
   id: true,
   acquiredAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export const insertChallengeSchema = createInsertSchema(challenges).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
-});
+}) as unknown as z.ZodType<any>;
 
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
