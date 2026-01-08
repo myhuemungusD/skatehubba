@@ -248,7 +248,7 @@ export default function Tutorial({ userId }: TutorialProps) {
                   <div className="space-y-4">
                     <h4 className="text-orange-400 font-semibold">Interactive Guide:</h4>
                     <div className="grid gap-4">
-                      {currentStep.content.interactiveElements.map((element, index) => (
+                      {currentStep.content.interactiveElements.map((element: { type: 'tap' | 'swipe' | 'drag'; target: string; instruction: string }, index: number) => (
                         <div 
                           key={index}
                           className="p-4 bg-orange-400/10 rounded-lg border border-orange-400/30"
@@ -355,7 +355,7 @@ export default function Tutorial({ userId }: TutorialProps) {
           <div className="mt-8">
             <h3 className="text-xl font-semibold text-[#fafafa] mb-4">Tutorial Steps</h3>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {tutorialSteps.map((step, index) => {
+              {tutorialSteps.map((step: TutorialStep, index: number) => {
                 const stepProgress = userProgress?.find(p => p.stepId === step.id);
                 const isCompleted = stepProgress?.completed || false;
                 const isCurrent = index === currentStepIndex;
