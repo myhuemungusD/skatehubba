@@ -5,18 +5,18 @@ import { useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Eye, EyeOff, Mail, User, Lock } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
-import { Checkbox } from "../components/ui/checkbox";
+import type { ZodType } from "zod";
+import { insertUserSchema, registerSchema, type InsertUser, type RegisterInput } from "@shared/schema";
 import type { ConfirmationResult } from "firebase/auth";
-import { registerUser, loginUser, loginWithGoogle, setupRecaptcha, sendPhoneVerification, verifyPhoneCode } from "../lib/auth";
-import { trackEvent } from "../lib/analytics";
 import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useToast } from "../hooks/use-toast";
-import { registerSchema, loginSchema } from "../../../shared/schema";
-import type { RegisterInput, LoginInput } from "../../../shared/schema";
+import { registerUser, loginUser, loginWithGoogle, setupRecaptcha, sendPhoneVerification, verifyPhoneCode } from "../lib/auth";
+import { trackEvent } from "../lib/analytics";
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
@@ -33,7 +33,7 @@ export default function AuthPage() {
 
   // Registration form
   const registerForm = useForm<RegisterInput>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchema as unknown as ZodType<RegisterInput>),
     defaultValues: {
       email: "",
       password: "",
@@ -43,10 +43,10 @@ export default function AuthPage() {
   });
 
   // Login form
-  const loginForm = useForm<LoginInput>({
-    resolver: zodResolver(loginSchema),
+  const form = useForm<InsertUser>({
+    resolver: zodResolver(insertUserSchema as unknown as ZodType<InsertUser>),
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
     },
   });
@@ -83,8 +83,8 @@ export default function AuthPage() {
 
   // Login mutation - Firebase-only with email verification check
   const loginMutation = useMutation({
-    mutationFn: async (data: LoginInput) => {
-      const result = await loginUser(data.email, data.password);
+    mutationFn: async (data: InsertUser) => {
+      const result = await loginUser(data.username, data.password);
       trackEvent('login', { method: 'firebase' });
       return result;
     },
@@ -110,7 +110,7 @@ export default function AuthPage() {
     registerMutation.mutate(data);
   };
 
-  const onLogin = (data: LoginInput) => {
+  const onLogin = (data: InsertUser) => {
     loginMutation.mutate(data);
   };
 
@@ -215,22 +215,22 @@ export default function AuthPage() {
 
               {/* Login Tab */}
               <TabsContent value="login" className="space-y-4 mt-6">
-                <form onSubmit={loginForm.handleSubmit(onLogin)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onLogin)} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="login-email" className="text-white">Email</Label>
+                    <Label htmlFor="login-username" className="text-white">Username</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" aria-hidden="true" />
                       <Input
-                        id="login-email"
-                        type="email"
-                        placeholder="your@email.com"
+                        id="login-username"
+                        type="text"
+                        placeholder="skatelegend"
                         className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
-                        {...loginForm.register("email")}
-                        data-testid="input-login-email"
+                        {...form.register("username")}
+                        data-testid="input-login-username"
                       />
                     </div>
-                    {loginForm.formState.errors.email && (
-                      <p className="text-sm text-red-400">{loginForm.formState.errors.email.message}</p>
+                    {form.formState.errors.username && (
+                      <p className="text-sm text-red-400">{form.formState.errors.username.message}</p>
                     )}
                   </div>
 
@@ -243,7 +243,7 @@ export default function AuthPage() {
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
                         className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
-                        {...loginForm.register("password")}
+                        {...form.register("password")}
                         data-testid="input-login-password"
                       />
                       <Button
@@ -258,8 +258,8 @@ export default function AuthPage() {
                         {showPassword ? <EyeOff className="h-4 w-4" aria-hidden="true" /> : <Eye className="h-4 w-4" aria-hidden="true" />}
                       </Button>
                     </div>
-                    {loginForm.formState.errors.password && (
-                      <p className="text-sm text-red-400">{loginForm.formState.errors.password.message}</p>
+                    {form.formState.errors.password && (
+                      <p className="text-sm text-red-400">{form.formState.errors.password.message}</p>
                     )}
                   </div>
 

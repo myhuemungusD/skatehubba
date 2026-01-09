@@ -9,8 +9,10 @@
   },
   "scripts": {
     "dev": "concurrently \"pnpm --filter ./client dev\" \"pnpm --filter ./server dev\"",
+    "start": "tsx server/index.ts",
     "build": "pnpm --filter ./shared build && pnpm --filter ./client build && pnpm --filter ./server build && pnpm run package:dist",
     "build:ci": "pnpm install --frozen-lockfile && pnpm build",
+    "check": "pnpm -r run typecheck",
     "package:dist": "node scripts/assemble-dist.mjs",
     "lint": "pnpm -r run lint",
     "typecheck": "pnpm -r run typecheck",
