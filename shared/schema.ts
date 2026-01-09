@@ -37,7 +37,7 @@ export const sanitizedStringSchema = z.string()
   .transform((str) => (str).replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ''));
 
 
-import { pgTable, text, serial, integer, boolean, timestamp, json, varchar, index, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, varchar, index, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
 
@@ -190,18 +190,13 @@ export const orders = pgTable("orders", {
 
 // Skate spots table for map
 export const spots = pgTable("spots", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  name: varchar("name", { length: 255 }).notNull(),
-  lat: real("lat").notNull(),
-  lng: real("lng").notNull(),
-  address: varchar("address", { length: 500 }),
-  description: text("description"),
-  tags: varchar("tags", { length: 500 }),
-  createdAt: timestamp("created_at").defaultNow(),
-  tier: varchar("tier", { length: 50 }), // 'legendary', 'pro', 'intermediate', 'beginner'
-  checkinCount: integer("checkin_count").default(0),
-  totalVisitors: integer("total_visitors").default(0),
-  updatedAt: timestamp("updated_at").defaultNow(),
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  lat: doublePrecision("lat").notNull(),
+  lng: doublePrecision("lng").notNull(),
+  createdBy: integer("created_by"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  verified: boolean("verified").default(false).notNull(),
 });
 
 // Trick Mastery table for progression
@@ -264,9 +259,14 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
   createdAt: true,
 });
 
-export const insertSpotSchema = createInsertSchema(spots).omit({
+export const insertSpotSchema = createInsertSchema(spots, {
+  name: z.string().trim().min(1, "Spot name is required"),
+  lat: z.number(),
+  lng: z.number(),
+}).omit({
   id: true,
   createdAt: true,
+  verified: true,
 });
 
 // S.K.A.T.E. Games table
@@ -325,6 +325,11 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Password is required"),
 });
 
+export const insertUserSchema = z.object({
+  username: usernameSchema,
+  password: passwordSchema,
+});
+
 export const verifyEmailSchema = z.object({
   token: z.string().min(1, "Verification token is required"),
 });
@@ -369,6 +374,7 @@ export type GameTurn = typeof gameTurns.$inferSelect;
 export type InsertGameTurn = z.infer<typeof insertGameTurnSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
+export type InsertUser = z.infer<typeof insertUserSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

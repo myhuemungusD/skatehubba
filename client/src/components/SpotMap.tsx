@@ -16,7 +16,7 @@ L.Icon.Default.mergeOptions({
 });
 
 interface Spot {
-  id: string;
+  id: number;
   name: string;
   lat: number;
   lng: number;
@@ -33,8 +33,8 @@ interface UserLocation {
 interface SpotMapProps {
   spots: Spot[];
   userLocation: UserLocation | null;
-  selectedSpotId: string | null;
-  onSelectSpot: (spotId: string) => void;
+  selectedSpotId: number | null;
+  onSelectSpot: (spotId: number) => void;
   addSpotMode?: boolean;
   onMapClick?: (lat: number, lng: number) => void;
 }
@@ -42,7 +42,7 @@ interface SpotMapProps {
 export function SpotMap({ spots, userLocation, selectedSpotId, onSelectSpot, addSpotMode = false, onMapClick }: SpotMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const spotMarkersRef = useRef<Map<string, L.Marker>>(new Map());
+  const spotMarkersRef = useRef<Map<number, L.Marker>>(new Map());
   const userMarkerRef = useRef<L.Marker | null>(null);
   const accuracyCircleRef = useRef<L.Circle | null>(null);
   const hasCenteredRef = useRef(false); // Track if we've centered on user location
