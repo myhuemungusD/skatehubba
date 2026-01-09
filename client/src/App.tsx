@@ -45,6 +45,7 @@ const OrderConfirmationPage = lazy(() => import("./pages/order-confirmation"));
 const ClosetPage = lazy(() => import("./pages/closet"));
 const MapPage = lazy(() => import("./pages/map"));
 const SkateGamePage = lazy(() => import("./pages/skate-game"));
+const ChallengeLobbyPage = lazy(() => import("./pages/ChallengeLobby"));
 const LeaderboardPage = lazy(() => import("./pages/leaderboard"));
 const TrickMintPage = lazy(() => import("./pages/trickmint"));
 const SkaterProfilePage = lazy(() => import("./pages/skater/profile"));
@@ -78,6 +79,8 @@ function AppRoutes() {
           <Route path="/checkout" component={CheckoutPage} />
           <Route path="/order-confirmation" component={OrderConfirmationPage} />
           <Route path="/closet" component={ClosetPage} />
+          <Route path="/game/active" component={SkateGamePage} />
+          <Route path="/game" component={ChallengeLobbyPage} />
           <Route path="/login" component={LoginPage} />
           <Route path="/auth" component={AuthPage} />
           <Route path="/signup" component={SignupPage} />
@@ -113,6 +116,8 @@ function AppRoutes() {
           <Route path="/checkout" component={CheckoutPage} />
           <Route path="/order-confirmation" component={OrderConfirmationPage} />
           <Route path="/closet" component={ClosetPage} />
+          <Route path="/game/active" component={SkateGamePage} />
+          <Route path="/game" component={ChallengeLobbyPage} />
           <Route path="/login" component={LoginPage} />
           <Route path="/auth" component={AuthPage} />
           <Route path="/signup" component={SignupPage} />
