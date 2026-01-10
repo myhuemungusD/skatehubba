@@ -42,11 +42,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const csrfToken = getCookie("csrfToken");
     const res = await fetch(queryKey.join("/"), {
-      headers: (() => {
-        const csrfToken = getCookie("csrfToken");
-        return csrfToken ? { "X-CSRF-Token": csrfToken } : {};
-      })(),
+      headers: csrfToken ? { "X-CSRF-Token": csrfToken } : undefined,
       credentials: "include",
     });
 
