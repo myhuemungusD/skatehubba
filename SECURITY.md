@@ -1,53 +1,38 @@
-# Security Policy
+# Security Policy & Hardening Log
 
-## Supported Versions
+## Post-MVP Hardening Status (2026-01-09)
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+This document tracks security decisions, accepted risks, and verification steps for the SkateHubba™ platform. It serves as the audit trail for PR #54.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+### 1. Risk Acceptance Log
+We explicitly accept the following residual risks to prioritize performance and UX over theoretical security perfection.
 
-## Reporting a Vulnerability
+* **Ephemeral Rate Limiting (Distributed DoS)**
+    * **Risk:** In-memory rate limiting (`express-rate-limit`) is isolated per Firebase Function instance. Rapid auto-scaling could theoretically dilute limits.
+    * **Decision:** ACCEPTED.
+    * **Rationale:** We are optimizing for abuse prevention (script kiddies), not state-actor DDoS defense. True DDoS mitigation is delegated to Google Cloud Armor.
 
-Use this section to tell people how to report a vulnerability.
+* **IP Trust & Proxy Configuration**
+    * **Risk:** Reliance on standard Express `trust proxy` settings without complex IP reputation checks.
+    * **Decision:** ACCEPTED.
+    * **Rationale:** We assume standard GCP `X-Forwarded-For` reliability. Complexity of custom IP validation outweighs the benefit at this stage.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+* **No CAPTCHA on Write**
+    * **Risk:** Public endpoints (Add Spot) are protected by Auth tokens and Rate Limits, but not CAPTCHA.
+    * **Decision:** ACCEPTED.
+    * **Rationale:** User experience priority. Captchas kill conversion. Auth barrier is sufficient for current threat model.
 
-## Post-MVP Hardening
+### 2. Deployment Verification Tasks
+*To be performed immediately upon deployment of PR #54 to Staging:*
 
-Residual risk acceptance (Post-MVP, acceptable for current stage):
+- [ ] **Rate Limit Headers:** Verify `RateLimit-Limit` and `RateLimit-Remaining` headers appear on standard API responses.
+- [ ] **Strict Limit Enforcement:** Hammer the `/api/spots` endpoint >10 times and verify `429 Too Many Requests`.
+- [ ] **Trust Proxy:** Inspect logs to verify `req.ip` correctly resolves to the client IP, not the Google Load Balancer IP.
+- [ ] **CSRF Block:** Attempt a `POST` request with a mismatched `Origin` header (e.g., via Postman spoofing) and verify `403 Forbidden`.
 
-- Distributed DoS mitigation is deferred to infrastructure controls.
-- Application-level rate limiting is best-effort abuse prevention, not DDoS defense.
-- IP trust assumptions are acceptable pending deployment verification.
+### 3. Deferred Hardening (Backlog)
+*Trigger conditions for revisiting these items:*
 
-## Deployment Verification (Required Check)
-
-Before the next production deploy:
-
-- Confirm `app.set('trust proxy', true)` is present and correct for Firebase / Google Cloud Functions.
-- Validate `req.ip` behavior by logging IPs in a staging deploy and confirming consistency behind the Google load balancer.
-- If incorrect, adjust `trust proxy` to the documented hop count for GCP and re-run rate limit verification.
-
-## Deferred Task (Post-MVP, Non-Blocking)
-
-Evaluate infrastructure-layer mitigation options (tagged: security, infrastructure, post-mvp):
-
-- Google Cloud Armor
-- Edge-level rate limiting / WAF rules
-- Firebase Hosting / Cloud Functions integration points
-
-## Hardening Phase Lock
-
-Once CodeQL alerts are resolved and baselined:
-
-- Re-run CodeQL and confirm no HIGH severity alerts.
-- Tag the release: `git tag -a v0.2.1-security-baseline -m "Security hardening baseline complete"`
-- Push the tag: `git push origin v0.2.1-security-baseline`
+* **Distributed Store (Redis):** Trigger if legitimate traffic consistently exceeds single-instance memory limits or we see distributed spam attacks.
+* **WAF / Cloud Armor:** Trigger if we sustain a Layer 7 DDoS attack > 5 minutes.
+* **Strict CSP (Content Security Policy):** Deferred until Web client is fully stabilized to avoid breaking legitimate script loading during rapid feature dev.
