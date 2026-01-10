@@ -3,6 +3,8 @@ import { createServer, type Server } from "http";
 import { setupAuth } from "./auth";
 import { storage } from "./storage";
 import { insertSpotSchema } from "@shared/schema";
+import { publicWriteLimiter } from "./middleware/security";
+import { requireCsrfToken } from "./middleware/csrf";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // 1. Setup Authentication (Passport session)
@@ -14,7 +16,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(spots);
   });
 
-  app.post("/api/spots", async (req, res) => {
+  app.post("/api/spots", publicWriteLimiter, requireCsrfToken, async (req, res) => {
     // Basic Auth Check: Ensure we have a user ID to bind the spot to
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "You must be logged in to create a spot" });

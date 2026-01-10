@@ -2,6 +2,33 @@
 import type { Request, Response, NextFunction } from 'express';
 import rateLimit from 'express-rate-limit';
 
+const RATE_LIMITS = {
+  // CodeQL: Missing rate limiting (auth endpoints)
+  auth: {
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: 'Too many authentication attempts, please try again later.',
+  },
+  // CodeQL: Missing rate limiting (public write endpoints)
+  publicWrite: {
+    windowMs: 10 * 60 * 1000,
+    max: 30,
+    message: 'Too many write requests, please slow down.',
+  },
+  // CodeQL: Missing rate limiting (password reset endpoints)
+  passwordReset: {
+    windowMs: 60 * 60 * 1000,
+    max: 3,
+    message: 'Too many password reset attempts, please try again later.',
+  },
+  // CodeQL: Missing rate limiting (general API)
+  api: {
+    windowMs: 1 * 60 * 1000,
+    max: 100,
+    message: 'Too many requests, please slow down.',
+  },
+} as const;
+
 /**
  * Rate limiter for email signup attempts
  * Limits to 5 signup attempts per 15 minutes per IP address
@@ -24,14 +51,29 @@ export const emailSignupLimiter = rateLimit({
  * Helps prevent brute force attacks
  */
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 login attempts per window
+  windowMs: RATE_LIMITS.auth.windowMs, // 15 minutes
+  max: RATE_LIMITS.auth.max, // Limit each IP to 10 login attempts per window
   message: {
-    error: 'Too many authentication attempts, please try again later.'
+    error: RATE_LIMITS.auth.message
   },
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful logins
+});
+
+/**
+ * Rate limiter for public write endpoints (spots, challenges, uploads)
+ * Limits to 30 write requests per 10 minutes per IP address
+ * Conservative to deter abuse while remaining non-blocking for real users
+ */
+export const publicWriteLimiter = rateLimit({
+  windowMs: RATE_LIMITS.publicWrite.windowMs, // 10 minutes
+  max: RATE_LIMITS.publicWrite.max, // 30 writes per 10 minutes
+  message: {
+    error: RATE_LIMITS.publicWrite.message
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 /**
@@ -40,10 +82,10 @@ export const authLimiter = rateLimit({
  * Prevents abuse of password reset functionality
  */
 export const passwordResetLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // Only 3 password reset requests per hour
+  windowMs: RATE_LIMITS.passwordReset.windowMs, // 1 hour
+  max: RATE_LIMITS.passwordReset.max, // Only 3 password reset requests per hour
   message: {
-    error: 'Too many password reset attempts, please try again later.'
+    error: RATE_LIMITS.passwordReset.message
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -55,10 +97,10 @@ export const passwordResetLimiter = rateLimit({
  * Prevents API abuse and DDoS attacks
  */
 export const apiLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute
+  windowMs: RATE_LIMITS.api.windowMs, // 1 minute
+  max: RATE_LIMITS.api.max, // 100 requests per minute
   message: {
-    error: 'Too many requests, please slow down.'
+    error: RATE_LIMITS.api.message
   },
   standardHeaders: true,
   legacyHeaders: false,

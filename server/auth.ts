@@ -3,6 +3,8 @@ import { Strategy as LocalStrategy } from "passport-local";
 import { Express } from "express";
 import session from "express-session";
 import { storage, type StoredUser } from "./storage";
+import { authLimiter } from "./middleware/security";
+import { requireCsrfToken } from "./middleware/csrf";
 
 // 1. EXTEND EXPRESS TYPE DEFINITIONS
 // This tells TypeScript that req.user matches our Schema User
@@ -48,11 +50,11 @@ export function setupAuth(app: Express) {
   });
 
   // 3. AUTH ROUTES
-  app.post("/api/login", passport.authenticate("local"), (req, res) => {
+  app.post("/api/login", authLimiter, requireCsrfToken, passport.authenticate("local"), (req, res) => {
     res.status(200).json(req.user);
   });
 
-  app.post("/api/register", async (req, res, next) => {
+  app.post("/api/register", authLimiter, requireCsrfToken, async (req, res, next) => {
     try {
       const existingUser = await storage.getUserByUsername(req.body.username);
       if (existingUser) {
@@ -73,7 +75,7 @@ export function setupAuth(app: Express) {
     }
   });
 
-  app.post("/api/logout", (req, res, next) => {
+  app.post("/api/logout", requireCsrfToken, (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
       res.sendStatus(200);

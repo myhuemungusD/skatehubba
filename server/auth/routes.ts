@@ -2,6 +2,7 @@ import type { Express } from 'express';
 import { AuthService } from './service.ts';
 import { authenticateUser } from './middleware.ts';
 import { authLimiter, passwordResetLimiter } from '../middleware/security.ts';
+import { requireCsrfToken } from '../middleware/csrf.ts';
 import { admin } from '../admin.ts';
 
 /**
@@ -16,7 +17,7 @@ import { admin } from '../admin.ts';
  */
 export function setupAuthRoutes(app: Express) {
   // Single login/register endpoint - Firebase ID token only (with rate limiting)
-  app.post('/api/auth/login', authLimiter, async (req, res) => {
+  app.post('/api/auth/login', authLimiter, requireCsrfToken, async (req, res) => {
     try {
       const authHeader = req.headers.authorization ?? '';
 
@@ -129,7 +130,7 @@ export function setupAuthRoutes(app: Express) {
   });
 
   // Logout endpoint
-  app.post('/api/auth/logout', authenticateUser, async (req, res) => {
+  app.post('/api/auth/logout', authenticateUser, requireCsrfToken, async (req, res) => {
     try {
       // Delete session from cookie or Authorization header
       const sessionToken = req.cookies?.sessionToken;

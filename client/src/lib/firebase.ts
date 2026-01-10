@@ -25,6 +25,13 @@ const analytics: any = null;
 
 const isFirebaseConfigured = !!(env.VITE_FIREBASE_API_KEY && env.VITE_FIREBASE_API_KEY !== 'undefined' && env.VITE_FIREBASE_API_KEY.length > 10);
 
+const createMockUid = (prefix: string) => {
+  const bytes = new Uint8Array(9);
+  crypto.getRandomValues(bytes);
+  const token = Array.from(bytes, (value) => (value % 36).toString(36)).join('');
+  return `${prefix}-${token}`;
+};
+
 try {
   if (isFirebaseConfigured) {
     app = initializeApp(firebaseConfig);
@@ -90,7 +97,7 @@ try {
     },
     signInAnonymously: async () => {
       const mockUser = {
-        uid: 'guest-' + Math.random().toString(36).substr(2, 9),
+        uid: createMockUid('guest'),
         isAnonymous: true,
         displayName: 'Guest Skater',
         email: 'guest@skatehubba.com',
@@ -105,7 +112,7 @@ try {
     },
     signInWithPopup: async () => {
       const mockUser = {
-        uid: 'google-' + Math.random().toString(36).substr(2, 9),
+        uid: createMockUid('google'),
         isAnonymous: false,
         displayName: 'Google Skater',
         email: 'google@skatehubba.com',
@@ -118,7 +125,7 @@ try {
     },
     signInWithRedirect: async () => {
       const mockUser = {
-        uid: 'google-' + Math.random().toString(36).substr(2, 9),
+        uid: createMockUid('google'),
         isAnonymous: false,
         displayName: 'Google Skater',
         email: 'google@skatehubba.com',

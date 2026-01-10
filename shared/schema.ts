@@ -34,7 +34,8 @@ export const paymentAmountSchema = z.number()
 export const sanitizedStringSchema = z.string()
   .trim()
   .max(1000, "String too long")
-  .transform((str) => (str).replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ''));
+  // CodeQL: Bad HTML filtering regex / polynomial regex on uncontrolled data
+  .refine((str) => !str.includes('<') && !str.includes('>'), 'HTML is not allowed');
 
 
 import { pgTable, text, serial, integer, boolean, timestamp, json, varchar, index, doublePrecision } from "drizzle-orm/pg-core";
