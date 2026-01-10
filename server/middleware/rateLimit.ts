@@ -1,13 +1,8 @@
 import rateLimit from "express-rate-limit";
+import { apiLimiter as securityApiLimiter } from "./security";
 
-export const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per window
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "Too many requests, please try again later." },
-  keyGenerator: (req) => req.ip || "unknown",
-});
+// Reuse the centralized apiLimiter from security.ts to avoid conflicting configurations.
+export const apiLimiter = securityApiLimiter;
 
 export const strictLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
