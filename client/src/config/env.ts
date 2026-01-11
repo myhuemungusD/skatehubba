@@ -23,8 +23,14 @@ const envSchema = z.object({
 });
 
 function validateEnv() {
+  // Debug: Log raw env vars
+  console.log('[ENV] Raw VITE_FIREBASE_API_KEY:', import.meta.env.VITE_FIREBASE_API_KEY);
+  console.log('[ENV] Raw VITE_FIREBASE_PROJECT_ID:', import.meta.env.VITE_FIREBASE_PROJECT_ID);
+  
   try {
-    return envSchema.parse(import.meta.env);
+    const parsed = envSchema.parse(import.meta.env);
+    console.log('[ENV] Successfully parsed env vars');
+    return parsed;
   } catch (error) {
     if (error instanceof z.ZodError) {
       const missing = error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('\n');
@@ -35,6 +41,7 @@ function validateEnv() {
       }
     }
     // Development fallback only
+    console.warn('[ENV] Using fallback empty env');
     return envSchema.parse({});
   }
 }

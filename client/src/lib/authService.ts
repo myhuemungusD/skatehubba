@@ -201,6 +201,28 @@ export async function signInWithEmail(
  */
 export async function signInWithGoogle(): Promise<{ firebaseUser: FirebaseUserData; userProfile: UserProfile }> {
   try {
+    // Handle mock mode for Google Sign-In
+    if (isMockMode()) {
+      console.log('[AuthService] Mock mode detected - using mock Google sign-in');
+      const mockAuth = auth as unknown as { 
+        signInWithPopup: () => Promise<{ user: User }> 
+      };
+      const result = await mockAuth.signInWithPopup();
+      const firebaseUser = toFirebaseUserData(result.user);
+      
+      // Create mock profile
+      const userProfile: UserProfile = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email ?? 'google@skatehubba.com',
+        displayName: firebaseUser.displayName ?? 'Google User',
+        photoURL: firebaseUser.photoURL,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      return { firebaseUser, userProfile };
+    }
+    
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     
