@@ -2,11 +2,11 @@ name: CodeQL
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   pull_request:
-    branches: ["main"]
+    branches: [ "main" ]
   schedule:
-    - cron: "23 7 * * 1" # weekly (Mon 07:23 UTC)
+    - cron: "23 7 * * 1"
 
 permissions:
   contents: read
@@ -23,30 +23,32 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ["javascript-typescript"]
+        language: [ "javascript-typescript" ]
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Standardized Node + pnpm setup (NO manual corepack, NO pnpm cache here)
-      - name: Setup pnpm environment
-        uses: ./.github/actions/setup-pnpm-env
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: 20
 
-      - name: Install dependencies (workspace)
-        shell: bash
-        run: pnpm install --frozen-lockfile
+      # ✅ REQUIRED: composite pnpm setup (NO manual corepack)
+      - name: Setup pnpm
+        uses: ./.github/actions/setup-pnpm-env
 
+      # ✅ CodeQL must be initialized BEFORE install/build
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
 
-      # Best-effort build improves CodeQL signal quality
-      - name: Build (best-effort)
-        shell: bash
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Best-effort build to improve SARIF quality
+      - name: Build (best effort)
         run: |
           pnpm --filter shared build || true
           pnpm --filter client build || true
