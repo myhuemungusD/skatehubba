@@ -15,7 +15,7 @@ jobs:
       - name: Check for manual Corepack usage
         shell: bash
         run: |
-          if grep -R --exclude='validate-workflows.yml' "corepack enable" .github/workflows/*.yml; then
+          if grep -R "corepack enable" .github/workflows/*.yml | grep -v "validate-workflows.yml"; then
             echo "::error::Manual corepack usage detected. Use composite action."
             exit 1
           fi
