@@ -28,18 +28,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "pnpm"
-
-      - name: Setup pnpm (via Corepack)
-        shell: bash
-        run: |
-          corepack enable
-          corepack prepare pnpm@10.0.0 --activate
-          pnpm -v
+      - uses: ./.github/actions/setup-pnpm-env
 
       - name: Install dependencies (workspace)
         run: pnpm install --frozen-lockfile
