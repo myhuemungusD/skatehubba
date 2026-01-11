@@ -1,12 +1,16 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
 jobs:
   build_and_test:
     name: "Build & Verify"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: 'pnpm' }
+      - uses: ./.github/actions/setup-pnpm-env
       
       - run: pnpm install
       

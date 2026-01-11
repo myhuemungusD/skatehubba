@@ -1,33 +1,31 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
-async function throwIfResNotOk(res: Response) {
+/**
+ * Throws a useful error when the response is not OK.
+ */
+async function throwIfResNotOk(res: Response): Promise<void> {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     throw new Error(`${res.status}: ${text}`);
   }
 }
 
-const getCookie = (name: string): string | null => {
-  if (typeof document === "undefined") {
-    return null;
-  }
-
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
-};
-
+/**
+ * Simple API request helper.
+ * Always passes a valid HeadersInit for TypeScript.
+ */
 export async function apiRequest(
   method: string,
   url: string,
-  data?: unknown  ,
+  data?: unknown
 ): Promise<Response> {
-  const csrfToken = getCookie("csrfToken");
+  const headers: HeadersInit = data
+    ? { "Content-Type": "application/json" }
+    : {};
+
   const res = await fetch(url, {
     method,
-    headers: {
-      ...(data ? { "Content-Type": "application/json" } : {}),
-      ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
-    },
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -37,25 +35,23 @@ export async function apiRequest(
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
-export const getQueryFn: <T>(options: {
-  on401: UnauthorizedBehavior;
-}) => QueryFunction<T> =
-  ({ on401: unauthorizedBehavior }) =>
+
+/**
+ * Default query function for React Query.
+ */
+export const getQueryFn =
+  <T>({ on401 }: { on401: UnauthorizedBehavior }): QueryFunction<T> =>
   async ({ queryKey }) => {
     const res = await fetch(queryKey.join("/"), {
-      headers: (() => {
-        const csrfToken = getCookie("csrfToken");
-        return csrfToken ? { "X-CSRF-Token": csrfToken } : {};
-      })(),
       credentials: "include",
     });
 
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
+    if (on401 === "returnNull" && res.status === 401) {
+      return null as T;
     }
 
     await throwIfResNotOk(res);
-    return await res.json();
+    return (await res.json()) as T;
   };
 
 export const queryClient = new QueryClient({

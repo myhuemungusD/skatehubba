@@ -2,12 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { AuthService } from './service.ts';
 import type { CustomUser } from '../../shared/schema.ts';
 import { admin } from '../admin.ts';
-
-declare module 'express-serve-static-core' {
-  interface Request {
-    currentUser?: CustomUser;
-  }
-}
+import '../types/express.d.ts';
 
 /**
  * Authentication middleware to protect routes

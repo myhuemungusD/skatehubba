@@ -3,18 +3,32 @@ import fs from "fs";
 import path from "path";
 import { type Server } from "http";
 import { nanoid } from "nanoid";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, "..");
 
 // Conditional imports for development only
 let createViteServer: any;
 let createLogger: any;
-let viteConfig: any;
 let viteLogger: any;
+
+// Inline vite config for dev server (avoids importing root vite.config.ts which has external deps)
+const viteConfig = {
+  root: path.join(rootDir, "client"),
+  resolve: {
+    alias: {
+      "@": path.join(rootDir, "client/src"),
+      "@shared": path.join(rootDir, "shared")
+    }
+  },
+  publicDir: path.join(rootDir, "public")
+};
 
 if (process.env.NODE_ENV === "development") {
   const vite = await import("vite");
   createViteServer = vite.createServer;
   createLogger = vite.createLogger;
-  viteConfig = (await import("../vite.config.js")).default;
   viteLogger = createLogger();
 }
 
@@ -45,7 +59,7 @@ export async function setupVite(app: Express, server: Server) {
     configFile: false,
     customLogger: {
       ...viteLogger,
-      error: (msg, options) => {
+      error: (msg: string, options: any) => {
         viteLogger.error(msg, options);
         process.exit(1);
       },

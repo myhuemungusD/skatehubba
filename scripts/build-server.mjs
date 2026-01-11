@@ -1,17 +1,22 @@
 import { build } from 'esbuild';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const rootDir = path.resolve(__dirname, '..');
 
 console.log('🔧 Building server with esbuild...');
 
 // Ensure the output directory exists
-const outputDir = 'dist/server';
+const outputDir = path.join(rootDir, 'dist/server');
 if (!fs.existsSync(outputDir)) {
   fs.mkdirSync(outputDir, { recursive: true });
 }
 
 // Copy the client build to server's public directory
-const clientDir = 'dist/public';
+const clientDir = path.join(rootDir, 'dist/public');
 const serverPublicDir = path.join(outputDir, 'public');
 
 if (fs.existsSync(clientDir)) {
@@ -29,10 +34,10 @@ if (fs.existsSync(clientDir)) {
 
 // ESBuild configuration for server bundling
 const config = {
-  entryPoints: ['server/index.ts'],
+  entryPoints: [path.join(rootDir, 'server/index.ts')],
   bundle: true,
   platform: 'node',
-  outfile: 'dist/server/index.js',
+  outfile: path.join(rootDir, 'dist/server/index.js'),
   format: 'esm',
   packages: 'external',
   external: [

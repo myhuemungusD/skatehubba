@@ -1,0 +1,28 @@
+name: 'Setup pnpm Environment'
+description: 'Standardized pnpm + Node.js setup for SkateHubba monorepo'
+
+inputs:
+  node-version:
+    description: 'Node.js version'
+    required: false
+    default: '20'
+
+outputs:
+  pnpm-version:
+    description: 'Installed pnpm version'
+    value: ${{ steps.pnpm-setup.outputs.version }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup pnpm
+      id: pnpm-setup
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.0.0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: pnpm

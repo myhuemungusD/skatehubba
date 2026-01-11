@@ -3,7 +3,7 @@ import http from 'http';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { registerRoutes } from './routes.ts';
-import { setupVite, log } from './vite.ts';
+import { setupVite, log } from './vite-dev.ts';
 import { env } from './config/env.ts';
 import compression from 'compression';
 import helmet from 'helmet';
@@ -39,7 +39,7 @@ if (process.env.NODE_ENV === 'production') {
 
 // CORS configuration
 const corsOptions = {
-  origin: function (origin, callback) {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     const allowed = process.env.ALLOWED_ORIGINS?.split(',') || [];
     // Allow requests with no origin (like mobile apps) or matching allowed domains
     if (!origin || allowed.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
