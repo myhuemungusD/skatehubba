@@ -1,54 +1,56 @@
-name: Workflow Validator
+name: CodeQL
 
 on:
   push:
+    branches: ["main"]
   pull_request:
+    branches: ["main"]
+  schedule:
+    - cron: "23 7 * * 1" # weekly (Mon 07:23 UTC)
+
+permissions:
+  contents: read
 
 jobs:
-  validate:
-    name: Validate Workflow Standards
+  analyze:
+    name: Analyze (CodeQL)
     runs-on: ubuntu-latest
 
+    permissions:
+      security-events: write
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: ["javascript-typescript"]
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # IMPORTANT:
-      # Exclude THIS validator file itself so it does not self-trigger
-      - name: Check for manual Corepack usage
+      # Standardized Node + pnpm setup (NO manual corepack, NO pnpm cache here)
+      - name: Setup pnpm environment
+        uses: ./.github/actions/setup-pnpm-env
+        with:
+          node-version: "20"
+
+      - name: Install dependencies (workspace)
+        shell: bash
+        run: pnpm install --frozen-lockfile
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+
+      # Best-effort build improves CodeQL signal quality
+      - name: Build (best-effort)
         shell: bash
         run: |
-          if grep -R "corepack enable" .github/workflows/*.yml \
-            --exclude=validate-workflows.yml; then
-            echo "::error::Manual corepack usage detected. Use composite action."
-            exit 1
-          fi
+          pnpm --filter shared build || true
+          pnpm --filter client build || true
+          pnpm --filter server build || true
 
-      - name: Ensure pnpm version consistency
-        shell: bash
-        run: |
-          EXPECTED=$(node -p "require('./package.json').packageManager.split('@')[1]")
-          COMPOSITE=$(grep -A5 "pnpm/action-setup" \
-            .github/actions/setup-pnpm-env/action.yml \
-            | grep "version:" \
-            | awk '{print $2}')
-
-          if [ "$EXPECTED" != "$COMPOSITE" ]; then
-            echo "::error::pnpm version mismatch: package.json=$EXPECTED composite=$COMPOSITE"
-            exit 1
-          fi
-
-          echo "✅ pnpm version consistent: $EXPECTED"
-
-      - name: Validate workflows use composite action
-        shell: bash
-        run: |
-          for workflow in .github/workflows/ci.yml \
-                          .github/workflows/codeql.yml \
-                          .github/workflows/deploy.yml; do
-            if ! grep -q "uses: ./.github/actions/setup-pnpm-env" "$workflow"; then
-              echo "::error::$workflow does not use composite action"
-              exit 1
-            fi
-          done
-
-          echo "✅ All workflows use standardized setup"
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
