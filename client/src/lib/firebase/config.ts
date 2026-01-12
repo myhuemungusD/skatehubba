@@ -38,14 +38,6 @@ function getFirebaseConfig(): FirebaseConfig | null {
   const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
   
   if (!apiKey || !projectId) {
-    console.error(
-      '[Firebase] Missing required configuration. ' +
-      'Ensure VITE_FIREBASE_API_KEY and VITE_FIREBASE_PROJECT_ID are set in .env'
-    );
-    console.error('[Firebase] Current env vars:', {
-      VITE_FIREBASE_API_KEY: apiKey ? 'SET' : 'MISSING',
-      VITE_FIREBASE_PROJECT_ID: projectId ? 'SET' : 'MISSING',
-    });
     return null;
   }
   
@@ -82,12 +74,6 @@ function initializeFirebase(): boolean {
       return false;
     }
     
-    console.log('[Firebase] Initializing with config:', {
-      apiKeyStatus: config.apiKey ? 'SET' : 'MISSING',
-      projectId: config.projectId,
-      authDomain: config.authDomain,
-    });
-    
     app = initializeApp(config);
     auth = getAuth(app);
     db = getFirestore(app);
@@ -96,14 +82,11 @@ function initializeFirebase(): boolean {
     if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true') {
       connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
       connectFirestoreEmulator(db, 'localhost', 8080);
-      console.info('[Firebase] Connected to emulators');
     }
     
     initialized = true;
-    console.info('[Firebase] ✅ Initialized successfully for project:', config.projectId);
     return true;
   } catch (error) {
-    console.error('[Firebase] ❌ Initialization failed:', error);
     initError = error as Error;
     return false;
   }

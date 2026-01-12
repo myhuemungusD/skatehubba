@@ -32,23 +32,17 @@ const createMockUid = (prefix: string) => {
   return `${prefix}-${token}`;
 };
 
-// Debug: Log Firebase config status
-console.log('[Firebase] API Key configured:', !!env.VITE_FIREBASE_API_KEY);
-console.log('[Firebase] Project ID:', env.VITE_FIREBASE_PROJECT_ID);
-
 try {
   if (isFirebaseConfigured) {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = initializeFirestore(app, { experimentalForceLongPolling: true });
-    logger.info('[Firebase] Initialized with config');
-    console.log('[Firebase] Successfully initialized with real credentials');
+    logger.info('[Firebase] Initialized');
   } else {
     throw new Error("Missing Firebase API Key");
   }
 } catch (error) {
-  console.error('[Firebase] Init error:', error);
-  logger.warn('[Firebase] Initialization skipped or failed, using mock mode');
+  logger.warn('[Firebase] Using mock mode');
   app = { 
     name: '[DEFAULT]',
     options: firebaseConfig
