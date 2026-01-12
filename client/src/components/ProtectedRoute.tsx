@@ -10,7 +10,9 @@ export default function ProtectedRoute({
   children, 
   requireEmailVerification = false 
 }: ProtectedRouteProps) {
-  const { user, isLoading } = useAuth();
+  const authContext = useAuth();
+  const user = authContext?.user ?? null;
+  const isLoading = authContext?.isLoading ?? true;
 
   if (isLoading) {
     return (

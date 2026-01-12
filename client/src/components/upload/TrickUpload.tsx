@@ -14,7 +14,8 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 
 export default function TrickUpload() {
   const { toast } = useToast();
-  const { user } = useAuth();
+  const authContext = useAuth();
+  const user = authContext?.user ?? null;
   const [, setLocation] = useLocation();
   
   const [trickName, setTrickName] = useState("");

@@ -1,33 +1,59 @@
 import { useState } from "react";
-import { registerUser } from "../lib/auth";
+import { useAuthContext } from "../context/AuthContext";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
-import { Link } from "wouter";
-import { Mail, Lock, AlertCircle } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Mail, Lock } from "lucide-react";
+import { SiGoogle } from "react-icons/si";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const { signUp, signInWithGoogle } = useAuthContext();
+  const [, setLocation] = useLocation();
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
     
     try {
-      await registerUser(email, password);
+      await signUp(email, password);
       toast({ 
-        title: "Verification Email Sent! 📧", 
-        description: "Check your email to verify your account." 
+        title: "Account Created! 🛹", 
+        description: "Welcome to SkateHubba!" 
       });
-      window.location.href = "/verify";
-    } catch (err: any) {
+      setLocation("/map");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Registration failed";
       toast({ 
         title: "Registration Failed", 
-        description: err.message,
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function handleGoogleSignUp() {
+    setIsLoading(true);
+    
+    try {
+      await signInWithGoogle();
+      toast({ 
+        title: "Account Created! 🛹", 
+        description: "Welcome to SkateHubba!" 
+      });
+      setLocation("/map");
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Google sign-up failed";
+      toast({ 
+        title: "Google sign-up failed", 
+        description: errorMessage,
         variant: "destructive"
       });
     } finally {
@@ -54,18 +80,6 @@ export default function SignupPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="mb-4 bg-blue-500/10 border border-blue-500/20 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-blue-400 font-medium text-sm">Email Verification Required</p>
-                  <p className="text-gray-400 text-xs mt-1">
-                    You'll need to verify your email before signing in. Check your inbox after signup!
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <form onSubmit={handleSignup} className="space-y-4">
               <div className="space-y-2">
                 <div className="relative">
@@ -87,10 +101,11 @@ export default function SignupPage() {
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     type="password"
-                    placeholder="Password (8+ chars)"
+                    placeholder="Password (6+ chars)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    minLength={6}
                     className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                     data-testid="input-signup-password"
                   />
@@ -106,6 +121,23 @@ export default function SignupPage() {
                 {isLoading ? "Creating Account..." : "Sign Up"}
               </Button>
             </form>
+
+            <div className="flex items-center my-6">
+              <div className="flex-grow border-t border-gray-600"></div>
+              <span className="mx-3 text-gray-400 text-sm">or</span>
+              <div className="flex-grow border-t border-gray-600"></div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={handleGoogleSignUp}
+              disabled={isLoading}
+              className="w-full bg-white hover:bg-gray-100 text-black font-semibold flex items-center justify-center gap-2"
+              data-testid="button-signup-google"
+            >
+              <SiGoogle className="w-5 h-5" />
+              Sign up with Google
+            </Button>
 
             <div className="mt-6 text-center">
               <p className="text-gray-400">

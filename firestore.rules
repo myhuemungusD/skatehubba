@@ -46,28 +46,30 @@ service cloud.firestore {
     // =========================================================================
     
     match /users/{userId} {
-      // Users can read their own profile and public profiles of others
-      allow read: if isAuthenticated();
+      // Users can ONLY read their own profile (strict privacy)
+      allow read: if isOwner(userId);
       
-      // Users can only create/update their own profile
+      // Users can only create their own profile
       allow create: if isOwner(userId)
-        && hasRequiredFields(['userId', 'displayName', 'createdAt'])
+        && hasRequiredFields(['uid', 'email', 'displayName', 'createdAt'])
+        && request.resource.data.uid == userId
         && isValidString('displayName', 1, 50)
-        && request.resource.data.userId == userId
-        && isRecentTimestamp('createdAt');
+        && isValidString('email', 3, 320);
       
+      // Users can only update their own profile
       allow update: if isOwner(userId)
-        // Users cannot change their userId or createdAt
-        && request.resource.data.userId == resource.data.userId
+        // Users cannot change their uid or createdAt
+        && request.resource.data.uid == resource.data.uid
         && request.resource.data.createdAt == resource.data.createdAt
+        // Email can only be changed if still matches auth email
+        && (!('email' in request.resource.data) || request.resource.data.email == request.auth.token.email)
         // Validate updatable fields if they exist
         && (!('displayName' in request.resource.data) || isValidString('displayName', 1, 50))
         && (!('photoURL' in request.resource.data) || isValidString('photoURL', 0, 2000))
-        && (!('bio' in request.resource.data) || isValidString('bio', 0, 500))
-        && (!('skillLevel' in request.resource.data) || request.resource.data.skillLevel in ['beginner', 'intermediate', 'advanced', 'pro'])
         // Allow updatedAt field
         && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
       
+      // Users can delete their own profile
       allow delete: if isOwner(userId);
     }
     

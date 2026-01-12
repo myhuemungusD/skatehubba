@@ -2,8 +2,7 @@ import { useCallback, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "./ui/button";
 import { Home, ShoppingCart, LogIn, User, Package, Map, Trophy, Search, Gamepad2, Menu, LogOut } from "lucide-react";
-import { useAuth } from "../hooks/useAuth";
-import { logoutUser } from "../lib/auth";
+import { useAuthContext } from "../context/AuthContext";
 import CartDrawer from "./cart/CartDrawer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
 import { ProfileSearch } from "./search/ProfileSearch";
@@ -17,23 +16,21 @@ import {
 } from "./ui/dropdown-menu";
 
 export default function Navigation() {
-  const [location] = useLocation();
-  const { isAuthenticated, user } = useAuth();
+  const [location, setLocation] = useLocation();
+  const { isAuthenticated, firebaseUser, userProfile, signOut } = useAuthContext();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const handleLogout = useCallback(async () => {
     try {
-      await logoutUser();
+      await signOut();
     } catch {
       // Best-effort logout: swallow errors to ensure UI still resets state
     } finally {
-      window.location.href = '/';
+      setLocation('/');
     }
-  }, []);
+  }, [signOut, setLocation]);
 
-  const profileLabel = user?.isAnonymous
-    ? "Guest"
-    : user?.email || user?.displayName || "Profile";
+  const profileLabel = userProfile?.displayName ?? firebaseUser?.email ?? "Profile";
 
   const navItems = [
     { path: "/", label: "Home", icon: Home },

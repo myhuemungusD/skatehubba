@@ -12,7 +12,9 @@ import Navigation from "../components/Navigation";
 import BackgroundCarousel from "../components/BackgroundCarousel";
 
 export default function CheckinsPage() {
-  const { user, isAuthenticated } = useAuth();
+  const auth = useAuth();
+  const user = auth?.user ?? null;
+  const isAuthenticated = auth?.isAuthenticated ?? false;
   const [isClient, setIsClient] = useState(false);
   const [checkins, setCheckins] = useState<CheckInResult[]>([]);
   const [loading, setLoading] = useState(true);

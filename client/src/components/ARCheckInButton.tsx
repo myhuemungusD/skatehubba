@@ -40,7 +40,9 @@ export function ARCheckInButton({
   onCheckInSuccess,
   locationUnavailable = false,
 }: ARCheckInButtonProps) {
-  const { user, isAuthenticated } = useAuth();
+  const authContext = useAuth();
+  const user = authContext?.user ?? null;
+  const isAuthenticated = authContext?.isAuthenticated ?? false;
   const { requiresVerification } = useEmailVerification();
   const { toast } = useToast();
   const { grantAccess, hasValidAccess, cleanupExpiredAccess } = useSpotAccess();

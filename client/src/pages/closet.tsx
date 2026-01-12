@@ -8,7 +8,9 @@ import { useAuth } from '../hooks/useAuth';
 import { ClosetGrid } from '../components/skater/ClosetGrid';
 
 export default function ClosetPage() {
-  const { user, isAuthenticated } = useAuth();
+  const auth = useAuth();
+  const user = auth?.user ?? null;
+  const isAuthenticated = auth?.isAuthenticated ?? false;
 
   const { data: _inventory, isLoading: _isLoading } = useQuery({
     queryKey: ['/api/inventory', user?.uid],
