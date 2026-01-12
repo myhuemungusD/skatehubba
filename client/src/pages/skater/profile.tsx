@@ -14,7 +14,8 @@ import type { UserProfile, ClosetItem } from '@shared/schema';
 export default function SkaterProfile() {
   const params = useParams();
   const handle = params.handle || '';
-  const { user } = useAuth();
+  const authContext = useAuth();
+  const user = authContext?.user ?? null;
   const { toast } = useToast();
 
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({

@@ -16,7 +16,8 @@ export function FeedbackButton() {
   const [feedbackType, setFeedbackType] = useState('general');
   const [message, setMessage] = useState('');
   const { toast } = useToast();
-  const { user } = useAuth();
+  const authContext = useAuth();
+  const user = authContext?.user ?? null;
 
   const feedbackMutation = useMutation({
     mutationFn: async (data: { type: string; message: string }) => {

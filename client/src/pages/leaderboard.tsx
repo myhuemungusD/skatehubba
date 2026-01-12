@@ -21,7 +21,8 @@ interface LeaderboardEntry {
 }
 
 export default function LeaderboardPage() {
-  const { user } = useAuth();
+  const authContext = useAuth();
+  const user = authContext?.user ?? null;
 
   // Mock data - in production this would come from API
   const leaderboardData: LeaderboardEntry[] = [

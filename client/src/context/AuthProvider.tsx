@@ -281,8 +281,8 @@ export function useAuth(): AuthContextValue | null {
  * Hook that returns true only when auth is ready (not loading)
  */
 export function useAuthReady(): boolean {
-  const { isLoading } = useAuth();
-  return !isLoading;
+  const auth = useAuth();
+  return auth ? !auth.isLoading : false;
 }
 
 /**
@@ -290,11 +290,11 @@ export function useAuthReady(): boolean {
  * Useful for protected routes/components
  */
 export function useRequiredAuth(): { user: AuthUser; profile: UserProfile | null } {
-  const { user, profile, isAuthenticated } = useAuth();
+  const auth = useAuth();
   
-  if (!isAuthenticated || !user) {
+  if (!auth || !auth.isAuthenticated || !auth.user) {
     throw new Error('User must be authenticated to access this resource.');
   }
   
-  return { user, profile };
+  return { user: auth.user, profile: auth.profile };
 }

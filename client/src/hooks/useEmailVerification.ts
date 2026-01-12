@@ -6,7 +6,9 @@ import { useAuth } from "./useAuth";
 const RESEND_COOLDOWN_MS = 60000; // 1 minute cooldown
 
 export function useEmailVerification() {
-  const { user, isAuthenticated } = useAuth();
+  const authContext = useAuth();
+  const user = authContext?.user ?? null;
+  const isAuthenticated = authContext?.isAuthenticated ?? false;
   const [lastResendTime, setLastResendTime] = useState<number>(0);
   const [isResending, setIsResending] = useState(false);
 
