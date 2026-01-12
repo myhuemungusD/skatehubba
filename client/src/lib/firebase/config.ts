@@ -83,7 +83,7 @@ function initializeFirebase(): boolean {
     }
     
     console.log('[Firebase] Initializing with config:', {
-      apiKey: config.apiKey ? config.apiKey.substring(0, 10) + '...' : 'MISSING',
+      apiKeyStatus: config.apiKey ? 'SET' : 'MISSING',
       projectId: config.projectId,
       authDomain: config.authDomain,
     });
