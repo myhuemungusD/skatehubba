@@ -24,7 +24,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: 
           name: production-dist
-          path: client/dist
+          path: dist/public
 
   deploy_firebase:
     needs: [build_and_test]
@@ -34,11 +34,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # Download the artifacts to the 'client/dist' folder so the path matches
+      # Download the artifacts to the 'dist/public' folder so the path matches
       - uses: actions/download-artifact@v4
         with: 
           name: production-dist
-          path: client/dist
+          path: dist/public
           
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
