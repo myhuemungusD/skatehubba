@@ -2,6 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "pnpm --filter skatehubba-client build",
   "outputDirectory": "dist/public",
-  "installCommand": "pnpm install",
-  "framework": "vite"
+  "installCommand": "pnpm install"
 }
