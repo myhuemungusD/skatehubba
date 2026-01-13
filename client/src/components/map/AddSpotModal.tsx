@@ -1,7 +1,7 @@
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { Loader2, MapPin, ChevronDown } from 'lucide-react';
+import { Loader2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,

@@ -1,9 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Route } from '@playwright/test';
 
 test.describe('Map Performance & Flow', () => {
-  test('should implement viewport culling for large datasets', async ({ page }) => {
+  test('should implement viewport culling for large datasets', async ({ page }: { page: Page }) => {
     // 1. Mock a heavy database response (1,000 spots)
-    await page.route('/api/spots', async route => {
+    await page.route('/api/spots', async (route: Route) => {
       const spots = Array.from({ length: 1000 }, (_, i) => ({
         id: i,
         name: `Spot ${i}`,

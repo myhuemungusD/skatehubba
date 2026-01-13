@@ -165,8 +165,7 @@ export const SpotMap = memo(function SpotMap({ spots, userLocation, selectedSpot
       
       // Determine which cached icon to use
       const proximityKey = spot.proximity || 'default';
-      // @ts-expect-error -- keys are safe based on proximity types
-      const icon = icons[proximityKey] || icons.default;
+      const icon = icons[proximityKey as keyof typeof icons] || icons.default;
       
       // Check if visual state actually changed
       const currentProximity = markerProximityRef.current.get(spot.id);
