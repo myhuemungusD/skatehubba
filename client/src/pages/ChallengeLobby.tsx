@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
-import { Circle, Search, User, Zap } from "lucide-react";
+import { useMemo, useState, useEffect } from "react";
+import { Circle, Search, User, Zap, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import MobileLayout from "../components/layout/MobileLayout";
 
 type SkaterStatus = "online" | "offline";
@@ -82,6 +83,36 @@ export default function ChallengeLobby() {
     });
   }, [query]);
 
+  // Debounce search query
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 500);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  const { data: searchResults, isLoading } = useQuery({
+    queryKey: ['/api/users/search', debouncedQuery],
+    queryFn: async () => {
+      if (!debouncedQuery || debouncedQuery.length < 2) return [];
+      const res = await fetch(`/api/users/search?q=${encodeURIComponent(debouncedQuery)}`);
+      if (!res.ok) throw new Error('Search failed');
+      const rawData = await res.json();
+      
+      // Map backend data to UI model
+      return rawData.map((u: any) => ({
+        id: u.id,
+        name: u.displayName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Skater',
+        handle: u.handle ? `@${u.handle}` : `@user${u.id.substring(0, 4)}`,
+        status: "offline", // Presence not yet implemented
+        style: "Street", // Default style
+        winRate: u.wins && (u.wins + (u.losses || 0)) > 0
+          ? `${Math.round((u.wins / (u.wins + (u.losses || 0))) * 100)}%`
+          : "0%",
+      })) as SkaterProfile[];
+    },
+    enabled: debouncedQuery.length >= 2
+  });
+
   const handleQuickMatch = () => {
     const onlineSkaters = skaters.filter((skater) => skater.status === "online");
     const selectedOpponent =
@@ -96,6 +127,8 @@ export default function ChallengeLobby() {
 
     setLastMatch(selectedOpponent);
     setLocation(`/game/active?opponent=${selectedOpponent.id}`);
+    // For now, default to bot since we don't have live presence yet
+    setLocation("/game/active?opponent=bot");
   };
 
   return (
@@ -145,9 +178,16 @@ export default function ChallengeLobby() {
           <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-neutral-500">
             <span>Online Skaters</span>
             <span>{filteredSkaters.length} active</span>
+            <span>{searchResults?.length || 0} found</span>
           </div>
 
           <div className="space-y-3">
+            {isLoading && (
+              <div className="flex justify-center py-4">
+                <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
+              </div>
+            )}
+            
             {filteredSkaters.map((skater) => (
               <div
                 key={skater.id}

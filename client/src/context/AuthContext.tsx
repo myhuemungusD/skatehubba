@@ -27,6 +27,8 @@ import {
   toFirebaseUserData
 } from '../lib/authService';
 
+type GoogleRedirectResult = Awaited<ReturnType<typeof handleGoogleRedirectResult>>;
+
 const initialState: AuthState = {
   firebaseUser: null,
   userProfile: null,
@@ -47,7 +49,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     // Check for Google redirect result first
     handleGoogleRedirectResult()
-      .then((result) => {
+      .then((result: GoogleRedirectResult) => {
         if (result) {
           setState({
             firebaseUser: result.firebaseUser,
@@ -57,7 +59,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           });
         }
       })
-      .catch((error) => {
+      .catch((error: unknown) => {
         console.error('[AuthProvider] Google redirect error:', error);
       });
 
