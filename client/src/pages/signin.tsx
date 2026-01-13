@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuthContext } from "../context/AuthContext";
+import { useAuth } from "../context/AuthProvider";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { useToast } from "../hooks/use-toast";
@@ -13,7 +13,7 @@ export default function SigninPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { signIn, signInWithGoogle } = useAuthContext();
+  const auth = useAuth();
   const [, setLocation] = useLocation();
 
   async function handleLogin(e: React.FormEvent) {
@@ -21,7 +21,7 @@ export default function SigninPage() {
     setIsLoading(true);
     
     try {
-      await signIn(email, password);
+      await auth?.signIn(email, password);
       toast({ 
         title: "Welcome back! 🛹",
         description: "You've successfully signed in."
@@ -43,7 +43,7 @@ export default function SigninPage() {
     setIsLoading(true);
     
     try {
-      await signInWithGoogle();
+      await auth?.signInWithGoogle();
       toast({ 
         title: "Welcome! 🛹",
         description: "You've successfully signed in with Google."

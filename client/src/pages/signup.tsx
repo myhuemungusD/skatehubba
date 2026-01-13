@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAuthContext } from "../context/AuthContext";
+import { useAuth } from "../context/AuthProvider";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { useToast } from "../hooks/use-toast";
@@ -13,7 +13,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { signUp, signInWithGoogle } = useAuthContext();
+  const auth = useAuth();
   const [, setLocation] = useLocation();
 
   async function handleSignup(e: React.FormEvent) {
@@ -21,7 +21,7 @@ export default function SignupPage() {
     setIsLoading(true);
     
     try {
-      await signUp(email, password);
+      await auth?.signUp(email, password);
       toast({ 
         title: "Account Created! 🛹", 
         description: "Welcome to SkateHubba!" 
@@ -43,7 +43,7 @@ export default function SignupPage() {
     setIsLoading(true);
     
     try {
-      await signInWithGoogle();
+      await auth?.signInWithGoogle();
       toast({ 
         title: "Account Created! 🛹", 
         description: "Welcome to SkateHubba!" 
