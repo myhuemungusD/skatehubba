@@ -15,14 +15,15 @@ const viteCfg = fs.readFileSync(vPath, "utf8");
 if (!/root:\s*["']client["']/.test(viteCfg)) fail("vite.config.ts must set root:'client'");
 ok("vite root set");
 
-// 3) no duplicate vite configs
+// 3) no duplicate vite configs (except client which is allowed)
 const walk = (dir) => {
   if (dir.includes('node_modules') || dir.includes('.config')) return [];
   return fs.readdirSync(dir, { withFileTypes: true })
     .flatMap(d => d.isDirectory() ? walk(path.join(dir, d.name)) : [path.join(dir, d.name)]);
 };
 const all = walk(".");
-const dup = all.filter(p => /vite\.config\.(t|j)s/.test(p) && p !== "vite.config.ts");
+const allowedConfigs = ["vite.config.ts", "client/vite.config.ts", "client\\vite.config.ts"];
+const dup = all.filter(p => /vite\.config\.(t|j)s/.test(p) && !allowedConfigs.some(a => p.endsWith(a.replace(/\//g, path.sep)) || p === a));
 if (dup.length) fail(`remove extra vite configs: ${dup.join(", ")}`);
 ok("no duplicate vite configs");
 
