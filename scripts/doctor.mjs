@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const fail = (m) => { console.error("DEPLOY BLOCKED:", m); process.exit(1); };
-const ok = (m) => console.log("✓", m);
+const ok = (m) => console.log("OK:", m);
 
 // 1) index.html present
 if (!fs.existsSync("client/index.html")) fail("client/index.html missing");

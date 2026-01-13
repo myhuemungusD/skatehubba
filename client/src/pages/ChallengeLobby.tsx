@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Circle, Search, User, Zap, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
@@ -15,49 +15,6 @@ interface SkaterProfile {
   winRate: string;
 }
 
-const skaters: SkaterProfile[] = [
-  {
-    id: "skater-1",
-    name: "Rico Blaze",
-    handle: "@ricoblaze",
-    status: "online",
-    style: "Switch flip demon",
-    winRate: "68%",
-  },
-  {
-    id: "skater-2",
-    name: "Maya Torque",
-    handle: "@mayatorque",
-    status: "online",
-    style: "Rail assassin",
-    winRate: "72%",
-  },
-  {
-    id: "skater-3",
-    name: "Jax Orbit",
-    handle: "@jaxorbit",
-    status: "offline",
-    style: "Big spin wizard",
-    winRate: "64%",
-  },
-  {
-    id: "skater-4",
-    name: "Nina Flux",
-    handle: "@ninaflux",
-    status: "online",
-    style: "Tech lines only",
-    winRate: "71%",
-  },
-  {
-    id: "skater-5",
-    name: "Owen Drift",
-    handle: "@owendrift",
-    status: "offline",
-    style: "Street general",
-    winRate: "59%",
-  },
-];
-
 const statusStyles: Record<SkaterStatus, string> = {
   online: "text-emerald-400",
   offline: "text-neutral-500",
@@ -65,23 +22,9 @@ const statusStyles: Record<SkaterStatus, string> = {
 
 export default function ChallengeLobby() {
   const [query, setQuery] = useState("");
-  const [lastMatch, setLastMatch] = useState<SkaterProfile | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [lastMatch, _setLastMatch] = useState<SkaterProfile | null>(null);
   const [, setLocation] = useLocation();
-
-  const filteredSkaters = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    if (!normalizedQuery) {
-      return skaters;
-    }
-
-    return skaters.filter((skater) => {
-      return (
-        skater.name.toLowerCase().includes(normalizedQuery) ||
-        skater.handle.toLowerCase().includes(normalizedQuery) ||
-        skater.style.toLowerCase().includes(normalizedQuery)
-      );
-    });
-  }, [query]);
 
   // Debounce search query
   const [debouncedQuery, setDebouncedQuery] = useState(query);
@@ -114,19 +57,6 @@ export default function ChallengeLobby() {
   });
 
   const handleQuickMatch = () => {
-    const onlineSkaters = skaters.filter((skater) => skater.status === "online");
-    const selectedOpponent =
-      onlineSkaters[Math.floor(Math.random() * Math.max(onlineSkaters.length, 1))] ||
-      skaters[0] ||
-      null;
-
-    if (!selectedOpponent) {
-      setLocation("/game/active?opponent=bot");
-      return;
-    }
-
-    setLastMatch(selectedOpponent);
-    setLocation(`/game/active?opponent=${selectedOpponent.id}`);
     // For now, default to bot since we don't have live presence yet
     setLocation("/game/active?opponent=bot");
   };
@@ -177,7 +107,6 @@ export default function ChallengeLobby() {
         <section className="mt-6 space-y-3">
           <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-neutral-500">
             <span>Online Skaters</span>
-            <span>{filteredSkaters.length} active</span>
             <span>{searchResults?.length || 0} found</span>
           </div>
 
@@ -188,7 +117,7 @@ export default function ChallengeLobby() {
               </div>
             )}
             
-            {filteredSkaters.map((skater) => (
+            {searchResults?.map((skater) => (
               <div
                 key={skater.id}
                 className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur"
