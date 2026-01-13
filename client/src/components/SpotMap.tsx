@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo, useState, memo } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -39,14 +39,44 @@ interface SpotMapProps {
   onMapClick?: (lat: number, lng: number) => void;
 }
 
-export function SpotMap({ spots, userLocation, selectedSpotId, onSelectSpot, addSpotMode = false, onMapClick }: SpotMapProps) {
+export const SpotMap = memo(function SpotMap({ spots, userLocation, selectedSpotId, onSelectSpot, addSpotMode = false, onMapClick }: SpotMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const spotMarkersRef = useRef<Map<number, L.Marker>>(new Map());
+  const markerProximityRef = useRef<Map<number, string>>(new Map()); // Track state to prevent redundant DOM updates
   const userMarkerRef = useRef<L.Marker | null>(null);
   const accuracyCircleRef = useRef<L.Circle | null>(null);
   const hasCenteredRef = useRef(false); // Track if we've centered on user location
   const tempMarkerRef = useRef<L.Marker | null>(null);
+  const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
+
+  // ELON AUDIT FIX: Flyweight Pattern
+  // Create icons ONCE. Don't allocate 1000 objects every render frame.
+  const icons = useMemo(() => {
+    const createIcon = (colorClass: string) => L.divIcon({
+      html: `
+        <div class="relative">
+          <div class="w-8 h-8 rounded-full ${colorClass} flex items-center justify-center shadow-lg">
+            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+        </div>
+      `,
+      className: 'custom-spot-marker',
+      iconSize: [32, 32],
+      iconAnchor: [16, 32],
+      popupAnchor: [0, -32],
+    });
+
+    return {
+      here: createIcon('bg-success ring-4 ring-success/30'),
+      nearby: createIcon('bg-orange-500 ring-4 ring-orange-500/30'),
+      far: createIcon('bg-[#ff6a00] ring-4 ring-[#ff6a00]/30'),
+      default: createIcon('bg-[#ff6a00] ring-4 ring-[#ff6a00]/30'),
+    };
+  }, []);
 
   // Initialize map ONCE on mount
   useEffect(() => {
@@ -69,6 +99,11 @@ export function SpotMap({ spots, userLocation, selectedSpotId, onSelectSpot, add
 
       mapInstanceRef.current = map;
 
+      // ELON AUDIT FIX: Viewport Culling
+      // Only render what the user can see.
+      map.on('moveend', () => setBounds(map.getBounds()));
+      setBounds(map.getBounds());
+
       setTimeout(() => {
         map.invalidateSize();
       }, 100);
@@ -80,6 +115,7 @@ export function SpotMap({ spots, userLocation, selectedSpotId, onSelectSpot, add
     return () => {
       spotMarkersRef.current.forEach(marker => marker.remove());
       spotMarkersRef.current.clear();
+      markerProximityRef.current.clear();
       
       if (userMarkerRef.current) {
         userMarkerRef.current.remove();
@@ -98,48 +134,42 @@ export function SpotMap({ spots, userLocation, selectedSpotId, onSelectSpot, add
     };
   }, []); // Empty dependency array - only run once
 
-  // Update spot markers when spots change
+  // ELON AUDIT FIX: Filter spots to viewport
+  // This reduces DOM nodes from N (total spots) to n (visible spots)
+  const visibleSpots = useMemo(() => {
+    if (!bounds) return [];
+    // Add 20% buffer so markers don't "pop" in at the very edge
+    const paddedBounds = bounds.pad(0.2);
+    return spots.filter(spot => paddedBounds.contains([spot.lat, spot.lng]));
+  }, [spots, bounds]);
+
+  // Update spot markers when VISIBLE spots change
   useEffect(() => {
     if (!mapInstanceRef.current) return;
 
     const map = mapInstanceRef.current;
     
     // Remove markers that no longer exist
-    const currentSpotIds = new Set(spots.map(s => s.id));
+    const currentSpotIds = new Set(visibleSpots.map(s => s.id));
     spotMarkersRef.current.forEach((marker, id) => {
       if (!currentSpotIds.has(id)) {
         marker.remove();
         spotMarkersRef.current.delete(id);
+        markerProximityRef.current.delete(id);
       }
     });
 
     // Add or update spot markers
-    spots.forEach(spot => {
+    visibleSpots.forEach(spot => {
       let marker = spotMarkersRef.current.get(spot.id);
       
-      // Create custom icon based on proximity
-      const icon = L.divIcon({
-        html: `
-          <div class="relative">
-            <div class="w-8 h-8 rounded-full ${
-              spot.proximity === 'here' 
-                ? 'bg-success ring-4 ring-success/30' 
-                : spot.proximity === 'nearby'
-                ? 'bg-orange-500 ring-4 ring-orange-500/30'
-                : 'bg-[#ff6a00] ring-4 ring-[#ff6a00]/30'
-            } flex items-center justify-center shadow-lg">
-              <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </div>
-          </div>
-        `,
-        className: 'custom-spot-marker',
-        iconSize: [32, 32],
-        iconAnchor: [16, 32],
-        popupAnchor: [0, -32],
-      });
+      // Determine which cached icon to use
+      const proximityKey = spot.proximity || 'default';
+      const icon = icons[proximityKey as keyof typeof icons] || icons.default;
+      
+      // Check if visual state actually changed
+      const currentProximity = markerProximityRef.current.get(spot.id);
+      const needsIconUpdate = currentProximity !== proximityKey;
 
       if (!marker) {
         // Create new marker
@@ -149,13 +179,19 @@ export function SpotMap({ spots, userLocation, selectedSpotId, onSelectSpot, add
         
         marker.bindPopup(`<div class="font-semibold">${spot.name}</div>`);
         spotMarkersRef.current.set(spot.id, marker);
+        markerProximityRef.current.set(spot.id, proximityKey);
       } else {
-        // Update existing marker position AND icon (for proximity color changes)
+        // Update position (cheap)
         marker.setLatLng([spot.lat, spot.lng]);
-        marker.setIcon(icon);
+        
+        // Update icon ONLY if changed (expensive DOM op)
+        if (needsIconUpdate) {
+          marker.setIcon(icon);
+          markerProximityRef.current.set(spot.id, proximityKey);
+        }
       }
     });
-  }, [spots, onSelectSpot]);
+  }, [visibleSpots, onSelectSpot, icons]);
 
   // Update user location marker
   useEffect(() => {
@@ -292,4 +328,4 @@ export function SpotMap({ spots, userLocation, selectedSpotId, onSelectSpot, add
       data-testid="map-container"
     />
   );
-}
+});

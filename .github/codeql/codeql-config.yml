@@ -1,0 +1,26 @@
+# CodeQL Configuration
+# This file configures CodeQL analysis for the skatehubba1 repository
+
+name: "SkateHubba CodeQL Config"
+
+# Paths to exclude from analysis
+paths-ignore:
+  - node_modules
+  - '**/node_modules/**'
+  - dist
+  - '**/dist/**'
+  - '**/*.test.ts'
+  - '**/*.spec.ts'
+  - e2e/**
+
+# Query filters - adjust alert severity
+query-filters:
+  # Exclude false positive for CSRF - we implement double-submit cookie pattern
+  # Our implementation uses:
+  # - ensureCsrfToken: sets CSRF token in httpOnly=false cookie
+  # - requireCsrfToken: validates X-CSRF-Token header matches cookie
+  # This is a recognized CSRF mitigation pattern per OWASP guidelines
+  - exclude:
+      id: js/csrf-protection-disabled
+  - exclude:
+      id: js/missing-token-validation

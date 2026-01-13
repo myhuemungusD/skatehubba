@@ -1,60 +1,178 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { MapPin, Navigation as NavigationIcon, X, AlertCircle, Plus, Clock, Eye, Search } from 'lucide-react';
+import { MapPin, Navigation as NavigationIcon, AlertCircle, Plus, Clock, Eye, Search, Loader2 } from 'lucide-react';
 import type { Spot } from '@shared/schema';
-import { ARCheckInButton } from '../components/ARCheckInButton';
-import { ARTrickViewer } from '../components/ARTrickViewer';
 import { AddSpotModal } from '../components/map/AddSpotModal';
+import { SpotDetailModal } from '../components/map/SpotDetailModal';
 import Navigation from '../components/Navigation';
 import { SpotMap } from '../components/SpotMap';
-import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '../components/ui/sheet';
 import { useToast } from '../hooks/use-toast';
 import { useGeolocation } from '../hooks/useGeolocation';
-import { calculateDistance, formatDistance, getProximity } from '../lib/distance';
+import { calculateDistance, getProximity } from '../lib/distance';
 
-type SkateSpot = Spot;
+// ============================================================================
+// TYPES
+// ============================================================================
+
 type SpotWithDistance = Spot & {
-  distance?: number | null;
-  proximity?: 'here' | 'nearby' | 'far' | null;
+  distance: number | null;
+  proximity: 'here' | 'nearby' | 'far' | null;
 };
 
+type UserLocation = {
+  lat: number;
+  lng: number;
+  accuracy: number | null;
+};
+
+type UserLocationSimple = {
+  lat: number;
+  lng: number;
+};
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+/** Debounce time for showing error toasts (prevents spam) */
+const TOAST_DEBOUNCE_MS = 10_000;
+
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
 export default function MapPage() {
+  // ---------------------------------------------------------------------------
+  // State
+  // ---------------------------------------------------------------------------
   const { toast } = useToast();
-  const [selectedSpot, setSelectedSpot] = useState<SkateSpot | null>(null);
+  const [selectedSpotId, setSelectedSpotId] = useState<number | null>(null);
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
+  
+  // Track last toast to prevent duplicate error notifications
+  const lastToastRef = useRef<{ type: string; time: number } | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Geolocation
+  // ---------------------------------------------------------------------------
   const geolocation = useGeolocation(true);
 
-  // Fetch spots from database
-  const { data: spots = [] } = useQuery<SkateSpot[]>({
+  // Memoized user location - prevents creating new object references on every render
+  // This is critical for preventing SpotMap from re-rendering unnecessarily
+  const userLocation = useMemo<UserLocation | null>(() => {
+    if (geolocation.latitude === null || geolocation.longitude === null) {
+      return null;
+    }
+    return {
+      lat: geolocation.latitude,
+      lng: geolocation.longitude,
+      accuracy: geolocation.accuracy,
+    };
+  }, [geolocation.latitude, geolocation.longitude, geolocation.accuracy]);
+
+  // Simplified location for modals (don't need accuracy)
+  const userLocationSimple = useMemo<UserLocationSimple | null>(() => {
+    if (!userLocation) return null;
+    return { lat: userLocation.lat, lng: userLocation.lng };
+  }, [userLocation?.lat, userLocation?.lng]);
+
+  // ---------------------------------------------------------------------------
+  // Data Fetching
+  // ---------------------------------------------------------------------------
+  const { 
+    data: spots = [], 
+    isLoading: isSpotsLoading,
+    isError: isSpotsError,
+    refetch: refetchSpots,
+  } = useQuery<Spot[]>({
     queryKey: ['/api/spots'],
+    staleTime: 30_000,        // Consider fresh for 30 seconds
+    gcTime: 5 * 60_000,       // Keep in garbage collection for 5 minutes
+    refetchOnWindowFocus: false,
+    retry: 2,
   });
 
-  // Calculate distances and add to spots
-  const spotsWithDistance: SpotWithDistance[] = spots.map(spot => {
-    if (geolocation.latitude !== null && geolocation.longitude !== null) {
+  // ---------------------------------------------------------------------------
+  // Memoized Computations
+  // ---------------------------------------------------------------------------
+  
+  // CRITICAL: Distance calculation wrapped in useMemo
+  // Without this, we recalculate distances for ALL spots on EVERY render
+  // With 1000 spots, that's 1000 haversine calculations per frame = battery death
+  const spotsWithDistance = useMemo<SpotWithDistance[]>(() => {
+    if (!userLocation) {
+      // No location available - return spots with null distance
+      return spots.map(spot => ({
+        ...spot,
+        distance: null,
+        proximity: null,
+      }));
+    }
+
+    return spots.map(spot => {
       const distance = calculateDistance(
-        geolocation.latitude,
-        geolocation.longitude,
+        userLocation.lat,
+        userLocation.lng,
         spot.lat,
         spot.lng
       );
-      return { ...spot, distance, proximity: getProximity(distance) };
-    }
-    return { ...spot, distance: null, proximity: null };
-  });
+      return {
+        ...spot,
+        distance,
+        proximity: getProximity(distance),
+      };
+    });
+  }, [spots, userLocation?.lat, userLocation?.lng]);
 
-  // Show toast for geolocation errors with specific messaging
+  // Pre-compute check-in count to avoid .filter() in render
+  const checkInRangeCount = useMemo(() => {
+    return spotsWithDistance.filter(s => s.proximity === 'here').length;
+  }, [spotsWithDistance]);
+
+  // Selected spot from existing data - avoids redundant API fetch in modal
+  const selectedSpot = useMemo<SpotWithDistance | null>(() => {
+    if (selectedSpotId === null) return null;
+    return spotsWithDistance.find(s => s.id === selectedSpotId) ?? null;
+  }, [selectedSpotId, spotsWithDistance]);
+
+  // ---------------------------------------------------------------------------
+  // Stable Callbacks - prevents child component re-renders
+  // ---------------------------------------------------------------------------
+  
+  const handleSelectSpot = useCallback((spotId: number) => {
+    setSelectedSpotId(spotId);
+  }, []);
+
+  const handleCloseSpotDetail = useCallback(() => {
+    setSelectedSpotId(null);
+  }, []);
+
+  const handleOpenAddSpot = useCallback(() => {
+    setIsAddSpotOpen(true);
+  }, []);
+
+  const handleCloseAddSpot = useCallback(() => {
+    setIsAddSpotOpen(false);
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Effects
+  // ---------------------------------------------------------------------------
+  
+  // Debounced toast for geolocation errors - prevents spamming the user
   useEffect(() => {
+    const now = Date.now();
+    const lastToast = lastToastRef.current;
+    
+    // Skip if we recently showed a toast for this status type
+    if (lastToast?.type === geolocation.status && now - lastToast.time < TOAST_DEBOUNCE_MS) {
+      return;
+    }
+
     if (geolocation.status === 'denied') {
+      lastToastRef.current = { type: 'denied', time: now };
       toast({
         title: 'Location Access Denied',
         description: 'You can still browse spots, but check-ins require location access.',
@@ -62,12 +180,14 @@ export default function MapPage() {
         duration: 8000,
       });
     } else if (geolocation.status === 'timeout') {
+      lastToastRef.current = { type: 'timeout', time: now };
       toast({
         title: 'Location Timed Out',
         description: 'Getting your location took too long. Try again or browse without location.',
         duration: 6000,
       });
     } else if (geolocation.status === 'error' && geolocation.error) {
+      lastToastRef.current = { type: 'error', time: now };
       toast({
         title: 'Location Unavailable',
         description: geolocation.error,
@@ -76,46 +196,139 @@ export default function MapPage() {
     }
   }, [geolocation.status, geolocation.error, toast]);
 
-  const getProximityBadge = (proximity: 'here' | 'nearby' | 'far' | null, distance: number | null) => {
-    if (!proximity || distance === null) return null;
-    
-    if (proximity === 'here') {
-      return <Badge className="bg-success/20 text-success border-success/30">✓ Check-in Available</Badge>;
-    } else if (proximity === 'nearby') {
-      return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/30">{formatDistance(distance)} away</Badge>;
-    } else {
-      return <Badge variant="outline" className="text-gray-400">{formatDistance(distance)} away</Badge>;
+  // ---------------------------------------------------------------------------
+  // Render Helpers
+  // ---------------------------------------------------------------------------
+  
+  const renderStatusMessage = useCallback(() => {
+    if (isSpotsLoading) {
+      return (
+        <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Loading spots...
+        </p>
+      );
     }
-  };
 
+    if (isSpotsError) {
+      return (
+        <p className="text-sm text-red-400 flex items-center gap-1 mt-1">
+          <AlertCircle className="w-3 h-3" />
+          Failed to load spots
+          <Button 
+            variant="link" 
+            size="sm" 
+            onClick={() => refetchSpots()}
+            className="text-red-400 underline p-0 h-auto ml-1"
+          >
+            Retry
+          </Button>
+        </p>
+      );
+    }
+
+    switch (geolocation.status) {
+      case 'ready':
+        if (spotsWithDistance.length === 0) {
+          return (
+            <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
+              <Search className="w-3 h-3" />
+              No spots nearby yet. Drop a pin to add one!
+            </p>
+          );
+        }
+        return (
+          <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
+            <NavigationIcon className="w-3 h-3" />
+            {checkInRangeCount} spot{checkInRangeCount !== 1 ? 's' : ''} in check-in range
+          </p>
+        );
+
+      case 'locating':
+        return (
+          <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Finding your location...
+          </p>
+        );
+
+      case 'browse':
+        return (
+          <p className="text-sm text-blue-400 flex items-center gap-1 mt-1">
+            <Eye className="w-3 h-3" />
+            Browse mode - check-ins disabled
+          </p>
+        );
+
+      case 'denied':
+        return (
+          <p className="text-sm text-red-400 flex items-center gap-1 mt-1">
+            <AlertCircle className="w-3 h-3" />
+            Location denied
+          </p>
+        );
+
+      case 'timeout':
+        return (
+          <p className="text-sm text-orange-400 flex items-center gap-1 mt-1">
+            <Clock className="w-3 h-3" />
+            Location timed out
+          </p>
+        );
+
+      case 'error':
+        return (
+          <p className="text-sm text-red-400 flex items-center gap-1 mt-1">
+            <AlertCircle className="w-3 h-3" />
+            Location unavailable
+          </p>
+        );
+
+      default:
+        return null;
+    }
+  }, [isSpotsLoading, isSpotsError, geolocation.status, spotsWithDistance.length, checkInRangeCount, refetchSpots]);
+
+  const showRetryButtons = geolocation.status === 'denied' || 
+                           geolocation.status === 'timeout' || 
+                           geolocation.status === 'error';
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+  
   return (
     <div className="h-dvh flex flex-col bg-[#181818] overflow-hidden">
       <Navigation />
       
       {/* Full-screen map */}
-      <div className="flex-1 relative min-h-0">
-        <SpotMap
-          spots={spotsWithDistance}
-          userLocation={
-            geolocation.latitude !== null && geolocation.longitude !== null
-              ? { lat: geolocation.latitude, lng: geolocation.longitude, accuracy: geolocation.accuracy }
-              : null
-          }
-          selectedSpotId={selectedSpot?.id ?? null}
-          onSelectSpot={(spotId) => {
-            const spot = spots.find(s => s.id === spotId);
-            setSelectedSpot(spot || null);
-          }}
-        />
+      <main className="flex-1 relative min-h-0" role="main" aria-label="Skate spots map">
+        {isSpotsLoading ? (
+          <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 animate-spin text-[#ff6a00] mx-auto mb-4" />
+              <p className="text-gray-400">Loading map...</p>
+            </div>
+          </div>
+        ) : (
+          <SpotMap
+            spots={spotsWithDistance}
+            userLocation={userLocation}
+            selectedSpotId={selectedSpotId}
+            onSelectSpot={handleSelectSpot}
+          />
+        )}
 
-        {/* Add Spot Button */}
+        {/* Add Spot FAB */}
         <div className="absolute bottom-24 right-4 z-[1000] pb-safe">
           <Button
-            onClick={() => setIsAddSpotOpen(true)}
-            className="shadow-lg bg-[#ff6a00] hover:bg-[#ff6a00]/90 text-white font-semibold h-14 px-6"
+            onClick={handleOpenAddSpot}
+            disabled={!userLocation}
+            className="shadow-lg bg-[#ff6a00] hover:bg-[#ff6a00]/90 text-white font-semibold h-14 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
             data-testid="button-add-spot-mode"
+            aria-label="Add a new skate spot at your current location"
           >
-            <Plus className="w-5 h-5 mr-2" />
+            <Plus className="w-5 h-5 mr-2" aria-hidden="true" />
             Add Spot
           </Button>
         </div>
@@ -123,66 +336,30 @@ export default function MapPage() {
         {/* Add Spot Modal */}
         <AddSpotModal
           isOpen={isAddSpotOpen}
-          onClose={() => setIsAddSpotOpen(false)}
-          userLocation={
-            geolocation.latitude !== null && geolocation.longitude !== null
-              ? { lat: geolocation.latitude, lng: geolocation.longitude }
-              : null
-          }
+          onClose={handleCloseAddSpot}
+          userLocation={userLocationSimple}
         />
 
-        {/* Floating header */}
-        <div className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none">
+        {/* Floating Header */}
+        <header className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none">
           <Card className="bg-black/80 border-gray-600 backdrop-blur-md pointer-events-auto">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h1 className="text-2xl font-bold text-[#fafafa] flex items-center gap-2">
-                    <MapPin className="w-6 h-6 text-[#ff6a00]" />
+                    <MapPin className="w-6 h-6 text-[#ff6a00]" aria-hidden="true" />
                     Skate Spots
+                    {!isSpotsLoading && spots.length > 0 && (
+                      <span className="text-sm font-normal text-gray-500">
+                        ({spots.length})
+                      </span>
+                    )}
                   </h1>
-                  {geolocation.status === 'ready' && spotsWithDistance.length === 0 && (
-                    <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-                      <Search className="w-3 h-3" />
-                      No spots nearby yet. Drop a pin to add one!
-                    </p>
-                  )}
-                  {geolocation.status === 'ready' && spotsWithDistance.length > 0 && (
-                    <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-                      <NavigationIcon className="w-3 h-3" />
-                      {spotsWithDistance.filter(s => s.proximity === 'here').length} spots in check-in range
-                    </p>
-                  )}
-                  {geolocation.status === 'locating' && (
-                    <p className="text-sm text-gray-400">Finding your location...</p>
-                  )}
-                  {geolocation.status === 'browse' && (
-                    <p className="text-sm text-blue-400 flex items-center gap-1 mt-1">
-                      <Eye className="w-3 h-3" />
-                      Browse mode - check-ins disabled
-                    </p>
-                  )}
-                  {geolocation.status === 'denied' && (
-                    <p className="text-sm text-red-400 flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      Location denied
-                    </p>
-                  )}
-                  {geolocation.status === 'timeout' && (
-                    <p className="text-sm text-orange-400 flex items-center gap-1 mt-1">
-                      <Clock className="w-3 h-3" />
-                      Location timed out
-                    </p>
-                  )}
-                  {geolocation.status === 'error' && (
-                    <p className="text-sm text-red-400 flex items-center gap-1 mt-1">
-                      <AlertCircle className="w-3 h-3" />
-                      Location unavailable
-                    </p>
-                  )}
+                  {renderStatusMessage()}
                 </div>
-                {(geolocation.status === 'denied' || geolocation.status === 'timeout' || geolocation.status === 'error') && (
-                  <div className="flex gap-2">
+                
+                {showRetryButtons && (
+                  <div className="flex gap-2" role="group" aria-label="Location options">
                     <Button
                       onClick={geolocation.retry}
                       variant="outline"
@@ -206,76 +383,17 @@ export default function MapPage() {
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
+        </header>
+      </main>
 
-      {/* Bottom sheet for spot details */}
-      <Sheet open={selectedSpot !== null} onOpenChange={(open) => !open && setSelectedSpot(null)}>
-        <SheetContent side="bottom" className="bg-black/95 border-gray-600 backdrop-blur-md h-[70vh]">
-          {selectedSpot && (
-            <>
-              <SheetHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <SheetTitle className="text-[#fafafa] text-2xl flex items-center gap-2">
-                      <MapPin className="w-6 h-6 text-[#ff6a00]" />
-                      {selectedSpot.name}
-                    </SheetTitle>
-                    <SheetDescription className="text-gray-300 mt-1">
-                      {selectedSpot.lat.toFixed(5)}, {selectedSpot.lng.toFixed(5)}
-                    </SheetDescription>
-                    <div className="flex gap-2 mt-3">
-                      {(() => {
-                        const spotWithDistance = spotsWithDistance.find(s => s.id === selectedSpot.id);
-                        return getProximityBadge(spotWithDistance?.proximity || null, spotWithDistance?.distance || null);
-                      })()}
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelectedSpot(null)}
-                    className="text-gray-400 hover:text-white"
-                    data-testid="button-close-spot-details"
-                  >
-                    <X className="w-5 h-5" />
-                  </Button>
-                </div>
-              </SheetHeader>
-
-              <div className="mt-6 space-y-6 overflow-y-auto max-h-[calc(70vh-200px)]">
-                <div>
-                  <h3 className="text-[#fafafa] font-semibold mb-2">Location</h3>
-                  <p className="text-gray-300">
-                    {selectedSpot.lat.toFixed(5)}, {selectedSpot.lng.toFixed(5)}
-                  </p>
-                </div>
-
-                <div>
-                  <h3 className="text-[#fafafa] font-semibold mb-2">Added</h3>
-                  <p className="text-gray-300">
-                    {new Date(selectedSpot.createdAt).toLocaleDateString()}
-                  </p>
-                </div>
-
-                <ARCheckInButton
-                  spotId={String(selectedSpot.id)}
-                  spotName={selectedSpot.name}
-                  spotLat={selectedSpot.lat}
-                  spotLng={selectedSpot.lng}
-                  className="w-full"
-                  locationUnavailable={!geolocation.hasLocation}
-                />
-
-                <ARTrickViewer
-                  spotId={String(selectedSpot.id)}
-                  spotName={selectedSpot.name}
-                />
-              </div>
-            </>
-          )}
-        </SheetContent>
-      </Sheet>
+      {/* Spot Detail Modal - passes existing data to eliminate redundant fetch */}
+      <SpotDetailModal
+        spotId={selectedSpotId}
+        initialSpot={selectedSpot}
+        isOpen={selectedSpotId !== null}
+        onClose={handleCloseSpotDetail}
+        userLocation={userLocationSimple}
+      />
     </div>
   );
 }

@@ -189,16 +189,45 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Spot types enum
+export const SPOT_TYPES = [
+  'rail', 'ledge', 'stairs', 'gap', 'bank', 'manual-pad', 
+  'flat', 'bowl', 'mini-ramp', 'vert', 'diy', 'park', 'street', 'other'
+] as const;
+export type SpotType = typeof SPOT_TYPES[number];
+
+// Spot tiers for difficulty/quality
+export const SPOT_TIERS = ['bronze', 'silver', 'gold', 'legendary'] as const;
+export type SpotTier = typeof SPOT_TIERS[number];
+
 // Skate spots table for map
 export const spots = pgTable("spots", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  description: text("description"),
+  spotType: varchar("spot_type", { length: 50 }).default("street"),
+  tier: varchar("tier", { length: 20 }).default("bronze"),
   lat: doublePrecision("lat").notNull(),
   lng: doublePrecision("lng").notNull(),
-  createdBy: integer("created_by"),
+  address: text("address"),
+  city: varchar("city", { length: 100 }),
+  state: varchar("state", { length: 50 }),
+  country: varchar("country", { length: 100 }).default("USA"),
+  photoUrl: text("photo_url"),
+  thumbnailUrl: text("thumbnail_url"),
+  createdBy: varchar("created_by", { length: 255 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
   verified: boolean("verified").default(false).notNull(),
-});
+  isActive: boolean("is_active").default(true).notNull(),
+  checkInCount: integer("check_in_count").default(0).notNull(),
+  rating: doublePrecision("rating").default(0),
+  ratingCount: integer("rating_count").default(0).notNull(),
+}, (table) => ({
+  locationIdx: index("IDX_spot_location").on(table.lat, table.lng),
+  cityIdx: index("IDX_spot_city").on(table.city),
+  createdByIdx: index("IDX_spot_created_by").on(table.createdBy),
+}));
 
 // Trick Mastery table for progression
 export const trickMastery = pgTable("trick_mastery", {
@@ -261,13 +290,28 @@ export const insertOrderSchema = createInsertSchema(orders).omit({
 });
 
 export const insertSpotSchema = createInsertSchema(spots, {
-  name: z.string().trim().min(1, "Spot name is required"),
-  lat: z.number(),
-  lng: z.number(),
+  name: z.string().trim().min(1, "Spot name is required").max(100, "Name too long"),
+  description: z.string().trim().max(1000, "Description too long").optional(),
+  spotType: z.enum(SPOT_TYPES).optional(),
+  tier: z.enum(SPOT_TIERS).optional(),
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+  address: z.string().trim().max(500).optional(),
+  city: z.string().trim().max(100).optional(),
+  state: z.string().trim().max(50).optional(),
+  country: z.string().trim().max(100).optional(),
+  photoUrl: z.string().url("Valid image URL required").optional(),
 }).omit({
   id: true,
   createdAt: true,
+  updatedAt: true,
   verified: true,
+  isActive: true,
+  checkInCount: true,
+  rating: true,
+  ratingCount: true,
+  thumbnailUrl: true,
+  createdBy: true,
 });
 
 // S.K.A.T.E. Games table

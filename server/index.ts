@@ -10,7 +10,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import logger from './logger.ts';
-import { ensureCsrfToken } from './middleware/csrf.ts';
+import { ensureCsrfToken, requireCsrfToken } from './middleware/csrf.ts';
 import { apiLimiter } from './middleware/security.ts';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -64,6 +64,9 @@ app.use(ensureCsrfToken);
 
 // Global rate limiting for all API routes
 app.use('/api', apiLimiter);
+
+// Global CSRF validation for all mutating API requests
+app.use('/api', requireCsrfToken);
 
 // Register all API routes
 await registerRoutes(app);
