@@ -19,6 +19,12 @@ export type SpotWithCreator = Spot & {
   creatorLastName?: string | null;
 };
 
+// Type for joined query results
+type SpotQueryRow = Spot & {
+  creatorFirstName: string | null;
+  creatorLastName: string | null;
+};
+
 export class SpotStorage {
   /**
    * Create a new spot
@@ -94,7 +100,7 @@ export class SpotStorage {
     }
 
     const results = await query;
-    return results.map(row => ({
+    return results.map((row: SpotQueryRow) => ({
       ...row,
       creatorName: row.creatorFirstName ? `${row.creatorFirstName} ${row.creatorLastName || ''}`.trim() : 'Anonymous',
     }));
@@ -154,7 +160,7 @@ export class SpotStorage {
       )
     ).orderBy(desc(spots.createdAt)).limit(limit);
 
-    return results.map(row => ({
+    return results.map((row: SpotQueryRow) => ({
       ...row,
       creatorName: row.creatorFirstName ? `${row.creatorFirstName} ${row.creatorLastName || ''}`.trim() : 'Anonymous',
     }));
@@ -279,7 +285,7 @@ export class SpotStorage {
       and(eq(spots.createdBy, userId), eq(spots.isActive, true))
     ).orderBy(desc(spots.createdAt));
 
-    return results.map(row => ({
+    return results.map((row: SpotQueryRow) => ({
       ...row,
       creatorName: row.creatorFirstName ? `${row.creatorFirstName} ${row.creatorLastName || ''}`.trim() : 'Anonymous',
     }));

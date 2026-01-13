@@ -44,7 +44,7 @@ export class MemStorage implements IStorage {
     return user;
   }
 
-  async createSpot(insertSpot: InsertSpot & { createdBy: number }): Promise<Spot> {
+  async createSpot(insertSpot: InsertSpot & { createdBy: string }): Promise<Spot> {
     const id = this.currentSpotId++;
     const spot: Spot = {
       ...insertSpot,
