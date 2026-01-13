@@ -46,7 +46,7 @@ function shellEscape(arg) {
  */
 function git(command) {
   try {
-    return execSync(`git ${command}`, { encoding: 'utf8' }).trim();
+    return execSync(`git ${shellEscape(command)}`, { encoding: 'utf8' }).trim();
   } catch (error) {
     console.error(`Git command failed: git ${command}`);
     console.error(error.message);
