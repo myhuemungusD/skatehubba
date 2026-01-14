@@ -126,30 +126,33 @@ export default function ClosetPage() {
           </div>
 
           <Tabs defaultValue="gear" className="w-full">
-            <TabsList className="bg-neutral-900 border-neutral-700">
+            <TabsList className="bg-neutral-900 border-neutral-700 flex flex-wrap gap-1 h-auto p-1">
               <TabsTrigger
                 value="gear"
-                className="data-[state=active]:bg-[#ff6a00] data-[state=active]:text-black"
+                className="data-[state=active]:bg-[#ff6a00] data-[state=active]:text-black flex-1 min-w-[100px]"
                 data-testid="tab-gear"
               >
-                <Shirt className="w-4 h-4 mr-2" />
-                Gear Closet
+                <Shirt className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Gear Closet</span>
+                <span className="sm:hidden">Gear</span>
               </TabsTrigger>
               <TabsTrigger
                 value="tricks"
-                className="data-[state=active]:bg-[#ff6a00] data-[state=active]:text-black"
+                className="data-[state=active]:bg-[#ff6a00] data-[state=active]:text-black flex-1 min-w-[100px]"
                 data-testid="tab-tricks"
               >
-                <Package className="w-4 h-4 mr-2" />
-                Trick Collectibles
+                <Package className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Trick Collectibles</span>
+                <span className="sm:hidden">Tricks</span>
               </TabsTrigger>
               <TabsTrigger
                 value="achievements"
-                className="data-[state=active]:bg-[#ff6a00] data-[state=active]:text-black"
+                className="data-[state=active]:bg-[#ff6a00] data-[state=active]:text-black flex-1 min-w-[100px]"
                 data-testid="tab-achievements"
               >
-                <Trophy className="w-4 h-4 mr-2" />
-                Achievements
+                <Trophy className="w-4 h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Achievements</span>
+                <span className="sm:hidden">Awards</span>
               </TabsTrigger>
             </TabsList>
 
