@@ -44,12 +44,9 @@ export function useUserProfile() {
 
     try {
       setLoading(true);
-      const { app } = await import("../firebase");
-      const { getAuth, onAuthStateChanged } = await import("firebase/auth");
-      const { getFirestore, doc, getDoc } = await import("firebase/firestore");
-
-      const auth = getAuth(app);
-      const db = getFirestore(app);
+      const { auth, db } = await import("../firebase");
+      const { onAuthStateChanged } = await import("firebase/auth");
+      const { doc, getDoc } = await import("firebase/firestore");
 
       if (unsubscribeAuth) {
         unsubscribeAuth();
