@@ -8,7 +8,7 @@ import { Textarea } from "../ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../ui/card";
 import { useToast } from "../../hooks/use-toast";
 import LocationPicker, { type Location } from "./LocationPicker";
-import { useAuth } from "../../hooks/useAuth";
+import { useAuth } from "../../context/AuthProvider";
 import { db } from "../../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 

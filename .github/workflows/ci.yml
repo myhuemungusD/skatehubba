@@ -21,13 +21,14 @@ jobs:
       - name: Typecheck
         run: pnpm run typecheck
 
-      # Lint temporarily disabled to unblock CI
-      # ESLint is misconfigured for TS/TSX and is non-blocking for runtime
-      # - name: Lint
-      #   run: pnpm run lint
+      - name: Lint
+        run: pnpm run lint
 
       - name: Build
         run: pnpm run build
+
+      - name: Test
+        run: pnpm run test
 
       # ARTIFACT MANAGEMENT
       - name: Upload build artifact

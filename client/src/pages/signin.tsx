@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useAuthContext } from "../context/AuthContext";
+import { useState, useEffect } from "react";
+import { useAuth } from "../context/AuthProvider";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { useToast } from "../hooks/use-toast";
@@ -13,20 +13,27 @@ export default function SigninPage() {
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
-  const { signIn, signInWithGoogle } = useAuthContext();
+  const auth = useAuth();
   const [, setLocation] = useLocation();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (auth?.isAuthenticated) {
+      setLocation("/home");
+    }
+  }, [auth?.isAuthenticated, setLocation]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
     
     try {
-      await signIn(email, password);
+      await auth?.signInWithEmail(email, password);
       toast({ 
         title: "Welcome back! 🛹",
         description: "You've successfully signed in."
       });
-      setLocation("/map");
+      setLocation("/home");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Login failed";
       toast({ 
@@ -43,12 +50,12 @@ export default function SigninPage() {
     setIsLoading(true);
     
     try {
-      await signInWithGoogle();
+      await auth?.signInWithGoogle();
       toast({ 
         title: "Welcome! 🛹",
         description: "You've successfully signed in with Google."
       });
-      setLocation("/map");
+      setLocation("/home");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-in failed";
       toast({ 

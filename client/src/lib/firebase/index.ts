@@ -15,6 +15,7 @@ export {
   signUpWithEmail,
   signInWithEmail,
   signInWithGoogle,
+  signInAnonymously,
   getGoogleRedirectResult,
   signOutUser,
   onAuthStateChange,

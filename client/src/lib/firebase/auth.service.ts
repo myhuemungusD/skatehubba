@@ -16,6 +16,7 @@
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInAnonymously as firebaseSignInAnonymously,
   signOut as firebaseSignOut,
   sendEmailVerification,
   sendPasswordResetEmail,
@@ -163,22 +164,33 @@ function isMobileDevice(): boolean {
  */
 export async function signInWithGoogle(): Promise<AuthUser | null> {
   const auth = getAuth();
+  console.log('[AuthService] signInWithGoogle called');
+  console.log('[AuthService] Auth instance:', auth);
+  console.log('[AuthService] Is mobile:', isMobileDevice());
+  
   try {
     if (isMobileDevice()) {
       // Mobile: Use redirect flow
+      console.log('[AuthService] Using redirect flow for mobile');
       await signInWithRedirect(auth, googleProvider);
       return null; // Will be handled by getGoogleRedirectResult
     }
     
     // Desktop: Try popup first
     try {
+      console.log('[AuthService] Attempting popup sign-in');
       const result = await signInWithPopup(auth, googleProvider);
+      console.log('[AuthService] Popup sign-in successful:', result.user.uid);
       return toAuthUser(result.user);
     } catch (popupError) {
-      const error = popupError as { code?: string };
+      console.error('[AuthService] Popup error:', popupError);
+      const error = popupError as { code?: string; message?: string };
+      console.error('[AuthService] Error code:', error.code);
+      console.error('[AuthService] Error message:', error.message);
       
       // Fall back to redirect if popup is blocked
       if (error.code === 'auth/popup-blocked') {
+        console.log('[AuthService] Popup blocked, falling back to redirect');
         await signInWithRedirect(auth, googleProvider);
         return null;
       }
@@ -186,6 +198,7 @@ export async function signInWithGoogle(): Promise<AuthUser | null> {
       throw popupError;
     }
   } catch (error) {
+    console.error('[AuthService] signInWithGoogle final error:', error);
     throw createAuthError(error);
   }
 }
@@ -201,6 +214,22 @@ export async function getGoogleRedirectResult(): Promise<AuthUser | null> {
   try {
     const result = await getRedirectResult(auth);
     return result ? toAuthUser(result.user) : null;
+  } catch (error) {
+    throw createAuthError(error);
+  }
+}
+
+/**
+ * Sign in anonymously as a guest user
+ * 
+ * @returns The authenticated anonymous user
+ * @throws AuthError if sign-in fails
+ */
+export async function signInAnonymously(): Promise<AuthUser> {
+  const auth = getAuth();
+  try {
+    const result = await firebaseSignInAnonymously(auth);
+    return toAuthUser(result.user);
   } catch (error) {
     throw createAuthError(error);
   }

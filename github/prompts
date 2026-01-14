@@ -1,0 +1,251 @@
+Task 1 — Vercel output mismatch (public vs dist)
+Prompt 1 (Release Engineer: root cause + minimal fix + prevention)
+
+You are the Release Engineer for a pnpm monorepo deployed to Vercel.
+Symptom: Vercel fails after a successful Vite build with:
+Error: No Output Directory named "public" found after the Build completed.
+Evidence: Build log shows Vite outputs dist/index.html and dist/assets/* inside /vercel/path0/client.
+Repo shape: frontend lives in /client. Build command in Vercel runs pnpm run build inside /client.
+
+Deliverables:
+
+Identify the exact root cause among:
+
+Vercel dashboard output directory drift (still public)
+
+vercel.json overriding dashboard
+
+framework preset defaults / wrong preset
+
+multiple projects/domains pointing to different settings
+
+Provide the minimal deterministic fix, including the exact values for:
+
+Root Directory
+
+Build Command
+
+Output Directory
+
+Framework preset
+
+whether to delete or keep vercel.json
+
+Provide a prevention plan: “single source of truth” strategy + CI guard to ensure output folder exists.
+
+Constraints:
+
+Must support pnpm workspaces
+
+Must not rely on tribal knowledge; must be reproducible by any teammate
+
+Inputs:
+
+Paste here the relevant section of my build log (already shows dist/…)
+
+Paste my current vercel.json (if present)
+
+Output: give the exact steps + exact config snippets, no hand-waving.
+
+Prompt 2 (Incident Mode: deterministic deploy contract + rollback)
+
+Treat this as a production incident.
+Incident: Deploy fails post-build because Vercel can’t find output dir public even though build produced dist/.
+System: pnpm monorepo; Vite app in /client. Vercel build path: /vercel/path0/client.
+
+Task: Use the log evidence to infer the artifact location and propose a deploy contract:
+
+Repo assumptions (where the app is, what scripts run)
+
+Vercel settings required (root/build/output/preset)
+
+Whether vercel.json should exist (and what it should contain)
+
+A CI step that fails if output dir is missing
+
+Rollback steps on Vercel (promote previous deployment)
+
+How to confirm deployed artifact matches commit SHA (build output fingerprinting / deployment metadata)
+
+Output format:
+
+Root Cause
+
+Immediate Mitigation (stop the bleeding)
+
+Corrective Action (fix)
+
+Preventative Action (guardrails)
+
+Include ready-to-copy YAML for GitHub Actions and any repo docs needed.
+
+Prompt 3 (Two configs: dashboard-only vs repo-enforced, with pnpm workspace support)
+
+I need a robust Vercel deployment configuration for a pnpm monorepo with a Vite app in /client that cannot regress to expecting public.
+Provide two options:
+
+A) Dashboard-only config (preferred if safe): no vercel.json controlling build/output.
+B) Repo-enforced config: keep a vercel.json that pins build/output so UI cannot drift.
+
+For each option provide:
+
+exact Vercel settings (Root, Build Command, Output Directory, Install Command if needed)
+
+exact repo files (if any) and their content
+
+pros/cons (drift risk, team ergonomics, multi-env consistency)
+
+recommendation and rationale
+
+Must support: pnpm -C client run build and pnpm workspaces.
+
+Task 2 — Vite/Rollup alias mismatch (@/… works in TS, fails in Vite)
+Prompt 4 (Resolve @/* robustly + CI that proves Vite resolution)
+
+Debug a Vite/Rollup build failure on Vercel:
+Rollup failed to resolve import "@/components/ui/card" from client/src/pages/skater/profile.tsx
+Typecheck passes (tsc --noEmit).
+
+Repo: pnpm monorepo; app in /client. Vercel build runs inside /client.
+
+Analyze likely causes: alias drift, baseUrl mismatch, tsconfig selection, monorepo root confusion, Linux case-sensitivity, duplicate configs, moduleResolution differences.
+
+Provide the most robust solution using vite-tsconfig-paths with explicit project selection.
+Include exact final versions of:
+
+client/vite.config.ts
+
+client/tsconfig.json (or tsconfig.app.json)
+
+Any required workspace dependency installs
+
+Add a CI check that fails if Vite cannot resolve @/* imports (not only TS). Provide GitHub Actions YAML.
+
+Prompt 5 (Monorepo-safe alias strategy: @ and @shared with strict ownership)
+
+Produce a monorepo-safe alias strategy for Vite + TypeScript that works on Linux CI and Vercel.
+Requirements:
+
+@/* maps to /client/src/*
+
+@shared/* maps to /shared/* (monorepo sibling)
+
+Vite and TS must resolve identically
+
+Explicit tsconfig selection (avoid “nearest tsconfig” surprises)
+
+No duplicate alias sources of truth (avoid hardcoded alias + TS paths mismatch)
+
+Explain the chosen moduleResolution strategy (Bundler vs NodeNext) and why
+
+Provide final code for configs and a brief “gotchas” checklist (case sensitivity, index.ts resolution, build root vs repo root).
+
+Task 3 — Runtime crash showing error boundary (“Oops! Something went wrong”)
+Prompt 6 (On-call triage: get first error, isolate category, fix fast)
+
+You are the on-call frontend engineer. Production shows a global error boundary: “Oops! Something went wrong”.
+This confirms JS executed then crashed.
+
+Provide a prioritized triage plan with exact steps for:
+
+capture the first console error + stack (not downstream noise)
+
+detect network failures: chunk load errors, 404 assets, API 401/500, CORS
+
+identify service worker cache poisoning / stale chunk issues and how to fully clear it
+
+confirm Vercel env vars: missing VITE_* baked at build time, prod vs preview env mismatch
+
+confirm domain routing: custom domain pointed to wrong project/deployment/branch
+
+Output: a top-5 root cause list with “how to confirm” and “how to fix” for each.
+Include emergency mitigation (rollback on Vercel) and a safe redeploy procedure.
+
+Prompt 7 (Crash-proof boot sequence: validate env, Sentry, SW-safe, Playwright smoke)
+
+Design an enterprise-grade crash-proof boot sequence for a Vite/React app on Vercel.
+Requirements:
+
+Validate required env vars at startup (import.meta.env.VITE_*)
+
+If invalid, show a clear failure screen with correlation ID (not a blank app)
+
+ErrorBoundary logs to console + Sentry (include error + component stack + release/version)
+
+Defend against stale chunk/service worker issues (detect chunk load failure and force refresh strategy)
+
+Provide a Playwright smoke test that builds client/dist, serves it, loads /, and fails if the error boundary UI appears
+
+Deliver code for:
+
+env.ts validation module
+
+enhanced ErrorBoundary
+
+optional chunk-load recovery handler
+
+Playwright test + GitHub Actions job
+Keep code production-ready.
+
+Task 4 — CodeQL high severity alert
+Prompt 8 (Security lead: vulnerability class, reachability, patch, tests, suppress rules)
+
+You are the security lead. I have a high severity CodeQL alert in this repo.
+Provide:
+
+exact vulnerability class (e.g., command injection, SSRF, path traversal, deserialization, etc.)
+
+exploitability: is the sink reachable from untrusted input? show the precise dataflow reasoning
+
+minimal patch with exact file/line changes
+
+regression tests (unit/integration) proving the exploit is closed
+
+if false positive: justify suppression with tight scope and documentation
+
+Inputs I will paste:
+
+CodeQL alert title + rule ID
+
+flagged code snippet + file path
+
+CodeQL dataflow path summary (source → sink)
+
+Output must include a PR-ready diff and tests.
+
+Prompt 9 (Secure SDLC plan + branch protection enforcement)
+
+Build a remediation plan for CodeQL high severity findings aligned to secure SDLC.
+Deliver:
+
+threat model for the affected surface
+
+safe coding patterns to adopt (sanitization, allowlists, validation boundaries)
+
+CI guardrails (CodeQL gates) and how to enforce “no new high severity alerts”
+
+PR checklist: required approvals, security review triggers, required test coverage
+
+Branch protection policy recommendations for GitHub
+
+Provide exact GitHub settings/steps and a minimal workflow snippet to enforce gates.
+
+Task 5 — Merge decisions when CI/security is failing
+Prompt 10 (Release manager decision framework + merge-anyway containment)
+
+You are the release manager. Decide whether to merge feature branch → main if CI is failing or CodeQL has high severity alerts.
+Provide:
+
+decision thresholds (what severity blocks merge, what can be deferred)
+
+required approvals (security/release)
+
+rollback strategy (Vercel promote previous deploy, revert commit)
+
+feature flag strategy (ship dark, enable gradually)
+
+“merge anyway” playbook: canary deploy, monitoring, SLO-based rollback triggers, post-merge hotfix PR plan
+
+“do not merge” playbook: fastest path to green with owners and checklists
+
+Output: a one-page operational policy we can adopt as a team.

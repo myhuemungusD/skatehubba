@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { SiGoogle } from "react-icons/si";
 import { UserCircle } from "lucide-react";
-import { loginWithGoogle, loginAnonymously, listenToAuth } from "../lib/auth";
+import { useAuth } from "../context/AuthProvider";
 import { trackEvent } from "../lib/analytics";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
@@ -11,43 +11,30 @@ import { useToast } from "../hooks/use-toast";
 export default function LoginPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const auth = useAuth();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAnonymousLoading, setIsAnonymousLoading] = useState(false);
 
-  // Listen for authentication state changes and redirect when authenticated
+  // Redirect when authenticated
   useEffect(() => {
-    const unsubscribe = listenToAuth((user) => {
-      if (user) {
-        // User is authenticated, redirect to map
-        setLocation("/map");
-      }
-    });
-
-    return () => unsubscribe();
-  }, [setLocation]);
+    if (auth?.user) {
+      setLocation("/home");
+    }
+  }, [auth?.user, setLocation]);
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      const result = await loginWithGoogle();
-      
-      // If result is null, user was redirected to Google
-      // They'll return to the app and be authenticated via GoogleRedirectHandler in App.tsx
-      if (result) {
-        // Popup flow succeeded - auth listener above will handle navigation
-        toast({
-          title: "Welcome! 🛹",
-          description: "You've successfully signed in with Google."
-        });
-        trackEvent('login', { method: 'google' });
-        // Note: Don't reset isGoogleLoading - component will unmount on navigation
-      }
-      // Redirect flow - page will unload (user redirected to Google)
+      await auth?.signInWithGoogle();
+      toast({
+        title: "Welcome! 🛹",
+        description: "You've successfully signed in with Google."
+      });
+      trackEvent('login', { method: 'google' });
     } catch (err: any) {
-      // Error occurred - reset loading state so user can retry
       toast({ 
         title: "Google sign-in failed", 
-        description: err.message,
+        description: err.message || "Login failed",
         variant: "destructive"
       });
       setIsGoogleLoading(false);
@@ -57,17 +44,16 @@ export default function LoginPage() {
   const handleAnonymousSignIn = async () => {
     setIsAnonymousLoading(true);
     try {
-      await loginAnonymously();
+      await auth?.signInAnonymously();
       toast({
         title: "Welcome! 🛹",
         description: "You've signed in as a guest."
       });
       trackEvent('login', { method: 'anonymous' });
-      // Note: Don't reset isAnonymousLoading - component will unmount on navigation
     } catch (err: any) {
       toast({ 
         title: "Guest sign-in failed", 
-        description: err.message,
+        description: err.message || "Login failed",
         variant: "destructive"
       });
       setIsAnonymousLoading(false);

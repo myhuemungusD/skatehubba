@@ -32,12 +32,16 @@ attached_assets/
 .env
 .env.local
 *.key
+serviceAccountKey.json
+*-service-account*.json
 *.json
 !package.json
 !tsconfig.json
 !client/package.json
 !server/package.json
 !vercel.json
+!functions/package.json
+!functions/tsconfig.json
 
 # npm lock file (project uses pnpm)
 package-lock.json

@@ -1,4 +1,28 @@
-# ✅ SkateHubba Mobile - PRODUCTION READY
+# ✅ SkateHubba - PRODUCTION READY
+
+**Last Updated:** January 14, 2026
+
+## Recent Updates (feature/auth-rbac-security)
+
+### Authentication & Security ✅
+- **Unified Auth System** - Single `AuthProvider` as source of truth
+- **Role-Based Access Control (RBAC)** - admin, moderator, verified_pro roles
+- **Cloud Functions Security**:
+  - Rate limiting (10 requests/min per user)
+  - App Check verification (soft enforcement)
+  - Email masking for privacy
+  - Comprehensive audit logging
+- **Post-login redirects** - Now redirect to `/home` (main experience)
+
+### Files Modified
+```
+client/src/context/AuthProvider.tsx    - Clean RBAC implementation
+client/src/hooks/useUserRoles.ts       - Uses AuthProvider state
+functions/src/index.ts                 - Rate limiting + App Check
+scripts/set-admin.ts                   - Improved validation + Firestore sync
+```
+
+---
 
 ## All Firebase Configuration Files in Place
 
@@ -260,5 +284,37 @@ eas submit --platform ios      # App Store
 - ✅ Build configuration complete
 - ✅ Privacy descriptions added
 - ✅ WCAG AA accessibility standards met
+- ✅ **RBAC with Cloud Functions** (NEW)
+- ✅ **Rate limiting & App Check** (NEW)
+- ✅ **Unified AuthProvider** (NEW)
+
+---
+
+## Deployment Commands
+
+### Deploy Cloud Functions
+```bash
+cd functions
+pnpm install
+firebase deploy --only functions
+```
+
+### Deploy Firestore Rules
+```bash
+firebase deploy --only firestore:rules
+```
+
+### Bootstrap Admin Access
+```bash
+# Place serviceAccountKey.json in project root first
+ADMIN_EMAIL=your@email.com npx tsx scripts/set-admin.ts
+```
+
+### Build Mobile Apps
+```bash
+cd mobile
+pnpm install
+eas build --platform all --profile production
+```
 
 **Next**: Run `eas build` and submit to stores! 🛹🔥

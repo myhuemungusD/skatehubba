@@ -1,13 +1,14 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, Navigation as NavigationIcon, AlertCircle, Plus, Clock, Eye, Search, Loader2 } from 'lucide-react';
-import type { Spot } from '@shared/schema';
+import { type Spot, SPOT_TYPES } from '@shared/schema';
 import { AddSpotModal } from '../components/map/AddSpotModal';
 import { SpotDetailModal } from '../components/map/SpotDetailModal';
 import Navigation from '../components/Navigation';
 import { SpotMap } from '../components/SpotMap';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
 import { useToast } from '../hooks/use-toast';
 import { useGeolocation } from '../hooks/useGeolocation';
 import { calculateDistance, getProximity } from '../lib/distance';
@@ -50,6 +51,8 @@ export default function MapPage() {
   const { toast } = useToast();
   const [selectedSpotId, setSelectedSpotId] = useState<number | null>(null);
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
   
   // Track last toast to prevent duplicate error notifications
   const lastToastRef = useRef<{ type: string; time: number } | null>(null);
@@ -126,10 +129,29 @@ export default function MapPage() {
     });
   }, [spots, userLocation?.lat, userLocation?.lng]);
 
+  // Filter spots based on search and type
+  const filteredSpots = useMemo(() => {
+    let result = spotsWithDistance;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(s => 
+        s.name.toLowerCase().includes(q) || 
+        s.description?.toLowerCase().includes(q)
+      );
+    }
+
+    if (activeTypeFilter) {
+      result = result.filter(s => s.spotType === activeTypeFilter);
+    }
+
+    return result;
+  }, [spotsWithDistance, searchQuery, activeTypeFilter]);
+
   // Pre-compute check-in count to avoid .filter() in render
   const checkInRangeCount = useMemo(() => {
-    return spotsWithDistance.filter(s => s.proximity === 'here').length;
-  }, [spotsWithDistance]);
+    return filteredSpots.filter(s => s.proximity === 'here').length;
+  }, [filteredSpots]);
 
   // Selected spot from existing data - avoids redundant API fetch in modal
   const selectedSpot = useMemo<SpotWithDistance | null>(() => {
@@ -229,7 +251,7 @@ export default function MapPage() {
 
     switch (geolocation.status) {
       case 'ready':
-        if (spotsWithDistance.length === 0) {
+        if (filteredSpots.length === 0 && !searchQuery && !activeTypeFilter) {
           return (
             <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
               <Search className="w-3 h-3" />
@@ -287,7 +309,7 @@ export default function MapPage() {
       default:
         return null;
     }
-  }, [isSpotsLoading, isSpotsError, geolocation.status, spotsWithDistance.length, checkInRangeCount, refetchSpots]);
+  }, [isSpotsLoading, isSpotsError, geolocation.status, filteredSpots.length, checkInRangeCount, refetchSpots, searchQuery, activeTypeFilter]);
 
   const showRetryButtons = geolocation.status === 'denied' || 
                            geolocation.status === 'timeout' || 
@@ -312,7 +334,7 @@ export default function MapPage() {
           </div>
         ) : (
           <SpotMap
-            spots={spotsWithDistance}
+            spots={filteredSpots}
             userLocation={userLocation}
             selectedSpotId={selectedSpotId}
             onSelectSpot={handleSelectSpot}
@@ -344,7 +366,7 @@ export default function MapPage() {
         <header className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none">
           <Card className="bg-black/80 border-gray-600 backdrop-blur-md pointer-events-auto">
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-3">
                 <div>
                   <h1 className="text-2xl font-bold text-[#fafafa] flex items-center gap-2">
                     <MapPin className="w-6 h-6 text-[#ff6a00]" aria-hidden="true" />
@@ -380,6 +402,42 @@ export default function MapPage() {
                     </Button>
                   </div>
                 )}
+              </div>
+
+              {/* Search and Filters */}
+              <div className="space-y-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search spots..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-10 pl-9 pr-4 rounded-lg bg-neutral-900/50 border border-gray-700 text-white placeholder:text-gray-500 focus:outline-none focus:border-[#ff6a00] focus:ring-1 focus:ring-[#ff6a00] transition-all text-sm"
+                    data-testid="input-spot-search"
+                  />
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
+                  <Badge
+                    variant={activeTypeFilter === null ? "default" : "outline"}
+                    className={`cursor-pointer whitespace-nowrap ${activeTypeFilter === null ? 'bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90' : 'text-gray-400 border-gray-700 hover:text-white hover:border-gray-500'}`}
+                    onClick={() => setActiveTypeFilter(null)}
+                  >
+                    All
+                  </Badge>
+                  {SPOT_TYPES.map((type) => (
+                    <Badge
+                      key={type}
+                      variant={activeTypeFilter === type ? "default" : "outline"}
+                      className={`cursor-pointer whitespace-nowrap capitalize ${activeTypeFilter === type ? 'bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90' : 'text-gray-400 border-gray-700 hover:text-white hover:border-gray-500'}`}
+                      onClick={() => setActiveTypeFilter(type === activeTypeFilter ? null : type)}
+                      data-testid={`filter-${type}`}
+                    >
+                      {type.replace('-', ' ')}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
