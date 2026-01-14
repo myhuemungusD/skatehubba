@@ -60,7 +60,7 @@ const BoltsShowcase = lazy(() => import("./features/social/bolts-showcase/BoltsS
 function AppRoutes() {
   const auth = useAuth();
   const isAuthenticated = auth?.isAuthenticated || false;
-  const isLoading = auth?.isLoading || false;
+  const isLoading = auth?.loading || false;
   const user = auth?.user || null;
 
   return (

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../context/AuthProvider";
 import { getUserCheckins } from "../lib/api-sdk/checkins";
 import { type CheckInResult } from "../../../shared/checkin-types";
 import { Button } from "../components/ui/button";

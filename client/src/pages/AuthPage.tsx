@@ -64,11 +64,11 @@ export default function AuthPage() {
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   
   // Handle case where auth context is not available yet
-  const signIn = auth?.signIn;
-  const signUp = auth?.signUp;
+  const signIn = auth?.signInWithEmail;
+  const signUp = auth?.signUpWithEmail;
   const signInWithGoogle = auth?.signInWithGoogle;
   const resetPassword = auth?.resetPassword;
-  const isLoading = auth?.isLoading ?? false;
+  const isLoading = auth?.loading ?? false;
 
   // Sign In Form
   const signInForm = useForm<SignInForm>({
@@ -96,7 +96,7 @@ export default function AuthPage() {
         title: 'Welcome back! 🛹',
         description: 'You have successfully signed in.',
       });
-      setLocation('/map');
+      setLocation('/home');
     } catch (error) {
       console.error('[AuthPage] Sign in error:', error);
       // Get the actual error message from AuthError
@@ -116,12 +116,10 @@ export default function AuthPage() {
       toast({ title: 'Error', description: 'Authentication not ready. Please refresh.', variant: 'destructive' });
       return;
     }
-    console.log('[AuthPage] handleSignUp called:', { email: data.email, firstName: data.firstName, lastName: data.lastName });
+    const displayName = [data.firstName, data.lastName].filter(Boolean).join(' ') || undefined;
+    console.log('[AuthPage] handleSignUp called:', { email: data.email, displayName });
     try {
-      await signUp(data.email, data.password, {
-        firstName: data.firstName,
-        lastName: data.lastName,
-      });
+      await signUp(data.email, data.password, displayName);
       console.log('[AuthPage] Sign up successful!');
       toast({
         title: 'Account Created! 📧',
@@ -154,7 +152,7 @@ export default function AuthPage() {
         title: 'Welcome! 🛹',
         description: 'You have successfully signed in with Google.',
       });
-      setLocation('/map');
+      setLocation('/home');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Google sign in failed';
       toast({

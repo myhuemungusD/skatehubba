@@ -94,8 +94,8 @@ export default function AuthPage() {
         description: "You've successfully signed in.",
         variant: "default",
       });
-      // Force reload to refresh auth state and redirect to map
-      window.location.href = '/map';
+      // Force reload to refresh auth state and redirect to home
+      window.location.href = '/home';
     },
     onError: (error: any) => {
       toast({
@@ -124,7 +124,7 @@ export default function AuthPage() {
         description: "You've successfully signed in with Google."
       });
       trackEvent('login', { method: 'google' });
-      window.location.href = "/map";
+      window.location.href = "/home";
     } catch (err: any) {
       toast({ 
         title: "Google sign-in failed", 
@@ -171,7 +171,7 @@ export default function AuthPage() {
         description: "You've successfully signed in."
       });
       trackEvent('login', { method: 'phone' });
-      window.location.href = "/map";
+      window.location.href = "/home";
     } catch (err: any) {
       toast({
         title: "Verification failed",

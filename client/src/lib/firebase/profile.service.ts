@@ -36,20 +36,39 @@ const USERS_COLLECTION = 'users';
  */
 export async function getProfile(uid: string): Promise<UserProfile | null> {
   const db = getDb();
-  try {
-    const docRef = doc(db, USERS_COLLECTION, uid);
-    const snapshot = await getDoc(docRef);
-    
-    if (!snapshot.exists()) {
-      return null;
+  
+  // Retry logic for Firestore permission issues (auth token may not be ready)
+  const maxRetries = 3;
+  let lastError: unknown;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const docRef = doc(db, USERS_COLLECTION, uid);
+      const snapshot = await getDoc(docRef);
+      
+      if (!snapshot.exists()) {
+        return null;
+      }
+      
+      const data = snapshot.data();
+      return transformProfile(uid, data);
+    } catch (error: any) {
+      lastError = error;
+      console.error(`[ProfileService] Attempt ${attempt}/${maxRetries} failed:`, error?.code || error);
+      
+      // If it's a permission error and we have retries left, wait and retry
+      if (error?.code === 'permission-denied' && attempt < maxRetries) {
+        console.log(`[ProfileService] Waiting for auth token to propagate...`);
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+        continue;
+      }
+      
+      throw error;
     }
-    
-    const data = snapshot.data();
-    return transformProfile(uid, data);
-  } catch (error) {
-    console.error('[ProfileService] Failed to get profile:', error);
-    throw new Error('Failed to load user profile.');
   }
+  
+  console.error('[ProfileService] All retries failed:', lastError);
+  throw new Error('Failed to load user profile.');
 }
 
 /**
@@ -64,34 +83,50 @@ export async function createProfile(
   input: CreateProfileInput
 ): Promise<UserProfile> {
   const db = getDb();
-  try {
-    const displayName = input.displayName || 
-      [input.firstName, input.lastName].filter(Boolean).join(' ').trim() ||
-      input.email.split('@')[0];
-    
-    const profileData = {
-      uid,
-      email: input.email,
-      displayName,
-      firstName: input.firstName || null,
-      lastName: input.lastName || null,
-      photoURL: input.photoURL || null,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-    
-    const docRef = doc(db, USERS_COLLECTION, uid);
-    await setDoc(docRef, profileData);
-    
-    return {
-      ...profileData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-  } catch (error) {
-    console.error('[ProfileService] Failed to create profile:', error);
-    throw new Error('Failed to create user profile.');
+  
+  const displayName = input.displayName || 
+    [input.firstName, input.lastName].filter(Boolean).join(' ').trim() ||
+    input.email.split('@')[0];
+  
+  const profileData = {
+    uid,
+    email: input.email,
+    displayName,
+    firstName: input.firstName || null,
+    lastName: input.lastName || null,
+    photoURL: input.photoURL || null,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  
+  // Retry logic for Firestore permission issues (auth token may not be ready)
+  const maxRetries = 3;
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const docRef = doc(db, USERS_COLLECTION, uid);
+      await setDoc(docRef, profileData);
+      
+      return {
+        ...profileData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+    } catch (error: any) {
+      console.error(`[ProfileService] Create attempt ${attempt}/${maxRetries} failed:`, error?.code || error);
+      
+      // If it's a permission error and we have retries left, wait and retry
+      if (error?.code === 'permission-denied' && attempt < maxRetries) {
+        console.log(`[ProfileService] Waiting for auth token to propagate...`);
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+        continue;
+      }
+      
+      throw new Error('Failed to create user profile.');
+    }
   }
+  
+  throw new Error('Failed to create user profile.');
 }
 
 /**

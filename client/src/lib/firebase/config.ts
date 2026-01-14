@@ -18,6 +18,11 @@ import {
   connectFirestoreEmulator,
   Firestore,
 } from 'firebase/firestore';
+import {
+  getFunctions,
+  connectFunctionsEmulator,
+  Functions,
+} from 'firebase/functions';
 
 // ============================================================================
 // Configuration
@@ -59,6 +64,7 @@ function getFirebaseConfig(): FirebaseConfig | null {
 let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
+let functions: Functions | null = null;
 let initialized = false;
 let initError: Error | null = null;
 
@@ -77,11 +83,13 @@ function initializeFirebase(): boolean {
     app = initializeApp(config);
     auth = getAuth(app);
     db = getFirestore(app);
+    functions = getFunctions(app);
     
     // Connect to emulators in development if configured
     if (import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true') {
       connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
       connectFirestoreEmulator(db, 'localhost', 8080);
+      connectFunctionsEmulator(functions, 'localhost', 5001);
     }
     
     initialized = true;
@@ -126,11 +134,24 @@ function getDbInstance(): Firestore {
 }
 
 /**
+ * Get Functions instance (throws if not initialized)
+ */
+function getFunctionsInstance(): Functions {
+  if (!functions) {
+    initializeFirebase();
+    if (!functions) {
+      throw new Error('Firebase Functions not initialized. Check your environment variables.');
+    }
+  }
+  return functions;
+}
+
+/**
  * Check if Firebase is properly initialized
  */
 export function isFirebaseInitialized(): boolean {
-  return initialized && auth !== null && db !== null;
+  return initialized && auth !== null && db !== null && functions !== null;
 }
 
-export { app, getAuthInstance as auth, getDbInstance as db };
-export type { FirebaseApp, Auth, Firestore };
+export { app, getAuthInstance as auth, getDbInstance as db, getFunctionsInstance as functions };
+export type { FirebaseApp, Auth, Firestore, Functions };

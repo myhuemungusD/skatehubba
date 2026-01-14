@@ -3,7 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import { MapPin, Loader2, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { useToast } from '../hooks/use-toast';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthProvider';
 import { useEmailVerification } from '../hooks/useEmailVerification';
 import { useSpotAccess } from '../store/useSpotAccess';
 import { apiRequest } from '../lib/queryClient';

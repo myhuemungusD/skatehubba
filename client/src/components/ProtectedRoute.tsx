@@ -1,4 +1,4 @@
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "../context/AuthProvider";
 import { Redirect } from "wouter";
 
 interface ProtectedRouteProps {
@@ -12,7 +12,7 @@ export default function ProtectedRoute({
 }: ProtectedRouteProps) {
   const authContext = useAuth();
   const user = authContext?.user ?? null;
-  const isLoading = authContext?.isLoading ?? true;
+  const isLoading = authContext?.loading ?? true;
 
   if (isLoading) {
     return (
