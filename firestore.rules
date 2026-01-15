@@ -46,8 +46,9 @@ service cloud.firestore {
     // =========================================================================
     
     match /users/{userId} {
-      // TEMPORARY: Allow all authenticated users (for debugging)
-      allow read, write: if request.auth != null;
+      // Only allow users to read and write their own profile
+      allow read: if isOwner(userId);
+      allow write: if isOwner(userId);
     }
     
     // =========================================================================
