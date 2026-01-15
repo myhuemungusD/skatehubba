@@ -9,7 +9,7 @@
 
 import { useState, useCallback } from 'react';
 import { httpsCallable } from 'firebase/functions';
-import { functions as getFunctions } from '../lib/firebase/config';
+import { functions } from '../lib/firebase/config';
 import { useAuth, UserRole } from '../context/AuthProvider';
 
 export type { UserRole };
@@ -61,7 +61,7 @@ export function useUserRoles(): UseUserRolesReturn {
     setError(null);
 
     try {
-      const manageUserRole = httpsCallable(getFunctions(), 'manageUserRole');
+      const manageUserRole = httpsCallable(functions, 'manageUserRole');
       await manageUserRole({ targetUid, role, action: 'grant' });
       console.log(`[useUserRoles] Granted ${role} to ${targetUid}`);
     } catch (err: unknown) {
@@ -82,7 +82,7 @@ export function useUserRoles(): UseUserRolesReturn {
     setError(null);
 
     try {
-      const manageUserRole = httpsCallable(getFunctions(), 'manageUserRole');
+      const manageUserRole = httpsCallable(functions, 'manageUserRole');
       await manageUserRole({ targetUid, role, action: 'revoke' });
       console.log(`[useUserRoles] Revoked ${role} from ${targetUid}`);
     } catch (err: unknown) {

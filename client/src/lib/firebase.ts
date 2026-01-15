@@ -12,16 +12,11 @@
 
 import { 
   app as firebaseApp,
-  auth as getAuthInstance, 
-  db as getDbInstance, 
-  functions as getFunctionsInstance,
+  auth, 
+  db, 
+  functions,
   isFirebaseInitialized 
 } from './firebase/config';
-
-// Get instances by calling the getter functions
-const auth = getAuthInstance();
-const db = getDbInstance();
-const functions = getFunctionsInstance();
 
 // Analytics placeholder - can be implemented with Firebase Analytics if needed
 const analytics = null;
