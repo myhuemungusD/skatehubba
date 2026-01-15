@@ -3,7 +3,18 @@ import { db } from "../db";
 import { checkIns, spots } from "@shared/schema";
 
 const EARTH_RADIUS_KM = 6371;
-const CHECK_IN_RADIUS_METERS = 30;
+// Default check-in radius in meters. 30m is chosen as a balance between typical GPS accuracy
+// on mobile devices and preventing check-ins that are too far from the actual spot.
+const DEFAULT_CHECK_IN_RADIUS_METERS = 30;
+
+// Allow overriding the check-in radius via an environment variable for different deployments
+// (e.g., urban vs rural, testing vs production). If not set or invalid, fall back to the default.
+const CHECK_IN_RADIUS_METERS = (() => {
+  const envValue = process.env.CHECK_IN_RADIUS_METERS;
+  if (!envValue) return DEFAULT_CHECK_IN_RADIUS_METERS;
+  const parsed = Number(envValue);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_CHECK_IN_RADIUS_METERS;
+})();
 
 type CheckInSuccess = {
   success: true;

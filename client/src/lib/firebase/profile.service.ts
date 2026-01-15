@@ -34,7 +34,7 @@ const USERS_COLLECTION = 'users';
  * @param uid - User's unique identifier
  * @returns User profile or null if not found
  */
-export async function getProfile(uid: string): Promise<UserProfile | null> {
+export async function getProfile(uid: string): Promise<UserProfile | null> {
   
   // Retry logic for Firestore permission issues (auth token may not be ready)
   const maxRetries = 3;
@@ -80,7 +80,7 @@ export async function getProfile(uid: string): Promise<UserProfile | null> {
 export async function createProfile(
   uid: string,
   input: CreateProfileInput
-): Promise<UserProfile> {
+): Promise<UserProfile> {
   
   const displayName = input.displayName || 
     [input.firstName, input.lastName].filter(Boolean).join(' ').trim() ||
@@ -137,7 +137,7 @@ export async function createProfile(
 export async function updateProfile(
   uid: string,
   updates: Partial<Pick<UserProfile, 'displayName' | 'firstName' | 'lastName' | 'photoURL'>>
-): Promise<void> {
+): Promise<void> {
   try {
     const docRef = doc(db, USERS_COLLECTION, uid);
     await updateDoc(docRef, {

@@ -175,7 +175,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
    * Fetch user profile from Firestore
    */
   const fetchProfile = useCallback(async (uid: string): Promise<UserProfile | null> => {
-    try {
+    try {
       const docRef = doc(db, 'users', uid);
       const snapshot = await getDoc(docRef);
       
@@ -195,7 +195,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   const createProfile = useCallback(async (
     firebaseUser: FirebaseUser,
     displayName?: string
-  ): Promise<UserProfile> => {
+  ): Promise<UserProfile> => {
     const docRef = doc(db, 'users', firebaseUser.uid);
     
     const profileData = {
@@ -248,7 +248,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   // Auth State Listener
   // ---------------------------------------------------------------------------
 
-  useEffect(() => {
+  useEffect(() => {
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
@@ -289,7 +289,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   // ---------------------------------------------------------------------------
 
   const signInWithGoogle = useCallback(async (): Promise<void> => {
-    setError(null);
+    setError(null);
     
     try {
       // Detect mobile for redirect flow
@@ -318,7 +318,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   }, []);
 
   const signInWithEmail = useCallback(async (email: string, password: string): Promise<void> => {
-    setError(null);
+    setError(null);
     
     try {
       await signInWithEmailAndPassword(auth, email, password);
@@ -334,7 +334,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
     password: string,
     displayName?: string
   ): Promise<void> => {
-    setError(null);
+    setError(null);
     
     try {
       const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
@@ -349,7 +349,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   }, [createProfile]);
 
   const signInAnonymously = useCallback(async (): Promise<void> => {
-    setError(null);
+    setError(null);
     
     try {
       await firebaseSignInAnonymously(auth);
@@ -361,7 +361,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   }, []);
 
   const signOut = useCallback(async (): Promise<void> => {
-    setError(null);
+    setError(null);
     
     try {
       await firebaseSignOut(auth);
@@ -376,7 +376,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   }, []);
 
   const resetPassword = useCallback(async (email: string): Promise<void> => {
-    setError(null);
+    setError(null);
     
     try {
       await sendPasswordResetEmail(auth, email);
@@ -394,7 +394,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   const refreshRoles = useCallback(async (): Promise<UserRole[]> => {
     if (!user) return [];
     
-    try {
+    try {
       const currentUser = auth.currentUser;
       
       if (!currentUser) return [];
