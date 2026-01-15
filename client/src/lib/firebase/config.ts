@@ -25,8 +25,9 @@ const PRODUCTION_CONFIG = {
   authDomain: 'sk8hub-d7806.firebaseapp.com',
   projectId: 'sk8hub-d7806',
   storageBucket: 'sk8hub-d7806.firebasestorage.app',
-  messagingSenderId: '755866768498',
-  appId: '1:755866768498:web:abc123',
+  messagingSenderId: '665573979824',
+  appId: '1:665573979824:web:731aaae46daea5efee2d75',
+  measurementId: 'G-7XVNF1LHZW',
 };
 
 // ============================================================================
