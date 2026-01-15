@@ -176,13 +176,13 @@ function AppRoutes() {
 // We detect this by checking sessionStorage for a flag set before redirect
 function GoogleRedirectWelcome() {
   const { toast } = useToast();
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
     // Check if we just completed a Google redirect login
     const wasGoogleRedirect = sessionStorage.getItem('googleRedirectPending');
     
-    if (wasGoogleRedirect && !isLoading && user) {
+    if (wasGoogleRedirect && !loading && user) {
       // Clear the flag
       sessionStorage.removeItem('googleRedirectPending');
       
@@ -191,7 +191,7 @@ function GoogleRedirectWelcome() {
         title: "Welcome! 🛹",
         description: "You've successfully signed in with Google."
       });
-    } else if (wasGoogleRedirect && !isLoading && !user) {
+    } else if (wasGoogleRedirect && !loading && !user) {
       // Redirect failed - clear the flag and show error
       sessionStorage.removeItem('googleRedirectPending');
       logger.error('[Google Auth] Redirect authentication failed - no user after redirect');
@@ -201,7 +201,7 @@ function GoogleRedirectWelcome() {
         variant: "destructive"
       });
     }
-  }, [user, isLoading, toast]);
+  }, [user, loading, toast]);
 
   return null;
 }
