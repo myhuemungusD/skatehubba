@@ -24,3 +24,7 @@ query-filters:
       id: js/csrf-protection-disabled
   - exclude:
       id: js/missing-token-validation
+  - exclude:
+      id: js/missing-csrf-middleware
+  - exclude:
+      tags: security/csrf

@@ -38,7 +38,7 @@ export const sanitizedStringSchema = z.string()
   .refine((str) => !str.includes('<') && !str.includes('>'), 'HTML is not allowed');
 
 
-import { pgTable, text, serial, integer, boolean, timestamp, json, varchar, index, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, varchar, index, doublePrecision, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
 
@@ -229,6 +229,32 @@ export const spots = pgTable("spots", {
   createdByIdx: index("IDX_spot_created_by").on(table.createdBy),
 }));
 
+export const checkIns = pgTable("check_ins", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  spotId: integer("spot_id").notNull().references(() => spots.id, { onDelete: "cascade" }),
+  timestamp: timestamp("timestamp").notNull().defaultNow(),
+  isAr: boolean("is_ar").notNull().default(false),
+}, (table) => ({
+  oneCheckInPerDay: uniqueIndex("unique_check_in_per_day").on(
+    table.userId,
+    table.spotId,
+    sql`DATE(${table.timestamp})`,
+  ),
+  userIdx: index("IDX_check_ins_user").on(table.userId),
+  spotIdx: index("IDX_check_ins_spot").on(table.spotId),
+}));
+
+export const tricks = pgTable("tricks", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  createdBy: varchar("created_by", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  likesCount: integer("likes_count").default(0).notNull(),
+});
+
 // Trick Mastery table for progression
 export const trickMastery = pgTable("trick_mastery", {
   id: serial("id").primaryKey(),
@@ -413,6 +439,10 @@ export type Order = typeof orders.$inferSelect;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type Spot = typeof spots.$inferSelect;
 export type InsertSpot = z.infer<typeof insertSpotSchema>;
+export type CheckIn = typeof checkIns.$inferSelect;
+export type InsertCheckIn = typeof checkIns.$inferInsert;
+export type Trick = typeof tricks.$inferSelect;
+export type InsertTrick = typeof tricks.$inferInsert;
 export type Game = typeof games.$inferSelect;
 export type InsertGame = z.infer<typeof insertGameSchema>;
 export type GameTurn = typeof gameTurns.$inferSelect;

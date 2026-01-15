@@ -61,7 +61,7 @@
     "tailwind-merge": "^2.4.0",
     "web-vitals": "^3.5.2",
     "wouter": "^3.0.0",
-    "zod": "^3.23.8",
+    "zod": "3.23.8",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
@@ -79,7 +79,7 @@
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.9.3",
+    "typescript": "^5.3.3",
     "vite": "^6.0.0",
     "vite-tsconfig-paths": "^6.0.4"
   }
