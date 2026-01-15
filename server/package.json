@@ -15,7 +15,7 @@
     "compression": "^1.7.4",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
-    "drizzle-orm": "^0.44.0",
+    "drizzle-orm": "^0.44.2",
     "drizzle-zod": "^0.7.0",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",

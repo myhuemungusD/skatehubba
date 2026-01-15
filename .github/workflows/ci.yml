@@ -6,8 +6,23 @@ on:
   pull_request:
 
 jobs:
+  # Lockfile integrity check - fails fast if package.json and lockfile are out of sync
+  lockfile_check:
+    name: "🔒 Lockfile Integrity"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm-env
+      
+      - name: Verify lockfile is up-to-date
+        run: |
+          echo "Checking if pnpm-lock.yaml matches package.json..."
+          pnpm install --frozen-lockfile --ignore-scripts
+          echo "✅ Lockfile is in sync with package.json"
+
   build_lint_typecheck:
     name: "Quality Control"
+    needs: lockfile_check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -16,7 +31,7 @@ jobs:
       - uses: ./.github/actions/setup-pnpm-env
 
       - name: Install Dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Typecheck
         run: pnpm run typecheck
