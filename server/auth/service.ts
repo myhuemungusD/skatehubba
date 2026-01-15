@@ -277,6 +277,20 @@ export class AuthService {
   }
 
   /**
+   * Delete ALL sessions for a user (security: password change, account compromise)
+   * @param userId - User ID to invalidate all sessions for
+   * @returns Promise resolving to number of sessions deleted
+   */
+  static async deleteAllUserSessions(userId: string): Promise<number> {
+    const result = await db
+      .delete(authSessions)
+      .where(eq(authSessions.userId, userId))
+      .returning();
+    
+    return result.length;
+  }
+
+  /**
    * Update the last login timestamp for a user
    * @param userId - User ID to update
    * @returns Promise that resolves when update is complete
@@ -317,6 +331,7 @@ export class AuthService {
 
   /**
    * Reset a user's password using a reset token
+   * SECURITY: Invalidates ALL existing sessions after password reset
    * @param token - Password reset token
    * @param newPassword - New password (plain text, will be hashed)
    * @returns Promise resolving to updated user if token is valid, null otherwise
@@ -347,7 +362,72 @@ export class AuthService {
       .where(eq(customUsers.id, user.id))
       .returning();
 
+    // SECURITY: Invalidate ALL sessions after password change
+    // This ensures any compromised sessions are logged out
+    await this.deleteAllUserSessions(user.id);
+
     return updatedUser;
+  }
+
+  /**
+   * Change user password (requires current password)
+   * SECURITY: Invalidates ALL existing sessions except current one
+   * @param userId - User ID
+   * @param currentPassword - Current password for verification
+   * @param newPassword - New password (plain text, will be hashed)
+   * @param currentSessionToken - Current session to preserve (optional)
+   * @returns Promise resolving to success status and message
+   */
+  static async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    currentSessionToken?: string
+  ): Promise<{ success: boolean; message: string }> {
+    const user = await this.findUserById(userId);
+    
+    if (!user) {
+      return { success: false, message: 'User not found' };
+    }
+
+    // Skip password verification for Firebase users
+    if (user.passwordHash !== 'firebase-auth-user') {
+      const isValid = await this.verifyPassword(currentPassword, user.passwordHash);
+      if (!isValid) {
+        return { success: false, message: 'Current password is incorrect' };
+      }
+    }
+
+    const passwordHash = await this.hashPassword(newPassword);
+
+    await db
+      .update(customUsers)
+      .set({
+        passwordHash,
+        updatedAt: new Date(),
+      })
+      .where(eq(customUsers.id, userId));
+
+    // SECURITY: Invalidate all sessions except current one
+    if (currentSessionToken) {
+      // Delete all sessions, then recreate current one
+      const sessionsDeleted = await this.deleteAllUserSessions(userId);
+      
+      // Create new session for current device
+      await this.createSession(userId);
+      
+      return { 
+        success: true, 
+        message: `Password changed. ${sessionsDeleted} other session(s) logged out.` 
+      };
+    } else {
+      // Delete ALL sessions including current
+      await this.deleteAllUserSessions(userId);
+      return { 
+        success: true, 
+        message: 'Password changed. All sessions have been logged out.' 
+      };
+    }
   }
 
   /**

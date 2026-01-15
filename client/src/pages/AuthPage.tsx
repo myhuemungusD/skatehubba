@@ -7,12 +7,12 @@
  * @module pages/auth
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Link, useLocation } from 'wouter';
-import { Eye, EyeOff, Mail, User, Lock, Loader2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, User, Lock, Loader2, Copy, Check } from 'lucide-react';
 import { SiGoogle } from 'react-icons/si';
 
 import { Button } from '../components/ui/button';
@@ -20,8 +20,29 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Checkbox } from '../components/ui/checkbox';
 import { useToast } from '../hooks/use-toast';
 import { useAuth } from '../context/AuthProvider';
+import { setAuthPersistence } from '../lib/firebase';
+
+/**
+ * Detect if running in an embedded browser (Instagram, Facebook, etc.)
+ * Google blocks OAuth in these webviews for security reasons
+ */
+function isEmbeddedBrowser(): boolean {
+  const ua = navigator.userAgent || navigator.vendor || '';
+  return (
+    ua.includes('FBAN') || // Facebook App
+    ua.includes('FBAV') || // Facebook App
+    ua.includes('Instagram') ||
+    ua.includes('Twitter') ||
+    ua.includes('Line/') ||
+    ua.includes('KAKAOTALK') ||
+    ua.includes('Snapchat') ||
+    ua.includes('TikTok') ||
+    (ua.includes('wv') && ua.includes('Android')) // Android WebView
+  );
+}
 
 // ============================================================================
 // Form Schemas
@@ -62,6 +83,17 @@ export default function AuthPage() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true); // Default to staying signed in
+  const [inEmbeddedBrowser, setInEmbeddedBrowser] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Check for embedded browser on mount
+  useEffect(() => {
+    const isEmbedded = isEmbeddedBrowser();
+    setInEmbeddedBrowser(isEmbedded);
+    console.log('[AuthPage] User agent:', navigator.userAgent);
+    console.log('[AuthPage] Is embedded browser:', isEmbedded);
+  }, []);
   
   // Handle case where auth context is not available yet
   const signIn = auth?.signInWithEmail;
@@ -90,6 +122,8 @@ export default function AuthPage() {
     }
     try {
       console.log('[AuthPage] Attempting sign in...');
+      // Set persistence before signing in
+      await setAuthPersistence(rememberMe);
       await signIn(data.email, data.password);
       console.log('[AuthPage] Sign in successful');
       toast({
@@ -147,6 +181,8 @@ export default function AuthPage() {
     }
     setIsGoogleLoading(true);
     try {
+      // Set persistence before signing in
+      await setAuthPersistence(rememberMe);
       await signInWithGoogle();
       toast({
         title: 'Welcome! 🛹',
@@ -292,6 +328,22 @@ export default function AuthPage() {
                     )}
                   </div>
 
+                  {/* Remember Me */}
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="rememberMe"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked === true)}
+                      className="border-gray-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    />
+                    <Label
+                      htmlFor="rememberMe"
+                      className="text-sm text-gray-300 cursor-pointer"
+                    >
+                      Keep me signed in
+                    </Label>
+                  </div>
+
                   {/* Submit */}
                   <Button
                     type="submit"
@@ -319,13 +371,46 @@ export default function AuthPage() {
                   </div>
                 </div>
 
+                {/* Embedded Browser Warning */}
+                {inEmbeddedBrowser && (
+                  <div className="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-3 mb-4">
+                    <p className="text-yellow-200 text-sm text-center">
+                      <strong>Google Sign-In not available</strong> in this browser.
+                      <br />
+                      <span className="text-yellow-300/80">
+                        Copy the link below and paste in Safari/Chrome, or use email sign-in above.
+                      </span>
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2 border-yellow-600 text-yellow-200 hover:bg-yellow-900/50"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(window.location.href);
+                          setCopied(true);
+                          toast({ title: "Link copied!", description: "Paste it in Safari or Chrome." });
+                          setTimeout(() => setCopied(false), 2000);
+                        } catch {
+                          toast({ title: "Copy this link", description: window.location.href });
+                        }
+                      }}
+                    >
+                      {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                      {copied ? "Copied!" : "Copy Link"}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Google Sign In */}
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full border-gray-600 text-white hover:bg-gray-700"
+                  className={`w-full border-gray-600 text-white hover:bg-gray-700 ${
+                    inEmbeddedBrowser ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                   onClick={handleGoogleSignIn}
-                  disabled={isGoogleLoading}
+                  disabled={isGoogleLoading || inEmbeddedBrowser}
                 >
                   {isGoogleLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -459,13 +544,46 @@ export default function AuthPage() {
                   </div>
                 </div>
 
+                {/* Embedded Browser Warning */}
+                {inEmbeddedBrowser && (
+                  <div className="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-3 mb-4">
+                    <p className="text-yellow-200 text-sm text-center">
+                      <strong>Google Sign-In not available</strong> in this browser.
+                      <br />
+                      <span className="text-yellow-300/80">
+                        Copy the link below and paste in Safari/Chrome, or use email sign-up above.
+                      </span>
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full mt-2 border-yellow-600 text-yellow-200 hover:bg-yellow-900/50"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(window.location.href);
+                          setCopied(true);
+                          toast({ title: "Link copied!", description: "Paste it in Safari or Chrome." });
+                          setTimeout(() => setCopied(false), 2000);
+                        } catch {
+                          toast({ title: "Copy this link", description: window.location.href });
+                        }
+                      }}
+                    >
+                      {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                      {copied ? "Copied!" : "Copy Link"}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Google Sign Up */}
                 <Button
                   type="button"
                   variant="outline"
-                  className="w-full border-gray-600 text-white hover:bg-gray-700"
+                  className={`w-full border-gray-600 text-white hover:bg-gray-700 ${
+                    inEmbeddedBrowser ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
                   onClick={handleGoogleSignIn}
-                  disabled={isGoogleLoading}
+                  disabled={isGoogleLoading || inEmbeddedBrowser}
                 >
                   {isGoogleLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

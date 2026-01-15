@@ -4,6 +4,12 @@ import type { CustomUser } from '../../shared/schema.ts';
 import { admin } from '../admin.ts';
 import '../types/express.d.ts';
 
+// Re-authentication window (5 minutes)
+const REAUTH_WINDOW_MS = 5 * 60 * 1000;
+
+// Store for recent authentications (in production, use Redis)
+const recentAuths = new Map<string, number>();
+
 /**
  * Authentication middleware to protect routes
  * 
@@ -18,6 +24,9 @@ import '../types/express.d.ts';
  * @param next - Express next function
  */
 export const authenticateUser = async (req: Request, res: Response, next: NextFunction) => {
+  // Generic error message to prevent information leakage
+  const GENERIC_AUTH_ERROR = 'Authentication failed';
+  
   try {
     // Option 1: Check for HttpOnly session cookie (PREFERRED - XSS safe)
     const sessionToken = req.cookies?.sessionToken;
@@ -28,11 +37,12 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
         const user = await AuthService.validateSession(sessionToken);
         
         if (!user) {
-          return res.status(401).json({ error: 'Invalid session' });
+          return res.status(401).json({ error: GENERIC_AUTH_ERROR });
         }
 
         if (!user.isActive) {
-          return res.status(401).json({ error: 'Account is deactivated' });
+          // Don't reveal that account is deactivated specifically
+          return res.status(401).json({ error: GENERIC_AUTH_ERROR });
         }
 
         req.currentUser = user;
@@ -46,7 +56,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
     // Option 2: Fallback to Authorization header (for backward compatibility)
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Authentication required' });
+      return res.status(401).json({ error: GENERIC_AUTH_ERROR });
     }
 
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
@@ -57,22 +67,24 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
       const user = await AuthService.findUserByFirebaseUid(decoded.uid);
       
       if (!user) {
-        return res.status(401).json({ error: 'User not found' });
+        // Don't reveal that user doesn't exist
+        return res.status(401).json({ error: GENERIC_AUTH_ERROR });
       }
 
       if (!user.isActive) {
-        return res.status(401).json({ error: 'Account is deactivated' });
+        // Don't reveal that account is deactivated specifically
+        return res.status(401).json({ error: GENERIC_AUTH_ERROR });
       }
 
       req.currentUser = user;
       next();
     } catch (firebaseError) {
       console.error('Firebase token verification failed:', firebaseError);
-      return res.status(401).json({ error: 'Invalid Firebase token' });
+      return res.status(401).json({ error: GENERIC_AUTH_ERROR });
     }
   } catch (error) {
     console.error('Authentication error:', error);
-    res.status(500).json({ error: 'Authentication failed' });
+    res.status(500).json({ error: GENERIC_AUTH_ERROR });
   }
 };
 
@@ -121,7 +133,7 @@ export const optionalAuthentication = async (req: Request, res: Response, next: 
  */
 export const requireEmailVerification = (req: Request, res: Response, next: NextFunction) => {
   if (!req.currentUser) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ error: 'Authentication failed' });
   }
 
   if (!req.currentUser.isEmailVerified) {
@@ -132,4 +144,111 @@ export const requireEmailVerification = (req: Request, res: Response, next: Next
   }
 
   next();
+};
+
+/**
+ * Re-authentication middleware for sensitive operations
+ * 
+ * Requires user to have authenticated within the last 5 minutes.
+ * Used for high-risk operations like:
+ * - Changing email address
+ * - Changing password
+ * - Enabling/disabling MFA
+ * - Deleting account
+ * - Changing payment methods
+ * 
+ * Usage: Apply after authenticateUser middleware
+ * Client must call /api/auth/verify-identity first to confirm identity
+ * 
+ * @param req - Express request object with currentUser
+ * @param res - Express response object
+ * @param next - Express next function
+ */
+export const requireRecentAuth = (req: Request, res: Response, next: NextFunction) => {
+  if (!req.currentUser) {
+    return res.status(401).json({ error: 'Authentication failed' });
+  }
+
+  const userId = req.currentUser.id;
+  const lastAuth = recentAuths.get(userId);
+  const now = Date.now();
+
+  if (!lastAuth || (now - lastAuth) > REAUTH_WINDOW_MS) {
+    return res.status(403).json({
+      error: 'Please verify your identity to continue',
+      code: 'REAUTH_REQUIRED',
+      message: 'This action requires recent authentication. Please re-enter your password.',
+    });
+  }
+
+  next();
+};
+
+/**
+ * Record a successful re-authentication for a user
+ * Call this after verifying user's password/MFA for sensitive operations
+ * 
+ * @param userId - User ID to record re-auth for
+ */
+export function recordRecentAuth(userId: string): void {
+  recentAuths.set(userId, Date.now());
+  
+  // Clean up old entries periodically
+  if (Math.random() < 0.1) {
+    const cutoff = Date.now() - REAUTH_WINDOW_MS;
+    for (const [id, timestamp] of recentAuths.entries()) {
+      if (timestamp < cutoff) {
+        recentAuths.delete(id);
+      }
+    }
+  }
+}
+
+/**
+ * Clear re-authentication status for a user
+ * Call this after sensitive operation completes or on logout
+ * 
+ * @param userId - User ID to clear re-auth for
+ */
+export function clearRecentAuth(userId: string): void {
+  recentAuths.delete(userId);
+}
+
+/**
+ * Admin role requirement middleware
+ * 
+ * Requires that the authenticated user has admin privileges.
+ * Must be used after authenticateUser middleware.
+ */
+export const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.currentUser) {
+    return res.status(401).json({ error: 'Authentication failed' });
+  }
+
+  try {
+    // Check Firebase custom claims for admin role
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      const decoded = await admin.auth().verifyIdToken(token);
+      
+      if (decoded.admin === true || (decoded.roles as string[])?.includes('admin')) {
+        return next();
+      }
+    }
+
+    // Fallback: Check database for admin flag (if implemented)
+    // This is a placeholder for your admin check logic
+    
+    return res.status(403).json({
+      error: 'Admin access required',
+      code: 'ADMIN_REQUIRED',
+    });
+  } catch (error) {
+    console.error('Admin check failed:', error);
+    return res.status(403).json({
+      error: 'Admin access required',
+      code: 'ADMIN_REQUIRED',
+    });
+  }
 };

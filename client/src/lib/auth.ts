@@ -190,10 +190,23 @@ export async function loginWithGoogle(forceRedirect = false) {
   // Mobile detection - prefer redirect on mobile devices
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
+  console.log('[Google Auth] Starting login, isMobile:', isMobile, 'forceRedirect:', forceRedirect);
+  console.log('[Google Auth] User agent:', navigator.userAgent);
+  
   if (forceRedirect || isMobile) {
     // Use redirect flow (better for mobile)
-    await signInWithRedirect(auth, provider);
-    // Note: User will be redirected away, control returns via handleGoogleRedirect()
+    console.log('[Google Auth] Using redirect flow for mobile/forced redirect');
+    try {
+      // Set flag so we know to show welcome toast when returning from redirect
+      sessionStorage.setItem('googleRedirectPending', 'true');
+      await signInWithRedirect(auth, provider);
+    } catch (redirectError: any) {
+      // Clear flag on error
+      sessionStorage.removeItem('googleRedirectPending');
+      console.error('[Google Auth] Redirect initiation failed:', redirectError);
+      throw new Error(`Failed to start Google Sign-In: ${redirectError?.message || 'Unknown error'}`);
+    }
+    // Note: User will be redirected away, control returns via handleGoogleRedirectResult() in AuthContext
     return null;
   }
 
@@ -269,27 +282,35 @@ export async function loginWithGoogle(forceRedirect = false) {
  * Call this on app initialization to complete redirect-based sign-in
  */
 export async function handleGoogleRedirect() {
+  console.log('[Google Auth] handleGoogleRedirect called');
+  
   try {
     if (!auth || typeof auth.onAuthStateChanged !== 'function') {
+      console.log('[Google Auth] Auth not ready, skipping redirect check');
       return null;
     }
     
     // Skip redirect handling in mock mode - mock signInWithRedirect completes synchronously
     // and doesn't require redirect result processing
     if (isMockMode()) {
+      console.log('[Google Auth] Mock mode, skipping redirect check');
       return null;
     }
 
+    console.log('[Google Auth] Checking for redirect result...');
     const result = await getRedirectResult(auth);
     
     if (result) {
       // User just returned from Google redirect
+      console.log('[Google Auth] Redirect result found, user:', result.user?.uid);
       const firebaseUser = result.user;
       return authenticateWithBackend(firebaseUser);
     }
     
+    console.log('[Google Auth] No redirect result (normal page load)');
     return null; // No redirect result (normal page load)
   } catch (error: any) {
+    console.error('[Google Auth] handleGoogleRedirect error:', error);
     const errorCode = error?.code || '';
     
     // Handle specific redirect errors

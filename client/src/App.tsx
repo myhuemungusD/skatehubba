@@ -17,7 +17,6 @@ import { AISkateChat } from "./components/AISkateChat";
 import { FeedbackButton } from "./components/FeedbackButton";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { logger } from "./lib/logger";
-import { handleGoogleRedirect, logoutUser } from "./lib/auth";
 
 // Eager load critical pages
 import UnifiedLanding from "./pages/unified-landing";
@@ -172,46 +171,39 @@ function AppRoutes() {
   );
 }
 
-function GoogleRedirectHandler() {
+// Note: Google redirect result is handled by AuthProvider in AuthContext.tsx
+// This component just shows a welcome toast after successful redirect login
+// We detect this by checking sessionStorage for a flag set before redirect
+function GoogleRedirectWelcome() {
   const { toast } = useToast();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    // Run in background - don't block app initialization
-    const checkGoogleRedirect = async () => {
-      try {
-        const result = await handleGoogleRedirect();
-        if (result) {
-          // User just returned from Google redirect
-          logger.info('[Google Auth] Successfully authenticated via redirect');
-          toast({
-            title: "Welcome! 🛹",
-            description: "You've successfully signed in with Google."
-          });
-        }
-        // No result = normal page load (not a redirect), do nothing
-      } catch (error: any) {
-        logger.error('[Google Auth] Redirect authentication failed:', error.message);
-        
-        // Clean up: sign out from Firebase to avoid broken state
-        try {
-          await logoutUser();
-        } catch (logoutError) {
-          logger.warn('[Google Auth] Cleanup logout failed:', logoutError);
-        }
-        
-        // Show user-friendly error
-        toast({
-          title: "Sign-in failed",
-          description: error?.message || "Unable to complete Google Sign-In. Please try again.",
-          variant: "destructive"
-        });
-      }
-    };
+    // Check if we just completed a Google redirect login
+    const wasGoogleRedirect = sessionStorage.getItem('googleRedirectPending');
+    
+    if (wasGoogleRedirect && !loading && user) {
+      // Clear the flag
+      sessionStorage.removeItem('googleRedirectPending');
+      
+      logger.info('[Google Auth] Successfully authenticated via redirect');
+      toast({
+        title: "Welcome! 🛹",
+        description: "You've successfully signed in with Google."
+      });
+    } else if (wasGoogleRedirect && !loading && !user) {
+      // Redirect failed - clear the flag and show error
+      sessionStorage.removeItem('googleRedirectPending');
+      logger.error('[Google Auth] Redirect authentication failed - no user after redirect');
+      toast({
+        title: "Sign-in failed",
+        description: "Unable to complete Google Sign-In. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }, [user, loading, toast]);
 
-    checkGoogleRedirect();
-  }, [toast]);
-
-  return null; // Non-blocking - runs in background
+  return null;
 }
 
 export default function App() {
@@ -232,7 +224,7 @@ export default function App() {
       <AuthProvider>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider>
-            <GoogleRedirectHandler />
+            <GoogleRedirectWelcome />
             <OrganizationStructuredData
               data={{
                 name: "SkateHubba",

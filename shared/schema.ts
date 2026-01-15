@@ -148,6 +148,60 @@ export const authSessions = pgTable("auth_sessions", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Security audit logs for compliance and threat detection
+export const auditLogs = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  eventType: varchar("event_type", { length: 50 }).notNull(),
+  userId: varchar("user_id", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(), // IPv6 can be up to 45 chars
+  userAgent: text("user_agent"),
+  metadata: json("metadata").$type<Record<string, unknown>>(),
+  success: boolean("success").notNull(),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  eventTypeIdx: index("IDX_audit_event_type").on(table.eventType),
+  userIdIdx: index("IDX_audit_user_id").on(table.userId),
+  ipIdx: index("IDX_audit_ip").on(table.ipAddress),
+  createdAtIdx: index("IDX_audit_created_at").on(table.createdAt),
+}));
+
+// Login attempts tracking for account lockout
+export const loginAttempts = pgTable("login_attempts", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }).notNull(),
+  success: boolean("success").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  emailIdx: index("IDX_login_attempts_email").on(table.email),
+  ipIdx: index("IDX_login_attempts_ip").on(table.ipAddress),
+  createdAtIdx: index("IDX_login_attempts_created_at").on(table.createdAt),
+}));
+
+// Account lockout tracking
+export const accountLockouts = pgTable("account_lockouts", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  lockedAt: timestamp("locked_at").notNull(),
+  unlockAt: timestamp("unlock_at").notNull(),
+  failedAttempts: integer("failed_attempts").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// MFA secrets for TOTP authentication
+export const mfaSecrets = pgTable("mfa_secrets", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => customUsers.id, { onDelete: 'cascade' }).unique(),
+  secret: varchar("secret", { length: 255 }).notNull(), // Encrypted TOTP secret
+  backupCodes: json("backup_codes").$type<string[]>(), // Hashed backup codes
+  enabled: boolean("enabled").default(false).notNull(),
+  verifiedAt: timestamp("verified_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 export const feedback = pgTable("feedback", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id"),
