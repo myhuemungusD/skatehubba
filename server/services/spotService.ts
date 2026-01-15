@@ -15,6 +15,7 @@ const CHECK_IN_RADIUS_METERS = (() => {
   const parsed = Number(envValue);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_CHECK_IN_RADIUS_METERS;
 })();
+
 type CheckInSuccess = {
   success: true;
   checkInId: number;
