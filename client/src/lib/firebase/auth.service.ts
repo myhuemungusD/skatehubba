@@ -29,7 +29,7 @@ import {
   User as FirebaseUser,
   Unsubscribe,
 } from 'firebase/auth';
-import { auth as getAuth } from './config';
+import { auth } from './config';
 import { AuthUser, AuthError, AuthErrorCode } from './auth.types';
 import { toAuthUser } from './auth.types';
 
@@ -86,7 +86,6 @@ export async function signUpWithEmail(
   password: string,
   profile?: { firstName?: string; lastName?: string }
 ): Promise<AuthUser> {
-  const auth = getAuth();
   console.log('[AuthService] signUpWithEmail called with:', { email, profile });
   console.log('[AuthService] Auth instance:', auth ? 'exists' : 'NULL');
   
@@ -127,7 +126,6 @@ export async function signInWithEmail(
   email: string,
   password: string
 ): Promise<AuthUser> {
-  const auth = getAuth();
   console.log('[AuthService] Attempting sign in for:', email);
   try {
     const credential = await signInWithEmailAndPassword(auth, email, password);
@@ -163,7 +161,6 @@ function isMobileDevice(): boolean {
  * @throws AuthError if sign-in fails
  */
 export async function signInWithGoogle(): Promise<AuthUser | null> {
-  const auth = getAuth();
   console.log('[AuthService] signInWithGoogle called');
   console.log('[AuthService] Auth instance:', auth);
   console.log('[AuthService] Is mobile:', isMobileDevice());
@@ -210,7 +207,6 @@ export async function signInWithGoogle(): Promise<AuthUser | null> {
  * @returns The authenticated user if redirect succeeded, null otherwise
  */
 export async function getGoogleRedirectResult(): Promise<AuthUser | null> {
-  const auth = getAuth();
   try {
     const result = await getRedirectResult(auth);
     return result ? toAuthUser(result.user) : null;
@@ -226,7 +222,6 @@ export async function getGoogleRedirectResult(): Promise<AuthUser | null> {
  * @throws AuthError if sign-in fails
  */
 export async function signInAnonymously(): Promise<AuthUser> {
-  const auth = getAuth();
   try {
     const result = await firebaseSignInAnonymously(auth);
     return toAuthUser(result.user);
@@ -245,7 +240,6 @@ export async function signInAnonymously(): Promise<AuthUser> {
  * @throws AuthError if sign-out fails
  */
 export async function signOutUser(): Promise<void> {
-  const auth = getAuth();
   try {
     await firebaseSignOut(auth);
   } catch (error) {
@@ -262,7 +256,6 @@ export async function signOutUser(): Promise<void> {
 export function onAuthStateChange(
   callback: (user: AuthUser | null) => void
 ): Unsubscribe {
-  const auth = getAuth();
   return onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
     callback(firebaseUser ? toAuthUser(firebaseUser) : null);
   });
@@ -274,7 +267,6 @@ export function onAuthStateChange(
  * @returns Current user or null if not authenticated
  */
 export function getCurrentUser(): AuthUser | null {
-  const auth = getAuth();
   return auth.currentUser ? toAuthUser(auth.currentUser) : null;
 }
 
@@ -285,7 +277,6 @@ export function getCurrentUser(): AuthUser | null {
  * @throws AuthError if sending fails
  */
 export async function resetPassword(email: string): Promise<void> {
-  const auth = getAuth();
   try {
     await sendPasswordResetEmail(auth, email);
   } catch (error) {
@@ -299,7 +290,6 @@ export async function resetPassword(email: string): Promise<void> {
  * @throws AuthError if sending fails
  */
 export async function resendVerificationEmail(): Promise<void> {
-  const auth = getAuth();
   try {
     const user = auth.currentUser;
     if (!user) {

@@ -1,11 +1,12 @@
 
 import express from 'express';
 import { generateText, generateTextStream } from './gemini.ts';
+import { aiLimiter } from './middleware/rateLimit.ts';
 
 const router = express.Router();
 
 // Simple text generation endpoint
-router.post('/generate', async (req, res) => {
+router.post('/generate', aiLimiter, async (req, res) => {
   try {
     const { prompt } = req.body;
     
@@ -21,7 +22,7 @@ router.post('/generate', async (req, res) => {
 });
 
 // Streaming text generation endpoint
-router.post('/generate-stream', async (req, res) => {
+router.post('/generate-stream', aiLimiter, async (req, res) => {
   try {
     const { prompt } = req.body;
     

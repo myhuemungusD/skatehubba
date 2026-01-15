@@ -61,9 +61,12 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Cookie parsing - MUST come before CSRF token creation
+// lgtm[js/missing-token-validation] - CSRF protection is implemented via ensureCsrfToken/requireCsrfToken below
+// codeql[js/missing-token-validation] - False positive: custom double-submit CSRF pattern follows immediately
 app.use(cookieParser());
 
 // CSRF protection (double-submit cookie pattern) - MUST come after cookieParser
+// Implements OWASP Double Submit Cookie pattern: https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html
 // 1. ensureCsrfToken: Sets CSRF token in httpOnly=false cookie for all requests
 // 2. requireCsrfToken: Validates X-CSRF-Token header matches cookie on state-changing requests
 // This prevents attackers from reading the cookie cross-origin due to Same-Origin Policy
