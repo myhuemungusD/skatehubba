@@ -4,6 +4,38 @@ All notable feature completions and improvements to SkateHubba are documented in
 
 ---
 
+## [2026-01-14]
+
+### Completed Features
+- **Role-Based Access Control (RBAC)** – Implemented comprehensive user roles system (admin, moderator, verified_pro) with Firebase custom claims, Cloud Functions for secure role management, and frontend hooks for role-based UI rendering.
+- **Unified Authentication System** – Consolidated all auth logic into single `AuthProvider` as source of truth. Fixed dual-hook issue where components used different auth states.
+- **Cloud Functions Security Hardening** – Added rate limiting (10 req/min per user), App Check verification (soft enforcement), email masking for privacy, and comprehensive audit logging for all role changes.
+- **Post-Login Navigation Fix** – All auth pages now redirect to `/home` (main experience) instead of `/map` after successful authentication.
+- **God Mode Admin Script** – Created `scripts/set-admin.ts` for bootstrapping initial admin access with proper validation and Firestore sync.
+- **Map E2E Test Suite** – Expanded map tests from 1 to 10 covering performance (viewport culling), user interactions, accessibility (keyboard nav), and error handling.
+- **Sitemap Configuration Upgrade** – Added utility functions (`generateSitemapXml`, `validateEntry`), page categories, and all missing app routes.
+
+### Security Improvements
+- Firestore `update()` → `set({ merge: true })` to prevent errors on missing docs
+- `error: any` → `error: unknown` across all Cloud Functions
+- Proper type exports with `export type` for TypeScript `isolatedModules`
+
+### Files Modified
+- `client/src/context/AuthProvider.tsx` – Clean RBAC implementation
+- `client/src/hooks/useUserRoles.ts` – Delegates to AuthProvider
+- `functions/src/index.ts` – Rate limiting, App Check, audit logging
+- `scripts/set-admin.ts` – Validation, Firestore sync
+- `client/src/components/map.spec.ts` – 10 E2E tests
+- `shared/sitemap-config.ts` – Full utility suite
+- 8 pages/components updated to use unified `useAuth`
+
+### Next Target
+- **Deploy Cloud Functions** – `firebase deploy --only functions`
+- **Enable Hard App Check** – Uncomment enforcement in functions
+- **Restore Firestore Rules** – Change permissive rules back to strict after debugging
+
+---
+
 ## [2025-10-26]
 
 ### Completed Features

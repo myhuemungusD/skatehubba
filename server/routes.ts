@@ -8,6 +8,9 @@ import { ilike, or, eq } from "drizzle-orm";
 import { insertSpotSchema } from "@shared/schema";
 import { publicWriteLimiter } from "./middleware/security";
 import { requireCsrfToken } from "./middleware/csrf";
+import { z } from "zod";
+import { authenticateUser } from "./auth/middleware";
+import { verifyAndCheckIn } from "./services/spotService";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // 1. Setup Authentication (Passport session)
@@ -38,6 +41,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
 
     res.status(201).json(spot);
+  });
+
+  const checkInSchema = z.object({
+    spotId: z.number().int(),
+    lat: z.number(),
+    lng: z.number(),
+  });
+
+  app.post("/api/spots/check-in", authenticateUser, async (req, res) => {
+    const parsed = checkInSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
+    }
+
+    const userId = req.currentUser?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const { spotId, lat, lng } = parsed.data;
+
+    try {
+      const result = await verifyAndCheckIn(userId, spotId, lat, lng);
+      if (!result.success) {
+        return res.status(403).json({ message: result.message });
+      }
+
+      return res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof Error && error.message === "Spot not found") {
+        return res.status(404).json({ message: "Spot not found" });
+      }
+
+      return res.status(500).json({ message: "Check-in failed" });
+    }
   });
 
   // 3. Create HTTP Server

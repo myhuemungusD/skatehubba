@@ -1,5 +1,7 @@
+import { useState } from "react";
 import EmailSignup from "../components/EmailSignup";
 import { env } from '../config/env';
+import { Menu, X } from 'lucide-react';
 
 const DONATE_STRIPE = env.VITE_DONATE_STRIPE_URL || "#";
 const DONATE_PAYPAL = env.VITE_DONATE_PAYPAL_URL || "#";
@@ -19,6 +21,8 @@ export default function NewLanding() {
 }
 
 function Header() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  
   return (
     <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-gray-200">
       <nav className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
@@ -26,12 +30,34 @@ function Header() {
           <span className="text-2xl">🛹</span>
           <span>SkateHubba</span>
         </a>
+        
+        {/* Desktop Nav */}
         <div className="hidden sm:flex items-center gap-2">
           <a href="#features" className="btn btn-ghost">Features</a>
           <a href="/donate" className="btn btn-ghost">Donate</a>
           <a href="https://skate-hubba-frontend-jayham710.replit.app" className="btn btn-primary">Join the beta</a>
         </div>
+        
+        {/* Mobile Menu Button */}
+        <button 
+          className="sm:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-label="Toggle menu"
+        >
+          {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
       </nav>
+      
+      {/* Mobile Menu Dropdown */}
+      {isMenuOpen && (
+        <div className="sm:hidden border-t border-gray-200 bg-white/95 backdrop-blur">
+          <div className="px-4 py-4 space-y-3">
+            <a href="#features" className="block px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">Features</a>
+            <a href="/donate" className="block px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors">Donate</a>
+            <a href="https://skate-hubba-frontend-jayham710.replit.app" className="block px-4 py-3 rounded-lg bg-black text-white text-center font-semibold">Join the beta</a>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
@@ -139,12 +165,12 @@ function Features() {
             Built by skaters, for skaters. Every feature designed to elevate your game.
           </p>
         </div>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
           {features.map((feature, index) => (
-            <div key={index} className="card hover:shadow-lg transition-shadow">
-              <div className="text-3xl mb-4">{feature.icon}</div>
-              <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
-              <p className="text-gray-600">{feature.description}</p>
+            <div key={index} className="p-5 sm:p-6 rounded-2xl border border-gray-100 bg-white hover:shadow-lg transition-shadow">
+              <div className="text-3xl sm:text-4xl mb-3 sm:mb-4">{feature.icon}</div>
+              <h3 className="text-lg sm:text-xl font-bold mb-2">{feature.title}</h3>
+              <p className="text-gray-600 text-sm sm:text-base">{feature.description}</p>
             </div>
           ))}
         </div>

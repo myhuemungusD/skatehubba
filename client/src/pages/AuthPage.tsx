@@ -96,7 +96,7 @@ export default function AuthPage() {
         title: 'Welcome back! 🛹',
         description: 'You have successfully signed in.',
       });
-      setLocation('/map');
+      setLocation('/home');
     } catch (error) {
       console.error('[AuthPage] Sign in error:', error);
       // Get the actual error message from AuthError
@@ -152,7 +152,7 @@ export default function AuthPage() {
         title: 'Welcome! 🛹',
         description: 'You have successfully signed in with Google.',
       });
-      setLocation('/map');
+      setLocation('/home');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Google sign in failed';
       toast({

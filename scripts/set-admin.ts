@@ -5,6 +5,7 @@
  * NEVER hardcode admin emails in deployed functions.
  * 
  * Usage: npx tsx scripts/set-admin.ts
+ *    or: ADMIN_EMAIL=you@example.com npx tsx scripts/set-admin.ts
  * 
  * Prerequisites:
  * 1. Download serviceAccountKey.json from Firebase Console
@@ -13,19 +14,25 @@
  */
 
 import * as admin from 'firebase-admin';
+import * as fs from 'fs';
 import * as path from 'path';
 
 // 1. Initialize Firebase Admin with your Service Account
-const serviceAccountPath = path.resolve(__dirname, '../serviceAccountKey.json');
+const serviceAccountPath = path.resolve(process.cwd(), 'serviceAccountKey.json');
 
 try {
-  const serviceAccount = require(serviceAccountPath);
+  if (!fs.existsSync(serviceAccountPath)) {
+    throw new Error('File not found');
+  }
+  
+  const serviceAccountJson = fs.readFileSync(serviceAccountPath, 'utf-8');
+  const serviceAccount = JSON.parse(serviceAccountJson);
   
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
   });
 } catch (error) {
-  console.error('❌ ERROR: Could not find serviceAccountKey.json');
+  console.error('❌ ERROR: Could not find or parse serviceAccountKey.json');
   console.error('   Please download it from Firebase Console:');
   console.error('   Project Settings → Service Accounts → Generate New Private Key');
   console.error('   Then place it in the project root directory.');
@@ -34,10 +41,21 @@ try {
 
 // 2. Configuration - UPDATE THIS WITH YOUR EMAIL
 const TARGET_EMAIL = process.env.ADMIN_EMAIL || "jason@designmainline.com";
-const ROLES = ['admin', 'verified_pro'];
+const ROLES: string[] = ['admin', 'verified_pro'];
+
+// Simple email validation
+function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
 
 async function grantGodMode() {
   try {
+    // Validate email format
+    if (!isValidEmail(TARGET_EMAIL)) {
+      console.error(`❌ ERROR: Invalid email format: ${TARGET_EMAIL}`);
+      process.exit(1);
+    }
+    
     console.log(`🔍 Looking up user: ${TARGET_EMAIL}`);
     
     // 3. Find the user
@@ -49,6 +67,12 @@ async function grantGodMode() {
       roles: ROLES
     });
 
+    // 5. Sync to Firestore for UI speed (same as Cloud Function)
+    await admin.firestore().collection('users').doc(user.uid).set({
+      roles: ROLES,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
     console.log('');
     console.log('═══════════════════════════════════════════════════════');
     console.log(`✅ SUCCESS: Granted [${ROLES.join(', ')}] to ${user.email}`);
@@ -59,12 +83,14 @@ async function grantGodMode() {
     console.log('');
     
     process.exit(0);
-  } catch (error: any) {
-    if (error.code === 'auth/user-not-found') {
+  } catch (error: unknown) {
+    const firebaseError = error as { code?: string; message?: string };
+    
+    if (firebaseError.code === 'auth/user-not-found') {
       console.error(`❌ ERROR: No user found with email: ${TARGET_EMAIL}`);
       console.error('   Make sure the user has signed up first.');
     } else {
-      console.error("❌ ERROR:", error.message || error);
+      console.error("❌ ERROR:", firebaseError.message || error);
     }
     process.exit(1);
   }

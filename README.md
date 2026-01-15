@@ -6,6 +6,9 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
+[![CI](https://github.com/myhuemungusD/skatehubba1/actions/workflows/ci.yml/badge.svg)](https://github.com/myhuemungusD/skatehubba1/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/Tests-85%20passing-brightgreen.svg)](./vitest.config.mts)
+[![CodeQL](https://github.com/myhuemungusD/skatehubba1/actions/workflows/codeql.yml/badge.svg)](https://github.com/myhuemungusD/skatehubba1/security/code-scanning)
 
 **Owner:** Jason Hamilton  
 **Entity:** Design Mainline LLC  
@@ -38,6 +41,52 @@ SkateHubba™ is a next-generation skateboarding platform that combines:
 - **Social Features**: Leaderboards, profiles, and community engagement
 - **E-commerce**: Shop for exclusive SkateHubba merchandise
 - **AI Skate Buddy**: Get skateboarding tips and app help from Hesher, your AI companion
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart TB
+    subgraph Client["🖥️ Client (React + Vite)"]
+        UI[React Components]
+        Zustand[Zustand State]
+        TQ[TanStack Query]
+    end
+
+    subgraph Server["⚙️ Server (Express + TypeScript)"]
+        API[REST API Routes]
+        Auth[Auth Middleware]
+        Security[Rate Limiting & CORS]
+    end
+
+    subgraph Firebase["🔥 Firebase"]
+        FAuth[Firebase Auth]
+        Firestore[(Firestore)]
+        Functions[Cloud Functions]
+    end
+
+    subgraph Database["🗄️ PostgreSQL (Neon)"]
+        Drizzle[Drizzle ORM]
+        PG[(PostgreSQL)]
+    end
+
+    subgraph External["🌐 External Services"]
+        Stripe[Stripe Payments]
+        OpenAI[OpenAI API]
+        Resend[Resend Email]
+    end
+
+    UI --> TQ --> API
+    UI --> Zustand
+    API --> Auth --> Security
+    Auth --> FAuth
+    API --> Firestore
+    API --> Drizzle --> PG
+    API --> Stripe
+    API --> OpenAI
+    Functions --> Firestore
+```
 
 ---
 
@@ -112,14 +161,12 @@ SkateHubba™ is a next-generation skateboarding platform that combines:
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/myhuemungusD/skatehubbaweb010.git
-cd skatehubbaweb010
+git clone https://github.com/myhuemungusD/skatehubba1.git
+cd skatehubba1
 ```
 
 2. **Install dependencies**
 ```bash
-npm install
-# or
 pnpm install
 ```
 

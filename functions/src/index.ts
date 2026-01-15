@@ -3,6 +3,12 @@
  * 
  * Secure serverless functions for SkateHubba.
  * Handles role management and other privileged operations.
+ * 
+ * Security Features:
+ * - App Check enforcement for abuse prevention
+ * - Rate limiting via in-memory tracking
+ * - RBAC with custom claims
+ * - Comprehensive audit logging
  */
 
 import * as functions from 'firebase-functions';
@@ -16,6 +22,68 @@ if (!admin.apps.length) {
 // Valid roles that can be assigned
 const VALID_ROLES = ['admin', 'moderator', 'verified_pro'] as const;
 type ValidRole = typeof VALID_ROLES[number];
+
+// ============================================================================
+// Rate Limiting (In-Memory for single instance, use Redis for multi-instance)
+// ============================================================================
+
+interface RateLimitEntry {
+  count: number;
+  resetAt: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+const RATE_LIMIT = {
+  maxRequests: 10,       // Max requests per window
+  windowMs: 60 * 1000,   // 1 minute window
+};
+
+/**
+ * Check if a user has exceeded rate limit
+ */
+function checkRateLimit(uid: string): void {
+  const now = Date.now();
+  const entry = rateLimitStore.get(uid);
+  
+  if (!entry || now > entry.resetAt) {
+    // First request or window expired - reset
+    rateLimitStore.set(uid, { count: 1, resetAt: now + RATE_LIMIT.windowMs });
+    return;
+  }
+  
+  if (entry.count >= RATE_LIMIT.maxRequests) {
+    throw new functions.https.HttpsError(
+      'resource-exhausted',
+      'Too many requests. Please try again later.'
+    );
+  }
+  
+  entry.count++;
+}
+
+/**
+ * Verify App Check token if available (soft enforcement)
+ * Set to hard enforcement in production by uncommenting the throw
+ */
+function verifyAppCheck(context: functions.https.CallableContext): void {
+  if (!context.app) {
+    console.warn('[Security] Request without App Check token from:', context.auth?.uid);
+    // Uncomment for hard enforcement:
+    // throw new functions.https.HttpsError('failed-precondition', 'App Check verification failed.');
+  }
+}
+
+/**
+ * Mask email for privacy (show first char + domain)
+ * john.doe@gmail.com -> j***@gmail.com
+ */
+function maskEmail(email: string | undefined): string {
+  if (!email) return '***';
+  const [local, domain] = email.split('@');
+  if (!domain) return '***';
+  return `${local[0]}***@${domain}`;
+}
 
 interface ManageRolePayload {
   targetUid: string;
@@ -35,7 +103,7 @@ interface ManageRolePayload {
  *   action: 'grant' | 'revoke' 
  * }
  */
-export const manageUserRole = functions.https.onCall(async (data: ManageRolePayload, context) => {
+export const manageUserRole = functions.https.onCall(async (data: ManageRolePayload, context: functions.https.CallableContext) => {
   // 1. SECURITY: Authentication Gate
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -44,7 +112,13 @@ export const manageUserRole = functions.https.onCall(async (data: ManageRolePayl
     );
   }
 
-  // 2. SECURITY: Authorization Gate (RBAC)
+  // 2. SECURITY: App Check verification
+  verifyAppCheck(context);
+
+  // 3. SECURITY: Rate limiting
+  checkRateLimit(context.auth.uid);
+
+  // 4. SECURITY: Authorization Gate (RBAC)
   // Check the caller's token for the 'admin' role
   const callerRoles = (context.auth.token.roles as string[]) || [];
   if (!callerRoles.includes('admin')) {
@@ -54,7 +128,7 @@ export const manageUserRole = functions.https.onCall(async (data: ManageRolePayl
     );
   }
 
-  // 3. VALIDATION: Input Sanitization
+  // 5. VALIDATION: Input Sanitization
   const { targetUid, role, action } = data;
   
   if (!VALID_ROLES.includes(role as ValidRole)) {
@@ -78,7 +152,7 @@ export const manageUserRole = functions.https.onCall(async (data: ManageRolePayl
     );
   }
 
-  // 4. SAFETY: Prevent self-demotion from admin
+  // 6. SAFETY: Prevent self-demotion from admin
   if (targetUid === context.auth.uid && role === 'admin' && action === 'revoke') {
     throw new functions.https.HttpsError(
       'failed-precondition',
@@ -87,7 +161,7 @@ export const manageUserRole = functions.https.onCall(async (data: ManageRolePayl
   }
 
   try {
-    // 5. LOGIC: Fetch current claims
+    // 7. LOGIC: Fetch current claims
     const userRecord = await admin.auth().getUser(targetUid);
     const currentClaims = userRecord.customClaims || {};
     const currentRoles: string[] = (currentClaims.roles as string[]) || [];
@@ -112,10 +186,11 @@ export const manageUserRole = functions.https.onCall(async (data: ManageRolePayl
 
     // 7. SYNC: Update Firestore for UI speed
     // This allows the frontend to show "Admin" badges without decoding the token
-    await admin.firestore().collection('users').doc(targetUid).update({
+    // Use set with merge to create doc if it doesn't exist
+    await admin.firestore().collection('users').doc(targetUid).set({
       roles: newRoles,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    });
+    }, { merge: true });
 
     // 8. AUDIT: Log the action
     await admin.firestore().collection('audit_logs').add({
@@ -137,10 +212,11 @@ export const manageUserRole = functions.https.onCall(async (data: ManageRolePayl
       roles: newRoles
     };
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Role Management Error:", error);
     
-    if (error.code === 'auth/user-not-found') {
+    const firebaseError = error as { code?: string };
+    if (firebaseError.code === 'auth/user-not-found') {
       throw new functions.https.HttpsError('not-found', 'Target user not found.');
     }
     
@@ -152,19 +228,27 @@ export const manageUserRole = functions.https.onCall(async (data: ManageRolePayl
  * getUserRoles
  * 
  * Get the roles for a specific user (admin only)
+ * Returns masked email for privacy protection
  */
-export const getUserRoles = functions.https.onCall(async (data: { targetUid: string }, context) => {
+export const getUserRoles = functions.https.onCall(async (data: { targetUid: string }, context: functions.https.CallableContext) => {
+  // Authentication
   if (!context.auth) {
     throw new functions.https.HttpsError('unauthenticated', 'Must be logged in.');
   }
 
+  // App Check & Rate limiting
+  verifyAppCheck(context);
+  checkRateLimit(context.auth.uid);
+
+  // Authorization
   const callerRoles = (context.auth.token.roles as string[]) || [];
   if (!callerRoles.includes('admin')) {
     throw new functions.https.HttpsError('permission-denied', 'Only Admins can view user roles.');
   }
 
+  // Validation
   const { targetUid } = data;
-  if (!targetUid) {
+  if (!targetUid || typeof targetUid !== 'string') {
     throw new functions.https.HttpsError('invalid-argument', 'Target UID required.');
   }
 
@@ -174,10 +258,10 @@ export const getUserRoles = functions.https.onCall(async (data: { targetUid: str
     
     return {
       uid: targetUid,
-      email: userRecord.email,
+      email: maskEmail(userRecord.email),  // Privacy: mask email
       roles
     };
-  } catch (error) {
+  } catch (error: unknown) {
     throw new functions.https.HttpsError('not-found', 'User not found.');
   }
 });

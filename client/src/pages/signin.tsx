@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthProvider";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -16,6 +16,13 @@ export default function SigninPage() {
   const auth = useAuth();
   const [, setLocation] = useLocation();
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (auth?.isAuthenticated) {
+      setLocation("/home");
+    }
+  }, [auth?.isAuthenticated, setLocation]);
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
@@ -26,7 +33,7 @@ export default function SigninPage() {
         title: "Welcome back! 🛹",
         description: "You've successfully signed in."
       });
-      setLocation("/map");
+      setLocation("/home");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Login failed";
       toast({ 
@@ -48,7 +55,7 @@ export default function SigninPage() {
         title: "Welcome! 🛹",
         description: "You've successfully signed in with Google."
       });
-      setLocation("/map");
+      setLocation("/home");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-in failed";
       toast({ 

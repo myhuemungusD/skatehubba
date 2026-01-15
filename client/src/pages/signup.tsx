@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthProvider";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -16,6 +16,13 @@ export default function SignupPage() {
   const auth = useAuth();
   const [, setLocation] = useLocation();
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (auth?.isAuthenticated) {
+      setLocation("/home");
+    }
+  }, [auth?.isAuthenticated, setLocation]);
+
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
@@ -26,7 +33,7 @@ export default function SignupPage() {
         title: "Account Created! 🛹", 
         description: "Welcome to SkateHubba!" 
       });
-      setLocation("/map");
+      setLocation("/home");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Registration failed";
       toast({ 
@@ -48,7 +55,7 @@ export default function SignupPage() {
         title: "Account Created! 🛹", 
         description: "Welcome to SkateHubba!" 
       });
-      setLocation("/map");
+      setLocation("/home");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-up failed";
       toast({ 

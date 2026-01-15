@@ -18,7 +18,7 @@ export default function LoginPage() {
   // Redirect when authenticated
   useEffect(() => {
     if (auth?.user) {
-      setLocation("/map");
+      setLocation("/home");
     }
   }, [auth?.user, setLocation]);
 

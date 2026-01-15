@@ -3,7 +3,7 @@ import Navigation from '../components/Navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Trophy, Medal, TrendingUp, MapPin, Award, Crown } from 'lucide-react';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../context/AuthProvider';
 import { ProfileSearch } from '../components/search/ProfileSearch';
 
 interface LeaderboardEntry {

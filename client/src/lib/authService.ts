@@ -52,6 +52,9 @@ function mapAuthError(error: unknown): AuthError {
   const firebaseError = error as { code?: string; message?: string };
   const code = firebaseError.code ?? 'unknown';
   
+  // Log the raw error for debugging
+  console.error('[AuthService] Firebase auth error:', code, firebaseError.message);
+  
   const errorMessages: Record<string, string> = {
     'auth/email-already-in-use': 'An account with this email already exists.',
     'auth/invalid-email': 'Please enter a valid email address.',
@@ -66,7 +69,10 @@ function mapAuthError(error: unknown): AuthError {
     'auth/popup-closed-by-user': 'Sign-in was cancelled.',
     'auth/cancelled-popup-request': 'Sign-in was cancelled.',
     'auth/popup-blocked': 'Pop-up was blocked. Please allow pop-ups and try again.',
-    'auth/account-exists-with-different-credential': 'An account already exists with this email using a different sign-in method.'
+    'auth/account-exists-with-different-credential': 'An account already exists with this email using a different sign-in method.',
+    'auth/api-key-not-valid.-please-pass-a-valid-api-key.': 'Authentication service configuration error. Please contact support.',
+    'auth/api-key-not-valid': 'Authentication service configuration error. Please contact support.',
+    'auth/invalid-api-key': 'Authentication service configuration error. Please contact support.',
   };
   
   return {
