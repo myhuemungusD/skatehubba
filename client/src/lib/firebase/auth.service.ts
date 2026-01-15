@@ -26,6 +26,9 @@ import {
   getRedirectResult,
   updateProfile,
   onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
   User as FirebaseUser,
   Unsubscribe,
 } from 'firebase/auth';
@@ -66,6 +69,27 @@ function createAuthError(error: unknown): AuthError {
   
   console.error('[AuthService] Mapped error:', { code, message });
   return { code, message, originalError: error };
+}
+
+// ============================================================================
+// Auth Persistence
+// ============================================================================
+
+/**
+ * Set auth persistence mode
+ * @param rememberMe - If true, stays logged in after browser closes. If false, logs out when browser closes.
+ */
+export async function setAuthPersistence(rememberMe: boolean): Promise<void> {
+  console.log('[AuthService] Setting persistence, rememberMe:', rememberMe);
+  try {
+    await setPersistence(
+      auth,
+      rememberMe ? browserLocalPersistence : browserSessionPersistence
+    );
+  } catch (error) {
+    console.error('[AuthService] Failed to set persistence:', error);
+    // Don't throw - persistence is a nice-to-have, not critical
+  }
 }
 
 // ============================================================================

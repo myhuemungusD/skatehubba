@@ -6,7 +6,10 @@ import { useAuth } from "../context/AuthProvider";
 import { trackEvent } from "../lib/analytics";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
+import { Checkbox } from "../components/ui/checkbox";
+import { Label } from "../components/ui/label";
 import { useToast } from "../hooks/use-toast";
+import { setAuthPersistence } from "../lib/firebase";
 
 export default function LoginPage() {
   const [, setLocation] = useLocation();
@@ -14,6 +17,7 @@ export default function LoginPage() {
   const auth = useAuth();
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAnonymousLoading, setIsAnonymousLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true); // Default to staying signed in
 
   // Redirect when authenticated
   useEffect(() => {
@@ -25,12 +29,14 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
+      // Set persistence before signing in
+      await setAuthPersistence(rememberMe);
       await auth?.signInWithGoogle();
       toast({
         title: "Welcome! 🛹",
         description: "You've successfully signed in with Google."
       });
-      trackEvent('login', { method: 'google' });
+      trackEvent('login', { method: 'google', rememberMe });
     } catch (err: any) {
       toast({ 
         title: "Google sign-in failed", 
@@ -44,12 +50,14 @@ export default function LoginPage() {
   const handleAnonymousSignIn = async () => {
     setIsAnonymousLoading(true);
     try {
+      // Set persistence before signing in
+      await setAuthPersistence(rememberMe);
       await auth?.signInAnonymously();
       toast({
         title: "Welcome! 🛹",
         description: "You've signed in as a guest."
       });
-      trackEvent('login', { method: 'anonymous' });
+      trackEvent('login', { method: 'anonymous', rememberMe });
     } catch (err: any) {
       toast({ 
         title: "Guest sign-in failed", 
@@ -82,6 +90,22 @@ export default function LoginPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Remember Me Checkbox */}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="rememberMe"
+                checked={rememberMe}
+                onCheckedChange={(checked) => setRememberMe(checked === true)}
+                className="border-gray-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+              />
+              <Label
+                htmlFor="rememberMe"
+                className="text-sm text-gray-300 cursor-pointer"
+              >
+                Keep me signed in
+              </Label>
+            </div>
+
             {/* Google Sign-In Button */}
             <Button
               onClick={handleGoogleSignIn}

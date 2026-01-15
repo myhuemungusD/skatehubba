@@ -22,6 +22,7 @@ export {
   getCurrentUser,
   resendVerificationEmail,
   resetPassword,
+  setAuthPersistence,
 } from './auth.service';
 
 // Profile Service

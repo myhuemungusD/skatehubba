@@ -20,8 +20,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../co
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Checkbox } from '../components/ui/checkbox';
 import { useToast } from '../hooks/use-toast';
 import { useAuth } from '../context/AuthProvider';
+import { setAuthPersistence } from '../lib/firebase';
 
 // ============================================================================
 // Form Schemas
@@ -62,6 +64,7 @@ export default function AuthPage() {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
   const [isResettingPassword, setIsResettingPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true); // Default to staying signed in
   
   // Handle case where auth context is not available yet
   const signIn = auth?.signInWithEmail;
@@ -90,6 +93,8 @@ export default function AuthPage() {
     }
     try {
       console.log('[AuthPage] Attempting sign in...');
+      // Set persistence before signing in
+      await setAuthPersistence(rememberMe);
       await signIn(data.email, data.password);
       console.log('[AuthPage] Sign in successful');
       toast({
@@ -147,6 +152,8 @@ export default function AuthPage() {
     }
     setIsGoogleLoading(true);
     try {
+      // Set persistence before signing in
+      await setAuthPersistence(rememberMe);
       await signInWithGoogle();
       toast({
         title: 'Welcome! 🛹',
@@ -290,6 +297,22 @@ export default function AuthPage() {
                     {signInForm.formState.errors.password && (
                       <p className="text-sm text-red-400">{signInForm.formState.errors.password.message}</p>
                     )}
+                  </div>
+
+                  {/* Remember Me */}
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="rememberMe"
+                      checked={rememberMe}
+                      onCheckedChange={(checked) => setRememberMe(checked === true)}
+                      className="border-gray-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
+                    />
+                    <Label
+                      htmlFor="rememberMe"
+                      className="text-sm text-gray-300 cursor-pointer"
+                    >
+                      Keep me signed in
+                    </Label>
                   </div>
 
                   {/* Submit */}
