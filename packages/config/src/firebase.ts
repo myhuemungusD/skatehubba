@@ -23,11 +23,20 @@ export interface FirebaseConfig {
 }
 
 /**
- * Hardcoded production config (safe to expose - security is via Firebase Rules)
- * This ensures the app works even if env vars aren't set
+ * Production config
+ *
+ * Note on security model:
+ * - Firebase Web API keys are not traditional secrets; security is enforced via
+ *   Firebase Security Rules and authorized domains (see AUTHORIZED_DOMAINS below).
+ * - We still avoid committing real project keys to source control and instead read
+ *   them from environment variables, so keys can be rotated without code changes.
+ *
+ * EXPO_PUBLIC_FIREBASE_API_KEY_PROD must be configured in the deployment
+ * environment. A non-sensitive placeholder is used as a last-resort fallback
+ * for misconfigured local environments only.
  */
 const PRODUCTION_CONFIG: FirebaseConfig = {
-  apiKey: "AIzaSyD6kLt4GKV4adX-oQ3m_aXIpL6GXBP0xZw",
+  apiKey: getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_API_KEY_PROD") ?? "DUMMY_FIREBASE_API_KEY",
   authDomain: "sk8hub-d7806.firebaseapp.com",
   projectId: "sk8hub-d7806",
   storageBucket: "sk8hub-d7806.firebasestorage.app",
