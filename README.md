@@ -1,10 +1,10 @@
 # 🛹 SkateHubba™
 
-> The ultimate skateboarding platform merging AR gameplay, social interaction, and skate culture
+> A skater-built platform merging AR rewards, remote S.K.A.T.E. battles, spot discovery, and community progression.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18.3-61dafb.svg)](https://reactjs.org/)
+[![React](https://img.shields.io/badge/React-18.3-61DAFB.svg)](https://reactjs.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![CI](https://github.com/myhuemungusD/skatehubba1/actions/workflows/ci.yml/badge.svg)](https://github.com/myhuemungusD/skatehubba1/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/Tests-133%20passing-brightgreen.svg)](./vitest.config.mts)
@@ -18,600 +18,256 @@
 
 ---
 
-## 📖 Table of Contents
+## Table of Contents
 
-- [Overview](#overview)
-- [Features](#features)
+- [What is SkateHubba](#what-is-skatehubba)
+- [Core Product Loop](#core-product-loop)
+- [Key Features](#key-features)
 - [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
+- [Repo Structure](#repo-structure)
+- [Local Development](#local-development)
+- [Environment Separation](#environment-separation)
 - [Environment Variables](#environment-variables)
-- [Development](#development)
-- [API Documentation](#api-documentation)
+- [Testing](#testing)
 - [Deployment](#deployment)
-- [Project Structure](#project-structure)
+- [Security](#security)
 - [Contributing](#contributing)
 - [License](#license)
+- [Trademark](#trademark)
 
 ---
 
-## 🎯 Overview
+## What is SkateHubba
 
-SkateHubba™ is a next-generation skateboarding platform that combines:
+SkateHubba is a skater-built platform that combines:
 
-- **AR Gameplay**: Geo-locked trick holograms unlocked by physical check-ins
-- **Remote S.K.A.T.E. Game**: Challenge friends to virtual games of SKATE
-- **Spot Discovery**: Interactive map with legendary skate spots worldwide
-- **Social Features**: Leaderboards, profiles, and community engagement
-- **E-commerce**: Shop for exclusive SkateHubba merchandise
-- **AI Skate Buddy**: Get skateboarding tips and app help from Hesher, your AI companion
+- a **vertical clip feed** (skate-first, not generic social),
+- **remote Game of S.K.A.T.E. battles** with community judging,
+- **spot discovery + check-ins** for real-world progression,
+- and an **AR reward layer** (ghosts/replays anchored to places where possible).
 
----
-
-## 🏗️ Architecture
-
-```mermaid
-flowchart TB
-    subgraph Client["🖥️ Client (React + Vite)"]
-        UI[React Components]
-        Zustand[Zustand State]
-        TQ[TanStack Query]
-    end
-
-    subgraph Server["⚙️ Server (Express + TypeScript)"]
-        API[REST API Routes]
-        Auth[Auth Middleware]
-        Security[Rate Limiting & CORS]
-    end
-
-    subgraph Firebase["🔥 Firebase"]
-        FAuth[Firebase Auth]
-        Firestore[(Firestore)]
-        Functions[Cloud Functions]
-    end
-
-    subgraph Database["🗄️ PostgreSQL (Neon)"]
-        Drizzle[Drizzle ORM]
-        PG[(PostgreSQL)]
-    end
-
-    subgraph External["🌐 External Services"]
-        Stripe[Stripe Payments]
-        OpenAI[OpenAI API]
-        Resend[Resend Email]
-    end
-
-    UI --> TQ --> API
-    UI --> Zustand
-    API --> Auth --> Security
-    Auth --> FAuth
-    API --> Firestore
-    API --> Drizzle --> PG
-    API --> Stripe
-    API --> OpenAI
-    Functions --> Firestore
-```
+The long-term goal is to own the **skate graph**: tricks, spots, battles, judging outcomes, reputation, and crew influence.
 
 ---
 
-## ✨ Features
+## Core Product Loop
 
-### Core Systems
-
-- ✅ **Firebase Authentication** - Email/password, Google, and phone authentication
-- ✅ **Interactive Spot Map** - Powered by Leaflet with custom spot markers
-- ✅ **Geo-Verified Check-Ins** - 30-meter radius verification using Haversine formula
-- ✅ **AR Hologram Viewer** - WebXR-powered trick replay system
-- ✅ **24-Hour Spot Access** - Time-limited trick unlocks after check-in
-- ✅ **Remote S.K.A.T.E. Game** - Real-time multiplayer game mechanics
-- ✅ **Legendary Leaderboard** - Rankings by points, check-ins, and streaks
-- ✅ **Hubba Shop** - Stripe-integrated e-commerce with shopping cart
-- ✅ **AI Chat Assistant** - OpenAI-powered skateboarding buddy
-- ✅ **Profile Customization** - Avatar and style preferences
-- ✅ **Beta Subscriber System** - Email collection with Resend notifications
-
-### Security Features
-
-- Rate limiting on all API endpoints
-- XSS and SQL injection protection
-- Secure payment processing with Stripe
-- HttpOnly cookies for session management
-- Firebase token verification
-- Geo-verification for spot access
+1. **Watch** clips (feed)
+2. **Battle** (remote S.K.A.T.E.)
+3. **Judge / vote** (community validation)
+4. **Check in** at spots (streaks + rep)
+5. **Share/export** clips (growth engine)
+6. Repeat
 
 ---
 
-## 🛠 Tech Stack
+## Key Features
 
-### Frontend
+### Gameplay + Social
 
-- **React 18.3** - UI framework
-- **TypeScript 5.9** - Type safety
-- **Vite 7.1** - Build tool and dev server
-- **Wouter 3.3** - Lightweight routing
-- **Zustand 5.0** - State management
-- **TanStack Query 5.51** - Server state management
-- **Radix UI** - Accessible component primitives
-- **Tailwind CSS 3.4** - Utility-first styling
-- **Leaflet** - Interactive maps
-- **Lucide React** - Icon library
+- **Remote Game of S.K.A.T.E.**
+  - 1v1 battles, play-by-play, reply windows
+  - vote/judging mechanics
 
-### Backend
+- **Spot Map + Check-ins**
+  - location-based check-in validation
+  - streaks, leaderboards, city rankings
 
-- **Node.js 20+** - Runtime environment
-- **Express 4.21** - Web framework
-- **TypeScript** - Type safety on server
-- **Drizzle ORM 0.33** - Database toolkit
-- **PostgreSQL** - Primary database
-- **Firebase Admin** - Authentication and Firestore
-- **Stripe** - Payment processing
-- **OpenAI API** - AI chat functionality
+- **AR / Trick "Ghosts"**
+  - an aspirational reward layer (not required for onboarding)
+  - designed to be vendor-agnostic
 
-### Infrastructure
+- **AI Skate Buddy ("Hesher")**
+  - skate-specific Q&A and coaching direction (evolves over time)
 
-- **Firebase** - Authentication, Firestore, Storage, FCM
-- **Neon Database** - Serverless PostgreSQL
-- **Stripe** - Payment gateway
-- **Resend** - Transactional emails
-- **Sentry** - Error monitoring
+- **Identity + Profile**
+  - skater profile, credibility, future "verified" paths
 
----
+- **E-commerce (planned)**
+  - culture-aligned drops/collabs and shop discovery
 
-## � Environment Separation
+### Engineering + Safety (Implemented)
 
-SkateHubba uses **enterprise-grade environment separation** with a single Firebase project:
-
-| Environment | Purpose                     | Firestore Namespace |
-| ----------- | --------------------------- | ------------------- |
-| `prod`      | Production users            | `/env/prod/...`     |
-| `staging`   | Testing & QA                | `/env/staging/...`  |
-| `local`     | Development (emulator only) | `/env/local/...`    |
-
-**Key features:**
-
-- **Runtime guardrails** - `assertEnvWiring()` fails fast on misconfigurations
-- **Visual indicators** - Yellow "STAGING" banner in non-prod environments
-- **Path namespacing** - `getEnvPath()` ensures data isolation
-- **133 tests** validating environment architecture
-
-See [docs/ENVIRONMENT_SEPARATION.md](docs/ENVIRONMENT_SEPARATION.md) for the full setup guide.
+- **Enterprise environment separation guardrails**
+  - fail-fast startup validation (`assertEnvWiring()`)
+  - environment namespacing for Firestore + Storage (`getEnvPath()`, `getStoragePath()`)
+  - write-path validation (`validateWritePath()`)
+  - non-prod environment banner (staging/local)
 
 ---
 
-## �🚀 Getting Started
+## Tech Stack
 
-### Prerequisites
+- **Web:** React + Vite + TypeScript
+- **Backend:** Node + Express
+- **Auth:** Firebase Auth
+- **Profiles / realtime:** Firestore
+- **Structured data:** PostgreSQL + Drizzle
+- **Storage:** Firebase Storage (media uploads)
+- **Maps:** Leaflet
+- **Payments (shop):** Stripe
+- **Monitoring:** Sentry (ready)
+- **CI/Security:** GitHub Actions + CodeQL
 
-- Node.js 20 or higher
-- npm or pnpm package manager
-- PostgreSQL database (local or Neon)
-- Firebase project
-- Stripe account (for payments)
+---
 
-### Installation
+## Repo Structure
 
-1. **Clone the repository**
+> Exact folders may evolve, but the intent is consistent:
 
-```bash
-git clone https://github.com/myhuemungusD/skatehubba1.git
-cd skatehubba1
-```
+- `client/` — web app (Vite/React)
+- `server/` — API + services
+- `packages/` — shared code (types, config, utilities)
+  - `@skatehubba/config` — universal env loader + guardrails
 
-2. **Install dependencies**
+---
+
+## Local Development
+
+### Prereqs
+
+- Node.js **20+**
+- pnpm
+
+### Install
+
+From repo root:
 
 ```bash
 pnpm install
 ```
 
-3. **Set up environment variables**
+Run web client:
 
 ```bash
-cp .env.example .env
+pnpm -C client dev
 ```
 
-See [Environment Variables](#environment-variables) for configuration details.
-
-4. **Initialize the database**
+Build web client:
 
 ```bash
-npm run db:push
+pnpm -C client build
 ```
 
-5. **Start the development server**
-
-```bash
-npm run dev
-```
-
-The application will be available at `http://localhost:3001`
+If you also run the API locally, use the scripts defined in the root `package.json` / server package.
 
 ---
 
-## 🔐 Environment Variables
+## Environment Separation
 
-### Required Variables
+SkateHubba uses origin-stable environments. We do not chase disposable preview URLs for auth testing.
 
-#### Database
+| Environment    | Domain                   | Purpose                              |
+| -------------- | ------------------------ | ------------------------------------ |
+| **Production** | `skatehubba.com`         | persistent auth                      |
+| **Staging**    | `staging.skatehubba.com` | persistent auth + investor demos     |
+| **Previews**   | `*.vercel.app`           | UI checks only; re-login is expected |
 
-```bash
-DATABASE_URL=postgresql://user:password@host:5432/database
-```
+### Namespaced data model
 
-#### Firebase Configuration
+Firestore + Storage are namespaced by environment:
 
-```bash
-# Frontend (Vite variables)
-VITE_FIREBASE_API_KEY=your-firebase-api-key
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-VITE_FIREBASE_APP_ID=your-app-id
-VITE_FIREBASE_MEASUREMENT_ID=your-measurement-id
+- `prod` → `/env/prod/...`
+- `staging` → `/env/staging/...`
+- `local` → emulator/dev only (do not rely on `/env/local` in hosted prod rules)
 
-# Backend
-FIREBASE_ADMIN_KEY=path-to-service-account-key.json
-```
+**Docs:** [ENVIRONMENT_SEPARATION.md](docs/ENVIRONMENT_SEPARATION.md)
 
-#### Security & Authentication
-
-```bash
-SESSION_SECRET=your-session-secret-min-32-chars
-JWT_SECRET=your-jwt-secret-key
-ADMIN_API_KEY=your-admin-api-key-for-protected-endpoints
-```
-
-### Optional Variables
-
-#### Stripe Payment Processing
-
-```bash
-STRIPE_SECRET_KEY=sk_test_or_live_key
-VITE_STRIPE_PUBLISHABLE_KEY=pk_test_or_live_key
-```
-
-#### AI Features
-
-```bash
-OPENAI_API_KEY=your-openai-api-key
-GOOGLE_AI_API_KEY=your-google-ai-key
-```
-
-#### Email Notifications
-
-```bash
-RESEND_API_KEY=your-resend-api-key
-```
-
-#### Monitoring
-
-```bash
-SENTRY_DSN=your-sentry-dsn
-VITE_SENTRY_DSN=your-frontend-sentry-dsn
-```
-
-#### Production
-
-```bash
-NODE_ENV=production
-PORT=3001
-PRODUCTION_URL=https://skatehubba.com
-```
+**Shared env utilities:** `@skatehubba/config` (`assertEnvWiring()`, `getEnvPath()`, `validateWritePath()`)
 
 ---
 
-## 🔐 Auth + Map Setup
+## Environment Variables
 
-### Firebase Configuration
+Client-visible variables use only `EXPO_PUBLIC_*` (web + Expo mobile compatibility).  
+Server secrets must **never** use `EXPO_PUBLIC_*`.
 
-1. **Create a Firebase Project**
-   - Go to [Firebase Console](https://console.firebase.com)
-   - Create a new project or select an existing one
-   - Enable Google Analytics (optional)
+### Client (public)
 
-2. **Enable Authentication Methods**
-   - Navigate to Authentication → Sign-in method
-   - Enable **Google** provider (add authorized domains)
-   - Enable **Anonymous** provider
-   - Enable **Email/Password** provider (optional)
+Configured via Vercel (Prod/Staging), and via local `.env` where applicable.
 
-3. **Set up Firestore Database**
-   - Go to Firestore Database → Create database
-   - Start in **production mode** or **test mode** (update rules later)
-   - Choose a location close to your users
+Typical keys:
 
-4. **Set up Firebase Storage**
-   - Go to Storage → Get started
-   - Use default security rules or customize as needed
-   - This is used for storing trick videos and user uploads
+- `EXPO_PUBLIC_APP_ENV` (`prod` | `staging` | `local`)
+- `EXPO_PUBLIC_API_BASE_URL`
+- `EXPO_PUBLIC_CANONICAL_ORIGIN`
+- `EXPO_PUBLIC_FIREBASE_APP_ID_PROD`
+- `EXPO_PUBLIC_FIREBASE_APP_ID_STAGING`
+- `EXPO_PUBLIC_SENTRY_DSN` (if used client-side)
+- `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` (publishable only)
 
-5. **Get Firebase Configuration**
-   - Go to Project Settings → General
-   - Under "Your apps", add a web app (</>) if not already added
-   - Copy the Firebase config object
-   - Add the values to your `.env` file
+### Server (private)
 
-### Environment Variables
+Examples (var names may differ by deployment setup):
 
-Copy `.env.example` to `.env` and fill in your Firebase credentials:
+- `DATABASE_URL`
+- `STRIPE_SECRET_KEY`
+- `OPENAI_API_KEY`
+- `RESEND_API_KEY`
+- `SENTRY_DSN`
+- Firebase Admin credentials / service account (server-only)
+
+A repo script validates that secrets are not prefixed with public prefixes:
 
 ```bash
-# Firebase Client (Required for Auth + Firestore)
-VITE_FIREBASE_API_KEY=your-api-key
-VITE_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
-VITE_FIREBASE_PROJECT_ID=your-project-id
-VITE_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
-VITE_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
-VITE_FIREBASE_APP_ID=your-app-id
-VITE_FIREBASE_MEASUREMENT_ID=your-measurement-id
-
-# Firebase Admin (Backend)
-FIREBASE_ADMIN_KEY=path/to/serviceAccountKey.json
-
-# App URL (for OAuth callbacks)
-NEXT_PUBLIC_APP_URL=http://localhost:3001
+node scripts/validate-env-secrets.mjs
 ```
 
-### Geolocation & Maps
-
-The LocationPicker component uses the browser's Geolocation API and Leaflet maps:
-
-- **HTTPS Required**: Geolocation may require HTTPS in production browsers (Chrome, Safari)
-- **Permissions**: Users must grant location permission for "Use Current Location" feature
-- **Fallback**: Manual coordinate entry is always available
-- **Map Tiles**: Uses OpenStreetMap tiles (free, no API key required)
-
-### Firestore Collections
-
-The app creates the following Firestore collections:
-
-- `tricks` - Stores user-uploaded tricks with location data
-  - Fields: name, description, videoUrl, location (lat/lng/address), userId, createdAt, likes, views
-
-### Security Notes
-
-- Anonymous users can access most features but may have limited permissions
-- Email verification is optional for anonymous users
-- Protected routes redirect unauthenticated users to `/login`
-- Firestore security rules should be configured to protect user data
+See `.env.example` for the exact current list.
 
 ---
 
-## 💻 Development
+## Testing
 
-### Available Scripts
+Run unit tests:
 
 ```bash
-# Start development server (full stack)
-npm run dev
-
-# Build for production
-npm run build
-
-# Build client only
-npm run build:client
-
-# Build server only
-npm run build:server
-
-# Start production server
-npm start
-
-# Type checking
-npm run check
-
-# Database management
-npm run db:push    # Push schema changes to database
-npm run db:studio  # Open Drizzle Studio
-
-# Firebase deployment
-npm run deploy:firestore  # Deploy Firestore rules and indexes
-npm run deploy:rules      # Deploy security rules only
+pnpm test
 ```
 
-### Project Scripts
-
-The development server uses `tsx` to run TypeScript files directly:
-
-- Frontend served by Vite at `http://localhost:5173` (proxied through Express)
-- Backend API at `http://localhost:3001/api/*`
-- Hot module replacement (HMR) enabled for fast development
-
-### Code Quality
-
-- **TypeScript**: Strict mode enabled for type safety
-- **ESLint**: Configured for React and TypeScript
-- **Prettier**: Code formatting (`.prettierrc`)
-
----
-
-## 📚 API Documentation
-
-### API Endpoints Overview
-
-The API provides RESTful endpoints for authentication, spots, products, games, and more.
-
-**Base URL**: `/api`
-
-For complete API documentation, visit `/api/docs` when the server is running.
-
-### Key Endpoints
-
-#### Authentication
-
-- `POST /api/auth/login` - Login with Firebase token
-- `GET /api/auth/me` - Get current user
-- `POST /api/auth/logout` - Logout and clear session
-
-#### Spots
-
-- `GET /api/spots` - List all skate spots
-- `GET /api/spots/:spotId` - Get spot details
-- `POST /api/spots/check-in` - Check in at a spot (geo-verified)
-
-#### Products & Shop
-
-- `GET /api/products` - List all products
-- `GET /api/products/:productId` - Get product details
-- `POST /api/create-shop-payment-intent` - Create payment for cart
-
-#### S.K.A.T.E. Game
-
-- `GET /api/games` - List user's games
-- `POST /api/games/create` - Create new game
-- `POST /api/games/:gameId/join` - Join a game
-- `POST /api/games/:gameId/trick` - Submit a trick
-
-#### AI & Assistance
-
-- `POST /api/ai/chat` - Chat with Hesher AI assistant
-- `POST /api/assistant` - Legacy OpenAI assistant (deprecated)
-
-See the full API documentation at `/api/docs` for request/response schemas.
-
----
-
-## 🚢 Deployment
-
-### Production Build
-
-1. **Build the application**
+Typecheck (client):
 
 ```bash
-npm run build
-```
-
-This creates:
-
-- `dist/client` - Static frontend assets
-- `dist/server` - Compiled backend code
-
-2. **Set production environment variables**
-   Ensure all required environment variables are set in production.
-
-3. **Start the server**
-
-```bash
-NODE_ENV=production npm start
-```
-
-### Deployment Platforms
-
-#### Replit
-
-- Project is Replit-ready with `.replit` configuration
-- Automatic deployment on push to main branch
-- Environment variables configured in Replit Secrets
-
-#### Other Platforms (Vercel, Railway, Render)
-
-1. Set environment variables in platform dashboard
-2. Configure build command: `npm run build`
-3. Configure start command: `npm start`
-4. Set Node.js version to 20+
-
-### Database Migration
-
-```bash
-# Push schema changes to production database
-DATABASE_URL=<production-db-url> npm run db:push
-```
-
-### Firebase Setup
-
-1. Configure Firebase Authentication methods in Firebase Console
-2. Add production domains to authorized domains
-3. Deploy Firestore rules:
-
-```bash
-npm run deploy:firestore
+pnpm -C client typecheck
 ```
 
 ---
 
-## 📁 Project Structure
+## Deployment
 
-```
-skatehubbaweb010/
-├── client/                  # Frontend React application
-│   ├── src/
-│   │   ├── components/      # Reusable UI components
-│   │   ├── pages/           # Page components (routes)
-│   │   ├── hooks/           # Custom React hooks
-│   │   ├── lib/             # Utilities and helpers
-│   │   ├── store/           # Zustand state stores
-│   │   ├── config/          # Client configuration
-│   │   └── App.tsx          # Main app component
-│   └── public/              # Static assets
-├── server/                  # Backend Express application
-│   ├── auth/                # Authentication routes and services
-│   ├── middleware/          # Express middleware
-│   ├── storage/             # Storage layer implementations
-│   ├── config/              # Server configuration
-│   ├── routes.ts            # Main API routes
-│   ├── index.ts             # Server entry point
-│   └── db.ts                # Database connection
-├── shared/                  # Shared code between client/server
-│   └── schema.ts            # Database schema and types
-├── scripts/                 # Build and utility scripts
-├── public/                  # Public static files
-├── .env.example             # Environment variables template
-├── package.json             # Dependencies and scripts
-├── tsconfig.json            # TypeScript configuration
-├── vite.config.ts           # Vite configuration
-├── drizzle.config.ts        # Drizzle ORM configuration
-└── tailwind.config.ts       # Tailwind CSS configuration
-```
-
-### Key Directories
-
-- **`client/src/components/`** - Reusable UI components (buttons, modals, cards)
-- **`client/src/pages/`** - Top-level page components mapped to routes
-- **`server/auth/`** - Authentication logic (Firebase, sessions, JWT)
-- **`server/middleware/`** - Security, rate limiting, validation
-- **`shared/schema.ts`** - Single source of truth for database schema
+- Web deploys via **Vercel**
+- CI via **GitHub Actions**
+- Staging is treated as the "workhorse" environment for QA and demos
 
 ---
 
-## 🤝 Contributing
+## Security
 
-We welcome contributions to SkateHubba™! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+- **CodeQL** enabled
+- **Guardrails** prevent env miswiring (fail-fast)
+- **Path validation** prevents cross-environment writes (namespaced data model)
 
-### Quick Contribution Guide
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature`
-3. Make your changes and commit: `git commit -m 'Add some feature'`
-4. Push to the branch: `git push origin feature/your-feature`
-5. Submit a pull request
-
-### Code Standards
-
-- Follow TypeScript best practices
-- Write meaningful commit messages
-- Add tests for new features
-- Update documentation as needed
-- Ensure all checks pass before submitting PR
+If you find a security issue, use [GitHub Security Advisories](https://github.com/myhuemungusD/skatehubba1/security).
 
 ---
 
-## 📄 License
+## Contributing
 
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
+PRs welcome. Keep changes small and auditable:
 
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/myhuemungusD/skatehubbaweb010/issues)
-- **Documentation**: See individual `.md` files in the repository
-- **Changelog**: See [CHANGELOG.md](./CHANGELOG.md) for version history
+- run tests
+- avoid committing caches/build output
+- follow repo conventions
 
 ---
 
-## 🙏 Acknowledgments
+## License
 
-- Built with ❤️ by Design Mainline LLC
-- SkateHubba™ is a registered trademark
-- Thanks to the skateboarding community for inspiration
+MIT — see [LICENSE](LICENSE).
 
 ---
 
-**Ready to shred? Let's build the future of skateboarding together! 🛹**
+## Trademark
+
+**SkateHubba™** is a trademark of Design Mainline LLC.  
+USPTO Serial No. 99356919 (Classes 009 & 041).
