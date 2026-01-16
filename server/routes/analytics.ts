@@ -130,25 +130,24 @@ analyticsRouter.post("/events/batch", requireFirebaseUid, async (req: Request, r
     }
 
     const ev = parsed.data;
-    let props: Record<string, unknown> = ev.properties;
 
     try {
-      props = validateEventProps(ev.event_name, ev.properties);
+      const props = validateEventProps(ev.event_name, ev.properties);
+
+      validEvents.push({
+        eventId: ev.event_id,
+        eventName: ev.event_name,
+        uid,
+        occurredAt: new Date(ev.occurred_at),
+        sessionId: ev.session_id ?? null,
+        source: ev.source ?? null,
+        appVersion: ev.app_version ?? null,
+        properties: props,
+      });
     } catch {
       errors.push({ index: i, error: "invalid_properties" });
       continue;
     }
-
-    validEvents.push({
-      eventId: ev.event_id,
-      eventName: ev.event_name,
-      uid,
-      occurredAt: new Date(ev.occurred_at),
-      sessionId: ev.session_id ?? null,
-      source: ev.source ?? null,
-      appVersion: ev.app_version ?? null,
-      properties: props,
-    });
   }
 
   if (validEvents.length > 0) {
