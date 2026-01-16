@@ -15,6 +15,7 @@ import type {
   BattleCreatedPayload,
   BattleJoinedPayload,
   BattleVotePayload,
+  BattleCompletedPayload,
 } from "../types";
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -203,6 +204,38 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
 
       // Broadcast vote to battle room
       broadcastToRoom(io, "battle", input.battleId, "battle:voted", payload);
+
+      // Check if battle is complete (both players voted)
+      const battle = battles.get(input.battleId);
+      if (battle && battle.votes.size >= 2) {
+        battle.status = "completed";
+
+        // Calculate winner based on votes (simplified: clean wins)
+        const scores: { [odv: string]: number } = {};
+        scores[battle.creatorId] = 0;
+        if (battle.opponentId) scores[battle.opponentId] = 0;
+
+        for (const [odv, vote] of battle.votes) {
+          if (vote === "clean") scores[odv] = (scores[odv] || 0) + 1;
+        }
+
+        const winnerId = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+        const completedPayload: BattleCompletedPayload = {
+          battleId: input.battleId,
+          winnerId,
+          finalScore: scores,
+          completedAt: new Date().toISOString(),
+        };
+
+        broadcastToRoom(io, "battle", input.battleId, "battle:completed", completedPayload);
+
+        logger.info("[Battle] Completed", {
+          battleId: input.battleId,
+          winnerId,
+          finalScore: scores,
+        });
+      }
 
       logger.info("[Battle] Vote cast via socket", {
         battleId: input.battleId,
