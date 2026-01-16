@@ -3,14 +3,17 @@ import { auth } from "../firebase";
 
 /**
  * Generate a ULID-like unique ID for event idempotency.
- * Using crypto.randomUUID for simplicity (available in modern browsers).
+ * Using crypto.randomUUID (available in all modern browsers).
  */
 function generateEventId(): string {
-  // Use crypto.randomUUID if available, fallback to timestamp + random
+  // crypto.randomUUID is available in all modern browsers (Chrome 92+, Firefox 95+, Safari 15.4+)
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+  // Fallback using crypto.getRandomValues (secure)
+  const array = new Uint32Array(4);
+  crypto.getRandomValues(array);
+  return Array.from(array, (n) => n.toString(16).padStart(8, "0")).join("-");
 }
 
 /**

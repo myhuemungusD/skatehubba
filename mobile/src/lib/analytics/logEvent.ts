@@ -2,16 +2,17 @@ import { AnalyticsIngestSchema, type EventName } from "shared/analytics-events";
 import { auth } from "../firebase.config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Application from "expo-application";
+import * as Crypto from "expo-crypto";
 import { Platform } from "react-native";
 
 const SESSION_KEY = "skatehubba_session_id";
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL || "";
 
 /**
- * Generate a unique ID for event idempotency.
+ * Generate a unique ID for event idempotency using cryptographically secure random.
  */
 function generateEventId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+  return Crypto.randomUUID();
 }
 
 /**
