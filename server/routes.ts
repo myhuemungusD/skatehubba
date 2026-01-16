@@ -11,12 +11,20 @@ import { requireCsrfToken } from "./middleware/csrf";
 import { z } from "zod";
 import { authenticateUser } from "./auth/middleware";
 import { verifyAndCheckIn } from "./services/spotService";
+import { analyticsRouter } from "./routes/analytics";
+import { metricsRouter } from "./routes/metrics";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // 1. Setup Authentication (Passport session)
   setupAuthRoutes(app);
 
-  // 2. Spot Endpoints
+  // 2. Analytics Routes (Firebase UID auth, idempotent)
+  app.use("/api/analytics", analyticsRouter);
+
+  // 3. Metrics Routes (Admin only, for dashboard)
+  app.use("/api/metrics", metricsRouter);
+
+  // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
     const spots = await spotStorage.getAllSpots();
     res.json(spots);

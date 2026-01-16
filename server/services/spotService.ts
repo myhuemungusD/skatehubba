@@ -1,6 +1,7 @@
 import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { db } from "../db";
 import { checkIns, spots } from "@shared/schema";
+import { logServerEvent } from "./analyticsService";
 
 const EARTH_RADIUS_KM = 6371;
 // Default check-in radius in meters. 30m is chosen as a balance between typical GPS accuracy
@@ -125,6 +126,14 @@ export async function verifyAndCheckIn(
 
       return createdCheckIn;
     });
+
+    // Log truth event AFTER successful check-in (server-side source of truth)
+    await logServerEvent(userId, "spot_checkin_validated", {
+      spot_id: spotId.toString(),
+      check_in_id: checkIn.id.toString(),
+      distance_meters: Math.round(distanceMeters),
+    });
+
     return { success: true, checkInId: checkIn.id };
   } catch (error) {
     if (isPgError(error) && error.code === "23505") {

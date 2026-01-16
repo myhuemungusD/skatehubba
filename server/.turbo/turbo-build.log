@@ -1,0 +1,8 @@
+
+> skatehubba-server@1.0.0 build C:\Users\LowAn\skatehubba1\server
+> node ../scripts/build-server.mjs
+
+🔧 Building server with esbuild...
+📂 Copying client assets to server public directory...
+✅ Client assets copied successfully
+✅ Server built successfully to dist/server/index.js
