@@ -26,6 +26,7 @@
 - [Tech Stack](#tech-stack)
 - [Repo Structure](#repo-structure)
 - [Local Development](#local-development)
+- [Git Workflow](#git-workflow)
 - [Environment Separation](#environment-separation)
 - [Testing](#testing)
 - [Deployment](#deployment)
@@ -118,3 +119,35 @@ From repo root:
 
 ```bash
 pnpm install
+```
+
+---
+
+## Git Workflow
+
+We use feature branches + pull requests + Vercel preview deployments. To avoid merge conflicts and keep PR history clean:
+
+**📖 Full workflow guide:** [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md)
+
+**Quick reference:**
+```bash
+# Start work
+git checkout main && git pull origin main
+git checkout -b feat/your-feature-name
+
+# Commit & push
+git add . && git commit -m "feat: description"
+git push -u origin feat/your-feature-name
+
+# Update branch with latest main (rebase)
+git fetch origin main
+git rebase origin/main
+git push --force-with-lease
+
+# After PR merged
+git checkout main && git pull origin main
+git branch -d feat/your-feature-name
+```
+
+**Branch naming:** `feat/`, `fix/`, `chore/` followed by descriptive name  
+**Commit format:** `feat:`, `fix:`, `chore:` followed by description
