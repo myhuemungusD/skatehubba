@@ -131,12 +131,14 @@ responses AS (
 )
 SELECT
   COUNT(*) AS total_uploads,
-  COUNT(*) FILTER (WHERE r.response_at <= u.uploaded_at + interval '48 hours') AS uploads_with_response,
+  COUNT(*) FILTER (WHERE r.response_at IS NOT NULL) AS uploads_with_response,
   CASE WHEN COUNT(*) = 0 THEN 0
-       ELSE (COUNT(*) FILTER (WHERE r.response_at <= u.uploaded_at + interval '48 hours')::float / COUNT(*)::float)
+       ELSE (COUNT(*) FILTER (WHERE r.response_at IS NOT NULL)::float / COUNT(*)::float)
   END AS pct_uploads_with_response_48h
 FROM uploads u
-LEFT JOIN responses r USING (battle_id);
+LEFT JOIN responses r
+  ON r.battle_id = u.battle_id
+ AND r.response_at <= u.uploaded_at + interval '48 hours';
 `;
 
 /**
