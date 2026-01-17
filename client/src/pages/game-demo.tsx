@@ -9,7 +9,6 @@ type DemoMode = 'menu' | 'battle' | 'map' | 'recorder';
 
 export default function GameDemo() {
   const [mode, setMode] = useState<DemoMode>('menu');
-  const [selectedSpot, setSelectedSpot] = useState<any>(null);
 
   const demos = [
     {
@@ -45,7 +44,7 @@ export default function GameDemo() {
           <X className="w-4 h-4" />
           Back to Menu
         </button>
-        <TrickBattleArena spotId="demo-spot-1" userId="demo-user" />
+        <TrickBattleArena spotId="demo-spot-1" />
       </div>
     );
   }
@@ -65,7 +64,6 @@ export default function GameDemo() {
           userLng={-118.4680}
           onSpotSelect={(spot) => {
             console.log('Selected spot:', spot);
-            setSelectedSpot(spot);
           }}
         />
       </div>

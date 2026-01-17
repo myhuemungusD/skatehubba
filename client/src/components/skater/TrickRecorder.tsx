@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Video, Camera, Pause, Play, RotateCcw, Check, Upload, X } from 'lucide-react';
+import { Video, Pause, RotateCcw, Check, X } from 'lucide-react';
 
 interface TrickRecorderProps {
   spotId: string;

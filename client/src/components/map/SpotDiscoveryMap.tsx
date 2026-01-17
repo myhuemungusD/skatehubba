@@ -73,7 +73,7 @@ export default function SpotDiscoveryMap({ userLat, userLng, onSpotSelect }: Spo
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
-  const [spots, setSpots] = useState<Spot[]>(DEMO_SPOTS);
+  const [spots] = useState<Spot[]>(DEMO_SPOTS);
   const [filter, setFilter] = useState<'all' | 'unlocked' | 'nearby'>('all');
   const markersRef = useRef<L.Marker[]>([]);
 
@@ -185,16 +185,6 @@ export default function SpotDiscoveryMap({ userLat, userLng, onSpotSelect }: Spo
       Math.sin(dLng/2) * Math.sin(dLng/2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     return R * c;
-  };
-
-  const getTypeIcon = (type: string) => {
-    const icons = {
-      legendary: Award,
-      plaza: MapPin,
-      street: Navigation,
-      park: Star,
-    };
-    return icons[type as keyof typeof icons] || MapPin;
   };
 
   return (

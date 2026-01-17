@@ -46,7 +46,6 @@ export default function TrickBattleArena({ spotId, userId }: TrickBattleArenaPro
   const [currentTrick, setCurrentTrick] = useState<Trick | null>(null);
   const [timeLeft, setTimeLeft] = useState(30);
   const [roundNumber, setRoundNumber] = useState(1);
-  const [selectedTrick, setSelectedTrick] = useState<Trick | null>(null);
   const [showTrickPicker, setShowTrickPicker] = useState(false);
   const [lastLanded, setLastLanded] = useState<Trick | null>(null);
 
