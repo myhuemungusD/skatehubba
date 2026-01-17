@@ -11,11 +11,18 @@
  * 1. Download serviceAccountKey.json from Firebase Console
  *    (Project Settings → Service Accounts → Generate New Private Key)
  * 2. Place it in the project root (it's gitignored)
+ * 3. Ensure DATABASE_URL is set (Postgres connection)
  */
 
 import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
+import { drizzle } from 'drizzle-orm/node-postgres';
+import pg from 'pg';
+import { eq } from 'drizzle-orm';
+import { users } from '../shared/schema';
+
+const { Pool } = pg;
 
 // 1. Initialize Firebase Admin with your Service Account
 const serviceAccountPath = path.resolve(process.cwd(), 'serviceAccountKey.json');
@@ -49,6 +56,16 @@ if (!TARGET_EMAIL) {
 }
 const ROLES: string[] = ['admin', 'verified_pro'];
 
+// Initialize Postgres connection
+if (!process.env.DATABASE_URL) {
+  console.error('❌ ERROR: DATABASE_URL environment variable is not set.');
+  console.error('   Please set DATABASE_URL to connect to PostgreSQL.');
+  process.exit(1);
+}
+
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+const db = drizzle(pool);
+
 // Simple email validation
 function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -73,11 +90,23 @@ async function grantGodMode() {
       roles: ROLES
     });
 
-    // 5. Sync to Firestore for UI speed (same as Cloud Function)
-    await admin.firestore().collection('users').doc(user.uid).set({
-      roles: ROLES,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    // 5. Ensure user exists in PostgreSQL (single source of truth for profile data)
+    // Note: Roles are stored in Firebase Custom Claims, not in the database
+    const existingUsers = await db.select()
+      .from(users)
+      .where(eq(users.id, user.uid))
+      .limit(1);
+
+    if (existingUsers.length === 0) {
+      // Create user record if doesn't exist
+      await db.insert(users).values({
+        id: user.uid,
+        email: user.email || TARGET_EMAIL,
+      });
+      console.log('✅ Created user record in PostgreSQL');
+    } else {
+      console.log('✅ User already exists in PostgreSQL');
+    }
 
     console.log('');
     console.log('═══════════════════════════════════════════════════════');
@@ -88,6 +117,8 @@ async function grantGodMode() {
     console.log('⚠️  IMPORTANT: You must log out and log back in for changes to take effect.');
     console.log('');
     
+    // Cleanup
+    await pool.end();
     process.exit(0);
   } catch (error: unknown) {
     const firebaseError = error as { code?: string; message?: string };

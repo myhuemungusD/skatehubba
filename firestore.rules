@@ -71,13 +71,31 @@ service cloud.firestore {
     }
     
     // =========================================================================
-    // USER PROFILES
+    // USER PROFILES - READ ONLY (Profile data lives in PostgreSQL)
     // =========================================================================
     
     match /users/{userId} {
-      // Only allow users to read and write their own profile
-      allow read: if isOwner(userId);
-      allow write: if isOwner(userId);
+      // DEPRECATED: User profiles are now stored in PostgreSQL (customUsers table)
+      // This path is kept for backward compatibility with presence/real-time features
+      // Only allow reading presence data, not full profiles
+      allow read: if isAuthenticated();
+      
+      // Block all writes - profiles must be updated via API (which writes to Postgres)
+      allow write: if false;
+    }
+    
+    // =========================================================================
+    // USER PRESENCE (Real-time online/offline status)
+    // =========================================================================
+    
+    match /presence/{userId} {
+      // Users can read anyone's presence status
+      allow read: if isAuthenticated();
+      
+      // Users can only update their own presence
+      allow write: if isOwner(userId)
+        && hasRequiredFields(['status', 'lastSeen'])
+        && request.resource.data.status in ['online', 'offline', 'away'];
     }
     
     // =========================================================================
