@@ -15,6 +15,7 @@ export default defineConfig({
     }),
   ],
   envDir: __dirname,
+  envPrefix: ['VITE_', 'EXPO_PUBLIC_'], // Allow both VITE_ and EXPO_PUBLIC_ vars
   server: {
     host: "0.0.0.0",
     port: 3000,
