@@ -37,7 +37,7 @@ const TRICKS: Trick[] = [
   { id: '10', name: 'Nollie Flip', difficulty: 4, points: 350, emoji: '✨' },
 ];
 
-export default function TrickBattleArena({ spotId, userId }: TrickBattleArenaProps) {
+export default function TrickBattleArena({ spotId }: TrickBattleArenaProps) {
   const [gameState, setGameState] = useState<'waiting' | 'active' | 'ended'>('waiting');
   const [players, setPlayers] = useState<Player[]>([
     { id: '1', name: 'You', score: 0, combo: 0, letters: '', avatar: '🛹' },
