@@ -5,7 +5,7 @@
  * Firebase Auth is used ONLY for authentication, not profile storage
  */
 
-import { eq, and } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db, requireDb } from '../db';
 import { customUsers, type CustomUser } from '@shared/schema';
 import logger from '../logger';
