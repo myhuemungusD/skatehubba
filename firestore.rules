@@ -97,6 +97,16 @@ service cloud.firestore {
       // Block all writes permanently - profiles must be updated via API/backends
       // which write to PostgreSQL; this ensures Firestore data is effectively
       // frozen and cannot diverge from Postgres.
+    // USER PROFILES - READ ONLY (Profile data lives in PostgreSQL)
+    // =========================================================================
+    
+    match /users/{userId} {
+      // DEPRECATED: User profiles are now stored in PostgreSQL (customUsers table)
+      // This path is kept for backward compatibility with presence/real-time features
+      // Only allow reading presence data, not full profiles
+      allow read: if isAuthenticated();
+      
+      // Block all writes - profiles must be updated via API (which writes to Postgres)
       allow write: if false;
     }
     
@@ -117,6 +127,7 @@ service cloud.firestore {
         && request.resource.data.lastSeen <= request.time + duration.value(1, 'm')
         // Only allow expected keys (prevent arbitrary data injection)
         && request.resource.data.keys().hasOnly(['status', 'lastSeen', 'deviceId']);
+        && request.resource.data.status in ['online', 'offline', 'away'];
     }
     
     // =========================================================================
