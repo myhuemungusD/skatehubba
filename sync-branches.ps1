@@ -18,11 +18,14 @@ Write-Host "`nFound $($branches.Count) remote branches" -ForegroundColor Green
 
 # Process each branch
 foreach ($branch in $branches) {
+    # Checkout branch (suppress normal output but allow errors to be shown)
+    git checkout $branch 1> $null
     Write-Host "`n--- Processing branch: $branch ---" -ForegroundColor Yellow
     
     # Checkout branch
     git checkout $branch 2>&1 | Out-Null
 
+        git pull origin $branch
     if ($LASTEXITCODE -eq 0) {
         # Pull latest
         Write-Host "  Pulling latest changes..." -ForegroundColor White
