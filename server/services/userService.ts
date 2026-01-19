@@ -22,7 +22,6 @@ export interface CreateUserInput {
   email: string;
   firstName?: string | null;
   lastName?: string | null;
-  phoneNumber?: string | null;
   profileImageUrl?: string | null;
   // roles intentionally omitted from DB (Firebase Custom Claims)
 }
@@ -32,7 +31,6 @@ export interface UpdateUserInput {
   lastName?: string | null;
   bio?: string | null;
   location?: string | null;
-  phoneNumber?: string | null;
   photoUrl?: string | null;
   profileImageUrl?: string | null;
   onboardingCompleted?: boolean;
@@ -58,7 +56,6 @@ export async function createUser(input: CreateUserInput): Promise<User> {
       email: input.email,
       firstName: input.firstName ?? null,
       lastName: input.lastName ?? null,
-      phoneNumber: input.phoneNumber ?? null,
       profileImageUrl: input.profileImageUrl ?? null,
     })
     .returning();
@@ -73,11 +70,7 @@ export async function createUser(input: CreateUserInput): Promise<User> {
 export async function getUserById(userId: string): Promise<User | null> {
   if (!db) return null;
 
-  const results = await db
-    .select()
-    .from(users)
-    .where(eq(users.id, userId))
-    .limit(1);
+  const results = await db.select().from(users).where(eq(users.id, userId)).limit(1);
 
   return results[0] ?? null;
 }
@@ -88,11 +81,7 @@ export async function getUserById(userId: string): Promise<User | null> {
 export async function getUserByEmail(email: string): Promise<User | null> {
   if (!db) return null;
 
-  const results = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
+  const results = await db.select().from(users).where(eq(users.email, email)).limit(1);
 
   return results[0] ?? null;
 }
@@ -100,19 +89,12 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 /**
  * Update user profile
  */
-export async function updateUser(
-  userId: string,
-  input: UpdateUserInput
-): Promise<User> {
+export async function updateUser(userId: string, input: UpdateUserInput): Promise<User> {
   const database = requireDb();
 
   logger.info("Updating user profile", { userId });
 
-  const [updated] = await database
-    .update(users)
-    .set(input)
-    .where(eq(users.id, userId))
-    .returning();
+  const [updated] = await database.update(users).set(input).where(eq(users.id, userId)).returning();
 
   if (!updated) {
     throw new Error(`User ${userId} not found`);
