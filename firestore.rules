@@ -95,7 +95,12 @@ service cloud.firestore {
       // Users can only update their own presence
       allow write: if isOwner(userId)
         && hasRequiredFields(['status', 'lastSeen'])
-        && request.resource.data.status in ['online', 'offline', 'away'];
+        && request.resource.data.status in ['online', 'offline', 'away']
+        && request.resource.data.lastSeen is timestamp
+        && request.resource.data.lastSeen >= request.time - duration.value(1, 'm')
+        && request.resource.data.lastSeen <= request.time + duration.value(1, 'm')
+        // Only allow expected keys (prevent arbitrary data injection)
+        && request.resource.data.keys().hasOnly(['status', 'lastSeen', 'deviceId']);
     }
     
     // =========================================================================
