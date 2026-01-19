@@ -85,3 +85,29 @@ jobs:
             fi
           done
           if [ $bad -eq 1 ]; then exit 1; fi
+
+  # Firebase Rules Verification (protected branches only)
+  firebase_rules_verify:
+    name: "🔥 Firebase Rules Validation"
+    runs-on: ubuntu-latest
+    # Security: Only run on protected branches, not on forks
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      github.repository == 'myhuemungusD/skatehubba1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Mask Firebase Token
+        run: echo "::add-mask::${{ secrets.FIREBASE_TOKEN }}"
+
+      - name: Verify Firebase Rules
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: node scripts/verify-firebase-rules.mjs
