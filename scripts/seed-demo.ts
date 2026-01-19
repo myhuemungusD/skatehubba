@@ -81,16 +81,9 @@ async function main() {
   const insertedSpots = await db.insert(spots).values(seedSpots).returning({ id: spots.id });
   await db.insert(tricks).values(seedTricks);
 
-  const checkInRows = insertedSpots.map((spot) => ({
-    userId: DEMO_USER_ID,
-    spotId: spot.id,
-    isAr: false,
-  }));
-
-  if (checkInRows.length > 0) {
-    await db.insert(checkIns).values(checkInRows);
-  }
-
+  // Note: we intentionally do not seed check-ins for a hardcoded DEMO_USER_ID here.
+  // Doing so previously caused failures on databases where that user did not exist
+  // and foreign key constraints were enforced on checkIns.userId.
   logger.info("Demo seed complete", { spots: insertedSpots.length, tricks: seedTricks.length });
 }
 
