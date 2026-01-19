@@ -75,6 +75,59 @@ export const publicWriteLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const getDeviceFingerprint = (req: Request): string | null => {
+  const deviceId = req.get("x-device-id");
+  if (deviceId) return deviceId;
+
+  const sessionId = req.get("x-session-id");
+  if (sessionId) return sessionId;
+
+  const fingerprint = req.get("x-client-fingerprint");
+  if (fingerprint) return fingerprint;
+
+  return null;
+};
+
+const userKeyGenerator = (req: Request): string => {
+  const userId = req.currentUser?.id ?? "anonymous";
+  const ip = req.ip ?? "unknown-ip";
+  const device = getDeviceFingerprint(req) ?? "unknown-device";
+
+  return `${userId}:${device}:${ip}`;
+};
+
+export const checkInIpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 60, // 60 check-ins per 10 minutes per IP
+  message: {
+    error: "Check-in rate limit exceeded.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const perUserSpotWriteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 spot creations per hour per user
+  message: {
+    error: "Spot creation rate limit exceeded.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+});
+
+export const perUserCheckInLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // 20 check-ins per hour per user
+  message: {
+    error: "Check-in rate limit exceeded.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+});
+
 /**
  * Strict rate limiter for password reset requests
  * Limits to 3 password reset attempts per hour per IP address

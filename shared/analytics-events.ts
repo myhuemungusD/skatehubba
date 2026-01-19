@@ -52,6 +52,10 @@ export const AnalyticsIngestSchema = z
 
 export type AnalyticsIngest = z.infer<typeof AnalyticsIngestSchema>;
 
+export const AnalyticsBatchSchema = z.array(AnalyticsIngestSchema).max(100);
+
+export type AnalyticsBatch = z.infer<typeof AnalyticsBatchSchema>;
+
 /**
  * Property validation per event (tighten over time).
  * Start strict where it matters (battle + voting).

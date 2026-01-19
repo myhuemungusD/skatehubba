@@ -1,0 +1,30 @@
+name: Verify Firebase Rules
+
+on:
+  pull_request:
+    paths:
+      - "firestore.rules"
+      - "storage.rules"
+      - "scripts/verify-firebase-rules.mjs"
+  push:
+    branches:
+      - main
+    paths:
+      - "firestore.rules"
+      - "storage.rules"
+      - "scripts/verify-firebase-rules.mjs"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Verify rules against Firebase
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: node scripts/verify-firebase-rules.mjs
