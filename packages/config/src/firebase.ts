@@ -248,7 +248,7 @@ export function getFirebaseConfig(options: FirebaseConfigOptions = {}): Firebase
   }
 
   const allowFallback =
-    env === "local" || env === "development" || options.allowLocalFallback === true;
+    env === "local" || options.allowLocalFallback === true;
 
   if (!allowFallback) {
     // Fail fast in staging/prod instead of silently using prod config.
