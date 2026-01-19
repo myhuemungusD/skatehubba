@@ -85,8 +85,6 @@ export interface FirebaseConfigOptions {
   allowLocalFallback?: boolean;
 }
 
-const emailish = (s: string) => s.includes("@"); // not used, just placeholder pattern idea
-
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
 }
