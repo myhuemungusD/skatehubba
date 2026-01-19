@@ -326,6 +326,11 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Beta mail list - server-only access
+    match /mail_list/{docId} {
+      allow read, write: if false;
+    }
+
     // Server-only subscriptions collection
     match /subscriptions/{document} {
       allow read, write: if false;
