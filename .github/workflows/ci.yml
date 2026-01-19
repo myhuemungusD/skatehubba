@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: ./.github/actions/setup-pnpm-env
       
       - name: Verify lockfile is up-to-date
@@ -27,6 +29,8 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: ./.github/actions/setup-pnpm-env
 
@@ -74,6 +78,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Block insecure Firestore/Storage rules
         run: |
@@ -85,3 +91,45 @@ jobs:
             fi
           done
           if [ $bad -eq 1 ]; then exit 1; fi
+
+  # Firebase Rules Verification (protected branches only)
+  firebase_rules_verify:
+    name: "🔥 Firebase Rules Validation"
+    runs-on: ubuntu-latest
+    # Security: Only run on protected branches, not on forks
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      github.repository == 'myhuemungusD/skatehubba1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Mask Firebase Token
+        run: echo "::add-mask::${{ secrets.FIREBASE_TOKEN }}"
+
+      - name: Verify Firebase Rules
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: node scripts/verify-firebase-rules.mjs
+
+  # Secret scanning with gitleaks
+  secret_scan:
+    name: "No Secrets in Repo"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for gitleaks to scan commit ranges
+
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
