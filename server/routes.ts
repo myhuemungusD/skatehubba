@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { setupAuthRoutes } from "./auth/routes";
 import { spotStorage } from "./storage/spots";
@@ -9,6 +9,10 @@ import { insertSpotSchema } from "@shared/schema";
 import { publicWriteLimiter } from "./middleware/security";
 import { requireCsrfToken } from "./middleware/csrf";
 import { z } from "zod";
+import crypto from "node:crypto";
+import { BetaSignupInput } from "@shared/validation/betaSignup";
+import { admin } from "./admin";
+import { env } from "./config/env";
 import { authenticateUser } from "./auth/middleware";
 import { verifyAndCheckIn } from "./services/spotService";
 import { analyticsRouter } from "./routes/analytics";
@@ -83,6 +87,96 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       return res.status(500).json({ message: "Check-in failed" });
+    }
+  });
+
+  const getClientIp = (req: Request): string | null => {
+    const forwarded = req.headers["x-forwarded-for"];
+    if (typeof forwarded === "string" && forwarded.trim()) {
+      return forwarded.split(",")[0]?.trim() || null;
+    }
+    if (Array.isArray(forwarded) && forwarded.length > 0) {
+      return forwarded[0]?.trim() || null;
+    }
+    const realIp = req.headers["x-real-ip"];
+    if (typeof realIp === "string" && realIp.trim()) {
+      return realIp.trim();
+    }
+    if (Array.isArray(realIp) && realIp.length > 0) {
+      return realIp[0]?.trim() || null;
+    }
+    return req.ip || null;
+  };
+
+  const hashIp = (ip: string, salt: string) =>
+    crypto.createHash("sha256").update(`${ip}:${salt}`).digest("hex");
+
+  const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+
+  const getTimestampMillis = (value: unknown) =>
+    value instanceof admin.firestore.Timestamp ? value.toMillis() : null;
+
+  app.post("/api/beta-signup", async (req, res) => {
+    const parsed = BetaSignupInput.safeParse(req.body);
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ ok: false, error: "VALIDATION_ERROR", details: parsed.error.flatten() });
+    }
+
+    const { email, platform } = parsed.data;
+    const ip = getClientIp(req);
+    const salt = env.IP_HASH_SALT || "";
+    const ipHash = ip && salt ? hashIp(ip, salt) : undefined;
+
+    try {
+      const docId = crypto.createHash("sha256").update(email).digest("hex").slice(0, 32);
+
+      const docRef = admin.firestore().collection("mail_list").doc(docId);
+      const nowMillis = admin.firestore.Timestamp.now().toMillis();
+
+      await admin.firestore().runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(docRef);
+        const data = snapshot.exists ? snapshot.data() : null;
+        const lastSubmittedAtMillis =
+          getTimestampMillis(data?.lastSubmittedAt) ?? getTimestampMillis(data?.createdAt);
+
+        if (lastSubmittedAtMillis && nowMillis - lastSubmittedAtMillis < RATE_LIMIT_WINDOW_MS) {
+          throw new Error("RATE_LIMITED");
+        }
+
+        if (snapshot.exists) {
+          transaction.set(
+            docRef,
+            {
+              platform,
+              ...(ipHash ? { ipHash } : {}),
+              lastSubmittedAt: admin.firestore.FieldValue.serverTimestamp(),
+              submitCount: admin.firestore.FieldValue.increment(1),
+              source: "skatehubba.com",
+            },
+            { merge: true }
+          );
+          return;
+        }
+
+        transaction.set(docRef, {
+          email,
+          platform,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastSubmittedAt: admin.firestore.FieldValue.serverTimestamp(),
+          submitCount: 1,
+          ...(ipHash ? { ipHash } : {}),
+          source: "skatehubba.com",
+        });
+      });
+
+      return res.status(200).json({ ok: true });
+    } catch (error) {
+      if (error instanceof Error && error.message === "RATE_LIMITED") {
+        return res.status(429).json({ ok: false, error: "RATE_LIMITED" });
+      }
+      return res.status(500).json({ ok: false, error: "SERVER_ERROR" });
     }
   });
 

@@ -15,25 +15,26 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [trickName, setTrickName] = useState('');
   const [cameraReady, setCameraReady] = useState(false);
-  
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     startCamera();
     return () => {
       stopCamera();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (isRecording) {
-      timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+      timerRef.current = window.setInterval(() => {
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
     } else {
       if (timerRef.current) {
@@ -41,6 +42,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
         timerRef.current = null;
       }
     }
+
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -49,6 +51,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
   const startCamera = async () => {
     try {
       let stream: MediaStream;
+
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -73,6 +76,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
       }
 
       streamRef.current = stream;
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setCameraReady(true);
@@ -84,8 +88,13 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
   };
 
   const stopCamera = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
   };
@@ -94,7 +103,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
     if (!streamRef.current) return;
 
     chunksRef.current = [];
-    
+
     try {
       const mediaRecorder = new MediaRecorder(streamRef.current, {
         mimeType: 'video/webm;codecs=vp8,opus',
@@ -110,8 +119,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
         const blob = new Blob(chunksRef.current, { type: 'video/webm' });
         setVideoBlob(blob);
         setIsPreviewing(true);
-        
-        // Show preview
+
         if (previewRef.current) {
           previewRef.current.src = URL.createObjectURL(blob);
         }
@@ -139,6 +147,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
     setIsPreviewing(false);
     setRecordingTime(0);
     setTrickName('');
+
     if (previewRef.current) {
       previewRef.current.src = '';
     }
@@ -174,13 +183,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
         {!isPreviewing ? (
           <>
             {/* Live Camera Feed */}
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
 
             {/* Camera Overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/50 pointer-events-none">
@@ -194,9 +197,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
                   >
                     <div className="bg-red-500 rounded-full px-6 py-3 flex items-center gap-3 shadow-lg">
                       <div className="w-4 h-4 bg-white rounded-full animate-pulse" />
-                      <span className="text-white font-bold text-xl">
-                        {formatTime(recordingTime)}
-                      </span>
+                      <span className="text-white font-bold text-xl">{formatTime(recordingTime)}</span>
                     </div>
                   </motion.div>
                 )}
@@ -236,19 +237,13 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
         ) : (
           <>
             {/* Video Preview */}
-            <video
-              ref={previewRef}
-              controls
-              className="w-full h-full object-cover"
-            />
+            <video ref={previewRef} controls className="w-full h-full object-cover" />
 
             {/* Preview Overlay */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
               {/* Trick Name Input */}
               <div className="mb-6">
-                <label className="block text-white text-sm font-semibold mb-2">
-                  Name Your Trick
-                </label>
+                <label className="block text-white text-sm font-semibold mb-2">Name Your Trick</label>
                 <input
                   type="text"
                   value={trickName}

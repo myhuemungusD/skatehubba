@@ -6,13 +6,15 @@ import { useToast } from "../hooks/use-toast";
 import { useCart } from "../lib/cart/store";
 import { Link, useLocation } from "wouter";
 import { ShoppingCart, ArrowLeft, Loader2 } from "lucide-react";
+import { getAppConfig } from '@skatehubba/config';
 
 // Make sure to call `loadStripe` outside of a component's render to avoid
 // recreating the `Stripe` object on every render.
-if (!import.meta.env.VITE_STRIPE_PUBLIC_KEY) {
+const stripePublicKey = getAppConfig().stripePublicKey;
+if (!stripePublicKey) {
   throw new Error('Missing required Stripe key: VITE_STRIPE_PUBLIC_KEY');
 }
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+const stripePromise = loadStripe(stripePublicKey);
 
 const CheckoutForm = () => {
   const stripe = useStripe();

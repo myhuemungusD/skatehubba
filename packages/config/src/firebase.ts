@@ -32,6 +32,10 @@ export interface FirebaseConfig {
   measurementId?: string;
 }
 
+export interface GetFirebaseConfigOptions {
+  allowLocalFallback?: boolean;
+}
+
 /**
  * Hardcoded baseline config for this Firebase project.
  * NOTE: This is not "secret"; it is a safe default for local development only.
@@ -40,6 +44,8 @@ export interface FirebaseConfig {
  * unless allowLocalFallback is enabled (not recommended for CI/prod).
  */
 const BASE_PROJECT = {
+const PRODUCTION_CONFIG: FirebaseConfig = {
+  apiKey: "AIzaSyD6kLt4GKV4adX-oQ3m_aXIpL6GXBP0xZw",
   authDomain: "sk8hub-d7806.firebaseapp.com",
   projectId: "sk8hub-d7806",
   storageBucket: "sk8hub-d7806.firebasestorage.app",
@@ -77,6 +83,8 @@ export interface FirebaseConfigOptions {
     warn?: LogFn;
     error?: LogFn;
   };
+export function getFirebaseConfig(options: GetFirebaseConfigOptions = {}): FirebaseConfig {
+  const env = getAppEnv();
 
   /**
    * If true, allows using hardcoded baseline config in non-local envs.
@@ -144,6 +152,29 @@ function validateConfig(cfg: FirebaseConfig, env: AppEnv): FirebaseConfig {
       /^G-[A-Z0-9]{6,}$/.test(cfg.measurementId),
       `[Firebase] measurementId looks invalid: "${cfg.measurementId}" (${env})`
     );
+  const allowFallback =
+    (env !== "prod" && env !== "staging") || options.allowLocalFallback === true;
+
+  if (envConfig) {
+    console.log(`[Firebase] Using env-provided config for ${env}`);
+    return envConfig;
+  }
+
+  if (!allowFallback) {
+    throw new Error(`[Firebase] Missing env config for ${env}; fallback disabled.`);
+  }
+
+  // Fall back to hardcoded config based on environment
+  switch (env) {
+    case "prod":
+      console.log("[Firebase] Using hardcoded prod config");
+      return PRODUCTION_CONFIG;
+    case "staging":
+      console.log("[Firebase] Using hardcoded staging config");
+      return STAGING_CONFIG;
+    default:
+      console.log("[Firebase] Using hardcoded config for local dev");
+      return PRODUCTION_CONFIG; // Local dev uses prod Firebase (namespaced data)
   }
 
   return cfg;

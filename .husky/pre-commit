@@ -1,3 +1,6 @@
+# Guardrail: Prevent package.json changes without lockfile update
+node scripts/validate-lockfile.mjs || exit 1
+
 # Verify lockfile is in sync
 pnpm install --frozen-lockfile --ignore-scripts || {
   echo "❌ Lockfile out of sync! Run 'pnpm install' and commit pnpm-lock.yaml"

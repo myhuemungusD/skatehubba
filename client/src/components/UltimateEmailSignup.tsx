@@ -1,21 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Input } from './ui/input';
-import { Button } from './ui/button';
-import { useToast } from '../hooks/use-toast';
-import { Users, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
-import { z } from 'zod';
-
-// Validation schema
-const emailSignupSchema = z.object({
-  email: z.string().email('Please enter a valid email address').transform(v => v.trim().toLowerCase()),
-  firstName: z.string().optional().transform(v => v?.trim() || null),
-});
+import React, { useState, useEffect } from "react";
+import { Input } from "./ui/input";
+import { Button } from "./ui/button";
+import { Users, CheckCircle, ArrowRight, Sparkles } from "lucide-react";
+import { useBetaSignup } from "@/hooks/useBetaSignup";
 
 interface UltimateEmailSignupProps {
   /** Layout variant for different contexts */
-  variant?: 'hero' | 'inline' | 'minimal' | 'sidebar';
-  /** Show first name field */
-  includeFirstName?: boolean;
+  variant?: "hero" | "inline" | "minimal" | "sidebar";
   /** Custom CTA text */
   ctaText?: string;
   /** Show social proof elements */
@@ -23,26 +14,21 @@ interface UltimateEmailSignupProps {
   /** Track conversion source for analytics */
   source?: string;
   /** Success callback */
-  onSuccess?: (data: { email: string; firstName?: string; status: string }) => void;
+  onSuccess?: (data: { email: string; status: string }) => void;
   /** Custom styling classes */
   className?: string;
 }
 
-export default function UltimateEmailSignup({ 
-  variant = 'hero',
-  includeFirstName = true,
+export default function UltimateEmailSignup({
+  variant = "hero",
   ctaText,
   showSocialProof = true,
-  source = 'unknown',
   onSuccess,
-  className = ''
+  className = "",
 }: UltimateEmailSignupProps) {
-  const [email, setEmail] = useState('');
-  const [firstName, setFirstName] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [validationError, setValidationError] = useState('');
-  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [platform, setPlatform] = useState<"ios" | "android">("ios");
+  const { state, submit, setState } = useBetaSignup();
 
   // Social proof counter (simulated for demo)
   const [subscriberCount, setSubscriberCount] = useState(1247);
@@ -50,8 +36,9 @@ export default function UltimateEmailSignup({
   useEffect(() => {
     // Simulate real-time counter updates for psychological effect
     const interval = setInterval(() => {
-      if (Math.random() > 0.95) { // 5% chance every second
-        setSubscriberCount(prev => prev + 1);
+      if (Math.random() > 0.95) {
+        // 5% chance every second
+        setSubscriberCount((prev) => prev + 1);
       }
     }, 1000);
     return () => clearInterval(interval);
@@ -59,40 +46,47 @@ export default function UltimateEmailSignup({
 
   const getVariantStyles = () => {
     switch (variant) {
-      case 'hero':
+      case "hero":
         return {
-          container: 'max-w-lg mx-auto space-y-6',
-          form: 'space-y-4',
-          input: 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-orange-500 h-12 text-lg',
-          button: 'bg-orange-500 hover:bg-orange-600 text-white h-12 text-lg font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg'
+          container: "max-w-lg mx-auto space-y-6",
+          form: "space-y-4",
+          input:
+            "bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-orange-500 h-12 text-lg",
+          button:
+            "bg-orange-500 hover:bg-orange-600 text-white h-12 text-lg font-semibold transition-all duration-300 hover:scale-105 hover:shadow-lg",
         };
-      case 'inline':
+      case "inline":
         return {
-          container: 'max-w-md space-y-4',
-          form: 'flex flex-col sm:flex-row gap-3',
-          input: 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-orange-500',
-          button: 'bg-orange-500 hover:bg-orange-600 text-white px-6 font-semibold transition-all duration-200'
+          container: "max-w-md space-y-4",
+          form: "flex flex-col sm:flex-row gap-3",
+          input:
+            "bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-orange-500",
+          button:
+            "bg-orange-500 hover:bg-orange-600 text-white px-6 font-semibold transition-all duration-200",
         };
-      case 'minimal':
+      case "minimal":
         return {
-          container: 'max-w-sm space-y-3',
-          form: 'space-y-3',
-          input: 'bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-orange-400',
-          button: 'bg-orange-500 hover:bg-orange-600 text-white font-medium'
+          container: "max-w-sm space-y-3",
+          form: "space-y-3",
+          input:
+            "bg-white/10 border-white/20 text-white placeholder-white/60 focus:border-orange-400",
+          button: "bg-orange-500 hover:bg-orange-600 text-white font-medium",
         };
-      case 'sidebar':
+      case "sidebar":
         return {
-          container: 'space-y-4',
-          form: 'space-y-3',
-          input: 'bg-gray-900 border-gray-700 text-white placeholder-gray-500 focus:border-orange-500',
-          button: 'bg-orange-500 hover:bg-orange-600 text-white w-full font-semibold'
+          container: "space-y-4",
+          form: "space-y-3",
+          input:
+            "bg-gray-900 border-gray-700 text-white placeholder-gray-500 focus:border-orange-500",
+          button: "bg-orange-500 hover:bg-orange-600 text-white w-full font-semibold",
         };
       default:
         return {
-          container: 'max-w-md space-y-4',
-          form: 'space-y-4',
-          input: 'bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-orange-500',
-          button: 'bg-orange-500 hover:bg-orange-600 text-white font-semibold'
+          container: "max-w-md space-y-4",
+          form: "space-y-4",
+          input:
+            "bg-gray-800 border-gray-600 text-white placeholder-gray-400 focus:border-orange-500",
+          button: "bg-orange-500 hover:bg-orange-600 text-white font-semibold",
         };
     }
   };
@@ -101,90 +95,16 @@ export default function UltimateEmailSignup({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setValidationError('');
+    const result = await submit({ email, platform });
 
-    // Client-side validation
-    try {
-      const validatedData = emailSignupSchema.parse({ 
-        email, 
-        firstName: includeFirstName ? firstName : undefined 
-      });
-      
-      setIsSubmitting(true);
-
-      // Track submission attempt
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'signup_attempted', {
-          source,
-          variant,
-          has_first_name: includeFirstName && !!firstName
-        });
-      }
-
-      const response = await fetch('/api/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(validatedData)
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setIsSuccess(true);
-        
-        // Track successful conversion
-        if (typeof window !== 'undefined' && (window as any).gtag) {
-          (window as any).gtag('event', 'signup_success', {
-            source,
-            variant,
-            status: data.status
-          });
-        }
-
-        if (data.status === "exists") {
-          toast({
-            title: "Already on the list! 👋",
-            description: "You're already signed up. We'll keep you updated!",
-          });
-        } else {
-          toast({
-            title: "Welcome to SkateHubba! 🎉",
-            description: data.msg || "You're now on the beta list!",
-          });
-        }
-
-        // Call success callback
-        onSuccess?.({ 
-          email: validatedData.email, 
-          firstName: validatedData.firstName || undefined,
-          status: data.status 
-        });
-
-        // Clear form
-        setEmail('');
-        setFirstName('');
-      } else {
-        throw new Error(data.error || 'Signup failed');
-      }
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        setValidationError(error.errors[0]?.message || "Please check your input");
-      } else {
-        toast({
-          title: "Signup failed",
-          description: "Please try again in a moment.",
-          variant: "destructive"
-        });
-      }
-    } finally {
-      setIsSubmitting(false);
+    if (result === "success") {
+      onSuccess?.({ email, status: "ok" });
+      setEmail("");
     }
   };
 
   // Success state
-  if (isSuccess && variant === 'hero') {
+  if (state.status === "success" && variant === "hero") {
     return (
       <div className={`${styles.container} ${className}`}>
         <div className="bg-success/20 border border-success rounded-xl p-6 text-center">
@@ -192,7 +112,7 @@ export default function UltimateEmailSignup({
           <h3 className="text-success font-bold text-xl mb-2">You're In! 🎉</h3>
           <p className="text-success/90 mb-4">Get ready for updates, drops & exclusive sessions.</p>
           <button
-            onClick={() => setIsSuccess(false)}
+            onClick={() => setState({ status: "idle" })}
             className="text-orange-400 hover:text-orange-300 text-sm flex items-center justify-center gap-2 mx-auto"
             data-testid="button-subscribe-another"
           >
@@ -206,7 +126,7 @@ export default function UltimateEmailSignup({
   return (
     <div className={`${styles.container} ${className}`} data-testid="email-signup-form">
       {/* Social proof */}
-      {showSocialProof && variant === 'hero' && (
+      {showSocialProof && variant === "hero" && (
         <div className="flex justify-center items-center gap-8 text-sm text-gray-400 mb-6">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-orange-500" />
@@ -220,55 +140,79 @@ export default function UltimateEmailSignup({
       )}
 
       <form onSubmit={handleSubmit} className={styles.form}>
-        {includeFirstName && (
-          <Input
-            type="text"
-            placeholder="First name (optional)"
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            className={styles.input}
-            disabled={isSubmitting}
-            data-testid="input-first-name"
-          />
-        )}
-        
         <Input
           type="email"
           placeholder="Enter your email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className={`${styles.input} ${variant === 'inline' ? 'flex-1' : ''}`}
-          disabled={isSubmitting}
+          className={`${styles.input} ${variant === "inline" ? "flex-1" : ""}`}
+          disabled={state.status === "submitting"}
           required
           data-testid="input-email"
         />
-        
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => setPlatform("ios")}
+            className={`h-11 rounded-lg border text-sm font-semibold transition ${
+              platform === "ios"
+                ? "border-orange-400 bg-orange-500/20 text-orange-200"
+                : "border-white/10 bg-white/5 text-white/70 hover:border-orange-300"
+            }`}
+          >
+            iOS
+          </button>
+          <button
+            type="button"
+            onClick={() => setPlatform("android")}
+            className={`h-11 rounded-lg border text-sm font-semibold transition ${
+              platform === "android"
+                ? "border-orange-400 bg-orange-500/20 text-orange-200"
+                : "border-white/10 bg-white/5 text-white/70 hover:border-orange-300"
+            }`}
+          >
+            Android
+          </button>
+        </div>
+
         <Button
           type="submit"
-          disabled={isSubmitting || !email}
+          disabled={state.status === "submitting" || !email}
           className={styles.button}
           data-testid="button-signup"
         >
-          {isSubmitting ? (
+          {state.status === "submitting" ? (
             <span className="flex items-center gap-2">
               <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               Signing up...
             </span>
           ) : (
-            ctaText || (variant === 'hero' ? 'Join the Beta' : 'Get Updates')
+            ctaText || (variant === "hero" ? "Join the Beta" : "Get Updates")
           )}
         </Button>
       </form>
 
-      {/* Validation error */}
-      {validationError && (
+      {state.status === "error" && (
         <p className="text-red-400 text-sm text-center" data-testid="text-validation-error">
-          {validationError}
+          {state.message}
+        </p>
+      )}
+
+      {state.status === "offline" && (
+        <p className="text-yellow-300 text-sm text-center" data-testid="text-offline">
+          You appear offline. Reconnect to join the beta.
+        </p>
+      )}
+
+      {state.status === "success" && variant !== "hero" && (
+        <p className="text-success text-sm text-center" data-testid="text-success">
+          You're on the list. We'll keep you posted.
         </p>
       )}
 
       {/* Minimal social proof for non-hero variants */}
-      {showSocialProof && variant !== 'hero' && (
+      {showSocialProof && variant !== "hero" && (
         <p className="text-gray-400 text-xs text-center">
           Join {subscriberCount.toLocaleString()}+ skaters • Free beta access
         </p>
