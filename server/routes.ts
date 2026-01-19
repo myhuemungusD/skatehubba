@@ -8,6 +8,7 @@ import { ilike, or, eq, count } from "drizzle-orm";
 import { insertSpotSchema } from "@shared/schema";
 import { publicWriteLimiter } from "./middleware/security";
 import { requireCsrfToken } from "./middleware/csrf";
+import { enforceTrustAction } from "./middleware/trustSafety";
 import { z } from "zod";
 import crypto from "node:crypto";
 import { BetaSignupInput } from "@shared/validation/betaSignup";
@@ -17,6 +18,8 @@ import { authenticateUser } from "./auth/middleware";
 import { verifyAndCheckIn } from "./services/spotService";
 import { analyticsRouter } from "./routes/analytics";
 import { metricsRouter } from "./routes/metrics";
+import { moderationRouter } from "./routes/moderation";
+import { createPost } from "./services/moderationStore";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // 1. Setup Authentication (Passport session)
@@ -27,6 +30,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 3. Metrics Routes (Admin only, for dashboard)
   app.use("/api/metrics", metricsRouter);
+
+  // 3b. Moderation Routes
+  app.use("/api", moderationRouter);
 
   // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
@@ -61,8 +67,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     lng: z.number(),
   });
 
-  app.post("/api/spots/check-in", authenticateUser, async (req, res) => {
-    const parsed = checkInSchema.safeParse(req.body);
+  app.post(
+    "/api/spots/check-in",
+    authenticateUser,
+    enforceTrustAction("checkin"),
+    async (req, res) => {
+      const parsed = checkInSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
+      }
+
+      const userId = req.currentUser?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const { spotId, lat, lng } = parsed.data;
+
+      try {
+        const result = await verifyAndCheckIn(userId, spotId, lat, lng);
+        if (!result.success) {
+          return res.status(403).json({ message: result.message });
+        }
+
+        return res.status(200).json(result);
+      } catch (error) {
+        if (error instanceof Error && error.message === "Spot not found") {
+          return res.status(404).json({ message: "Spot not found" });
+        }
+
+        return res.status(500).json({ message: "Check-in failed" });
+      }
+    }
+  );
+
+  const postSchema = z.object({
+    mediaUrl: z.string().url().max(2000),
+    caption: z.string().max(300).optional(),
+    spotId: z.number().int().optional(),
+  });
+
+  app.post("/api/posts", authenticateUser, enforceTrustAction("post"), async (req, res) => {
+    const parsed = postSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
     }
@@ -72,22 +118,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const { spotId, lat, lng } = parsed.data;
-
-    try {
-      const result = await verifyAndCheckIn(userId, spotId, lat, lng);
-      if (!result.success) {
-        return res.status(403).json({ message: result.message });
-      }
-
-      return res.status(200).json(result);
-    } catch (error) {
-      if (error instanceof Error && error.message === "Spot not found") {
-        return res.status(404).json({ message: "Spot not found" });
-      }
-
-      return res.status(500).json({ message: "Check-in failed" });
-    }
+    const post = await createPost(userId, parsed.data);
+    return res.status(201).json({ postId: post.id });
   });
 
   const getClientIp = (req: Request): string | null => {

@@ -18,7 +18,7 @@
 
 ---
 
-## Table of Contents 
+## Table of Contents
 
 - [What is SkateHubba](#what-is-skatehubba)
 - [Core Product Loop](#core-product-loop)
@@ -29,6 +29,7 @@
 - [Environment Separation](#environment-separation)
 - [Testing](#testing)
 - [Deployment](#deployment)
+- [Trust & Safety](#trust--safety)
 - [Security](#security)
 - [Contributing](#contributing)
 - [License](#license)
@@ -39,6 +40,7 @@
 ## What is SkateHubba
 
 SkateHubba is a skater-built platform that combines:
+
 - a **vertical clip feed** (skate-first, not generic social),
 - **remote Game of S.K.A.T.E. battles** with community judging,
 - **spot discovery + check-ins** for real-world progression,
@@ -110,11 +112,50 @@ The long-term goal is to own the **skate graph**: tricks, spots, battles, judgin
 ## Local Development
 
 ### Prerequisites
+
 - Node.js **20+**
 - pnpm
 
 ### Install
+
 From repo root:
 
 ```bash
 pnpm install
+```
+
+### Run (Web)
+
+```bash
+pnpm dev
+```
+
+## Testing
+
+```bash
+pnpm test
+```
+
+## Deployment
+
+See [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md).
+
+## Trust & Safety
+
+See [docs/TRUST_AND_SAFETY.md](docs/TRUST_AND_SAFETY.md) for the MVP plan covering verification, reporting, moderation queues, trust levels, and content policy enforcement.
+
+## Security
+
+See [docs/security/SECURITY.md](docs/security/SECURITY.md).
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+See [LICENSE](LICENSE).
+
+## Trademark
+
+SkateHubba™ is a trademark of Design Mainline LLC.
