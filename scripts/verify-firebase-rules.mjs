@@ -16,9 +16,9 @@ for (const filePath of rulesFiles) {
   }
 
   const contents = fs.readFileSync(filePath, "utf8");
-  const insecurePattern = /allow\s+read,\s*write:\s*if\s*true/gi;
+  const insecurePattern = /allow\s+[a-zA-Z_,\s]+:\s*if\s*true\s*(?:;|\r?\n|$)/gi;
   if (insecurePattern.test(contents)) {
-    violations.push(`${path.basename(filePath)} contains allow read, write: if true`);
+    violations.push(`${path.basename(filePath)} contains an "allow ...: if true" rule`);
   }
 }
 
