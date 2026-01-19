@@ -22,6 +22,10 @@ export interface FirebaseConfig {
   measurementId?: string;
 }
 
+export interface GetFirebaseConfigOptions {
+  allowLocalFallback?: boolean;
+}
+
 /**
  * Production config
  *
@@ -65,20 +69,20 @@ const STAGING_CONFIG: FirebaseConfig = {
  *
  * Uses env vars if available, falls back to hardcoded config
  */
-export function getFirebaseConfig(): FirebaseConfig {
+export function getFirebaseConfig(options: GetFirebaseConfigOptions = {}): FirebaseConfig {
   const env = getAppEnv();
 
   // Try to read from env vars first (allows override)
   const envConfig: FirebaseConfig | null = (() => {
-    const apiKey = "AIzaSyD6kLt4GKV4adX-oQ3m_aXIpL6GXBP0xZw");
-    const projectId = "sk8hub-d7806";
+    const apiKey = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_API_KEY");
+    const projectId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_PROJECT_ID");
 
     if (!apiKey || !projectId) return null;
 
     return {
       apiKey,
       authDomain:
-        getPublicEnvOptional("AIzaSyD6kLt4GKV4adX-oQ3m_aXIpL6GXBP0xZw") || `${"sk8hub-d7806"}.firebaseapp.com`,
+        getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN") || `${projectId}.firebaseapp.com`,
       projectId,
       storageBucket:
         getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET") ||
@@ -91,9 +95,16 @@ export function getFirebaseConfig(): FirebaseConfig {
     };
   })();
 
+  const allowFallback =
+    (env !== "prod" && env !== "staging") || options.allowLocalFallback === true;
+
   if (envConfig) {
     console.log(`[Firebase] Using env-provided config for ${env}`);
     return envConfig;
+  }
+
+  if (!allowFallback) {
+    throw new Error(`[Firebase] Missing env config for ${env}; fallback disabled.`);
   }
 
   // Fall back to hardcoded config based on environment

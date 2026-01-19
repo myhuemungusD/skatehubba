@@ -135,20 +135,20 @@ git status
 
 ### Step 2: Open Conflicted Files
 
-VS Code will show conflict markers:
+VS Code will show conflict markers (rendered here with spaces to avoid literal markers in this doc):
 
 ```
-<<<<<<< HEAD
+< < < < < < < HEAD
 your code here
-=======
+= = = = = = =
 their code here (from main)
->>>>>>> commit-sha
+> > > > > > > commit-sha
 ```
 
 ### Step 3: Resolve Each Conflict
 
 - Keep your changes, their changes, or merge both
-- Delete the conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`)
+- Delete the conflict markers (`< < < < < < <`, `= = = = = = =`, `> > > > > > >`)
 - Save the file
 
 ### Step 4: Mark as Resolved
