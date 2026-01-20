@@ -44,7 +44,6 @@ paths = [
   '''\.env\.production$''',
   '''\.env\.development$''',
 ]
-allowlist = true  # Allow historical .env commits (already remediated)
 
 [allowlist]
 description = "Allow previously committed secrets that have been rotated"
