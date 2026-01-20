@@ -120,7 +120,7 @@ jobs:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: node scripts/verify-firebase-rules.mjs
 
-  # Secret scanning with gitleaks (using Docker to avoid license requirement)
+  # Secret scanning with gitleaks
   secret_scan:
     name: "No Secrets in Repo"
     runs-on: ubuntu-latest
@@ -129,6 +129,8 @@ jobs:
         with:
           fetch-depth: 0  # Fetch all history for gitleaks to scan commit ranges
 
-      - name: Run Gitleaks scan
-        run: |
-          docker run -v ${PWD}:/path ghcr.io/gitleaks/gitleaks:latest detect --source="/path" --config="/path/.gitleaks.toml" --verbose --no-git
+      - name: Gitleaks scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
