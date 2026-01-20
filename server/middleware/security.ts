@@ -75,6 +75,34 @@ export const publicWriteLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const getRateLimitKey = (req: Request) => {
+  const userId = req.currentUser?.id;
+  const ip = req.ip;
+  return userId ? `${userId}:${ip}` : ip;
+};
+
+export const filmerRequestLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  message: {
+    error: "Too many filmer requests, please slow down.",
+  },
+  keyGenerator: getRateLimitKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const filmerRespondLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 60,
+  message: {
+    error: "Too many filmer responses, please slow down.",
+  },
+  keyGenerator: getRateLimitKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 /**
  * Strict rate limiter for password reset requests
  * Limits to 3 password reset attempts per hour per IP address

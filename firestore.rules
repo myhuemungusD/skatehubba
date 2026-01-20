@@ -205,7 +205,7 @@ service cloud.firestore {
       // Users can delete their own notifications
       allow delete: if isOwner(resource.data.userId);
     }
-    
+
     // =========================================================================
     // ACTIVE CHECK-INS (Live Spot Activity)
     // =========================================================================

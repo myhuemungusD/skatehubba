@@ -16,7 +16,7 @@
     "package:dist": "node scripts/assemble-dist.mjs",
     "lint": "turbo lint",
     "typecheck": "pnpm -r run typecheck",
-    "verify": "pnpm -w run typecheck && pnpm -w run lint && pnpm -w run build",
+    "verify": "pnpm -w run typecheck && pnpm -w run lint && pnpm -w run test && pnpm -w run build",
     "test": "turbo test",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

@@ -6,7 +6,11 @@ import { getDb, isDatabaseAvailable } from "./db";
 import { customUsers, userProfiles, spots, games } from "@shared/schema";
 import { ilike, or, eq, count } from "drizzle-orm";
 import { insertSpotSchema } from "@shared/schema";
-import { publicWriteLimiter } from "./middleware/security";
+import {
+  filmerRequestLimiter,
+  filmerRespondLimiter,
+  publicWriteLimiter,
+} from "./middleware/security";
 import { requireCsrfToken } from "./middleware/csrf";
 import { z } from "zod";
 import crypto from "node:crypto";
@@ -17,6 +21,11 @@ import { authenticateUser } from "./auth/middleware";
 import { verifyAndCheckIn } from "./services/spotService";
 import { analyticsRouter } from "./routes/analytics";
 import { metricsRouter } from "./routes/metrics";
+import {
+  handleFilmerRequest,
+  handleFilmerRequestsList,
+  handleFilmerRespond,
+} from "./routes/filmer";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // 1. Setup Authentication (Passport session)
@@ -89,6 +98,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: "Check-in failed" });
     }
   });
+
+  // Filmer Credit Workflow
+  app.post("/api/filmer/request", authenticateUser, filmerRequestLimiter, handleFilmerRequest);
+  app.post("/api/filmer/respond", authenticateUser, filmerRespondLimiter, handleFilmerRespond);
+  app.get("/api/filmer/requests", authenticateUser, handleFilmerRequestsList);
 
   const getClientIp = (req: Request): string | null => {
     const forwarded = req.headers["x-forwarded-for"];
