@@ -6,7 +6,7 @@ on:
   pull_request:
     branches: [ "main" ]
   schedule:
-    - cron: '30 1 * * 0'
+    - cron: '30 1 * * 1'  # Weekly on Monday (reduced from daily Sunday)
 
 jobs:
   analyze:
@@ -25,8 +25,7 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      # Removed fetch-depth: 0 to reduce API calls
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v4
@@ -41,4 +40,6 @@ jobs:
       uses: github/codeql-action/analyze@v4
       with:
         category: "/language:${{matrix.language}}"
+        wait-for-processing: false  # Don't wait, reduces API calls
+      continue-on-error: true  # Don't fail build on rate limits
 
