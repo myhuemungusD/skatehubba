@@ -1,1 +1,33 @@
 node_modules
+node_modules
+
+# Environment variables (NEVER commit these!)
+.env
+.env.local
+.env.production
+.env.development
+.env.*.local
+
+# Build outputs
+dist
+build
+.turbo
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea
+
+# Testing
+coverage
+*.lcov
+.nyc_output
+
+# Temporary files
+*.tmp
+*.temp
+.cache
