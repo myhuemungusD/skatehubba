@@ -6,7 +6,11 @@ import { getDb, isDatabaseAvailable } from "./db";
 import { customUsers, spots, games } from "@shared/schema";
 import { ilike, or, eq, count, sql } from "drizzle-orm";
 import { insertSpotSchema } from "@shared/schema";
-import { publicWriteLimiter } from "./middleware/security";
+import {
+  filmerRequestLimiter,
+  filmerRespondLimiter,
+  publicWriteLimiter,
+} from "./middleware/security";
 import { requireCsrfToken } from "./middleware/csrf";
 import { enforceTrustAction } from "./middleware/trustSafety";
 import { z } from "zod";
@@ -18,6 +22,11 @@ import { authenticateUser } from "./auth/middleware";
 import { verifyAndCheckIn } from "./services/spotService";
 import { analyticsRouter } from "./routes/analytics";
 import { metricsRouter } from "./routes/metrics";
+import {
+  handleFilmerRequest,
+  handleFilmerRequestsList,
+  handleFilmerRespond,
+} from "./routes/filmer";
 import { moderationRouter } from "./routes/moderation";
 import { createPost } from "./services/moderationStore";
 import { sendQuickMatchNotification } from "./services/notificationService";
@@ -121,6 +130,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const post = await createPost(userId, parsed.data);
     return res.status(201).json({ postId: post.id });
   });
+
+  // Filmer Credit Workflow
+  app.post("/api/filmer/request", authenticateUser, filmerRequestLimiter, handleFilmerRequest);
+  app.post("/api/filmer/respond", authenticateUser, filmerRespondLimiter, handleFilmerRespond);
+  app.get("/api/filmer/requests", authenticateUser, handleFilmerRequestsList);
 
   const getClientIp = (req: Request): string | null => {
     const forwarded = req.headers["x-forwarded-for"];

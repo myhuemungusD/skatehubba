@@ -26,6 +26,7 @@
 - [Tech Stack](#tech-stack)
 - [Repo Structure](#repo-structure)
 - [Local Development](#local-development)
+- [Filmer Workflow Spec](#filmer-workflow-spec)
 - [Environment Separation](#environment-separation)
 - [Testing](#testing)
 - [Deployment](#deployment)
@@ -124,6 +125,99 @@ From repo root:
 pnpm install
 ```
 
+---
+
+## Filmer Workflow Spec
+
+### Endpoints
+
+- `POST /api/filmer/request`
+- `POST /api/filmer/respond`
+- `GET /api/filmer/requests`
+
+### State Machine
+
+- `pending → accepted`
+- `pending → rejected`
+- Terminal states cannot change.
+
+### Data Fields
+
+- `check_ins.filmerUid`
+- `check_ins.filmerStatus`
+- `check_ins.filmerRequestedAt`
+- `check_ins.filmerRespondedAt`
+- `check_ins.filmerRequestId`
+- `filmer_requests` table as the system of record
+
+### Abuse Controls
+
+- Daily quota counters with expiry for request/respond actions.
+- IP + session rate limits on request/respond endpoints.
+- Duplicate protection per `(checkInId, filmerUid)`.
+
+### Failure Modes
+
+- Requests are rejected if the check-in is not owned by the requester.
+- Responses are rejected if the filmer is not eligible or the request is not pending.
+- Check-in updates and filmer request updates are transactional in PostgreSQL.
+
+### Idempotency
+
+- Creating a request that is already pending returns the existing request ID.
+- Creating a request when a prior request is accepted/rejected returns `409`.
+
+### Enterprise Next Steps
+
+- Add Prometheus metrics for request volume and accept rate.
+- Add alerts on quota breaches and suspicious rejection spikes.
+- Extend filmer eligibility with custom claims for cross-service enforcement.
+
+---
+
+## Environment Separation
+
+- Firestore is reserved for realtime/presence/feed data.
+- PostgreSQL is the system of record for server-authoritative workflows.
+
+---
+
+## Testing
+
+### Proof Commands
+
+```bash
+pnpm test
+pnpm -w run verify
+```
+
+---
+
+## Deployment
+
+- `pnpm -w run verify` is the pre-flight check for CI.
+
+---
+
+## Security
+
+- All write endpoints require auth + validation.
+- Rate limits are enforced on public write paths.
+
+---
+
+## Contributing
+
+- Follow existing lint and formatting rules.
+- Keep changes minimal and production-ready.
+
+---
+
+## License
+
+MIT
+
+---
 ### Run (Web)
 
 ```bash

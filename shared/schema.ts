@@ -51,6 +51,7 @@ export const sanitizedStringSchema = z
   .refine((str) => !str.includes("<") && !str.includes(">"), "HTML is not allowed");
 
 import {
+  pgEnum,
   pgTable,
   text,
   serial,
@@ -162,6 +163,7 @@ export const customUsers = pgTable("custom_users", {
   resetPasswordToken: varchar("reset_password_token", { length: 255 }),
   resetPasswordExpires: timestamp("reset_password_expires"),
   isActive: boolean("is_active").default(true),
+  trustLevel: integer("trust_level").default(0).notNull(),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -345,6 +347,12 @@ export const spots = pgTable(
   })
 );
 
+export const filmerRequestStatusEnum = pgEnum("filmer_request_status", [
+  "pending",
+  "accepted",
+  "rejected",
+]);
+
 export const checkIns = pgTable(
   "check_ins",
   {
@@ -355,6 +363,11 @@ export const checkIns = pgTable(
       .references(() => spots.id, { onDelete: "cascade" }),
     timestamp: timestamp("timestamp").notNull().defaultNow(),
     isAr: boolean("is_ar").notNull().default(false),
+    filmerUid: varchar("filmer_uid", { length: 128 }),
+    filmerStatus: filmerRequestStatusEnum("filmer_status"),
+    filmerRequestedAt: timestamp("filmer_requested_at"),
+    filmerRespondedAt: timestamp("filmer_responded_at"),
+    filmerRequestId: varchar("filmer_request_id", { length: 64 }),
   },
   (table) => ({
     oneCheckInPerDay: uniqueIndex("unique_check_in_per_day").on(
@@ -364,6 +377,49 @@ export const checkIns = pgTable(
     ),
     userIdx: index("IDX_check_ins_user").on(table.userId),
     spotIdx: index("IDX_check_ins_spot").on(table.spotId),
+  })
+);
+
+export const filmerRequests = pgTable(
+  "filmer_requests",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    checkInId: integer("check_in_id")
+      .notNull()
+      .references(() => checkIns.id, { onDelete: "cascade" }),
+    requesterId: varchar("requester_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
+    filmerId: varchar("filmer_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
+    status: filmerRequestStatusEnum("status").notNull().default("pending"),
+    reason: text("reason"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    respondedAt: timestamp("responded_at"),
+  },
+  (table) => ({
+    checkInFilmerIdx: uniqueIndex("unique_filmer_request").on(table.checkInId, table.filmerId),
+    statusIdx: index("IDX_filmer_requests_status").on(table.status),
+    requesterIdx: index("IDX_filmer_requests_requester").on(table.requesterId),
+    filmerIdx: index("IDX_filmer_requests_filmer").on(table.filmerId),
+  })
+);
+
+export const filmerDailyCounters = pgTable(
+  "filmer_daily_counters",
+  {
+    counterKey: varchar("counter_key", { length: 128 }).notNull(),
+    day: varchar("day", { length: 10 }).notNull(),
+    count: integer("count").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    counterKeyDayIdx: uniqueIndex("unique_filmer_counter_day").on(table.counterKey, table.day),
   })
 );
 
@@ -569,6 +625,9 @@ export type Spot = typeof spots.$inferSelect;
 export type InsertSpot = z.infer<typeof insertSpotSchema>;
 export type CheckIn = typeof checkIns.$inferSelect;
 export type InsertCheckIn = typeof checkIns.$inferInsert;
+export type FilmerRequest = typeof filmerRequests.$inferSelect;
+export type InsertFilmerRequest = typeof filmerRequests.$inferInsert;
+export type FilmerDailyCounter = typeof filmerDailyCounters.$inferSelect;
 export type Trick = typeof tricks.$inferSelect;
 export type InsertTrick = typeof tricks.$inferInsert;
 export type Game = typeof games.$inferSelect;
@@ -594,6 +653,9 @@ export const userProfiles = pgTable("user_profiles", {
   wins: integer("wins").default(0),
   losses: integer("losses").default(0),
   points: integer("points").default(0),
+  roles: json("roles").$type<{ filmer?: boolean }>(),
+  filmerRepScore: integer("filmer_rep_score").default(0),
+  filmerVerified: boolean("filmer_verified").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
