@@ -25,6 +25,8 @@ export type FilmerRequestSummary = {
   reason?: string;
 };
 
+type RequestContext = { checkInId: number; requesterId: string };
+
 export class FilmerRequestError extends Error {
   status: number;
   code: string;
@@ -266,7 +268,7 @@ export const respondToFilmerRequest = async (input: {
   const counterKey = `filmer:respond:${env.NODE_ENV}:${input.filmerId}`;
 
   const nextStatus: FilmerRequestStatus = input.action === "accept" ? "accepted" : "rejected";
-  let requestContext: { checkInId: number; requesterId: string } | null = null;
+  let requestContext: RequestContext | null = null;
 
   await db.transaction(async (tx) => {
     await ensureQuota(tx, counterKey, day, RESPONSES_PER_DAY_LIMIT);
@@ -338,11 +340,10 @@ export const respondToFilmerRequest = async (input: {
     metadata: {
       requestId: input.requestId,
       status: nextStatus,
-      ...(requestContext
-        ? { checkInId: requestContext.checkInId, requesterUid: requestContext.requesterId }
-        : {}),
-      ...(input.deviceId ? { deviceId: input.deviceId } : {}),
-      ...(input.reason ? { reason: input.reason } : {}),
+      checkInId: requestContext!.checkInId,
+      requesterUid: requestContext!.requesterId,
+      ...(input.deviceId && { deviceId: input.deviceId }),
+      ...(input.reason && { reason: input.reason }),
     },
   });
 

@@ -75,9 +75,18 @@ export const publicWriteLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-const getRateLimitKey = (req: Request) => {
+const getRateLimitKey = (req: Request, _res: Response): string => {
   const userId = req.currentUser?.id;
-  const ip = req.ip;
+
+  // req.ip can be undefined depending on proxy config/types, so harden it.
+  const ip =
+    req.ip ||
+    (typeof req.headers["x-forwarded-for"] === "string"
+      ? req.headers["x-forwarded-for"].split(",")[0]?.trim()
+      : undefined) ||
+    req.socket?.remoteAddress ||
+    "unknown";
+
   return userId ? `${userId}:${ip}` : ip;
 };
 
