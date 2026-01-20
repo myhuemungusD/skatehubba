@@ -3,8 +3,8 @@ import { createServer, type Server } from "http";
 import { setupAuthRoutes } from "./auth/routes";
 import { spotStorage } from "./storage/spots";
 import { getDb, isDatabaseAvailable } from "./db";
-import { customUsers, userProfiles, spots, games } from "@shared/schema";
-import { ilike, or, eq, count } from "drizzle-orm";
+import { customUsers, spots, games } from "@shared/schema";
+import { ilike, or, eq, count, sql } from "drizzle-orm";
 import { insertSpotSchema } from "@shared/schema";
 import {
   filmerRequestLimiter,
@@ -12,6 +12,7 @@ import {
   publicWriteLimiter,
 } from "./middleware/security";
 import { requireCsrfToken } from "./middleware/csrf";
+import { enforceTrustAction } from "./middleware/trustSafety";
 import { z } from "zod";
 import crypto from "node:crypto";
 import { BetaSignupInput } from "@shared/validation/betaSignup";
@@ -26,6 +27,10 @@ import {
   handleFilmerRequestsList,
   handleFilmerRespond,
 } from "./routes/filmer";
+import { moderationRouter } from "./routes/moderation";
+import { createPost } from "./services/moderationStore";
+import { sendQuickMatchNotification } from "./services/notificationService";
+import logger from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // 1. Setup Authentication (Passport session)
@@ -36,6 +41,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 3. Metrics Routes (Admin only, for dashboard)
   app.use("/api/metrics", metricsRouter);
+
+  // 3b. Moderation Routes
+  app.use("/api", moderationRouter);
 
   // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
@@ -70,8 +78,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     lng: z.number(),
   });
 
-  app.post("/api/spots/check-in", authenticateUser, async (req, res) => {
-    const parsed = checkInSchema.safeParse(req.body);
+  app.post(
+    "/api/spots/check-in",
+    authenticateUser,
+    enforceTrustAction("checkin"),
+    async (req, res) => {
+      const parsed = checkInSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
+      }
+
+      // authenticateUser guarantees req.currentUser is defined here (type narrowing)
+      const userId = req.currentUser!.id;
+
+      const { spotId, lat, lng } = parsed.data;
+
+      try {
+        const result = await verifyAndCheckIn(userId, spotId, lat, lng);
+        if (!result.success) {
+          return res.status(403).json({ message: result.message });
+        }
+
+        return res.status(200).json(result);
+      } catch (error) {
+        if (error instanceof Error && error.message === "Spot not found") {
+          return res.status(404).json({ message: "Spot not found" });
+        }
+
+        return res.status(500).json({ message: "Check-in failed" });
+      }
+    }
+  );
+
+  const postSchema = z.object({
+    mediaUrl: z.string().url().max(2000),
+    caption: z.string().max(300).optional(),
+    spotId: z.number().int().optional(),
+  });
+
+  app.post("/api/posts", authenticateUser, enforceTrustAction("post"), async (req, res) => {
+    const parsed = postSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
     }
@@ -81,22 +127,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const { spotId, lat, lng } = parsed.data;
-
-    try {
-      const result = await verifyAndCheckIn(userId, spotId, lat, lng);
-      if (!result.success) {
-        return res.status(403).json({ message: result.message });
-      }
-
-      return res.status(200).json(result);
-    } catch (error) {
-      if (error instanceof Error && error.message === "Spot not found") {
-        return res.status(404).json({ message: "Spot not found" });
-      }
-
-      return res.status(500).json({ message: "Check-in failed" });
-    }
+    const post = await createPost(userId, parsed.data);
+    return res.status(201).json({ postId: post.id });
   });
 
   // Filmer Credit Workflow
@@ -194,7 +226,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 3. Public Stats Endpoint (for landing page)
+  // 3. User Search and Browse Endpoints
+  app.get("/api/users/search", authenticateUser, async (req, res) => {
+    const queryParam = req.query.q;
+    // Validate query parameter is a string (prevent array injection)
+    if (typeof queryParam !== "string" || queryParam.length < 2) {
+      return res.json([]);
+    }
+    const query = queryParam;
+
+    if (!isDatabaseAvailable()) {
+      return res.json([]);
+    }
+
+    try {
+      const database = getDb();
+      const searchTerm = `%${query}%`;
+      const results = await database
+        .select({
+          id: customUsers.id,
+          firstName: customUsers.firstName,
+          lastName: customUsers.lastName,
+          email: customUsers.email,
+          firebaseUid: customUsers.firebaseUid,
+        })
+        .from(customUsers)
+        .where(
+          or(
+            ilike(customUsers.firstName, searchTerm),
+            ilike(customUsers.lastName, searchTerm),
+            ilike(customUsers.email, searchTerm)
+          )
+        )
+        .limit(20);
+
+      const mapped = results.map((u) => ({
+        id: u.id,
+        displayName:
+          u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.firstName || "Skater",
+        handle: `user${u.id.substring(0, 4)}`,
+        wins: 0,
+        losses: 0,
+      }));
+
+      res.json(mapped);
+    } catch (_error) {
+      res.json([]);
+    }
+  });
+
+  app.get("/api/users", authenticateUser, async (req, res) => {
+    if (!isDatabaseAvailable()) {
+      return res.json([]);
+    }
+
+    try {
+      const database = getDb();
+      const results = await database
+        .select({
+          uid: customUsers.firebaseUid,
+          email: customUsers.email,
+          displayName: customUsers.firstName,
+          photoURL: sql<string | null>`null`,
+        })
+        .from(customUsers)
+        .where(eq(customUsers.isActive, true))
+        .limit(100);
+
+      res.json(results);
+    } catch (_error) {
+      res.json([]);
+    }
+  });
+
+  // Quick Match Endpoint
+  app.post("/api/matchmaking/quick-match", authenticateUser, async (req, res) => {
+    const currentUserId = req.currentUser?.id;
+    const currentUserName = req.currentUser?.firstName || "Skater";
+
+    if (!currentUserId) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+
+    if (!isDatabaseAvailable()) {
+      return res.status(503).json({ error: "Service unavailable" });
+    }
+
+    try {
+      const database = getDb();
+
+      // Find an available opponent (exclude current user, select random user with push token)
+      const availableOpponents = await database
+        .select({
+          id: customUsers.id,
+          firebaseUid: customUsers.firebaseUid,
+          firstName: customUsers.firstName,
+          pushToken: customUsers.pushToken,
+        })
+        .from(customUsers)
+        .where(eq(customUsers.isActive, true))
+        .limit(50);
+
+      // Filter out current user and users without push tokens
+      const eligibleOpponents = availableOpponents.filter(
+        (u) => u.id !== currentUserId && u.pushToken
+      );
+
+      if (eligibleOpponents.length === 0) {
+        return res.status(404).json({
+          error: "No opponents available",
+          message: "No users found for quick match. Try again later.",
+        });
+      }
+
+      // Select random opponent using unbiased cryptographically secure random
+      // Use rejection sampling to avoid modulo bias
+      const maxRange = Math.floor(0xffffffff / eligibleOpponents.length) * eligibleOpponents.length;
+      let randomValue: number;
+      do {
+        const randomBytes = crypto.randomBytes(4);
+        randomValue = randomBytes.readUInt32BE(0);
+      } while (randomValue >= maxRange);
+
+      const randomIndex = randomValue % eligibleOpponents.length;
+      const opponent = eligibleOpponents[randomIndex];
+
+      // In production, you would create a challenge record here
+      // For now, we'll create a temporary challenge ID
+      const challengeId = `qm-${Date.now()}-${currentUserId}-${opponent.id}`;
+
+      // Send push notification to opponent
+      if (opponent.pushToken) {
+        await sendQuickMatchNotification(opponent.pushToken, currentUserName, challengeId);
+      }
+
+      logger.info("[Quick Match] Match found", {
+        requesterId: currentUserId,
+        opponentId: opponent.id,
+        challengeId,
+      });
+
+      res.json({
+        success: true,
+        match: {
+          opponentId: opponent.id,
+          opponentName: opponent.firstName || "Skater",
+          opponentFirebaseUid: opponent.firebaseUid,
+          challengeId,
+        },
+      });
+    } catch (error) {
+      logger.error("[Quick Match] Failed to find match", { error, userId: currentUserId });
+      res.status(500).json({ error: "Failed to find match" });
+    }
+  });
+
+  // 4. Public Stats Endpoint (for landing page)
   app.get("/api/stats", async (_req, res) => {
     try {
       if (!isDatabaseAvailable()) {

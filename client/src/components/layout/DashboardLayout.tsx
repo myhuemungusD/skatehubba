@@ -10,7 +10,7 @@ interface DashboardLayoutProps {
 const navItems = [
   { label: "Hub", href: "/feed", icon: Home },
   { label: "Spots", href: "/map", icon: MapPin },
-  { label: "AR", href: "/trickmint", icon: Scan },
+  { label: "Play SKATE", href: "/game", icon: Scan },
   { label: "Shop", href: "/shop", icon: ShoppingBag },
   { label: "Me", href: "/checkins", icon: User },
 ];

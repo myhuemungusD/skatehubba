@@ -34,6 +34,19 @@ service cloud.firestore {
         && request.resource.data[field] >= request.time - duration.value(5, 'm')
         && request.resource.data[field] <= request.time + duration.value(1, 'm');
     }
+
+    // Block client writes to protected trust/moderation fields
+    function hasProtectedProfileFields(data) {
+      return data.keys().hasAny([
+        'trustLevel',
+        'reputationScore',
+        'reputationSignals',
+        'isBanned',
+        'banExpiresAt',
+        'proVerificationStatus',
+        'isProVerified'
+      ]);
+    }
     
     // Check if user is participant in a game
     function isGameParticipant(gameData) {
@@ -54,9 +67,29 @@ service cloud.firestore {
     // enforcement requires custom token claims (tracked for future release).
     // =========================================================================
     
+    // User profiles in environment namespace (client-writable, but protected fields are server-only)
+    match /env/{environment}/users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId)
+        && !hasProtectedProfileFields(request.resource.data);
+      allow update: if isOwner(userId)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'trustLevel',
+          'reputationScore',
+          'reputationSignals',
+          'isBanned',
+          'banExpiresAt',
+          'proVerificationStatus',
+          'isProVerified'
+        ]);
+      allow delete: if false;
+    }
+
     // Staging environment - full read/write for authenticated users
     match /env/staging/{path=**} {
-      allow read, write: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated()
+        && !path.matches('^users/.*');
     }
     
     // Production environment - read allowed, writes restricted for sensitive paths
@@ -67,7 +100,25 @@ service cloud.firestore {
       // Writes: block client writes to sensitive collections
       // These should go through Cloud Functions or server API
       allow write: if isAuthenticated()
-        && !(collection in ['billing', 'admin', 'moderation', 'analytics_events']);
+        && !(collection in ['billing', 'admin', 'moderation', 'analytics_events', 'users']);
+    }
+
+    // Moderation collections are server-only (Admin SDK)
+    match /moderation_users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow write: if false;
+    }
+
+    match /reports/{reportId} {
+      allow read, write: if false;
+    }
+
+    match /mod_actions/{actionId} {
+      allow read, write: if false;
+    }
+
+    match /moderation_quotas/{quotaId} {
+      allow read, write: if false;
     }
     
     // =========================================================================

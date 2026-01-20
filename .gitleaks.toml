@@ -1,0 +1,58 @@
+# Gitleaks Configuration
+# https://github.com/gitleaks/gitleaks
+
+title = "SkateHubba Gitleaks Config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "firebase-api-key-allowlist"
+description = "Allow hardcoded Firebase config in packages/config (public fallback values)"
+regex = '''AIzaSy[0-9A-Za-z_-]{33}'''
+paths = [
+  '''packages/config/src/firebase\.ts''',
+  '''packages/config/src/__tests__/.*\.test\.ts''',
+]
+
+[[rules]]
+id = "firebase-ids-allowlist"
+description = "Allow Firebase project IDs and app IDs in config package (non-sensitive)"
+regex = '''(sk8hub-d7806|665573979824|1:665573979824:web:[0-9a-z]+)'''
+paths = [
+  '''packages/config/src/firebase\.ts''',
+  '''packages/config/src/__tests__/.*\.test\.ts''',
+  '''\.env\.example''',
+  '''docs/.*\.md''',
+]
+
+[[rules]]
+id = "example-env-allowlist"
+description = "Allow secrets in .env.example (example values only)"
+regex = '''.*'''
+regex = '''.*'''
+paths = [
+  '''\.env\.example''',
+]
+
+# Block .env files entirely (should never be committed)
+[[rules]]
+id = "block-env-files"
+description = "Block any .env file from being committed"
+regex = '''.*'''
+paths = [
+  '''\.env$''',
+  '''\.env\.local$''',
+  '''\.env\.production$''',
+  '''\.env\.development$''',
+]
+
+[allowlist]
+description = "Allow previously committed secrets that have been rotated"
+commits = [
+  "56bd080",  # .env file exposed (branch deleted, secrets rotated)
+]
+paths = [
+  '''\.env$''',
+  '''\.env\.local$''',
+]

@@ -49,7 +49,7 @@ EXPO_PUBLIC_API_BASE_URL=https://staging-api.skatehubba.com
 EXPO_PUBLIC_CANONICAL_ORIGIN=https://staging.skatehubba.com
 
 # Firebase (shared across environments)
-EXPO_PUBLIC_FIREBASE_API_KEY=AIzaSyD6kLt4GKV4adX-oQ3m_aXIpL6GXBP0xZw
+EXPO_PUBLIC_FIREBASE_API_KEY=your_firebase_api_key_here
 EXPO_PUBLIC_FIREBASE_PROJECT_ID=sk8hub-d7806
 # ... etc
 

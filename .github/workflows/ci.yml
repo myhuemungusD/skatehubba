@@ -120,16 +120,24 @@ jobs:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: node scripts/verify-firebase-rules.mjs
 
-  # Secret scanning with gitleaks
+  # Secret scanning with gitleaks (main branch only)
   secret_scan:
     name: "No Secrets in Repo"
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # Fetch all history for gitleaks to scan commit ranges
 
+      - name: Block merge conflict markers
+        run: |
+          ! grep -RIn "^[<=>]\{7\}" -- . \
+            --exclude-dir=node_modules \
+            --exclude-dir=.git \
+            --exclude=pnpm-lock.yaml
+
       - name: Gitleaks scan
         uses: gitleaks/gitleaks-action@v2
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
