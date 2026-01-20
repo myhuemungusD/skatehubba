@@ -18,5 +18,4 @@ export const logAuditEvent = (context: AuditContext) => {
   };
 
   auditLogger.info("Audit event", payload);
-  logger.info("Audit event", payload);
 };
