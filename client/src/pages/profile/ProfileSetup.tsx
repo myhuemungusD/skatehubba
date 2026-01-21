@@ -3,14 +3,13 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation } from "wouter";
-import { CheckCircle, Loader2, Upload, XCircle } from "lucide-react";
+import { CheckCircle, Loader2, XCircle } from "lucide-react";
 import { httpsCallable } from "firebase/functions";
 
 import { useAuth } from "../../context/AuthProvider";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Progress } from "../../components/ui/progress";
-import { Textarea } from "../../components/ui/textarea";
 import { usernameSchema } from "@shared/schema";
 import { functions } from "../../lib/firebase";
 
@@ -25,15 +24,15 @@ import { functions } from "../../lib/firebase";
  */
 
 const stanceSchema = z.enum(["regular", "goofy"]);
-const experienceLevelSchema = z.enum(["beginner", "intermediate", "advanced", "pro"]);
+const experienceLevelSchema = z.enum(["beginner", "intermediate", "advanced"]);
 
 const formSchema = z.object({
   username: usernameSchema.optional().or(z.literal("")),
   stance: stanceSchema.optional(),
   experienceLevel: experienceLevelSchema.optional(),
-  favoriteTricks: z.string().max(200).optional(),
-  bio: z.string().max(500).optional(),
-  crewName: z.string().max(80).optional(),
+  sponsorFlow: z.string().max(100).optional(),
+  sponsorTeam: z.string().max(100).optional(),
+  hometownShop: z.string().max(100).optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -42,11 +41,10 @@ type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 type ProfileCreatePayload = {
   username?: string;
   stance?: "regular" | "goofy";
-  experienceLevel?: "beginner" | "intermediate" | "advanced" | "pro";
-  favoriteTricks?: string[];
-  bio?: string;
-  crewName?: string;
-  avatarBase64?: string;
+  experienceLevel?: "beginner" | "intermediate" | "advanced";
+  sponsorFlow?: string;
+  sponsorTeam?: string;
+  hometownShop?: string;
   skip?: boolean;
 };
 
@@ -54,56 +52,12 @@ const UsernameCheckResponseSchema = z.object({
   available: z.boolean(),
 });
 
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (typeof reader.result === "string") resolve(reader.result);
-      else reject(new Error("avatar_read_failed"));
-    };
-    reader.onerror = () => reject(new Error("avatar_read_failed"));
-    reader.readAsDataURL(file);
-  });
-}
-
-function parseFavoriteTricks(value: string | undefined): string[] {
-  if (!value) return [];
-  const items = value
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  // Enterprise guardrails: cap count, cap item length, dedupe.
-  const MAX_ITEMS = 20;
-  const MAX_ITEM_LEN = 30;
-
-  const seen = new Set<string>();
-  const out: string[] = [];
-
-  for (const raw of items) {
-    const t = raw.slice(0, MAX_ITEM_LEN);
-    const key = t.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(t);
-    if (out.length >= MAX_ITEMS) break;
-  }
-
-  return out;
-}
-
 export default function ProfileSetup() {
   const auth = useAuth();
   const [, setLocation] = useLocation();
 
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
   const [usernameMessage, setUsernameMessage] = useState<string>("");
-
-  const [avatarFile, setAvatarFile] = useState<File | null>(null);
-  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -125,14 +79,13 @@ export default function ProfileSetup() {
       username: "",
       stance: undefined,
       experienceLevel: undefined,
-      favoriteTricks: "",
-      bio: "",
-      crewName: "",
+      sponsorFlow: "",
+      sponsorTeam: "",
+      hometownShop: "",
     },
   });
 
   const username = watch("username");
-  const bio = watch("bio");
 
   // Username availability: debounced + cancelable + race-safe
   useEffect(() => {
@@ -199,17 +152,6 @@ export default function ProfileSetup() {
     };
   }, [username]);
 
-  // Avatar preview (object URL)
-  useEffect(() => {
-    if (!avatarFile) {
-      setAvatarPreview(null);
-      return;
-    }
-    const previewUrl = URL.createObjectURL(avatarFile);
-    setAvatarPreview(previewUrl);
-    return () => URL.revokeObjectURL(previewUrl);
-  }, [avatarFile]);
-
   const availabilityBadge = useMemo(() => {
     if (usernameStatus === "available") {
       return (
@@ -238,27 +180,6 @@ export default function ProfileSetup() {
     return null;
   }, [usernameStatus]);
 
-  const handleAvatarChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    setAvatarError(null);
-    const file = event.target.files?.[0];
-    if (!file) {
-      setAvatarFile(null);
-      return;
-    }
-
-    if (!file.type.startsWith("image/")) {
-      setAvatarError("Only image files are allowed.");
-      return;
-    }
-
-    if (file.size > MAX_AVATAR_BYTES) {
-      setAvatarError("Avatar must be under 5MB.");
-      return;
-    }
-
-    setAvatarFile(file);
-  }, []);
-
   const submitProfile = useCallback(
     async (values: FormValues, skip?: boolean) => {
       if (!auth.user) {
@@ -275,15 +196,11 @@ export default function ProfileSetup() {
           username: skip ? undefined : values.username,
           stance: values.stance,
           experienceLevel: values.experienceLevel,
-          favoriteTricks: parseFavoriteTricks(values.favoriteTricks),
-          bio: values.bio?.trim() ? values.bio.trim() : undefined,
-          crewName: values.crewName?.trim() ? values.crewName.trim() : undefined,
+          sponsorFlow: values.sponsorFlow?.trim() ? values.sponsorFlow.trim() : undefined,
+          sponsorTeam: values.sponsorTeam?.trim() ? values.sponsorTeam.trim() : undefined,
+          hometownShop: values.hometownShop?.trim() ? values.hometownShop.trim() : undefined,
           skip,
         };
-
-        if (avatarFile && !skip) {
-          payload.avatarBase64 = await fileToDataUrl(avatarFile);
-        }
 
         // Call Firebase Cloud Function
         const createProfileFn = httpsCallable(functions, "createProfile");
@@ -299,7 +216,7 @@ export default function ProfileSetup() {
         setSubmitting(false);
       }
     },
-    [auth, avatarFile, setLocation]
+    [auth, setLocation]
   );
 
   const onSubmit = useCallback(
@@ -315,9 +232,9 @@ export default function ProfileSetup() {
         username: "",
         stance: undefined,
         experienceLevel: undefined,
-        favoriteTricks: "",
-        bio: "",
-        crewName: "",
+        sponsorFlow: "",
+        sponsorTeam: "",
+        hometownShop: "",
       },
       true
     );
@@ -325,7 +242,6 @@ export default function ProfileSetup() {
 
   const submitDisabled = Boolean(
     submitting ||
-    avatarError ||
     (username &&
       (usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "checking"))
   );
@@ -395,90 +311,50 @@ export default function ProfileSetup() {
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
-                <option value="pro">Pro</option>
               </select>
+              <p className="text-xs text-neutral-400 mt-1">
+                Pro status available via verification only
+              </p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-neutral-200" htmlFor="favoriteTricks">
-              Favorite Tricks
+            <label className="text-sm font-semibold text-neutral-200" htmlFor="sponsorFlow">
+              Sponsor/Flow (Optional)
             </label>
             <Input
-              id="favoriteTricks"
-              placeholder="kickflip, heelflip, treflip"
+              id="sponsorFlow"
+              placeholder="e.g., Nike SB"
               className="h-12 bg-neutral-900/60 border-neutral-700 text-white"
-              {...register("favoriteTricks")}
+              {...register("sponsorFlow")}
             />
-            <p className="text-xs text-neutral-400">Comma-separated, up to 20 tricks.</p>
+            <p className="text-xs text-neutral-400">Your current sponsor or flow sponsor</p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-neutral-200" htmlFor="bio">
-              Bio
-            </label>
-            <Textarea
-              id="bio"
-              placeholder="Tell the crew about yourself..."
-              className="min-h-[100px] bg-neutral-900/60 border-neutral-700 text-white resize-none"
-              {...register("bio")}
-            />
-            <div className="flex items-center justify-between text-xs text-neutral-400">
-              <span>Max 500 characters.</span>
-              <span>{bio?.length ?? 0}/500</span>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-neutral-200" htmlFor="crewName">
-              Crew name
+            <label className="text-sm font-semibold text-neutral-200" htmlFor="sponsorTeam">
+              Sponsor/Team (Optional)
             </label>
             <Input
-              id="crewName"
-              placeholder="Midnight Push"
+              id="sponsorTeam"
+              placeholder="e.g., Element Skateboards"
               className="h-12 bg-neutral-900/60 border-neutral-700 text-white"
-              {...register("crewName")}
+              {...register("sponsorTeam")}
             />
+            <p className="text-xs text-neutral-400">Your board sponsor or team affiliation</p>
           </div>
 
-          <div className="space-y-3 rounded-2xl border border-white/10 bg-neutral-900/40 p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-neutral-200">Avatar</p>
-                <p className="text-xs text-neutral-400">PNG/JPG/WebP/GIF. Max 5MB.</p>
-              </div>
-              {avatarPreview && (
-                <img
-                  src={avatarPreview}
-                  alt="Avatar preview"
-                  className="h-12 w-12 rounded-full object-cover ring-2 ring-yellow-500"
-                />
-              )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-yellow-500/40 px-4 py-2 text-sm text-yellow-200 hover:bg-yellow-500/10">
-                <Upload className="h-4 w-4" />
-                Upload avatar
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleAvatarChange}
-                />
-              </label>
-              {avatarFile && (
-                <button
-                  type="button"
-                  className="text-xs text-neutral-400 underline"
-                  onClick={() => setAvatarFile(null)}
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-
-            {avatarError && <p className="text-xs text-red-400">{avatarError}</p>}
+          <div className="space-y-2">
+            <label className="text-sm font-semibold text-neutral-200" htmlFor="hometownShop">
+              Hometown Shop (Optional)
+            </label>
+            <Input
+              id="hometownShop"
+              placeholder="e.g., Local Skate Shop"
+              className="h-12 bg-neutral-900/60 border-neutral-700 text-white"
+              {...register("hometownShop")}
+            />
+            <p className="text-xs text-neutral-400">Your local skate shop</p>
           </div>
 
           {submitting && (
