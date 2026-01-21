@@ -8,7 +8,9 @@ const rules = readFileSync(rulesPath, "utf8");
 describe("Firestore rules contract", () => {
   it("locks down prod writes to sensitive collections", () => {
     expect(rules).toMatch(/match \/env\/prod\/\{collection\}\/\{docId=\*\*\}/);
-    expect(rules).toMatch(/collection in \['billing', 'admin', 'moderation', 'analytics_events'\]/);
+    expect(rules).toMatch(
+      /collection in \['billing', 'admin', 'moderation', 'analytics_events', 'users'\]/
+    );
   });
 
   it("enforces ownership and field constraints on presence writes", () => {

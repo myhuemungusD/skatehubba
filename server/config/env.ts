@@ -85,6 +85,18 @@ const envSchema = z.object({
 });
 
 function validateEnv() {
+  // Skip validation in test mode - unit tests shouldn't require DB secrets
+  const isTest = process.env.NODE_ENV === "test" || process.env.VITEST === "true";
+  if (isTest) {
+    return {
+      NODE_ENV: "test",
+      PORT: "3001",
+      DATABASE_URL: "postgres://test:test@localhost:5432/test",
+      SESSION_SECRET: "test-session-secret-at-least-32-chars-long",
+      JWT_SECRET: "test-jwt-secret-at-least-32-characters",
+    } as z.infer<typeof envSchema>;
+  }
+
   try {
     return envSchema.parse(process.env);
   } catch (error) {
