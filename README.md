@@ -1,53 +1,13 @@
-# 🛹 SkateHubba™
+# SkateHubba™
 
-> The ultimate skateboarding platform merging AR gameplay, social interaction, and skate culture.
+SkateHubba is a skateboarding platform built around remote games of S.K.A.T.E.  
+Everything else exists to support that core.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
-[![React](https://img.shields.io/badge/React-18.3-61DAFB.svg)](https://reactjs.org/)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
-[![CI](https://github.com/myhuemungusD/skatehubba1/actions/workflows/ci.yml/badge.svg)](https://github.com/myhuemungusD/skatehubba1/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/Tests-133%20passing-brightgreen.svg)](./vitest.config.mts)
-[![Coverage](https://img.shields.io/badge/Coverage-3%25-red.svg)](./vitest.config.mts)
-[![CodeQL](https://github.com/myhuemungusD/skatehubba1/actions/workflows/codeql.yml/badge.svg)](https://github.com/myhuemungusD/skatehubba1/security/code-scanning)
-[![Security](https://img.shields.io/badge/Vulnerabilities-0-brightgreen.svg)](https://github.com/myhuemungusD/skatehubba1/security)
+This is not a highlight reel app.  
+It is not pay-to-verify.  
+It is not hype-driven.
 
-**Owner:** Jason Hamilton  
-**Entity:** Design Mainline LLC  
-**Trademark SN:** 99356919
-
----
-
-## Table of Contents
-
-- [What is SkateHubba](#what-is-skatehubba)
-- [Core Product Loop](#core-product-loop)
-- [Key Features](#key-features)
-- [Tech Stack](#tech-stack)
-- [Repo Structure](#repo-structure)
-- [Local Development](#local-development)
-- [Filmer Workflow Spec](#filmer-workflow-spec)
-- [Environment Separation](#environment-separation)
-- [Testing](#testing)
-- [Deployment](#deployment)
-- [Trust & Safety](#trust--safety)
-- [Security](#security)
-- [Contributing](#contributing)
-- [License](#license)
-- [Trademark](#trademark)
-
----
-
-## What is SkateHubba
-
-SkateHubba is a skater-built platform that combines:
-
-- a **vertical clip feed** (skate-first, not generic social),
-- **remote Game of S.K.A.T.E. battles** with community judging,
-- **spot discovery + check-ins** for real-world progression,
-- and an **AR reward layer** (ghosts/replays anchored to places).
-
-The long-term goal is to own the **skate graph**: tricks, spots, battles, judging outcomes, reputation, and crew influence.
+**SkateHubba is about proof, history, and reputation.**
 
 ---
 
@@ -191,6 +151,19 @@ pnpm test
 pnpm -w run verify
 ```
 
+### Lint Policy
+
+`pnpm -w run lint` fails on errors only; warnings are non-blocking until the codebase is fully cleaned.
+
+### Cypress E2E
+
+```bash
+pnpm --filter skatehubba-client dev -- --host 0.0.0.0 --port 3000
+pnpm --filter skatehubba-client exec cypress run
+```
+
+> Note: Cypress specs assume the web app is running on `http://localhost:3000` and Firebase emulators are configured when needed.
+
 ---
 
 ## Deployment
@@ -218,6 +191,7 @@ pnpm -w run verify
 MIT
 
 ---
+
 ### Run (Web)
 
 ```bash

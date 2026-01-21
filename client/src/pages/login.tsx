@@ -51,7 +51,7 @@ export default function LoginPage() {
   // Redirect when authenticated
   useEffect(() => {
     if (auth?.user) {
-      setLocation("/home");
+      setLocation("/dashboard");
     }
   }, [auth?.user, setLocation]);
 
@@ -66,11 +66,12 @@ export default function LoginPage() {
         description: "You've successfully signed in with Google."
       });
       trackEvent('login', { method: 'google', rememberMe });
-    } catch (err: any) {
-      toast({ 
-        title: "Google sign-in failed", 
-        description: err.message || "Login failed",
-        variant: "destructive"
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      toast({
+        title: "Google sign-in failed",
+        description: message,
+        variant: "destructive",
       });
       setIsGoogleLoading(false);
     }
@@ -87,11 +88,12 @@ export default function LoginPage() {
         description: "You've signed in as a guest."
       });
       trackEvent('login', { method: 'anonymous', rememberMe });
-    } catch (err: any) {
-      toast({ 
-        title: "Guest sign-in failed", 
-        description: err.message || "Login failed",
-        variant: "destructive"
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Login failed";
+      toast({
+        title: "Guest sign-in failed",
+        description: message,
+        variant: "destructive",
       });
       setIsAnonymousLoading(false);
     }

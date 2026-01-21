@@ -60,6 +60,7 @@ import {
   timestamp,
   json,
   varchar,
+  uuid,
   index,
   doublePrecision,
   uniqueIndex,
@@ -168,6 +169,20 @@ export const customUsers = pgTable("custom_users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const usernames = pgTable(
+  "usernames",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    uid: varchar("uid", { length: 128 }).notNull().unique(),
+    username: varchar("username", { length: 20 }).notNull().unique(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    usernameIdx: uniqueIndex("usernames_username_unique").on(table.username),
+    uidIdx: uniqueIndex("usernames_uid_unique").on(table.uid),
+  })
+);
 
 export const authSessions = pgTable("auth_sessions", {
   id: varchar("id")

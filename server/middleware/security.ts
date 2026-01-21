@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
+import type { FirebaseAuthedRequest } from "./firebaseUid";
 
 const RATE_LIMITS = {
   // CodeQL: Missing rate limiting (auth endpoints)
@@ -137,6 +138,30 @@ export const apiLimiter = rateLimit({
   max: RATE_LIMITS.api.max, // 100 requests per minute
   message: {
     error: RATE_LIMITS.api.message,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const usernameCheckLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: {
+    error: "Too many username checks, please slow down.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const profileCreateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: {
+    error: "Too many profile creation attempts, please try again later.",
+  },
+  keyGenerator: (req: Request) => {
+    const firebaseUid = (req as FirebaseAuthedRequest).firebaseUid;
+    return firebaseUid || req.ip || "unknown";
   },
   standardHeaders: true,
   legacyHeaders: false,

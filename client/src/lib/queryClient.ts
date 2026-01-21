@@ -19,9 +19,18 @@ export async function apiRequest(
   url: string,
   data?: unknown
 ): Promise<Response> {
-  const headers: HeadersInit = data
-    ? { "Content-Type": "application/json" }
-    : {};
+  const csrfToken =
+    typeof document !== "undefined"
+      ? document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("csrfToken="))
+          ?.split("=")[1]
+      : undefined;
+
+  const headers: HeadersInit = {
+    ...(data ? { "Content-Type": "application/json" } : {}),
+    ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+  };
 
   const res = await fetch(url, {
     method,

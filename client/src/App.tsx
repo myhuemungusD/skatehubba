@@ -34,6 +34,7 @@ const LoginPage = lazy(() => import("./pages/login"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const SignupPage = lazy(() => import("./pages/signup"));
 const SigninPage = lazy(() => import("./pages/signin"));
+const ProfileSetup = lazy(() => import("./pages/profile/ProfileSetup"));
 const VerifyPage = lazy(() => import("./pages/verify"));
 const AuthVerifyPage = lazy(() => import("./pages/auth-verify"));
 const VerifyEmailPage = lazy(() => import("./pages/verify-email"));
@@ -125,6 +126,28 @@ function DashboardCheckinsRoute(_props: { params: Params }) {
   );
 }
 
+function ProfileSetupRoute() {
+  const auth = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!auth.isAuthenticated) {
+      setLocation("/auth", { replace: true });
+      return;
+    }
+
+    if (auth.profileStatus === "exists") {
+      setLocation("/dashboard", { replace: true });
+    }
+  }, [auth.isAuthenticated, auth.profileStatus, setLocation]);
+
+  if (auth.loading || auth.profileStatus === "unknown") {
+    return <LoadingScreen />;
+  }
+
+  return <ProfileSetup />;
+}
+
 function AppRoutes() {
   return (
     <Suspense fallback={<LoadingScreen />}>
@@ -146,6 +169,7 @@ function AppRoutes() {
         <Route path="/game" component={ChallengeLobbyPage} />
         <Route path="/signup" component={SignupPage} />
         <Route path="/signin" component={SigninPage} />
+        <Route path="/profile-setup" component={ProfileSetup} />
         <Route path="/verify" component={VerifyPage} />
         <Route path="/auth/verify" component={AuthVerifyPage} />
         <Route path="/verify-email" component={VerifyEmailPage} />
@@ -156,7 +180,9 @@ function AppRoutes() {
         <Route path="/skater/:handle" component={SkaterProfilePage} />
         <Route path="/p/:username" component={PublicProfileView} />
         <Route path="/showcase" component={BoltsShowcase} />
+        <Route path="/profile/setup" component={ProfileSetupRoute} />
 
+        <ProtectedRoute path="/dashboard" component={DashboardFeedRoute} />
         <ProtectedRoute path="/feed" component={DashboardFeedRoute} />
         <ProtectedRoute path="/map" component={DashboardMapRoute} />
         <ProtectedRoute path="/skate-game" component={DashboardSkateGameRoute} />

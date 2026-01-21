@@ -130,7 +130,7 @@ export default function AuthPage() {
         title: 'Welcome back! 🛹',
         description: 'You have successfully signed in.',
       });
-      setLocation('/home');
+      setLocation('/dashboard');
     } catch (error) {
       console.error('[AuthPage] Sign in error:', error);
       // Get the actual error message from AuthError
@@ -150,10 +150,9 @@ export default function AuthPage() {
       toast({ title: 'Error', description: 'Authentication not ready. Please refresh.', variant: 'destructive' });
       return;
     }
-    const displayName = [data.firstName, data.lastName].filter(Boolean).join(' ') || undefined;
-    console.log('[AuthPage] handleSignUp called:', { email: data.email, displayName });
+    console.log('[AuthPage] handleSignUp called:', { email: data.email });
     try {
-      await signUp(data.email, data.password, displayName);
+      await signUp(data.email, data.password);
       console.log('[AuthPage] Sign up successful!');
       toast({
         title: 'Account Created! 📧',
@@ -188,7 +187,7 @@ export default function AuthPage() {
         title: 'Welcome! 🛹',
         description: 'You have successfully signed in with Google.',
       });
-      setLocation('/home');
+      setLocation('/dashboard');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Google sign in failed';
       toast({

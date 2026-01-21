@@ -29,6 +29,7 @@ function maskToken(output, token) {
 async function verifyFirebaseRules() {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const token = process.env.FIREBASE_TOKEN;
+  const serviceAccount = process.env.GOOGLE_APPLICATION_CREDENTIALS;
 
   // Validation
   if (!projectId) {
@@ -36,13 +37,15 @@ async function verifyFirebaseRules() {
     process.exit(1);
   }
 
-  if (!token) {
-    console.error('❌ FIREBASE_TOKEN environment variable is required');
+  // Support both token and service account auth
+  if (!token && !serviceAccount) {
+    console.error('❌ Either FIREBASE_TOKEN or GOOGLE_APPLICATION_CREDENTIALS environment variable is required');
     process.exit(1);
   }
 
+  const authMethod = serviceAccount ? 'service account' : 'token';
   console.log(`🔍 Verifying Firebase rules for project: ${projectId}`);
-  console.log('🔒 Token: ***MASKED***');
+  console.log(`🔒 Auth method: ${authMethod}`);
 
   // Check if rules files exist
   const firestoreRulesPath = join(projectRoot, 'firestore.rules');
@@ -62,8 +65,10 @@ async function verifyFirebaseRules() {
   if (existsSync(firestoreRulesPath)) {
     try {
       console.log('\n📋 Validating Firestore rules...');
+      
+      const authFlag = token ? `--token ${token}` : '';
       const { stdout, stderr } = await execAsync(
-        `firebase firestore:rules release --only firestore --project ${projectId} --token ${token} --dry-run`,
+        `firebase deploy --only firestore:rules --project ${projectId} ${authFlag} --dry-run`,
         { cwd: projectRoot, maxBuffer: 1024 * 1024 * 10 }
       );
       
@@ -71,14 +76,19 @@ async function verifyFirebaseRules() {
       const maskedStderr = maskToken(stderr, token);
       
       if (maskedStdout) console.log(maskedStdout);
-      if (maskedStderr) console.error(maskedStderr);
+      const isDryRunSuccessMessage =
+        /dry[- ]run (successful|completed)/i.test(maskedStderr) ||
+        /would (have )?deploy(ed)?/i.test(maskedStderr);
+      if (maskedStderr && !isDryRunSuccessMessage) console.error(maskedStderr);
       
       console.log('✅ Firestore rules are valid');
     } catch (error) {
       hasErrors = true;
       const maskedError = maskToken(error.message, token);
+      const maskedStderr = maskToken(error.stderr || '', token);
       console.error('❌ Firestore rules validation failed:');
       console.error(maskedError);
+      if (maskedStderr) console.error(maskedStderr);
     }
   }
 
@@ -86,8 +96,10 @@ async function verifyFirebaseRules() {
   if (existsSync(storageRulesPath)) {
     try {
       console.log('\n📦 Validating Storage rules...');
+      
+      const authFlag = token ? `--token ${token}` : '';
       const { stdout, stderr } = await execAsync(
-        `firebase storage:rules release --only storage --project ${projectId} --token ${token} --dry-run`,
+        `firebase deploy --only storage:rules --project ${projectId} ${authFlag} --dry-run`,
         { cwd: projectRoot, maxBuffer: 1024 * 1024 * 10 }
       );
       
@@ -95,14 +107,16 @@ async function verifyFirebaseRules() {
       const maskedStderr = maskToken(stderr, token);
       
       if (maskedStdout) console.log(maskedStdout);
-      if (maskedStderr) console.error(maskedStderr);
+      if (maskedStderr && !maskedStderr.includes('dry-run')) console.error(maskedStderr);
       
       console.log('✅ Storage rules are valid');
     } catch (error) {
       hasErrors = true;
       const maskedError = maskToken(error.message, token);
+      const maskedStderr = maskToken(error.stderr || '', token);
       console.error('❌ Storage rules validation failed:');
       console.error(maskedError);
+      if (maskedStderr) console.error(maskedStderr);
     }
   }
 

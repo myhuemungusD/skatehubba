@@ -122,8 +122,17 @@ service cloud.firestore {
     }
     
     // =========================================================================
-    // USER PROFILES - READ ONLY (Profile data lives in PostgreSQL)
+    // USER PROFILES - Firestore profiles with server-owned username uniqueness
     // =========================================================================
+
+    match /profiles/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId)
+        && !exists(/databases/$(db)/documents/profiles/$(userId));
+      allow update: if isOwner(userId)
+        && request.resource.data.username == resource.data.username;
+      allow delete: if false;
+    }
     
     match /users/{userId} {
       // DEPRECATED: User profiles are now stored in PostgreSQL (customUsers table)

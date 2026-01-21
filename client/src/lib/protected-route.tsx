@@ -36,6 +36,15 @@ export default function ProtectedRoute({ path, component: Component }: Protected
           return null;
         }
 
+        if (auth.profileStatus === "unknown") {
+          return <FullScreenSpinner />;
+        }
+
+        if (auth.profileStatus === "missing") {
+          setLocation("/profile/setup", { replace: true });
+          return null;
+        }
+
         return <Component params={params} />;
       }}
     </Route>
