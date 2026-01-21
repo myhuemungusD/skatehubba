@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation } from "wouter";
 import { CheckCircle, Loader2, Upload, XCircle } from "lucide-react";
+
 import { useAuth } from "../../context/AuthProvider";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -11,14 +12,18 @@ import { Progress } from "../../components/ui/progress";
 import { Textarea } from "../../components/ui/textarea";
 import { usernameSchema } from "@shared/schema";
 
-// Define schemas locally
+/**
+ * Enterprise rules applied:
+ * - Deterministic navigation (single redirect).
+ * - Runtime validation of API responses (Zod).
+ * - Username availability check is cancelable (AbortController) + debounced.
+ * - No undefined variables / no implicit contracts.
+ * - Upload path remains JSON-based for now (base64) but guarded and isolated.
+ *   TODO (recommended): move avatar upload to Storage and send storagePath.
+ */
+
 const stanceSchema = z.enum(["regular", "goofy"]);
 const experienceLevelSchema = z.enum(["beginner", "intermediate", "advanced", "pro"]);
-import {
-  experienceLevelSchema,
-  stanceSchema,
-  usernameSchema,
-} from "@shared/validation/profile";
 
 const formSchema = z.object({
   username: usernameSchema,
@@ -30,7 +35,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
 type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid";
 
 type ProfileCreatePayload = {
@@ -44,102 +48,146 @@ type ProfileCreatePayload = {
   skip?: boolean;
 };
 
-interface ProfileCreateResponse {
-  profile: {
-    uid: string;
-    username: string;
-    stance: "regular" | "goofy" | null;
-    experienceLevel: "beginner" | "intermediate" | "advanced" | "pro" | null;
-    favoriteTricks: string[];
-    bio: string | null;
-    spotsVisited: number;
-    crewName: string | null;
-    credibilityScore: number;
-    avatarUrl: string | null;
-    createdAt: string;
-    updatedAt: string;
-  };
-}
+const ProfileCreateResponseSchema = z.object({
+  profile: z.object({
+    uid: z.string(),
+    username: z.string(),
+    stance: stanceSchema.nullable(),
+    experienceLevel: experienceLevelSchema.nullable(),
+    favoriteTricks: z.array(z.string()),
+    bio: z.string().nullable(),
+    spotsVisited: z.number(),
+    crewName: z.string().nullable(),
+    credibilityScore: z.number(),
+    avatarUrl: z.string().nullable(),
+    createdAt: z.string(),
+    updatedAt: z.string(),
+  }),
+});
+
+type ProfileCreateResponse = z.infer<typeof ProfileCreateResponseSchema>;
+
+const UsernameCheckResponseSchema = z.object({
+  available: z.boolean(),
+});
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
-const getCsrfToken = () => {
+function getCsrfToken(): string | undefined {
+  // Keep optional in case your backend enforces it.
+  // If you are bearer-token-only, you should remove CSRF entirely server + client.
   if (typeof document === "undefined") return undefined;
   return document.cookie
     .split("; ")
     .find((row) => row.startsWith("csrfToken="))
     ?.split("=")[1];
-};
+}
 
-const fileToDataUrl = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === "string") {
-        resolve(reader.result);
-      } else {
-        reject(new Error("avatar_read_failed"));
-      }
+      if (typeof reader.result === "string") resolve(reader.result);
+      else reject(new Error("avatar_read_failed"));
     };
     reader.onerror = () => reject(new Error("avatar_read_failed"));
     reader.readAsDataURL(file);
   });
+}
 
-const parseFavoriteTricks = (value: string | undefined) => {
+function parseFavoriteTricks(value: string | undefined): string[] {
   if (!value) return [];
-  return value
+  const items = value
     .split(",")
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-    .slice(0, 20);
-};
+    .map((s) => s.trim())
+    .filter(Boolean);
 
-const sendProfileCreateRequest = (
+  // Enterprise guardrails: cap count, cap item length, dedupe.
+  const MAX_ITEMS = 20;
+  const MAX_ITEM_LEN = 30;
+
+  const seen = new Set<string>();
+  const out: string[] = [];
+
+  for (const raw of items) {
+    const t = raw.slice(0, MAX_ITEM_LEN);
+    const key = t.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(t);
+    if (out.length >= MAX_ITEMS) break;
+  }
+
+  return out;
+}
+
+function safeJsonParse(input: string): unknown {
+  try {
+    return JSON.parse(input);
+  } catch {
+    return null;
+  }
+}
+
+function sendProfileCreateRequest(
   payload: ProfileCreatePayload,
   token: string,
   onProgress: (progress: number) => void
-): Promise<ProfileCreateResponse> =>
-  new Promise((resolve, reject) => {
+): Promise<ProfileCreateResponse> {
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/profile/create");
     xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     xhr.setRequestHeader("Content-Type", "application/json");
+
     const csrfToken = getCsrfToken();
-    if (csrfToken) {
-      xhr.setRequestHeader("X-CSRF-Token", csrfToken);
-    }
+    if (csrfToken) xhr.setRequestHeader("X-CSRF-Token", csrfToken);
 
     xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) {
-        const progress = Math.round((event.loaded / event.total) * 100);
-        onProgress(progress);
-      }
+      if (!event.lengthComputable) return;
+      const progress = Math.round((event.loaded / event.total) * 100);
+      onProgress(progress);
     };
 
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve(JSON.parse(xhr.responseText) as ProfileCreateResponse);
+      const ok = xhr.status >= 200 && xhr.status < 300;
+      if (!ok) {
+        const body = xhr.responseText || "profile_create_failed";
+        reject(new Error(body));
         return;
       }
-      reject(new Error(xhr.responseText || "profile_create_failed"));
+
+      const json = safeJsonParse(xhr.responseText);
+      try {
+        const parsed = ProfileCreateResponseSchema.parse(json);
+        resolve(parsed);
+      } catch (e) {
+        reject(new Error("profile_create_response_invalid"));
+      }
     };
 
     xhr.onerror = () => reject(new Error("network_error"));
-
     xhr.send(JSON.stringify(payload));
   });
+}
 
 export default function ProfileSetup() {
   const auth = useAuth();
   const [, setLocation] = useLocation();
+
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
   const [usernameMessage, setUsernameMessage] = useState<string>("");
+
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const usernameCheckAbortRef = useRef<AbortController | null>(null);
+  const usernameCheckSeqRef = useRef(0);
 
   const {
     register,
@@ -163,7 +211,12 @@ export default function ProfileSetup() {
   const username = watch("username");
   const bio = watch("bio");
 
+  // Username availability: debounced + cancelable + race-safe
   useEffect(() => {
+    // Cancel any in-flight request when username changes
+    usernameCheckAbortRef.current?.abort();
+    usernameCheckAbortRef.current = null;
+
     if (!username) {
       setUsernameStatus("idle");
       setUsernameMessage("");
@@ -177,14 +230,27 @@ export default function ProfileSetup() {
       return;
     }
 
-    const handle = setTimeout(async () => {
+    const seq = ++usernameCheckSeqRef.current;
+    const controller = new AbortController();
+    usernameCheckAbortRef.current = controller;
+
+    const handle = window.setTimeout(async () => {
       try {
         setUsernameStatus("checking");
-        const response = await fetch(`/api/profile/username-check?username=${parsed.data}`);
-        if (!response.ok) {
-          throw new Error("username_check_failed");
-        }
-        const data = (await response.json()) as { available: boolean };
+        setUsernameMessage("");
+
+        const res = await fetch(
+          `/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`,
+          { signal: controller.signal }
+        );
+
+        if (!res.ok) throw new Error("username_check_failed");
+
+        const data = UsernameCheckResponseSchema.parse(await res.json());
+
+        // Ignore stale responses
+        if (seq !== usernameCheckSeqRef.current) return;
+
         if (data.available) {
           setUsernameStatus("available");
           setUsernameMessage("Username is available.");
@@ -192,27 +258,33 @@ export default function ProfileSetup() {
           setUsernameStatus("taken");
           setUsernameMessage("That username is already taken.");
         }
-      } catch {
+      } catch (err) {
+        // If request was aborted, do nothing
+        if (controller.signal.aborted) return;
+
+        // Ignore stale responses
+        if (seq !== usernameCheckSeqRef.current) return;
+
         setUsernameStatus("invalid");
         setUsernameMessage("Could not verify username right now.");
       }
     }, 500);
 
-    return () => clearTimeout(handle);
+    return () => {
+      window.clearTimeout(handle);
+      controller.abort();
+    };
   }, [username]);
 
+  // Avatar preview (object URL)
   useEffect(() => {
     if (!avatarFile) {
       setAvatarPreview(null);
       return;
     }
-
     const previewUrl = URL.createObjectURL(avatarFile);
     setAvatarPreview(previewUrl);
-
-    return () => {
-      URL.revokeObjectURL(previewUrl);
-    };
+    return () => URL.revokeObjectURL(previewUrl);
   }, [avatarFile]);
 
   const availabilityBadge = useMemo(() => {
@@ -276,43 +348,38 @@ export default function ProfileSetup() {
       setSubmitError(null);
 
       try {
+        // Optional: forceRefresh = false is fine; server should accept recent token.
         const token = await auth.user.getIdToken();
+
         const payload: ProfileCreatePayload = {
-          username: skip ? undefined : (values.username as string),
-          stance: values.stance as "regular" | "goofy" | undefined,
-          experienceLevel: values.experienceLevel as
-            | "beginner"
-            | "intermediate"
-            | "advanced"
-            | "pro"
-            | undefined,
-          favoriteTricks: parseFavoriteTricks(values.favoriteTricks as string | undefined),
-          bio: (values.bio as string) || undefined,
-          crewName: (values.crewName as string) || undefined,
           username: skip ? undefined : values.username,
           stance: values.stance,
           experienceLevel: values.experienceLevel,
           favoriteTricks: parseFavoriteTricks(values.favoriteTricks),
-          bio: values.bio || undefined,
-          crewName: values.crewName || undefined,
+          bio: values.bio?.trim() ? values.bio.trim() : undefined,
+          crewName: values.crewName?.trim() ? values.crewName.trim() : undefined,
           skip,
         };
 
+        // NOTE: For enterprise scale, do not send base64 via JSON.
+        // TODO: upload to Storage and pass a storagePath instead.
         if (avatarFile && !skip) {
           payload.avatarBase64 = await fileToDataUrl(avatarFile);
         }
 
-        await sendProfileCreateRequest(payload, token, setUploadProgress);
-
-        // Profile created successfully - AuthProvider will fetch it on next render
-        // Redirect to home and let the auth state update naturally
-        setLocation("/home", { replace: true });
         const response = await sendProfileCreateRequest(payload, token, setUploadProgress);
-        auth.setProfile({
-          ...response.profile,
-          createdAt: new Date(response.profile.createdAt),
-          updatedAt: new Date(response.profile.updatedAt),
-        });
+
+        // Keep auth state in sync immediately if your provider supports it.
+        // If your AuthProvider already refetches profile automatically, this is still safe.
+        if (typeof auth.setProfile === "function") {
+          auth.setProfile({
+            ...response.profile,
+            createdAt: new Date(response.profile.createdAt),
+            updatedAt: new Date(response.profile.updatedAt),
+          });
+        }
+
+        // Deterministic single redirect
         setLocation("/dashboard", { replace: true });
       } catch (error) {
         console.error("[ProfileSetup] Failed to create profile", error);
@@ -378,9 +445,8 @@ export default function ProfileSetup() {
                 className="h-12 bg-neutral-900/60 border-neutral-700 text-white"
                 {...register("username", {
                   onChange: (event) => {
-                    setValue("username", event.target.value.toLowerCase(), {
-                      shouldValidate: true,
-                    });
+                    const next = String(event.target.value || "").toLowerCase();
+                    setValue("username", next, { shouldValidate: true });
                   },
                 })}
               />
@@ -388,9 +454,6 @@ export default function ProfileSetup() {
             </div>
             <p className="text-xs text-neutral-400">{usernameMessage}</p>
             {errors.username && <p className="text-xs text-red-400">{errors.username.message}</p>}
-            {errors.username && (
-              <p className="text-xs text-red-400">{errors.username.message}</p>
-            )}
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -401,7 +464,6 @@ export default function ProfileSetup() {
               <select
                 id="stance"
                 className="h-12 w-full rounded-lg bg-neutral-900/60 border border-neutral-700 text-white px-3"
-                className="h-12 w-full rounded-md border border-neutral-700 bg-neutral-900/60 px-3 text-sm text-white"
                 {...register("stance")}
               >
                 <option value="">Select stance</option>
@@ -417,13 +479,6 @@ export default function ProfileSetup() {
               <select
                 id="experienceLevel"
                 className="h-12 w-full rounded-lg bg-neutral-900/60 border border-neutral-700 text-white px-3"
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-neutral-200" htmlFor="experienceLevel">
-                Experience
-              </label>
-              <select
-                id="experienceLevel"
-                className="h-12 w-full rounded-md border border-neutral-700 bg-neutral-900/60 px-3 text-sm text-white"
                 {...register("experienceLevel")}
               >
                 <option value="">Select level</option>
@@ -512,6 +567,7 @@ export default function ProfileSetup() {
                 </button>
               )}
             </div>
+
             {avatarError && <p className="text-xs text-red-400">{avatarError}</p>}
           </div>
 
@@ -539,6 +595,7 @@ export default function ProfileSetup() {
             >
               {submitting ? "Creating profile..." : "Create profile"}
             </Button>
+
             <Button
               type="button"
               variant="ghost"

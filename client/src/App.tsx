@@ -54,7 +54,6 @@ const PrivacyPage = lazy(() => import("./pages/privacy"));
 const TermsPage = lazy(() => import("./pages/terms"));
 const SpecsPage = lazy(() => import("./pages/specs"));
 const CheckinsPage = lazy(() => import("./pages/checkins"));
-const ProfileSetup = lazy(() => import("./pages/profile/ProfileSetup"));
 
 const PublicProfileView = lazy(() => import("./features/social/public-profile/PublicProfileView"));
 const BoltsShowcase = lazy(() => import("./features/social/bolts-showcase/BoltsShowcase"));
