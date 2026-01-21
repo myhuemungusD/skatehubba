@@ -26,7 +26,7 @@ const stanceSchema = z.enum(["regular", "goofy"]);
 const experienceLevelSchema = z.enum(["beginner", "intermediate", "advanced", "pro"]);
 
 const formSchema = z.object({
-  username: usernameSchema,
+  username: usernameSchema.optional().or(z.literal("")),
   stance: stanceSchema.optional(),
   experienceLevel: experienceLevelSchema.optional(),
   favoriteTricks: z.string().max(200).optional(),
@@ -194,7 +194,7 @@ export default function ProfileSetup() {
     handleSubmit,
     watch,
     setValue,
-    formState: { errors, isValid },
+    formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: "onChange",
@@ -367,20 +367,11 @@ export default function ProfileSetup() {
           payload.avatarBase64 = await fileToDataUrl(avatarFile);
         }
 
-        const response = await sendProfileCreateRequest(payload, token, setUploadProgress);
+        await sendProfileCreateRequest(payload, token, setUploadProgress);
 
-        // Keep auth state in sync immediately if your provider supports it.
-        // If your AuthProvider already refetches profile automatically, this is still safe.
-        if (typeof auth.setProfile === "function") {
-          auth.setProfile({
-            ...response.profile,
-            createdAt: new Date(response.profile.createdAt),
-            updatedAt: new Date(response.profile.updatedAt),
-          });
-        }
-
-        // Deterministic single redirect
-        setLocation("/dashboard", { replace: true });
+        // Profile created successfully - AuthProvider will fetch it on next render
+        // Redirect to home and let the auth state update naturally
+        setLocation("/home", { replace: true });
       } catch (error) {
         console.error("[ProfileSetup] Failed to create profile", error);
         setSubmitError("We couldn't create your profile. Try again.");
@@ -412,13 +403,12 @@ export default function ProfileSetup() {
     );
   }, [submitProfile]);
 
-  const submitDisabled =
-    !isValid ||
-    usernameStatus === "taken" ||
-    usernameStatus === "invalid" ||
-    usernameStatus === "checking" ||
+  const submitDisabled = Boolean(
     submitting ||
-    Boolean(avatarError);
+    avatarError ||
+    (username &&
+      (usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "checking"))
+  );
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center px-4 py-10">
