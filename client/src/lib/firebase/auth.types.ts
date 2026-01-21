@@ -32,11 +32,15 @@ export interface AuthUser {
  */
 export interface UserProfile {
   readonly uid: string;
-  readonly email: string;
-  readonly displayName: string;
-  readonly photoURL: string | null;
-  readonly firstName: string | null;
-  readonly lastName: string | null;
+  readonly username: string;
+  readonly stance: "regular" | "goofy" | null;
+  readonly experienceLevel: "beginner" | "intermediate" | "advanced" | "pro" | null;
+  readonly favoriteTricks: string[];
+  readonly bio: string | null;
+  readonly spotsVisited: number;
+  readonly crewName: string | null;
+  readonly credibilityScore: number;
+  readonly avatarUrl: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -45,11 +49,13 @@ export interface UserProfile {
  * Input for creating a new user profile
  */
 export interface CreateProfileInput {
-  email: string;
-  displayName?: string;
-  firstName?: string;
-  lastName?: string;
-  photoURL?: string | null;
+  username: string;
+  stance?: "regular" | "goofy";
+  experienceLevel?: "beginner" | "intermediate" | "advanced" | "pro";
+  favoriteTricks?: string[];
+  bio?: string | null;
+  crewName?: string | null;
+  avatarUrl?: string | null;
 }
 
 // ============================================================================

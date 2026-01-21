@@ -24,16 +24,16 @@ import DashboardLayout from "./components/layout/DashboardLayout";
 import ProtectedRoute, { type Params } from "./lib/protected-route";
 
 // Lazy load non-critical pages for better performance
-const Landing = lazy(() => import("./pages/landing"));
-const NewLanding = lazy(() => import("./pages/new-landing"));
 const Home = lazy(() => import("./pages/home"));
+const FeedPage = lazy(() => import("./pages/feed"));
 const Tutorial = lazy(() => import("./pages/tutorial"));
 const Demo = lazy(() => import("./pages/demo"));
-const DonationPage = lazy(() => import("./pages/donate"));
+
 const LoginPage = lazy(() => import("./pages/login"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const SignupPage = lazy(() => import("./pages/signup"));
 const SigninPage = lazy(() => import("./pages/signin"));
+const ProfileSetup = lazy(() => import("./pages/profile/ProfileSetup"));
 const VerifyPage = lazy(() => import("./pages/verify"));
 const AuthVerifyPage = lazy(() => import("./pages/auth-verify"));
 const VerifyEmailPage = lazy(() => import("./pages/verify-email"));
@@ -44,6 +44,7 @@ const CheckoutPage = lazy(() => import("./pages/checkout"));
 const OrderConfirmationPage = lazy(() => import("./pages/order-confirmation"));
 const ClosetPage = lazy(() => import("./pages/closet"));
 const MapPage = lazy(() => import("./pages/map"));
+const SpotDetailPage = lazy(() => import("./pages/spots/SpotDetailPage"));
 const SkateGamePage = lazy(() => import("./pages/skate-game"));
 const ChallengeLobbyPage = lazy(() => import("./pages/ChallengeLobby"));
 const LeaderboardPage = lazy(() => import("./pages/leaderboard"));
@@ -57,20 +58,50 @@ const CheckinsPage = lazy(() => import("./pages/checkins"));
 const PublicProfileView = lazy(() => import("./features/social/public-profile/PublicProfileView"));
 const BoltsShowcase = lazy(() => import("./features/social/bolts-showcase/BoltsShowcase"));
 
+/**
+ * Routing Policy (Zero-Duplication Architecture)
+ *
+ * PUBLIC ROUTES:
+ * - / (unauthenticated) → /landing (conversion-focused landing page)
+ * - /landing → Public landing page with CTA to enter platform
+ * - /home → Member hub (authenticated users only, action dashboard)
+ *
+ * AUTHENTICATED ROUTES:
+ * - /feed → Activity feed (main authenticated view)
+ * - /map → Spot map
+ * - /skate-game → S.K.A.T.E. battles
+ * - /leaderboard → Rankings
+ *
+ * ROUTING STRATEGY:
+ * - Root (/) redirects unauthenticated users to /landing
+ * - Root (/) redirects authenticated users to /feed
+ * - Landing page: minimal, conversion-focused ("Enter Platform" CTA)
+ * - Home page: member hub with quick actions (Feed/Map/Battle/Profile)
+ * - Legacy routes (/old, /new) removed - zero duplication architecture
+ */
 function RootRedirect() {
+  const { user, loading } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
-    setLocation("/feed", { replace: true });
-  }, [setLocation]);
+    if (loading) return;
 
-  return null;
+    if (user) {
+      // Authenticated: Go to feed
+      setLocation("/feed", { replace: true });
+    } else {
+      // Unauthenticated: Go to landing
+      setLocation("/landing", { replace: true });
+    }
+  }, [user, loading, setLocation]);
+
+  return <LoadingScreen />;
 }
 
 function DashboardFeedRoute(_props: { params: Params }) {
   return (
     <DashboardLayout>
-      <Home />
+      <FeedPage />
     </DashboardLayout>
   );
 }
@@ -79,6 +110,14 @@ function DashboardMapRoute(_props: { params: Params }) {
   return (
     <DashboardLayout>
       <MapPage />
+    </DashboardLayout>
+  );
+}
+
+function DashboardSpotDetailRoute(props: { params: Params }) {
+  return (
+    <DashboardLayout>
+      <SpotDetailPage params={props.params} />
     </DashboardLayout>
   );
 }
@@ -108,8 +147,8 @@ function DashboardTrickmintRoute(_props: { params: Params }) {
 }
 
 function DashboardTutorialRoute(_props: { params: Params }) {
-  const auth = useAuth();
-  const userId = auth.user!.uid;
+  const { user } = useAuth();
+  const userId = user!.uid;
   return (
     <DashboardLayout>
       <Tutorial userId={userId} />
@@ -125,18 +164,38 @@ function DashboardCheckinsRoute(_props: { params: Params }) {
   );
 }
 
+function ProfileSetupRoute() {
+  const auth = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!auth.isAuthenticated) {
+      setLocation("/auth", { replace: true });
+      return;
+    }
+
+    if (auth.profileStatus === "exists") {
+      setLocation("/dashboard", { replace: true });
+    }
+  }, [auth.isAuthenticated, auth.profileStatus, setLocation]);
+
+  if (auth.loading || auth.profileStatus === "unknown") {
+    return <LoadingScreen />;
+  }
+
+  return <ProfileSetup />;
+}
+
 function AppRoutes() {
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Switch>
         <Route path="/auth" component={AuthPage} />
         <Route path="/login" component={LoginPage} />
-        <Route path="/old" component={Landing} />
-        <Route path="/new" component={NewLanding} />
         <Route path="/home" component={Home} />
         <Route path="/landing" component={UnifiedLanding} />
+        <Route path="/new-landing" component={UnifiedLanding} />
         <Route path="/demo" component={Demo} />
-        <Route path="/donate" component={DonationPage} />
         <Route path="/shop" component={ShopPage} />
         <Route path="/cart" component={CartPage} />
         <Route path="/checkout" component={CheckoutPage} />
@@ -146,6 +205,7 @@ function AppRoutes() {
         <Route path="/game" component={ChallengeLobbyPage} />
         <Route path="/signup" component={SignupPage} />
         <Route path="/signin" component={SigninPage} />
+        <Route path="/profile-setup" component={ProfileSetup} />
         <Route path="/verify" component={VerifyPage} />
         <Route path="/auth/verify" component={AuthVerifyPage} />
         <Route path="/verify-email" component={VerifyEmailPage} />
@@ -156,9 +216,12 @@ function AppRoutes() {
         <Route path="/skater/:handle" component={SkaterProfilePage} />
         <Route path="/p/:username" component={PublicProfileView} />
         <Route path="/showcase" component={BoltsShowcase} />
+        <Route path="/profile/setup" component={ProfileSetupRoute} />
 
+        <ProtectedRoute path="/dashboard" component={DashboardFeedRoute} />
         <ProtectedRoute path="/feed" component={DashboardFeedRoute} />
         <ProtectedRoute path="/map" component={DashboardMapRoute} />
+        <ProtectedRoute path="/spots/:id" component={DashboardSpotDetailRoute} />
         <ProtectedRoute path="/skate-game" component={DashboardSkateGameRoute} />
         <ProtectedRoute path="/leaderboard" component={DashboardLeaderboardRoute} />
         <ProtectedRoute path="/trickmint" component={DashboardTrickmintRoute} />

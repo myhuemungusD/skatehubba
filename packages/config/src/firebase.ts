@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Firebase Configuration
  *
  * Centralized Firebase config that works for both web and mobile.

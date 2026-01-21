@@ -28,9 +28,7 @@ export {
 // Profile Service
 export {
   getProfile,
-  createProfile,
   updateProfile,
-  getOrCreateProfile,
 } from './profile.service';
 
 // Types

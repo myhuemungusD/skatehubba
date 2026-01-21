@@ -31,6 +31,7 @@ import { verifyReplayProtection } from "./services/replayProtection";
 import { moderationRouter } from "./routes/moderation";
 import { createPost } from "./services/moderationStore";
 import { sendQuickMatchNotification } from "./services/notificationService";
+import { profileRouter } from "./routes/profile";
 import logger from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -45,6 +46,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 3b. Moderation Routes
   app.use("/api", moderationRouter);
+
+  // 3c. Profile Routes
+  app.use("/api/profile", profileRouter);
 
   // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
@@ -210,6 +214,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const post = await createPost(userId, parsed.data);
     return res.status(201).json({ postId: post.id });
   });
+
+  // Filmer Credit Workflow
+  app.post("/api/filmer/request", authenticateUser, filmerRequestLimiter, handleFilmerRequest);
+  app.post("/api/filmer/respond", authenticateUser, filmerRespondLimiter, handleFilmerRespond);
+  app.get("/api/filmer/requests", authenticateUser, handleFilmerRequestsList);
 
   const getClientIp = (req: Request): string | null => {
     const forwarded = req.headers["x-forwarded-for"];

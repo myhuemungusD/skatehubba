@@ -44,7 +44,7 @@ export default function Navigation() {
     }
   }, [signOut, setLocation]);
 
-  const profileLabel = profile?.displayName ?? user?.email ?? "Profile";
+  const profileLabel = profile?.username ?? user?.email ?? "Profile";
 
   const navItems = [
     { path: "/", label: "Home", icon: Home },

@@ -30,7 +30,6 @@ paths = [
 id = "example-env-allowlist"
 description = "Allow secrets in .env.example (example values only)"
 regex = '''.*'''
-regex = '''.*'''
 paths = [
   '''\.env\.example''',
 ]

@@ -16,30 +16,43 @@ export default function SigninPage() {
   const auth = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated and has profile
   useEffect(() => {
-    if (auth?.isAuthenticated) {
+    if (auth?.isAuthenticated && auth?.profile) {
       setLocation("/home");
+    } else if (auth?.isAuthenticated && !auth?.profile) {
+      setLocation("/profile-setup");
     }
-  }, [auth?.isAuthenticated, setLocation]);
+  }, [auth?.isAuthenticated, auth?.profile, setLocation]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
       await auth?.signInWithEmail(email, password);
-      toast({ 
-        title: "Welcome back! 🛹",
-        description: "You've successfully signed in."
-      });
-      setLocation("/home");
+      // AuthProvider will auto-create profile, wait a bit then check
+      setTimeout(() => {
+        if (auth?.profile) {
+          toast({
+            title: "Welcome back! 🛹",
+            description: "You've successfully signed in.",
+          });
+          setLocation("/home");
+        } else {
+          toast({
+            title: "Welcome back! 🛹",
+            description: "Let's complete your profile.",
+          });
+          setLocation("/profile-setup");
+        }
+      }, 500);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Login failed";
-      toast({ 
-        title: "Login failed", 
+      toast({
+        title: "Login failed",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -48,20 +61,31 @@ export default function SigninPage() {
 
   async function handleGoogleSignIn() {
     setIsLoading(true);
-    
+
     try {
       await auth?.signInWithGoogle();
-      toast({ 
-        title: "Welcome! 🛹",
-        description: "You've successfully signed in with Google."
-      });
-      setLocation("/home");
+      // AuthProvider will auto-create profile, wait a bit then check
+      setTimeout(() => {
+        if (auth?.profile) {
+          toast({
+            title: "Welcome! 🛹",
+            description: "You've successfully signed in with Google.",
+          });
+          setLocation("/home");
+        } else {
+          toast({
+            title: "Welcome! 🛹",
+            description: "Let's complete your profile.",
+          });
+          setLocation("/profile-setup");
+        }
+      }, 500);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-in failed";
-      toast({ 
-        title: "Google sign-in failed", 
+      toast({
+        title: "Google sign-in failed",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -148,7 +172,11 @@ export default function SigninPage() {
             <div className="mt-6 text-center">
               <p className="text-gray-400">
                 Don't have an account?{" "}
-                <Link href="/signup" className="text-orange-400 hover:text-orange-300 font-semibold" data-testid="link-to-signup">
+                <Link
+                  href="/signup"
+                  className="text-orange-400 hover:text-orange-300 font-semibold"
+                  data-testid="link-to-signup"
+                >
                   Sign Up
                 </Link>
               </p>
@@ -156,7 +184,10 @@ export default function SigninPage() {
 
             <div className="mt-4 text-center">
               <Link href="/">
-                <span className="text-gray-400 hover:text-white cursor-pointer inline-block" data-testid="link-back-home">
+                <span
+                  className="text-gray-400 hover:text-white cursor-pointer inline-block"
+                  data-testid="link-back-home"
+                >
                   ← Back to Home
                 </span>
               </Link>

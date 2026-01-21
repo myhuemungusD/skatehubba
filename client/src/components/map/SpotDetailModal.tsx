@@ -1,41 +1,59 @@
-import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { Star, MapPin, Calendar, Users, Navigation, Share2, ExternalLink, X, Loader2 } from 'lucide-react';
+import { useState } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { apiRequest, queryClient } from '@/lib/queryClient';
-import type { Spot } from '@shared/schema';
+  Star,
+  MapPin,
+  Calendar,
+  Users,
+  Navigation,
+  Share2,
+  ExternalLink,
+  X,
+  Loader2,
+} from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { Spot } from "@shared/schema";
+import { CheckInButton } from "@/features/checkins/CheckInButton";
 
 // Labels with emojis for display
 const SPOT_TYPE_LABELS: Record<string, string> = {
-  rail: '🛤️ Rail',
-  ledge: '📐 Ledge',
-  stairs: '🪜 Stairs',
-  gap: '🌉 Gap',
-  bank: '📐 Bank',
-  'manual-pad': '⬜ Manual Pad',
-  flat: '🛹 Flat Ground',
-  bowl: '🥣 Bowl',
-  'mini-ramp': '🛷 Mini Ramp',
-  vert: '🎢 Vert',
-  diy: '🔨 DIY',
-  park: '🏟️ Skate Park',
-  street: '🏙️ Street Spot',
-  other: '❓ Other',
+  rail: "🛤️ Rail",
+  ledge: "📐 Ledge",
+  stairs: "🪜 Stairs",
+  gap: "🌉 Gap",
+  bank: "📐 Bank",
+  "manual-pad": "⬜ Manual Pad",
+  flat: "🛹 Flat Ground",
+  bowl: "🥣 Bowl",
+  "mini-ramp": "🛷 Mini Ramp",
+  vert: "🎢 Vert",
+  diy: "🔨 DIY",
+  park: "🏟️ Skate Park",
+  street: "🏙️ Street Spot",
+  other: "❓ Other",
 };
 
 const TIER_CONFIG: Record<string, { label: string; color: string; bgColor: string }> = {
-  bronze: { label: '🥉 Bronze', color: 'text-amber-600', bgColor: 'bg-amber-900/30 border-amber-700' },
-  silver: { label: '🥈 Silver', color: 'text-gray-300', bgColor: 'bg-gray-700/30 border-gray-500' },
-  gold: { label: '🥇 Gold', color: 'text-yellow-400', bgColor: 'bg-yellow-900/30 border-yellow-600' },
-  legendary: { label: '👑 Legendary', color: 'text-purple-400', bgColor: 'bg-purple-900/30 border-purple-600' },
+  bronze: {
+    label: "🥉 Bronze",
+    color: "text-amber-600",
+    bgColor: "bg-amber-900/30 border-amber-700",
+  },
+  silver: { label: "🥈 Silver", color: "text-gray-300", bgColor: "bg-gray-700/30 border-gray-500" },
+  gold: {
+    label: "🥇 Gold",
+    color: "text-yellow-400",
+    bgColor: "bg-yellow-900/30 border-yellow-600",
+  },
+  legendary: {
+    label: "👑 Legendary",
+    color: "text-purple-400",
+    bgColor: "bg-purple-900/30 border-purple-600",
+  },
 };
 
 interface SpotDetailModalProps {
@@ -47,18 +65,28 @@ interface SpotDetailModalProps {
   userLocation?: { lat: number; lng: number } | null;
 }
 
-export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLocation }: SpotDetailModalProps) {
+export function SpotDetailModal({
+  spotId,
+  initialSpot,
+  isOpen,
+  onClose,
+  userLocation,
+}: SpotDetailModalProps) {
   const { toast } = useToast();
   const [userRating, setUserRating] = useState<number>(0);
   const [hoverRating, setHoverRating] = useState<number>(0);
 
   // Only fetch if we don't have the spot data passed in
   // This eliminates the redundant round-trip when parent already has the data
-  const { data: fetchedSpot, isLoading, error } = useQuery<Spot>({
-    queryKey: ['/api/spots', spotId],
+  const {
+    data: fetchedSpot,
+    isLoading,
+    error,
+  } = useQuery<Spot>({
+    queryKey: ["/api/spots", spotId],
     queryFn: async () => {
-      if (!spotId) throw new Error('No spot ID');
-      const response = await apiRequest('GET', `/api/spots/${spotId}`);
+      if (!spotId) throw new Error("No spot ID");
+      const response = await apiRequest("GET", `/api/spots/${spotId}`);
       return response.json();
     },
     enabled: isOpen && spotId !== null && !initialSpot,
@@ -69,50 +97,26 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
   // Use passed spot or fetched spot
   const spot = initialSpot ?? fetchedSpot;
 
-  // Check-in mutation
-  const checkInMutation = useMutation({
-    mutationFn: async () => {
-      if (!spotId) throw new Error('No spot ID');
-      const response = await apiRequest('POST', `/api/spots/${spotId}/checkin`);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/spots', spotId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/spots'] });
-      toast({
-        title: '🛹 Checked In!',
-        description: 'Nice! Keep shredding.',
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Check-in failed',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
-      });
-    },
-  });
-
   // Rating mutation
   const rateMutation = useMutation({
     mutationFn: async (rating: number) => {
-      if (!spotId) throw new Error('No spot ID');
-      const response = await apiRequest('POST', `/api/spots/${spotId}/rate`, { rating });
+      if (!spotId) throw new Error("No spot ID");
+      const response = await apiRequest("POST", `/api/spots/${spotId}/rate`, { rating });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/spots', spotId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/spots'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/spots", spotId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/spots"] });
       toast({
-        title: '⭐ Rating submitted!',
-        description: 'Thanks for your feedback.',
+        title: "⭐ Rating submitted!",
+        description: "Thanks for your feedback.",
       });
     },
     onError: (error) => {
       toast({
-        title: 'Rating failed',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
+        title: "Rating failed",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
       });
     },
   });
@@ -120,7 +124,7 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
   // Calculate distance if user location available
   const getDistance = () => {
     if (!userLocation || !spot) return null;
-    
+
     const R = 6371; // Earth's radius in km
     const dLat = ((spot.lat - userLocation.lat) * Math.PI) / 180;
     const dLon = ((spot.lng - userLocation.lng) * Math.PI) / 180;
@@ -141,7 +145,7 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
 
   const handleShare = async () => {
     if (!spot) return;
-    
+
     const shareData = {
       title: spot.name,
       text: `Check out ${spot.name} on SkateHubba!`,
@@ -154,8 +158,8 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
       } else {
         await navigator.clipboard.writeText(shareData.url);
         toast({
-          title: 'Link copied!',
-          description: 'Share it with your crew.',
+          title: "Link copied!",
+          description: "Share it with your crew.",
         });
       }
     } catch (error) {
@@ -166,7 +170,7 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
   const openInMaps = () => {
     if (!spot) return;
     const url = `https://www.google.com/maps/search/?api=1&query=${spot.lat},${spot.lng}`;
-    window.open(url, '_blank');
+    window.open(url, "_blank");
   };
 
   const tierConfig = spot?.tier ? TIER_CONFIG[spot.tier] : null;
@@ -195,11 +199,7 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
             {/* Header Image/Placeholder */}
             <div className="relative h-48 bg-gradient-to-br from-[#ff6a00]/30 to-neutral-800 flex items-center justify-center">
               {spot.photoUrl ? (
-                <img
-                  src={spot.photoUrl}
-                  alt={spot.name}
-                  className="w-full h-full object-cover"
-                />
+                <img src={spot.photoUrl} alt={spot.name} className="w-full h-full object-cover" />
               ) : (
                 <div className="text-6xl">🛹</div>
               )}
@@ -209,10 +209,12 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
               >
                 <X className="w-5 h-5" />
               </button>
-              
+
               {/* Tier Badge */}
               {tierConfig && (
-                <div className={`absolute top-3 left-3 px-3 py-1 rounded-full ${tierConfig.bgColor} border`}>
+                <div
+                  className={`absolute top-3 left-3 px-3 py-1 rounded-full ${tierConfig.bgColor} border`}
+                >
                   <span className={`text-sm font-medium ${tierConfig.color}`}>
                     {tierConfig.label}
                   </span>
@@ -227,7 +229,7 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
                 <DialogHeader>
                   <DialogTitle className="text-2xl text-white">{spot.name}</DialogTitle>
                 </DialogHeader>
-                
+
                 <div className="flex flex-wrap items-center gap-2 mt-2">
                   {spot.spotType && (
                     <Badge variant="secondary" className="bg-neutral-800 text-gray-300">
@@ -255,18 +257,16 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
                     <Users className="w-4 h-4" />
                     Check-ins
                   </div>
-                  <div className="text-2xl font-bold text-white">
-                    {spot.checkInCount || 0}
-                  </div>
+                  <div className="text-2xl font-bold text-white">{spot.checkInCount || 0}</div>
                 </div>
-                
+
                 <div className="p-4 rounded-lg bg-neutral-800/50 border border-neutral-700">
                   <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
                     <Star className="w-4 h-4" />
                     Rating
                   </div>
                   <div className="text-2xl font-bold text-white">
-                    {spot.rating ? `${Number(spot.rating).toFixed(1)}` : '—'}
+                    {spot.rating ? `${Number(spot.rating).toFixed(1)}` : "—"}
                     {spot.ratingCount ? (
                       <span className="text-sm font-normal text-gray-400 ml-1">
                         ({spot.ratingCount})
@@ -284,7 +284,7 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
                     <div className="text-white">
                       {spot.city && spot.state
                         ? `${spot.city}, ${spot.state}`
-                        : spot.address || 'Location on map'}
+                        : spot.address || "Location on map"}
                     </div>
                     <div className="text-sm text-gray-400 mt-1">
                       {spot.lat.toFixed(6)}, {spot.lng.toFixed(6)}
@@ -321,8 +321,8 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
                       <Star
                         className={`w-8 h-8 ${
                           star <= (hoverRating || userRating)
-                            ? 'fill-yellow-400 text-yellow-400'
-                            : 'text-gray-600'
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-gray-600"
                         }`}
                       />
                     </button>
@@ -335,19 +335,19 @@ export function SpotDetailModal({ spotId, initialSpot, isOpen, onClose, userLoca
 
               {/* Actions */}
               <div className="flex gap-3">
-                <Button
-                  onClick={() => checkInMutation.mutate()}
-                  disabled={checkInMutation.isPending}
-                  className="flex-1 bg-[#ff6a00] hover:bg-[#ff6a00]/90 text-black font-semibold"
-                >
-                  {checkInMutation.isPending ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <MapPin className="w-4 h-4 mr-2" />
-                  )}
-                  Check In
-                </Button>
-                
+                {spot && (
+                  <CheckInButton
+                    spotId={spot.id}
+                    spotName={spot.name}
+                    userLocation={userLocation ?? undefined}
+                    className="flex-1"
+                    onSuccess={() => {
+                      queryClient.invalidateQueries({ queryKey: ["/api/spots", spotId] });
+                      queryClient.invalidateQueries({ queryKey: ["/api/spots"] });
+                    }}
+                  />
+                )}
+
                 <Button
                   variant="outline"
                   onClick={handleShare}

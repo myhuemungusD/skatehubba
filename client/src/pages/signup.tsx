@@ -16,30 +16,32 @@ export default function SignupPage() {
   const auth = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect if already authenticated
+  // Redirect if already authenticated and has profile
   useEffect(() => {
-    if (auth?.isAuthenticated) {
+    if (auth?.isAuthenticated && auth?.profile) {
       setLocation("/home");
+    } else if (auth?.isAuthenticated && !auth?.profile) {
+      setLocation("/profile-setup");
     }
-  }, [auth?.isAuthenticated, setLocation]);
+  }, [auth?.isAuthenticated, auth?.profile, setLocation]);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
-    
+
     try {
       await auth?.signUpWithEmail(email, password);
-      toast({ 
-        title: "Account Created! 🛹", 
-        description: "Welcome to SkateHubba!" 
+      toast({
+        title: "Account Created! 🛹",
+        description: "Now let's set up your profile!",
       });
-      setLocation("/home");
+      setLocation("/profile-setup");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Registration failed";
-      toast({ 
-        title: "Registration Failed", 
+      toast({
+        title: "Registration Failed",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -48,20 +50,20 @@ export default function SignupPage() {
 
   async function handleGoogleSignUp() {
     setIsLoading(true);
-    
+
     try {
       await auth?.signInWithGoogle();
-      toast({ 
-        title: "Account Created! 🛹", 
-        description: "Welcome to SkateHubba!" 
+      toast({
+        title: "Account Created! 🛹",
+        description: "Now let's set up your profile!",
       });
-      setLocation("/home");
+      setLocation("/profile-setup");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-up failed";
-      toast({ 
-        title: "Google sign-up failed", 
+      toast({
+        title: "Google sign-up failed",
         description: errorMessage,
-        variant: "destructive"
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -149,7 +151,11 @@ export default function SignupPage() {
             <div className="mt-6 text-center">
               <p className="text-gray-400">
                 Already have an account?{" "}
-                <Link href="/signin" className="text-orange-400 hover:text-orange-300 font-semibold" data-testid="link-to-signin">
+                <Link
+                  href="/signin"
+                  className="text-orange-400 hover:text-orange-300 font-semibold"
+                  data-testid="link-to-signin"
+                >
                   Sign In
                 </Link>
               </p>
@@ -157,7 +163,10 @@ export default function SignupPage() {
 
             <div className="mt-4 text-center">
               <Link href="/">
-                <span className="text-gray-400 hover:text-white cursor-pointer inline-block" data-testid="link-back-home">
+                <span
+                  className="text-gray-400 hover:text-white cursor-pointer inline-block"
+                  data-testid="link-back-home"
+                >
                   ← Back to Home
                 </span>
               </Link>
