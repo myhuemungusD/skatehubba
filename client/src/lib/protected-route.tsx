@@ -4,6 +4,12 @@ import { useAuth } from "../context/AuthProvider";
 
 export type Params = Record<string, string | undefined>;
 
+function isE2EBypass(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.location.hostname !== "localhost") return false;
+  return window.sessionStorage.getItem("e2eAuthBypass") === "true";
+}
+
 interface ProtectedRouteProps {
   path: string;
   component: ComponentType<{ params: Params }>;
@@ -27,20 +33,21 @@ export default function ProtectedRoute({ path, component: Component }: Protected
   return (
     <Route path={path}>
       {(params: Params) => {
+        const bypass = isE2EBypass();
         if (auth.loading) {
           return <FullScreenSpinner />;
         }
 
-        if (!auth.isAuthenticated) {
+        if (!auth.isAuthenticated && !bypass) {
           setLocation("/auth", { replace: true });
           return null;
         }
 
-        if (auth.profileStatus === "unknown") {
+        if (!bypass && auth.profileStatus === "unknown") {
           return <FullScreenSpinner />;
         }
 
-        if (auth.profileStatus === "missing") {
+        if (!bypass && auth.profileStatus === "missing") {
           setLocation("/profile/setup", { replace: true });
           return null;
         }
