@@ -67,15 +67,18 @@ const BoltsShowcase = lazy(() => import("./features/social/bolts-showcase/BoltsS
  * - /home → Member hub (authenticated users only, action dashboard)
  *
  * AUTHENTICATED ROUTES:
- * - /feed → Activity feed (main authenticated view)
+ * - /home → Main authenticated view (member hub)
+ * - /feed → Activity feed
  * - /map → Spot map
  * - /skate-game → S.K.A.T.E. battles
  * - /leaderboard → Rankings
  *
  * ROUTING STRATEGY:
  * - Root (/) redirects unauthenticated users to /landing
- * - Root (/) redirects authenticated users to /feed
- * - Landing page: minimal, conversion-focused ("Enter Platform" CTA)
+ * - Root (/) redirects authenticated users to /home
+ * - Landing page: minimal, conversion-focused ("Get Started" CTA → /signin)
+ * - Sign in/Sign up: checks for profile, redirects to /profile-setup if missing
+ * - Profile setup: redirects to /home after completion
  * - Home page: member hub with quick actions (Feed/Map/Battle/Profile)
  * - Legacy routes (/old, /new) removed - zero duplication architecture
  */
@@ -87,8 +90,8 @@ function RootRedirect() {
     if (loading) return;
 
     if (user) {
-      // Authenticated: Go to feed
-      setLocation("/feed", { replace: true });
+      // Authenticated: Go to home
+      setLocation("/home", { replace: true });
     } else {
       // Unauthenticated: Go to landing
       setLocation("/landing", { replace: true });
