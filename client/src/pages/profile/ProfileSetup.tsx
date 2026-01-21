@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation } from "wouter";
 import { CheckCircle, Loader2, Upload, XCircle } from "lucide-react";
+import { httpsCallable } from "firebase/functions";
 
 import { useAuth } from "../../context/AuthProvider";
 import { Button } from "../../components/ui/button";
@@ -11,6 +12,7 @@ import { Input } from "../../components/ui/input";
 import { Progress } from "../../components/ui/progress";
 import { Textarea } from "../../components/ui/textarea";
 import { usernameSchema } from "@shared/schema";
+import { functions } from "../../lib/firebase";
 
 /**
  * Enterprise rules applied:
@@ -26,7 +28,7 @@ const stanceSchema = z.enum(["regular", "goofy"]);
 const experienceLevelSchema = z.enum(["beginner", "intermediate", "advanced", "pro"]);
 
 const formSchema = z.object({
-  username: usernameSchema,
+  username: usernameSchema.optional().or(z.literal("")),
   stance: stanceSchema.optional(),
   experienceLevel: experienceLevelSchema.optional(),
   favoriteTricks: z.string().max(200).optional(),
@@ -48,40 +50,11 @@ type ProfileCreatePayload = {
   skip?: boolean;
 };
 
-const ProfileCreateResponseSchema = z.object({
-  profile: z.object({
-    uid: z.string(),
-    username: z.string(),
-    stance: stanceSchema.nullable(),
-    experienceLevel: experienceLevelSchema.nullable(),
-    favoriteTricks: z.array(z.string()),
-    bio: z.string().nullable(),
-    spotsVisited: z.number(),
-    crewName: z.string().nullable(),
-    credibilityScore: z.number(),
-    avatarUrl: z.string().nullable(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
-  }),
-});
-
-type ProfileCreateResponse = z.infer<typeof ProfileCreateResponseSchema>;
-
 const UsernameCheckResponseSchema = z.object({
   available: z.boolean(),
 });
 
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
-
-function getCsrfToken(): string | undefined {
-  // Keep optional in case your backend enforces it.
-  // If you are bearer-token-only, you should remove CSRF entirely server + client.
-  if (typeof document === "undefined") return undefined;
-  return document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("csrfToken="))
-    ?.split("=")[1];
-}
 
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -121,56 +94,6 @@ function parseFavoriteTricks(value: string | undefined): string[] {
   return out;
 }
 
-function safeJsonParse(input: string): unknown {
-  try {
-    return JSON.parse(input);
-  } catch {
-    return null;
-  }
-}
-
-function sendProfileCreateRequest(
-  payload: ProfileCreatePayload,
-  token: string,
-  onProgress: (progress: number) => void
-): Promise<ProfileCreateResponse> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/profile/create");
-    xhr.setRequestHeader("Authorization", `Bearer ${token}`);
-    xhr.setRequestHeader("Content-Type", "application/json");
-
-    const csrfToken = getCsrfToken();
-    if (csrfToken) xhr.setRequestHeader("X-CSRF-Token", csrfToken);
-
-    xhr.upload.onprogress = (event) => {
-      if (!event.lengthComputable) return;
-      const progress = Math.round((event.loaded / event.total) * 100);
-      onProgress(progress);
-    };
-
-    xhr.onload = () => {
-      const ok = xhr.status >= 200 && xhr.status < 300;
-      if (!ok) {
-        const body = xhr.responseText || "profile_create_failed";
-        reject(new Error(body));
-        return;
-      }
-
-      const json = safeJsonParse(xhr.responseText);
-      try {
-        const parsed = ProfileCreateResponseSchema.parse(json);
-        resolve(parsed);
-      } catch (e) {
-        reject(new Error("profile_create_response_invalid"));
-      }
-    };
-
-    xhr.onerror = () => reject(new Error("network_error"));
-    xhr.send(JSON.stringify(payload));
-  });
-}
-
 export default function ProfileSetup() {
   const auth = useAuth();
   const [, setLocation] = useLocation();
@@ -194,7 +117,7 @@ export default function ProfileSetup() {
     handleSubmit,
     watch,
     setValue,
-    formState: { errors, isValid },
+    formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     mode: "onChange",
@@ -348,9 +271,6 @@ export default function ProfileSetup() {
       setSubmitError(null);
 
       try {
-        // Optional: forceRefresh = false is fine; server should accept recent token.
-        const token = await auth.user.getIdToken();
-
         const payload: ProfileCreatePayload = {
           username: skip ? undefined : values.username,
           stance: values.stance,
@@ -361,26 +281,17 @@ export default function ProfileSetup() {
           skip,
         };
 
-        // NOTE: For enterprise scale, do not send base64 via JSON.
-        // TODO: upload to Storage and pass a storagePath instead.
         if (avatarFile && !skip) {
           payload.avatarBase64 = await fileToDataUrl(avatarFile);
         }
 
-        const response = await sendProfileCreateRequest(payload, token, setUploadProgress);
+        // Call Firebase Cloud Function
+        const createProfileFn = httpsCallable(functions, "createProfile");
+        await createProfileFn(payload);
 
-        // Keep auth state in sync immediately if your provider supports it.
-        // If your AuthProvider already refetches profile automatically, this is still safe.
-        if (typeof auth.setProfile === "function") {
-          auth.setProfile({
-            ...response.profile,
-            createdAt: new Date(response.profile.createdAt),
-            updatedAt: new Date(response.profile.updatedAt),
-          });
-        }
-
-        // Deterministic single redirect
-        setLocation("/dashboard", { replace: true });
+        // Profile created successfully - AuthProvider will fetch it on next render
+        // Redirect to home and let the auth state update naturally
+        setLocation("/home", { replace: true });
       } catch (error) {
         console.error("[ProfileSetup] Failed to create profile", error);
         setSubmitError("We couldn't create your profile. Try again.");
@@ -412,13 +323,12 @@ export default function ProfileSetup() {
     );
   }, [submitProfile]);
 
-  const submitDisabled =
-    !isValid ||
-    usernameStatus === "taken" ||
-    usernameStatus === "invalid" ||
-    usernameStatus === "checking" ||
+  const submitDisabled = Boolean(
     submitting ||
-    Boolean(avatarError);
+    avatarError ||
+    (username &&
+      (usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "checking"))
+  );
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center px-4 py-10">

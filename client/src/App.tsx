@@ -60,10 +60,16 @@ const BoltsShowcase = lazy(() => import("./features/social/bolts-showcase/BoltsS
 
 function RootRedirect() {
   const [, setLocation] = useLocation();
+  const auth = useAuth();
 
   useEffect(() => {
-    setLocation("/feed", { replace: true });
-  }, [setLocation]);
+    // Redirect authenticated users to feed, others to landing
+    if (auth.isAuthenticated) {
+      setLocation("/feed", { replace: true });
+    } else {
+      setLocation("/landing", { replace: true });
+    }
+  }, [auth.isAuthenticated, setLocation]);
 
   return null;
 }
