@@ -25,6 +25,9 @@ interface FirestoreProfile {
   experienceLevel: "beginner" | "intermediate" | "advanced" | "pro" | null;
   favoriteTricks: string[];
   bio: string | null;
+  sponsorFlow?: string | null;
+  sponsorTeam?: string | null;
+  hometownShop?: string | null;
   spotsVisited: number;
   crewName: string | null;
   credibilityScore: number;
@@ -53,9 +56,7 @@ const serializeProfile = (data: FirestoreProfile) => ({
   updatedAt: toDate(data.updatedAt).toISOString(),
 });
 
-const parseAvatarDataUrl = (
-  dataUrl: string
-): { buffer: Buffer; contentType: string } | null => {
+const parseAvatarDataUrl = (dataUrl: string): { buffer: Buffer; contentType: string } | null => {
   const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
   if (!match) {
     return null;
@@ -87,140 +88,144 @@ router.get("/username-check", usernameCheckLimiter, async (req, res) => {
   return res.json({ available });
 });
 
-router.post(
-  "/create",
-  requireFirebaseUid,
-  profileCreateLimiter,
-  async (req, res) => {
-    const { firebaseUid } = req as FirebaseAuthedRequest;
-    if (!isDatabaseAvailable()) {
-      return res.status(503).json({ error: "database_unavailable" });
-    }
+router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res) => {
+  const { firebaseUid } = req as FirebaseAuthedRequest;
+  if (!isDatabaseAvailable()) {
+    return res.status(503).json({ error: "database_unavailable" });
+  }
 
-    const parsed = profileCreateSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({
-        error: "invalid_payload",
-        issues: parsed.error.flatten(),
-      });
-    }
+  const parsed = profileCreateSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "invalid_payload",
+      issues: parsed.error.flatten(),
+    });
+  }
 
-    const uid = firebaseUid;
-    const firestore = admin.firestore();
-    const profileRef = firestore.collection("profiles").doc(uid);
-    const existingProfile = await profileRef.get();
-    if (existingProfile.exists) {
-      return res.status(200).json({
-        profile: serializeProfile(existingProfile.data() as FirestoreProfile),
-      });
-    }
-
-    const shouldSkip = parsed.data.skip === true;
-    const requestedUsername = parsed.data.username;
-    if (!requestedUsername && !shouldSkip) {
-      return res.status(400).json({ error: "username_required" });
-    }
-
-    const db = getDb();
-    const usernameStore = createUsernameStore(db);
-
-    let reservedUsername = requestedUsername ?? "";
-    let reserved = false;
-
-    if (shouldSkip) {
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        const candidate = generateUsername();
-        const ok = await usernameStore.reserve(uid, candidate);
-        if (ok) {
-          reservedUsername = candidate;
-          reserved = true;
-          break;
-        }
+  const uid = firebaseUid;
+  const db = getDb();
+  const usernameStore = createUsernameStore(db);
+  const firestore = admin.firestore();
+  const profileRef = firestore.collection("profiles").doc(uid);
+  const existingProfile = await profileRef.get();
+  if (existingProfile.exists) {
+    const existing = existingProfile.data() as FirestoreProfile;
+    if (existing.username) {
+      const ensured = await usernameStore.ensure(uid, existing.username);
+      if (!ensured) {
+        return res.status(409).json({ error: "username_taken" });
       }
-    } else if (requestedUsername) {
-      reservedUsername = requestedUsername;
-      reserved = await usernameStore.reserve(uid, reservedUsername);
     }
+    return res.status(200).json({
+      profile: serializeProfile(existing),
+    });
+  }
 
-    if (!reserved) {
-      return res.status(409).json({ error: "username_taken" });
+  const shouldSkip = parsed.data.skip === true;
+  const requestedUsername = parsed.data.username;
+  if (!requestedUsername && !shouldSkip) {
+    return res.status(400).json({ error: "username_required" });
+  }
+
+  let reservedUsername = requestedUsername ?? "";
+  let reserved = false;
+
+  if (shouldSkip) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const candidate = generateUsername();
+      const ok = await usernameStore.reserve(uid, candidate);
+      if (ok) {
+        reservedUsername = candidate;
+        reserved = true;
+        break;
+      }
     }
+  } else if (requestedUsername) {
+    reservedUsername = requestedUsername;
+    reserved = await usernameStore.reserve(uid, reservedUsername);
+  }
 
-    let avatarUrl: string | null = null;
-    let uploadedFile: StorageFile | null = null;
+  if (!reserved) {
+    return res.status(409).json({ error: "username_taken" });
+  }
 
-    try {
-      if (typeof req.body.avatarBase64 === "string" && req.body.avatarBase64.length > 0) {
-        const parsedAvatar = parseAvatarDataUrl(req.body.avatarBase64);
-        if (!parsedAvatar) {
-          await usernameStore.release(uid);
-          return res.status(400).json({ error: "invalid_avatar_format" });
-        }
+  let avatarUrl: string | null = null;
+  let uploadedFile: StorageFile | null = null;
 
-        if (!allowedMimeTypes.has(parsedAvatar.contentType)) {
-          await usernameStore.release(uid);
-          return res.status(400).json({ error: "invalid_avatar_type" });
-        }
-
-        if (parsedAvatar.buffer.byteLength > MAX_AVATAR_BYTES) {
-          await usernameStore.release(uid);
-          return res.status(413).json({ error: "avatar_too_large" });
-        }
-
-        const bucket = env.FIREBASE_STORAGE_BUCKET
-          ? admin.storage().bucket(env.FIREBASE_STORAGE_BUCKET)
-          : admin.storage().bucket();
-        const filePath = `profiles/${uid}/avatar`;
-        const file = bucket.file(filePath);
-        await file.save(parsedAvatar.buffer, {
-          resumable: false,
-          metadata: {
-            contentType: parsedAvatar.contentType,
-            cacheControl: "public, max-age=31536000",
-          },
-        });
-        uploadedFile = file;
-        const encodedPath = encodeURIComponent(filePath);
-        avatarUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media`;
+  try {
+    if (typeof req.body.avatarBase64 === "string" && req.body.avatarBase64.length > 0) {
+      const parsedAvatar = parseAvatarDataUrl(req.body.avatarBase64);
+      if (!parsedAvatar) {
+        await usernameStore.release(uid);
+        return res.status(400).json({ error: "invalid_avatar_format" });
       }
 
-      const profileData: FirestoreProfile = {
-        uid,
-        username: reservedUsername,
-        stance: parsed.data.stance ?? null,
-        experienceLevel: parsed.data.experienceLevel ?? null,
-        favoriteTricks: parsed.data.favoriteTricks ?? [],
-        bio: parsed.data.bio ?? null,
-        spotsVisited: parsed.data.spotsVisited ?? 0,
-        crewName: parsed.data.crewName ?? null,
-        credibilityScore: parsed.data.credibilityScore ?? 0,
-        avatarUrl,
-        createdAt: admin.firestore.FieldValue.serverTimestamp() as unknown as FirestoreTimestamp,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp() as unknown as FirestoreTimestamp,
-      };
+      if (!allowedMimeTypes.has(parsedAvatar.contentType)) {
+        await usernameStore.release(uid);
+        return res.status(400).json({ error: "invalid_avatar_type" });
+      }
 
-      const createdProfile = await createProfileWithRollback({
-        uid,
-        usernameStore,
-        writeProfile: async () => {
-          await profileRef.create(profileData);
-          return serializeProfile({
-            ...profileData,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          });
+      if (parsedAvatar.buffer.byteLength > MAX_AVATAR_BYTES) {
+        await usernameStore.release(uid);
+        return res.status(413).json({ error: "avatar_too_large" });
+      }
+
+      const bucket = env.FIREBASE_STORAGE_BUCKET
+        ? admin.storage().bucket(env.FIREBASE_STORAGE_BUCKET)
+        : admin.storage().bucket();
+      const filePath = `profiles/${uid}/avatar`;
+      const file = bucket.file(filePath);
+      await file.save(parsedAvatar.buffer, {
+        resumable: false,
+        metadata: {
+          contentType: parsedAvatar.contentType,
+          cacheControl: "public, max-age=31536000",
         },
       });
-
-      return res.status(201).json({ profile: createdProfile });
-    } catch (error) {
-      if (uploadedFile) {
-        await uploadedFile.delete({ ignoreNotFound: true });
-      }
-      await usernameStore.release(uid);
-      return res.status(500).json({ error: "profile_create_failed" });
+      uploadedFile = file;
+      const encodedPath = encodeURIComponent(filePath);
+      avatarUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media`;
     }
+
+    const profileData: FirestoreProfile = {
+      uid,
+      username: reservedUsername,
+      stance: parsed.data.stance ?? null,
+      experienceLevel: parsed.data.experienceLevel ?? null,
+      favoriteTricks: parsed.data.favoriteTricks ?? [],
+      bio: parsed.data.bio ?? null,
+      sponsorFlow: parsed.data.sponsorFlow ?? null,
+      sponsorTeam: parsed.data.sponsorTeam ?? null,
+      hometownShop: parsed.data.hometownShop ?? null,
+      spotsVisited: parsed.data.spotsVisited ?? 0,
+      crewName: parsed.data.crewName ?? null,
+      credibilityScore: parsed.data.credibilityScore ?? 0,
+      avatarUrl,
+      createdAt: admin.firestore.FieldValue.serverTimestamp() as unknown as FirestoreTimestamp,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp() as unknown as FirestoreTimestamp,
+    };
+
+    const createdProfile = await createProfileWithRollback({
+      uid,
+      usernameStore,
+      writeProfile: async () => {
+        await profileRef.create(profileData);
+        return serializeProfile({
+          ...profileData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+      },
+    });
+
+    return res.status(201).json({ profile: createdProfile });
+  } catch (error) {
+    if (uploadedFile) {
+      await uploadedFile.delete({ ignoreNotFound: true });
+    }
+    await usernameStore.release(uid);
+    return res.status(500).json({ error: "profile_create_failed" });
   }
-);
+});
 
 export { router as profileRouter };

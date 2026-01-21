@@ -23,11 +23,8 @@ export type SubscriberData = z.infer<typeof SubscriberSchema>;
 export const usernameSchema = z
   .string()
   .min(3, "Username must be at least 3 characters")
-  .max(30, "Username must be less than 30 characters")
-  .regex(
-    /^[a-zA-Z0-9_-]+$/,
-    "Username can only contain letters, numbers, hyphens, and underscores"
-  );
+  .max(20, "Username must be at most 20 characters")
+  .regex(/^[a-zA-Z0-9]+$/, "Username can only contain letters and numbers");
 
 export const passwordSchema = z
   .string()

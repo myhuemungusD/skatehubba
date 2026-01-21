@@ -2,12 +2,7 @@ import { z } from "zod";
 
 export const stanceSchema = z.enum(["regular", "goofy"]);
 
-export const experienceLevelSchema = z.enum([
-  "beginner",
-  "intermediate",
-  "advanced",
-  "pro",
-]);
+export const experienceLevelSchema = z.enum(["beginner", "intermediate", "advanced", "pro"]);
 
 export const usernameSchema = z
   .string()
@@ -22,6 +17,9 @@ export const profileCreateSchema = z.object({
   experienceLevel: experienceLevelSchema.optional().nullable(),
   favoriteTricks: z.array(z.string().min(1).max(50)).max(20).optional(),
   bio: z.string().max(500).optional().nullable(),
+  sponsorFlow: z.string().max(100).optional().nullable(),
+  sponsorTeam: z.string().max(100).optional().nullable(),
+  hometownShop: z.string().max(100).optional().nullable(),
   spotsVisited: z.number().int().nonnegative().optional(),
   crewName: z.string().max(80).optional().nullable(),
   credibilityScore: z.number().int().nonnegative().optional(),

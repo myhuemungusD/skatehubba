@@ -5,13 +5,7 @@
  * Handles reading and updating user profile documents.
  */
 
-import {
-  doc,
-  getDoc,
-  updateDoc,
-  serverTimestamp,
-  Timestamp,
-} from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { db } from "./config";
 import { UserProfile } from "./auth.types";
 
@@ -70,6 +64,9 @@ function transformProfile(uid: string, data: Record<string, unknown>): UserProfi
     experienceLevel: (data.experienceLevel as UserProfile["experienceLevel"]) ?? null,
     favoriteTricks: Array.isArray(data.favoriteTricks) ? (data.favoriteTricks as string[]) : [],
     bio: (data.bio as string | null) ?? null,
+    sponsorFlow: (data.sponsorFlow as string | null) ?? null,
+    sponsorTeam: (data.sponsorTeam as string | null) ?? null,
+    hometownShop: (data.hometownShop as string | null) ?? null,
     spotsVisited: typeof data.spotsVisited === "number" ? data.spotsVisited : 0,
     crewName: (data.crewName as string | null) ?? null,
     credibilityScore: typeof data.credibilityScore === "number" ? data.credibilityScore : 0,

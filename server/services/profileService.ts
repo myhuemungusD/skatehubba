@@ -6,6 +6,7 @@ export interface UsernameStore {
   reserve: (uid: string, username: string) => Promise<boolean>;
   release: (uid: string) => Promise<void>;
   isAvailable: (username: string) => Promise<boolean>;
+  ensure: (uid: string, username: string) => Promise<boolean>;
 }
 
 export function createUsernameStore(db: Database): UsernameStore {
@@ -31,6 +32,35 @@ export function createUsernameStore(db: Database): UsernameStore {
         .where(eq(usernames.username, username))
         .limit(1);
       return existing.length === 0;
+    },
+    ensure: async (uid, username) => {
+      const existingByUid = await db
+        .select({ username: usernames.username })
+        .from(usernames)
+        .where(eq(usernames.uid, uid))
+        .limit(1);
+
+      if (existingByUid.length > 0) {
+        return existingByUid[0].username === username;
+      }
+
+      const reserved = await db
+        .insert(usernames)
+        .values({ uid, username })
+        .onConflictDoNothing()
+        .returning({ username: usernames.username });
+
+      if (reserved.length > 0) {
+        return true;
+      }
+
+      const existingByUsername = await db
+        .select({ uid: usernames.uid })
+        .from(usernames)
+        .where(eq(usernames.username, username))
+        .limit(1);
+
+      return existingByUsername.length > 0 && existingByUsername[0].uid === uid;
     },
   };
 }

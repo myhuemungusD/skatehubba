@@ -4,14 +4,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation } from "wouter";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
-import { httpsCallable } from "firebase/functions";
-
 import { useAuth } from "../../context/AuthProvider";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Progress } from "../../components/ui/progress";
 import { usernameSchema } from "@shared/schema";
-import { functions } from "../../lib/firebase";
+import { apiRequest } from "../../lib/api/client";
 
 /**
  * Enterprise rules applied:
@@ -51,6 +49,26 @@ type ProfileCreatePayload = {
 const UsernameCheckResponseSchema = z.object({
   available: z.boolean(),
 });
+
+type ProfileCreateResponse = {
+  profile: {
+    uid: string;
+    username: string;
+    stance: "regular" | "goofy" | null;
+    experienceLevel: "beginner" | "intermediate" | "advanced" | "pro" | null;
+    favoriteTricks: string[];
+    bio: string | null;
+    spotsVisited: number;
+    crewName: string | null;
+    credibilityScore: number;
+    avatarUrl: string | null;
+    sponsorFlow?: string | null;
+    sponsorTeam?: string | null;
+    hometownShop?: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
+};
 
 export default function ProfileSetup() {
   const auth = useAuth();
@@ -202,9 +220,17 @@ export default function ProfileSetup() {
           skip,
         };
 
-        // Call Firebase Cloud Function
-        const createProfileFn = httpsCallable(functions, "createProfile");
-        await createProfileFn(payload);
+        const response = await apiRequest<ProfileCreateResponse, ProfileCreatePayload>({
+          method: "POST",
+          path: "/api/profile/create",
+          body: payload,
+        });
+
+        auth.setProfile({
+          ...response.profile,
+          createdAt: new Date(response.profile.createdAt),
+          updatedAt: new Date(response.profile.updatedAt),
+        });
 
         // Profile created successfully - AuthProvider will fetch it on next render
         // Redirect to home and let the auth state update naturally

@@ -323,6 +323,10 @@ function validateUsername(username: string): boolean {
  */
 export const createProfile = functions.https.onCall(
   async (data: ProfileCreatePayload, context: functions.https.CallableContext) => {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      "Profile creation is handled by the REST API. Use POST /api/profile/create."
+    );
     // Authentication required
     if (!context.auth) {
       throw new functions.https.HttpsError(

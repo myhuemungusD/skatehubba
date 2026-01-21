@@ -69,6 +69,9 @@ export interface UserProfile {
   experienceLevel: "beginner" | "intermediate" | "advanced" | "pro" | null;
   favoriteTricks: string[];
   bio: string | null;
+  sponsorFlow?: string | null;
+  sponsorTeam?: string | null;
+  hometownShop?: string | null;
   spotsVisited: number;
   crewName: string | null;
   credibilityScore: number;
@@ -234,6 +237,9 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
         experienceLevel: (data.experienceLevel as UserProfile["experienceLevel"]) ?? null,
         favoriteTricks: Array.isArray(data.favoriteTricks) ? (data.favoriteTricks as string[]) : [],
         bio: (data.bio as string | null) ?? null,
+        sponsorFlow: (data.sponsorFlow as string | null) ?? null,
+        sponsorTeam: (data.sponsorTeam as string | null) ?? null,
+        hometownShop: (data.hometownShop as string | null) ?? null,
         spotsVisited: typeof data.spotsVisited === "number" ? data.spotsVisited : 0,
         crewName: (data.crewName as string | null) ?? null,
         credibilityScore: typeof data.credibilityScore === "number" ? data.credibilityScore : 0,
