@@ -3,8 +3,8 @@ rules_version = '2';
 // Firebase Storage Security Rules for SkateHubba
 // 
 // Security model:
-// - Profile images: authenticated users can upload/update their own
-// - Spot images: authenticated users can upload, anyone can read
+// - Profile images: authenticated users can read; owners can upload/update their own
+// - Spot images: authenticated users can upload and read
 // - All files require authentication to write
 // - Enforce file size limits and content types
 
@@ -29,21 +29,21 @@ service firebase.storage {
       return request.resource.size < 5 * 1024 * 1024;
     }
     
-    // Profile images: users can only upload/update their own
+    // Profile images: authenticated users can read, owners can upload/update
     match /profiles/{userId}/{fileName} {
-      allow read: if true; // Public read for profile images
+      allow read: if isAuthenticated();
       allow write: if isOwner(userId) 
                    && isValidImageType() 
                    && isValidImageSize();
     }
     
-    // Spot images: authenticated users can upload, anyone can read
+    // Spot images: authenticated users can upload and read
     match /spots/{spotId}/{fileName} {
-      allow read: if true; // Public read for spot images
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated() 
                     && isValidImageType() 
                     && isValidImageSize();
-      allow update, delete: if isAuthenticated(); // Allow authenticated users to manage spot images
+      allow update, delete: if false;
     }
     
     // Default deny all other paths
