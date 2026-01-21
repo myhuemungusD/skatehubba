@@ -4,10 +4,7 @@ import type { Database } from "../db";
 
 describe("profileService", () => {
   it("reserves usernames inside a transaction and rejects duplicates", async () => {
-    const reservations: Array<Array<{ username: string }>> = [
-      [{ username: "alpha" }],
-      [],
-    ];
+    const reservations: Array<Array<{ username: string }>> = [[{ username: "alpha" }], []];
 
     const db = {
       transaction: vi.fn(async (fn: (tx: unknown) => Promise<unknown>) => {
@@ -43,6 +40,7 @@ describe("profileService", () => {
       reserve: vi.fn().mockResolvedValue(true),
       release,
       isAvailable: vi.fn().mockResolvedValue(true),
+      ensure: vi.fn().mockResolvedValue(true),
     };
 
     await expect(
