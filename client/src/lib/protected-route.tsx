@@ -32,7 +32,7 @@ export default function ProtectedRoute({ path, component: Component }: Protected
         }
 
         if (!auth.isAuthenticated) {
-          setLocation("/auth", { replace: true });
+          setLocation("/login", { replace: true });
           return null;
         }
 

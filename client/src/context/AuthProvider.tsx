@@ -1,9 +1,9 @@
 /**
  * AuthProvider - Production-Grade Authentication Context
- * 
+ *
  * The single source of truth for authentication state in the application.
  * Handles Firebase Auth, user profiles, and role-based access control.
- * 
+ *
  * Features:
  * - Firebase Auth integration with Google, Email, and Anonymous sign-in
  * - Profile fetching and onboarding gating
@@ -11,18 +11,18 @@
  * - Token refresh for role updates
  * - Clean loading states with render gating
  * - Comprehensive error handling
- * 
+ *
  * @example
  * ```tsx
  * // Wrap your app
  * <AuthProvider>
  *   <App />
  * </AuthProvider>
- * 
+ *
  * // Use in any component
  * const { user, profile, roles, isAdmin, signInWithGoogle, signOut } = useAuth();
  * ```
- * 
+ *
  * @module context/AuthProvider
  */
 
@@ -34,7 +34,7 @@ import React, {
   useCallback,
   useMemo,
   type ReactNode,
-} from 'react';
+} from "react";
 import {
   onAuthStateChanged,
   signInWithPopup,
@@ -48,25 +48,25 @@ import {
   getIdTokenResult,
   GoogleAuthProvider,
   type User as FirebaseUser,
-} from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase/config';
+} from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "../lib/firebase/config";
 
 // ============================================================================
 // Types
 // ============================================================================
 
 /** Valid user roles in the system */
-export type UserRole = 'admin' | 'moderator' | 'verified_pro';
+export type UserRole = "admin" | "moderator" | "verified_pro";
 
-export type ProfileStatus = 'unknown' | 'exists' | 'missing';
+export type ProfileStatus = "unknown" | "exists" | "missing";
 
 /** User profile stored in Firestore */
 export interface UserProfile {
   uid: string;
   username: string;
-  stance: 'regular' | 'goofy' | null;
-  experienceLevel: 'beginner' | 'intermediate' | 'advanced' | 'pro' | null;
+  stance: "regular" | "goofy" | null;
+  experienceLevel: "beginner" | "intermediate" | "advanced" | "pro" | null;
   favoriteTricks: string[];
   bio: string | null;
   spotsVisited: number;
@@ -86,7 +86,7 @@ export interface AuthContextType {
   roles: UserRole[];
   loading: boolean;
   error: Error | null;
-  
+
   // Computed
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -94,12 +94,14 @@ export interface AuthContextType {
   isModerator: boolean;
   hasProfile: boolean;
   needsProfileSetup: boolean;
-  
+
   // Actions
   signInWithGoogle: () => Promise<void>;
+  signInGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInAnonymously: () => Promise<void>;
+  signInAnon: () => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   refreshRoles: () => Promise<UserRole[]>;
@@ -121,13 +123,13 @@ const AuthContext = createContext<AuthContextType | null>(null);
 /**
  * Access authentication state and actions
  * Must be used within an AuthProvider
- * 
+ *
  * @throws Error if used outside AuthProvider
  */
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
@@ -137,7 +139,28 @@ export function useAuth(): AuthContextType {
 // ============================================================================
 
 const googleProvider = new GoogleAuthProvider();
-googleProvider.setCustomParameters({ prompt: 'select_account' });
+googleProvider.setCustomParameters({ prompt: "select_account" });
+
+const isEmbeddedBrowser = () => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || navigator.vendor || "";
+  return (
+    ua.includes("FBAN") ||
+    ua.includes("FBAV") ||
+    ua.includes("Instagram") ||
+    ua.includes("Twitter") ||
+    ua.includes("Line/") ||
+    ua.includes("KAKAOTALK") ||
+    ua.includes("Snapchat") ||
+    ua.includes("TikTok") ||
+    (ua.includes("wv") && ua.includes("Android"))
+  );
+};
+
+const isPopupSafe = () => {
+  if (typeof window === "undefined") return false;
+  return !isEmbeddedBrowser();
+};
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -153,7 +176,7 @@ interface ProfileCache {
 const profileCacheKey = (uid: string) => `skatehubba.profile.${uid}`;
 
 const readProfileCache = (uid: string): ProfileCache | null => {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === "undefined") return null;
   const raw = sessionStorage.getItem(profileCacheKey(uid));
   if (!raw) return null;
   try {
@@ -175,12 +198,12 @@ const readProfileCache = (uid: string): ProfileCache | null => {
 };
 
 const writeProfileCache = (uid: string, cache: ProfileCache) => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   sessionStorage.setItem(profileCacheKey(uid), JSON.stringify(cache));
 };
 
 const clearProfileCache = (uid: string) => {
-  if (typeof window === 'undefined') return;
+  if (typeof window === "undefined") return;
   sessionStorage.removeItem(profileCacheKey(uid));
 };
 
@@ -190,7 +213,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   // ---------------------------------------------------------------------------
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [profileStatus, setProfileStatus] = useState<ProfileStatus>('unknown');
+  const [profileStatus, setProfileStatus] = useState<ProfileStatus>("unknown");
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -202,91 +225,95 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   /**
    * Transform Firestore data to UserProfile
    */
-  const transformProfile = useCallback((uid: string, data: Record<string, unknown>): UserProfile => {
-    return {
-      uid,
-      username: String(data.username ?? ''),
-      stance: (data.stance as UserProfile['stance']) ?? null,
-      experienceLevel: (data.experienceLevel as UserProfile['experienceLevel']) ?? null,
-      favoriteTricks: Array.isArray(data.favoriteTricks)
-        ? (data.favoriteTricks as string[])
-        : [],
-      bio: (data.bio as string | null) ?? null,
-      spotsVisited: typeof data.spotsVisited === 'number' ? data.spotsVisited : 0,
-      crewName: (data.crewName as string | null) ?? null,
-      credibilityScore: typeof data.credibilityScore === 'number' ? data.credibilityScore : 0,
-      avatarUrl: (data.avatarUrl as string | null) ?? null,
-      createdAt:
-        data.createdAt && typeof data.createdAt === 'object' && 'toDate' in data.createdAt
-          ? (data.createdAt as { toDate: () => Date }).toDate()
-          : new Date(),
-      updatedAt:
-        data.updatedAt && typeof data.updatedAt === 'object' && 'toDate' in data.updatedAt
-          ? (data.updatedAt as { toDate: () => Date }).toDate()
-          : new Date(),
-    };
-  }, []);
+  const transformProfile = useCallback(
+    (uid: string, data: Record<string, unknown>): UserProfile => {
+      return {
+        uid,
+        username: String(data.username ?? ""),
+        stance: (data.stance as UserProfile["stance"]) ?? null,
+        experienceLevel: (data.experienceLevel as UserProfile["experienceLevel"]) ?? null,
+        favoriteTricks: Array.isArray(data.favoriteTricks) ? (data.favoriteTricks as string[]) : [],
+        bio: (data.bio as string | null) ?? null,
+        spotsVisited: typeof data.spotsVisited === "number" ? data.spotsVisited : 0,
+        crewName: (data.crewName as string | null) ?? null,
+        credibilityScore: typeof data.credibilityScore === "number" ? data.credibilityScore : 0,
+        avatarUrl: (data.avatarUrl as string | null) ?? null,
+        createdAt:
+          data.createdAt && typeof data.createdAt === "object" && "toDate" in data.createdAt
+            ? (data.createdAt as { toDate: () => Date }).toDate()
+            : new Date(),
+        updatedAt:
+          data.updatedAt && typeof data.updatedAt === "object" && "toDate" in data.updatedAt
+            ? (data.updatedAt as { toDate: () => Date }).toDate()
+            : new Date(),
+      };
+    },
+    []
+  );
 
   /**
    * Fetch user profile from Firestore
    */
-  const fetchProfile = useCallback(async (uid: string): Promise<UserProfile | null> => {
-    try {
-      const docRef = doc(db, 'profiles', uid);
-      const snapshot = await getDoc(docRef);
-      
-      if (snapshot.exists()) {
-        return transformProfile(uid, snapshot.data());
+  const fetchProfile = useCallback(
+    async (uid: string): Promise<UserProfile | null> => {
+      try {
+        const docRef = doc(db, "profiles", uid);
+        const snapshot = await getDoc(docRef);
+
+        if (snapshot.exists()) {
+          return transformProfile(uid, snapshot.data());
+        }
+        return null;
+      } catch (err) {
+        console.error("[AuthProvider] Failed to fetch profile:", err);
+        return null;
       }
-      return null;
-    } catch (err) {
-      console.error('[AuthProvider] Failed to fetch profile:', err);
-      return null;
-    }
-  }, [transformProfile]);
+    },
+    [transformProfile]
+  );
 
   const setProfileState = useCallback((value: UserProfile) => {
     setProfile(value);
-    setProfileStatus('exists');
-    writeProfileCache(value.uid, { status: 'exists', profile: value });
+    setProfileStatus("exists");
+    writeProfileCache(value.uid, { status: "exists", profile: value });
   }, []);
 
   /**
    * Extract roles from Firebase token
    */
-  const extractRolesFromToken = useCallback(async (firebaseUser: FirebaseUser): Promise<UserRole[]> => {
-    try {
-      const tokenResult = await getIdTokenResult(firebaseUser);
-      return (tokenResult.claims.roles as UserRole[]) || [];
-    } catch (err) {
-      console.error('[AuthProvider] Failed to extract roles:', err);
-      return [];
-    }
-  }, []);
+  const extractRolesFromToken = useCallback(
+    async (firebaseUser: FirebaseUser): Promise<UserRole[]> => {
+      try {
+        const tokenResult = await getIdTokenResult(firebaseUser);
+        return (tokenResult.claims.roles as UserRole[]) || [];
+      } catch (err) {
+        console.error("[AuthProvider] Failed to extract roles:", err);
+        return [];
+      }
+    },
+    []
+  );
 
   // ---------------------------------------------------------------------------
   // Auth State Listener
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         if (firebaseUser) {
           // User is signed in
           setUser(firebaseUser);
           setProfile(null);
-          setProfileStatus('unknown');
+          setProfileStatus("unknown");
           const cachedProfile = readProfileCache(firebaseUser.uid);
-          
+
           // Fetch profile and roles in parallel (single read per session)
           const [userProfile, userRoles] = await Promise.all([
-            cachedProfile
-              ? Promise.resolve(cachedProfile.profile)
-              : fetchProfile(firebaseUser.uid),
+            cachedProfile ? Promise.resolve(cachedProfile.profile) : fetchProfile(firebaseUser.uid),
             extractRolesFromToken(firebaseUser),
           ]);
-          
+
           if (cachedProfile) {
             setProfile(cachedProfile.profile);
             setProfileStatus(cachedProfile.status);
@@ -294,8 +321,8 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
             setProfileState(userProfile);
           } else {
             setProfile(null);
-            setProfileStatus('missing');
-            writeProfileCache(firebaseUser.uid, { status: 'missing', profile: null });
+            setProfileStatus("missing");
+            writeProfileCache(firebaseUser.uid, { status: "missing", profile: null });
           }
           setRoles(userRoles);
           setError(null);
@@ -303,11 +330,11 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
           // User is signed out
           setUser(null);
           setProfile(null);
-          setProfileStatus('unknown');
+          setProfileStatus("unknown");
           setRoles([]);
         }
       } catch (err: unknown) {
-        console.error('[AuthProvider] Auth state change error:', err);
+        console.error("[AuthProvider] Auth state change error:", err);
         if (err instanceof Error) {
           setError(err);
         }
@@ -324,39 +351,45 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   // ---------------------------------------------------------------------------
   // Handle Google Redirect Result
   // ---------------------------------------------------------------------------
-  
+
   useEffect(() => {
     // Handle redirect result when returning from Google OAuth on mobile
     const handleRedirectResult = async () => {
       try {
-        console.log('[AuthProvider] Checking for redirect result...');
+        console.log("[AuthProvider] Checking for redirect result...");
         const result = await getRedirectResult(auth);
-        
+
         if (result && result.user) {
-          console.log('[AuthProvider] Redirect result found, user:', result.user.uid);
+          console.log("[AuthProvider] Redirect result found, user:", result.user.uid);
           // The onAuthStateChanged listener will handle setting the user state
           // but we can clear any pending flags here
-          sessionStorage.removeItem('googleRedirectPending');
+          sessionStorage.removeItem("googleRedirectPending");
         } else {
-          console.log('[AuthProvider] No redirect result (normal page load)');
+          console.log("[AuthProvider] No redirect result (normal page load)");
         }
       } catch (err: unknown) {
-        console.error('[AuthProvider] Redirect result error:', err);
-        sessionStorage.removeItem('googleRedirectPending');
-        
+        console.error("[AuthProvider] Redirect result error:", err);
+        sessionStorage.removeItem("googleRedirectPending");
+
         // Set error so UI can display it
         if (err instanceof Error) {
           setError(err);
         }
-        
+
         // Handle specific redirect errors
-        if (err && typeof err === 'object' && 'code' in err
-          && err.code === 'auth/account-exists-with-different-credential') {
-          setError(new Error('An account already exists with this email using a different sign-in method'));
+        if (
+          err &&
+          typeof err === "object" &&
+          "code" in err &&
+          err.code === "auth/account-exists-with-different-credential"
+        ) {
+          setError(
+            new Error("An account already exists with this email using a different sign-in method")
+          );
         }
       }
     };
-    
+
     handleRedirectResult();
   }, []);
 
@@ -366,28 +399,31 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
 
   const signInWithGoogle = useCallback(async (): Promise<void> => {
     setError(null);
-    
+
     try {
-      // Detect mobile for redirect flow
-      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
-        navigator.userAgent
-      );
-      
-      if (isMobile) {
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        await signInWithPopup(auth, googleProvider);
+      if (isEmbeddedBrowser()) {
+        throw new Error(
+          "Google Sign-In is not supported in embedded browsers. Open in Safari or Chrome."
+        );
       }
-      // Auth state listener will handle the rest
+
+      sessionStorage.setItem("googleRedirectPending", "true");
+      await signInWithRedirect(auth, googleProvider);
     } catch (err: unknown) {
-      console.error('[AuthProvider] Google sign-in error:', err);
-      
-      // Handle popup blocked - fallback to redirect
-      if (err && typeof err === 'object' && 'code' in err && err.code === 'auth/popup-blocked') {
-        await signInWithRedirect(auth, googleProvider);
-        return;
+      console.error("[AuthProvider] Google sign-in error:", err);
+
+      if (err && typeof err === "object" && "code" in err) {
+        const code = (err as { code?: string }).code;
+        const popupFallbackCodes = [
+          "auth/operation-not-supported-in-this-environment",
+          "auth/unauthorized-domain",
+        ];
+        if (code && popupFallbackCodes.includes(code) && isPopupSafe()) {
+          await signInWithPopup(auth, googleProvider);
+          return;
+        }
       }
-      
+
       if (err instanceof Error) {
         setError(err);
       }
@@ -397,11 +433,11 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
 
   const signInWithEmail = useCallback(async (email: string, password: string): Promise<void> => {
     setError(null);
-    
+
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err: unknown) {
-      console.error('[AuthProvider] Email sign-in error:', err);
+      console.error("[AuthProvider] Email sign-in error:", err);
       if (err instanceof Error) {
         setError(err);
       }
@@ -409,16 +445,13 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
     }
   }, []);
 
-  const signUpWithEmail = useCallback(async (
-    email: string,
-    password: string
-  ): Promise<void> => {
+  const signUpWithEmail = useCallback(async (email: string, password: string): Promise<void> => {
     setError(null);
-    
+
     try {
       await createUserWithEmailAndPassword(auth, email, password);
     } catch (err: unknown) {
-      console.error('[AuthProvider] Email sign-up error:', err);
+      console.error("[AuthProvider] Email sign-up error:", err);
       if (err instanceof Error) {
         setError(err);
       }
@@ -428,11 +461,11 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
 
   const signInAnonymously = useCallback(async (): Promise<void> => {
     setError(null);
-    
+
     try {
       await firebaseSignInAnonymously(auth);
     } catch (err: unknown) {
-      console.error('[AuthProvider] Anonymous sign-in error:', err);
+      console.error("[AuthProvider] Anonymous sign-in error:", err);
       if (err instanceof Error) {
         setError(err);
       }
@@ -440,21 +473,24 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
     }
   }, []);
 
+  const signInGoogle = useCallback(async () => signInWithGoogle(), [signInWithGoogle]);
+  const signInAnon = useCallback(async () => signInAnonymously(), [signInAnonymously]);
+
   const signOut = useCallback(async (): Promise<void> => {
     setError(null);
-    
+
     try {
       const currentUid = user?.uid;
       await firebaseSignOut(auth);
       setUser(null);
       setProfile(null);
-      setProfileStatus('unknown');
+      setProfileStatus("unknown");
       setRoles([]);
       if (currentUid) {
         clearProfileCache(currentUid);
       }
     } catch (err: unknown) {
-      console.error('[AuthProvider] Sign-out error:', err);
+      console.error("[AuthProvider] Sign-out error:", err);
       if (err instanceof Error) {
         setError(err);
       }
@@ -464,11 +500,11 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
 
   const resetPassword = useCallback(async (email: string): Promise<void> => {
     setError(null);
-    
+
     try {
       await sendPasswordResetEmail(auth, email);
     } catch (err: unknown) {
-      console.error('[AuthProvider] Password reset error:', err);
+      console.error("[AuthProvider] Password reset error:", err);
       if (err instanceof Error) {
         setError(err);
       }
@@ -482,29 +518,32 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
    */
   const refreshRoles = useCallback(async (): Promise<UserRole[]> => {
     if (!user) return [];
-    
+
     try {
       const currentUser = auth.currentUser;
-      
+
       if (!currentUser) return [];
-      
+
       // Force refresh the token
       const tokenResult = await getIdTokenResult(currentUser, true);
       const newRoles = (tokenResult.claims.roles as UserRole[]) || [];
-      
+
       setRoles(newRoles);
-      console.log('[AuthProvider] Roles refreshed:', newRoles);
-      
+      console.log("[AuthProvider] Roles refreshed:", newRoles);
+
       return newRoles;
     } catch (err: unknown) {
-      console.error('[AuthProvider] Failed to refresh roles:', err);
+      console.error("[AuthProvider] Failed to refresh roles:", err);
       return roles;
     }
   }, [user, roles]);
 
-  const hasRole = useCallback((role: UserRole): boolean => {
-    return roles.includes(role);
-  }, [roles]);
+  const hasRole = useCallback(
+    (role: UserRole): boolean => {
+      return roles.includes(role);
+    },
+    [roles]
+  );
 
   const clearError = useCallback((): void => {
     setError(null);
@@ -514,52 +553,59 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
   // Context Value
   // ---------------------------------------------------------------------------
 
-  const value = useMemo<AuthContextType>(() => ({
-    // State
-    user,
-    profile,
-    profileStatus,
-    roles,
-    loading,
-    error,
-    
-    // Computed
-    isAuthenticated: user !== null,
-    isAdmin: roles.includes('admin'),
-    isVerifiedPro: roles.includes('verified_pro'),
-    isModerator: roles.includes('moderator'),
-    hasProfile: profileStatus === 'exists',
-    needsProfileSetup: profileStatus === 'missing',
-    
-    // Actions
-    signInWithGoogle,
-    signInWithEmail,
-    signUpWithEmail,
-    signInAnonymously,
-    signOut,
-    resetPassword,
-    refreshRoles,
-    hasRole,
-    clearError,
-    setProfile: setProfileState,
-  }), [
-    user,
-    profile,
-    profileStatus,
-    roles,
-    loading,
-    error,
-    signInWithGoogle,
-    signInWithEmail,
-    signUpWithEmail,
-    signInAnonymously,
-    signOut,
-    resetPassword,
-    refreshRoles,
-    hasRole,
-    clearError,
-    setProfileState,
-  ]);
+  const value = useMemo<AuthContextType>(
+    () => ({
+      // State
+      user,
+      profile,
+      profileStatus,
+      roles,
+      loading,
+      error,
+
+      // Computed
+      isAuthenticated: user !== null,
+      isAdmin: roles.includes("admin"),
+      isVerifiedPro: roles.includes("verified_pro"),
+      isModerator: roles.includes("moderator"),
+      hasProfile: profileStatus === "exists",
+      needsProfileSetup: profileStatus === "missing",
+
+      // Actions
+      signInWithGoogle,
+      signInGoogle,
+      signInWithEmail,
+      signUpWithEmail,
+      signInAnonymously,
+      signInAnon,
+      signOut,
+      resetPassword,
+      refreshRoles,
+      hasRole,
+      clearError,
+      setProfile: setProfileState,
+    }),
+    [
+      user,
+      profile,
+      profileStatus,
+      roles,
+      loading,
+      error,
+      signInWithGoogle,
+      signInGoogle,
+      signInWithEmail,
+      signUpWithEmail,
+      signInAnonymously,
+      signInAnon,
+      signOut,
+      resetPassword,
+      refreshRoles,
+      hasRole,
+      clearError,
+      setProfileState,
+    ]
+  );
 
   // ---------------------------------------------------------------------------
   // Render
@@ -570,7 +616,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
     if (LoadingComponent) {
       return <LoadingComponent />;
     }
-    
+
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#181818]">
         <div className="text-center">
@@ -581,11 +627,7 @@ export function AuthProvider({ children, LoadingComponent }: AuthProviderProps) 
     );
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 // ============================================================================
