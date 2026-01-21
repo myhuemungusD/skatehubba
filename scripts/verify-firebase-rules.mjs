@@ -76,7 +76,10 @@ async function verifyFirebaseRules() {
       const maskedStderr = maskToken(stderr, token);
       
       if (maskedStdout) console.log(maskedStdout);
-      if (maskedStderr && !maskedStderr.includes('dry-run')) console.error(maskedStderr);
+      const isDryRunSuccessMessage =
+        /dry[- ]run (successful|completed)/i.test(maskedStderr) ||
+        /would (have )?deploy(ed)?/i.test(maskedStderr);
+      if (maskedStderr && !isDryRunSuccessMessage) console.error(maskedStderr);
       
       console.log('✅ Firestore rules are valid');
     } catch (error) {
