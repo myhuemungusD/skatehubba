@@ -26,8 +26,6 @@ jobs:
     name: "Quality Control"
     needs: lockfile_check
     runs-on: ubuntu-latest
-    env:
-      ALLOW_MISSING_PUBLIC_ENV: "true"
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
