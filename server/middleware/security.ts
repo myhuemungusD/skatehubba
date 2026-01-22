@@ -2,6 +2,28 @@ import type { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 import type { FirebaseAuthedRequest } from "./firebaseUid";
 
+const PUBLIC_PREFIXES = [
+  "/assets/",
+  "/fonts/",
+  "/icons/",
+  "/images/",
+  "/favicon.ico",
+  "/manifest.json",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/sw.js",
+  "/service-worker.js",
+];
+
+/**
+ * Security middleware: bypass static/public assets, apply to everything else.
+ * Keep heavy checks (auth/rate limit) on /api paths in the server bootstrap.
+ */
+export function securityMiddleware(_req: Request, _res: Response, next: NextFunction) {
+  // Currently a pass-through middleware; add security checks for non-public paths if needed.
+  next();
+}
+
 const RATE_LIMITS = {
   // CodeQL: Missing rate limiting (auth endpoints)
   auth: {

@@ -54,10 +54,7 @@ export {
 } from "./env";
 
 // Legacy environment utilities (deprecated - use env.ts instead)
-export {
-  getPublicEnv,
-  getPublicEnvOptional,
-} from "./publicEnv";
+export { getPublicEnv, getPublicEnvOptional, getMissingPublicEnvVars } from "./publicEnv";
 
 // Runtime utilities
 export {

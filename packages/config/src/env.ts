@@ -14,6 +14,27 @@
 
 type EnvRecord = Record<string, string | undefined>;
 
+const EXPO_PREFIX = "EXPO_PUBLIC_";
+const VITE_PREFIX = "VITE_";
+
+function normalizeNameCandidates(name: string): string[] {
+  const candidates = new Set<string>();
+  candidates.add(name);
+
+  if (name.startsWith(EXPO_PREFIX)) {
+    const base = name.slice(EXPO_PREFIX.length);
+    candidates.add(`${VITE_PREFIX}${base}`);
+  } else if (name.startsWith(VITE_PREFIX)) {
+    const base = name.slice(VITE_PREFIX.length);
+    candidates.add(`${EXPO_PREFIX}${base}`);
+  } else {
+    candidates.add(`${EXPO_PREFIX}${name}`);
+    candidates.add(`${VITE_PREFIX}${name}`);
+  }
+
+  return Array.from(candidates);
+}
+
 /**
  * Detect the current platform
  */
@@ -39,19 +60,27 @@ function detectPlatform(): "vite" | "node" | "metro" {
 function readEnv(name: string): string | undefined {
   const platform = detectPlatform();
 
+  const candidates = normalizeNameCandidates(name);
+
   switch (platform) {
     case "vite": {
       // Web: Read from Vite's import.meta.env
       const meta = (globalThis as any).import?.meta;
       const env: EnvRecord = meta?.env || {};
-      return env[name];
+      for (const candidate of candidates) {
+        if (env[candidate] !== undefined) return env[candidate];
+      }
+      return undefined;
     }
 
     case "metro":
     case "node": {
       // Mobile/Server: Read from process.env
       const env: EnvRecord = (globalThis as any).process?.env || {};
-      return env[name];
+      for (const candidate of candidates) {
+        if (env[candidate] !== undefined) return env[candidate];
+      }
+      return undefined;
     }
   }
 }
@@ -117,17 +146,15 @@ export const isLocal = () => getAppEnv() === "local";
 /**
  * Firebase Configuration
  */
-const firebaseConfig = {
-  apiKey: getEnv("EXPO_PUBLIC_FIREBASE_API_KEY"),
-  authDomain: getEnv("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN"),
-  projectId: getEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID"),
-  storageBucket: getEnv("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET"),
-  messagingSenderId: getEnv("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"),
-  appId: getEnv("EXPO_PUBLIC_FIREBASE_APP_ID"),
-  measurementId: getEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"),
-};
-
-export type FirebaseEnv = typeof firebaseConfig;
+export interface FirebaseEnv {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
+  measurementId?: string;
+}
 
 /**
  * Get Firebase configuration from environment
@@ -137,7 +164,15 @@ export type FirebaseEnv = typeof firebaseConfig;
  * initialize the Firebase app.
  */
 export function getFirebaseEnv(): FirebaseEnv {
-  return firebaseConfig;
+  return {
+    apiKey: getEnv("EXPO_PUBLIC_FIREBASE_API_KEY"),
+    authDomain: getEnv("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN"),
+    projectId: getEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID"),
+    storageBucket: getEnv("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET"),
+    messagingSenderId: getEnv("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID"),
+    appId: getEnv("EXPO_PUBLIC_FIREBASE_APP_ID"),
+    measurementId: getEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"),
+  };
 }
 
 /**
