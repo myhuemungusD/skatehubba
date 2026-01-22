@@ -278,6 +278,10 @@ importers:
         version: 6.0.4(typescript@5.9.3)(vite@6.4.1(@types/node@22.19.7)(jiti@1.21.7)(tsx@4.21.0)(yaml@2.8.2))
 
   packages/config:
+    dependencies:
+      firebase:
+        specifier: ^11.2.0
+        version: 11.10.0
     devDependencies:
       '@types/node':
         specifier: ^20.0.0
