@@ -69,7 +69,7 @@ const STAGING_CONFIG: FirebaseConfig = {
  *
  * Uses env vars if available, falls back to hardcoded config
  */
-export function getFirebaseConfig(options: GetFirebaseConfigOptions = {}): FirebaseConfig {
+export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): FirebaseConfig {
   const env = getAppEnv();
 
   // Try to read from env vars first (allows override)
