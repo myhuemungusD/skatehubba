@@ -55,6 +55,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(spots);
   });
 
+  app.get("/api/spots/:spotId", async (req, res) => {
+    const spotId = Number(req.params.spotId);
+    if (Number.isNaN(spotId)) {
+      return res.status(400).json({ message: "Invalid spot ID" });
+    }
+
+    const spot = await spotStorage.getSpotById(spotId);
+    if (!spot) {
+      return res.status(404).json({ message: "Spot not found" });
+    }
+
+    return res.json(spot);
+  });
+
+  const spotRatingSchema = z.object({
+    rating: z.number().int().min(1).max(5),
+  });
+
+  app.post(
+    "/api/spots/:spotId/rate",
+    authenticateUser,
+    validateBody(spotRatingSchema),
+    async (req, res) => {
+      const spotId = Number(req.params.spotId);
+      if (Number.isNaN(spotId)) {
+        return res.status(400).json({ message: "Invalid spot ID" });
+      }
+
+      const { rating } = (req as Request & { validatedBody: { rating: number } }).validatedBody;
+
+      await spotStorage.updateRating(spotId, rating);
+      const updated = await spotStorage.getSpotById(spotId);
+
+      if (!updated) {
+        return res.status(404).json({ message: "Spot not found" });
+      }
+
+      return res.status(200).json(updated);
+    }
+  );
+
   app.post(
     "/api/spots",
     publicWriteLimiter,
