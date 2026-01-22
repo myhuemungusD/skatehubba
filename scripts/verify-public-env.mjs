@@ -1,57 +1,46 @@
 #!/usr/bin/env node
 
-const REQUIRED_BASES = [
-  "FIREBASE_API_KEY",
-  "FIREBASE_AUTH_DOMAIN",
-  "FIREBASE_PROJECT_ID",
-  "FIREBASE_STORAGE_BUCKET",
-  "FIREBASE_MESSAGING_SENDER_ID",
-  "FIREBASE_APP_ID",
+const REQUIRED_VITE = [
+  "VITE_FIREBASE_API_KEY",
+  "VITE_FIREBASE_AUTH_DOMAIN",
+  "VITE_FIREBASE_PROJECT_ID",
+  "VITE_FIREBASE_STORAGE_BUCKET",
+  "VITE_FIREBASE_MESSAGING_SENDER_ID",
+  "VITE_FIREBASE_APP_ID",
 ];
 
-const OPTIONAL_BASES = ["FIREBASE_MEASUREMENT_ID"];
+const OPTIONAL_VITE = ["VITE_FIREBASE_MEASUREMENT_ID"];
 
 const isProd = process.env.NODE_ENV === "production";
 const isVercel = process.env.VERCEL === "1";
 const allowMissing = process.env.ALLOW_MISSING_PUBLIC_ENV === "true";
-const requireEnv = process.env.REQUIRE_PUBLIC_ENV === "true";
-const strict = (isVercel || isProd || requireEnv) && !allowMissing;
+const strict = (isVercel || isProd) && !allowMissing;
 
-const missing = [];
-
-for (const base of REQUIRED_BASES) {
-  const viteKey = `VITE_${base}`;
-  const expoKey = `EXPO_PUBLIC_${base}`;
-  const hasVite = Boolean(process.env[viteKey]);
-  const hasExpo = Boolean(process.env[expoKey]);
-
-  if (!hasVite && !hasExpo) {
-    missing.push(`${viteKey} or ${expoKey}`);
-  }
-}
+const missing = REQUIRED_VITE.filter((key) => !process.env[key]);
+const expoPresent = REQUIRED_VITE.filter((key) => process.env[key.replace("VITE_", "EXPO_PUBLIC_")]);
 
 if (missing.length > 0) {
-  console.error("\n? Missing required public env vars for web build:");
+  console.error("\n❌ Missing required public env vars for web build (VITE_*):");
   missing.forEach((key) => console.error(`  - ${key}`));
-  console.error(
-    "\nSet these in Vercel (Project ? Settings ? Environment Variables) or export them in CI.\n"
-  );
+
+  if (expoPresent.length > 0) {
+    console.error("\n⚠️  EXPO_PUBLIC_* equivalents were found, but Vite expects VITE_*.");
+    expoPresent.forEach((key) =>
+      console.error(`  - ${key} (found ${key.replace("VITE_", "EXPO_PUBLIC_")})`)
+    );
+  }
+
+  console.error("\nSet these in Vercel (Project → Settings → Environment Variables).\n");
 
   if (strict) {
     process.exit(1);
-  } else {
-    console.warn("??  Skipping failure (non-production build).");
   }
 } else {
-  console.log("? Public env check passed:");
-  REQUIRED_BASES.forEach((base) =>
-    console.log(`  - VITE_${base} or EXPO_PUBLIC_${base}`)
-  );
-  OPTIONAL_BASES.forEach((base) => {
-    const viteKey = `VITE_${base}`;
-    const expoKey = `EXPO_PUBLIC_${base}`;
-    if (process.env[viteKey] || process.env[expoKey]) {
-      console.log(`  - ${viteKey} or ${expoKey} (optional)`);
+  console.log("✅ Public env check passed:");
+  REQUIRED_VITE.forEach((key) => console.log(`  - ${key}`));
+  OPTIONAL_VITE.forEach((key) => {
+    if (process.env[key]) {
+      console.log(`  - ${key} (optional)`);
     }
   });
 }
