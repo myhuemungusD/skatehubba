@@ -1,5 +1,3 @@
-import React from "react";
-
 interface EnvErrorScreenProps {
   missingKeys: string[];
   error?: unknown;
@@ -13,6 +11,7 @@ function formatError(error: unknown): string {
 
 export default function EnvErrorScreen({ missingKeys, error }: EnvErrorScreenProps) {
   const hasMissing = missingKeys.length > 0;
+  const hasError = Boolean(error);
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center px-6">
@@ -34,7 +33,7 @@ export default function EnvErrorScreen({ missingKeys, error }: EnvErrorScreenPro
           </div>
         )}
 
-        {error && (
+        {hasError && (
           <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 text-left">
             <div className="text-sm font-semibold text-orange-400 mb-2">Error details</div>
             <p className="text-sm text-neutral-200 whitespace-pre-wrap break-words">

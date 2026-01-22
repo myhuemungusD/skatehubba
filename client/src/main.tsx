@@ -1,5 +1,4 @@
 import { createRoot } from "react-dom/client";
-import React from "react";
 import { getMissingPublicEnvVars } from "@skatehubba/config";
 import EnvErrorScreen from "./components/EnvErrorScreen";
 import "./index.css";
