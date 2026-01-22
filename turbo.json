@@ -2,9 +2,13 @@
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["verify:public-env", "^build"],
       "outputs": ["dist/**", ".next/**", "build/**", "../dist/**"],
       "cache": true
+    },
+    "verify:public-env": {
+      "cache": false,
+      "outputs": []
     },
     "dev": {
       "dependsOn": ["^build"],

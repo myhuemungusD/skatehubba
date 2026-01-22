@@ -150,6 +150,12 @@ pnpm install
 - Firestore is reserved for realtime/presence/feed data.
 - PostgreSQL is the system of record for server-authoritative workflows.
 
+## Public Environment Variables (Web vs Expo)
+
+- **Web (Vite)**: use `VITE_*` as the canonical prefix in Vercel/CI.
+- **Expo (Mobile)**: use `EXPO_PUBLIC_*` as the canonical prefix.
+- The runtime adapter can read both, but builds will fail if required `VITE_*` vars are missing.
+
 ---
 
 ## Testing

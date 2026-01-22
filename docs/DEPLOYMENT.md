@@ -30,6 +30,19 @@ To enable full deployment functionality, configure the following GitHub reposito
 - `VERCEL_PROJECT_ID`: Your Vercel project ID (optional)
   - Find in: Vercel project settings or `.vercel/project.json`
 
+## Required Public Env Vars (Web)
+
+Vercel builds must set the following **VITE\_\*** variables:
+
+- `VITE_FIREBASE_API_KEY`
+- `VITE_FIREBASE_AUTH_DOMAIN`
+- `VITE_FIREBASE_PROJECT_ID`
+- `VITE_FIREBASE_STORAGE_BUCKET`
+- `VITE_FIREBASE_MESSAGING_SENDER_ID`
+- `VITE_FIREBASE_APP_ID`
+
+The build will fail if any are missing. For Expo/mobile, use `EXPO_PUBLIC_*` equivalents.
+
 ## Configuration Files
 
 ### Firebase (`firebase.json`)
