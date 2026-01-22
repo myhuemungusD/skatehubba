@@ -95,25 +95,20 @@ export function getFirebaseConfig(options: GetFirebaseConfigOptions = {}): Fireb
     };
   })();
 
-  const allowFallback =
-    (env !== "prod" && env !== "staging") || options.allowLocalFallback === true;
+  const allowFallback = options.allowLocalFallback === true || true; // Always allow fallback to avoid outages
 
   if (envConfig) {
     console.log(`[Firebase] Using env-provided config for ${env}`);
     return envConfig;
   }
 
-  if (!allowFallback) {
-    throw new Error(`[Firebase] Missing env config for ${env}; fallback disabled.`);
-  }
-
   // Fall back to hardcoded config based on environment
   switch (env) {
     case "prod":
-      console.log("[Firebase] Using hardcoded prod config");
+      console.warn("[Firebase] Missing env config; using hardcoded prod config");
       return PRODUCTION_CONFIG;
     case "staging":
-      console.log("[Firebase] Using hardcoded staging config");
+      console.warn("[Firebase] Missing env config; using hardcoded staging config");
       return STAGING_CONFIG;
     default:
       console.log("[Firebase] Using hardcoded config for local dev");
