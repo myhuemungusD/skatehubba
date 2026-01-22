@@ -47,11 +47,20 @@ paths = [
 ]
 
 [allowlist]
-description = "Allow previously committed secrets that have been rotated"
+description = "Global allowlist for test fixtures and development placeholders"
+paths = [
+  '''__tests__/.*''',
+  '''.*\.test\.ts$''',
+  '''.*\.spec\.ts$''',
+  '''test-results/.*''',
+]
+regexes = [
+  # Test credential placeholders (clearly marked as test values)
+  '''test-session-secret.*''',
+  '''test-jwt-secret.*''',
+  '''postgres://test:test@localhost''',
+  '''dev-jwt-secret-change-in-production.*''',
+]
 commits = [
   "56bd080",  # .env file exposed (branch deleted, secrets rotated)
-]
-paths = [
-  '''\.env$''',
-  '''\.env\.local$''',
 ]
