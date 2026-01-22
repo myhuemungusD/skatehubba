@@ -1,6 +1,7 @@
 import express from "express";
 import http from "http";
 import path from "path";
+import fs from "fs";
 import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes.ts";
 import { setupVite, log } from "./vite-dev.ts";
@@ -10,7 +11,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import logger from "./logger.ts";
 import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
-import { apiLimiter, staticFileLimiter } from "./middleware/security.ts";
+import { apiLimiter, staticFileLimiter, securityMiddleware } from "./middleware/security.ts";
 import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -78,6 +79,7 @@ app.use(cookieParser());
 app.use(ensureCsrfToken);
 
 // Global rate limiting for all API routes (before CSRF validation for better error handling)
+app.use("/api", securityMiddleware);
 app.use("/api", apiLimiter);
 
 // Global CSRF validation for all state-changing API requests
@@ -108,12 +110,47 @@ app.get("/api/health", (_req, res) => {
 if (process.env.NODE_ENV === "development") {
   await setupVite(app, server);
 } else {
-  const publicDir = path.resolve(__dirname, "../public");
-  app.use(express.static(publicDir));
+  const clientDistCandidates = [
+    path.resolve(__dirname, "../client/dist"),
+    path.resolve(__dirname, "../../client/dist"),
+  ];
+  const publicCandidates = [
+    path.resolve(__dirname, "../public"),
+    path.resolve(__dirname, "../../public"),
+  ];
+
+  const staticDirs = [...clientDistCandidates, ...publicCandidates].filter((dir) =>
+    fs.existsSync(dir)
+  );
+
+  // Serve built SPA assets first, fall back to shared public assets
+  for (const dir of staticDirs) {
+    app.use(express.static(dir));
+  }
+
+  const indexHtmlPath = (() => {
+    for (const base of clientDistCandidates) {
+      const candidate = path.join(base, "index.html");
+      if (fs.existsSync(candidate)) return candidate;
+    }
+
+    for (const base of publicCandidates) {
+      const candidate = path.join(base, "index.html");
+      if (fs.existsSync(candidate)) return candidate;
+    }
+
+    return null;
+  })();
+
   // Rate limit HTML serving to prevent file system abuse
   // CodeQL: Missing rate limiting - file system access now rate-limited
   app.get("*", staticFileLimiter, (_req, res) => {
-    res.sendFile(path.join(publicDir, "index.html"));
+    if (indexHtmlPath) {
+      return res.sendFile(indexHtmlPath);
+    }
+
+    logger.error("No SPA index.html found in client/dist or public");
+    return res.status(500).send("App build missing: index.html not found");
   });
 }
 
