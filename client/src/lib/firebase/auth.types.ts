@@ -1,13 +1,13 @@
 /**
  * Authentication Types
- * 
+ *
  * Type definitions for the authentication system.
  * All types are strictly defined for type safety.
- * 
+ *
  * @module lib/firebase/auth.types
  */
 
-import { User as FirebaseUser } from 'firebase/auth';
+import { User as FirebaseUser } from "firebase/auth";
 
 // ============================================================================
 // User Types
@@ -32,11 +32,18 @@ export interface AuthUser {
  */
 export interface UserProfile {
   readonly uid: string;
-  readonly email: string;
-  readonly displayName: string;
-  readonly photoURL: string | null;
-  readonly firstName: string | null;
-  readonly lastName: string | null;
+  readonly username: string;
+  readonly stance: "regular" | "goofy" | null;
+  readonly experienceLevel: "beginner" | "intermediate" | "advanced" | "pro" | null;
+  readonly favoriteTricks: string[];
+  readonly bio: string | null;
+  readonly sponsorFlow?: string | null;
+  readonly sponsorTeam?: string | null;
+  readonly hometownShop?: string | null;
+  readonly spotsVisited: number;
+  readonly crewName: string | null;
+  readonly credibilityScore: number;
+  readonly avatarUrl: string | null;
   readonly createdAt: Date;
   readonly updatedAt: Date;
 }
@@ -45,11 +52,16 @@ export interface UserProfile {
  * Input for creating a new user profile
  */
 export interface CreateProfileInput {
-  email: string;
-  displayName?: string;
-  firstName?: string;
-  lastName?: string;
-  photoURL?: string | null;
+  username: string;
+  stance?: "regular" | "goofy";
+  experienceLevel?: "beginner" | "intermediate" | "advanced" | "pro";
+  favoriteTricks?: string[];
+  bio?: string | null;
+  sponsorFlow?: string | null;
+  sponsorTeam?: string | null;
+  hometownShop?: string | null;
+  crewName?: string | null;
+  avatarUrl?: string | null;
 }
 
 // ============================================================================
@@ -78,7 +90,11 @@ export interface AuthState {
  */
 export interface AuthContextValue extends AuthState {
   /** Sign up with email and password */
-  signUp: (email: string, password: string, profile?: { firstName?: string; lastName?: string }) => Promise<void>;
+  signUp: (
+    email: string,
+    password: string,
+    profile?: { firstName?: string; lastName?: string }
+  ) => Promise<void>;
   /** Sign in with email and password */
   signIn: (email: string, password: string) => Promise<void>;
   /** Sign in with Google OAuth */
@@ -101,21 +117,21 @@ export interface AuthContextValue extends AuthState {
  * Authentication error codes
  */
 export type AuthErrorCode =
-  | 'auth/email-already-in-use'
-  | 'auth/invalid-email'
-  | 'auth/operation-not-allowed'
-  | 'auth/weak-password'
-  | 'auth/user-disabled'
-  | 'auth/user-not-found'
-  | 'auth/wrong-password'
-  | 'auth/invalid-credential'
-  | 'auth/too-many-requests'
-  | 'auth/network-request-failed'
-  | 'auth/popup-closed-by-user'
-  | 'auth/popup-blocked'
-  | 'auth/account-exists-with-different-credential'
-  | 'auth/requires-recent-login'
-  | 'unknown';
+  | "auth/email-already-in-use"
+  | "auth/invalid-email"
+  | "auth/operation-not-allowed"
+  | "auth/weak-password"
+  | "auth/user-disabled"
+  | "auth/user-not-found"
+  | "auth/wrong-password"
+  | "auth/invalid-credential"
+  | "auth/too-many-requests"
+  | "auth/network-request-failed"
+  | "auth/popup-closed-by-user"
+  | "auth/popup-blocked"
+  | "auth/account-exists-with-different-credential"
+  | "auth/requires-recent-login"
+  | "unknown";
 
 /**
  * Structured authentication error

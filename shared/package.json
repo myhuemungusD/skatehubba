@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "echo \"Shared package build (no compiled output required)\""
+    "build": "echo \"Shared package build (no compiled output required)\" && node -e \"import('fs').then(fs=>{fs.mkdirSync('dist',{recursive:true});fs.writeFileSync('dist/.keep','');})\"",
+    "test": "vitest run --config ../vitest.config.mts --dir ."
   },
   "dependencies": {
     "zod": "3.23.8",

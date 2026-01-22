@@ -1,37 +1,21 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-
-/**
- * Throws a useful error when the response is not OK.
- */
-async function throwIfResNotOk(res: Response): Promise<void> {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
-  }
-}
+import { apiRequestRaw } from "./api/client";
+import { ApiError } from "./api/errors";
 
 /**
  * Simple API request helper.
  * Always passes a valid HeadersInit for TypeScript.
  */
 export async function apiRequest(
-  method: string,
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
   url: string,
   data?: unknown
 ): Promise<Response> {
-  const headers: HeadersInit = data
-    ? { "Content-Type": "application/json" }
-    : {};
-
-  const res = await fetch(url, {
+  return apiRequestRaw({
     method,
-    headers,
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
+    path: url,
+    body: data,
   });
-
-  await throwIfResNotOk(res);
-  return res;
 }
 
 type UnauthorizedBehavior = "returnNull" | "throw";
@@ -42,16 +26,18 @@ type UnauthorizedBehavior = "returnNull" | "throw";
 export const getQueryFn =
   <T>({ on401 }: { on401: UnauthorizedBehavior }): QueryFunction<T> =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/"), {
-      credentials: "include",
-    });
-
-    if (on401 === "returnNull" && res.status === 401) {
-      return null as T;
+    try {
+      const res = await apiRequestRaw({
+        method: "GET",
+        path: queryKey.join("/"),
+      });
+      return (await res.json()) as T;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401 && on401 === "returnNull") {
+        return null as T;
+      }
+      throw error;
     }
-
-    await throwIfResNotOk(res);
-    return (await res.json()) as T;
   };
 
 export const queryClient = new QueryClient({

@@ -1,0 +1,37 @@
+name: Verify Firebase Rules
+
+on:
+  pull_request:
+    paths:
+      - "firestore.rules"
+      - "storage.rules"
+      - "scripts/verify-firebase-rules.mjs"
+  push:
+    branches:
+      - main
+    paths:
+      - "firestore.rules"
+      - "storage.rules"
+      - "scripts/verify-firebase-rules.mjs"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm environment
+        uses: ./.github/actions/setup-pnpm-env
+        with:
+          node-version: '20'
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Verify rules against Firebase
+        env:
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: node scripts/verify-firebase-rules.mjs

@@ -1,0 +1,94 @@
+rules_version = '2';
+
+// SkateHubba Firebase Storage Security Rules
+//
+// Principles:
+// - Deny by default.
+// - Public read only where explicitly intended (profiles/spots).
+// - Writes require authentication.
+// - Owner-bound writes for user-owned resources.
+// - Strict content-type + size limits.
+// - No broad "authenticated users can update/delete anything" on shared paths.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // ---------- Helpers ----------
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isVideo() {
+      return request.resource.contentType.matches('video/.*');
+    }
+
+    // Keep these conservative; raise later with evidence/need.
+    function isValidProfileImageSize() {
+      // 5MB max
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+
+    function isValidSpotImageSize() {
+      // 10MB max (spots may be higher-res)
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+
+    function isValidUploadSize() {
+      // 50MB max for generic uploads (e.g., check-in videos)
+      return request.resource.size < 50 * 1024 * 1024;
+    }
+
+    // ---------- Profile images ----------
+    // Public read; only the owner can write.
+    // Path example: /profiles/{uid}/avatar.jpg
+    match /profiles/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if isOwner(userId) && isImage() && isValidProfileImageSize();
+    }
+
+    // ---------- Spot images ----------
+    // Public read.
+    // Writes are authenticated-only; deletions restricted to admin via custom claims.
+    // Path example: /spots/{spotId}/cover.jpg
+    match /spots/{spotId}/{fileName} {
+      allow read: if true;
+
+      // Only allow creating/updating images (no videos here).
+      allow create, update: if isAuthenticated() && isImage() && isValidSpotImageSize();
+
+      // Delete should be admin-only to prevent random wipes.
+      allow delete: if isAuthenticated() && request.auth.token.admin == true;
+    }
+
+    // ---------- User uploads ----------
+    // Private by default (read requires auth). Owner write only.
+    // Use this for check-in media if you want user-owned objects:
+    // /uploads/{uid}/checkins/{checkInId}.mp4
+    match /uploads/{userId}/{path=**} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId)
+                   && (isImage() || isVideo())
+                   && isValidUploadSize();
+    }
+
+    // ---------- Public assets ----------
+    // Static public assets (no writes).
+    match /public/{path=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // ---------- Default deny ----------
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
+import type { FirebaseAuthedRequest } from "./firebaseUid";
 
 const RATE_LIMITS = {
   // CodeQL: Missing rate limiting (auth endpoints)
@@ -75,6 +76,69 @@ export const publicWriteLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const getDeviceFingerprint = (req: Request): string | null => {
+  const deviceId = req.get("x-device-id");
+  if (deviceId) return deviceId;
+
+  const sessionId = req.get("x-session-id");
+  if (sessionId) return sessionId;
+
+  const fingerprint = req.get("x-client-fingerprint");
+  if (fingerprint) return fingerprint;
+
+  return null;
+};
+
+const userKeyGenerator = (req: Request): string => {
+  const userId = req.currentUser?.id ?? "anonymous";
+  const ip = req.ip ?? "unknown-ip";
+  const device = getDeviceFingerprint(req) ?? "unknown-device";
+
+  // Handle edge case where all identifiers are at their fallback values.
+  // Add additional entropy from request headers so that such requests do not
+  // all share the same rate limit key.
+  if (userId === "anonymous" && ip === "unknown-ip" && device === "unknown-device") {
+    const userAgent = req.get("user-agent") ?? "unknown-ua";
+    const acceptLanguage = req.get("accept-language") ?? "unknown-lang";
+    const forwardedFor = req.get("x-forwarded-for") ?? "unknown-forwarded";
+
+    return `${userId}:${device}:${ip}:${userAgent}:${acceptLanguage}:${forwardedFor}`;
+  }
+  return `${userId}:${device}:${ip}`;
+};
+
+export const checkInIpLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: 60, // 60 check-ins per 10 minutes per IP
+  message: {
+    error: "Check-in rate limit exceeded.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const perUserSpotWriteLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 spot creations per hour per user
+  message: {
+    error: "Spot creation rate limit exceeded.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+});
+
+export const perUserCheckInLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // 20 check-ins per hour per user
+  message: {
+    error: "Check-in rate limit exceeded.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+});
+
 /**
  * Strict rate limiter for password reset requests
  * Limits to 3 password reset attempts per hour per IP address
@@ -100,6 +164,30 @@ export const apiLimiter = rateLimit({
   max: RATE_LIMITS.api.max, // 100 requests per minute
   message: {
     error: RATE_LIMITS.api.message,
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const usernameCheckLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: {
+    error: "Too many username checks, please slow down.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+export const profileCreateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  message: {
+    error: "Too many profile creation attempts, please try again later.",
+  },
+  keyGenerator: (req: Request) => {
+    const firebaseUid = (req as FirebaseAuthedRequest).firebaseUid;
+    return firebaseUid || req.ip || "unknown";
   },
   standardHeaders: true,
   legacyHeaders: false,

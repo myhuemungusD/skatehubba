@@ -37,7 +37,7 @@ export function StagingBanner({ forceShow = false }: StagingBannerProps) {
       role="alert"
       aria-live="polite"
       className={`
-        fixed top-0 left-0 right-0 z-[9999]
+        fixed top-0 left-0 right-0 z-40
         py-1 px-4 text-center text-sm font-bold
         ${isLocal ? "bg-blue-600 text-white" : "bg-yellow-400 text-black animate-pulse"}
       `}

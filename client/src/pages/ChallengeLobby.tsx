@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { Circle, Search, User, Zap, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import MobileLayout from "../components/layout/MobileLayout";
+import { useToast } from "@/hooks/use-toast";
 
 type SkaterStatus = "online" | "offline";
 
@@ -22,9 +23,10 @@ const statusStyles: Record<SkaterStatus, string> = {
 
 export default function ChallengeLobby() {
   const [query, setQuery] = useState("");
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const [lastMatch, _setLastMatch] = useState<SkaterProfile | null>(null);
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
 
   // Debounce search query
   const [debouncedQuery, setDebouncedQuery] = useState(query);
@@ -34,40 +36,72 @@ export default function ChallengeLobby() {
   }, [query]);
 
   const { data: searchResults, isLoading } = useQuery({
-    queryKey: ['/api/users/search', debouncedQuery],
+    queryKey: ["/api/users/search", debouncedQuery],
     queryFn: async () => {
       if (!debouncedQuery || debouncedQuery.length < 2) return [];
       const res = await fetch(`/api/users/search?q=${encodeURIComponent(debouncedQuery)}`);
-      if (!res.ok) throw new Error('Search failed');
+      if (!res.ok) throw new Error("Search failed");
       const rawData = await res.json();
-      
+
       // Map backend data to UI model
       return rawData.map((u: any) => ({
         id: u.id,
-        name: u.displayName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Skater',
+        name: u.displayName || `${u.firstName || ""} ${u.lastName || ""}`.trim() || "Skater",
         handle: u.handle ? `@${u.handle}` : `@user${u.id.substring(0, 4)}`,
         status: "offline", // Presence not yet implemented
         style: "Street", // Default style
-        winRate: u.wins && (u.wins + (u.losses || 0)) > 0
-          ? `${Math.round((u.wins / (u.wins + (u.losses || 0))) * 100)}%`
-          : "0%",
+        winRate:
+          u.wins && u.wins + (u.losses || 0) > 0
+            ? `${Math.round((u.wins / (u.wins + (u.losses || 0))) * 100)}%`
+            : "0%",
       })) as SkaterProfile[];
     },
-    enabled: debouncedQuery.length >= 2
+    enabled: debouncedQuery.length >= 2,
+  });
+
+  // Quick Match mutation
+  const quickMatchMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch("/api/matchmaking/quick-match", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.message || "Failed to find match");
+      }
+
+      return res.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "⚡ Match Found!",
+        description: `Matched with ${data.match.opponentName}. Starting challenge...`,
+      });
+
+      // Navigate to active game with opponent
+      setLocation(`/game/active?opponent=${data.match.opponentId}`);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "No Match Found",
+        description: error.message || "Unable to find an opponent. Try again later.",
+        variant: "destructive",
+      });
+    },
   });
 
   const handleQuickMatch = () => {
-    // For now, default to bot since we don't have live presence yet
-    setLocation("/game/active?opponent=bot");
+    quickMatchMutation.mutate();
   };
 
   return (
     <MobileLayout>
       <div className="min-h-screen bg-neutral-950 px-4 pb-8 pt-6 text-white">
         <header className="mb-6 space-y-2">
-          <p className="text-xs uppercase tracking-[0.2em] text-yellow-500">
-            Challenge Lobby
-          </p>
+          <p className="text-xs uppercase tracking-[0.2em] text-yellow-500">Challenge Lobby</p>
           <h1 className="text-2xl font-semibold">Find your next S.K.A.T.E. battle</h1>
           <p className="text-sm text-neutral-400">
             Tap quick match or pick a skater already online. No delays.
@@ -116,7 +150,7 @@ export default function ChallengeLobby() {
                 <Loader2 className="h-6 w-6 animate-spin text-orange-500" />
               </div>
             )}
-            
+
             {searchResults?.map((skater) => (
               <div
                 key={skater.id}
