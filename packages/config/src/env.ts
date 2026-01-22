@@ -57,10 +57,40 @@ function detectPlatform(): "vite" | "node" | "metro" {
 /**
  * Read environment variable from the correct source based on platform
  */
+function prioritizeCandidates(candidates: string[], platform: "vite" | "node" | "metro"): string[] {
+  if (platform === "vite") {
+    return [...candidates].sort((a, b) => {
+      const aIsVite = a.startsWith(VITE_PREFIX);
+      const bIsVite = b.startsWith(VITE_PREFIX);
+      const aIsExpo = a.startsWith(EXPO_PREFIX);
+      const bIsExpo = b.startsWith(EXPO_PREFIX);
+
+      if (aIsVite !== bIsVite) return aIsVite ? -1 : 1;
+      if (aIsExpo !== bIsExpo) return aIsExpo ? -1 : 1;
+      return 0;
+    });
+  }
+
+  if (platform === "metro") {
+    return [...candidates].sort((a, b) => {
+      const aIsExpo = a.startsWith(EXPO_PREFIX);
+      const bIsExpo = b.startsWith(EXPO_PREFIX);
+      const aIsVite = a.startsWith(VITE_PREFIX);
+      const bIsVite = b.startsWith(VITE_PREFIX);
+
+      if (aIsExpo !== bIsExpo) return aIsExpo ? -1 : 1;
+      if (aIsVite !== bIsVite) return aIsVite ? -1 : 1;
+      return 0;
+    });
+  }
+
+  return candidates;
+}
+
 function readEnv(name: string): string | undefined {
   const platform = detectPlatform();
 
-  const candidates = normalizeNameCandidates(name);
+  const candidates = prioritizeCandidates(normalizeNameCandidates(name), platform);
 
   switch (platform) {
     case "vite": {
