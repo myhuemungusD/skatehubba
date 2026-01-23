@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "@skatehubba/config";
 import { auth } from "../firebase/config";
 import { ApiError, normalizeApiError } from "./errors";
 
@@ -9,6 +10,15 @@ export interface ApiRequestOptions<TBody = unknown> {
   nonce?: string;
   signal?: AbortSignal;
 }
+
+const isAbsoluteUrl = (value: string): boolean => /^https?:\/\//i.test(value);
+
+export const buildApiUrl = (path: string): string => {
+  if (isAbsoluteUrl(path)) return path;
+  const base = getApiBaseUrl().replace(/\/+$/, "");
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${normalizedPath}`;
+};
 
 const getCsrfToken = (): string | undefined => {
   if (typeof document === "undefined") return undefined;
@@ -74,7 +84,7 @@ export const apiRequestRaw = async <TBody = unknown>(
   const headers = await buildHeaders(options);
   const body = options.body !== undefined ? JSON.stringify(options.body) : undefined;
 
-  const response = await fetch(options.path, {
+  const response = await fetch(buildApiUrl(options.path), {
     method: options.method,
     headers,
     body,

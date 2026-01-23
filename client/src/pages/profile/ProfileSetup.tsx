@@ -9,7 +9,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Progress } from "../../components/ui/progress";
 import { usernameSchema } from "@shared/schema";
-import { apiRequest } from "../../lib/api/client";
+import { apiRequest, buildApiUrl } from "../../lib/api/client";
 
 /**
  * Enterprise rules applied:
@@ -134,7 +134,7 @@ export default function ProfileSetup() {
         setUsernameMessage("");
 
         const res = await fetch(
-          `/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`,
+          buildApiUrl(`/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`),
           { signal: controller.signal }
         );
 
