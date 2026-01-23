@@ -59,27 +59,11 @@ export default function SigninPage() {
 
     try {
       await auth?.signInWithEmail(email, password);
-      // AuthProvider will auto-create profile, wait a bit then check
-      setTimeout(() => {
-        const nextUrl = getNextUrl();
-        if (auth?.profile) {
-          toast({
-            title: "Welcome back! 🛹",
-            description: "You've successfully signed in.",
-          });
-          setLocation(nextUrl);
-        } else {
-          toast({
-            title: "Welcome back! 🛹",
-            description: "Let's complete your profile.",
-          });
-          const setupUrl =
-            nextUrl !== "/home"
-              ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
-              : "/profile/setup";
-          setLocation(setupUrl);
-        }
-      }, 500);
+      // useEffect handles redirect based on profileStatus
+      toast({
+        title: "Welcome back! 🛹",
+        description: "Signing you in...",
+      });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Login failed";
       toast({
@@ -87,7 +71,6 @@ export default function SigninPage() {
         description: errorMessage,
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   }
@@ -97,27 +80,11 @@ export default function SigninPage() {
 
     try {
       await auth?.signInWithGoogle();
-      // AuthProvider will auto-create profile, wait a bit then check
-      setTimeout(() => {
-        const nextUrl = getNextUrl();
-        if (auth?.profile) {
-          toast({
-            title: "Welcome! 🛹",
-            description: "You've successfully signed in with Google.",
-          });
-          setLocation(nextUrl);
-        } else {
-          toast({
-            title: "Welcome! 🛹",
-            description: "Let's complete your profile.",
-          });
-          const setupUrl =
-            nextUrl !== "/home"
-              ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
-              : "/profile/setup";
-          setLocation(setupUrl);
-        }
-      }, 500);
+      // useEffect handles redirect based on profileStatus
+      toast({
+        title: "Welcome! 🛹",
+        description: "Signing you in with Google...",
+      });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-in failed";
       toast({
@@ -125,7 +92,6 @@ export default function SigninPage() {
         description: errorMessage,
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   }
