@@ -40,6 +40,25 @@ export default function LoginPage() {
   const [inEmbeddedBrowser, setInEmbeddedBrowser] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Parse ?next= param for redirect after login
+  const getNextUrl = (): string => {
+    if (typeof window === "undefined") return "/home";
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    if (next) {
+      try {
+        const decoded = decodeURIComponent(next);
+        // Security: only allow relative paths
+        if (decoded.startsWith("/") && !decoded.startsWith("//")) {
+          return decoded;
+        }
+      } catch {
+        // Invalid encoding
+      }
+    }
+    return "/home";
+  };
+
   // Check for embedded browser on mount
   useEffect(() => {
     const isEmbedded = isEmbeddedBrowser();
@@ -48,12 +67,23 @@ export default function LoginPage() {
     console.log("[Login] Is embedded browser:", isEmbedded);
   }, []);
 
-  // Redirect when authenticated
+  // Redirect when authenticated and profile status is known
   useEffect(() => {
-    if (auth?.user) {
-      setLocation("/feed");
+    // Wait for profile status to be determined (not "unknown")
+    if (!auth?.user || auth?.profileStatus === "unknown") return;
+
+    if (auth.profileStatus === "exists") {
+      setLocation(getNextUrl());
+    } else if (auth.profileStatus === "missing") {
+      // Preserve next param when redirecting to profile setup
+      const nextUrl = getNextUrl();
+      const setupUrl =
+        nextUrl !== "/home"
+          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
+          : "/profile/setup";
+      setLocation(setupUrl);
     }
-  }, [auth?.user, setLocation]);
+  }, [auth?.user, auth?.profileStatus, setLocation]);
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);

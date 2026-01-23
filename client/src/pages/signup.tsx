@@ -21,7 +21,7 @@ export default function SignupPage() {
     if (auth?.isAuthenticated && auth?.profile) {
       setLocation("/home");
     } else if (auth?.isAuthenticated && !auth?.profile) {
-      setLocation("/profile-setup");
+      setLocation("/profile/setup");
     }
   }, [auth?.isAuthenticated, auth?.profile, setLocation]);
 
@@ -35,7 +35,7 @@ export default function SignupPage() {
         title: "Account Created! 🛹",
         description: "Now let's set up your profile!",
       });
-      setLocation("/profile-setup");
+      setLocation("/profile/setup");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Registration failed";
       toast({
@@ -57,7 +57,7 @@ export default function SignupPage() {
         title: "Account Created! 🛹",
         description: "Now let's set up your profile!",
       });
-      setLocation("/profile-setup");
+      setLocation("/profile/setup");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-up failed";
       toast({

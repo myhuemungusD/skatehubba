@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../context/AuthProvider";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
@@ -16,14 +16,42 @@ export default function SigninPage() {
   const auth = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect if already authenticated and has profile
-  useEffect(() => {
-    if (auth?.isAuthenticated && auth?.profile) {
-      setLocation("/home");
-    } else if (auth?.isAuthenticated && !auth?.profile) {
-      setLocation("/profile-setup");
+  // Parse ?next= param for redirect after login
+  const getNextUrl = useCallback((): string => {
+    if (typeof window === "undefined") return "/home";
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    if (next) {
+      try {
+        const decoded = decodeURIComponent(next);
+        // Security: only allow relative paths
+        if (decoded.startsWith("/") && !decoded.startsWith("//")) {
+          return decoded;
+        }
+      } catch {
+        // Invalid encoding
+      }
     }
-  }, [auth?.isAuthenticated, auth?.profile, setLocation]);
+    return "/home";
+  }, []);
+
+  // Redirect if already authenticated and profile status is known
+  useEffect(() => {
+    // Wait for profile status to be determined (not "unknown")
+    if (!auth?.isAuthenticated || auth?.profileStatus === "unknown") return;
+
+    if (auth.profileStatus === "exists") {
+      setLocation(getNextUrl());
+    } else if (auth.profileStatus === "missing") {
+      // Preserve next param when redirecting to profile setup
+      const nextUrl = getNextUrl();
+      const setupUrl =
+        nextUrl !== "/home"
+          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
+          : "/profile/setup";
+      setLocation(setupUrl);
+    }
+  }, [auth?.isAuthenticated, auth?.profileStatus, setLocation, getNextUrl]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -31,22 +59,11 @@ export default function SigninPage() {
 
     try {
       await auth?.signInWithEmail(email, password);
-      // AuthProvider will auto-create profile, wait a bit then check
-      setTimeout(() => {
-        if (auth?.profile) {
-          toast({
-            title: "Welcome back! 🛹",
-            description: "You've successfully signed in.",
-          });
-          setLocation("/home");
-        } else {
-          toast({
-            title: "Welcome back! 🛹",
-            description: "Let's complete your profile.",
-          });
-          setLocation("/profile-setup");
-        }
-      }, 500);
+      // useEffect handles redirect based on profileStatus
+      toast({
+        title: "Welcome back! 🛹",
+        description: "Signing you in...",
+      });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Login failed";
       toast({
@@ -54,7 +71,6 @@ export default function SigninPage() {
         description: errorMessage,
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   }
@@ -64,22 +80,11 @@ export default function SigninPage() {
 
     try {
       await auth?.signInWithGoogle();
-      // AuthProvider will auto-create profile, wait a bit then check
-      setTimeout(() => {
-        if (auth?.profile) {
-          toast({
-            title: "Welcome! 🛹",
-            description: "You've successfully signed in with Google.",
-          });
-          setLocation("/home");
-        } else {
-          toast({
-            title: "Welcome! 🛹",
-            description: "Let's complete your profile.",
-          });
-          setLocation("/profile-setup");
-        }
-      }, 500);
+      // useEffect handles redirect based on profileStatus
+      toast({
+        title: "Welcome! 🛹",
+        description: "Signing you in with Google...",
+      });
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-in failed";
       toast({
@@ -87,7 +92,6 @@ export default function SigninPage() {
         description: errorMessage,
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   }

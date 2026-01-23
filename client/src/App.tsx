@@ -173,12 +173,12 @@ function ProfileSetupRoute() {
 
   useEffect(() => {
     if (!auth.isAuthenticated) {
-      setLocation("/auth", { replace: true });
+      setLocation("/login", { replace: true });
       return;
     }
 
     if (auth.profileStatus === "exists") {
-      setLocation("/dashboard", { replace: true });
+      setLocation("/home", { replace: true });
     }
   }, [auth.isAuthenticated, auth.profileStatus, setLocation]);
 

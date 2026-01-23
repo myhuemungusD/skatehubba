@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
 import { useAuth } from "../../context/AuthProvider";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Progress } from "../../components/ui/progress";
 import { usernameSchema } from "@shared/schema";
-import { apiRequest } from "../../lib/api/client";
+import { apiRequest, buildApiUrl } from "../../lib/api/client";
 
 /**
  * Enterprise rules applied:
@@ -19,6 +19,7 @@ import { apiRequest } from "../../lib/api/client";
  * - No undefined variables / no implicit contracts.
  * - Upload path remains JSON-based for now (base64) but guarded and isolated.
  *   TODO (recommended): move avatar upload to Storage and send storagePath.
+ * - Supports ?next= param to preserve user's intended destination.
  */
 
 const stanceSchema = z.enum(["regular", "goofy"]);
@@ -73,6 +74,25 @@ type ProfileCreateResponse = {
 export default function ProfileSetup() {
   const auth = useAuth();
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
+
+  // Parse ?next= param for redirect after profile creation
+  const getNextUrl = useCallback((): string => {
+    const params = new URLSearchParams(searchString);
+    const next = params.get("next");
+    if (next) {
+      try {
+        const decoded = decodeURIComponent(next);
+        // Security: only allow relative paths, no external redirects
+        if (decoded.startsWith("/") && !decoded.startsWith("//")) {
+          return decoded;
+        }
+      } catch {
+        // Invalid encoding, fall back to default
+      }
+    }
+    return "/home";
+  }, [searchString]);
 
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
   const [usernameMessage, setUsernameMessage] = useState<string>("");
@@ -134,7 +154,7 @@ export default function ProfileSetup() {
         setUsernameMessage("");
 
         const res = await fetch(
-          `/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`,
+          buildApiUrl(`/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`),
           { signal: controller.signal }
         );
 
@@ -159,7 +179,8 @@ export default function ProfileSetup() {
         // Ignore stale responses
         if (seq !== usernameCheckSeqRef.current) return;
 
-        setUsernameStatus("invalid");
+        // Network or server issue - allow submit, but show warning
+        setUsernameStatus("idle");
         setUsernameMessage("Could not verify username right now.");
       }
     }, 500);
@@ -232,9 +253,9 @@ export default function ProfileSetup() {
           updatedAt: new Date(response.profile.updatedAt),
         });
 
-        // Profile created successfully - AuthProvider will fetch it on next render
-        // Redirect to home and let the auth state update naturally
-        setLocation("/home", { replace: true });
+        // Profile created successfully - redirect to intended destination or home
+        const nextUrl = getNextUrl();
+        setLocation(nextUrl, { replace: true });
       } catch (error) {
         console.error("[ProfileSetup] Failed to create profile", error);
         setSubmitError("We couldn't create your profile. Try again.");
@@ -242,7 +263,7 @@ export default function ProfileSetup() {
         setSubmitting(false);
       }
     },
-    [auth, setLocation]
+    [auth, setLocation, getNextUrl]
   );
 
   const onSubmit = useCallback(

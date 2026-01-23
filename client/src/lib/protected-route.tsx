@@ -10,6 +10,14 @@ function isE2EBypass(): boolean {
   return window.sessionStorage.getItem("e2eAuthBypass") === "true";
 }
 
+/**
+ * Get the current path for "next" redirect preservation
+ */
+function getCurrentPath(): string {
+  if (typeof window === "undefined") return "/home";
+  return window.location.pathname + window.location.search;
+}
+
 interface ProtectedRouteProps {
   path: string;
   component: ComponentType<{ params: Params }>;
@@ -26,6 +34,17 @@ function FullScreenSpinner() {
   );
 }
 
+/**
+ * Protected Route Guard
+ *
+ * Auth Resolution Logic (single source of truth):
+ * 1. Not authenticated → /login?next={currentPath}
+ * 2. Authenticated, profileStatus === "missing" → /profile/setup?next={currentPath}
+ * 3. Authenticated, profileStatus === "exists" → render route
+ *
+ * Profile existence is determined by AuthProvider.profileStatus which checks
+ * if the Firestore profile document exists for the user.
+ */
 export default function ProtectedRoute({ path, component: Component }: ProtectedRouteProps) {
   const auth = useAuth();
   const [, setLocation] = useLocation();
@@ -38,8 +57,10 @@ export default function ProtectedRoute({ path, component: Component }: Protected
           return <FullScreenSpinner />;
         }
 
+        const nextPath = encodeURIComponent(getCurrentPath());
+
         if (!auth.isAuthenticated && !bypass) {
-          setLocation("/login", { replace: true });
+          setLocation(`/login?next=${nextPath}`, { replace: true });
           return null;
         }
 
@@ -48,7 +69,7 @@ export default function ProtectedRoute({ path, component: Component }: Protected
         }
 
         if (!bypass && auth.profileStatus === "missing") {
-          setLocation("/profile/setup", { replace: true });
+          setLocation(`/profile/setup?next=${nextPath}`, { replace: true });
           return null;
         }
 

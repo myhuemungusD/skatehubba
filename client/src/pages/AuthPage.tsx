@@ -1,46 +1,46 @@
 /**
  * Authentication Page
- * 
+ *
  * Production-grade authentication UI with sign-in and sign-up tabs.
  * Supports email/password and Google OAuth authentication.
- * 
+ *
  * @module pages/auth
  */
 
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { Link, useLocation } from 'wouter';
-import { Eye, EyeOff, Mail, User, Lock, Loader2, Copy, Check } from 'lucide-react';
-import { SiGoogle } from 'react-icons/si';
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Link, useLocation } from "wouter";
+import { Eye, EyeOff, Mail, User, Lock, Loader2, Copy, Check } from "lucide-react";
+import { SiGoogle } from "react-icons/si";
 
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Checkbox } from '../components/ui/checkbox';
-import { useToast } from '../hooks/use-toast';
-import { useAuth } from '../context/AuthProvider';
-import { setAuthPersistence } from '../lib/firebase';
+import { Button } from "../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Checkbox } from "../components/ui/checkbox";
+import { useToast } from "../hooks/use-toast";
+import { useAuth } from "../context/AuthProvider";
+import { setAuthPersistence } from "../lib/firebase";
 
 /**
  * Detect if running in an embedded browser (Instagram, Facebook, etc.)
  * Google blocks OAuth in these webviews for security reasons
  */
 function isEmbeddedBrowser(): boolean {
-  const ua = navigator.userAgent || navigator.vendor || '';
+  const ua = navigator.userAgent || navigator.vendor || "";
   return (
-    ua.includes('FBAN') || // Facebook App
-    ua.includes('FBAV') || // Facebook App
-    ua.includes('Instagram') ||
-    ua.includes('Twitter') ||
-    ua.includes('Line/') ||
-    ua.includes('KAKAOTALK') ||
-    ua.includes('Snapchat') ||
-    ua.includes('TikTok') ||
-    (ua.includes('wv') && ua.includes('Android')) // Android WebView
+    ua.includes("FBAN") || // Facebook App
+    ua.includes("FBAV") || // Facebook App
+    ua.includes("Instagram") ||
+    ua.includes("Twitter") ||
+    ua.includes("Line/") ||
+    ua.includes("KAKAOTALK") ||
+    ua.includes("Snapchat") ||
+    ua.includes("TikTok") ||
+    (ua.includes("wv") && ua.includes("Android")) // Android WebView
   );
 }
 
@@ -49,20 +49,20 @@ function isEmbeddedBrowser(): boolean {
 // ============================================================================
 
 const signInSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string().email("Please enter a valid email address"),
+  password: z.string().min(1, "Password is required"),
 });
 
 const signUpSchema = z.object({
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Please enter a valid email address'),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Please enter a valid email address"),
   password: z
     .string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain an uppercase letter')
-    .regex(/[a-z]/, 'Password must contain a lowercase letter')
-    .regex(/[0-9]/, 'Password must contain a number'),
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[A-Z]/, "Password must contain an uppercase letter")
+    .regex(/[a-z]/, "Password must contain a lowercase letter")
+    .regex(/[0-9]/, "Password must contain a number"),
 });
 
 type SignInForm = z.infer<typeof signInSchema>;
@@ -76,25 +76,44 @@ export default function AuthPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const auth = useAuth();
-  
+
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true); // Default to staying signed in
   const [inEmbeddedBrowser, setInEmbeddedBrowser] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  // Parse ?next= param for redirect after login
+  const getNextUrl = (): string => {
+    if (typeof window === "undefined") return "/home";
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get("next");
+    if (next) {
+      try {
+        const decoded = decodeURIComponent(next);
+        // Security: only allow relative paths
+        if (decoded.startsWith("/") && !decoded.startsWith("//")) {
+          return decoded;
+        }
+      } catch {
+        // Invalid encoding
+      }
+    }
+    return "/home";
+  };
+
   // Check for embedded browser on mount
   useEffect(() => {
     const isEmbedded = isEmbeddedBrowser();
     setInEmbeddedBrowser(isEmbedded);
-    console.log('[AuthPage] User agent:', navigator.userAgent);
-    console.log('[AuthPage] Is embedded browser:', isEmbedded);
+    console.log("[AuthPage] User agent:", navigator.userAgent);
+    console.log("[AuthPage] Is embedded browser:", isEmbedded);
   }, []);
-  
+
   // Handle case where auth context is not available yet
   const signIn = auth?.signInWithEmail;
   const signUp = auth?.signUpWithEmail;
@@ -105,41 +124,47 @@ export default function AuthPage() {
   // Sign In Form
   const signInForm = useForm<SignInForm>({
     resolver: zodResolver(signInSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { email: "", password: "" },
   });
 
   // Sign Up Form
   const signUpForm = useForm<SignUpForm>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { firstName: '', lastName: '', email: '', password: '' },
+    defaultValues: { firstName: "", lastName: "", email: "", password: "" },
   });
 
   // Handle Sign In
   const handleSignIn = async (data: SignInForm) => {
     if (!signIn) {
-      toast({ title: 'Error', description: 'Authentication not ready. Please refresh.', variant: 'destructive' });
+      toast({
+        title: "Error",
+        description: "Authentication not ready. Please refresh.",
+        variant: "destructive",
+      });
       return;
     }
     try {
-      console.log('[AuthPage] Attempting sign in...');
+      console.log("[AuthPage] Attempting sign in...");
       // Set persistence before signing in
       await setAuthPersistence(rememberMe);
       await signIn(data.email, data.password);
-      console.log('[AuthPage] Sign in successful');
+      console.log("[AuthPage] Sign in successful");
       toast({
-        title: 'Welcome back! 🛹',
-        description: 'You have successfully signed in.',
+        title: "Welcome back! 🛹",
+        description: "You have successfully signed in.",
       });
-      setLocation('/dashboard');
+      // Redirect to intended destination or home
+      const nextUrl = getNextUrl();
+      setLocation(nextUrl);
     } catch (error) {
-      console.error('[AuthPage] Sign in error:', error);
+      console.error("[AuthPage] Sign in error:", error);
       // Get the actual error message from AuthError
       const authError = error as { message?: string; code?: string };
-      const message = authError.message || 'Sign in failed. Please check your credentials.';
+      const message = authError.message || "Sign in failed. Please check your credentials.";
       toast({
-        title: 'Sign In Failed',
+        title: "Sign In Failed",
         description: message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
   };
@@ -147,27 +172,31 @@ export default function AuthPage() {
   // Handle Sign Up
   const handleSignUp = async (data: SignUpForm) => {
     if (!signUp) {
-      toast({ title: 'Error', description: 'Authentication not ready. Please refresh.', variant: 'destructive' });
+      toast({
+        title: "Error",
+        description: "Authentication not ready. Please refresh.",
+        variant: "destructive",
+      });
       return;
     }
-    console.log('[AuthPage] handleSignUp called:', { email: data.email });
+    console.log("[AuthPage] handleSignUp called:", { email: data.email });
     try {
       await signUp(data.email, data.password);
-      console.log('[AuthPage] Sign up successful!');
+      console.log("[AuthPage] Sign up successful!");
       toast({
-        title: 'Account Created! 📧',
-        description: 'Please check your email to verify your account.',
+        title: "Account Created! 📧",
+        description: "Please check your email to verify your account.",
       });
-      setLocation('/verify');
+      setLocation("/verify");
     } catch (error) {
-      console.error('[AuthPage] Sign up error:', error);
+      console.error("[AuthPage] Sign up error:", error);
       const authError = error as { message?: string; code?: string };
-      const message = authError.message || 'Sign up failed. Please try again.';
-      console.error('[AuthPage] Displaying error:', message);
+      const message = authError.message || "Sign up failed. Please try again.";
+      console.error("[AuthPage] Displaying error:", message);
       toast({
-        title: 'Registration Failed',
+        title: "Registration Failed",
         description: message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     }
   };
@@ -175,7 +204,11 @@ export default function AuthPage() {
   // Handle Google Sign In
   const handleGoogleSignIn = async () => {
     if (!signInWithGoogle) {
-      toast({ title: 'Error', description: 'Authentication not ready. Please refresh.', variant: 'destructive' });
+      toast({
+        title: "Error",
+        description: "Authentication not ready. Please refresh.",
+        variant: "destructive",
+      });
       return;
     }
     setIsGoogleLoading(true);
@@ -184,16 +217,16 @@ export default function AuthPage() {
       await setAuthPersistence(rememberMe);
       await signInWithGoogle();
       toast({
-        title: 'Welcome! 🛹',
-        description: 'You have successfully signed in with Google.',
+        title: "Welcome! 🛹",
+        description: "You have successfully signed in with Google.",
       });
-      setLocation('/dashboard');
+      setLocation(getNextUrl());
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Google sign in failed';
+      const message = error instanceof Error ? error.message : "Google sign in failed";
       toast({
-        title: 'Google Sign In Failed',
+        title: "Google Sign In Failed",
         description: message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     } finally {
       setIsGoogleLoading(false);
@@ -203,37 +236,46 @@ export default function AuthPage() {
   // Handle Forgot Password
   const handleForgotPassword = async () => {
     if (!resetPassword) {
-      toast({ title: 'Error', description: 'Authentication not ready. Please refresh.', variant: 'destructive' });
+      toast({
+        title: "Error",
+        description: "Authentication not ready. Please refresh.",
+        variant: "destructive",
+      });
       return;
     }
-    
+
     if (!forgotPasswordEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotPasswordEmail)) {
-      toast({ title: 'Invalid Email', description: 'Please enter a valid email address.', variant: 'destructive' });
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
       return;
     }
-    
+
     setIsResettingPassword(true);
     try {
       await resetPassword(forgotPasswordEmail);
       toast({
-        title: 'Reset Email Sent 📧',
-        description: 'Check your inbox for password reset instructions.',
+        title: "Reset Email Sent 📧",
+        description: "Check your inbox for password reset instructions.",
       });
       setShowForgotPassword(false);
-      setForgotPasswordEmail('');
+      setForgotPasswordEmail("");
     } catch (error) {
       const authError = error as { message?: string };
       toast({
-        title: 'Reset Failed',
-        description: authError.message || 'Could not send reset email. Please try again.',
-        variant: 'destructive',
+        title: "Reset Failed",
+        description: authError.message || "Could not send reset email. Please try again.",
+        variant: "destructive",
       });
     } finally {
       setIsResettingPassword(false);
     }
   };
 
-  const isFormLoading = isLoading || signInForm.formState.isSubmitting || signUpForm.formState.isSubmitting;
+  const isFormLoading =
+    isLoading || signInForm.formState.isSubmitting || signUpForm.formState.isSubmitting;
 
   return (
     <div className="min-h-screen bg-[#181818] flex flex-col items-center justify-center p-4">
@@ -249,15 +291,15 @@ export default function AuthPage() {
 
         {/* Auth Card */}
         <Card className="bg-[#232323] border-gray-700">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'signin' | 'signup')}>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "signin" | "signup")}>
             <TabsList className="grid w-full grid-cols-2 bg-[#181818]">
-              <TabsTrigger 
-                value="signin" 
+              <TabsTrigger
+                value="signin"
                 className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
               >
                 Sign In
               </TabsTrigger>
-              <TabsTrigger 
+              <TabsTrigger
                 value="signup"
                 className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
               >
@@ -277,26 +319,32 @@ export default function AuthPage() {
                 <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
                   {/* Email */}
                   <div className="space-y-2">
-                    <Label htmlFor="signin-email" className="text-gray-300">Email</Label>
+                    <Label htmlFor="signin-email" className="text-gray-300">
+                      Email
+                    </Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="signin-email"
                         type="email"
                         placeholder="you@example.com"
-                        {...signInForm.register('email')}
+                        {...signInForm.register("email")}
                         className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                       />
                     </div>
                     {signInForm.formState.errors.email && (
-                      <p className="text-sm text-red-400">{signInForm.formState.errors.email.message}</p>
+                      <p className="text-sm text-red-400">
+                        {signInForm.formState.errors.email.message}
+                      </p>
                     )}
                   </div>
 
                   {/* Password */}
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <Label htmlFor="signin-password" className="text-gray-300">Password</Label>
+                      <Label htmlFor="signin-password" className="text-gray-300">
+                        Password
+                      </Label>
                       <button
                         type="button"
                         onClick={() => setShowForgotPassword(true)}
@@ -309,9 +357,9 @@ export default function AuthPage() {
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="signin-password"
-                        type={showPassword ? 'text' : 'password'}
+                        type={showPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        {...signInForm.register('password')}
+                        {...signInForm.register("password")}
                         className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                       />
                       <button
@@ -319,11 +367,17 @@ export default function AuthPage() {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                     {signInForm.formState.errors.password && (
-                      <p className="text-sm text-red-400">{signInForm.formState.errors.password.message}</p>
+                      <p className="text-sm text-red-400">
+                        {signInForm.formState.errors.password.message}
+                      </p>
                     )}
                   </div>
 
@@ -335,10 +389,7 @@ export default function AuthPage() {
                       onCheckedChange={(checked) => setRememberMe(checked === true)}
                       className="border-gray-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
                     />
-                    <Label
-                      htmlFor="rememberMe"
-                      className="text-sm text-gray-300 cursor-pointer"
-                    >
+                    <Label htmlFor="rememberMe" className="text-sm text-gray-300 cursor-pointer">
                       Keep me signed in
                     </Label>
                   </div>
@@ -355,7 +406,7 @@ export default function AuthPage() {
                         Signing In...
                       </>
                     ) : (
-                      'Sign In'
+                      "Sign In"
                     )}
                   </Button>
                 </form>
@@ -388,14 +439,21 @@ export default function AuthPage() {
                         try {
                           await navigator.clipboard.writeText(window.location.href);
                           setCopied(true);
-                          toast({ title: "Link copied!", description: "Paste it in Safari or Chrome." });
+                          toast({
+                            title: "Link copied!",
+                            description: "Paste it in Safari or Chrome.",
+                          });
                           setTimeout(() => setCopied(false), 2000);
                         } catch {
                           toast({ title: "Copy this link", description: window.location.href });
                         }
                       }}
                     >
-                      {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                      {copied ? (
+                        <Check className="w-4 h-4 mr-2" />
+                      ) : (
+                        <Copy className="w-4 h-4 mr-2" />
+                      )}
                       {copied ? "Copied!" : "Copy Link"}
                     </Button>
                   </div>
@@ -406,7 +464,7 @@ export default function AuthPage() {
                   type="button"
                   variant="outline"
                   className={`w-full border-gray-600 text-white hover:bg-gray-700 ${
-                    inEmbeddedBrowser ? 'opacity-50 cursor-not-allowed' : ''
+                    inEmbeddedBrowser ? "opacity-50 cursor-not-allowed" : ""
                   }`}
                   onClick={handleGoogleSignIn}
                   disabled={isGoogleLoading || inEmbeddedBrowser}
@@ -434,62 +492,76 @@ export default function AuthPage() {
                   {/* Name Fields */}
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName" className="text-gray-300">First Name</Label>
+                      <Label htmlFor="firstName" className="text-gray-300">
+                        First Name
+                      </Label>
                       <div className="relative">
                         <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                         <Input
                           id="firstName"
                           placeholder="John"
-                          {...signUpForm.register('firstName')}
+                          {...signUpForm.register("firstName")}
                           className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                         />
                       </div>
                       {signUpForm.formState.errors.firstName && (
-                        <p className="text-sm text-red-400">{signUpForm.formState.errors.firstName.message}</p>
+                        <p className="text-sm text-red-400">
+                          {signUpForm.formState.errors.firstName.message}
+                        </p>
                       )}
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName" className="text-gray-300">Last Name</Label>
+                      <Label htmlFor="lastName" className="text-gray-300">
+                        Last Name
+                      </Label>
                       <Input
                         id="lastName"
                         placeholder="Doe"
-                        {...signUpForm.register('lastName')}
+                        {...signUpForm.register("lastName")}
                         className="bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                       />
                       {signUpForm.formState.errors.lastName && (
-                        <p className="text-sm text-red-400">{signUpForm.formState.errors.lastName.message}</p>
+                        <p className="text-sm text-red-400">
+                          {signUpForm.formState.errors.lastName.message}
+                        </p>
                       )}
                     </div>
                   </div>
 
                   {/* Email */}
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email" className="text-gray-300">Email</Label>
+                    <Label htmlFor="signup-email" className="text-gray-300">
+                      Email
+                    </Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="signup-email"
                         type="email"
                         placeholder="you@example.com"
-                        {...signUpForm.register('email')}
+                        {...signUpForm.register("email")}
                         className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                       />
                     </div>
                     {signUpForm.formState.errors.email && (
-                      <p className="text-sm text-red-400">{signUpForm.formState.errors.email.message}</p>
+                      <p className="text-sm text-red-400">
+                        {signUpForm.formState.errors.email.message}
+                      </p>
                     )}
                   </div>
 
                   {/* Password */}
                   <div className="space-y-2">
-                    <Label htmlFor="signup-password" className="text-gray-300">Password</Label>
+                    <Label htmlFor="signup-password" className="text-gray-300">
+                      Password
+                    </Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
                         id="signup-password"
-                        type={showPassword ? 'text' : 'password'}
+                        type={showPassword ? "text" : "password"}
                         placeholder="••••••••"
-                        {...signUpForm.register('password')}
+                        {...signUpForm.register("password")}
                         className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                       />
                       <button
@@ -497,14 +569,20 @@ export default function AuthPage() {
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
                       >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        {showPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
                       </button>
                     </div>
                     <p className="text-xs text-gray-500">
                       Must contain at least 8 characters with uppercase, lowercase, and numbers
                     </p>
                     {signUpForm.formState.errors.password && (
-                      <p className="text-sm text-red-400">{signUpForm.formState.errors.password.message}</p>
+                      <p className="text-sm text-red-400">
+                        {signUpForm.formState.errors.password.message}
+                      </p>
                     )}
                   </div>
 
@@ -520,16 +598,20 @@ export default function AuthPage() {
                         Creating Account...
                       </>
                     ) : (
-                      'Create Account'
+                      "Create Account"
                     )}
                   </Button>
 
                   {/* Terms */}
                   <p className="text-xs text-center text-gray-500">
-                    By creating an account, you agree to our{' '}
-                    <Link href="/terms" className="text-orange-500 hover:underline">Terms of Service</Link>
-                    {' '}and{' '}
-                    <Link href="/privacy" className="text-orange-500 hover:underline">Privacy Policy</Link>
+                    By creating an account, you agree to our{" "}
+                    <Link href="/terms" className="text-orange-500 hover:underline">
+                      Terms of Service
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" className="text-orange-500 hover:underline">
+                      Privacy Policy
+                    </Link>
                   </p>
                 </form>
 
@@ -561,14 +643,21 @@ export default function AuthPage() {
                         try {
                           await navigator.clipboard.writeText(window.location.href);
                           setCopied(true);
-                          toast({ title: "Link copied!", description: "Paste it in Safari or Chrome." });
+                          toast({
+                            title: "Link copied!",
+                            description: "Paste it in Safari or Chrome.",
+                          });
                           setTimeout(() => setCopied(false), 2000);
                         } catch {
                           toast({ title: "Copy this link", description: window.location.href });
                         }
                       }}
                     >
-                      {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
+                      {copied ? (
+                        <Check className="w-4 h-4 mr-2" />
+                      ) : (
+                        <Copy className="w-4 h-4 mr-2" />
+                      )}
                       {copied ? "Copied!" : "Copy Link"}
                     </Button>
                   </div>
@@ -579,7 +668,7 @@ export default function AuthPage() {
                   type="button"
                   variant="outline"
                   className={`w-full border-gray-600 text-white hover:bg-gray-700 ${
-                    inEmbeddedBrowser ? 'opacity-50 cursor-not-allowed' : ''
+                    inEmbeddedBrowser ? "opacity-50 cursor-not-allowed" : ""
                   }`}
                   onClick={handleGoogleSignIn}
                   disabled={isGoogleLoading || inEmbeddedBrowser}
@@ -616,7 +705,9 @@ export default function AuthPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="reset-email" className="text-gray-300">Email</Label>
+                <Label htmlFor="reset-email" className="text-gray-300">
+                  Email
+                </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
@@ -635,7 +726,7 @@ export default function AuthPage() {
                   className="flex-1 border-gray-600 text-white hover:bg-gray-700"
                   onClick={() => {
                     setShowForgotPassword(false);
-                    setForgotPasswordEmail('');
+                    setForgotPasswordEmail("");
                   }}
                 >
                   Cancel
@@ -651,7 +742,7 @@ export default function AuthPage() {
                       Sending...
                     </>
                   ) : (
-                    'Send Reset Link'
+                    "Send Reset Link"
                   )}
                 </Button>
               </div>

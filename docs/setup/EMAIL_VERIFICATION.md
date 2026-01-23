@@ -90,22 +90,65 @@ Wraps protected pages and enforces:
 - `client/src/components/ProtectedRoute.tsx` - NEW route protection
 - `client/src/App.tsx` - Added verify route + protected routes
 
-## 🎯 Routes Summary
+## 🎯 Routes Summary (Canonical Version)
 
 **Public Routes:**
 
-- `/` - Landing page
-- `/signup` - Sign up
-- `/signin` - Sign in
-- `/verify` - Verification instructions
-- `/verified` - Verification success
-- `/shop`, `/closet`, `/donate` - Public pages
+- `/` → Root redirect (→ /landing if unauthenticated, /home if authenticated)
+- `/landing` → Marketing / CTA landing page
+- `/login` → Sign in (Google/Guest)
+- `/signin` → Sign in (Email/Password)
+- `/signup` → Create account
+- `/auth` → Combined auth page with tabs
+- `/verify` → Email verification instructions
+- `/verified` → Verification success
 
-**Protected Routes (Email Verification Required):**
+**Auth Resolution:**
 
-- `/map` - Map check-ins
-- `/skate-game` - Remote SKATE game
+After authentication:
+
+- If profile exists → Redirect to `?next=` param or `/home`
+- If no profile → Redirect to `/profile/setup?next=...`
+
+**Protected Routes (Requires Auth + Profile):**
+
+Any protected route hit:
+
+1. Not authenticated → `/login?next={currentPath}`
+2. Authenticated, no profile → `/profile/setup?next={currentPath}`
+3. Authenticated, profile exists → Render route
+
+Protected routes include:
+
+- `/home` - Member hub
+- `/dashboard` - Dashboard feed
+- `/feed` - Activity feed
+- `/map` - Spot map
+- `/skate-game` - S.K.A.T.E. battles
+- `/leaderboard` - Rankings
 - `/tutorial` - Tutorial system
+- `/checkins` - Check-ins
+
+**Profile Setup:**
+
+- `/profile/setup` - Onboarding (requires auth, no profile)
+- After completion → Redirect to `?next=` param or `/home`
+
+**Source of Truth for Profile:**
+
+Profile existence is determined by `AuthProvider.profileStatus`:
+
+- `"exists"` → Firestore profile document exists
+- `"missing"` → No profile document found
+- `"unknown"` → Still loading
+
+Guard logic:
+
+```typescript
+if (!auth.isAuthenticated) redirect("/login?next=...");
+if (auth.profileStatus === "missing") redirect("/profile/setup?next=...");
+// else: render route
+```
 
 ## ✨ Key Differences from React Router Version
 

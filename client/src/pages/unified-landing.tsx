@@ -10,19 +10,46 @@
  * - Brief feature overview (3 items max)
  * - Trust indicators
  * - That's it. No walls of text.
+ *
+ * Behavior:
+ * - Unauthenticated: Show landing page (no app shell)
+ * - Authenticated: Redirect to /home
  */
 
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import BackgroundCarousel from "../components/BackgroundCarousel";
-import Navigation from "../components/Navigation";
+import PublicNavigation from "../components/PublicNavigation";
 import { Footer } from "../components/Footer";
 import { HeroSection } from "../sections/landing/HeroSection";
 import { FeatureGrid } from "../sections/landing/FeatureGrid";
 import { landingContent } from "../content/landing";
+import { useAuth } from "../context/AuthProvider";
 
 export default function UnifiedLanding() {
+  const { user, loading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  // Redirect authenticated users to /home
+  useEffect(() => {
+    if (!loading && user) {
+      setLocation("/home", { replace: true });
+    }
+  }, [user, loading, setLocation]);
+
+  // Show nothing while checking auth (prevents flash)
+  if (loading) {
+    return null;
+  }
+
+  // If authenticated, don't render (redirect will happen)
+  if (user) {
+    return null;
+  }
+
   return (
     <BackgroundCarousel className="text-white">
-      <Navigation />
+      <PublicNavigation />
 
       <HeroSection
         badge={landingContent.hero.badge}
