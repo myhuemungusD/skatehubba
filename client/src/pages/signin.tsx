@@ -35,11 +35,14 @@ export default function SigninPage() {
     return "/home";
   }, []);
 
-  // Redirect if already authenticated and has profile
+  // Redirect if already authenticated and profile status is known
   useEffect(() => {
-    if (auth?.isAuthenticated && auth?.profile) {
+    // Wait for profile status to be determined (not "unknown")
+    if (!auth?.isAuthenticated || auth?.profileStatus === "unknown") return;
+
+    if (auth.profileStatus === "exists") {
       setLocation(getNextUrl());
-    } else if (auth?.isAuthenticated && !auth?.profile) {
+    } else if (auth.profileStatus === "missing") {
       // Preserve next param when redirecting to profile setup
       const nextUrl = getNextUrl();
       const setupUrl =
@@ -48,7 +51,7 @@ export default function SigninPage() {
           : "/profile/setup";
       setLocation(setupUrl);
     }
-  }, [auth?.isAuthenticated, auth?.profile, setLocation, getNextUrl]);
+  }, [auth?.isAuthenticated, auth?.profileStatus, setLocation, getNextUrl]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();

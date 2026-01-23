@@ -67,11 +67,14 @@ export default function LoginPage() {
     console.log("[Login] Is embedded browser:", isEmbedded);
   }, []);
 
-  // Redirect when authenticated
+  // Redirect when authenticated and profile status is known
   useEffect(() => {
-    if (auth?.user && auth?.profile) {
+    // Wait for profile status to be determined (not "unknown")
+    if (!auth?.user || auth?.profileStatus === "unknown") return;
+
+    if (auth.profileStatus === "exists") {
       setLocation(getNextUrl());
-    } else if (auth?.user && !auth?.profile) {
+    } else if (auth.profileStatus === "missing") {
       // Preserve next param when redirecting to profile setup
       const nextUrl = getNextUrl();
       const setupUrl =
@@ -80,7 +83,7 @@ export default function LoginPage() {
           : "/profile/setup";
       setLocation(setupUrl);
     }
-  }, [auth?.user, auth?.profile, setLocation]);
+  }, [auth?.user, auth?.profileStatus, setLocation]);
 
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
