@@ -18,7 +18,7 @@ export default function SigninPage() {
 
   // Parse ?next= param for redirect after login
   const getNextUrl = useCallback((): string => {
-    if (typeof window === "undefined") return "/home";
+    if (typeof window === "undefined") return "/landing";
     const params = new URLSearchParams(window.location.search);
     const next = params.get("next");
     if (next) {
@@ -32,7 +32,7 @@ export default function SigninPage() {
         // Invalid encoding
       }
     }
-    return "/home";
+    return "/landing";
   }, []);
 
   // Redirect if already authenticated and profile status is known
@@ -46,7 +46,7 @@ export default function SigninPage() {
       // Preserve next param when redirecting to profile setup
       const nextUrl = getNextUrl();
       const setupUrl =
-        nextUrl !== "/home"
+        nextUrl !== "/landing"
           ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
           : "/profile/setup";
       setLocation(setupUrl);

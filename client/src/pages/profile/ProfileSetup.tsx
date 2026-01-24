@@ -92,7 +92,7 @@ export default function ProfileSetup() {
         // Invalid encoding, fall back to default
       }
     }
-    return "/home";
+    return "/landing";
   }, [searchString]);
 
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");

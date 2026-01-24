@@ -42,7 +42,7 @@ export default function LoginPage() {
 
   // Parse ?next= param for redirect after login
   const getNextUrl = (): string => {
-    if (typeof window === "undefined") return "/home";
+    if (typeof window === "undefined") return "/landing";
     const params = new URLSearchParams(window.location.search);
     const next = params.get("next");
     if (next) {
@@ -56,7 +56,7 @@ export default function LoginPage() {
         // Invalid encoding
       }
     }
-    return "/home";
+    return "/landing";
   };
 
   // Check for embedded browser on mount
@@ -78,7 +78,7 @@ export default function LoginPage() {
       // Preserve next param when redirecting to profile setup
       const nextUrl = getNextUrl();
       const setupUrl =
-        nextUrl !== "/home"
+        nextUrl !== "/landing"
           ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
           : "/profile/setup";
       setLocation(setupUrl);

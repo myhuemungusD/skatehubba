@@ -89,7 +89,7 @@ export default function AuthPage() {
 
   // Parse ?next= param for redirect after login
   const getNextUrl = (): string => {
-    if (typeof window === "undefined") return "/home";
+    if (typeof window === "undefined") return "/landing";
     const params = new URLSearchParams(window.location.search);
     const next = params.get("next");
     if (next) {
@@ -103,8 +103,24 @@ export default function AuthPage() {
         // Invalid encoding
       }
     }
-    return "/home";
+    return "/landing";
   };
+
+  // Redirect when authenticated and profile status is known
+  useEffect(() => {
+    if (!auth?.isAuthenticated || auth?.profileStatus === "unknown") return;
+
+    if (auth.profileStatus === "exists") {
+      setLocation(getNextUrl());
+    } else if (auth.profileStatus === "missing") {
+      const nextUrl = getNextUrl();
+      const setupUrl =
+        nextUrl !== "/landing"
+          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
+          : "/profile/setup";
+      setLocation(setupUrl);
+    }
+  }, [auth?.isAuthenticated, auth?.profileStatus, setLocation]);
 
   // Check for embedded browser on mount
   useEffect(() => {
@@ -153,9 +169,6 @@ export default function AuthPage() {
         title: "Welcome back! 🛹",
         description: "You have successfully signed in.",
       });
-      // Redirect to intended destination or home
-      const nextUrl = getNextUrl();
-      setLocation(nextUrl);
     } catch (error) {
       console.error("[AuthPage] Sign in error:", error);
       // Get the actual error message from AuthError
@@ -220,7 +233,6 @@ export default function AuthPage() {
         title: "Welcome! 🛹",
         description: "You have successfully signed in with Google.",
       });
-      setLocation(getNextUrl());
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google sign in failed";
       toast({
