@@ -1,3 +1,6 @@
+/// <reference types="cypress" />
+/// <reference types="cypress/globals" />
+
 describe("Profile onboarding", () => {
   it("redirects unauthenticated users to login", () => {
     cy.visit("/profile/setup");

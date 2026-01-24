@@ -75,7 +75,8 @@
     "onlyBuiltDependencies": [
       "esbuild",
       "@firebase/util",
-      "protobufjs"
+      "protobufjs",
+      "cypress"
     ]
   },
   "dependencies": {
