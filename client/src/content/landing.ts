@@ -15,6 +15,10 @@ export const landingContent = {
       text: "Sign In / Sign Up",
       href: "/auth",
     },
+    secondaryCTA: {
+      text: "Learn More",
+      href: "/specs",
+    },
   },
   trustIndicators: [
     {
