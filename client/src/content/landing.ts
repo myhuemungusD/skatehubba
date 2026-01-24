@@ -7,7 +7,7 @@ export const landingContent = {
       variant: "success" as const,
     },
     eyebrow: "The Future of Competitive Skateboarding",
-    title: "Own the Spot.",
+    title: "Own Your Tricks.",
     subtitle: "Play SKATE Anywhere.",
     description:
       "The ultimate mobile skateboarding platform where every clip, spot, and session tells a story.",
