@@ -329,7 +329,10 @@ export const validateChallengeVideo = functions.storage.object().onFinalize(asyn
 
   const bucket = admin.storage().bucket(object.bucket);
   const file = bucket.file(filePath);
-  const tempFilePath = path.join(os.tmpdir(), path.basename(filePath));
+  const tempFilePath = path.join(
+    os.tmpdir(),
+    `${path.basename(filePath)}_${Date.now()}_${Math.random().toString(36).slice(2)}`
+  );
 
   try {
     await file.download({ destination: tempFilePath });
