@@ -23,8 +23,12 @@ export function StagingBanner({ forceShow = false }: StagingBannerProps) {
     setEnv(getAppEnv());
   }, []);
 
-  // Only show in staging/local or if forced
-  const showBanner = forceShow || isStaging() || env === "local";
+  const hostname = typeof window !== "undefined" ? window.location.hostname : "";
+  const isLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
+  const isProdHost = hostname === "skatehubba.com" || hostname === "www.skatehubba.com";
+
+  // Only show in staging or local dev (localhost) or if forced
+  const showBanner = forceShow || isStaging() || (env === "local" && isLocalHost && !isProdHost);
   if (!showBanner) {
     return null;
   }

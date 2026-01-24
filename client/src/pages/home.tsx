@@ -1,96 +1,81 @@
-/**
- * Authenticated Member Hub (Action-Focused)
- *
- * Purpose: Central dashboard for logged-in users
- * Target: Authenticated users
- * Goal: Quick navigation to core features
- *
- * Content: Member-focused
- * - Quick action buttons (Feed, Map, Battle, Profile)
- * - Live platform stats (member-specific data)
- * - Feature overview with member benefits
- * - Email signup (newsletter, lower priority)
- */
-
-import EmailSignup from "../components/EmailSignup";
-import { MemberHubHero } from "../sections/home/MemberHubHero";
-import { StatsStrip } from "../sections/home/StatsStrip";
-import { FeatureGrid } from "../sections/landing/FeatureGrid";
-import { homeContent } from "../content/home";
-import { useQuery } from "@tanstack/react-query";
-
-// Fetch real stats from backend
-function useAppStats() {
-  return useQuery({
-    queryKey: ["/api/stats"],
-    queryFn: async () => {
-      try {
-        const res = await fetch("/api/stats");
-        if (!res.ok) return null;
-        return res.json();
-      } catch {
-        return null;
-      }
-    },
-    staleTime: 1000 * 60 * 5, // 5 min cache
-    retry: false,
-  });
-}
+import { Link } from "wouter";
+import { ArrowRight, Shield } from "lucide-react";
+import { useAuth } from "../context/AuthProvider";
 
 export default function Home() {
-  const { data: stats } = useAppStats();
-
-  // Use real stats if available, otherwise show conservative estimates
-  const displayStats = [
-    { label: "Active Skaters", value: stats?.totalUsers || "Growing" },
-    { label: "Skate Spots Mapped", value: stats?.totalSpots || "50+" },
-    { label: "SKATE Battles", value: stats?.totalBattles || "Active" },
-  ];
+  const auth = useAuth();
+  const isAuthenticated = auth?.isAuthenticated ?? false;
 
   return (
-    <div className="text-white">
-      <MemberHubHero
-        badge={homeContent.hero.badge}
-        title={homeContent.hero.title}
-        quickActions={homeContent.hero.quickActions}
-      />
+    <section className="relative -mx-4 -mt-6 min-h-dvh overflow-hidden px-6 pb-20 pt-10 text-white">
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0d0d10] via-[#1a0f0a] to-[#0a0f1a]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,120,0,0.18),_transparent_45%)]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_bottom,_rgba(45,96,255,0.18),_transparent_45%)]" />
+      <div className="absolute inset-0 bg-[url('/images/backgrounds/hubbagraffwall.png')] bg-cover bg-center opacity-10" />
 
-      <StatsStrip stats={displayStats} />
+      <div className="relative z-10 mx-auto flex min-h-dvh w-full max-w-3xl flex-col">
+        <header className="flex items-center justify-between">
+          <span
+            className="text-2xl text-orange-400"
+            style={{ fontFamily: "'Permanent Marker', cursive" }}
+          >
+            SkateHubba
+          </span>
+          {!isAuthenticated && (
+            <Link href="/auth">
+              <a className="group inline-flex items-center gap-3 rounded-xl border border-orange-500/40 bg-orange-500/10 px-5 py-2 text-sm font-semibold uppercase tracking-wide text-orange-200 transition hover:bg-orange-500/20">
+                Sign In / Sign Up
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </a>
+            </Link>
+          )}
+        </header>
 
-      <section className="py-24 bg-gradient-to-b from-zinc-900 to-black text-white">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4 text-white">Built for Real Skaters</h2>
-            <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-              Every feature designed by skaters, for skaters. No gimmicks—just the tools you need.
-            </p>
+        <div className="flex flex-1 flex-col items-center justify-center text-center">
+          <div className="mb-8 inline-flex items-center gap-3 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-5 py-2 text-xs font-semibold uppercase tracking-[0.25em] text-emerald-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400" />
+            Now Available - Join the Beta
           </div>
 
-          <FeatureGrid features={homeContent.features} columns={4} />
-        </div>
-      </section>
-
-      <EmailSignup />
-
-      <footer className="py-8 text-center text-gray-500 bg-black border-t border-orange-400/10">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="flex flex-wrap justify-center gap-6 mb-4 text-sm">
-            <a href="/specs" className="hover:text-orange-400 transition-colors">
-              Specs
-            </a>
-            <a
-              href="mailto:hello@skatehubba.com"
-              className="hover:text-orange-400 transition-colors"
-            >
-              Contact
-            </a>
-          </div>
-          <p className="text-sm">
-            &copy; {new Date().getFullYear()}{" "}
-            <span className="text-orange-400 font-semibold">SkateHubba</span> — Own Your Tricks.
+          <p className="text-xs font-semibold uppercase tracking-[0.35em] text-orange-400">
+            The Future of Competitive Skateboarding
           </p>
+
+          <h1 className="mt-6 text-5xl font-black tracking-tight md:text-7xl">
+            <span className="bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
+              Own Your Tricks.
+            </span>
+          </h1>
+          <h2 className="mt-3 text-4xl font-black tracking-tight text-orange-400 md:text-6xl">
+            Play Skate Anywhere.
+          </h2>
+
+          <p className="mt-8 max-w-xl text-base leading-relaxed text-zinc-300 md:text-lg">
+            The ultimate mobile skateboarding platform where every clip, spot, and session tells a
+            story.
+          </p>
+
+          {!isAuthenticated && (
+            <div className="mt-10 flex w-full max-w-sm flex-col gap-4">
+              <Link href="/auth">
+                <a className="group inline-flex items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4 text-base font-bold uppercase tracking-wide text-black shadow-[0_18px_60px_rgba(255,122,0,0.35)] transition hover:translate-y-[-1px]">
+                  Sign In / Sign Up
+                  <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+                </a>
+              </Link>
+            </div>
+          )}
         </div>
-      </footer>
-    </div>
+
+        <div className="mt-12 flex items-center justify-center">
+          <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-sm font-semibold uppercase tracking-wide text-zinc-200 backdrop-blur">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
+              <Shield className="h-5 w-5 text-emerald-400" />
+            </div>
+            Enterprise-grade Security
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

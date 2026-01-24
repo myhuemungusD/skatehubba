@@ -141,7 +141,7 @@ export default function SkaterProfile() {
       {/* Footer brand strip */}
       <footer className="border-t border-white/10 bg-black/30">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 text-sm text-neutral-300">
-          <span>SkateHubba™ — Own Your Tricks.</span>
+          <span>SkateHubba™ — Own the Spot.</span>
           <span>© Design Mainline LLC</span>
         </div>
       </footer>
