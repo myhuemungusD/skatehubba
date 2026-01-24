@@ -8,16 +8,35 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // Import from enterprise config package for universal env handling
 import {
   getFirebaseConfig as getSharedFirebaseConfig,
+  assertEnvWiring,
+  getEnvBanner,
   getAppEnv,
   isProd,
   isStaging,
+  validateEnv,
 } from "@skatehubba/config";
+
+// Validate environment (warns in dev, throws only when guardrails fail)
+validateEnv();
+
+try {
+  assertEnvWiring();
+} catch (error) {
+  console.error("[Firebase Mobile] Environment mismatch detected!", error);
+  if (isProd()) {
+    throw error;
+  }
+}
 
 // Get Firebase configuration from shared package
 const firebaseConfig = getSharedFirebaseConfig();
 
 // Log environment on startup (non-prod only)
 if (!isProd()) {
+  const banner = getEnvBanner();
+  if (banner) {
+    console.log(`[Firebase Mobile] ${banner}`);
+  }
   console.log(`[Firebase Mobile] Environment: ${getAppEnv()}`);
   console.log(`[Firebase Mobile] Project: ${firebaseConfig.projectId}`);
 }
