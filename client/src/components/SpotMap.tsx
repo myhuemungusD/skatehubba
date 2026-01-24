@@ -135,22 +135,28 @@ export const SpotMap = memo(function SpotMap({
     // Cleanup only on unmount
     return () => {
       isMounted = false;
-      spotMarkersRef.current.forEach((marker) => marker.remove());
-      spotMarkersRef.current.clear();
-      markerProximityRef.current.clear();
+      const spotMarkers = spotMarkersRef.current;
+      const markerProximity = markerProximityRef.current;
+      const userMarker = userMarkerRef.current;
+      const accuracyCircle = accuracyCircleRef.current;
+      const mapInstance = mapInstanceRef.current;
 
-      if (userMarkerRef.current) {
-        userMarkerRef.current.remove();
+      spotMarkers.forEach((marker) => marker.remove());
+      spotMarkers.clear();
+      markerProximity.clear();
+
+      if (userMarker) {
+        userMarker.remove();
         userMarkerRef.current = null;
       }
 
-      if (accuracyCircleRef.current) {
-        accuracyCircleRef.current.remove();
+      if (accuracyCircle) {
+        accuracyCircle.remove();
         accuracyCircleRef.current = null;
       }
 
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
+      if (mapInstance) {
+        mapInstance.remove();
         mapInstanceRef.current = null;
       }
     };

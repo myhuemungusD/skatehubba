@@ -343,7 +343,7 @@ export default function ProfileSetup() {
         setSubmitting(false);
       }
     },
-    [auth, setLocation, getNextUrl]
+    [auth, setLocation, getNextUrl, checkUsernameAvailability, usernameStatus]
   );
 
   const onSubmit = useCallback(

@@ -108,7 +108,7 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
       }
       markerRef.current = null;
     };
-  }, []);
+  }, [handleLocationClick, selectedLocation.lat, selectedLocation.lng]);
 
   const getCurrentLocation = () => {
     setIsGettingLocation(true);

@@ -26,6 +26,7 @@ import { HeroSection } from "../sections/landing/HeroSection";
 import { FeatureGrid } from "../sections/landing/FeatureGrid";
 import { landingContent } from "../content/landing";
 import { useAuth } from "../hooks/useAuth";
+import AppDropdownMenu from "../components/navigation/AppDropdownMenu";
 
 export default function UnifiedLanding() {
   const auth = useAuth();
@@ -53,6 +54,10 @@ export default function UnifiedLanding() {
   return (
     <BackgroundCarousel className="text-white">
       <PublicNavigation />
+
+      <div className="absolute top-0 right-0 m-4 z-50">
+        <AppDropdownMenu />
+      </div>
 
       <HeroSection
         badge={landingContent.hero.badge}

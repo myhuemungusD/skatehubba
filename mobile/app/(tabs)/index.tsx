@@ -9,7 +9,7 @@ export default function HomeScreen() {
 
   if (loading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID="home-loading">
         <Text style={styles.loadingText}>Loading...</Text>
       </View>
     );
@@ -17,10 +17,14 @@ export default function HomeScreen() {
 
   if (!user) {
     return (
-      <View style={styles.container}>
+      <View style={styles.container} testID="home-unauth">
         <Text style={styles.title}>Welcome to SkateHubba</Text>
         <Text style={styles.subtitle}>Sign in to start your skateboarding journey</Text>
-        <TouchableOpacity style={styles.button} onPress={() => router.push("/auth/sign-in" as any)}>
+        <TouchableOpacity
+          style={styles.button}
+          onPress={() => router.push("/auth/sign-in" as any)}
+          testID="home-sign-in"
+        >
           <Text style={styles.buttonText}>Sign In</Text>
         </TouchableOpacity>
       </View>
@@ -28,7 +32,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} testID="home-screen">
       <View style={styles.header}>
         <Text style={styles.greeting}>Welcome back, {user.displayName || "Skater"}! 🛹</Text>
       </View>

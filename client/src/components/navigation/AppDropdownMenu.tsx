@@ -8,25 +8,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-
-type NavItem = {
-  label: string;
-  href?: string;
-  disabled?: boolean;
-};
-
-const navItems: NavItem[] = [
-  { label: "PROFILE", href: "/closet" },
-  { label: "S.K.A.T.E", href: "/game" },
-  { label: "SPOTMAP", href: "/map" },
-  { label: "HUBBA SHOP", href: "/shop" },
-  { label: "THE TRENCHES", href: "/leaderboard" },
-  { label: "SETTINGS", href: "/settings" },
-  { label: "TRICK MINTING", disabled: true },
-];
+import { useNavItems } from "./navItems";
 
 export default function AppDropdownMenu() {
   const [location] = useLocation();
+  const navItems = useNavItems();
 
   return (
     <DropdownMenu>

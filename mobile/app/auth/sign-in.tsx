@@ -99,7 +99,7 @@ export default function SignIn() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} testID="auth-sign-in">
       <View style={styles.header}>
         <Text style={styles.brandTitle}>SkateHubba</Text>
         <Text style={styles.tagline}>Find and share the best skate spots</Text>
@@ -132,6 +132,7 @@ export default function SignIn() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              testID="auth-email"
             />
           </View>
 
@@ -148,6 +149,7 @@ export default function SignIn() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              testID="auth-password"
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
               <Ionicons
@@ -163,6 +165,7 @@ export default function SignIn() {
             style={styles.primaryButton}
             onPress={handleEmailSignIn}
             disabled={loading}
+            testID="auth-submit"
           >
             {loading ? (
               <ActivityIndicator color="#000" />

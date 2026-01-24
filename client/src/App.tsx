@@ -1,3 +1,27 @@
+function BuildStamp() {
+  // These can be replaced at build time by your CI/CD (e.g. Vercel, Turbo, etc.)
+  const commit = import.meta.env.VITE_COMMIT_SHA || "dev";
+  const buildTime = import.meta.env.VITE_BUILD_TIME || new Date().toISOString();
+  const guestMode = GUEST_MODE ? "true" : "false";
+  return (
+    <footer
+      style={{
+        position: "fixed",
+        bottom: 0,
+        right: 0,
+        fontSize: 10,
+        opacity: 0.6,
+        zIndex: 9999,
+        background: "#222",
+        color: "#fff",
+        padding: "2px 8px",
+        borderRadius: "6px 0 0 0",
+      }}
+    >
+      build: {commit} | {buildTime} | guest_mode={guestMode}
+    </footer>
+  );
+}
 import { useEffect, lazy, Suspense } from "react";
 import { Router, Route, Switch, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
@@ -6,12 +30,14 @@ import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useToast } from "./hooks/use-toast";
 import { useAuth } from "./hooks/useAuth";
+import { GUEST_MODE } from "./config/flags";
 import { useAuthListener } from "./hooks/useAuthListener";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
 import { StagingBanner } from "./components/StagingBanner";
 import { OrganizationStructuredData, WebAppStructuredData } from "./components/StructuredData";
 import { analytics as firebaseAnalytics } from "./lib/firebase";
+import { GuestGate } from "./routing/GuestGate";
 import { usePerformanceMonitor } from "./hooks/usePerformanceMonitor";
 import { useSkipLink } from "./hooks/useSkipLink";
 import { AISkateChat } from "./components/AISkateChat";
@@ -91,11 +117,14 @@ function RootRedirect() {
   useEffect(() => {
     if (loading || !isInitialized) return;
 
+    if (GUEST_MODE) {
+      setLocation("/map", { replace: true });
+      return;
+    }
+
     if (user) {
-      // Authenticated: Go to home
       setLocation("/home", { replace: true });
     } else {
-      // Unauthenticated: Go to landing
       setLocation("/landing", { replace: true });
     }
   }, [user, loading, isInitialized, setLocation]);
@@ -412,6 +441,23 @@ export default function App() {
     }
   }, []);
 
+  // Guest Mode contract log (safety rail)
+  const { user, profile, isInitialized } = useAuth();
+  useEffect(() => {
+    if (!isInitialized) return;
+    logger.info(
+      `[GUEST_MODE] guest_mode=${GUEST_MODE} uid=${user?.uid ?? "none"} profile_exists=${!!profile}`
+    );
+    // Expose UID only in dev, Cypress, or explicit E2E mode
+    const exposeUid =
+      import.meta.env.DEV ||
+      (typeof window !== "undefined" && (window as any).Cypress) ||
+      import.meta.env.VITE_E2E === "true";
+    if (exposeUid && typeof window !== "undefined") {
+      (window as any).__SKATEHUBBA_UID__ = user?.uid ?? null;
+    }
+  }, [isInitialized, user, profile]);
+
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -443,8 +489,11 @@ export default function App() {
             }}
           />
           <Router>
-            <AppRoutes />
+            <GuestGate>
+              <AppRoutes />
+            </GuestGate>
           </Router>
+          <BuildStamp />
           <Toaster />
           <PWAInstallPrompt />
           <AISkateChat />

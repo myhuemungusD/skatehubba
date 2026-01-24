@@ -15,6 +15,8 @@ import {
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase/config";
+import { GUEST_MODE } from "../config/flags";
+import { ensureProfile } from "../lib/profile/ensureProfile";
 
 export type UserRole = "admin" | "moderator" | "verified_pro";
 export type ProfileStatus = "unknown" | "exists" | "missing";
@@ -194,12 +196,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
     authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
+        // Guest Mode: auto sign in anonymously if no user
+        if (!firebaseUser && GUEST_MODE) {
+          try {
+            const cred = await firebaseSignInAnonymously(auth);
+            firebaseUser = cred.user;
+          } catch {
+            set({ user: null, loading: false, isInitialized: true });
+            return;
+          }
+        }
+
         if (firebaseUser) {
           set({
             user: firebaseUser,
             profile: null,
             profileStatus: "unknown",
           });
+
+          // Ensure minimal profile in guest mode
+          if (GUEST_MODE) {
+            await ensureProfile(firebaseUser.uid);
+          }
 
           const cachedProfile = readProfileCache(firebaseUser.uid);
 
