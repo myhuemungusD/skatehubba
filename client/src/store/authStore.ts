@@ -190,7 +190,7 @@ const extractRolesFromToken = async (firebaseUser: FirebaseUser): Promise<UserRo
 };
 
 async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<Result<T>> {
-  let timeoutId: NodeJS.Timeout;
+  let timeoutId: ReturnType<typeof setTimeout>;
 
   const timeoutPromise = new Promise<Result<T>>((resolve) => {
     timeoutId = setTimeout(() => {
