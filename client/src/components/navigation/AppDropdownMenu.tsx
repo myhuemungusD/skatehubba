@@ -1,4 +1,4 @@
-import { Link, useLocation } from "wouter";
+import { useLocation } from "wouter";
 import { Menu } from "lucide-react";
 import { Button } from "../ui/button";
 import {
@@ -11,7 +11,7 @@ import {
 import { useNavItems } from "./navItems";
 
 export default function AppDropdownMenu() {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const navItems = useNavItems();
 
   return (
@@ -47,15 +47,17 @@ export default function AppDropdownMenu() {
           }
 
           return (
-            <DropdownMenuItem key={item.label} asChild>
-              <Link
-                href={item.href}
-                className={`flex items-center w-full uppercase tracking-wide text-sm ${
-                  isActive ? "bg-[#ff6a00]/10 text-[#ff6a00]" : ""
-                }`}
-              >
-                {item.label}
-              </Link>
+            <DropdownMenuItem
+              key={item.label}
+              onSelect={(event) => {
+                event.preventDefault();
+                setLocation(item.href ?? "/");
+              }}
+              className={`flex items-center w-full uppercase tracking-wide text-sm ${
+                isActive ? "bg-[#ff6a00]/10 text-[#ff6a00]" : ""
+              }`}
+            >
+              {item.label}
             </DropdownMenuItem>
           );
         })}

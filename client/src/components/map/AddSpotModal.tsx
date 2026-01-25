@@ -22,31 +22,25 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { insertSpotSchema, SPOT_TYPES, SPOT_TIERS, type InsertSpot } from "@shared/schema";
+import { queryClient } from "@/lib/queryClient";
+import { SpotCreateInputSchema, SpotTypeSchema, type SpotCreateInput } from "@shared/validation/spots";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/hooks/useAuth";
+import { useWriteGuard } from "@/hooks/useWriteGuard";
+import { WriteAccessModal } from "@/components/auth/WriteAccessModal";
 
 const SPOT_TYPE_LABELS: Record<string, string> = {
   rail: " Rail",
   ledge: " Ledge",
   stairs: " Stairs",
   gap: " Gap",
-  bank: " Bank",
-  "manual-pad": " Manual Pad",
-  flat: " Flat Ground",
-  bowl: " Bowl",
-  "mini-ramp": " Mini Ramp",
-  vert: " Vert",
-  diy: " DIY",
+  plaza: " Plaza",
+  shop: " Skate Shop",
+  school: " School",
   park: " Skate Park",
   street: " Street",
   other: " Other",
-};
-
-const TIER_LABELS: Record<string, string> = {
-  bronze: " Bronze - Local spot",
-  silver: " Silver - Worth the trip",
-  gold: " Gold - Must skate",
-  legendary: " Legendary - Iconic",
 };
 
 interface AddSpotModalProps {
@@ -57,20 +51,35 @@ interface AddSpotModalProps {
 
 export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const writeGuard = useWriteGuard();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [spotType, setSpotType] = useState<string>("street");
-  const [tier, setTier] = useState<string>("bronze");
+  const [difficulty, setDifficulty] = useState<string>("medium");
 
   const isLocationReady = Boolean(userLocation && userLocation.lat !== 0 && userLocation.lng !== 0);
 
   const mutation = useMutation({
-    mutationFn: async (payload: InsertSpot) => {
-      const response = await apiRequest("POST", "/api/spots", payload);
-      return response.json();
+    mutationFn: async (payload: SpotCreateInput) => {
+      if (!db) throw new Error("Firestore unavailable");
+      const docRef = collection(db, "spots");
+      const createdByUid = user?.uid ?? null;
+      await addDoc(docRef, {
+        ...payload,
+        createdByUid,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        status: "active",
+        visibility: "public",
+        stats: {
+          checkins30d: 0,
+          checkinsAll: 0,
+        },
+      });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["/api/spots"] });
+      await queryClient.invalidateQueries({ queryKey: ["spots"] });
       toast({
         title: " Spot Saved!",
         description: "Your spot is now live on the map. Thanks for contributing!",
@@ -90,12 +99,14 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
     setName("");
     setDescription("");
     setSpotType("street");
-    setTier("bronze");
+    setDifficulty("medium");
     onClose();
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (!writeGuard.guard()) return;
 
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -116,13 +127,15 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
       return;
     }
 
-    const payload = insertSpotSchema.parse({
+    const payload = SpotCreateInputSchema.parse({
       name: trimmedName,
       description: description.trim() || undefined,
-      spotType: spotType as (typeof SPOT_TYPES)[number],
-      tier: tier as (typeof SPOT_TIERS)[number],
-      lat: userLocation.lat,
-      lng: userLocation.lng,
+      spotType: spotType as SpotCreateInput["spotType"],
+      difficulty: difficulty as SpotCreateInput["difficulty"],
+      location: {
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+      },
     });
 
     mutation.mutate(payload);
@@ -186,7 +199,7 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
                 <SelectValue placeholder="Select spot type" />
               </SelectTrigger>
               <SelectContent className="bg-neutral-800 border-neutral-700">
-                {SPOT_TYPES.map((type) => (
+                {SpotTypeSchema.options.map((type) => (
                   <SelectItem key={type} value={type} className="text-white hover:bg-neutral-700">
                     {SPOT_TYPE_LABELS[type] || type}
                   </SelectItem>
@@ -195,21 +208,25 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
             </Select>
           </div>
 
-          {/* Tier */}
+          {/* Difficulty */}
           <div className="space-y-2">
-            <Label htmlFor="spot-tier" className="text-gray-300">
-              How good is it?
+            <Label htmlFor="spot-difficulty" className="text-gray-300">
+              Difficulty
             </Label>
-            <Select value={tier} onValueChange={setTier}>
+            <Select value={difficulty} onValueChange={setDifficulty}>
               <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white">
-                <SelectValue placeholder="Rate this spot" />
+                <SelectValue placeholder="Select difficulty" />
               </SelectTrigger>
               <SelectContent className="bg-neutral-800 border-neutral-700">
-                {SPOT_TIERS.map((t) => (
-                  <SelectItem key={t} value={t} className="text-white hover:bg-neutral-700">
-                    {TIER_LABELS[t] || t}
-                  </SelectItem>
-                ))}
+                <SelectItem value="easy" className="text-white hover:bg-neutral-700">
+                  Easy
+                </SelectItem>
+                <SelectItem value="medium" className="text-white hover:bg-neutral-700">
+                  Medium
+                </SelectItem>
+                <SelectItem value="hard" className="text-white hover:bg-neutral-700">
+                  Hard
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -243,7 +260,13 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
             <Button
               type="submit"
               className="bg-[#ff6a00] hover:bg-[#ff6a00]/90 text-black font-semibold"
-              disabled={!name.trim() || !isLocationReady || mutation.isPending}
+              disabled={
+                !name.trim() ||
+                !isLocationReady ||
+                mutation.isPending ||
+                writeGuard.isAnonymous ||
+                writeGuard.needsProfileSetup
+              }
               data-testid="button-submit-spot"
             >
               {mutation.isPending ? (
@@ -258,6 +281,7 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
           </DialogFooter>
         </form>
       </DialogContent>
+      <WriteAccessModal {...writeGuard.modal} />
     </Dialog>
   );
 }

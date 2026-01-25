@@ -1,30 +1,18 @@
 import { useCallback, useState } from "react";
-import { apiRequest } from "@/lib/api/client";
+import { doc, increment, serverTimestamp, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { ApiError, normalizeApiError } from "@/lib/api/errors";
 
 export interface CheckInInput {
-  spotId: number;
+  spotId: string;
   lat: number;
   lng: number;
   userId: string;
 }
 
 export interface CheckInResult {
-  checkInId: number;
+  spotId: string;
 }
-
-interface CheckInApiResponse {
-  success: boolean;
-  checkInId?: number;
-  message?: string;
-}
-
-const createNonce = (): string => {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-};
 
 export const useCheckIn = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,29 +27,25 @@ export const useCheckIn = () => {
     setIsSubmitting(true);
     setError(null);
 
-    const nonce = createNonce();
-
     try {
-      const response = await apiRequest<CheckInApiResponse>({
-        method: "POST",
-        path: "/api/spots/check-in",
-        nonce,
-        body: {
-          spotId: input.spotId,
-          lat: input.lat,
-          lng: input.lng,
-          nonce,
-        },
-      });
-
-      if (!response.success || typeof response.checkInId !== "number") {
+      if (!db) {
         throw normalizeApiError({
-          status: 400,
-          payload: { message: response.message || "Check-in failed" },
+          status: 503,
+          payload: { message: "Database unavailable" },
         });
       }
 
-      return { checkInId: response.checkInId };
+      const spotRef = doc(db, "spots", input.spotId);
+      await updateDoc(spotRef, {
+        "stats.checkinsAll": increment(1),
+        "stats.checkins30d": increment(1),
+        lastCheckInAt: serverTimestamp(),
+        lastCheckInBy: input.userId,
+        lastCheckInLocation: { lat: input.lat, lng: input.lng },
+        updatedAt: serverTimestamp(),
+      });
+
+      return { spotId: input.spotId };
     } catch (err) {
       const normalized = err instanceof ApiError ? err : normalizeApiError({ payload: err });
       setError(normalized);

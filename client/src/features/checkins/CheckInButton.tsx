@@ -3,15 +3,17 @@ import { MapPin, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { WriteAccessModal } from "@/components/auth/WriteAccessModal";
+import { useWriteGuard } from "@/hooks/useWriteGuard";
 import { useCheckIn } from "./useCheckIn";
 import { ApiError, getUserFriendlyMessage } from "@/lib/api/errors";
 
 interface CheckInButtonProps {
-  spotId: number;
+  spotId: string;
   spotName: string;
   userLocation?: { lat: number; lng: number } | null;
   className?: string;
-  onSuccess?: (checkInId: number) => void;
+  onSuccess?: (spotId: string) => void;
 }
 
 export function CheckInButton({
@@ -23,26 +25,21 @@ export function CheckInButton({
 }: CheckInButtonProps) {
   const { toast } = useToast();
   const { user } = useAuth();
+  const writeGuard = useWriteGuard();
   const { checkIn, isSubmitting, error, reset } = useCheckIn();
 
   const isLocationReady = Boolean(userLocation?.lat && userLocation?.lng);
 
   const inlineMessage = useMemo(() => {
-    if (!user) return "Sign in to check in.";
+    if (writeGuard.isAnonymous || !user) return "Create an account to check in.";
+    if (writeGuard.needsProfileSetup) return "Complete your profile to check in.";
     if (!isLocationReady) return "Enable location to check in.";
     if (!error) return null;
     return getUserFriendlyMessage(error);
-  }, [user, isLocationReady, error]);
+  }, [user, isLocationReady, error, writeGuard.isAnonymous, writeGuard.needsProfileSetup]);
 
   const handleCheckIn = useCallback(async () => {
-    if (!user) {
-      toast({
-        title: "Sign-in required",
-        description: "Please sign in to check in at this spot.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!writeGuard.guard()) return;
 
     if (!isLocationReady || !userLocation) {
       toast({
@@ -52,6 +49,8 @@ export function CheckInButton({
       });
       return;
     }
+
+    if (!user) return;
 
     reset();
 
@@ -67,7 +66,7 @@ export function CheckInButton({
         title: "Check-in confirmed",
         description: `You're now checked in at ${spotName}.`,
       });
-      onSuccess?.(result.checkInId);
+      onSuccess?.(result.spotId);
     } catch (err) {
       const apiError = err instanceof ApiError ? err : null;
       toast({
@@ -76,13 +75,24 @@ export function CheckInButton({
         variant: "destructive",
       });
     }
-  }, [user, isLocationReady, userLocation, reset, checkIn, spotId, spotName, toast, onSuccess]);
+  }, [
+    writeGuard,
+    user,
+    isLocationReady,
+    userLocation,
+    reset,
+    checkIn,
+    spotId,
+    spotName,
+    toast,
+    onSuccess,
+  ]);
 
   return (
     <div className={className}>
       <Button
         onClick={handleCheckIn}
-        disabled={!user || !isLocationReady || isSubmitting}
+        disabled={!user || writeGuard.isAnonymous || writeGuard.needsProfileSetup || !isLocationReady || isSubmitting}
         className="w-full h-12 gap-2 bg-yellow-500 text-black hover:bg-yellow-400"
         data-testid="button-check-in"
       >
@@ -103,6 +113,7 @@ export function CheckInButton({
           {inlineMessage}
         </p>
       ) : null}
+      <WriteAccessModal {...writeGuard.modal} />
     </div>
   );
 }

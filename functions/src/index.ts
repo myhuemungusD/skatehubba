@@ -251,6 +251,31 @@ export const manageUserRole = functions.https.onCall(
 );
 
 /**
+ * cleanupPresence
+ *
+ * Scheduled cleanup for stale presence docs.
+ * Removes entries older than 10 minutes to keep "Now" fresh.
+ */
+export const cleanupPresence = functions.pubsub
+  .schedule("every 5 minutes")
+  .onRun(async () => {
+    const cutoff = admin.firestore.Timestamp.fromDate(new Date(Date.now() - 10 * 60 * 1000));
+    const snapshot = await admin
+      .firestore()
+      .collection("presence")
+      .where("lastSeenAt", "<", cutoff)
+      .limit(500)
+      .get();
+
+    if (snapshot.empty) return null;
+
+    const batch = admin.firestore().batch();
+    snapshot.docs.forEach((docSnap) => batch.delete(docSnap.ref));
+    await batch.commit();
+    return null;
+  });
+
+/**
  * getUserRoles
  *
  * Get the roles for a specific user (admin only)

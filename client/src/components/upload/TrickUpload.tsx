@@ -11,12 +11,15 @@ import LocationPicker, { type Location } from "./LocationPicker";
 import { useAuth } from "../../hooks/useAuth";
 import { db } from "../../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useWriteGuard } from "../../hooks/useWriteGuard";
+import { WriteAccessModal } from "../auth/WriteAccessModal";
 
 export default function TrickUpload() {
   const { toast } = useToast();
   const authContext = useAuth();
   const user = authContext?.user ?? null;
   const [, setLocation] = useLocation();
+  const writeGuard = useWriteGuard();
 
   const [trickName, setTrickName] = useState("");
   const [description, setDescription] = useState("");
@@ -30,6 +33,8 @@ export default function TrickUpload() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!writeGuard.guard()) return;
 
     if (!trickName.trim()) {
       toast({
@@ -49,14 +54,7 @@ export default function TrickUpload() {
       return;
     }
 
-    if (!user) {
-      toast({
-        title: "Not authenticated",
-        description: "You must be logged in to upload a trick.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!user) return;
 
     setIsSubmitting(true);
 
@@ -106,11 +104,12 @@ export default function TrickUpload() {
       setTimeout(() => {
         setLocation("/");
       }, 1500);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Failed to upload trick. Please try again.";
       console.error("Error uploading trick:", error);
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to upload trick. Please try again.",
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -211,7 +210,13 @@ export default function TrickUpload() {
                 <Button
                   type="submit"
                   data-testid="button-upload-trick"
-                  disabled={isSubmitting || !trickName.trim() || !selectedLocation}
+                  disabled={
+                    isSubmitting ||
+                    !trickName.trim() ||
+                    !selectedLocation ||
+                    writeGuard.isAnonymous ||
+                    writeGuard.needsProfileSetup
+                  }
                   className="flex-1 bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center gap-2"
                 >
                   <Upload className="w-4 h-4" />
@@ -221,6 +226,7 @@ export default function TrickUpload() {
             </form>
           </CardContent>
         </Card>
+        <WriteAccessModal {...writeGuard.modal} />
       </div>
     </div>
   );

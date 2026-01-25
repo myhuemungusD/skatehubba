@@ -10,7 +10,7 @@ import {
   Search,
   Loader2,
 } from "lucide-react";
-import { type Spot, SPOT_TYPES } from "@shared/schema";
+import { SpotTypeSchema } from "@shared/validation/spots";
 import { AddSpotModal } from "../components/map/AddSpotModal";
 import { SpotDetailModal } from "../components/map/SpotDetailModal";
 import { SpotMap } from "../components/SpotMap";
@@ -20,12 +20,14 @@ import { Badge } from "../components/ui/badge";
 import { useToast } from "../hooks/use-toast";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { calculateDistance, getProximity } from "../lib/distance";
+import { fetchNearbySpots, type SpotRecord } from "../features/spots/spotService";
+import { NowSkatersOverlay } from "../components/presence/NowSkatersOverlay";
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type SpotWithDistance = Spot & {
+type SpotWithDistance = SpotRecord & {
   distance: number | null;
   proximity: "here" | "nearby" | "far" | null;
 };
@@ -47,6 +49,7 @@ type UserLocationSimple = {
 
 /** Debounce time for showing error toasts (prevents spam) */
 const TOAST_DEBOUNCE_MS = 10_000;
+const SPOT_TYPES = SpotTypeSchema.options;
 
 // ============================================================================
 // COMPONENT
@@ -57,7 +60,7 @@ export default function MapPage() {
   // State
   // ---------------------------------------------------------------------------
   const { toast } = useToast();
-  const [selectedSpotId, setSelectedSpotId] = useState<number | null>(null);
+  const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null);
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
@@ -97,10 +100,16 @@ export default function MapPage() {
     isLoading: isSpotsLoading,
     isError: isSpotsError,
     refetch: refetchSpots,
-  } = useQuery<Spot[]>({
-    queryKey: ["/api/spots"],
-    staleTime: 30_000, // Consider fresh for 30 seconds
-    gcTime: 5 * 60_000, // Keep in garbage collection for 5 minutes
+  } = useQuery<SpotRecord[]>({
+    queryKey: ["spots", "map", userLocation?.lat ?? 0, userLocation?.lng ?? 0],
+    queryFn: () =>
+      fetchNearbySpots({
+        location: userLocation,
+        radiusMiles: 25,
+        maxResults: 500,
+      }),
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     retry: 2,
   });
@@ -123,7 +132,12 @@ export default function MapPage() {
     }
 
     return spots.map((spot) => {
-      const distance = calculateDistance(userLocation.lat, userLocation.lng, spot.lat, spot.lng);
+      const distance = calculateDistance(
+        userLocation.lat,
+        userLocation.lng,
+        spot.location.lat,
+        spot.location.lng
+      );
       return {
         ...spot,
         distance,
@@ -138,9 +152,10 @@ export default function MapPage() {
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (s) => s.name.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q)
-      );
+      result = result.filter((s) => {
+        const text = `${s.name} ${s.description ?? ""} ${s.city ?? ""} ${s.state ?? ""}`.toLowerCase();
+        return text.includes(q);
+      });
     }
 
     if (activeTypeFilter) {
@@ -165,7 +180,7 @@ export default function MapPage() {
   // Stable Callbacks - prevents child component re-renders
   // ---------------------------------------------------------------------------
 
-  const handleSelectSpot = useCallback((spotId: number) => {
+  const handleSelectSpot = useCallback((spotId: string) => {
     setSelectedSpotId(spotId);
   }, []);
 
@@ -350,6 +365,8 @@ export default function MapPage() {
             onSelectSpot={handleSelectSpot}
           />
         )}
+
+        <NowSkatersOverlay location={userLocationSimple} />
 
         {/* Add Spot FAB */}
         <div className="absolute bottom-24 right-4 z-[1000] pb-safe">

@@ -9,6 +9,9 @@ import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/queryClient";
 import { Badge } from "./ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { useWriteGuard } from "../hooks/useWriteGuard";
+import { WriteAccessModal } from "./auth/WriteAccessModal";
+import { useAuth } from "../hooks/useAuth";
 
 interface Message {
   role: "user" | "assistant";
@@ -36,6 +39,8 @@ export function AISkateChat() {
   const [input, setInput] = useState("");
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const writeGuard = useWriteGuard();
+  const { user } = useAuth();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -78,6 +83,8 @@ export function AISkateChat() {
 
   const handleSend = () => {
     if (!input.trim()) return;
+    if (!writeGuard.guard()) return;
+    if (!user) return;
 
     const userMessage: Message = {
       role: "user",
@@ -200,7 +207,12 @@ export function AISkateChat() {
           />
           <Button
             onClick={handleSend}
-            disabled={!input.trim() || chatMutation.isPending}
+            disabled={
+              !input.trim() ||
+              chatMutation.isPending ||
+              writeGuard.isAnonymous ||
+              writeGuard.needsProfileSetup
+            }
             className="bg-orange-500 hover:bg-orange-600 text-white"
             data-testid="button-send"
             aria-label="Send message"
@@ -209,6 +221,7 @@ export function AISkateChat() {
           </Button>
         </div>
       </div>
+      <WriteAccessModal {...writeGuard.modal} />
     </Card>
   );
 }

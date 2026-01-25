@@ -5,10 +5,20 @@ import { homeContent } from "../content/home";
 import { MemberHubHero } from "../sections/home/MemberHubHero";
 import { StatsStrip } from "../sections/home/StatsStrip";
 import { FeatureGrid } from "../sections/landing/FeatureGrid";
+import { useGeolocation } from "../hooks/useGeolocation";
+import { useMemo } from "react";
+import { usePresenceHeartbeat } from "../features/presence/usePresenceHeartbeat";
 
 export default function Home() {
   const auth = useAuth();
   const isAuthenticated = auth?.isAuthenticated ?? false;
+  const geolocation = useGeolocation(false);
+  const userLocation = useMemo(() => {
+    if (geolocation.latitude === null || geolocation.longitude === null) return null;
+    return { lat: geolocation.latitude, lng: geolocation.longitude };
+  }, [geolocation.latitude, geolocation.longitude]);
+
+  usePresenceHeartbeat({ location: userLocation });
   const displayStats = [
     { label: "Active Skaters", value: "Growing" },
     { label: "Skate Spots Mapped", value: "50+" },

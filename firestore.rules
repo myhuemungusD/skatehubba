@@ -11,6 +11,15 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isAnonymous() {
+      return isAuthenticated()
+        && request.auth.token.firebase.sign_in_provider == 'anonymous';
+    }
+
+    function isNonAnonymous() {
+      return isAuthenticated() && !isAnonymous();
+    }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
@@ -170,8 +179,39 @@ service cloud.firestore {
     }
 
     match /spots/{id} {
-      allow read: if isAuthenticated();
-      allow write: if false;
+      allow read: if isAuthenticated()
+        && (
+          (resource.data.status == 'active' && resource.data.visibility == 'public')
+          || (resource.data.createdByUid == request.auth.uid)
+        );
+
+      allow create: if isNonAnonymous()
+        && hasRequiredFields(['name', 'location', 'spotType', 'status', 'visibility', 'stats', 'createdAt', 'updatedAt'])
+        && request.resource.data.status in ['active', 'pending']
+        && request.resource.data.visibility in ['public', 'unlisted'];
+
+      allow update: if isNonAnonymous()
+        && (
+          (
+            resource.data.createdByUid == request.auth.uid
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+              'createdByUid',
+              'createdAt',
+              'stats'
+            ])
+          )
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'stats',
+              'lastCheckInAt',
+              'lastCheckInBy',
+              'lastCheckInLocation',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if false;
     }
 
     // Optional explicit env path for spots (still read-only)
@@ -194,16 +234,31 @@ service cloud.firestore {
     // =========================================================================
 
     match /presence/{userId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated()
+        && (
+          resource.data.privacy in ['public', 'approximate']
+          || resource.data.uid == request.auth.uid
+        );
 
-      allow write: if isOwner(userId)
-        && hasRequiredFields(['status', 'lastSeen'])
-        && request.resource.data.status in ['online', 'offline', 'away']
-        && request.resource.data.lastSeen is timestamp
-        && request.resource.data.lastSeen >= request.time - duration.value(1, 'm')
-        && request.resource.data.lastSeen <= request.time + duration.value(1, 'm')
-        // Prevent arbitrary data injection
-        && request.resource.data.keys().hasOnly(['status', 'lastSeen', 'deviceId']);
+      allow write: if isNonAnonymous()
+        && isOwner(userId)
+        && hasRequiredFields(['uid', 'status', 'privacy', 'lastSeenAt', 'updatedAt', 'displayName'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status in ['skating', 'filming', 'cruising', 'idle']
+        && request.resource.data.privacy in ['public', 'approximate', 'hidden']
+        && request.resource.data.lastSeenAt is timestamp
+        && request.resource.data.updatedAt is timestamp
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'lastSeenAt',
+          'location',
+          'spotId',
+          'status',
+          'privacy',
+          'displayName',
+          'avatarUrl',
+          'updatedAt'
+        ]);
     }
 
     // =========================================================================
@@ -214,7 +269,7 @@ service cloud.firestore {
       allow read: if isAuthenticated()
         && resource.data.userId == request.auth.uid;
 
-      allow create: if isAuthenticated()
+      allow create: if isNonAnonymous()
         && request.resource.data.userId == request.auth.uid
         && hasRequiredFields(['userId', 'message', 'role', 'createdAt'])
         && isValidString('message', 1, 5000)
@@ -222,7 +277,8 @@ service cloud.firestore {
         && isRecentTimestamp('createdAt')
         && messageId.matches('^' + request.auth.uid + '_.*');
 
-      allow update: if isOwner(resource.data.userId)
+      allow update: if isNonAnonymous()
+        && isOwner(resource.data.userId)
         && resource.data.role == 'user'
         && request.resource.data.userId == resource.data.userId
         && request.resource.data.role == resource.data.role
@@ -230,7 +286,39 @@ service cloud.firestore {
         && isValidString('message', 1, 5000)
         && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
 
-      allow delete: if isOwner(resource.data.userId) && resource.data.role == 'user';
+      allow delete: if isNonAnonymous()
+        && isOwner(resource.data.userId)
+        && resource.data.role == 'user';
+    }
+
+    // =========================================================================
+    // TRICKS (user-generated clips)
+    // =========================================================================
+
+    match /tricks/{trickId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isNonAnonymous()
+        && request.resource.data.userId == request.auth.uid
+        && hasRequiredFields(['name', 'location', 'userId', 'userName', 'createdAt'])
+        && request.resource.data.keys().hasOnly([
+          'name',
+          'description',
+          'videoUrl',
+          'location',
+          'userId',
+          'userEmail',
+          'userName',
+          'createdAt',
+          'likes',
+          'views'
+        ]);
+
+      allow update: if isNonAnonymous()
+        && isOwner(resource.data.userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['description', 'videoUrl']);
+
+      allow delete: if false;
     }
 
     // =========================================================================

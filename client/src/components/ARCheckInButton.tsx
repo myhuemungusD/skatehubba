@@ -7,6 +7,8 @@ import { useEmailVerification } from "../hooks/useEmailVerification";
 import { useSpotAccess, type SpotAccess } from "../store/useSpotAccess";
 import { useCheckIn } from "../features/checkins/useCheckIn";
 import { ApiError, getUserFriendlyMessage } from "../lib/api/errors";
+import { useWriteGuard } from "../hooks/useWriteGuard";
+import { WriteAccessModal } from "./auth/WriteAccessModal";
 
 interface ARCheckInButtonProps {
   spotId: string;
@@ -35,6 +37,7 @@ export function ARCheckInButton({
   const { grantAccess, hasValidAccess, cleanupExpiredAccess } = useSpotAccess();
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const { checkIn, isSubmitting } = useCheckIn();
+  const writeGuard = useWriteGuard();
 
   const hasAccess = hasValidAccess(spotId);
 
@@ -55,14 +58,7 @@ export function ARCheckInButton({
   };
 
   const handleCheckIn = async () => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Login Required",
-        description: "Please log in to check in at spots.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (!writeGuard.guard()) return;
 
     if (requiresVerification) {
       toast({
@@ -108,7 +104,7 @@ export function ARCheckInButton({
         const { latitude, longitude } = position.coords;
         try {
           await checkIn({
-            spotId: Number(spotId),
+            spotId,
             lat: latitude,
             lng: longitude,
             userId: user.uid,
@@ -186,23 +182,26 @@ export function ARCheckInButton({
   }
 
   return (
-    <Button
-      onClick={handleCheckIn}
-      disabled={isLoading || !isAuthenticated}
-      className={`gap-2 bg-[#ff6a00] hover:bg-[#ff8533] text-white ${className}`}
-      data-testid="button-check-in"
-    >
-      {isLoading ? (
-        <>
-          <Loader2 className="w-4 h-4 animate-spin" />
-          {isGettingLocation ? "Getting Location..." : "Verifying..."}
-        </>
-      ) : (
-        <>
-          <MapPin className="w-4 h-4" />
-          Check In at Spot
-        </>
-      )}
-    </Button>
+    <>
+      <Button
+        onClick={handleCheckIn}
+        disabled={isLoading || !isAuthenticated || writeGuard.isAnonymous || writeGuard.needsProfileSetup}
+        className={`gap-2 bg-[#ff6a00] hover:bg-[#ff8533] text-white ${className}`}
+        data-testid="button-check-in"
+      >
+        {isLoading ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            {isGettingLocation ? "Getting Location..." : "Verifying..."}
+          </>
+        ) : (
+          <>
+            <MapPin className="w-4 h-4" />
+            Check In at Spot
+          </>
+        )}
+      </Button>
+      <WriteAccessModal {...writeGuard.modal} />
+    </>
   );
 }

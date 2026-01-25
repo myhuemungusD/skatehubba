@@ -12,17 +12,27 @@ export function useNavItems(): NavItem[] {
     if (GUEST_MODE) {
       return [
         { label: "SPOTMAP", href: "/map" },
-        { label: "S.K.A.T.E", href: "/skate-game" },
+        { label: "SPOTS", href: "/spots" },
+        { label: "S.K.A.T.E", href: "/game" },
       ];
     }
-    return [
-      { label: "PROFILE", href: "/closet" },
-      { label: "S.K.A.T.E", href: "/game" },
-      { label: "SPOTMAP", href: "/map" },
-      { label: "HUBBA SHOP", href: "/shop" },
+      return [
+        { label: "HOME", href: "/home" },
+        { label: "FEED", href: "/feed" },
+        { label: "SPOTMAP", href: "/map" },
+        { label: "SPOTS", href: "/spots" },
+        { label: "S.K.A.T.E", href: "/game" },
       { label: "THE TRENCHES", href: "/leaderboard" },
+      { label: "CHECKINS", href: "/checkins" },
+      { label: "TUTORIAL", href: "/tutorial" },
+      { label: "TRICK MINTING", href: "/trickmint" },
+      { label: "SHOWCASE", href: "/showcase" },
+      { label: "PROFILE", href: "/closet" },
       { label: "SETTINGS", href: "/settings" },
-      { label: "TRICK MINTING", disabled: true },
+      { label: "HUBBA SHOP", href: "/shop" },
+      { label: "CART", href: "/cart" },
+      { label: "CHECKOUT", href: "/checkout" },
+      { label: "ORDER CONFIRMATION", href: "/order-confirmation" },
     ];
   }, []);
 }

@@ -16,10 +16,12 @@ L.Icon.Default.mergeOptions({
 });
 
 interface Spot {
-  id: number;
+  id: string;
   name: string;
-  lat: number;
-  lng: number;
+  location: {
+    lat: number;
+    lng: number;
+  };
   proximity?: "here" | "nearby" | "far" | null;
   distance?: number | null;
 }
@@ -33,8 +35,8 @@ interface UserLocation {
 interface SpotMapProps {
   spots: Spot[];
   userLocation: UserLocation | null;
-  selectedSpotId: number | null;
-  onSelectSpot: (spotId: number) => void;
+  selectedSpotId: string | null;
+  onSelectSpot: (spotId: string) => void;
   addSpotMode?: boolean;
   onMapClick?: (lat: number, lng: number) => void;
 }
@@ -49,8 +51,8 @@ export const SpotMap = memo(function SpotMap({
 }: SpotMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const spotMarkersRef = useRef<Map<number, L.Marker>>(new Map());
-  const markerProximityRef = useRef<Map<number, string>>(new Map());
+  const spotMarkersRef = useRef<Map<string, L.Marker>>(new Map());
+  const markerProximityRef = useRef<Map<string, string>>(new Map());
   const userMarkerRef = useRef<L.Marker | null>(null);
   const accuracyCircleRef = useRef<L.Circle | null>(null);
   const hasCenteredRef = useRef(false);
@@ -168,7 +170,9 @@ export const SpotMap = memo(function SpotMap({
     if (!bounds) return [];
     // Add 20% buffer so markers don't "pop" in at the very edge
     const paddedBounds = bounds.pad(0.2);
-    return spots.filter((spot) => paddedBounds.contains([spot.lat, spot.lng]));
+    return spots.filter((spot) =>
+      paddedBounds.contains([spot.location.lat, spot.location.lng])
+    );
   }, [spots, bounds]);
 
   // Update spot markers when VISIBLE spots change
@@ -201,7 +205,7 @@ export const SpotMap = memo(function SpotMap({
 
       if (!marker) {
         // Create new marker with title for accessibility (tooltip + screen reader)
-        marker = L.marker([spot.lat, spot.lng], { icon, title: spot.name })
+        marker = L.marker([spot.location.lat, spot.location.lng], { icon, title: spot.name })
           .addTo(map)
           .on("click", () => onSelectSpot(spot.id));
 
@@ -210,7 +214,7 @@ export const SpotMap = memo(function SpotMap({
         markerProximityRef.current.set(spot.id, proximityKey);
       } else {
         // Update position (cheap)
-        marker.setLatLng([spot.lat, spot.lng]);
+        marker.setLatLng([spot.location.lat, spot.location.lng]);
 
         // Update icon ONLY if changed (expensive DOM op)
         if (needsIconUpdate) {
