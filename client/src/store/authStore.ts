@@ -296,6 +296,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Handle Roles Result
         if (rolesRes.status === "fulfilled" && rolesRes.value.status === "ok") {
           set({ roles: rolesRes.value.data, error: null });
+        } else {
+          // If roles fetch failed, set error and mark as degraded
+          let rolesError = "Failed to fetch roles";
+          if (rolesRes.status === "fulfilled") {
+            rolesError = rolesRes.value.error;
+          } else if (rolesRes.status === "rejected") {
+            rolesError =
+              rolesRes.reason instanceof Error ? rolesRes.reason.message : String(rolesRes.reason);
+          }
+          set({ error: new Error(rolesError) });
+          finalStatus = "degraded";
         }
       } else {
         set({
