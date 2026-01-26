@@ -98,28 +98,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post(
     "/api/spots",
+    authenticateUser,
     publicWriteLimiter,
     perUserSpotWriteLimiter,
     requireCsrfToken,
     validateBody(insertSpotSchema),
     async (req, res) => {
-      // Basic Auth Check: Ensure we have a user ID to bind the spot to
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ message: "You must be logged in to create a spot" });
-      }
-
       type InsertSpot = z.infer<typeof insertSpotSchema>;
       const spotPayload = req.body as InsertSpot;
 
       // Creation: Pass 'createdBy' from the authenticated session
       const spot = await spotStorage.createSpot({
         ...spotPayload,
-        createdBy: req.currentUser?.id || "",
+        createdBy: req.currentUser!.id,
       });
 
       logAuditEvent({
         action: "spot.created",
-        userId: req.currentUser?.id,
+        userId: req.currentUser!.id,
         ip: getClientIp(req),
         metadata: {
           spotId: spot.id,

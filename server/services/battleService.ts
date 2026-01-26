@@ -1,6 +1,8 @@
 import { db } from "../db";
 import { logServerEvent } from "./analyticsService";
 import logger from "../logger";
+import { battles, battleVotes } from "../../shared/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * Battle Service
@@ -52,14 +54,19 @@ export async function createBattle(input: CreateBattleInput) {
     throw new Error("Database not available");
   }
 
-  // TODO: Implement actual battle creation in DB
-  // const [battle] = await db.insert(battles).values({...}).returning();
-
-  const battleId = `battle-${Date.now()}`; // Placeholder
+  const [battle] = await db
+    .insert(battles)
+    .values({
+      creatorId: input.creatorId,
+      matchmaking: input.matchmaking,
+      opponentId: input.opponentId,
+      status: "waiting",
+    })
+    .returning();
 
   // Log truth event AFTER successful creation
   await logServerEvent(input.creatorId, "battle_created", {
-    battle_id: battleId,
+    battle_id: battle.id,
     matchmaking: input.matchmaking,
     opponent_id: input.opponentId,
     stance: input.stance,
@@ -67,11 +74,11 @@ export async function createBattle(input: CreateBattleInput) {
   });
 
   logger.info("[Battle] Created", {
-    battleId,
+    battleId: battle.id,
     creatorId: input.creatorId,
   });
 
-  return { battleId };
+  return { battleId: battle.id };
 }
 
 /**
@@ -82,8 +89,19 @@ export async function joinBattle(odv: string, battleId: string) {
     throw new Error("Database not available");
   }
 
-  // TODO: Implement actual battle join in DB
-  // await db.update(battles).set({ opponentId: odv }).where(eq(battles.id, battleId));
+  const [battle] = await db
+    .update(battles)
+    .set({
+      opponentId: odv,
+      status: "active",
+      updatedAt: new Date(),
+    })
+    .where(eq(battles.id, battleId))
+    .returning();
+
+  if (!battle) {
+    throw new Error("Battle not found");
+  }
 
   // Log truth event AFTER successful join
   await logServerEvent(odv, "battle_joined", {
@@ -108,8 +126,18 @@ export async function voteBattle(input: VoteBattleInput) {
 
   const { odv, battleId, vote } = input;
 
-  // TODO: Implement actual vote recording in DB
-  // await db.insert(battleVotes).values({ odv, battleId, vote, createdAt: new Date() });
+  // Insert vote (upsert to handle re-votes)
+  await db
+    .insert(battleVotes)
+    .values({
+      battleId,
+      odv,
+      vote,
+    })
+    .onConflictDoUpdate({
+      target: [battleVotes.battleId, battleVotes.odv],
+      set: { vote },
+    });
 
   // Log truth event AFTER successful vote (CRITICAL - never log before DB write)
   await logServerEvent(odv, "battle_voted", {
@@ -132,11 +160,17 @@ export async function completeBattle(input: CompleteBattleInput) {
 
   const { battleId, winnerId, totalRounds } = input;
 
-  // TODO: Implement actual battle completion in DB
-  // await db.update(battles).set({ status: 'completed', winnerId }).where(eq(battles.id, battleId));
+  await db
+    .update(battles)
+    .set({
+      status: "completed",
+      winnerId,
+      updatedAt: new Date(),
+      completedAt: new Date(),
+    })
+    .where(eq(battles.id, battleId));
 
   // Log truth event AFTER successful completion
-  // Note: Log for both participants if we know them
   if (winnerId) {
     await logServerEvent(winnerId, "battle_completed", {
       battle_id: battleId,
@@ -158,7 +192,22 @@ export async function uploadBattleResponse(odv: string, battleId: string, clipUr
     throw new Error("Database not available");
   }
 
-  // TODO: Implement actual response upload in DB
+  // Get battle to check if this is creator or opponent
+  const [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
+
+  if (!battle) {
+    throw new Error("Battle not found");
+  }
+
+  // Set the appropriate clip URL field
+  const isCreator = battle.creatorId === odv;
+  await db
+    .update(battles)
+    .set({
+      ...(isCreator ? { clipUrl } : { responseClipUrl: clipUrl }),
+      updatedAt: new Date(),
+    })
+    .where(eq(battles.id, battleId));
 
   // Log truth event AFTER successful upload
   await logServerEvent(odv, "battle_response_uploaded", {
@@ -167,6 +216,48 @@ export async function uploadBattleResponse(odv: string, battleId: string, clipUr
   });
 
   logger.info("[Battle] Response uploaded", { battleId, odv });
+
+  return { success: true };
+}
+
+/**
+ * Get a battle by ID
+ */
+export async function getBattle(battleId: string) {
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  const [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
+  return battle || null;
+}
+
+/**
+ * Get votes for a battle
+ */
+export async function getBattleVotes(battleId: string) {
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  return db.select().from(battleVotes).where(eq(battleVotes.battleId, battleId));
+}
+
+/**
+ * Set battle status to voting phase
+ */
+export async function setBattleVoting(battleId: string) {
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  await db
+    .update(battles)
+    .set({
+      status: "voting",
+      updatedAt: new Date(),
+    })
+    .where(eq(battles.id, battleId));
 
   return { success: true };
 }

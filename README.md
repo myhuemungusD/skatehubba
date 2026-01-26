@@ -68,10 +68,6 @@ It is not hype-driven.
 - `packages/` — shared code (types, config, utilities)
   - `@skatehubba/config` — universal env loader + guardrails
 
-### Archive Policy
-
-\_archive/ is excluded from CI and is not part of the product. See \_archive/README.md for contents, status, and deletion guidance.
-
 ### Entrypoints
 
 - Local run: pnpm dev from repo root

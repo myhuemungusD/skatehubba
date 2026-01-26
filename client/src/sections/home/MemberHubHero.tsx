@@ -44,7 +44,7 @@ export function MemberHubHero({ badge, title, quickActions }: MemberHubHeroProps
         <h1 className="text-4xl md:text-5xl font-bold text-white mb-8">{title}</h1>
 
         {/* Quick Actions Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {quickActions.map((action, i) => (
             <Link key={i} href={action.href}>
               <a

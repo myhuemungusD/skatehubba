@@ -686,6 +686,40 @@ export const closetItems = pgTable("closet_items", {
   acquiredAt: timestamp("acquired_at").defaultNow().notNull(),
 });
 
+// Battles table - 1v1 trick battles
+export const battles = pgTable("battles", {
+  id: varchar("id")
+    .primaryKey()
+    .default(sql`gen_random_uuid()`),
+  creatorId: varchar("creator_id", { length: 255 }).notNull(),
+  opponentId: varchar("opponent_id", { length: 255 }),
+  matchmaking: varchar("matchmaking", { length: 20 }).notNull().default("open"), // 'open' | 'direct'
+  status: varchar("status", { length: 20 }).notNull().default("waiting"), // 'waiting' | 'active' | 'voting' | 'completed'
+  winnerId: varchar("winner_id", { length: 255 }),
+  clipUrl: varchar("clip_url", { length: 500 }),
+  responseClipUrl: varchar("response_clip_url", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+});
+
+// Battle votes table
+export const battleVotes = pgTable(
+  "battle_votes",
+  {
+    id: serial("id").primaryKey(),
+    battleId: varchar("battle_id", { length: 255 })
+      .notNull()
+      .references(() => battles.id, { onDelete: "cascade" }),
+    odv: varchar("odv", { length: 255 }).notNull(), // voter ID
+    vote: varchar("vote", { length: 20 }).notNull(), // 'clean' | 'sketch' | 'redo'
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    battleVoterIdx: uniqueIndex("unique_battle_voter").on(table.battleId, table.odv),
+  })
+);
+
 // Challenges table - SKATE game challenge requests
 export const challenges = pgTable("challenges", {
   id: varchar("id")
@@ -721,3 +755,21 @@ export type ClosetItem = typeof closetItems.$inferSelect;
 export type InsertClosetItem = z.infer<typeof insertClosetItemSchema>;
 export type Challenge = typeof challenges.$inferSelect;
 export type InsertChallenge = z.infer<typeof insertChallengeSchema>;
+
+// Battle types
+export const insertBattleSchema = createInsertSchema(battles).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  completedAt: true,
+});
+
+export const insertBattleVoteSchema = createInsertSchema(battleVotes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type Battle = typeof battles.$inferSelect;
+export type InsertBattle = z.infer<typeof insertBattleSchema>;
+export type BattleVote = typeof battleVotes.$inferSelect;
+export type InsertBattleVote = z.infer<typeof insertBattleVoteSchema>;

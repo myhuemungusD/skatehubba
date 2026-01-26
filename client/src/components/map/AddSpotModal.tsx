@@ -137,7 +137,7 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
             Add New Spot
           </DialogTitle>
           <DialogDescription className="text-gray-400">
-            Drop a pin at your current location to share this spot with the community.
+            Add a spot at your current location. Fill in the details below.
           </DialogDescription>
         </DialogHeader>
 
