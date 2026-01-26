@@ -1,26 +1,26 @@
-# CODEOWNERS - Require review from specific people for critical files
-# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
-
-# Default owners for everything
+# Default owner
 * @myhuemungusD
 
-# Security-sensitive files require extra review
-/.env.example @myhuemungusD
+# Frontend
+/client/ @myhuemungusD
+
+# Backend
+/server/ @myhuemungusD
+
+# Shared schemas - changes affect both client and server
+/shared/ @myhuemungusD
+
+# Security-sensitive files
+firestore.rules @myhuemungusD
+storage.rules @myhuemungusD
 /server/auth/ @myhuemungusD
-/server/middleware/security.ts @myhuemungusD
-/firestore.rules @myhuemungusD
-/firebase.json @myhuemungusD
 
-# Database schema changes - require careful review
-/shared/schema.ts @myhuemungusD
-/drizzle.config.ts @myhuemungusD
-
-# CI/CD changes
+# Infrastructure and CI
 /.github/ @myhuemungusD
+/infra/ @myhuemungusD
+vercel.json @myhuemungusD
+firebase.json @myhuemungusD
 
-# Package dependencies - prevent supply chain attacks
-**/package.json @myhuemungusD
-pnpm-lock.yaml @myhuemungusD
-
-# WebSocket infrastructure
-/server/socket/ @myhuemungusD
+# Environment and config
+.env.example @myhuemungusD
+/packages/config/ @myhuemungusD

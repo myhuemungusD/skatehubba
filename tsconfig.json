@@ -18,6 +18,6 @@
     "forceConsistentCasingInFileNames": true
   },
   "include": ["client/src", "server", "shared", "packages"],
-  "exclude": ["node_modules", "dist", "**/dist/**", "_archive/**", "mobile/**"],
+  "exclude": ["node_modules", "dist", "**/dist/**", "mobile/**"],
   "references": [{ "path": "./client" }, { "path": "./server" }]
 }
