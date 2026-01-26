@@ -1,42 +1,17 @@
 ---
 name: Feature Request
-about: Suggest an idea for this project
-title: "[FEATURE] "
-labels: enhancement, needs-triage
-assignees: ""
+about: Suggest a new feature
+labels: enhancement
 ---
 
-## Problem Statement
+## Problem
 
-<!-- Is your feature request related to a problem? Describe it. -->
-<!-- A clear and concise description of what the problem is. Ex. I'm always frustrated when [...] -->
+<!-- What problem does this solve? -->
 
 ## Proposed Solution
 
-<!-- A clear and concise description of what you want to happen -->
+<!-- How should it work? -->
 
-## Alternative Solutions
+## Alternatives Considered
 
-<!-- A clear and concise description of any alternative solutions or features you've considered -->
-
-## User Story
-
-<!-- Describe the feature from a user's perspective -->
-
-As a [type of user], I want [goal] so that [benefit].
-
-## Acceptance Criteria
-
-<!-- What needs to be true for this feature to be considered complete? -->
-
-- [ ] Criteria 1
-- [ ] Criteria 2
-- [ ] Criteria 3
-
-## Mockups/Design
-
-<!-- If applicable, add mockups or design references -->
-
-## Additional Context
-
-<!-- Add any other context about the feature request here -->
+<!-- What else did you consider? -->
