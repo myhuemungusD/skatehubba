@@ -17,6 +17,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase/config";
 import { GUEST_MODE } from "../config/flags";
 import { ensureProfile } from "../lib/profile/ensureProfile";
+import { apiRequest } from "../lib/api/client";
 
 export type UserRole = "admin" | "moderator" | "verified_pro";
 export type ProfileStatus = "unknown" | "exists" | "missing";
@@ -211,6 +212,31 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
   }
 }
 
+/**
+ * Authenticate guest user with the backend server.
+ * Creates a database user record and sets up the session cookie.
+ */
+async function authenticateGuestWithBackend(firebaseUser: FirebaseUser): Promise<void> {
+  try {
+    const idToken = await firebaseUser.getIdToken();
+    await apiRequest({
+      method: "POST",
+      path: "/api/auth/login",
+      body: {
+        firstName: "Guest",
+        lastName: "",
+      },
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+    console.log("[AuthStore] Guest authenticated with backend successfully");
+  } catch (error) {
+    console.error("[AuthStore] Guest backend authentication failed:", error);
+    // Don't throw - guest mode should work even if backend auth fails (degraded mode)
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
@@ -249,6 +275,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const anonResult = await withTimeout(firebaseSignInAnonymously(auth), 5000, "anon_signin");
         if (anonResult.status === "ok") {
           currentUser = anonResult.data.user;
+          // Create database user record and session for guest
+          await withTimeout(authenticateGuestWithBackend(currentUser), 5000, "guest_backend_auth");
         } else {
           finalStatus = "degraded";
         }
