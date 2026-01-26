@@ -13,6 +13,10 @@ import {
   passwordSchema,
   paymentAmountSchema,
   sanitizedStringSchema,
+  registerSchema,
+  insertUserSchema,
+  insertGameSchema,
+  insertChallengeSchema,
 } from "../schema";
 
 // =============================================================================
@@ -183,6 +187,113 @@ describe("passwordSchema", () => {
   it("should accept passwords with special characters", () => {
     expect(passwordSchema.parse("P@$$w0rd!!")).toBe("P@$$w0rd!!");
     expect(passwordSchema.parse("Secure#123")).toBe("Secure#123");
+  });
+});
+
+// =============================================================================
+// AUTH USER SCHEMAS
+// =============================================================================
+
+describe("registerSchema", () => {
+  it("accepts valid registration data", () => {
+    const result = registerSchema.safeParse({
+      email: "skater@example.com",
+      password: "StrongPass1",
+      firstName: "Tony",
+      lastName: "Hawk",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid email formats", () => {
+    const result = registerSchema.safeParse({
+      email: "not-an-email",
+      password: "StrongPass1",
+      firstName: "Tony",
+      lastName: "Hawk",
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toContain("valid email");
+    }
+  });
+});
+
+describe("insertUserSchema", () => {
+  it("accepts valid username/password payloads", () => {
+    const result = insertUserSchema.safeParse({
+      username: "SkatePro99",
+      password: "StrongPass1",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects usernames outside length constraints", () => {
+    const tooShort = insertUserSchema.safeParse({
+      username: "ab",
+      password: "StrongPass1",
+    });
+    const tooLong = insertUserSchema.safeParse({
+      username: "a".repeat(21),
+      password: "StrongPass1",
+    });
+    expect(tooShort.success).toBe(false);
+    expect(tooLong.success).toBe(false);
+  });
+});
+
+// =============================================================================
+// GAME / CHALLENGE SCHEMAS
+// =============================================================================
+
+describe("insertGameSchema", () => {
+  it("accepts valid game payloads", () => {
+    const result = insertGameSchema.safeParse({
+      player1Id: "player-1",
+      player1Name: "Player One",
+      status: "waiting",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("allows optional fields to be omitted", () => {
+    const result = insertGameSchema.safeParse({
+      player1Id: "player-1",
+      player1Name: "Player One",
+      status: "active",
+      player2Id: undefined,
+      player2Name: undefined,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid status values", () => {
+    const result = insertGameSchema.safeParse({
+      player1Id: "player-1",
+      player1Name: "Player One",
+      status: "x".repeat(51),
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe("insertChallengeSchema", () => {
+  it("accepts valid challenge payloads", () => {
+    const result = insertChallengeSchema.safeParse({
+      challengerId: "challenger-1",
+      challengedId: "challenged-1",
+      status: "pending",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects invalid challenge status values", () => {
+    const result = insertChallengeSchema.safeParse({
+      challengerId: "challenger-1",
+      challengedId: "challenged-1",
+      status: "x".repeat(51),
+    });
+    expect(result.success).toBe(false);
   });
 });
 
