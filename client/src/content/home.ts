@@ -1,4 +1,4 @@
-import { Users, MapPin, Gamepad2, Award, Video, Shield, CheckCircle, Zap } from "lucide-react";
+import { Users, MapPin, Gamepad2, Award, Video, Shield, CheckCircle, Zap, ShoppingBag, Trophy, User } from "lucide-react";
 
 export const homeContent = {
   hero: {
@@ -9,32 +9,46 @@ export const homeContent = {
     title: "Welcome Back",
     quickActions: [
       {
-        icon: Users,
-        label: "Feed",
-        href: "/feed",
-        description: "See what's happening",
-        color: "bg-orange-500",
-      },
-      {
-        icon: MapPin,
-        label: "Map",
-        href: "/map",
-        description: "Find spots near you",
-        color: "bg-blue-500",
-      },
-      {
         icon: Gamepad2,
-        label: "Battle",
+        label: "S.K.A.T.E",
         href: "/game",
         description: "Challenge someone",
         color: "bg-purple-500",
       },
       {
-        icon: Award,
+        icon: MapPin,
+        label: "Spot Map",
+        href: "/map",
+        description: "Find spots near you",
+        color: "bg-blue-500",
+      },
+      {
+        icon: ShoppingBag,
+        label: "Hubba Shop",
+        href: "/shop",
+        description: "Gear and collectibles",
+        color: "bg-orange-500",
+      },
+      {
+        icon: User,
         label: "Profile",
-        href: "/profile",
+        href: "/closet",
         description: "View your progress",
         color: "bg-green-500",
+      },
+      {
+        icon: Trophy,
+        label: "The Trenches",
+        href: "/leaderboard",
+        description: "Rankings & battles",
+        color: "bg-yellow-500",
+      },
+      {
+        icon: Users,
+        label: "Feed",
+        href: "/feed",
+        description: "See what's happening",
+        color: "bg-pink-500",
       },
     ],
   },
