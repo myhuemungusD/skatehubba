@@ -10,7 +10,7 @@
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-Email security concerns to: [your-email@domain.com]
+Email security concerns to: security@skatehubba.com
 
 Include:
 
