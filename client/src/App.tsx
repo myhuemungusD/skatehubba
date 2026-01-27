@@ -73,6 +73,7 @@ const LoginPage = lazy(() => import("./pages/login"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const SignupPage = lazy(() => import("./pages/signup"));
 const SigninPage = lazy(() => import("./pages/signin"));
+const ForgotPasswordPage = lazy(() => import("./pages/forgot-password"));
 const ProfileSetup = lazy(() => import("./pages/profile/ProfileSetup"));
 const VerifyPage = lazy(() => import("./pages/verify"));
 const AuthVerifyPage = lazy(() => import("./pages/auth-verify"));
