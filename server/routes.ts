@@ -31,6 +31,7 @@ import { moderationRouter } from "./routes/moderation";
 import { createPost } from "./services/moderationStore";
 import { sendQuickMatchNotification } from "./services/notificationService";
 import { profileRouter } from "./routes/profile";
+import { gamesRouter, forfeitExpiredGames } from "./routes/games";
 import logger from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -48,6 +49,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 3c. Profile Routes
   app.use("/api/profile", profileRouter);
+
+  // 3d. Games Routes (S.K.A.T.E. game endpoints)
+  app.use("/api/games", gamesRouter);
 
   // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
@@ -520,6 +524,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("[Quick Match] Failed to find match", { error, userId: currentUserId });
       res.status(500).json({ error: "Failed to find match" });
+    }
+  });
+
+  // Cron endpoint for auto-forfeit expired games
+  // This should be called by an external scheduler (Vercel Cron, Cloud Scheduler, etc.)
+  // Secured with a simple secret key check
+  app.post("/api/cron/forfeit-expired-games", async (req, res) => {
+    // Simple secret verification - set CRON_SECRET in environment
+    const cronSecret = process.env.CRON_SECRET;
+    const authHeader = req.headers.authorization;
+
+    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const result = await forfeitExpiredGames();
+      logger.info("[Cron] Forfeit expired games completed", result);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      logger.error("[Cron] Forfeit expired games failed", { error });
+      res.status(500).json({ error: "Failed to process forfeit" });
     }
   });
 

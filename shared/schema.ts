@@ -534,6 +534,10 @@ export const insertSpotSchema = createInsertSchema(spots, {
   createdBy: true,
 });
 
+// Game status enum: pending (waiting for accept), active (in progress), completed, declined, forfeited
+export const GAME_STATUSES = ["pending", "active", "completed", "declined", "forfeited"] as const;
+export type GameStatus = (typeof GAME_STATUSES)[number];
+
 // S.K.A.T.E. Games table
 export const games = pgTable("games", {
   id: varchar("id")
@@ -543,17 +547,22 @@ export const games = pgTable("games", {
   player1Name: varchar("player1_name", { length: 255 }).notNull(),
   player2Id: varchar("player2_id", { length: 255 }),
   player2Name: varchar("player2_name", { length: 255 }),
-  status: varchar("status", { length: 50 }).notNull().default("waiting"), // 'waiting', 'active', 'completed'
+  status: varchar("status", { length: 50 }).notNull().default("pending"), // 'pending', 'active', 'completed', 'declined', 'forfeited'
   currentTurn: varchar("current_turn", { length: 255 }),
   player1Letters: varchar("player1_letters", { length: 5 }).default(""),
   player2Letters: varchar("player2_letters", { length: 5 }).default(""),
   winnerId: varchar("winner_id", { length: 255 }),
   lastTrickDescription: text("last_trick_description"),
   lastTrickBy: varchar("last_trick_by", { length: 255 }),
+  deadlineAt: timestamp("deadline_at"), // 24-hour deadline for current turn
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   completedAt: timestamp("completed_at"),
 });
+
+// Turn result enum
+export const TURN_RESULTS = ["landed", "missed", "pending"] as const;
+export type TurnResult = (typeof TURN_RESULTS)[number];
 
 // Game turns/history table
 export const gameTurns = pgTable("game_turns", {
@@ -563,7 +572,10 @@ export const gameTurns = pgTable("game_turns", {
   playerName: varchar("player_name", { length: 255 }).notNull(),
   turnNumber: integer("turn_number").notNull(),
   trickDescription: text("trick_description").notNull(),
-  result: varchar("result", { length: 50 }).notNull(), // 'landed', 'missed', 'challenged'
+  videoUrl: varchar("video_url", { length: 500 }), // Firebase Storage URL
+  result: varchar("result", { length: 50 }).notNull().default("pending"), // 'landed', 'missed', 'pending'
+  judgedBy: varchar("judged_by", { length: 255 }), // Player ID who judged this turn
+  judgedAt: timestamp("judged_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
