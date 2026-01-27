@@ -11,8 +11,11 @@ export function useNavItems(): NavItem[] {
   return useMemo(() => {
     if (GUEST_MODE) {
       return [
-        { label: "SPOTMAP", href: "/map" },
+        { label: "HOME", href: "/home" },
         { label: "S.K.A.T.E", href: "/skate-game" },
+        { label: "SPOTMAP", href: "/map" },
+        { label: "HUBBA SHOP", href: "/shop" },
+        { label: "THE TRENCHES", href: "/leaderboard" },
       ];
     }
     return [

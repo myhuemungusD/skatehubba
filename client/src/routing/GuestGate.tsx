@@ -4,7 +4,15 @@ import { GUEST_MODE } from "../config/flags";
 import { useAuth } from "../hooks/useAuth";
 import { ensureProfile } from "../lib/profile/ensureProfile";
 
-const ALLOWED_GUEST_ROUTES = new Set<string>(["/map", "/skate-game", "/game", "/game/active"]);
+const ALLOWED_GUEST_ROUTES = new Set<string>([
+  "/map",
+  "/skate-game",
+  "/game",
+  "/game/active",
+  "/leaderboard",
+  "/shop",
+  "/home",
+]);
 
 export function GuestGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
