@@ -314,14 +314,14 @@ function AppRoutes() {
         {/* ============================================================== */}
         {/* NEW CONSOLIDATED ROUTES (DashboardLayout) */}
         {/* ============================================================== */}
-        <Route path="/hub" component={DashboardHubRoute} />
-        <Route path="/play" component={DashboardPlayRoute} />
-        <Route path="/me" component={DashboardProfileRoute} />
+        <ProtectedRoute path="/hub" component={DashboardHubRoute} allowMissingProfile />
+        <ProtectedRoute path="/play" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute path="/me" component={DashboardProfileRoute} allowMissingProfile />
         <ProtectedRoute path="/map" component={DashboardMapRoute} allowMissingProfile />
-        <Route path="/shop" component={DashboardShopRoute} />
-        <Route path="/cart" component={DashboardCartRoute} />
-        <Route path="/checkout" component={DashboardCheckoutRoute} />
-        <Route path="/order-confirmation" component={AppShellOrderConfirmationRoute} />
+        <ProtectedRoute path="/shop" component={DashboardShopRoute} allowMissingProfile />
+        <ProtectedRoute path="/cart" component={DashboardCartRoute} allowMissingProfile />
+        <ProtectedRoute path="/checkout" component={DashboardCheckoutRoute} allowMissingProfile />
+        <ProtectedRoute path="/order-confirmation" component={AppShellOrderConfirmationRoute} allowMissingProfile />
 
         {/* Spot Detail - still uses AppShell for full-screen modal experience */}
         <ProtectedRoute path="/spots/:id" component={AppShellSpotDetailRoute} allowMissingProfile />
@@ -329,17 +329,17 @@ function AppRoutes() {
         {/* ============================================================== */}
         {/* LEGACY ROUTES (Redirect to new structure for backward compat) */}
         {/* ============================================================== */}
-        <Route path="/home" component={DashboardHubRoute} />
-        <Route path="/feed" component={DashboardHubRoute} />
-        <Route path="/dashboard" component={DashboardHubRoute} />
-        <Route path="/closet" component={DashboardProfileRoute} />
-        <Route path="/settings" component={DashboardProfileRoute} />
-        <Route path="/checkins" component={DashboardProfileRoute} />
-        <Route path="/game/active" component={DashboardPlayRoute} />
-        <Route path="/game" component={DashboardPlayRoute} />
-        <Route path="/skate-game" component={DashboardPlayRoute} />
-        <Route path="/leaderboard" component={DashboardPlayRoute} />
-        <Route path="/showcase" component={DashboardHubRoute} />
+        <ProtectedRoute path="/home" component={DashboardHubRoute} allowMissingProfile />
+        <ProtectedRoute path="/feed" component={DashboardHubRoute} allowMissingProfile />
+        <ProtectedRoute path="/dashboard" component={DashboardHubRoute} allowMissingProfile />
+        <ProtectedRoute path="/closet" component={DashboardProfileRoute} allowMissingProfile />
+        <ProtectedRoute path="/settings" component={DashboardProfileRoute} allowMissingProfile />
+        <ProtectedRoute path="/checkins" component={DashboardProfileRoute} allowMissingProfile />
+        <ProtectedRoute path="/game/active" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute path="/game" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute path="/skate-game" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute path="/leaderboard" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute path="/showcase" component={DashboardHubRoute} allowMissingProfile />
 
         {/* Protected legacy routes */}
         <ProtectedRoute path="/trickmint" component={AppShellTrickmintRoute} />
