@@ -651,3 +651,138 @@ a:focus-visible {
   transform: scale(1.05);
   box-shadow: 0 0 25px #ff6600, 0 0 50px #ff6600;
 }
+
+/* Skateboard-themed Button Styles */
+.skate-card {
+  background: linear-gradient(145deg, #d4a056 0%, #c48b3c 50%, #b37a2e 100%);
+  border-radius: 2rem;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 200ms var(--ease-out-quart);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+  border: 2px solid rgba(139, 90, 43, 0.6);
+}
+
+/* Wood grain texture overlay */
+.skate-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(139, 90, 43, 0.08) 2px,
+      rgba(139, 90, 43, 0.08) 4px
+    );
+  pointer-events: none;
+}
+
+.skate-card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow:
+    0 8px 20px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.skate-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Skateboard card text styles */
+.skate-card-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e3a4c;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.skate-card-description {
+  font-size: 0.8rem;
+  color: #2d4a5a;
+  opacity: 0.9;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* Skateboard card icon styles */
+.skate-card-icon {
+  width: 2rem;
+  height: 2rem;
+  color: #1e3a4c;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.3));
+}
+
+/* Alternative skateboard deck shape - more elongated */
+.skate-deck-card {
+  background: linear-gradient(145deg, #d4a056 0%, #c48b3c 50%, #b37a2e 100%);
+  border-radius: 3rem;
+  padding: 1rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 200ms var(--ease-out-quart);
+  box-shadow:
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    inset 0 2px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+  border: 2px solid rgba(139, 90, 43, 0.5);
+}
+
+.skate-deck-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 3px,
+      rgba(139, 90, 43, 0.06) 3px,
+      rgba(139, 90, 43, 0.06) 6px
+    );
+  pointer-events: none;
+}
+
+.skate-deck-card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 8px 16px rgba(0, 0, 0, 0.35),
+    inset 0 2px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2);
+}
+
+.skate-deck-card:active {
+  transform: translateY(0);
+}
+
+.skate-deck-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e3a4c;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.skate-deck-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #1e3a4c;
+  filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.3));
+}
