@@ -31,12 +31,13 @@ export default function RootLayout() {
     );
   }
 
+  // Only redirect logged-in users away from auth screens
+  // Allow guests to browse the app freely
   useEffect(() => {
     if (!isInitialized) return;
     const inAuthGroup = segments[0] === "auth";
-    if (!user && !inAuthGroup) {
-      router.replace("/auth/sign-in");
-    } else if (user && inAuthGroup) {
+    // If user is logged in and on auth screen, redirect to home
+    if (user && inAuthGroup) {
       router.replace("/(tabs)");
     }
   }, [user, isInitialized, segments, router]);
