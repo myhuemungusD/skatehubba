@@ -289,14 +289,16 @@ function CartPageComponent() {
                 </div>
               </div>
 
-              <Link
-                href="/checkout"
-                className="flex items-center justify-center gap-2 w-full text-center rounded-lg bg-orange-600 hover:bg-orange-700 text-white px-6 py-4 text-lg font-semibold transition-colors"
-                data-testid="button-pay-now"
+              <div
+                className="flex flex-col items-center justify-center gap-2 w-full text-center rounded-lg bg-gray-700 text-gray-400 px-6 py-4 cursor-not-allowed"
+                data-testid="button-pay-now-disabled"
               >
-                <CreditCard className="w-5 h-5" />
-                Proceed to Payment
-              </Link>
+                <div className="flex items-center gap-2 text-lg font-semibold">
+                  <CreditCard className="w-5 h-5" />
+                  Checkout Coming Soon
+                </div>
+                <span className="text-sm">Payment processing will be available soon!</span>
+              </div>
 
               <TrustBadges />
             </div>

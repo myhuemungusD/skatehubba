@@ -82,6 +82,7 @@ const TermsPage = lazy(() => import("./pages/terms"));
 const SpecsPage = lazy(() => import("./pages/specs"));
 const CheckinsPage = lazy(() => import("./pages/checkins"));
 const SettingsPage = lazy(() => import("./pages/settings"));
+const ForgotPasswordPage = lazy(() => import("./pages/forgot-password"));
 
 const PublicProfileView = lazy(() => import("./features/social/public-profile/PublicProfileView"));
 const BoltsShowcase = lazy(() => import("./features/social/bolts-showcase/BoltsShowcase"));
@@ -356,6 +357,7 @@ function AppRoutes() {
         <Route path="/game" component={AppShellChallengeLobbyRoute} />
         <Route path="/signup" component={SignupPage} />
         <Route path="/signin" component={SigninPage} />
+        <Route path="/forgot-password" component={ForgotPasswordPage} />
         <Route path="/verify" component={VerifyPage} />
         <Route path="/auth/verify" component={AuthVerifyPage} />
         <Route path="/verify-email" component={VerifyEmailPage} />

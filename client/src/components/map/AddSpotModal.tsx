@@ -24,6 +24,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertSpotSchema, SPOT_TYPES, SPOT_TIERS, type InsertSpot } from "@shared/schema";
+import { useEmailVerification } from "@/hooks/useEmailVerification";
+import { VerificationPrompt } from "@/components/VerificationPrompt";
 
 const SPOT_TYPE_LABELS: Record<string, string> = {
   rail: " Rail",
@@ -57,6 +59,7 @@ interface AddSpotModalProps {
 
 export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProps) {
   const { toast } = useToast();
+  const { requiresVerification } = useEmailVerification();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [spotType, setSpotType] = useState<string>("street");
@@ -127,6 +130,36 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
 
     mutation.mutate(payload);
   };
+
+  // Show verification gate if email not verified
+  if (requiresVerification) {
+    return (
+      <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+        <DialogContent className="bg-neutral-900 border-neutral-700 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#ff6a00] flex items-center gap-2">
+              <MapPin className="w-5 h-5" />
+              Add New Spot
+            </DialogTitle>
+            <DialogDescription className="text-gray-400">
+              Verify your email to start adding spots.
+            </DialogDescription>
+          </DialogHeader>
+          <VerificationPrompt action="adding spots" className="my-4" />
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleClose}
+              className="border-neutral-700 text-white hover:bg-neutral-800"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>

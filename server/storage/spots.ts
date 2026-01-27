@@ -326,6 +326,36 @@ export class SpotStorage {
   }
 
   /**
+   * Check for duplicate spots (same name AND within ~50 meters)
+   * Used to prevent spam and duplicate entries
+   */
+  async checkDuplicate(name: string, lat: number, lng: number): Promise<boolean> {
+    if (!db) {
+      return false; // Allow creation if DB unavailable
+    }
+
+    // ~50 meters in degrees (rough approximation)
+    const latDelta = 0.00045;
+    const lngDelta = 0.00045;
+    const normalizedName = name.trim().toLowerCase();
+
+    const [existing] = await db
+      .select({ id: spots.id })
+      .from(spots)
+      .where(
+        and(
+          eq(spots.isActive, true),
+          sql`lower(trim(${spots.name})) = ${normalizedName}`,
+          sql`${spots.lat} BETWEEN ${lat - latDelta} AND ${lat + latDelta}`,
+          sql`${spots.lng} BETWEEN ${lng - lngDelta} AND ${lng + lngDelta}`
+        )
+      )
+      .limit(1);
+
+    return !!existing;
+  }
+
+  /**
    * Get spot statistics
    */
   async getStats(): Promise<{ total: number; verified: number; cities: number }> {
