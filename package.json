@@ -49,12 +49,12 @@
   },
   "devDependencies": {
     "@commitlint/cli": "^20.3.1",
-    "drizzle-kit": "^0.30.4",
     "@commitlint/config-conventional": "^20.3.1",
     "@eslint/js": "^9.39.2",
     "@types/fluent-ffmpeg": "^2.1.28",
     "@vitest/coverage-v8": "^4.0.18",
     "concurrently": "^9.2.1",
+    "drizzle-kit": "^0.30.4",
     "esbuild": "^0.27.2",
     "eslint": "^9.39.2",
     "eslint-plugin-react-hooks": "^5.1.0",
@@ -70,7 +70,7 @@
   },
   "pnpm": {
     "overrides": {
-      "drizzle-zod": "0.8.3",
+      "drizzle-zod": "0.7.0",
       "path-to-regexp": ">=8.0.0",
       "cookie": ">=0.7.0",
       "send": ">=0.19.0",
@@ -83,7 +83,7 @@
   },
   "dependencies": {
     "drizzle-orm": "^0.45.1",
-    "drizzle-zod": "0.8.3",
+    "drizzle-zod": "0.7.0",
     "expo-auth-session": "~7.0.10",
     "expo-crypto": "~15.0.8",
     "expo-web-browser": "~15.0.10",
