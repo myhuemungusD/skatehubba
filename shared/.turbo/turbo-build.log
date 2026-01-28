@@ -1,5 +1,0 @@
-
-> shared@0.0.1 build C:\Users\LowAn\skatehubba1\shared
-> echo "Shared package build (no compiled output required)" && node -e "import('fs').then(fs=>{fs.mkdirSync('dist',{recursive:true});fs.writeFileSync('dist/.keep','');})"
-
-"Shared package build (no compiled output required)" 

@@ -1,4 +1,4 @@
-import { AnalyticsIngestSchema, type EventName } from "shared/analytics-events";
+import { AnalyticsIngestSchema, type EventName } from "@skatehubba/shared/analytics-events";
 import { auth } from "../firebase.config";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Application from "expo-application";
