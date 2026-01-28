@@ -218,12 +218,22 @@ app.post("/stripe", async (req: Request, res: Response) => {
       default:
         logger.info("Unhandled event type", { type: event.type });
     }
-
-    res.status(200).send("OK");
   } catch (error) {
-    logger.error("Error processing webhook", { eventId: event.id, error });
-    res.status(500).send("Processing error");
+    // Log the error but still return 200 (OK) to prevent Stripe retries.
+    // The event is already marked as processed, so retries won't help recover.
+    // Application-level errors should be handled via monitoring/alerting, not webhook retries.
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    logger.error("Error processing webhook event", {
+      eventId: event.id,
+      type: event.type,
+      error: errorMsg,
+    });
+    // Still return 200 to acknowledge receipt - Stripe should not retry this event
+    res.status(200).send("OK");
+    return;
   }
+
+  res.status(200).send("OK");
 });
 
 // Export the Express app as a Firebase Function
