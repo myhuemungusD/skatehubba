@@ -70,7 +70,7 @@
   },
   "pnpm": {
     "overrides": {
-      "drizzle-zod": "0.7.0",
+      "drizzle-zod": "0.8.3",
       "path-to-regexp": ">=8.0.0",
       "cookie": ">=0.7.0",
       "send": ">=0.19.0",
@@ -82,12 +82,12 @@
     ]
   },
   "dependencies": {
-    "drizzle-orm": "^0.44.7",
-    "drizzle-zod": "0.7.0",
+    "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "0.8.3",
     "expo-auth-session": "~7.0.10",
     "expo-crypto": "~15.0.8",
     "expo-web-browser": "~15.0.10",
     "pg": "^8.17.2",
-    "zod": "3.23.8"
+    "zod": "3.25.76"
   }
 }
