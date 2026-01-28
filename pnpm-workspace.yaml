@@ -4,4 +4,4 @@ packages:
   - "mobile"
   - "shared"
   - "packages/*"
-  - "infra/firebase/functions"
+  - "functions"
