@@ -270,11 +270,24 @@ export const holdAndCreatePaymentIntent = onCall<
     // Validate and load products
     const products = await validateAndLoadProducts(items, uid);
 
+    // Validate that all products have the same currency
+    const currencies = new Set<string>();
+    for (const product of products.values()) {
+      currencies.add(product.currency);
+    }
+    
+    if (currencies.size > 1) {
+      throw new HttpsError(
+        "invalid-argument",
+        `Cart contains products with different currencies. All items must have the same currency.`
+      );
+    }
+
+    // Get currency from first product
+    const currency = products.values().next().value?.currency ?? "USD";
+
     // Calculate totals
     const { subtotalCents, taxCents, shippingCents, totalCents } = calculateTotals(items, products);
-
-    // Get currency from first product (assuming all same currency)
-    const currency = products.values().next().value?.currency ?? "USD";
 
     // Reserve stock from shards
     const allReserved: ReservedStock[] = [];
