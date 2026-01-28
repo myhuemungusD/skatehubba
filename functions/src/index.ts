@@ -373,3 +373,8 @@ export const validateChallengeVideo = functions.storage.object().onFinalize(asyn
 });
 
 export { createBounty, submitClaim, castVote, payOutClaim, expireBounties };
+
+// Commerce exports
+export { holdAndCreatePaymentIntent } from "./commerce/holdAndCreateIntent";
+export { stripeWebhook } from "./commerce/stripeWebhook";
+export { expireHolds } from "./commerce/expireHolds";

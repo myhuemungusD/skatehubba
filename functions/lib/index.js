@@ -44,14 +44,33 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createProfile = exports.getUserRoles = exports.manageUserRole = void 0;
+exports.expireHolds = exports.stripeWebhook = exports.holdAndCreatePaymentIntent = exports.expireBounties = exports.payOutClaim = exports.castVote = exports.submitClaim = exports.createBounty = exports.validateChallengeVideo = exports.createProfile = exports.getUserRoles = exports.manageUserRole = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const path = __importStar(require("path"));
+const os = __importStar(require("os"));
+const fs = __importStar(require("fs"));
+const fluent_ffmpeg_1 = __importDefault(require("fluent-ffmpeg"));
+const ffprobe_1 = __importDefault(require("@ffprobe-installer/ffprobe"));
+const createBounty_1 = require("./bounties/createBounty");
+Object.defineProperty(exports, "createBounty", { enumerable: true, get: function () { return createBounty_1.createBounty; } });
+const submitClaim_1 = require("./bounties/submitClaim");
+Object.defineProperty(exports, "submitClaim", { enumerable: true, get: function () { return submitClaim_1.submitClaim; } });
+const castVote_1 = require("./bounties/castVote");
+Object.defineProperty(exports, "castVote", { enumerable: true, get: function () { return castVote_1.castVote; } });
+const payOutClaim_1 = require("./bounties/payOutClaim");
+Object.defineProperty(exports, "payOutClaim", { enumerable: true, get: function () { return payOutClaim_1.payOutClaim; } });
+const expireBounties_1 = require("./bounties/expireBounties");
+Object.defineProperty(exports, "expireBounties", { enumerable: true, get: function () { return expireBounties_1.expireBounties; } });
 // Initialize Firebase Admin if not already done
 if (!admin.apps.length) {
     admin.initializeApp();
 }
+fluent_ffmpeg_1.default.setFfprobePath(ffprobe_1.default.path);
 // Valid roles that can be assigned
 const VALID_ROLES = ["admin", "moderator", "verified_pro"];
 // ============================================================================
@@ -237,138 +256,65 @@ exports.getUserRoles = functions.https.onCall(async (data, context) => {
     }
 });
 // ============================================================================
-// Profile Creation
+// Profile Creation (Deprecated - handled by REST API)
 // ============================================================================
-function generateRandomUsername() {
-    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-    let result = "skater";
-    for (let i = 0; i < 8; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return result;
-}
-function validateUsername(username) {
-    return /^[a-z0-9]{3,20}$/.test(username);
-}
 /**
  * createProfile
  *
- * Callable function for profile creation.
- * Creates a Firestore profile document for authenticated users.
- *
- * Payload: {
- *   username?: string,
- *   stance?: 'regular' | 'goofy',
- *   experienceLevel?: 'beginner' | 'intermediate' | 'advanced' | 'pro',
- *   favoriteTricks?: string[],
- *   bio?: string,
- *   crewName?: string,
- *   avatarBase64?: string,
- *   skip?: boolean
- * }
+ * @deprecated Profile creation is now handled by the REST API.
+ * This callable function exists only to provide a helpful error message.
  */
-exports.createProfile = functions.https.onCall(async (data, context) => {
-    var _a;
-    // Authentication required
-    if (!context.auth) {
-        throw new functions.https.HttpsError("unauthenticated", "Must be logged in to create a profile.");
-    }
-    // Rate limiting
-    checkRateLimit(context.auth.uid);
-    const uid = context.auth.uid;
-    const firestore = admin.firestore();
-    const profileRef = firestore.collection("profiles").doc(uid);
-    // Check if profile already exists
-    const existingProfile = await profileRef.get();
-    if (existingProfile.exists) {
-        return { profile: existingProfile.data(), existed: true };
-    }
-    const shouldSkip = data.skip === true;
-    let username = ((_a = data.username) === null || _a === void 0 ? void 0 : _a.toLowerCase()) || "";
-    // Generate username if skipping or no username provided
-    if (shouldSkip || !username) {
-        for (let attempt = 0; attempt < 10; attempt++) {
-            const candidate = generateRandomUsername();
-            const usernameQuery = await firestore
-                .collection("profiles")
-                .where("username", "==", candidate)
-                .limit(1)
-                .get();
-            if (usernameQuery.empty) {
-                username = candidate;
-                break;
-            }
-        }
-        if (!username) {
-            throw new functions.https.HttpsError("internal", "Could not generate unique username.");
-        }
-    }
-    // Validate username
-    if (!validateUsername(username)) {
-        throw new functions.https.HttpsError("invalid-argument", "Invalid username format.");
-    }
-    // Check if username is taken
-    const usernameQuery = await firestore
-        .collection("profiles")
-        .where("username", "==", username)
-        .limit(1)
-        .get();
-    if (!usernameQuery.empty) {
-        throw new functions.https.HttpsError("already-exists", "Username is already taken.");
-    }
-    // Handle avatar upload if provided
-    let avatarUrl = null;
-    if (data.avatarBase64 && !shouldSkip) {
-        try {
-            const match = data.avatarBase64.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
-            if (match) {
-                const contentType = match[1];
-                const base64Data = match[2];
-                const buffer = Buffer.from(base64Data, "base64");
-                // Validate size (5MB max)
-                if (buffer.byteLength > 5 * 1024 * 1024) {
-                    throw new functions.https.HttpsError("invalid-argument", "Avatar too large (max 5MB).");
-                }
-                // Upload to Firebase Storage
-                const bucket = admin.storage().bucket();
-                const filePath = `profiles/${uid}/avatar`;
-                const file = bucket.file(filePath);
-                await file.save(buffer, {
-                    resumable: false,
-                    metadata: {
-                        contentType,
-                        cacheControl: "public, max-age=31536000",
-                    },
-                });
-                const encodedPath = encodeURIComponent(filePath);
-                avatarUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media`;
-            }
-        }
-        catch (error) {
-            console.error("[createProfile] Avatar upload failed:", error);
-            // Don't fail profile creation if avatar upload fails
-        }
-    }
-    // Create profile document
-    const profileData = {
-        uid,
-        username,
-        stance: data.stance || null,
-        experienceLevel: data.experienceLevel || null,
-        favoriteTricks: data.favoriteTricks || [],
-        bio: data.bio || null,
-        spotsVisited: 0,
-        crewName: data.crewName || null,
-        credibilityScore: 0,
-        avatarUrl,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
-    await profileRef.set(profileData);
-    console.log(`[createProfile] Created profile for user ${uid} with username ${username}`);
-    return {
-        profile: Object.assign(Object.assign({}, profileData), { createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }),
-        existed: false,
-    };
+exports.createProfile = functions.https.onCall(async (_data, _context) => {
+    throw new functions.https.HttpsError("failed-precondition", "Profile creation is handled by the REST API. Use POST /api/profile/create.");
 });
+// ============================================================================
+// Video Validation (Storage Trigger)
+// ============================================================================
+exports.validateChallengeVideo = functions.storage.object().onFinalize(async (object) => {
+    const filePath = object.name;
+    if (!filePath || !filePath.startsWith("challenges/")) {
+        return;
+    }
+    if (object.contentType && !object.contentType.startsWith("video/")) {
+        return;
+    }
+    const bucket = admin.storage().bucket(object.bucket);
+    const file = bucket.file(filePath);
+    const tempFilePath = path.join(os.tmpdir(), `${path.basename(filePath)}_${Date.now()}_${Math.random().toString(36).slice(2)}`);
+    try {
+        await file.download({ destination: tempFilePath });
+        const duration = await new Promise((resolve, reject) => {
+            fluent_ffmpeg_1.default.ffprobe(tempFilePath, (err, metadata) => {
+                var _a, _b;
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                resolve((_b = (_a = metadata === null || metadata === void 0 ? void 0 : metadata.format) === null || _a === void 0 ? void 0 : _a.duration) !== null && _b !== void 0 ? _b : 0);
+            });
+        });
+        if (duration < 14.5 || duration > 15.5) {
+            await file.delete();
+            console.warn(`[validateChallengeVideo] Deleted invalid clip ${filePath} (duration ${duration}s)`);
+        }
+    }
+    catch (error) {
+        console.error("[validateChallengeVideo] Failed to validate clip:", filePath, error);
+    }
+    finally {
+        try {
+            fs.unlinkSync(tempFilePath);
+        }
+        catch (_a) {
+            // Ignore temp cleanup errors
+        }
+    }
+});
+// Commerce exports
+var holdAndCreateIntent_1 = require("./commerce/holdAndCreateIntent");
+Object.defineProperty(exports, "holdAndCreatePaymentIntent", { enumerable: true, get: function () { return holdAndCreateIntent_1.holdAndCreatePaymentIntent; } });
+var stripeWebhook_1 = require("./commerce/stripeWebhook");
+Object.defineProperty(exports, "stripeWebhook", { enumerable: true, get: function () { return stripeWebhook_1.stripeWebhook; } });
+var expireHolds_1 = require("./commerce/expireHolds");
+Object.defineProperty(exports, "expireHolds", { enumerable: true, get: function () { return expireHolds_1.expireHolds; } });
 //# sourceMappingURL=index.js.map
