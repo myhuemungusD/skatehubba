@@ -9,21 +9,14 @@ import {
 import { useRef, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
-import type { GameOverlay, SkateLetter } from "@/types";
+import type { GameOverlay } from "@/types";
 
 interface TurnOverlayProps {
-  /** The overlay configuration to display */
   overlay: GameOverlay | null;
-  /** Callback when overlay is dismissed */
   onDismiss: () => void;
-  /** Whether the overlay can be manually dismissed */
   dismissible?: boolean;
 }
 
-/**
- * Full-screen overlay for game state announcements.
- * Uses dramatic Baker-era aesthetics with heavy typography.
- */
 export function TurnOverlay({
   overlay,
   onDismiss,
@@ -35,7 +28,6 @@ export function TurnOverlay({
 
   useEffect(() => {
     if (overlay) {
-      // Entrance animation
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -50,7 +42,6 @@ export function TurnOverlay({
         }),
       ]).start();
 
-      // Letter gained animation
       if (overlay.type === "letter_gained" && overlay.letter) {
         Animated.sequence([
           Animated.delay(300),
@@ -63,7 +54,6 @@ export function TurnOverlay({
         ]).start();
       }
     } else {
-      // Reset animations
       fadeAnim.setValue(0);
       scaleAnim.setValue(0.8);
       letterScaleAnim.setValue(0);
@@ -95,33 +85,25 @@ export function TurnOverlay({
             style={[
               styles.content,
               config.containerStyle,
-              {
-                transform: [{ scale: scaleAnim }],
-              },
+              { transform: [{ scale: scaleAnim }] },
             ]}
           >
-            {/* Icon */}
             {config.icon && (
-              <View style={[styles.iconContainer, config.iconContainerStyle]}>
+              <View style={styles.iconContainer}>
                 <Ionicons
                   name={config.icon}
-                  size={config.iconSize || 48}
+                  size={48}
                   color={config.iconColor || SKATE.colors.white}
                 />
               </View>
             )}
 
-            {/* Title */}
             <Text style={[styles.title, config.titleStyle]}>{overlay.title}</Text>
 
-            {/* Subtitle */}
             {overlay.subtitle && (
-              <Text style={[styles.subtitle, config.subtitleStyle]}>
-                {overlay.subtitle}
-              </Text>
+              <Text style={styles.subtitle}>{overlay.subtitle}</Text>
             )}
 
-            {/* Letter Display (for letter_gained) */}
             {overlay.type === "letter_gained" && overlay.letter && (
               <Animated.View
                 style={[
@@ -133,15 +115,12 @@ export function TurnOverlay({
               </Animated.View>
             )}
 
-            {/* Loading indicator for waiting states */}
-            {(overlay.type === "uploading" ||
-              overlay.type === "waiting_opponent") && (
+            {overlay.type === "waiting_opponent" && (
               <View style={styles.loadingContainer}>
                 <LoadingDots />
               </View>
             )}
 
-            {/* Dismiss hint */}
             {dismissible && overlay.autoDismissMs === null && (
               <Text style={styles.dismissHint}>Tap to continue</Text>
             )}
@@ -152,61 +131,59 @@ export function TurnOverlay({
   );
 }
 
-/** Animated loading dots */
 function LoadingDots() {
-  const dot1 = useRef(new Animated.Value(0.3)).current;
-  const dot2 = useRef(new Animated.Value(0.3)).current;
-  const dot3 = useRef(new Animated.Value(0.3)).current;
+  const animations = useRef([
+    new Animated.Value(0.3),
+    new Animated.Value(0.3),
+    new Animated.Value(0.3),
+  ]).current;
 
   useEffect(() => {
-    const animateDot = (dot: Animated.Value, delay: number) => {
-      return Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(dot, {
-            toValue: 1,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dot, {
-            toValue: 0.3,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ])
-      );
-    };
+    const compositeAnimation = Animated.parallel(
+      animations.map((anim, index) =>
+        Animated.loop(
+          Animated.sequence([
+            Animated.delay(index * 150),
+            Animated.timing(anim, {
+              toValue: 1,
+              duration: 300,
+              useNativeDriver: true,
+            }),
+            Animated.timing(anim, {
+              toValue: 0.3,
+              duration: 300,
+              useNativeDriver: true,
+            }),
+          ])
+        )
+      )
+    );
 
-    Animated.parallel([
-      animateDot(dot1, 0),
-      animateDot(dot2, 150),
-      animateDot(dot3, 300),
-    ]).start();
-  }, [dot1, dot2, dot3]);
+    compositeAnimation.start();
+
+    // Cleanup: stop animations on unmount
+    return () => {
+      compositeAnimation.stop();
+      animations.forEach((anim) => anim.setValue(0.3));
+    };
+  }, [animations]);
 
   return (
     <View style={styles.dotsContainer}>
-      {[dot1, dot2, dot3].map((dot, i) => (
-        <Animated.View
-          key={i}
-          style={[styles.dot, { opacity: dot }]}
-        />
+      {animations.map((anim, i) => (
+        <Animated.View key={i} style={[styles.dot, { opacity: anim }]} />
       ))}
     </View>
   );
 }
 
-// Configuration for each overlay type
 const OVERLAY_CONFIGS: Record<
   GameOverlay["type"],
   {
     icon?: keyof typeof Ionicons.glyphMap;
-    iconSize?: number;
     iconColor?: string;
     containerStyle?: object;
-    iconContainerStyle?: object;
     titleStyle?: object;
-    subtitleStyle?: object;
   }
 > = {
   turn_start: {
@@ -215,50 +192,17 @@ const OVERLAY_CONFIGS: Record<
     containerStyle: { borderColor: SKATE.colors.neon },
     titleStyle: { color: SKATE.colors.neon },
   },
-  recording: {
-    icon: "videocam",
-    iconColor: SKATE.colors.blood,
-    containerStyle: { borderColor: SKATE.colors.blood },
-    iconContainerStyle: { backgroundColor: SKATE.colors.blood },
-  },
-  uploading: {
-    icon: "cloud-upload",
-    iconColor: SKATE.colors.orange,
-    containerStyle: { borderColor: SKATE.colors.orange },
-  },
   waiting_opponent: {
     icon: "hourglass",
     iconColor: SKATE.colors.lightGray,
     containerStyle: { borderColor: SKATE.colors.gray },
     titleStyle: { color: SKATE.colors.lightGray },
   },
-  judging: {
-    icon: "eye",
-    iconColor: SKATE.colors.gold,
-    containerStyle: { borderColor: SKATE.colors.gold },
-    titleStyle: { color: SKATE.colors.gold },
-  },
   letter_gained: {
     icon: "close-circle",
     iconColor: SKATE.colors.blood,
     containerStyle: { borderColor: SKATE.colors.blood },
     titleStyle: { color: SKATE.colors.blood },
-  },
-  round_complete: {
-    icon: "checkmark-circle",
-    iconColor: SKATE.colors.neon,
-    containerStyle: { borderColor: SKATE.colors.neon },
-    titleStyle: { color: SKATE.colors.neon },
-  },
-  game_over: {
-    icon: "trophy",
-    iconSize: 64,
-    iconColor: SKATE.colors.gold,
-    containerStyle: {
-      borderColor: SKATE.colors.gold,
-      borderWidth: 4,
-    },
-    titleStyle: { color: SKATE.colors.gold, fontSize: 36 },
   },
 };
 

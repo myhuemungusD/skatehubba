@@ -95,28 +95,12 @@ export type GameSessionStatus = 'waiting' | 'active' | 'completed' | 'abandoned'
 /** Current phase of a turn in the S.K.A.T.E. battle */
 export type TurnPhase =
   | 'attacker_recording'  // Attacker is recording their trick
-  | 'attacker_uploaded'   // Attacker's clip uploaded, waiting for defender
   | 'defender_recording'  // Defender is recording their attempt
-  | 'defender_uploaded'   // Defender's clip uploaded, awaiting judgment
-  | 'judging'             // Determining if defender landed the trick
+  | 'judging'             // Server determining if defender landed
   | 'round_complete';     // Round finished, determining next attacker
 
 /** Result of a single move/attempt */
 export type MoveResult = 'landed' | 'bailed' | 'pending';
-
-/** Vote type for judging a trick attempt */
-export type TrickVote = 'clean' | 'sketch' | 'redo';
-
-/** Status of a player in the current game */
-export interface PlayerStatus {
-  id: string;
-  displayName: string;
-  photoURL: string | null;
-  letters: SkateLetter[];        // Letters accumulated (e.g., ['S', 'K'])
-  isAttacker: boolean;           // Whether this player is currently attacking
-  isConnected: boolean;          // Real-time connection status
-  lastSeen: Date | null;
-}
 
 /** A single move/trick attempt in the game */
 export interface Move {
@@ -129,11 +113,6 @@ export interface Move {
   thumbnailUrl: string | null;
   durationSec: number;
   result: MoveResult;
-  votes: {
-    clean: number;
-    sketch: number;
-    redo: number;
-  };
   createdAt: Date;
 }
 
@@ -161,12 +140,6 @@ export interface GameSession {
   completedAt: Date | null;
 }
 
-/** Props for the main S.K.A.T.E. battle screen */
-export interface SkateBattleProps {
-  gameId: string;
-  currentUserId: string;
-}
-
 /** Local UI state for optimistic updates during trick recording */
 export interface PendingUpload {
   id: string;
@@ -179,13 +152,8 @@ export interface PendingUpload {
 /** UI overlay types for game state announcements */
 export type GameOverlayType =
   | 'turn_start'
-  | 'recording'
-  | 'uploading'
   | 'waiting_opponent'
-  | 'judging'
-  | 'letter_gained'
-  | 'round_complete'
-  | 'game_over';
+  | 'letter_gained';
 
 /** Configuration for game overlays */
 export interface GameOverlay {

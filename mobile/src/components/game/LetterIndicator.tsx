@@ -5,66 +5,27 @@ import type { SkateLetter } from "@/types";
 import { SKATE_LETTERS } from "@/types";
 
 interface LetterIndicatorProps {
-  /** Letters the player has accumulated */
   letters: SkateLetter[];
-  /** Player's display name */
   playerName: string;
-  /** Whether this is the current player (affects styling) */
   isCurrentPlayer: boolean;
-  /** Whether this player is currently attacking */
   isAttacker: boolean;
-  /** Size variant */
-  size?: "small" | "medium" | "large";
-  /** Layout direction */
   layout?: "horizontal" | "vertical";
-  /** Recently gained letter (for animation) */
-  newLetter?: SkateLetter | null;
 }
 
-/**
- * Displays the S-K-A-T-E letter status for a player.
- * Shows which letters have been accumulated with Baker-era raw aesthetics.
- */
 export function LetterIndicator({
   letters,
   playerName,
   isCurrentPlayer,
   isAttacker,
-  size = "medium",
   layout = "horizontal",
-  newLetter = null,
 }: LetterIndicatorProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const letterAnims = useRef(
-    SKATE_LETTERS.map(() => new Animated.Value(1))
-  ).current;
+  const pulseAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Pulse animation for new letter
-  useEffect(() => {
-    if (newLetter) {
-      const letterIndex = SKATE_LETTERS.indexOf(newLetter);
-      if (letterIndex !== -1) {
-        Animated.sequence([
-          Animated.timing(letterAnims[letterIndex], {
-            toValue: 1.4,
-            duration: 150,
-            useNativeDriver: true,
-          }),
-          Animated.spring(letterAnims[letterIndex], {
-            toValue: 1,
-            friction: 3,
-            tension: 40,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }
-    }
-  }, [newLetter, letterAnims]);
-
-  // Attacker pulse effect
+  // Attacker pulse effect with proper cleanup
   useEffect(() => {
     if (isAttacker) {
-      Animated.loop(
+      pulseAnimRef.current = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.05,
@@ -77,13 +38,19 @@ export function LetterIndicator({
             useNativeDriver: true,
           }),
         ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
+      );
+      pulseAnimRef.current.start();
     }
+
+    return () => {
+      if (pulseAnimRef.current) {
+        pulseAnimRef.current.stop();
+        pulseAnimRef.current = null;
+      }
+      pulseAnim.setValue(1);
+    };
   }, [isAttacker, pulseAnim]);
 
-  const sizeStyles = SIZE_CONFIGS[size];
   const isVertical = layout === "vertical";
 
   return (
@@ -102,7 +69,6 @@ export function LetterIndicator({
         <Text
           style={[
             styles.playerName,
-            sizeStyles.nameStyle,
             isCurrentPlayer && styles.playerNameCurrent,
           ]}
           numberOfLines={1}
@@ -117,32 +83,26 @@ export function LetterIndicator({
       </View>
 
       <View style={[styles.lettersRow, isVertical && styles.lettersRowVertical]}>
-        {SKATE_LETTERS.map((letter, index) => {
+        {SKATE_LETTERS.map((letter) => {
           const hasLetter = letters.includes(letter);
-          const isNew = newLetter === letter;
 
           return (
-            <Animated.View
+            <View
               key={letter}
               style={[
                 styles.letterBox,
-                sizeStyles.letterBox,
                 hasLetter && styles.letterBoxActive,
-                isNew && styles.letterBoxNew,
-                { transform: [{ scale: letterAnims[index] }] },
               ]}
             >
               <Text
                 style={[
                   styles.letterText,
-                  sizeStyles.letterText,
                   hasLetter && styles.letterTextActive,
-                  isNew && styles.letterTextNew,
                 ]}
               >
                 {letter}
               </Text>
-            </Animated.View>
+            </View>
           );
         })}
       </View>
@@ -155,45 +115,6 @@ export function LetterIndicator({
     </Animated.View>
   );
 }
-
-const SIZE_CONFIGS = {
-  small: {
-    letterBox: {
-      width: 24,
-      height: 28,
-    },
-    letterText: {
-      fontSize: 14,
-    },
-    nameStyle: {
-      fontSize: 12,
-    },
-  },
-  medium: {
-    letterBox: {
-      width: 36,
-      height: 42,
-    },
-    letterText: {
-      fontSize: 20,
-    },
-    nameStyle: {
-      fontSize: 14,
-    },
-  },
-  large: {
-    letterBox: {
-      width: 48,
-      height: 56,
-    },
-    letterText: {
-      fontSize: 28,
-    },
-    nameStyle: {
-      fontSize: 18,
-    },
-  },
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -226,6 +147,7 @@ const styles = StyleSheet.create({
   playerName: {
     color: SKATE.colors.lightGray,
     fontWeight: "600",
+    fontSize: 14,
     textTransform: "uppercase",
     letterSpacing: 1,
   },
@@ -252,6 +174,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   letterBox: {
+    width: 36,
+    height: 42,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: SKATE.colors.ink,
@@ -263,24 +187,14 @@ const styles = StyleSheet.create({
     backgroundColor: SKATE.colors.blood,
     borderColor: SKATE.colors.blood,
   },
-  letterBoxNew: {
-    borderColor: SKATE.colors.gold,
-    shadowColor: SKATE.colors.gold,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 8,
-    elevation: 6,
-  },
   letterText: {
     fontWeight: "bold",
+    fontSize: 20,
     color: SKATE.colors.darkGray,
     fontFamily: "monospace",
   },
   letterTextActive: {
     color: SKATE.colors.white,
-  },
-  letterTextNew: {
-    color: SKATE.colors.gold,
   },
   eliminatedBanner: {
     position: "absolute",

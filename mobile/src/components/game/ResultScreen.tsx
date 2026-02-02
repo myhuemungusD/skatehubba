@@ -10,8 +10,7 @@ import {
 import { useRef, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
-import type { GameSession, Move } from "@/types";
-import { SKATE_LETTERS } from "@/types";
+import type { GameSession } from "@/types";
 import { LetterIndicator } from "./LetterIndicator";
 
 interface ResultScreenProps {
@@ -144,7 +143,6 @@ export function ResultScreen({
                 playerName={gameSession.player1DisplayName}
                 isCurrentPlayer={gameSession.player1Id === currentUserId}
                 isAttacker={false}
-                size="medium"
                 layout="vertical"
               />
               {gameSession.winnerId === gameSession.player1Id && (
@@ -169,7 +167,6 @@ export function ResultScreen({
                 playerName={gameSession.player2DisplayName}
                 isCurrentPlayer={gameSession.player2Id === currentUserId}
                 isAttacker={false}
-                size="medium"
                 layout="vertical"
               />
               {gameSession.winnerId === gameSession.player2Id && (

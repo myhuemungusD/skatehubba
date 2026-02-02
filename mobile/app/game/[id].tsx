@@ -447,7 +447,6 @@ export default function GameScreen() {
           playerName={gameSession.player1DisplayName}
           isCurrentPlayer={gameSession.player1Id === user?.uid}
           isAttacker={gameSession.currentAttacker === gameSession.player1Id}
-          size="medium"
         />
 
         <View style={styles.vsContainer}>
@@ -459,7 +458,6 @@ export default function GameScreen() {
           playerName={gameSession.player2DisplayName}
           isCurrentPlayer={gameSession.player2Id === user?.uid}
           isAttacker={gameSession.currentAttacker === gameSession.player2Id}
-          size="medium"
         />
       </View>
 
