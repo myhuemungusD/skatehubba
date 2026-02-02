@@ -10,78 +10,127 @@ import {
 } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
+import { z } from "zod";
 import { db, storage, auth, functions } from "@/lib/firebase.config";
 import { showMessage } from "react-native-flash-message";
 import { useGameStore } from "@/store/gameStore";
-import type { GameSession, Move, TurnPhase, SkateLetter, MoveResult } from "@/types";
+import type { GameSession, Move, TurnPhase } from "@/types";
 
-const MAX_UPLOAD_RETRIES = 3;
-const RETRY_DELAYS = [2000, 4000, 8000];
+/** Number of retry attempts (not including initial attempt) */
+const MAX_RETRIES = 3;
+/** Exponential backoff delays in ms for each retry */
+const RETRY_DELAYS: readonly [number, number, number] = [2000, 4000, 8000];
 
 const gameKeys = {
   all: ["games"] as const,
   session: (id: string) => [...gameKeys.all, "session", id] as const,
 };
 
-function parseMove(m: Record<string, unknown>): Move {
-  return {
-    id: m.id as string,
-    roundNumber: m.roundNumber as number,
-    playerId: m.playerId as string,
-    type: m.type as "set" | "match",
-    trickName: (m.trickName as string) || null,
-    clipUrl: m.clipUrl as string,
-    thumbnailUrl: (m.thumbnailUrl as string) || null,
-    durationSec: (m.durationSec as number) || 15,
-    result: (m.result as MoveResult) || "pending",
-    createdAt:
-      m.createdAt instanceof Timestamp
-        ? m.createdAt.toDate()
-        : new Date(m.createdAt as string),
-  };
-}
+// Zod schemas for runtime validation
+const SkateLetterSchema = z.enum(["S", "K", "A", "T", "E"]);
+
+const MoveResultSchema = z.enum(["landed", "bailed", "pending"]);
+
+const JudgmentVotesSchema = z.object({
+  attackerVote: z.enum(["landed", "bailed"]).nullable(),
+  defenderVote: z.enum(["landed", "bailed"]).nullable(),
+});
+
+const MoveSchema = z.object({
+  id: z.string(),
+  roundNumber: z.number(),
+  playerId: z.string(),
+  type: z.enum(["set", "match"]),
+  trickName: z.string().nullable(),
+  clipUrl: z.string(),
+  thumbnailUrl: z.string().nullable(),
+  durationSec: z.number().default(15),
+  result: MoveResultSchema.default("pending"),
+  judgmentVotes: JudgmentVotesSchema.optional(),
+  createdAt: z.union([
+    z.date(),
+    z.string().transform((s) => new Date(s)),
+    z.custom<Timestamp>((v) => v instanceof Timestamp).transform((t) => t.toDate()),
+  ]),
+});
+
+const TurnPhaseSchema = z.enum([
+  "attacker_recording",
+  "defender_recording",
+  "judging",
+  "round_complete",
+]);
+
+const GameSessionStatusSchema = z.enum(["waiting", "active", "completed", "abandoned"]);
+
+const timestampOrDate = z.union([
+  z.date(),
+  z.string().transform((s) => new Date(s)),
+  z.custom<Timestamp>((v) => v instanceof Timestamp).transform((t) => t.toDate()),
+]);
+
+const nullableTimestampOrDate = z.union([
+  z.null(),
+  z.undefined(),
+  timestampOrDate,
+]).transform((v) => v ?? null);
+
+const GameSessionSchema = z.object({
+  player1Id: z.string(),
+  player2Id: z.string(),
+  player1DisplayName: z.string().default("Player 1"),
+  player2DisplayName: z.string().default("Player 2"),
+  player1PhotoURL: z.string().nullable().default(null),
+  player2PhotoURL: z.string().nullable().default(null),
+  player1Letters: z.array(SkateLetterSchema).default([]),
+  player2Letters: z.array(SkateLetterSchema).default([]),
+  currentTurn: z.string(),
+  currentAttacker: z.string().optional(),
+  turnPhase: TurnPhaseSchema.default("attacker_recording"),
+  roundNumber: z.number().default(1),
+  status: GameSessionStatusSchema,
+  winnerId: z.string().nullable().default(null),
+  moves: z.array(MoveSchema).default([]),
+  currentSetMove: MoveSchema.nullable().optional().default(null),
+  createdAt: timestampOrDate,
+  updatedAt: nullableTimestampOrDate.optional().default(null),
+  completedAt: nullableTimestampOrDate.optional().default(null),
+});
 
 function parseGameSession(
   id: string,
   data: Record<string, unknown>
 ): GameSession {
+  const parsed = GameSessionSchema.safeParse(data);
+
+  if (!parsed.success) {
+    console.error("[parseGameSession] Validation failed:", parsed.error.issues);
+    // Return a partial session with safe defaults for graceful degradation
+    throw new Error(`Invalid game session data: ${parsed.error.issues[0]?.message}`);
+  }
+
+  const session = parsed.data;
   return {
     id,
-    player1Id: data.player1Id as string,
-    player2Id: data.player2Id as string,
-    player1DisplayName: (data.player1DisplayName as string) || "Player 1",
-    player2DisplayName: (data.player2DisplayName as string) || "Player 2",
-    player1PhotoURL: (data.player1PhotoURL as string) || null,
-    player2PhotoURL: (data.player2PhotoURL as string) || null,
-    player1Letters: (data.player1Letters as SkateLetter[]) || [],
-    player2Letters: (data.player2Letters as SkateLetter[]) || [],
-    currentTurn: data.currentTurn as string,
-    currentAttacker:
-      (data.currentAttacker as string) || (data.currentTurn as string),
-    turnPhase: (data.turnPhase as TurnPhase) || "attacker_recording",
-    roundNumber: (data.roundNumber as number) || 1,
-    status: data.status as GameSession["status"],
-    winnerId: (data.winnerId as string) || null,
-    moves: ((data.moves as Array<Record<string, unknown>>) || []).map(parseMove),
-    currentSetMove: data.currentSetMove
-      ? parseMove(data.currentSetMove as Record<string, unknown>)
-      : null,
-    createdAt:
-      data.createdAt instanceof Timestamp
-        ? data.createdAt.toDate()
-        : new Date(data.createdAt as string),
-    updatedAt:
-      data.updatedAt instanceof Timestamp
-        ? data.updatedAt.toDate()
-        : data.updatedAt
-        ? new Date(data.updatedAt as string)
-        : null,
-    completedAt:
-      data.completedAt instanceof Timestamp
-        ? data.completedAt.toDate()
-        : data.completedAt
-        ? new Date(data.completedAt as string)
-        : null,
+    player1Id: session.player1Id,
+    player2Id: session.player2Id,
+    player1DisplayName: session.player1DisplayName,
+    player2DisplayName: session.player2DisplayName,
+    player1PhotoURL: session.player1PhotoURL,
+    player2PhotoURL: session.player2PhotoURL,
+    player1Letters: session.player1Letters,
+    player2Letters: session.player2Letters,
+    currentTurn: session.currentTurn,
+    currentAttacker: session.currentAttacker ?? session.currentTurn,
+    turnPhase: session.turnPhase,
+    roundNumber: session.roundNumber,
+    status: session.status,
+    winnerId: session.winnerId,
+    moves: session.moves,
+    currentSetMove: session.currentSetMove ?? null,
+    createdAt: session.createdAt,
+    updatedAt: session.updatedAt,
+    completedAt: session.completedAt,
   };
 }
 
@@ -96,7 +145,7 @@ async function uploadWithRetry(
 ): Promise<string> {
   let lastError: Error | null = null;
 
-  for (let attempt = 0; attempt <= MAX_UPLOAD_RETRIES; attempt++) {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       return await new Promise<string>((resolve, reject) => {
         const uploadTask = uploadBytesResumable(storageRef, blob, {
@@ -122,9 +171,9 @@ async function uploadWithRetry(
       });
     } catch (error) {
       lastError = error as Error;
-      if (attempt < MAX_UPLOAD_RETRIES) {
+      if (attempt < MAX_RETRIES) {
         console.log(
-          `[Upload] Retry ${attempt + 1}/${MAX_UPLOAD_RETRIES} after error`
+          `[Upload] Retry ${attempt + 1}/${MAX_RETRIES} after error`
         );
         await sleep(RETRY_DELAYS[attempt]);
         onProgress(0); // Reset progress for retry
@@ -138,7 +187,6 @@ async function uploadWithRetry(
 export function useGameSession(gameId: string | null) {
   const queryClient = useQueryClient();
   const unsubscribeRef = useRef<(() => void) | null>(null);
-  const { setOptimisticGameSession } = useGameStore();
 
   useEffect(() => {
     if (!gameId) return;
@@ -154,7 +202,6 @@ export function useGameSession(gameId: string | null) {
             snapshot.data() as Record<string, unknown>
           );
           queryClient.setQueryData(gameKeys.session(gameId), session);
-          setOptimisticGameSession(session);
         }
       },
       (error) => {
@@ -172,7 +219,7 @@ export function useGameSession(gameId: string | null) {
         unsubscribeRef.current = null;
       }
     };
-  }, [gameId, queryClient, setOptimisticGameSession]);
+  }, [gameId, queryClient]);
 
   return {
     gameSession: queryClient.getQueryData<GameSession>(
@@ -184,8 +231,7 @@ export function useGameSession(gameId: string | null) {
 
 export function useSubmitTrick(gameId: string) {
   const queryClient = useQueryClient();
-  const { setUploadProgress, setUploadStatus, clearUpload, applyOptimisticMove } =
-    useGameStore();
+  const { setUploadProgress, setUploadStatus, clearUpload } = useGameStore();
 
   return useMutation({
     mutationFn: async ({
@@ -240,8 +286,6 @@ export function useSubmitTrick(gameId: string) {
         createdAt: new Date(),
       };
 
-      applyOptimisticMove(move);
-
       const nextPhase: TurnPhase = isSetTrick ? "defender_recording" : "judging";
       const nextTurn = isSetTrick
         ? currentSession.player1Id === userId
@@ -283,7 +327,9 @@ export function useSubmitTrick(gameId: string) {
 
 interface JudgeTrickResponse {
   success: boolean;
-  result: "landed" | "bailed";
+  vote: "landed" | "bailed";
+  finalResult: "landed" | "bailed" | null;
+  waitingForOtherVote: boolean;
   winnerId: string | null;
   gameCompleted: boolean;
 }
@@ -294,34 +340,39 @@ export function useJudgeTrick(gameId: string) {
   return useMutation({
     mutationFn: async ({
       moveId,
-      result,
+      vote,
     }: {
       moveId: string;
-      result: "landed" | "bailed";
+      vote: "landed" | "bailed";
     }): Promise<JudgeTrickResponse> => {
       if (!auth.currentUser) {
         throw new Error("Not authenticated");
       }
 
       // Server-side Cloud Function handles the actual judgment
-      // to prevent client-side cheating
+      // Both players must vote - if they disagree, defender gets benefit of doubt
       const judgeTrick = httpsCallable<
-        { gameId: string; moveId: string; result: "landed" | "bailed" },
+        { gameId: string; moveId: string; vote: "landed" | "bailed" },
         JudgeTrickResponse
       >(functions, "judgeTrick");
 
-      const response = await judgeTrick({ gameId, moveId, result });
+      const response = await judgeTrick({ gameId, moveId, vote });
       return response.data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: gameKeys.session(gameId) });
 
-      if (data.gameCompleted) {
+      if (data.waitingForOtherVote) {
+        showMessage({
+          message: "Vote recorded! Waiting for other player...",
+          type: "info",
+        });
+      } else if (data.gameCompleted) {
         showMessage({
           message: "Game Over!",
           type: "info",
         });
-      } else if (data.result === "landed") {
+      } else if (data.finalResult === "landed") {
         showMessage({
           message: "Trick landed! Roles switch.",
           type: "success",
@@ -335,7 +386,7 @@ export function useJudgeTrick(gameId: string) {
     },
     onError: (error: Error) => {
       showMessage({
-        message: error.message || "Failed to judge trick",
+        message: error.message || "Failed to submit vote",
         type: "danger",
       });
     },

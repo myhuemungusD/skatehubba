@@ -11,6 +11,7 @@ import {
   Animated,
 } from "react-native";
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Camera, CameraType } from "expo-camera";
 import { Video, ResizeMode } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
@@ -49,6 +50,7 @@ export function TrickRecorder({
   isUploading = false,
   uploadProgress = 0,
 }: TrickRecorderProps) {
+  const insets = useSafeAreaInsets();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [recording, setRecording] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
@@ -219,7 +221,7 @@ export function TrickRecorder({
     >
       <View style={styles.container}>
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: insets.top + SKATE.spacing.lg }]}>
           <TouchableOpacity
             accessible
             accessibilityRole="button"
@@ -451,8 +453,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: SKATE.spacing.lg,
-    paddingTop: 60, // Safe area
+    paddingHorizontal: SKATE.spacing.lg,
+    paddingBottom: SKATE.spacing.lg,
     backgroundColor: SKATE.colors.grime,
   },
   closeButton: {

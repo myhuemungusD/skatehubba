@@ -8,6 +8,7 @@ import {
   Image,
 } from "react-native";
 import { useRef, useEffect } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import type { GameSession } from "@/types";
@@ -34,6 +35,7 @@ export function ResultScreen({
   onExit,
   onRematch,
 }: ResultScreenProps) {
+  const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const trophyScale = useRef(new Animated.Value(0)).current;
   const statsSlide = useRef(new Animated.Value(50)).current;
@@ -96,7 +98,10 @@ export function ResultScreen({
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingTop: insets.top + SKATE.spacing.xl },
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Victory/Defeat Banner */}
@@ -335,8 +340,8 @@ const styles = StyleSheet.create({
     backgroundColor: SKATE.colors.ink,
   },
   scrollContent: {
-    padding: SKATE.spacing.xl,
-    paddingTop: 60, // Safe area
+    paddingHorizontal: SKATE.spacing.xl,
+    paddingBottom: SKATE.spacing.xl,
   },
   banner: {
     alignItems: "center",

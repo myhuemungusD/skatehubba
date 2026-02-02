@@ -9,6 +9,7 @@ import {
 } from "react-native";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Video, ResizeMode } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
@@ -25,6 +26,7 @@ import { LetterIndicator } from "@/components/game/LetterIndicator";
 import { TurnOverlay } from "@/components/game/TurnOverlay";
 import { TrickRecorder } from "@/components/game/TrickRecorder";
 import { ResultScreen } from "@/components/game/ResultScreen";
+import { VideoErrorBoundary } from "@/components/common/VideoErrorBoundary";
 import { logEvent } from "@/lib/analytics/logEvent";
 import type { GameOverlay, SkateLetter } from "@/types";
 
@@ -42,6 +44,7 @@ export default function GameScreen() {
   const router = useRouter();
   const { id: gameId } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
 
   // Game state from Firestore
   const { gameSession, isLoading } = useGameSession(gameId || null);
@@ -52,13 +55,11 @@ export default function GameScreen() {
     resetGame,
     showOverlay,
     dismissOverlay,
-    openCamera,
-    showCamera,
     pendingUpload,
   } = useGameStore();
 
   const activeOverlay = useActiveOverlay();
-  const { isAttacker, isDefender, isMyTurn } = usePlayerRole();
+  const { isAttacker, isDefender, isMyTurn } = usePlayerRole(gameSession);
 
   // Local state
   const [showRecorder, setShowRecorder] = useState(false);
@@ -237,7 +238,7 @@ export default function GameScreen() {
   );
 
   const handleJudge = useCallback(
-    (result: "landed" | "bailed") => {
+    (vote: "landed" | "bailed") => {
       if (!gameSession?.currentSetMove) return;
 
       // Find the latest match move
@@ -248,7 +249,7 @@ export default function GameScreen() {
       if (latestMatchMove) {
         judgeTrickMutation.mutate({
           moveId: latestMatchMove.id,
-          result,
+          vote,
         });
       }
     },
@@ -299,13 +300,34 @@ export default function GameScreen() {
     );
   }, [gameSession, isMyTurn, isAttacker, isDefender]);
 
-  const canJudge = useMemo(() => {
-    if (!gameSession || gameSession.turnPhase !== "judging") return false;
+  // Check if current user can vote (both players vote in mutual agreement)
+  const { canJudge, hasVoted, myVote, opponentVote } = useMemo(() => {
+    if (!gameSession || gameSession.turnPhase !== "judging" || !user?.uid) {
+      return { canJudge: false, hasVoted: false, myVote: null, opponentVote: null };
+    }
 
-    // In a real app, you might have community voting
-    // For now, the attacker judges
-    return isAttacker;
-  }, [gameSession, isAttacker]);
+    // Find the latest match move that's pending judgment
+    const latestMatchMove = [...gameSession.moves]
+      .reverse()
+      .find((m) => m.type === "match" && m.result === "pending");
+
+    if (!latestMatchMove || !latestMatchMove.judgmentVotes) {
+      // Both players can vote
+      return { canJudge: true, hasVoted: false, myVote: null, opponentVote: null };
+    }
+
+    const votes = latestMatchMove.judgmentVotes;
+    const myVote = isAttacker ? votes.attackerVote : votes.defenderVote;
+    const opponentVote = isAttacker ? votes.defenderVote : votes.attackerVote;
+    const hasVoted = myVote !== null;
+
+    return {
+      canJudge: !hasVoted,
+      hasVoted,
+      myVote,
+      opponentVote,
+    };
+  }, [gameSession, user?.uid, isAttacker]);
 
   const isWaiting = useMemo(() => {
     if (!gameSession) return false;
@@ -316,6 +338,12 @@ export default function GameScreen() {
       (gameSession.turnPhase === "attacker_uploaded" && isAttacker)
     );
   }, [gameSession, isAttacker, isDefender]);
+
+  // Memoize latest match move to avoid IIFE in render
+  const latestMatchMove = useMemo(() => {
+    if (!gameSession) return null;
+    return [...gameSession.moves].reverse().find((m) => m.type === "match") || null;
+  }, [gameSession]);
 
   // Loading state
   if (isLoading || !gameSession) {
@@ -414,7 +442,7 @@ export default function GameScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity
           accessible
           accessibilityRole="button"
@@ -471,13 +499,15 @@ export default function GameScreen() {
                 {gameSession.currentSetMove.trickName}
               </Text>
             )}
-            <Video
-              source={{ uri: gameSession.currentSetMove.clipUrl }}
-              style={styles.previewVideo}
-              useNativeControls
-              isLooping
-              resizeMode={ResizeMode.CONTAIN}
-            />
+            <VideoErrorBoundary>
+              <Video
+                source={{ uri: gameSession.currentSetMove.clipUrl }}
+                style={styles.previewVideo}
+                useNativeControls
+                isLooping
+                resizeMode={ResizeMode.CONTAIN}
+              />
+            </VideoErrorBoundary>
           </View>
         )}
 
@@ -485,32 +515,67 @@ export default function GameScreen() {
       {gameSession.turnPhase === "judging" && (
         <View style={styles.judgingSection}>
           <Text style={styles.judgingTitle}>DID THEY LAND IT?</Text>
+          <Text style={styles.judgingSubtitle}>
+            Both players vote. Tie goes to defender.
+          </Text>
 
           {/* Show the match attempt video */}
-          {(() => {
-            const latestMatch = [...gameSession.moves]
-              .reverse()
-              .find((m) => m.type === "match");
-            if (latestMatch) {
-              return (
-                <Video
-                  source={{ uri: latestMatch.clipUrl }}
-                  style={styles.judgingVideo}
-                  useNativeControls
-                  isLooping
-                  resizeMode={ResizeMode.CONTAIN}
-                />
-              );
-            }
-            return null;
-          })()}
+          {latestMatchMove && (
+            <VideoErrorBoundary>
+              <Video
+                source={{ uri: latestMatchMove.clipUrl }}
+                style={styles.judgingVideo}
+                useNativeControls
+                isLooping
+                resizeMode={ResizeMode.CONTAIN}
+              />
+            </VideoErrorBoundary>
+          )}
+
+          {/* Voting status */}
+          <View style={styles.votingStatus}>
+            <View style={styles.voteIndicator}>
+              <Text style={styles.voteLabel}>Your vote:</Text>
+              {hasVoted ? (
+                <View
+                  style={[
+                    styles.voteBadge,
+                    myVote === "landed" ? styles.voteLanded : styles.voteBailed,
+                  ]}
+                >
+                  <Text style={styles.voteBadgeText}>
+                    {myVote?.toUpperCase()}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.votePending}>Waiting...</Text>
+              )}
+            </View>
+            <View style={styles.voteIndicator}>
+              <Text style={styles.voteLabel}>Opponent:</Text>
+              {opponentVote !== null ? (
+                <View
+                  style={[
+                    styles.voteBadge,
+                    opponentVote === "landed" ? styles.voteLanded : styles.voteBailed,
+                  ]}
+                >
+                  <Text style={styles.voteBadgeText}>
+                    {opponentVote.toUpperCase()}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={styles.votePending}>Waiting...</Text>
+              )}
+            </View>
+          </View>
 
           {canJudge && (
             <View style={styles.judgingButtons}>
               <TouchableOpacity
                 accessible
                 accessibilityRole="button"
-                accessibilityLabel="Mark trick as landed"
+                accessibilityLabel="Vote that trick was landed"
                 style={[styles.judgeButton, styles.landedButton]}
                 onPress={() => handleJudge("landed")}
                 disabled={judgeTrickMutation.isPending}
@@ -526,7 +591,7 @@ export default function GameScreen() {
               <TouchableOpacity
                 accessible
                 accessibilityRole="button"
-                accessibilityLabel="Mark trick as bailed"
+                accessibilityLabel="Vote that trick was bailed"
                 style={[styles.judgeButton, styles.bailedButton]}
                 onPress={() => handleJudge("bailed")}
                 disabled={judgeTrickMutation.isPending}
@@ -541,11 +606,11 @@ export default function GameScreen() {
             </View>
           )}
 
-          {!canJudge && (
+          {hasVoted && opponentVote === null && (
             <View style={styles.waitingJudgment}>
               <ActivityIndicator color={SKATE.colors.orange} />
               <Text style={styles.waitingJudgmentText}>
-                Waiting for judgment...
+                Waiting for opponent's vote...
               </Text>
             </View>
           )}
@@ -637,7 +702,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: SKATE.spacing.lg,
-    paddingTop: 60, // Safe area
     paddingBottom: SKATE.spacing.md,
     backgroundColor: SKATE.colors.grime,
   },
@@ -713,7 +777,53 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: SKATE.colors.gold,
     letterSpacing: 2,
+    marginBottom: SKATE.spacing.xs,
+  },
+  judgingSubtitle: {
+    fontSize: 12,
+    color: SKATE.colors.lightGray,
     marginBottom: SKATE.spacing.lg,
+  },
+  votingStatus: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    width: "100%",
+    marginBottom: SKATE.spacing.lg,
+    backgroundColor: SKATE.colors.grime,
+    padding: SKATE.spacing.md,
+    borderRadius: SKATE.borderRadius.md,
+  },
+  voteIndicator: {
+    alignItems: "center",
+    gap: SKATE.spacing.sm,
+  },
+  voteLabel: {
+    fontSize: 12,
+    color: SKATE.colors.lightGray,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+  },
+  voteBadge: {
+    paddingHorizontal: SKATE.spacing.md,
+    paddingVertical: SKATE.spacing.xs,
+    borderRadius: SKATE.borderRadius.sm,
+  },
+  voteLanded: {
+    backgroundColor: SKATE.colors.neon,
+  },
+  voteBailed: {
+    backgroundColor: SKATE.colors.blood,
+  },
+  voteBadgeText: {
+    color: SKATE.colors.white,
+    fontSize: 12,
+    fontWeight: "bold",
+    letterSpacing: 1,
+  },
+  votePending: {
+    color: SKATE.colors.gray,
+    fontSize: 14,
+    fontStyle: "italic",
   },
   judgingVideo: {
     width: "100%",

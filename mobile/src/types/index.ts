@@ -96,8 +96,14 @@ export type GameSessionStatus = 'waiting' | 'active' | 'completed' | 'abandoned'
 export type TurnPhase =
   | 'attacker_recording'  // Attacker is recording their trick
   | 'defender_recording'  // Defender is recording their attempt
-  | 'judging'             // Server determining if defender landed
+  | 'judging'             // Both players vote on whether defender landed
   | 'round_complete';     // Round finished, determining next attacker
+
+/** Judgment votes from both players */
+export interface JudgmentVotes {
+  attackerVote: 'landed' | 'bailed' | null;
+  defenderVote: 'landed' | 'bailed' | null;
+}
 
 /** Result of a single move/attempt */
 export type MoveResult = 'landed' | 'bailed' | 'pending';
@@ -113,6 +119,8 @@ export interface Move {
   thumbnailUrl: string | null;
   durationSec: number;
   result: MoveResult;
+  /** Votes from both players (for match moves during judging) */
+  judgmentVotes?: JudgmentVotes;
   createdAt: Date;
 }
 

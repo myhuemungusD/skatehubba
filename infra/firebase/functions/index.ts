@@ -48,35 +48,52 @@ const SKATE_LETTERS = ["S", "K", "A", "T", "E"] as const;
 interface JudgeTrickRequest {
   gameId: string;
   moveId: string;
-  result: "landed" | "bailed";
+  vote: "landed" | "bailed";
 }
 
 interface JudgeTrickResponse {
   success: boolean;
-  result: "landed" | "bailed";
+  /** The voter's vote */
+  vote: "landed" | "bailed";
+  /** Final result if both have voted, null if waiting */
+  finalResult: "landed" | "bailed" | null;
+  /** Whether waiting for other player's vote */
+  waitingForOtherVote: boolean;
+  /** Winner ID if game completed */
   winnerId: string | null;
+  /** Whether game is completed */
   gameCompleted: boolean;
 }
 
+interface JudgmentVotes {
+  attackerVote: "landed" | "bailed" | null;
+  defenderVote: "landed" | "bailed" | null;
+}
+
+/**
+ * Submit a vote for whether the defender landed the trick.
+ * Both attacker and defender must vote. If they disagree, defender gets
+ * benefit of the doubt (result = "landed").
+ */
 export const judgeTrick = functions.https.onCall(
   async (request): Promise<JudgeTrickResponse> => {
     if (!request.auth?.uid) {
       throw new functions.https.HttpsError("unauthenticated", "Not logged in");
     }
 
-    const { gameId, moveId, result } = request.data as JudgeTrickRequest;
+    const { gameId, moveId, vote } = request.data as JudgeTrickRequest;
 
-    if (!gameId || !moveId || !result) {
+    if (!gameId || !moveId || !vote) {
       throw new functions.https.HttpsError(
         "invalid-argument",
-        "Missing gameId, moveId, or result"
+        "Missing gameId, moveId, or vote"
       );
     }
 
-    if (result !== "landed" && result !== "bailed") {
+    if (vote !== "landed" && vote !== "bailed") {
       throw new functions.https.HttpsError(
         "invalid-argument",
-        "Result must be 'landed' or 'bailed'"
+        "Vote must be 'landed' or 'bailed'"
       );
     }
 
@@ -88,9 +105,10 @@ export const judgeTrick = functions.https.onCall(
     }
 
     const game = gameSnap.data()!;
+    const userId = request.auth.uid;
 
     // Verify caller is a participant
-    if (game.player1Id !== request.auth.uid && game.player2Id !== request.auth.uid) {
+    if (game.player1Id !== userId && game.player2Id !== userId) {
       throw new functions.https.HttpsError(
         "permission-denied",
         "Not a participant in this game"
@@ -105,29 +123,86 @@ export const judgeTrick = functions.https.onCall(
       );
     }
 
-    // Only the attacker can judge (they set the trick)
-    if (game.currentAttacker !== request.auth.uid) {
-      throw new functions.https.HttpsError(
-        "permission-denied",
-        "Only the attacker can judge"
-      );
-    }
-
-    // Find and update the move
-    const moves = game.moves || [];
-    const moveIndex = moves.findIndex((m: { id: string }) => m.id === moveId);
-    if (moveIndex === -1) {
-      throw new functions.https.HttpsError("not-found", "Move not found");
-    }
-
-    moves[moveIndex].result = result;
-
-    // Determine defender
+    // Determine if caller is attacker or defender
+    const isAttacker = game.currentAttacker === userId;
     const defenderId =
       game.currentAttacker === game.player1Id
         ? game.player2Id
         : game.player1Id;
 
+    // Find the move
+    const moves = [...(game.moves || [])];
+    const moveIndex = moves.findIndex((m: { id: string }) => m.id === moveId);
+    if (moveIndex === -1) {
+      throw new functions.https.HttpsError("not-found", "Move not found");
+    }
+
+    const move = moves[moveIndex];
+
+    // Initialize or get existing votes
+    const existingVotes: JudgmentVotes = move.judgmentVotes || {
+      attackerVote: null,
+      defenderVote: null,
+    };
+
+    // Check if user already voted
+    if (isAttacker && existingVotes.attackerVote !== null) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "You have already voted"
+      );
+    }
+    if (!isAttacker && existingVotes.defenderVote !== null) {
+      throw new functions.https.HttpsError(
+        "failed-precondition",
+        "You have already voted"
+      );
+    }
+
+    // Record the vote
+    const newVotes: JudgmentVotes = {
+      attackerVote: isAttacker ? vote : existingVotes.attackerVote,
+      defenderVote: isAttacker ? existingVotes.defenderVote : vote,
+    };
+
+    moves[moveIndex] = {
+      ...move,
+      judgmentVotes: newVotes,
+    };
+
+    // Check if both have voted
+    const bothVoted = newVotes.attackerVote !== null && newVotes.defenderVote !== null;
+
+    if (!bothVoted) {
+      // Still waiting for other vote - just update the votes
+      await gameRef.update({
+        moves,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return {
+        success: true,
+        vote,
+        finalResult: null,
+        waitingForOtherVote: true,
+        winnerId: null,
+        gameCompleted: false,
+      };
+    }
+
+    // Both have voted - determine final result
+    // If they agree, use that result. If they disagree, benefit of doubt to defender (landed)
+    let finalResult: "landed" | "bailed";
+    if (newVotes.attackerVote === newVotes.defenderVote) {
+      finalResult = newVotes.attackerVote!;
+    } else {
+      // Disagreement - defender gets benefit of the doubt
+      finalResult = "landed";
+    }
+
+    moves[moveIndex].result = finalResult;
+
+    // Calculate game state changes
     const isPlayer1Defender = defenderId === game.player1Id;
     const currentLetters = isPlayer1Defender
       ? game.player1Letters || []
@@ -137,7 +212,7 @@ export const judgeTrick = functions.https.onCall(
     let winnerId: string | null = null;
     let gameCompleted = false;
 
-    if (result === "bailed") {
+    if (finalResult === "bailed") {
       // Defender gets a letter
       const nextLetterIndex = currentLetters.length;
       if (nextLetterIndex < SKATE_LETTERS.length) {
@@ -153,10 +228,10 @@ export const judgeTrick = functions.https.onCall(
 
     // Determine next state
     const nextRound =
-      result === "landed" ? game.roundNumber : game.roundNumber + 1;
+      finalResult === "landed" ? game.roundNumber : game.roundNumber + 1;
 
     const nextAttacker =
-      result === "landed" ? defenderId : game.currentAttacker;
+      finalResult === "landed" ? defenderId : game.currentAttacker;
 
     const nextTurnPhase = gameCompleted ? "round_complete" : "attacker_recording";
 
@@ -183,7 +258,9 @@ export const judgeTrick = functions.https.onCall(
 
     return {
       success: true,
-      result,
+      vote,
+      finalResult,
+      waitingForOtherVote: false,
       winnerId,
       gameCompleted,
     };

@@ -1,19 +1,11 @@
 import { create } from "zustand";
-import type {
-  GameSession,
-  TurnPhase,
-  GameOverlay,
-  PendingUpload,
-  SkateLetter,
-  Move,
-} from "@/types";
+import type { GameOverlay, PendingUpload, GameSession } from "@/types";
 
 interface GameUIState {
   gameId: string | null;
   currentUserId: string | null;
   activeOverlay: GameOverlay | null;
   pendingUpload: PendingUpload | null;
-  optimisticGameSession: GameSession | null;
 }
 
 interface GameUIActions {
@@ -24,10 +16,6 @@ interface GameUIActions {
   setUploadProgress: (progress: number) => void;
   setUploadStatus: (status: PendingUpload["status"], error?: string) => void;
   clearUpload: () => void;
-  setOptimisticGameSession: (session: GameSession | null) => void;
-  applyOptimisticMove: (move: Move) => void;
-  applyOptimisticLetter: (playerId: string, letter: SkateLetter) => void;
-  applyOptimisticTurnPhase: (phase: TurnPhase) => void;
 }
 
 type GameStore = GameUIState & GameUIActions;
@@ -37,7 +25,6 @@ const initialState: GameUIState = {
   currentUserId: null,
   activeOverlay: null,
   pendingUpload: null,
-  optimisticGameSession: null,
 };
 
 // Track active timer for cleanup
@@ -128,76 +115,24 @@ export const useGameStore = create<GameStore>((set, get) => ({
   clearUpload: () => {
     set({ pendingUpload: null });
   },
-
-  setOptimisticGameSession: (session) => {
-    set({ optimisticGameSession: session });
-  },
-
-  applyOptimisticMove: (move) => {
-    const session = get().optimisticGameSession;
-    if (!session) return;
-
-    set({
-      optimisticGameSession: {
-        ...session,
-        moves: [...session.moves, move],
-        currentSetMove: move.type === "set" ? move : session.currentSetMove,
-        updatedAt: new Date(),
-      },
-    });
-  },
-
-  applyOptimisticLetter: (playerId, letter) => {
-    const session = get().optimisticGameSession;
-    if (!session) return;
-
-    const isPlayer1 = playerId === session.player1Id;
-    const currentLetters = isPlayer1
-      ? session.player1Letters
-      : session.player2Letters;
-
-    set({
-      optimisticGameSession: {
-        ...session,
-        player1Letters: isPlayer1
-          ? [...currentLetters, letter]
-          : session.player1Letters,
-        player2Letters: !isPlayer1
-          ? [...currentLetters, letter]
-          : session.player2Letters,
-        updatedAt: new Date(),
-      },
-    });
-  },
-
-  applyOptimisticTurnPhase: (phase) => {
-    const session = get().optimisticGameSession;
-    if (!session) return;
-
-    set({
-      optimisticGameSession: {
-        ...session,
-        turnPhase: phase,
-        updatedAt: new Date(),
-      },
-    });
-  },
 }));
 
-/** Get current player's role in the game */
-export function usePlayerRole() {
-  return useGameStore((state) => {
-    const session = state.optimisticGameSession;
-    if (!session || !state.currentUserId) {
-      return { isAttacker: false, isDefender: false, isMyTurn: false };
-    }
+/**
+ * Get current player's role in the game.
+ * Pass the game session from React Query as the single source of truth.
+ */
+export function usePlayerRole(session: GameSession | null | undefined) {
+  const currentUserId = useGameStore((state) => state.currentUserId);
 
-    const isMyTurn = session.currentTurn === state.currentUserId;
-    const isAttacker = session.currentAttacker === state.currentUserId;
-    const isDefender = !isAttacker && isMyTurn;
+  if (!session || !currentUserId) {
+    return { isAttacker: false, isDefender: false, isMyTurn: false };
+  }
 
-    return { isAttacker, isDefender, isMyTurn };
-  });
+  const isMyTurn = session.currentTurn === currentUserId;
+  const isAttacker = session.currentAttacker === currentUserId;
+  const isDefender = !isAttacker && isMyTurn;
+
+  return { isAttacker, isDefender, isMyTurn };
 }
 
 /** Get current overlay state */
