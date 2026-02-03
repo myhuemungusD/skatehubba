@@ -1,7 +1,13 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from "react-native";
-import { useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { useState, useRef, useEffect } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import { Camera, CameraType } from "expo-camera";
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useMicrophonePermission,
+  VideoFile,
+} from "react-native-vision-camera";
 import { Video } from "expo-av";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { httpsCallable } from "firebase/functions";
@@ -13,17 +19,40 @@ import { SKATE } from "@/theme";
 
 const createChallenge = httpsCallable(functions, "createChallenge");
 
+const MAX_RECORDING_DURATION = 15;
+
 export default function NewChallengeScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const queryClient = useQueryClient();
 
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [recording, setRecording] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
-  const [camera, setCamera] = useState<Camera | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+
+  const cameraRef = useRef<Camera>(null);
+
+  // Vision Camera hooks
+  const device = useCameraDevice("back");
+  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } =
+    useCameraPermission();
+  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } =
+    useMicrophonePermission();
+
+  const hasAllPermissions = hasCameraPermission && hasMicPermission;
+
+  // Request permissions on mount
+  useEffect(() => {
+    (async () => {
+      if (!hasCameraPermission) {
+        await requestCameraPermission();
+      }
+      if (!hasMicPermission) {
+        await requestMicPermission();
+      }
+    })();
+  }, [hasCameraPermission, hasMicPermission, requestCameraPermission, requestMicPermission]);
 
   // Validate opponent UID is provided
   if (!params.opponentUid) {
@@ -55,13 +84,13 @@ export default function NewChallengeScreen() {
     },
     onSuccess: () => {
       showMessage({
-        message: "Challenge sent! 🔥",
+        message: "Challenge sent!",
         type: "success",
       });
       queryClient.invalidateQueries({ queryKey: ["challenges"] });
       router.back();
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       showMessage({
         message: error?.message || "Failed to send challenge",
         type: "danger",
@@ -69,21 +98,40 @@ export default function NewChallengeScreen() {
     },
   });
 
-  const requestPermissions = async () => {
-    const { status } = await Camera.requestCameraPermissionsAsync();
-    setHasPermission(status === "granted");
-  };
-
   const startRecording = async () => {
-    if (!camera) return;
+    if (!cameraRef.current) return;
 
-    setRecording(true);
-    const video = await camera.recordAsync({
-      maxDuration: 15, // One-take rule: exactly 15 seconds
-      quality: "720p",
-    });
-    setRecording(false);
-    setVideoUri(video.uri);
+    try {
+      setRecording(true);
+      cameraRef.current.startRecording({
+        onRecordingFinished: (video: VideoFile) => {
+          setRecording(false);
+          setVideoUri(video.path);
+        },
+        onRecordingError: (error) => {
+          console.error("[NewChallenge] Recording error:", error);
+          setRecording(false);
+          showMessage({
+            message: "Recording failed. Please try again.",
+            type: "danger",
+          });
+        },
+      });
+
+      // Auto-stop after max duration
+      setTimeout(() => {
+        if (cameraRef.current && recording) {
+          cameraRef.current.stopRecording();
+        }
+      }, MAX_RECORDING_DURATION * 1000);
+    } catch (error) {
+      console.error("[NewChallenge] Failed to start recording:", error);
+      setRecording(false);
+      showMessage({
+        message: "Failed to start recording",
+        type: "danger",
+      });
+    }
   };
 
   // FFmpeg optimization for <6s LTE upload (requires react-native-ffmpeg or expo-av)
@@ -91,8 +139,8 @@ export default function NewChallengeScreen() {
   // TODO: Add video compression before upload to reduce file size by 60-70%
 
   const stopRecording = () => {
-    if (camera && recording) {
-      camera.stopRecording();
+    if (cameraRef.current) {
+      cameraRef.current.stopRecording();
     }
   };
 
@@ -145,9 +193,10 @@ export default function NewChallengeScreen() {
         clipUrl,
         thumbnailUrl: undefined, // Optional for now
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : "Failed to upload video";
       showMessage({
-        message: error?.message || "Failed to upload video",
+        message: errorMessage,
         type: "danger",
       });
     } finally {
@@ -156,16 +205,20 @@ export default function NewChallengeScreen() {
     }
   };
 
-  if (hasPermission === null) {
+  if (!hasAllPermissions) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>Requesting camera permission...</Text>
+        <Ionicons name="videocam-off" size={64} color={SKATE.colors.lightGray} />
+        <Text style={styles.text}>Camera access required</Text>
         <TouchableOpacity
           accessible
           accessibilityRole="button"
           accessibilityLabel="Grant camera permission"
           style={styles.button}
-          onPress={requestPermissions}
+          onPress={async () => {
+            await requestCameraPermission();
+            await requestMicPermission();
+          }}
         >
           <Text style={styles.buttonText}>Grant Permission</Text>
         </TouchableOpacity>
@@ -173,10 +226,20 @@ export default function NewChallengeScreen() {
     );
   }
 
-  if (hasPermission === false) {
+  if (!device) {
     return (
       <View style={styles.container}>
-        <Text style={styles.text}>No access to camera</Text>
+        <Ionicons name="warning" size={64} color={SKATE.colors.lightGray} />
+        <Text style={styles.text}>No camera device available</Text>
+        <TouchableOpacity
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={styles.button}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -185,16 +248,22 @@ export default function NewChallengeScreen() {
     <View style={styles.container}>
       {!videoUri ? (
         <>
-          <Camera style={styles.camera} type={CameraType.back} ref={(ref) => setCamera(ref)}>
-            <View style={styles.controls}>
-              <Text
-                accessibilityLabel="Recording time limit: 15 seconds, one take only"
-                style={styles.timer}
-              >
-                15 seconds • One-take only
-              </Text>
-            </View>
-          </Camera>
+          <Camera
+            ref={cameraRef}
+            style={styles.camera}
+            device={device}
+            isActive={!videoUri}
+            video={true}
+            audio={true}
+          />
+          <View style={styles.controls}>
+            <Text
+              accessibilityLabel="Recording time limit: 15 seconds, one take only"
+              style={styles.timer}
+            >
+              15 seconds - One-take only
+            </Text>
+          </View>
 
           <View style={styles.bottomControls}>
             <TouchableOpacity
@@ -274,6 +343,7 @@ const styles = StyleSheet.create({
     color: SKATE.colors.white,
     fontSize: 16,
     marginBottom: 20,
+    marginTop: 16,
   },
   button: {
     backgroundColor: SKATE.colors.orange,
@@ -293,7 +363,10 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   controls: {
-    flex: 1,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
     backgroundColor: "transparent",
     padding: SKATE.spacing.xl,
   },

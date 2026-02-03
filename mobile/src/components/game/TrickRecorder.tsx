@@ -9,10 +9,17 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
+  ActivityIndicator,
 } from "react-native";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Camera, CameraType } from "expo-camera";
+import {
+  Camera,
+  useCameraDevice,
+  useCameraPermission,
+  useMicrophonePermission,
+  VideoFile,
+} from "react-native-vision-camera";
 import { Video, ResizeMode } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
@@ -38,7 +45,7 @@ interface TrickRecorderProps {
 }
 
 /**
- * Camera wrapper for recording trick attempts.
+ * Camera wrapper for recording trick attempts using react-native-vision-camera.
  * Handles permissions, recording timer, preview, and trick naming.
  */
 export function TrickRecorder({
@@ -51,29 +58,47 @@ export function TrickRecorder({
   uploadProgress = 0,
 }: TrickRecorderProps) {
   const insets = useSafeAreaInsets();
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [recording, setRecording] = useState(false);
   const [videoUri, setVideoUri] = useState<string | null>(null);
   const [trickName, setTrickName] = useState("");
   const [showTrickInput, setShowTrickInput] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  const cameraRef = useRef<Camera | null>(null);
+  const cameraRef = useRef<Camera>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
-  // Request camera permissions
+  // Vision Camera hooks
+  const device = useCameraDevice("back");
+  const { hasPermission: hasCameraPermission, requestPermission: requestCameraPermission } =
+    useCameraPermission();
+  const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } =
+    useMicrophonePermission();
+
+  const hasAllPermissions = hasCameraPermission && hasMicPermission;
+
+  // Request permissions when modal opens
   useEffect(() => {
-    if (visible && hasPermission === null) {
+    if (visible) {
+      setIsInitializing(true);
       (async () => {
-        const { status } = await Camera.requestCameraPermissionsAsync();
-        const audioStatus = await Camera.requestMicrophonePermissionsAsync();
-        setHasPermission(
-          status === "granted" && audioStatus.status === "granted"
-        );
+        if (!hasCameraPermission) {
+          await requestCameraPermission();
+        }
+        if (!hasMicPermission) {
+          await requestMicPermission();
+        }
+        setIsInitializing(false);
       })();
     }
-  }, [visible, hasPermission]);
+  }, [
+    visible,
+    hasCameraPermission,
+    hasMicPermission,
+    requestCameraPermission,
+    requestMicPermission,
+  ]);
 
   // Recording timer
   useEffect(() => {
@@ -122,29 +147,41 @@ export function TrickRecorder({
 
     try {
       setRecording(true);
-      const video = await cameraRef.current.recordAsync({
-        maxDuration: MAX_RECORDING_DURATION,
-        quality: "720p",
-      });
-      setRecording(false);
-      setVideoUri(video.uri);
+      cameraRef.current.startRecording({
+        onRecordingFinished: (video: VideoFile) => {
+          setRecording(false);
+          setVideoUri(video.path);
 
-      // Show trick name input for attackers
-      if (isSettingTrick) {
-        setShowTrickInput(true);
-      }
+          // Show trick name input for attackers
+          if (isSettingTrick) {
+            setShowTrickInput(true);
+          }
+        },
+        onRecordingError: (error) => {
+          console.error("[TrickRecorder] Recording error:", error);
+          setRecording(false);
+          Alert.alert("Recording Failed", "Please try again.");
+        },
+      });
+
+      // Auto-stop after max duration
+      setTimeout(() => {
+        if (cameraRef.current && recording) {
+          cameraRef.current.stopRecording();
+        }
+      }, MAX_RECORDING_DURATION * 1000);
     } catch (error) {
-      console.error("[TrickRecorder] Recording failed:", error);
+      console.error("[TrickRecorder] Failed to start recording:", error);
       setRecording(false);
       Alert.alert("Recording Failed", "Please try again.");
     }
-  }, [isSettingTrick]);
+  }, [isSettingTrick, recording]);
 
   const stopRecording = useCallback(() => {
-    if (cameraRef.current && recording) {
+    if (cameraRef.current) {
       cameraRef.current.stopRecording();
     }
-  }, [recording]);
+  }, []);
 
   const handleRetake = useCallback(() => {
     setVideoUri(null);
@@ -184,20 +221,27 @@ export function TrickRecorder({
     onRecordComplete(videoUri, trickName.trim() || null);
   }, [videoUri, trickName, onRecordComplete]);
 
-  // Permission denied view
-  if (visible && hasPermission === false) {
+  // Loading state while checking permissions
+  if (visible && isInitializing) {
     return (
       <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
         <View style={styles.permissionDenied}>
-          <Ionicons
-            name="videocam-off"
-            size={64}
-            color={SKATE.colors.lightGray}
-          />
+          <ActivityIndicator size="large" color={SKATE.colors.orange} />
+          <Text style={styles.permissionTitle}>Initializing Camera...</Text>
+        </View>
+      </Modal>
+    );
+  }
+
+  // Permission denied view
+  if (visible && !hasAllPermissions) {
+    return (
+      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+        <View style={styles.permissionDenied}>
+          <Ionicons name="videocam-off" size={64} color={SKATE.colors.lightGray} />
           <Text style={styles.permissionTitle}>Camera Access Required</Text>
           <Text style={styles.permissionText}>
-            Please enable camera access in your device settings to record
-            tricks.
+            Please enable camera and microphone access in your device settings to record tricks.
           </Text>
           <TouchableOpacity
             accessible
@@ -213,12 +257,30 @@ export function TrickRecorder({
     );
   }
 
+  // No camera device available
+  if (visible && !device) {
+    return (
+      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+        <View style={styles.permissionDenied}>
+          <Ionicons name="warning" size={64} color={SKATE.colors.lightGray} />
+          <Text style={styles.permissionTitle}>No Camera Available</Text>
+          <Text style={styles.permissionText}>No camera device was found on this device.</Text>
+          <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={styles.backButton}
+            onPress={onClose}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    );
+  }
+
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      onRequestClose={recording ? undefined : onClose}
-    >
+    <Modal visible={visible} animationType="slide" onRequestClose={recording ? undefined : onClose}>
       <View style={styles.container}>
         {/* Header */}
         <View style={[styles.header, { paddingTop: insets.top + SKATE.spacing.lg }]}>
@@ -234,11 +296,7 @@ export function TrickRecorder({
             <Ionicons
               name="close"
               size={28}
-              color={
-                recording || isUploading
-                  ? SKATE.colors.gray
-                  : SKATE.colors.white
-              }
+              color={recording || isUploading ? SKATE.colors.gray : SKATE.colors.white}
             />
           </TouchableOpacity>
 
@@ -248,9 +306,7 @@ export function TrickRecorder({
             ) : (
               <>
                 <Text style={styles.headerTitle}>MATCH THE TRICK</Text>
-                {trickToMatch && (
-                  <Text style={styles.trickToMatch}>{trickToMatch}</Text>
-                )}
+                {trickToMatch && <Text style={styles.trickToMatch}>{trickToMatch}</Text>}
               </>
             )}
           </View>
@@ -261,24 +317,29 @@ export function TrickRecorder({
         {/* Camera / Preview */}
         {!videoUri ? (
           <View style={styles.cameraContainer}>
-            <Camera
-              ref={cameraRef}
-              style={styles.camera}
-              type={CameraType.back}
-            >
-              {/* Recording indicator */}
-              {recording && (
-                <View style={styles.recordingOverlay}>
-                  <View style={styles.recordingIndicator}>
-                    <View style={styles.recordingDot} />
-                    <Text style={styles.recordingText}>REC</Text>
-                  </View>
-                  <Text style={styles.timerText}>
-                    {recordingTime}s / {MAX_RECORDING_DURATION}s
-                  </Text>
+            {device && (
+              <Camera
+                ref={cameraRef}
+                style={styles.camera}
+                device={device}
+                isActive={visible && !videoUri}
+                video={true}
+                audio={true}
+              />
+            )}
+
+            {/* Recording indicator */}
+            {recording && (
+              <View style={styles.recordingOverlay}>
+                <View style={styles.recordingIndicator}>
+                  <View style={styles.recordingDot} />
+                  <Text style={styles.recordingText}>REC</Text>
                 </View>
-              )}
-            </Camera>
+                <Text style={styles.timerText}>
+                  {recordingTime}s / {MAX_RECORDING_DURATION}s
+                </Text>
+              </View>
+            )}
 
             {/* Recording progress bar */}
             {recording && (
@@ -362,9 +423,7 @@ export function TrickRecorder({
             <TouchableOpacity
               accessible
               accessibilityRole="button"
-              accessibilityLabel={
-                recording ? "Stop recording" : "Start recording"
-              }
+              accessibilityLabel={recording ? "Stop recording" : "Start recording"}
               accessibilityState={{ selected: recording }}
               style={[styles.recordButton, recording && styles.recordingButton]}
               onPress={recording ? stopRecording : startRecording}
@@ -386,11 +445,7 @@ export function TrickRecorder({
                 onPress={handleRetake}
                 disabled={isUploading}
               >
-                <Ionicons
-                  name="refresh"
-                  size={24}
-                  color={SKATE.colors.white}
-                />
+                <Ionicons name="refresh" size={24} color={SKATE.colors.white} />
                 <Text style={styles.actionButtonText}>Retake</Text>
               </TouchableOpacity>
 
@@ -405,9 +460,7 @@ export function TrickRecorder({
               >
                 {isUploading ? (
                   <>
-                    <Text style={styles.uploadProgressText}>
-                      {uploadProgress}%
-                    </Text>
+                    <Text style={styles.uploadProgressText}>{uploadProgress}%</Text>
                     <Text style={styles.actionButtonText}>Uploading...</Text>
                   </>
                 ) : (
@@ -433,10 +486,10 @@ export function TrickRecorder({
             {recording
               ? "Recording... Stop when done"
               : videoUri
-              ? "Review your trick and submit when ready"
-              : isSettingTrick
-              ? "Record the trick your opponent must match"
-              : "Attempt to land the same trick"}
+                ? "Review your trick and submit when ready"
+                : isSettingTrick
+                  ? "Record the trick your opponent must match"
+                  : "Attempt to land the same trick"}
           </Text>
         </View>
       </View>
