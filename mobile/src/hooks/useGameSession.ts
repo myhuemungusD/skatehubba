@@ -1,13 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  doc,
-  onSnapshot,
-  updateDoc,
-  serverTimestamp,
-  Timestamp,
-  arrayUnion,
-} from "firebase/firestore";
+import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { z } from "zod";
@@ -20,6 +13,11 @@ import type { GameSession, Move, TurnPhase } from "@/types";
 const MAX_RETRIES = 3;
 /** Exponential backoff delays in ms for each retry */
 const RETRY_DELAYS: readonly [number, number, number] = [2000, 4000, 8000];
+
+/** Generate a unique idempotency key for deduplication */
+function generateIdempotencyKey(): string {
+  return `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+}
 
 const gameKeys = {
   all: ["games"] as const,
@@ -69,11 +67,9 @@ const timestampOrDate = z.union([
   z.custom<Timestamp>((v) => v instanceof Timestamp).transform((t) => t.toDate()),
 ]);
 
-const nullableTimestampOrDate = z.union([
-  z.null(),
-  z.undefined(),
-  timestampOrDate,
-]).transform((v) => v ?? null);
+const nullableTimestampOrDate = z
+  .union([z.null(), z.undefined(), timestampOrDate])
+  .transform((v) => v ?? null);
 
 const GameSessionSchema = z.object({
   player1Id: z.string(),
@@ -97,10 +93,7 @@ const GameSessionSchema = z.object({
   completedAt: nullableTimestampOrDate.optional().default(null),
 });
 
-function parseGameSession(
-  id: string,
-  data: Record<string, unknown>
-): GameSession {
+function parseGameSession(id: string, data: Record<string, unknown>): GameSession {
   const parsed = GameSessionSchema.safeParse(data);
 
   if (!parsed.success) {
@@ -156,9 +149,7 @@ async function uploadWithRetry(
           "state_changed",
           (snapshot) => {
             if (snapshot.totalBytes > 0) {
-              const progress = Math.round(
-                (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-              );
+              const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
               onProgress(progress);
             }
           },
@@ -172,9 +163,7 @@ async function uploadWithRetry(
     } catch (error) {
       lastError = error as Error;
       if (attempt < MAX_RETRIES) {
-        console.log(
-          `[Upload] Retry ${attempt + 1}/${MAX_RETRIES} after error`
-        );
+        console.log(`[Upload] Retry ${attempt + 1}/${MAX_RETRIES} after error`);
         await sleep(RETRY_DELAYS[attempt]);
         onProgress(0); // Reset progress for retry
       }
@@ -197,10 +186,7 @@ export function useGameSession(gameId: string | null) {
       docRef,
       (snapshot) => {
         if (snapshot.exists()) {
-          const session = parseGameSession(
-            snapshot.id,
-            snapshot.data() as Record<string, unknown>
-          );
+          const session = parseGameSession(snapshot.id, snapshot.data() as Record<string, unknown>);
           queryClient.setQueryData(gameKeys.session(gameId), session);
         }
       },
@@ -222,11 +208,15 @@ export function useGameSession(gameId: string | null) {
   }, [gameId, queryClient]);
 
   return {
-    gameSession: queryClient.getQueryData<GameSession>(
-      gameKeys.session(gameId || "")
-    ),
+    gameSession: queryClient.getQueryData<GameSession>(gameKeys.session(gameId || "")),
     isLoading: !queryClient.getQueryData(gameKeys.session(gameId || "")),
   };
+}
+
+interface SubmitTrickResponse {
+  success: boolean;
+  moveId: string;
+  duplicate: boolean;
 }
 
 export function useSubmitTrick(gameId: string) {
@@ -248,10 +238,10 @@ export function useSubmitTrick(gameId: string) {
       }
 
       const userId = auth.currentUser.uid;
-      const timestamp = Date.now();
-      const moveId = `move_${userId}_${timestamp}`;
+      const idempotencyKey = generateIdempotencyKey();
 
-      const storagePath = `game_sessions/${gameId}/${moveId}.mp4`;
+      // Upload video first
+      const storagePath = `game_sessions/${gameId}/move_${userId}_${Date.now()}.mp4`;
       const storageRef = ref(storage, storagePath);
 
       setUploadStatus("uploading");
@@ -265,48 +255,28 @@ export function useSubmitTrick(gameId: string) {
 
       setUploadStatus("processing");
 
-      const currentSession = queryClient.getQueryData<GameSession>(
-        gameKeys.session(gameId)
-      );
+      // Submit trick via Cloud Function (server-side validation + transaction)
+      const submitTrick = httpsCallable<
+        {
+          gameId: string;
+          clipUrl: string;
+          trickName: string | null;
+          isSetTrick: boolean;
+          idempotencyKey: string;
+        },
+        SubmitTrickResponse
+      >(functions, "submitTrick");
 
-      if (!currentSession) {
-        throw new Error("Game session not found");
-      }
-
-      const move: Move = {
-        id: moveId,
-        roundNumber: currentSession.roundNumber,
-        playerId: userId,
-        type: isSetTrick ? "set" : "match",
-        trickName,
+      const result = await submitTrick({
+        gameId,
         clipUrl,
-        thumbnailUrl: null,
-        durationSec: 15,
-        result: "pending",
-        createdAt: new Date(),
-      };
-
-      const nextPhase: TurnPhase = isSetTrick ? "defender_recording" : "judging";
-      const nextTurn = isSetTrick
-        ? currentSession.player1Id === userId
-          ? currentSession.player2Id
-          : currentSession.player1Id
-        : currentSession.currentTurn;
-
-      const gameDocRef = doc(db, "game_sessions", gameId);
-      await updateDoc(gameDocRef, {
-        moves: arrayUnion({
-          ...move,
-          createdAt: serverTimestamp(),
-        }),
-        currentSetMove: isSetTrick ? move : currentSession.currentSetMove,
-        turnPhase: nextPhase,
-        currentTurn: nextTurn,
-        updatedAt: serverTimestamp(),
+        trickName,
+        isSetTrick,
+        idempotencyKey,
       });
 
       setUploadStatus("complete");
-      return move;
+      return result.data;
     },
     onSuccess: () => {
       clearUpload();
@@ -332,6 +302,7 @@ interface JudgeTrickResponse {
   waitingForOtherVote: boolean;
   winnerId: string | null;
   gameCompleted: boolean;
+  duplicate: boolean;
 }
 
 export function useJudgeTrick(gameId: string) {
@@ -349,14 +320,21 @@ export function useJudgeTrick(gameId: string) {
         throw new Error("Not authenticated");
       }
 
+      const idempotencyKey = generateIdempotencyKey();
+
       // Server-side Cloud Function handles the actual judgment
-      // Both players must vote - if they disagree, defender gets benefit of doubt
+      // Uses transaction to prevent race conditions when both players vote simultaneously
       const judgeTrick = httpsCallable<
-        { gameId: string; moveId: string; vote: "landed" | "bailed" },
+        {
+          gameId: string;
+          moveId: string;
+          vote: "landed" | "bailed";
+          idempotencyKey: string;
+        },
         JudgeTrickResponse
       >(functions, "judgeTrick");
 
-      const response = await judgeTrick({ gameId, moveId, vote });
+      const response = await judgeTrick({ gameId, moveId, vote, idempotencyKey });
       return response.data;
     },
     onSuccess: (data) => {
@@ -433,9 +411,7 @@ export function useAbandonGame(gameId: string) {
         throw new Error("Not authenticated");
       }
 
-      const currentSession = queryClient.getQueryData<GameSession>(
-        gameKeys.session(gameId)
-      );
+      const currentSession = queryClient.getQueryData<GameSession>(gameKeys.session(gameId));
 
       if (!currentSession) {
         throw new Error("Game session not found");
