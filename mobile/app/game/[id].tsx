@@ -22,6 +22,7 @@ import {
   useAbandonGame,
 } from "@/hooks/useGameSession";
 import { useGameStore, usePlayerRole, useActiveOverlay } from "@/store/gameStore";
+import { useNetworkStore, useReconnectionStatus } from "@/store/networkStore";
 import { LetterIndicator } from "@/components/game/LetterIndicator";
 import { TurnOverlay } from "@/components/game/TurnOverlay";
 import { TrickRecorder } from "@/components/game/TrickRecorder";
@@ -50,16 +51,14 @@ export default function GameScreen() {
   const { gameSession, isLoading } = useGameSession(gameId || null);
 
   // Local UI state from Zustand
-  const {
-    initGame,
-    resetGame,
-    showOverlay,
-    dismissOverlay,
-    pendingUpload,
-  } = useGameStore();
+  const { initGame, resetGame, showOverlay, dismissOverlay, pendingUpload } = useGameStore();
 
   const activeOverlay = useActiveOverlay();
   const { isAttacker, isDefender, isMyTurn } = usePlayerRole(gameSession);
+
+  // Network state for offline handling
+  const { setActiveGame, resetReconnectState } = useNetworkStore();
+  const { isConnected, expired: reconnectExpired } = useReconnectionStatus();
 
   // Local state
   const [showRecorder, setShowRecorder] = useState(false);
@@ -82,15 +81,43 @@ export default function GameScreen() {
     };
   }, [gameId, user?.uid, initGame, resetGame]);
 
+  // Track active game for offline handling (120-second reconnection window)
+  useEffect(() => {
+    if (gameId && gameSession?.status === "active") {
+      setActiveGame(gameId);
+    } else {
+      setActiveGame(null);
+    }
+
+    return () => {
+      setActiveGame(null);
+      resetReconnectState();
+    };
+  }, [gameId, gameSession?.status, setActiveGame, resetReconnectState]);
+
+  // Handle reconnection window expiry - forfeit the game
+  useEffect(() => {
+    if (reconnectExpired && gameSession?.status === "active") {
+      // Log the disconnection event
+      logEvent("battle_disconnected", {
+        battle_id: gameId,
+        reason: "reconnect_timeout",
+      });
+
+      // Forfeit the game due to connection loss
+      abandonGameMutation.mutate();
+
+      // Reset reconnect state after forfeiting
+      resetReconnectState();
+    }
+  }, [reconnectExpired, gameSession?.status, gameId, abandonGameMutation, resetReconnectState]);
+
   // Track battle joined event
   useEffect(() => {
     if (gameSession && user?.uid && gameSession.status === "active") {
       logEvent("battle_joined", {
         battle_id: gameId,
-        creator_id:
-          gameSession.player1Id === user.uid
-            ? undefined
-            : gameSession.player1Id,
+        creator_id: gameSession.player1Id === user.uid ? undefined : gameSession.player1Id,
       });
     }
   }, [gameSession?.status, gameId, user?.uid, gameSession?.player1Id]);
@@ -164,14 +191,10 @@ export default function GameScreen() {
     if (!gameSession || !user?.uid) return;
 
     const myLetters =
-      gameSession.player1Id === user.uid
-        ? gameSession.player1Letters
-        : gameSession.player2Letters;
+      gameSession.player1Id === user.uid ? gameSession.player1Letters : gameSession.player2Letters;
 
     const opponentLetters =
-      gameSession.player1Id === user.uid
-        ? gameSession.player2Letters
-        : gameSession.player1Letters;
+      gameSession.player1Id === user.uid ? gameSession.player2Letters : gameSession.player1Letters;
 
     // Check for new letter (compare with last announced)
     const allLetters = [...myLetters, ...opponentLetters];
@@ -180,8 +203,7 @@ export default function GameScreen() {
     if (latestLetter && latestLetter !== lastAnnouncedLetter) {
       setLastAnnouncedLetter(latestLetter);
 
-      const gotLetter =
-        myLetters.length > 0 && myLetters[myLetters.length - 1] === latestLetter;
+      const gotLetter = myLetters.length > 0 && myLetters[myLetters.length - 1] === latestLetter;
 
       if (gotLetter) {
         showOverlay({
@@ -225,8 +247,7 @@ export default function GameScreen() {
 
       if (!gameSession) return;
 
-      const isSettingTrick =
-        gameSession.turnPhase === "attacker_recording" && isAttacker;
+      const isSettingTrick = gameSession.turnPhase === "attacker_recording" && isAttacker;
 
       submitTrickMutation.mutate({
         localVideoUri: videoUri,
@@ -261,18 +282,14 @@ export default function GameScreen() {
   }, [joinGameMutation]);
 
   const handleForfeit = useCallback(() => {
-    Alert.alert(
-      "Forfeit Game",
-      "Are you sure you want to forfeit? Your opponent will win.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Forfeit",
-          style: "destructive",
-          onPress: () => abandonGameMutation.mutate(),
-        },
-      ]
-    );
+    Alert.alert("Forfeit Game", "Are you sure you want to forfeit? Your opponent will win.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Forfeit",
+        style: "destructive",
+        onPress: () => abandonGameMutation.mutate(),
+      },
+    ]);
   }, [abandonGameMutation]);
 
   const handleExit = useCallback(() => {
@@ -283,25 +300,29 @@ export default function GameScreen() {
     if (!gameSession) return;
 
     const opponentId =
-      gameSession.player1Id === user?.uid
-        ? gameSession.player2Id
-        : gameSession.player1Id;
+      gameSession.player1Id === user?.uid ? gameSession.player2Id : gameSession.player1Id;
 
     router.push(`/challenge/new?opponentUid=${opponentId}`);
   }, [gameSession, user?.uid, router]);
 
   // Computed values
   const canRecord = useMemo(() => {
+    // Disable recording while offline
+    if (!isConnected) return false;
     if (!gameSession || !isMyTurn) return false;
 
     return (
       (gameSession.turnPhase === "attacker_recording" && isAttacker) ||
       (gameSession.turnPhase === "defender_recording" && isDefender)
     );
-  }, [gameSession, isMyTurn, isAttacker, isDefender]);
+  }, [gameSession, isMyTurn, isAttacker, isDefender, isConnected]);
 
   // Check if current user can vote (both players vote in mutual agreement)
   const { canJudge, hasVoted, myVote, opponentVote } = useMemo(() => {
+    // Disable voting while offline
+    if (!isConnected) {
+      return { canJudge: false, hasVoted: false, myVote: null, opponentVote: null };
+    }
     if (!gameSession || gameSession.turnPhase !== "judging" || !user?.uid) {
       return { canJudge: false, hasVoted: false, myVote: null, opponentVote: null };
     }
@@ -327,7 +348,7 @@ export default function GameScreen() {
       myVote,
       opponentVote,
     };
-  }, [gameSession, user?.uid, isAttacker]);
+  }, [gameSession, user?.uid, isAttacker, isConnected]);
 
   const isWaiting = useMemo(() => {
     if (!gameSession) return false;
@@ -356,10 +377,7 @@ export default function GameScreen() {
   }
 
   // Game completed - show result screen
-  if (
-    gameSession.status === "completed" ||
-    gameSession.status === "abandoned"
-  ) {
+  if (gameSession.status === "completed" || gameSession.status === "abandoned") {
     return (
       <ResultScreen
         gameSession={gameSession}
@@ -490,34 +508,29 @@ export default function GameScreen() {
       </View>
 
       {/* Current Trick Preview (when defender needs to match) */}
-      {gameSession.currentSetMove &&
-        gameSession.turnPhase === "defender_recording" && (
-          <View style={styles.trickPreview}>
-            <Text style={styles.trickPreviewTitle}>TRICK TO MATCH</Text>
-            {gameSession.currentSetMove.trickName && (
-              <Text style={styles.trickName}>
-                {gameSession.currentSetMove.trickName}
-              </Text>
-            )}
-            <VideoErrorBoundary>
-              <Video
-                source={{ uri: gameSession.currentSetMove.clipUrl }}
-                style={styles.previewVideo}
-                useNativeControls
-                isLooping
-                resizeMode={ResizeMode.CONTAIN}
-              />
-            </VideoErrorBoundary>
-          </View>
-        )}
+      {gameSession.currentSetMove && gameSession.turnPhase === "defender_recording" && (
+        <View style={styles.trickPreview}>
+          <Text style={styles.trickPreviewTitle}>TRICK TO MATCH</Text>
+          {gameSession.currentSetMove.trickName && (
+            <Text style={styles.trickName}>{gameSession.currentSetMove.trickName}</Text>
+          )}
+          <VideoErrorBoundary>
+            <Video
+              source={{ uri: gameSession.currentSetMove.clipUrl }}
+              style={styles.previewVideo}
+              useNativeControls
+              isLooping
+              resizeMode={ResizeMode.CONTAIN}
+            />
+          </VideoErrorBoundary>
+        </View>
+      )}
 
       {/* Judging Section */}
       {gameSession.turnPhase === "judging" && (
         <View style={styles.judgingSection}>
           <Text style={styles.judgingTitle}>DID THEY LAND IT?</Text>
-          <Text style={styles.judgingSubtitle}>
-            Both players vote. Tie goes to defender.
-          </Text>
+          <Text style={styles.judgingSubtitle}>Both players vote. Tie goes to defender.</Text>
 
           {/* Show the match attempt video */}
           {latestMatchMove && (
@@ -543,9 +556,7 @@ export default function GameScreen() {
                     myVote === "landed" ? styles.voteLanded : styles.voteBailed,
                   ]}
                 >
-                  <Text style={styles.voteBadgeText}>
-                    {myVote?.toUpperCase()}
-                  </Text>
+                  <Text style={styles.voteBadgeText}>{myVote?.toUpperCase()}</Text>
                 </View>
               ) : (
                 <Text style={styles.votePending}>Waiting...</Text>
@@ -560,9 +571,7 @@ export default function GameScreen() {
                     opponentVote === "landed" ? styles.voteLanded : styles.voteBailed,
                   ]}
                 >
-                  <Text style={styles.voteBadgeText}>
-                    {opponentVote.toUpperCase()}
-                  </Text>
+                  <Text style={styles.voteBadgeText}>{opponentVote.toUpperCase()}</Text>
                 </View>
               ) : (
                 <Text style={styles.votePending}>Waiting...</Text>
@@ -580,11 +589,7 @@ export default function GameScreen() {
                 onPress={() => handleJudge("landed")}
                 disabled={judgeTrickMutation.isPending}
               >
-                <Ionicons
-                  name="checkmark-circle"
-                  size={32}
-                  color={SKATE.colors.white}
-                />
+                <Ionicons name="checkmark-circle" size={32} color={SKATE.colors.white} />
                 <Text style={styles.judgeButtonText}>LANDED</Text>
               </TouchableOpacity>
 
@@ -596,11 +601,7 @@ export default function GameScreen() {
                 onPress={() => handleJudge("bailed")}
                 disabled={judgeTrickMutation.isPending}
               >
-                <Ionicons
-                  name="close-circle"
-                  size={32}
-                  color={SKATE.colors.white}
-                />
+                <Ionicons name="close-circle" size={32} color={SKATE.colors.white} />
                 <Text style={styles.judgeButtonText}>BAILED</Text>
               </TouchableOpacity>
             </View>
@@ -609,9 +610,7 @@ export default function GameScreen() {
           {hasVoted && opponentVote === null && (
             <View style={styles.waitingJudgment}>
               <ActivityIndicator color={SKATE.colors.orange} />
-              <Text style={styles.waitingJudgmentText}>
-                Waiting for opponent's vote...
-              </Text>
+              <Text style={styles.waitingJudgmentText}>Waiting for opponent's vote...</Text>
             </View>
           )}
         </View>
@@ -623,9 +622,7 @@ export default function GameScreen() {
           <TouchableOpacity
             accessible
             accessibilityRole="button"
-            accessibilityLabel={
-              isAttacker ? "Record trick to set" : "Record your attempt"
-            }
+            accessibilityLabel={isAttacker ? "Record trick to set" : "Record your attempt"}
             style={styles.recordButton}
             onPress={handleRecordTrick}
             disabled={submitTrickMutation.isPending}
@@ -634,18 +631,12 @@ export default function GameScreen() {
               <View style={styles.uploadingContainer}>
                 <ActivityIndicator color={SKATE.colors.white} />
                 <Text style={styles.uploadingText}>
-                  {pendingUpload?.progress
-                    ? `${pendingUpload.progress}%`
-                    : "Uploading..."}
+                  {pendingUpload?.progress ? `${pendingUpload.progress}%` : "Uploading..."}
                 </Text>
               </View>
             ) : (
               <>
-                <Ionicons
-                  name="videocam"
-                  size={32}
-                  color={SKATE.colors.white}
-                />
+                <Ionicons name="videocam" size={32} color={SKATE.colors.white} />
                 <Text style={styles.recordButtonText}>
                   {isAttacker ? "RECORD TRICK" : "RECORD ATTEMPT"}
                 </Text>
@@ -671,9 +662,7 @@ export default function GameScreen() {
         onClose={() => setShowRecorder(false)}
         onRecordComplete={handleRecordComplete}
         isSettingTrick={isAttacker}
-        trickToMatch={
-          gameSession.currentSetMove?.trickName || undefined
-        }
+        trickToMatch={gameSession.currentSetMove?.trickName || undefined}
         isUploading={submitTrickMutation.isPending}
         uploadProgress={pendingUpload?.progress || 0}
       />
