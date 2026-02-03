@@ -6,6 +6,7 @@ import {
   useCameraDevice,
   useCameraPermission,
   useMicrophonePermission,
+  useCameraFormat,
   VideoFile,
 } from "react-native-vision-camera";
 import { Video } from "expo-av";
@@ -39,6 +40,12 @@ export default function NewChallengeScreen() {
     useCameraPermission();
   const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } =
     useMicrophonePermission();
+
+  // Use 120fps format for slow-mo replay capability
+  const format = useCameraFormat(device, [
+    { fps: 120 },
+    { videoResolution: { width: 1920, height: 1080 } },
+  ]);
 
   const hasAllPermissions = hasCameraPermission && hasMicPermission;
 
@@ -252,9 +259,11 @@ export default function NewChallengeScreen() {
             ref={cameraRef}
             style={styles.camera}
             device={device}
+            format={format}
             isActive={!videoUri}
             video={true}
             audio={true}
+            fps={format?.maxFps ?? 30}
           />
           <View style={styles.controls}>
             <Text

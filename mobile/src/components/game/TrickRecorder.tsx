@@ -18,6 +18,7 @@ import {
   useCameraDevice,
   useCameraPermission,
   useMicrophonePermission,
+  useCameraFormat,
   VideoFile,
 } from "react-native-vision-camera";
 import { Video, ResizeMode } from "expo-av";
@@ -75,6 +76,13 @@ export function TrickRecorder({
     useCameraPermission();
   const { hasPermission: hasMicPermission, requestPermission: requestMicPermission } =
     useMicrophonePermission();
+
+  // Use 120fps format for slow-mo replay capability
+  // Falls back to best available if 120fps not supported
+  const format = useCameraFormat(device, [
+    { fps: 120 },
+    { videoResolution: { width: 1920, height: 1080 } },
+  ]);
 
   const hasAllPermissions = hasCameraPermission && hasMicPermission;
 
@@ -322,9 +330,11 @@ export function TrickRecorder({
                 ref={cameraRef}
                 style={styles.camera}
                 device={device}
+                format={format}
                 isActive={visible && !videoUri}
                 video={true}
                 audio={true}
+                fps={format?.maxFps ?? 30}
               />
             )}
 

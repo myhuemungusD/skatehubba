@@ -27,6 +27,7 @@ import { LetterIndicator } from "@/components/game/LetterIndicator";
 import { TurnOverlay } from "@/components/game/TurnOverlay";
 import { TrickRecorder } from "@/components/game/TrickRecorder";
 import { ResultScreen } from "@/components/game/ResultScreen";
+import { SlowMoReplay } from "@/components/game/SlowMoReplay";
 import { VideoErrorBoundary } from "@/components/common/VideoErrorBoundary";
 import { logEvent } from "@/lib/analytics/logEvent";
 import type { GameOverlay, SkateLetter } from "@/types";
@@ -532,15 +533,15 @@ export default function GameScreen() {
           <Text style={styles.judgingTitle}>DID THEY LAND IT?</Text>
           <Text style={styles.judgingSubtitle}>Both players vote. Tie goes to defender.</Text>
 
-          {/* Show the match attempt video */}
+          {/* Show the match attempt video with slow-mo replay option */}
           {latestMatchMove && (
             <VideoErrorBoundary>
-              <Video
-                source={{ uri: latestMatchMove.clipUrl }}
+              <SlowMoReplay
+                clipUrl={latestMatchMove.clipUrl}
+                trickName={latestMatchMove.trickName}
+                defaultSlowMo={false}
+                autoPlay={true}
                 style={styles.judgingVideo}
-                useNativeControls
-                isLooping
-                resizeMode={ResizeMode.CONTAIN}
               />
             </VideoErrorBoundary>
           )}
