@@ -91,6 +91,10 @@ const GameSessionSchema = z.object({
   createdAt: timestampOrDate,
   updatedAt: nullableTimestampOrDate.optional().default(null),
   completedAt: nullableTimestampOrDate.optional().default(null),
+  // Vote timeout fields
+  voteDeadline: nullableTimestampOrDate.optional().default(null),
+  voteReminderSent: z.boolean().nullable().optional().default(null),
+  voteTimeoutOccurred: z.boolean().nullable().optional().default(null),
 });
 
 function parseGameSession(id: string, data: Record<string, unknown>): GameSession {
@@ -124,6 +128,9 @@ function parseGameSession(id: string, data: Record<string, unknown>): GameSessio
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     completedAt: session.completedAt,
+    voteDeadline: session.voteDeadline,
+    voteReminderSent: session.voteReminderSent,
+    voteTimeoutOccurred: session.voteTimeoutOccurred,
   };
 }
 

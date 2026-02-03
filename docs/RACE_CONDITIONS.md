@@ -58,18 +58,25 @@ This document lists all identified race conditions in the S.K.A.T.E. battle syst
 - Direct Firestore writes should be blocked by security rules (TODO: verify rules)
 - Location: `infra/firebase/functions/index.ts` - `submitTrick` function
 
-### 4. Vote and Timeout Simultaneous Trigger (TODO)
+### 4. Vote and Timeout Simultaneous Trigger (FIXED)
 
 **Scenario:** Timeout triggers at the exact moment a vote is submitted.
 
-**Current status:** Not yet implemented (see Problem 2 in directive)
+**Previous behavior:**
 
-**Planned mitigation:**
+- No timeout was implemented
+- Games could stall indefinitely if players didn't vote
 
-- Timeout will be implemented as a Firestore TTL-triggered Cloud Function
-- Timeout function will also use transactions
-- If vote arrives during timeout transaction, one will retry
-- Whichever completes first wins; the other will see state has changed and abort
+**Mitigation:**
+
+- 60-second vote timeout implemented via scheduled Cloud Function (`processVoteTimeouts`)
+- `voteDeadline` timestamp set when entering judging phase
+- Timeout function uses transactions to prevent race conditions
+- If vote arrives during timeout transaction, Firestore retries automatically
+- Whichever completes first wins; the other sees state has changed and aborts
+- Auto-resolve always gives defender benefit of doubt (result = "landed")
+- Push notification sent at 30 seconds before deadline
+- Location: `functions/src/index.ts` - `processVoteTimeouts`, `autoResolveVoteTimeout`
 
 ### 5. Player Joins Mid-Turn (ANALYZED - LOW RISK)
 
@@ -140,6 +147,31 @@ Additional integration tests should be added to verify transaction behavior unde
 ## TODO
 
 - [ ] Add Firestore security rules to block direct client writes to `game_sessions`
-- [ ] Implement vote timeout (Problem 2)
+- [x] Implement vote timeout (Problem 2) - DONE
 - [ ] Add integration tests that simulate concurrent requests
 - [ ] Monitor transaction retry rates in production
+
+## Vote Timeout Implementation Details
+
+The vote timeout system ensures games don't stall when players fail to vote:
+
+1. **Deadline Setting**: When a defender submits their trick (entering judging phase), `voteDeadline` is set to 60 seconds in the future.
+
+2. **Scheduled Function**: `processVoteTimeouts` runs every 15 seconds to:
+   - Send reminder notifications at 30 seconds before deadline
+   - Auto-resolve expired deadlines
+
+3. **Auto-Resolution Logic**:
+   - Defender always gets benefit of doubt (result = "landed")
+   - Roles switch (defender becomes attacker)
+   - No letter is given to anyone
+   - `voteTimeoutOccurred` flag is set for UI feedback
+
+4. **Push Notifications**:
+   - 30-second reminder: "Vote Required! 30 seconds left to judge the trick."
+   - Timeout notification: "Vote Timed Out. Trick counted as landed."
+
+5. **Edge Cases Handled**:
+   - Both players fail to vote → defender wins
+   - Attacker votes, defender doesn't → defender wins
+   - Defender votes, attacker doesn't → defender wins

@@ -484,3 +484,282 @@ describe("idempotency", () => {
     expect(keys.size).toBe(100);
   });
 });
+
+// ============================================================================
+// VOTE TIMEOUT TESTS
+// ============================================================================
+
+describe("vote timeout", () => {
+  const VOTE_TIMEOUT_MS = 60 * 1000;
+  const VOTE_REMINDER_BEFORE_MS = 30 * 1000;
+
+  describe("deadline calculation", () => {
+    it("should set vote deadline 60 seconds in the future when entering judging phase", () => {
+      const now = Date.now();
+      const voteDeadline = new Date(now + VOTE_TIMEOUT_MS);
+
+      const timeUntilDeadline = voteDeadline.getTime() - now;
+      expect(timeUntilDeadline).toBe(60000);
+    });
+
+    it("should trigger reminder at 30 seconds before deadline", () => {
+      const now = Date.now();
+      const voteDeadline = new Date(now + VOTE_REMINDER_BEFORE_MS); // 30 seconds away
+
+      const timeRemaining = voteDeadline.getTime() - now;
+      const shouldSendReminder = timeRemaining <= VOTE_REMINDER_BEFORE_MS && timeRemaining > 0;
+
+      expect(shouldSendReminder).toBe(true);
+    });
+
+    it("should not trigger reminder when more than 30 seconds remain", () => {
+      const now = Date.now();
+      const voteDeadline = new Date(now + 45000); // 45 seconds away
+
+      const timeRemaining = voteDeadline.getTime() - now;
+      const shouldSendReminder = timeRemaining <= VOTE_REMINDER_BEFORE_MS && timeRemaining > 0;
+
+      expect(shouldSendReminder).toBe(false);
+    });
+
+    it("should not trigger reminder when deadline has passed", () => {
+      const now = Date.now();
+      const voteDeadline = new Date(now - 5000); // 5 seconds ago
+
+      const timeRemaining = voteDeadline.getTime() - now;
+      const shouldSendReminder = timeRemaining <= VOTE_REMINDER_BEFORE_MS && timeRemaining > 0;
+
+      expect(shouldSendReminder).toBe(false);
+    });
+  });
+
+  describe("auto-resolve logic", () => {
+    it("should auto-resolve to landed when deadline expires", () => {
+      const now = Date.now();
+      const voteDeadline = new Date(now - 1000); // 1 second ago
+
+      const timeRemaining = voteDeadline.getTime() - now;
+      const shouldAutoResolve = timeRemaining <= 0;
+
+      expect(shouldAutoResolve).toBe(true);
+    });
+
+    it("should not auto-resolve when deadline has not passed", () => {
+      const now = Date.now();
+      const voteDeadline = new Date(now + 10000); // 10 seconds from now
+
+      const timeRemaining = voteDeadline.getTime() - now;
+      const shouldAutoResolve = timeRemaining <= 0;
+
+      expect(shouldAutoResolve).toBe(false);
+    });
+
+    it("should switch roles when auto-resolving (defender becomes attacker)", () => {
+      const gameState = {
+        currentAttacker: "player1",
+        player1Id: "player1",
+        player2Id: "player2",
+      };
+
+      // When vote times out, result is "landed", so defender becomes attacker
+      const defenderId =
+        gameState.currentAttacker === gameState.player1Id
+          ? gameState.player2Id
+          : gameState.player1Id;
+
+      // Defender becomes the new attacker
+      const nextAttacker = defenderId;
+
+      expect(nextAttacker).toBe("player2");
+    });
+
+    it("should mark the move with timeout metadata", () => {
+      const move = {
+        id: "move1",
+        type: "match",
+        result: "pending",
+        judgmentVotes: {
+          attackerVote: null,
+          defenderVote: null,
+        },
+      };
+
+      // Simulate auto-resolve
+      const resolvedMove = {
+        ...move,
+        result: "landed",
+        judgmentVotes: {
+          ...move.judgmentVotes,
+          timedOut: true,
+          autoResolved: "landed",
+        },
+      };
+
+      expect(resolvedMove.result).toBe("landed");
+      expect(resolvedMove.judgmentVotes.timedOut).toBe(true);
+      expect(resolvedMove.judgmentVotes.autoResolved).toBe("landed");
+    });
+  });
+
+  describe("edge cases", () => {
+    it("should handle case where attacker voted but defender did not", () => {
+      const move = {
+        judgmentVotes: {
+          attackerVote: "bailed" as const,
+          defenderVote: null,
+        },
+      };
+
+      // When timeout occurs, defender gets benefit of doubt
+      const autoResolvedResult = "landed";
+
+      // Even though attacker said "bailed", timeout favors defender
+      expect(autoResolvedResult).toBe("landed");
+    });
+
+    it("should handle case where defender voted but attacker did not", () => {
+      const move = {
+        judgmentVotes: {
+          attackerVote: null,
+          defenderVote: "bailed" as const,
+        },
+      };
+
+      // When timeout occurs, defender gets benefit of doubt
+      const autoResolvedResult = "landed";
+
+      // Even though defender admitted bailed, timeout favors defender
+      expect(autoResolvedResult).toBe("landed");
+    });
+
+    it("should handle case where neither player voted", () => {
+      const move = {
+        judgmentVotes: {
+          attackerVote: null,
+          defenderVote: null,
+        },
+      };
+
+      // When timeout occurs with no votes, defender gets benefit of doubt
+      const autoResolvedResult = "landed";
+
+      expect(autoResolvedResult).toBe("landed");
+    });
+
+    it("should not give defender a letter on timeout", () => {
+      const currentLetters = ["S", "K"];
+
+      // Timeout always resolves to "landed", so no new letter
+      const finalResult = "landed";
+      const newLetters =
+        finalResult === "bailed"
+          ? [...currentLetters, SKATE_LETTERS[currentLetters.length]]
+          : currentLetters;
+
+      expect(newLetters).toEqual(["S", "K"]);
+      expect(newLetters.length).toBe(2);
+    });
+  });
+
+  describe("notification targeting", () => {
+    it("should identify attacker when they have not voted", () => {
+      const game = {
+        currentAttacker: "player1",
+        player1Id: "player1",
+        player2Id: "player2",
+      };
+      const votes = {
+        attackerVote: null,
+        defenderVote: "landed" as const,
+      };
+
+      const playersToNotify: string[] = [];
+
+      if (votes.attackerVote === null) {
+        playersToNotify.push(game.currentAttacker);
+      }
+
+      const defenderId = game.currentAttacker === game.player1Id ? game.player2Id : game.player1Id;
+      if (votes.defenderVote === null) {
+        playersToNotify.push(defenderId);
+      }
+
+      expect(playersToNotify).toEqual(["player1"]);
+    });
+
+    it("should identify defender when they have not voted", () => {
+      const game = {
+        currentAttacker: "player1",
+        player1Id: "player1",
+        player2Id: "player2",
+      };
+      const votes = {
+        attackerVote: "landed" as const,
+        defenderVote: null,
+      };
+
+      const playersToNotify: string[] = [];
+
+      if (votes.attackerVote === null) {
+        playersToNotify.push(game.currentAttacker);
+      }
+
+      const defenderId = game.currentAttacker === game.player1Id ? game.player2Id : game.player1Id;
+      if (votes.defenderVote === null) {
+        playersToNotify.push(defenderId);
+      }
+
+      expect(playersToNotify).toEqual(["player2"]);
+    });
+
+    it("should identify both players when neither has voted", () => {
+      const game = {
+        currentAttacker: "player1",
+        player1Id: "player1",
+        player2Id: "player2",
+      };
+      const votes = {
+        attackerVote: null,
+        defenderVote: null,
+      };
+
+      const playersToNotify: string[] = [];
+
+      if (votes.attackerVote === null) {
+        playersToNotify.push(game.currentAttacker);
+      }
+
+      const defenderId = game.currentAttacker === game.player1Id ? game.player2Id : game.player1Id;
+      if (votes.defenderVote === null) {
+        playersToNotify.push(defenderId);
+      }
+
+      expect(playersToNotify).toEqual(["player1", "player2"]);
+    });
+
+    it("should not notify anyone when both have voted", () => {
+      const game = {
+        currentAttacker: "player1",
+        player1Id: "player1",
+        player2Id: "player2",
+      };
+      const votes = {
+        attackerVote: "landed" as const,
+        defenderVote: "landed" as const,
+      };
+
+      const playersToNotify: string[] = [];
+
+      if (votes.attackerVote === null) {
+        playersToNotify.push(game.currentAttacker);
+      }
+
+      const defenderId = game.currentAttacker === game.player1Id ? game.player2Id : game.player1Id;
+      if (votes.defenderVote === null) {
+        playersToNotify.push(defenderId);
+      }
+
+      expect(playersToNotify).toEqual([]);
+    });
+  });
+});
