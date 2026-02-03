@@ -14,7 +14,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import type { CheckInResult } from "../../../shared/checkin-types";
+import type { CheckInResult } from "../../../packages/shared/checkin-types";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";

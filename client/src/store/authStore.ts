@@ -17,6 +17,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "../lib/firebase/config";
 import { GUEST_MODE } from "../config/flags";
 import { ensureProfile } from "../lib/profile/ensureProfile";
+import { apiRequest } from "../lib/api/client";
 
 export type UserRole = "admin" | "moderator" | "verified_pro";
 export type ProfileStatus = "unknown" | "exists" | "missing";
@@ -211,6 +212,31 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
   }
 }
 
+/**
+ * Authenticate guest user with the backend server.
+ * Creates a database user record and sets up the session cookie.
+ */
+async function authenticateGuestWithBackend(firebaseUser: FirebaseUser): Promise<void> {
+  try {
+    const idToken = await firebaseUser.getIdToken();
+    await apiRequest({
+      method: "POST",
+      path: "/api/auth/login",
+      body: {
+        firstName: "Guest",
+        lastName: "",
+      },
+      headers: {
+        Authorization: `Bearer ${idToken}`,
+      },
+    });
+    console.log("[AuthStore] Guest authenticated with backend successfully");
+  } catch (error) {
+    console.error("[AuthStore] Guest backend authentication failed:", error);
+    // Don't throw - guest mode should work even if backend auth fails (degraded mode)
+  }
+}
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
@@ -249,6 +275,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         const anonResult = await withTimeout(firebaseSignInAnonymously(auth), 5000, "anon_signin");
         if (anonResult.status === "ok") {
           currentUser = anonResult.data.user;
+          // Create database user record and session for guest
+          await withTimeout(authenticateGuestWithBackend(currentUser), 5000, "guest_backend_auth");
         } else {
           finalStatus = "degraded";
         }
@@ -296,6 +324,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Handle Roles Result
         if (rolesRes.status === "fulfilled" && rolesRes.value.status === "ok") {
           set({ roles: rolesRes.value.data, error: null });
+        } else {
+          // If roles fetch failed, set error and mark as degraded
+          let rolesError = "Failed to fetch roles";
+          if (rolesRes.status === "fulfilled" && rolesRes.value.status !== "ok") {
+            rolesError = rolesRes.value.error;
+          } else if (rolesRes.status === "rejected") {
+            rolesError =
+              rolesRes.reason instanceof Error ? rolesRes.reason.message : String(rolesRes.reason);
+          }
+          set({ error: new Error(rolesError) });
+          finalStatus = "degraded";
         }
       } else {
         set({
@@ -305,6 +344,51 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           roles: [],
         });
       }
+
+      // PHASE 3: Persistent Auth Listener
+      // Subscribe to auth state changes to handle external logout/session expiration
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          // User signed in or session valid
+          set({ user, loading: false });
+
+          // Fetch profile and roles if not already set
+          const currentState = get();
+          if (!currentState.profile || currentState.profileStatus === "unknown") {
+            const [profileResult, rolesResult] = await Promise.all([
+              withTimeout(fetchProfile(user.uid), 4000, "fetchProfile"),
+              withTimeout(extractRolesFromToken(user), 4000, "fetchRoles"),
+            ]);
+
+            if (profileResult.status === "ok" && profileResult.data) {
+              set({ profile: profileResult.data, profileStatus: "exists" });
+              writeProfileCache(user.uid, { status: "exists", profile: profileResult.data });
+            } else {
+              const cached = readProfileCache(user.uid);
+              if (cached) {
+                set({ profile: cached.profile, profileStatus: cached.status });
+              }
+            }
+
+            if (rolesResult.status === "ok") {
+              set({ roles: rolesResult.data });
+            }
+          }
+        } else {
+          // User signed out or session expired
+          const currentUid = get().user?.uid;
+          set({
+            user: null,
+            profile: null,
+            profileStatus: "unknown",
+            roles: [],
+            loading: false,
+          });
+          if (currentUid) {
+            clearProfileCache(currentUid);
+          }
+        }
+      });
     } catch (fatal) {
       console.error("[AuthStore] Critical boot failure:", fatal);
       finalStatus = "degraded";

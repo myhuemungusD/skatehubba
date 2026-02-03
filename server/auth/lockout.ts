@@ -14,7 +14,7 @@
  */
 
 import { getDb } from "../db.ts";
-import { loginAttempts, accountLockouts } from "../../shared/schema.ts";
+import { loginAttempts, accountLockouts } from "../../packages/shared/schema.ts";
 import { eq, and, gt, sql, count } from "drizzle-orm";
 import { SECURITY_CONFIG } from "../security.ts";
 import { AuditLogger } from "./audit.ts";

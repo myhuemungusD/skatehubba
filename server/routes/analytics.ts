@@ -6,10 +6,10 @@ import {
   type AnalyticsBatch,
   type AnalyticsIngest,
   validateEventProps,
-} from "../../shared/analytics-events";
+} from "../../packages/shared/analytics-events";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
 import { db } from "../db";
-import { analyticsEvents } from "../../shared/schema-analytics";
+import { analyticsEvents } from "../../packages/shared/schema-analytics";
 import logger from "../logger";
 import { validateBody } from "../middleware/validation";
 
@@ -101,10 +101,7 @@ analyticsRouter.post(
 
     // Defensive runtime check to avoid type confusion on req.body
     const body = req.body;
-    if (
-      !Array.isArray(body) ||
-      body.some((item) => item === null || typeof item !== "object")
-    ) {
+    if (!Array.isArray(body) || body.some((item) => item === null || typeof item !== "object")) {
       logger.warn("[Analytics] Invalid batch payload type", {
         uid,
         payloadType: typeof body,

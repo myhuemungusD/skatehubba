@@ -140,10 +140,10 @@ export const checkInIpLimiter = rateLimit({
 });
 
 export const perUserSpotWriteLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // 5 spot creations per hour per user
+  windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  max: 3, // 3 spot creations per day per user (MVP requirement)
   message: {
-    error: "Spot creation rate limit exceeded.",
+    error: "You've reached the daily limit for adding spots (3 per day). Try again tomorrow!",
   },
   standardHeaders: true,
   legacyHeaders: false,

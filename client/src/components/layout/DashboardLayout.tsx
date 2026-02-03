@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, MapPin, Scan, ShoppingBag, User } from "lucide-react";
+import { Home, MapPin, Gamepad2, ShoppingBag, User } from "lucide-react";
 import { useIsMobile } from "../../hooks/use-mobile";
 
 interface DashboardLayoutProps {
@@ -8,11 +8,11 @@ interface DashboardLayoutProps {
 }
 
 const navItems = [
-  { label: "Hub", href: "/feed", icon: Home },
+  { label: "Hub", href: "/hub", icon: Home },
   { label: "Spots", href: "/map", icon: MapPin },
-  { label: "Play SKATE", href: "/game", icon: Scan },
+  { label: "Play", href: "/play", icon: Gamepad2 },
   { label: "Shop", href: "/shop", icon: ShoppingBag },
-  { label: "Me", href: "/checkins", icon: User },
+  { label: "Me", href: "/me", icon: User },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -26,15 +26,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Desktop Sidebar */}
         <aside className="fixed left-0 top-0 h-full w-64 border-r border-neutral-800 bg-neutral-900/50 backdrop-blur-sm z-40">
           <div className="p-6">
-            <Link href="/feed" className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-yellow-400"> SkateHubba</span>
+            <Link href="/hub" className="flex items-center gap-2">
+              <span className="text-2xl font-bold text-yellow-400">SkateHubba</span>
             </Link>
           </div>
           <nav className="px-4 py-2" role="navigation" aria-label="Main navigation">
             <ul className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location === item.href;
+                const isActive = location.split("?")[0] === item.href;
 
                 return (
                   <li key={item.href}>
@@ -81,7 +81,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="mx-auto flex max-w-md items-center justify-between px-2 py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location === item.href;
+            const isActive = location.split("?")[0] === item.href;
 
             return (
               <Link

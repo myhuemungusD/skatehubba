@@ -20,7 +20,7 @@ import * as path from "path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { eq } from "drizzle-orm";
-import { users } from "../shared/schema";
+import { users } from "../packages/shared/schema";
 
 const { Pool } = pg;
 
@@ -91,11 +91,7 @@ async function grantGodMode() {
     });
 
     // 5. Ensure user exists in PostgreSQL (single source of truth for profile data)
-    const existing = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, user.uid))
-      .limit(1);
+    const existing = await db.select().from(users).where(eq(users.id, user.uid)).limit(1);
 
     if (existing.length === 0) {
       await db.insert(users).values({

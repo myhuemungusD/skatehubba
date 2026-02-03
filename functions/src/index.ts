@@ -20,6 +20,7 @@ import * as os from "os";
 import * as fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
+// Bounties feature archived - see archive/functions-src/bounties/
 
 const SKATE_LETTERS = ["S", "K", "A", "T", "E"] as const;
 
@@ -992,3 +993,8 @@ async function sendTimeoutNotifications(
     }
   }
 }
+
+// Commerce exports
+export { holdAndCreatePaymentIntent } from "./commerce/holdAndCreateIntent";
+export { stripeWebhook } from "./commerce/stripeWebhook";
+export { expireHolds } from "./commerce/expireHolds";

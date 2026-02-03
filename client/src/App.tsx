@@ -48,43 +48,44 @@ import { logger } from "./lib/logger";
 // Eager load critical pages
 import UnifiedLanding from "./pages/unified-landing";
 import AppShell from "./components/layout/AppShell";
+import DashboardLayout from "./components/layout/DashboardLayout";
 import ProtectedRoute, { type Params } from "./lib/protected-route";
 
 // Lazy load non-critical pages for better performance
-const Home = lazy(() => import("./pages/home"));
-const FeedPage = lazy(() => import("./pages/feed"));
+// Consolidated pages (new architecture)
+const HubPage = lazy(() => import("./pages/hub"));
+const PlayPage = lazy(() => import("./pages/play"));
+const ProfilePage = lazy(() => import("./pages/me"));
+
+// Standalone pages
 const Tutorial = lazy(() => import("./pages/tutorial"));
 const Demo = lazy(() => import("./pages/demo"));
+const MapPage = lazy(() => import("./pages/map"));
+const ShopPage = lazy(() => import("./pages/shop"));
+const CartPage = lazy(() => import("./pages/cart"));
+const CheckoutPage = lazy(() => import("./pages/checkout"));
+const OrderConfirmationPage = lazy(() => import("./pages/order-confirmation"));
+const SpotDetailPage = lazy(() => import("./pages/spots/SpotDetailPage"));
+const TrickMintPage = lazy(() => import("./pages/trickmint"));
 
+// Auth pages
 const LoginPage = lazy(() => import("./pages/login"));
 const AuthPage = lazy(() => import("./pages/AuthPage"));
 const SignupPage = lazy(() => import("./pages/signup"));
 const SigninPage = lazy(() => import("./pages/signin"));
+const ForgotPasswordPage = lazy(() => import("./pages/forgot-password"));
 const ProfileSetup = lazy(() => import("./pages/profile/ProfileSetup"));
 const VerifyPage = lazy(() => import("./pages/verify"));
 const AuthVerifyPage = lazy(() => import("./pages/auth-verify"));
 const VerifyEmailPage = lazy(() => import("./pages/verify-email"));
 const VerifiedPage = lazy(() => import("./pages/verified"));
-const ShopPage = lazy(() => import("./pages/shop"));
-const CartPage = lazy(() => import("./pages/cart"));
-const CheckoutPage = lazy(() => import("./pages/checkout"));
-const OrderConfirmationPage = lazy(() => import("./pages/order-confirmation"));
-const ClosetPage = lazy(() => import("./pages/closet"));
-const MapPage = lazy(() => import("./pages/map"));
-const SpotDetailPage = lazy(() => import("./pages/spots/SpotDetailPage"));
-const SkateGamePage = lazy(() => import("./pages/skate-game"));
-const ChallengeLobbyPage = lazy(() => import("./pages/ChallengeLobby"));
-const LeaderboardPage = lazy(() => import("./pages/leaderboard"));
-const TrickMintPage = lazy(() => import("./pages/trickmint"));
+
+// Public pages
 const SkaterProfilePage = lazy(() => import("./pages/skater/profile"));
 const PrivacyPage = lazy(() => import("./pages/privacy"));
 const TermsPage = lazy(() => import("./pages/terms"));
 const SpecsPage = lazy(() => import("./pages/specs"));
-const CheckinsPage = lazy(() => import("./pages/checkins"));
-const SettingsPage = lazy(() => import("./pages/settings"));
-
 const PublicProfileView = lazy(() => import("./features/social/public-profile/PublicProfileView"));
-const BoltsShowcase = lazy(() => import("./features/social/bolts-showcase/BoltsShowcase"));
 
 /**
  * Routing Policy (Zero-Duplication Architecture)
@@ -105,7 +106,7 @@ const BoltsShowcase = lazy(() => import("./features/social/bolts-showcase/BoltsS
  * - Root (/) redirects unauthenticated users to /landing
  * - Root (/) redirects authenticated users to /home
  * - Landing page: minimal, conversion-focused ("Get Started" CTA -> /signin)
- * - Sign in/Sign up: checks for profile, redirects to /profile-setup if missing
+ * - Sign in/Sign up: checks for profile, redirects to /profile/setup if missing
  * - Profile setup: redirects to /home after completion
  * - Home page: member hub with quick actions (Feed/Map/Battle/Profile)
  * - Legacy routes (/old, /new) removed - zero duplication architecture
@@ -123,45 +124,13 @@ function RootRedirect() {
     }
 
     if (user) {
-      setLocation("/home", { replace: true });
+      setLocation("/hub", { replace: true });
     } else {
       setLocation("/landing", { replace: true });
     }
   }, [user, loading, isInitialized, setLocation]);
 
   return <LoadingScreen />;
-}
-
-function AppShellHomeRoute() {
-  return (
-    <AppShell hideNav>
-      <Home />
-    </AppShell>
-  );
-}
-
-function AppShellShopRoute() {
-  return (
-    <AppShell>
-      <ShopPage />
-    </AppShell>
-  );
-}
-
-function AppShellCartRoute() {
-  return (
-    <AppShell>
-      <CartPage />
-    </AppShell>
-  );
-}
-
-function AppShellCheckoutRoute() {
-  return (
-    <AppShell>
-      <CheckoutPage />
-    </AppShell>
-  );
 }
 
 function AppShellOrderConfirmationRoute() {
@@ -172,66 +141,10 @@ function AppShellOrderConfirmationRoute() {
   );
 }
 
-function AppShellClosetRoute() {
-  return (
-    <AppShell>
-      <ClosetPage />
-    </AppShell>
-  );
-}
-
-function AppShellChallengeLobbyRoute() {
-  return (
-    <AppShell>
-      <ChallengeLobbyPage />
-    </AppShell>
-  );
-}
-
-function AppShellActiveGameRoute() {
-  return (
-    <AppShell>
-      <SkateGamePage />
-    </AppShell>
-  );
-}
-
-function AppShellFeedRoute(_props: { params: Params }) {
-  return (
-    <AppShell>
-      <FeedPage />
-    </AppShell>
-  );
-}
-
-function AppShellMapRoute(_props: { params: Params }) {
-  return (
-    <AppShell>
-      <MapPage />
-    </AppShell>
-  );
-}
-
 function AppShellSpotDetailRoute(props: { params: Params }) {
   return (
     <AppShell>
       <SpotDetailPage params={props.params} />
-    </AppShell>
-  );
-}
-
-function AppShellSkateGameRoute(_props: { params: Params }) {
-  return (
-    <AppShell>
-      <SkateGamePage />
-    </AppShell>
-  );
-}
-
-function AppShellLeaderboardRoute(_props: { params: Params }) {
-  return (
-    <AppShell>
-      <LeaderboardPage />
     </AppShell>
   );
 }
@@ -257,14 +170,6 @@ function AppShellTutorialRoute(_props: { params: Params }) {
   );
 }
 
-function AppShellCheckinsRoute(_props: { params: Params }) {
-  return (
-    <AppShell>
-      <CheckinsPage />
-    </AppShell>
-  );
-}
-
 function AppShellSkaterProfileRoute(_props: { params: Params }) {
   return (
     <AppShell>
@@ -281,19 +186,63 @@ function AppShellPublicProfileRoute(_props: { params: Params }) {
   );
 }
 
-function AppShellShowcaseRoute() {
+// ============================================================================
+// DASHBOARD LAYOUT ROUTES (New Consolidated Pages)
+// ============================================================================
+
+function DashboardHubRoute() {
   return (
-    <AppShell>
-      <BoltsShowcase />
-    </AppShell>
+    <DashboardLayout>
+      <HubPage />
+    </DashboardLayout>
   );
 }
 
-function AppShellSettingsRoute() {
+function DashboardPlayRoute() {
   return (
-    <AppShell>
-      <SettingsPage />
-    </AppShell>
+    <DashboardLayout>
+      <PlayPage />
+    </DashboardLayout>
+  );
+}
+
+function DashboardProfileRoute() {
+  return (
+    <DashboardLayout>
+      <ProfilePage />
+    </DashboardLayout>
+  );
+}
+
+function DashboardMapRoute() {
+  return (
+    <DashboardLayout>
+      <MapPage />
+    </DashboardLayout>
+  );
+}
+
+function DashboardShopRoute() {
+  return (
+    <DashboardLayout>
+      <ShopPage />
+    </DashboardLayout>
+  );
+}
+
+function DashboardCartRoute() {
+  return (
+    <DashboardLayout>
+      <CartPage />
+    </DashboardLayout>
+  );
+}
+
+function DashboardCheckoutRoute() {
+  return (
+    <DashboardLayout>
+      <CheckoutPage />
+    </DashboardLayout>
   );
 }
 
@@ -316,7 +265,7 @@ function ProfileSetupRoute() {
     }
 
     if (auth.profileStatus === "exists") {
-      setLocation("/home", { replace: true });
+      setLocation("/hub", { replace: true });
     }
   }, [auth.isAuthenticated, auth.profileStatus, bypass, setLocation]);
 
@@ -341,49 +290,66 @@ function AppRoutes() {
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Switch>
+        {/* Auth Routes */}
         <Route path="/auth" component={AuthPage} />
         <Route path="/login" component={LoginPage} />
-        <Route path="/home" component={AppShellHomeRoute} />
-        <Route path="/landing" component={UnifiedLanding} />
-        <Route path="/new-landing" component={UnifiedLanding} />
-        <Route path="/demo" component={Demo} />
-        <Route path="/shop" component={AppShellShopRoute} />
-        <Route path="/cart" component={AppShellCartRoute} />
-        <Route path="/checkout" component={AppShellCheckoutRoute} />
-        <Route path="/order-confirmation" component={AppShellOrderConfirmationRoute} />
-        <Route path="/closet" component={AppShellClosetRoute} />
-        <Route path="/game/active" component={AppShellActiveGameRoute} />
-        <Route path="/game" component={AppShellChallengeLobbyRoute} />
         <Route path="/signup" component={SignupPage} />
         <Route path="/signin" component={SigninPage} />
-        <Route path="/profile-setup" component={ProfileSetupRoute} />
+        <Route path="/forgot-password" component={ForgotPasswordPage} />
         <Route path="/verify" component={VerifyPage} />
         <Route path="/auth/verify" component={AuthVerifyPage} />
         <Route path="/verify-email" component={VerifyEmailPage} />
         <Route path="/verified" component={VerifiedPage} />
+        <Route path="/profile/setup" component={ProfileSetupRoute} />
+
+        {/* Public Routes */}
+        <Route path="/landing" component={UnifiedLanding} />
+        <Route path="/demo" component={Demo} />
         <Route path="/privacy" component={PrivacyPage} />
         <Route path="/terms" component={TermsPage} />
         <Route path="/specs" component={SpecsPage} />
         <Route path="/skater/:handle" component={AppShellSkaterProfileRoute} />
         <Route path="/p/:username" component={AppShellPublicProfileRoute} />
-        <Route path="/showcase" component={AppShellShowcaseRoute} />
-        <Route path="/profile/setup" component={ProfileSetupRoute} />
-        <Route path="/settings" component={AppShellSettingsRoute} />
 
-        <ProtectedRoute path="/dashboard" component={AppShellFeedRoute} />
-        <ProtectedRoute path="/feed" component={AppShellFeedRoute} />
-        <ProtectedRoute path="/map" component={AppShellMapRoute} allowMissingProfile />
-        <ProtectedRoute path="/spots/:id" component={AppShellSpotDetailRoute} />
-        <ProtectedRoute path="/skate-game" component={AppShellSkateGameRoute} />
+        {/* ============================================================== */}
+        {/* NEW CONSOLIDATED ROUTES (DashboardLayout) */}
+        {/* ============================================================== */}
+        <ProtectedRoute path="/hub" component={DashboardHubRoute} allowMissingProfile />
+        <ProtectedRoute path="/play" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute path="/me" component={DashboardProfileRoute} allowMissingProfile />
+        <ProtectedRoute path="/map" component={DashboardMapRoute} allowMissingProfile />
+        <ProtectedRoute path="/shop" component={DashboardShopRoute} allowMissingProfile />
+        <ProtectedRoute path="/cart" component={DashboardCartRoute} allowMissingProfile />
+        <ProtectedRoute path="/checkout" component={DashboardCheckoutRoute} allowMissingProfile />
         <ProtectedRoute
-          path="/leaderboard"
-          component={AppShellLeaderboardRoute}
+          path="/order-confirmation"
+          component={AppShellOrderConfirmationRoute}
           allowMissingProfile
         />
+
+        {/* Spot Detail - still uses AppShell for full-screen modal experience */}
+        <ProtectedRoute path="/spots/:id" component={AppShellSpotDetailRoute} allowMissingProfile />
+
+        {/* ============================================================== */}
+        {/* LEGACY ROUTES (Redirect to new structure for backward compat) */}
+        {/* ============================================================== */}
+        <ProtectedRoute path="/home" component={DashboardHubRoute} allowMissingProfile />
+        <ProtectedRoute path="/feed" component={DashboardHubRoute} allowMissingProfile />
+        <ProtectedRoute path="/dashboard" component={DashboardHubRoute} allowMissingProfile />
+        <ProtectedRoute path="/closet" component={DashboardProfileRoute} allowMissingProfile />
+        <ProtectedRoute path="/settings" component={DashboardProfileRoute} allowMissingProfile />
+        <ProtectedRoute path="/checkins" component={DashboardProfileRoute} allowMissingProfile />
+        <ProtectedRoute path="/game/active" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute path="/game" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute path="/skate-game" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute path="/leaderboard" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute path="/showcase" component={DashboardHubRoute} allowMissingProfile />
+
+        {/* Protected legacy routes */}
         <ProtectedRoute path="/trickmint" component={AppShellTrickmintRoute} />
         <ProtectedRoute path="/tutorial" component={AppShellTutorialRoute} />
-        <ProtectedRoute path="/checkins" component={AppShellCheckinsRoute} />
 
+        {/* Root redirect */}
         <Route path="/" component={RootRedirect} />
       </Switch>
     </Suspense>

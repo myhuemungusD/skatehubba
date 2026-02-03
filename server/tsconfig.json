@@ -11,12 +11,12 @@
     "baseUrl": ".",
     "rootDir": "..",
     "paths": {
-      "@shared/*": ["../shared/*"]
+      "@shared/*": ["../packages/shared/*"]
     },
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "allowSyntheticDefaultImports": true
   },
-  "include": ["./**/*.ts", "../shared/**/*.ts"],
+  "include": ["./**/*.ts", "../packages/shared/**/*.ts"],
   "exclude": ["node_modules", "test.ts", "../*.ts", "../*.tsx"]
 }

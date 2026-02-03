@@ -1,4 +1,4 @@
-import type { CustomUser } from "../../shared/schema";
+import type { CustomUser } from "../../packages/shared/schema";
 
 /**
  * Extended user type that includes roles for admin checks.

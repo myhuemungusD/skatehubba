@@ -4,26 +4,25 @@ import path from 'node:path';
 export default defineConfig({
   resolve: {
     alias: {
-      '@shared/schema': path.resolve(__dirname, './shared/schema'),
-      '@shared': path.resolve(__dirname, './shared'),
+      '@shared/schema': path.resolve(__dirname, './packages/shared/schema'),
+      '@shared': path.resolve(__dirname, './packages/shared'),
     },
   },
   test: {
     globals: true,
     environment: 'node',
     include: ['**/*.test.ts', '**/*.test.tsx'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', '_archive/**', 'mobile/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', 'mobile/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
-      include: ['server/**/*.ts', 'shared/**/*.ts', 'client/src/lib/**/*.ts'],
+      include: ['server/**/*.ts', 'packages/shared/**/*.ts', 'client/src/lib/**/*.ts'],
       exclude: [
         '**/node_modules/**',
         '**/*.test.ts',
         '**/*.spec.ts',
         '**/dist/**',
         '**/*.d.ts',
-        '_archive/**',
         'mobile/**',
       ],
       thresholds: {

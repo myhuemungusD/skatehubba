@@ -464,6 +464,38 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // COMMERCE - Products, Orders, Holds
+    // =========================================================================
+
+    // Products - publicly readable, admin write only
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAuthenticated() && request.auth.token.admin == true;
+
+      // Stock shards - server only (managed by Cloud Functions)
+      match /stockShards/{shardId} {
+        allow read, write: if false;
+      }
+    }
+
+    // Holds - owner can read, server manages writes
+    match /holds/{holdId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Orders - owner can read, server manages writes
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
+    // Processed webhook events - server only
+    match /processedEvents/{eventId} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
     // DEFAULT DENY
     // =========================================================================
 

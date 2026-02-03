@@ -1,6 +1,6 @@
 import { db } from "../db";
-import { analyticsEvents } from "../../shared/schema-analytics";
-import type { EventName } from "../../shared/analytics-events";
+import { analyticsEvents } from "../../packages/shared/schema-analytics";
+import type { EventName } from "../../packages/shared/analytics-events";
 import logger from "../logger";
 
 /**

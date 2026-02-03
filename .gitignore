@@ -1,5 +1,4 @@
 node_modules
-node_modules
 
 # Environment variables (NEVER commit these!)
 .env
@@ -7,12 +6,20 @@ node_modules
 .env.production
 .env.development
 .env.*.local
+.env.backup
 
 # Build outputs
 dist
 build
 .turbo
+functions/lib
 *.log
+
+# Test artifacts
+test-results
+coverage
+*.lcov
+.nyc_output
 
 # OS files
 .DS_Store
@@ -22,10 +29,9 @@ Thumbs.db
 .vscode/settings.json
 .idea
 
-# Testing
-coverage
-*.lcov
-.nyc_output
+# Replit (not used)
+.replit
+replit.md
 
 # Temporary files
 *.tmp

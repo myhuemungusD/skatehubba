@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { AuthService } from "./service.ts";
-import type { CustomUser } from "../../shared/schema.ts";
+import type { CustomUser } from "../../packages/shared/schema.ts";
 import type { AuthenticatedUser } from "../types/express.d.ts";
 import { admin } from "../admin.ts";
 import "../types/express.d.ts";

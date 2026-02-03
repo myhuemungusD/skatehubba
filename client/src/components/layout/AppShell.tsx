@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import AppDropdownMenu from "../navigation/AppDropdownMenu";
+import { EmailVerificationBanner } from "../EmailVerificationBanner";
 
 interface AppShellProps {
   children: ReactNode;
@@ -33,6 +34,8 @@ export default function AppShell({ children, hideNav = false }: AppShellProps) {
             </div>
           </header>
         )}
+
+        <EmailVerificationBanner />
 
         <main className="flex-1 px-4 py-6">{children}</main>
       </div>

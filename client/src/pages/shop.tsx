@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Package, Shirt, Award, Loader2, ShoppingBag } from "lucide-react";
 import AddToCartButton from "../components/cart/AddToCartButton";
 import { useQuery } from "@tanstack/react-query";
-import type { Product } from "@/../../shared/schema";
+import type { Product } from "@shared/schema";
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 

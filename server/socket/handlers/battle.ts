@@ -17,69 +17,17 @@ import type {
   BattleVotePayload,
   BattleCompletedPayload,
 } from "../types";
+import {
+  createBattle,
+  joinBattle,
+  voteBattle,
+  completeBattle,
+  getBattle,
+  getBattleVotes,
+} from "../../services/battleService";
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
-
-// In-memory battle state (will be replaced with DB + battleService)
-interface BattleState {
-  id: string;
-  creatorId: string;
-  opponentId?: string;
-  matchmaking: "open" | "direct";
-  status: "waiting" | "active" | "voting" | "completed";
-  votes: Map<string, "clean" | "sketch" | "redo">;
-  createdAt: Date;
-}
-
-const battles = new Map<string, BattleState>();
-
-function generateBattleId(): string {
-  return `battle-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-}
-
-// In-memory battle service functions (to be replaced with proper DB service)
-async function createBattleInMemory(params: {
-  creatorId: string;
-  matchmaking: "open" | "direct";
-  opponentId?: string;
-}): Promise<{ battleId: string }> {
-  const battleId = generateBattleId();
-  battles.set(battleId, {
-    id: battleId,
-    creatorId: params.creatorId,
-    opponentId: params.opponentId,
-    matchmaking: params.matchmaking,
-    status: "waiting",
-    votes: new Map(),
-    createdAt: new Date(),
-  });
-  return { battleId };
-}
-
-async function joinBattleInMemory(odv: string, battleId: string): Promise<void> {
-  const battle = battles.get(battleId);
-  if (!battle) {
-    throw new Error("Battle not found");
-  }
-  if (battle.opponentId && battle.opponentId !== odv) {
-    throw new Error("Battle already has an opponent");
-  }
-  battle.opponentId = odv;
-  battle.status = "active";
-}
-
-async function voteBattleInMemory(params: {
-  odv: string;
-  battleId: string;
-  vote: "clean" | "sketch" | "redo";
-}): Promise<void> {
-  const battle = battles.get(params.battleId);
-  if (!battle) {
-    throw new Error("Battle not found");
-  }
-  battle.votes.set(params.odv, params.vote);
-}
 
 /**
  * Register battle event handlers on a socket
@@ -94,7 +42,7 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
     "battle:create",
     async (input: { matchmaking: "open" | "direct"; opponentId?: string; creatorId?: string }) => {
       try {
-        const result = await createBattleInMemory({
+        const result = await createBattle({
           creatorId: data.odv,
           matchmaking: input.matchmaking,
           opponentId: input.opponentId,
@@ -155,7 +103,7 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
         return;
       }
 
-      await joinBattleInMemory(data.odv, battleId);
+      await joinBattle(data.odv, battleId);
       await joinRoom(socket, "battle", battleId);
 
       const payload: BattleJoinedPayload = {
@@ -194,7 +142,7 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
     "battle:vote",
     async (input: { battleId: string; odv: string; vote: "clean" | "sketch" | "redo" }) => {
       try {
-        await voteBattleInMemory({
+        await voteBattle({
           odv: data.odv,
           battleId: input.battleId,
           vote: input.vote,
@@ -211,20 +159,33 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
         broadcastToRoom(io, "battle", input.battleId, "battle:voted", payload);
 
         // Check if battle is complete (both players voted)
-        const battle = battles.get(input.battleId);
-        if (battle && battle.votes.size >= 2) {
-          battle.status = "completed";
+        const battle = await getBattle(input.battleId);
+        const votes = await getBattleVotes(input.battleId);
 
-          // Calculate winner based on votes (simplified: clean wins)
+        if (battle && votes.length >= 2) {
+          // Calculate winner: count "clean" votes for each player
           const scores: { [odv: string]: number } = {};
           scores[battle.creatorId] = 0;
           if (battle.opponentId) scores[battle.opponentId] = 0;
 
-          for (const [odv, vote] of battle.votes) {
-            if (vote === "clean") scores[odv] = (scores[odv] || 0) + 1;
+          for (const v of votes) {
+            // Vote "clean" on opponent = point for opponent
+            // This assumes voters are judging the other player's trick
+            if (v.vote === "clean") {
+              // Find the OTHER player (not the voter)
+              const target = v.odv === battle.creatorId ? battle.opponentId : battle.creatorId;
+              if (target) scores[target] = (scores[target] || 0) + 1;
+            }
           }
 
           const winnerId = Object.entries(scores).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+          // Persist completion
+          await completeBattle({
+            battleId: input.battleId,
+            winnerId,
+            totalRounds: 1,
+          });
 
           const completedPayload: BattleCompletedPayload = {
             battleId: input.battleId,

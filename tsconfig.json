@@ -17,7 +17,7 @@
     "noFallthroughCasesInSwitch": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": ["client/src", "server", "shared", "packages"],
-  "exclude": ["node_modules", "dist", "**/dist/**", "_archive/**", "mobile/**"],
+  "include": ["client/src", "server", "packages"],
+  "exclude": ["node_modules", "dist", "**/dist/**", "mobile/**"],
   "references": [{ "path": "./client" }, { "path": "./server" }]
 }

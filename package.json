@@ -26,7 +26,11 @@
     "validate:env": "node scripts/validate-env.mjs",
     "validate:env:prod": "node scripts/validate-env.mjs --production",
     "precommit": "lint-staged",
-    "prepare": "husky"
+    "prepare": "husky",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -45,6 +49,7 @@
   },
   "devDependencies": {
     "@commitlint/cli": "^20.3.1",
+    "drizzle-kit": "^0.30.4",
     "@commitlint/config-conventional": "^20.3.1",
     "@eslint/js": "^9.39.2",
     "@types/fluent-ffmpeg": "^2.1.28",

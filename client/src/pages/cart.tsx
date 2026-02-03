@@ -1,29 +1,29 @@
 /**
  * CartPage Component
- * 
+ *
  * Full-page cart view with quantity controls and checkout.
  * Features: responsive table layout, accessibility, mobile-first design.
- * 
+ *
  * @module pages/cart
  */
 
-import { memo, useCallback, useMemo, useState } from 'react';
-import { Link } from 'wouter';
-import { 
-  ShoppingCart, 
-  Trash2, 
-  Plus, 
-  Minus, 
-  ArrowLeft, 
+import { memo, useCallback, useMemo, useState } from "react";
+import { Link } from "wouter";
+import {
+  ShoppingCart,
+  Trash2,
+  Plus,
+  Minus,
+  ArrowLeft,
   ShieldCheck,
   Package,
   RefreshCw,
   CreditCard,
-} from 'lucide-react';
-import { useCart, selectCartCount, selectCartSubtotal } from '../lib/cart';
-import type { CartItem } from '../lib/cart';
-import { MAX_QUANTITY, MIN_QUANTITY } from '../lib/cart/types';
-import { cn } from '@/lib/utils';
+} from "lucide-react";
+import { useCart, selectCartCount, selectCartSubtotal } from "../lib/cart";
+import type { CartItem } from "../lib/cart";
+import { MAX_QUANTITY, MIN_QUANTITY } from "../lib/cart/types";
+import { cn } from "@/lib/utils";
 
 // ============================================================================
 // Types
@@ -66,9 +66,7 @@ const CartItemRow = memo(function CartItemRow({
           )}
           <div className="min-w-0">
             <span className="font-medium block truncate">{item.name}</span>
-            {item.variant && (
-              <span className="text-xs text-gray-400">{item.variant}</span>
-            )}
+            {item.variant && <span className="text-xs text-gray-400">{item.variant}</span>}
             {/* Mobile price */}
             <span className="text-sm text-orange-500 font-semibold sm:hidden mt-1 block">
               ${item.price.toFixed(2)}
@@ -163,9 +161,7 @@ const EmptyCartState = memo(function EmptyCartState() {
     <div className="text-center py-20" data-testid="cart-page-empty">
       <ShoppingCart className="w-24 h-24 mx-auto text-gray-600 mb-6" />
       <h2 className="text-xl font-semibold text-white mb-2">Your cart is empty</h2>
-      <p className="text-gray-400 mb-8">
-        Looks like you haven't added any gear yet.
-      </p>
+      <p className="text-gray-400 mb-8">Looks like you haven't added any gear yet.</p>
       <Link
         href="/shop"
         className="inline-flex items-center gap-2 bg-orange-600 hover:bg-orange-700 px-6 py-3 rounded-lg font-semibold transition-colors"
@@ -191,7 +187,7 @@ function CartPageComponent() {
   const [isClearing, setIsClearing] = useState(false);
 
   const handleClear = useCallback(() => {
-    if (window.confirm('Are you sure you want to clear your cart?')) {
+    if (window.confirm("Are you sure you want to clear your cart?")) {
       setIsClearing(true);
       clear();
       // Small delay for UX feedback
@@ -228,7 +224,7 @@ function CartPageComponent() {
             Shopping Cart
             {count > 0 && (
               <span className="text-lg font-normal text-gray-400">
-                ({count} {count === 1 ? 'item' : 'items'})
+                ({count} {count === 1 ? "item" : "items"})
               </span>
             )}
           </h1>
@@ -244,9 +240,13 @@ function CartPageComponent() {
                 <thead className="bg-gray-900">
                   <tr>
                     <th className="py-4 px-6 text-left font-semibold">Product</th>
-                    <th className="py-4 px-6 text-center font-semibold hidden sm:table-cell">Price</th>
+                    <th className="py-4 px-6 text-center font-semibold hidden sm:table-cell">
+                      Price
+                    </th>
                     <th className="py-4 px-6 text-center font-semibold">Quantity</th>
-                    <th className="py-4 px-6 text-center font-semibold hidden sm:table-cell">Total</th>
+                    <th className="py-4 px-6 text-center font-semibold hidden sm:table-cell">
+                      Total
+                    </th>
                     <th className="py-4 px-6 w-16"></th>
                   </tr>
                 </thead>
@@ -270,18 +270,18 @@ function CartPageComponent() {
                   onClick={handleClear}
                   disabled={isClearing}
                   className={cn(
-                    'flex items-center gap-2 text-red-500 hover:text-red-400 transition-colors',
-                    isClearing && 'opacity-50 cursor-not-allowed'
+                    "flex items-center gap-2 text-red-500 hover:text-red-400 transition-colors",
+                    isClearing && "opacity-50 cursor-not-allowed"
                   )}
                   data-testid="button-clear-cart"
                 >
-                  <Trash2 className={cn('w-5 h-5', isClearing && 'animate-spin')} />
-                  {isClearing ? 'Clearing...' : 'Clear cart'}
+                  <Trash2 className={cn("w-5 h-5", isClearing && "animate-spin")} />
+                  {isClearing ? "Clearing..." : "Clear cart"}
                 </button>
 
                 <div className="text-right">
                   <div className="text-sm text-gray-400 mb-1">
-                    Subtotal ({snap.uniqueItems} {snap.uniqueItems === 1 ? 'product' : 'products'})
+                    Subtotal ({snap.uniqueItems} {snap.uniqueItems === 1 ? "product" : "products"})
                   </div>
                   <div className="text-3xl font-bold text-white" data-testid="cart-subtotal">
                     ${subtotal.toFixed(2)}
@@ -289,14 +289,16 @@ function CartPageComponent() {
                 </div>
               </div>
 
-              <Link
-                href="/checkout"
-                className="flex items-center justify-center gap-2 w-full text-center rounded-lg bg-orange-600 hover:bg-orange-700 text-white px-6 py-4 text-lg font-semibold transition-colors"
-                data-testid="button-pay-now"
+              <div
+                className="flex flex-col items-center justify-center gap-2 w-full text-center rounded-lg bg-gray-700 text-gray-400 px-6 py-4 cursor-not-allowed"
+                data-testid="button-pay-now-disabled"
               >
-                <CreditCard className="w-5 h-5" />
-                Proceed to Payment
-              </Link>
+                <div className="flex items-center gap-2 text-lg font-semibold">
+                  <CreditCard className="w-5 h-5" />
+                  Checkout Coming Soon
+                </div>
+                <span className="text-sm">Payment processing will be available soon!</span>
+              </div>
 
               <TrustBadges />
             </div>
@@ -308,6 +310,6 @@ function CartPageComponent() {
 }
 
 const CartPage = memo(CartPageComponent);
-CartPage.displayName = 'CartPage';
+CartPage.displayName = "CartPage";
 
 export default CartPage;

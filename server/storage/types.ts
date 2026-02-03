@@ -1,4 +1,4 @@
-import type { Subscriber } from "../../shared/schema";
+import type { Subscriber } from "../../packages/shared/schema";
 
 export type CreateSubscriber = {
   email: string;
