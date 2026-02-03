@@ -7,11 +7,16 @@ import { ActivityIndicator, View } from "react-native";
 import { useEffect } from "react";
 import { useAuthListener } from "@/hooks/useAuthListener";
 import { useAuthStore } from "@/store/authStore";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { OfflineBanner } from "@/components/common/OfflineBanner";
 
 export default function RootLayout() {
   const { user, isInitialized } = useAuthStore();
   const segments = useSegments();
   const router = useRouter();
+
+  // Initialize network status monitoring
+  useNetworkStatus();
 
   useAuthListener();
 
@@ -56,7 +61,12 @@ export default function RootLayout() {
         <Stack.Screen name="auth/sign-in" options={{ title: "Sign In", headerShown: false }} />
         <Stack.Screen name="challenge/new" options={{ title: "New Challenge" }} />
         <Stack.Screen name="profile/[uid]" options={{ title: "Profile" }} />
+        <Stack.Screen
+          name="game/[id]"
+          options={{ title: "S.K.A.T.E. Battle", headerShown: false }}
+        />
       </Stack>
+      <OfflineBanner />
       <FlashMessage position="top" />
     </QueryClientProvider>
   );

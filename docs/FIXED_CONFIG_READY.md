@@ -126,10 +126,10 @@ eas build --platform ios --profile production
 
 ```javascript
 plugins: [
-  "expo-router",                    // ✅ Valid
-  ["expo-build-properties", {...}], // ✅ Valid
-  ["expo-camera", {...}],           // ✅ Valid
-  ["expo-location", {...}]          // ✅ Valid
+  "expo-router",                          // ✅ Valid
+  ["expo-build-properties", {...}],       // ✅ Valid
+  ["react-native-vision-camera", {...}],  // ✅ Valid (replaced expo-camera)
+  ["expo-location", {...}]                // ✅ Valid
 ]
 ```
 
