@@ -263,7 +263,17 @@ export async function submitTrick(input: {
 
       if (game.currentAction === "set") {
         // Player is setting the trick - move to attempt phase
-        const nextTurnIndex = (game.currentTurnIndex + 1) % game.players.length;
+        let nextTurnIndex = (game.currentTurnIndex + 1) % game.players.length;
+
+        // Skip eliminated players
+        let attempts = 0;
+        while (
+          isEliminated(game.players[nextTurnIndex].letters) &&
+          attempts < game.players.length
+        ) {
+          nextTurnIndex = (nextTurnIndex + 1) % game.players.length;
+          attempts++;
+        }
 
         updates = {
           currentAction: "attempt",
@@ -289,13 +299,26 @@ export async function submitTrick(input: {
         }
 
         // Check if we've gone through all attempters and need a new setter
-        const settterIndex = game.players.findIndex((p) => p.odv === game.setterId);
-        const isBackToSetter = nextTurnIndex === settterIndex;
+        const setterIndex = game.players.findIndex((p) => p.odv === game.setterId);
+        const isBackToSetter = nextTurnIndex === setterIndex;
+
+        let nextSetterIndex = setterIndex;
+        if (isBackToSetter) {
+          // Move to the next non-eliminated player to become the new setter
+          nextSetterIndex = (setterIndex + 1) % game.players.length;
+
+          let setterSkipAttempts = 0;
+          while (
+            isEliminated(game.players[nextSetterIndex].letters) &&
+            setterSkipAttempts < game.players.length
+          ) {
+            nextSetterIndex = (nextSetterIndex + 1) % game.players.length;
+            setterSkipAttempts++;
+          }
+        }
 
         updates = {
-          currentTurnIndex: isBackToSetter
-            ? (settterIndex + 1) % game.players.length
-            : nextTurnIndex,
+          currentTurnIndex: isBackToSetter ? nextSetterIndex : nextTurnIndex,
           currentAction: isBackToSetter ? "set" : "attempt",
           currentTrick: isBackToSetter ? undefined : game.currentTrick,
           setterId: isBackToSetter ? undefined : game.setterId,

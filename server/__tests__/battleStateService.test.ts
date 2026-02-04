@@ -31,7 +31,7 @@ vi.mock("../logger", () => ({
 }));
 
 // Mock analytics
-vi.mock("./analyticsService", () => ({
+vi.mock("../services/analyticsService", () => ({
   logServerEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -98,7 +98,7 @@ vi.mock("../firestore", () => ({
 }));
 
 // Import after mocking
-const { initializeVoting, castVote, getBattleVoteState, generateEventId } =
+const { initializeVoting, castVote, generateEventId } =
   await import("../services/battleStateService");
 
 describe("BattleStateService", () => {

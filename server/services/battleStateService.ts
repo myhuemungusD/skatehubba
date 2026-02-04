@@ -91,7 +91,29 @@ export async function initializeVoting(input: {
       processedEventIds: [eventId],
     };
 
-    await getBattleStateRef(battleId).set(state);
+    await firestore.runTransaction(async (tx) => {
+      const stateRef = getBattleStateRef(battleId);
+      const snapshot = await tx.get(stateRef);
+
+      if (snapshot.exists) {
+        const existing = snapshot.data() as BattleVoteState;
+
+        // Idempotency: if this event already initialized voting, do nothing.
+        if (Array.isArray(existing.processedEventIds) && existing.processedEventIds.includes(eventId)) {
+          return;
+        }
+
+        // Voting has already been initialized for this battle; avoid overwriting existing state.
+        logger.warn("[BattleState] Voting already initialized, skipping re-initialization", {
+          battleId,
+          creatorId,
+          opponentId,
+        });
+        return;
+      }
+
+      tx.set(stateRef, state);
+    });
 
     // Update database status
     if (db) {
@@ -419,16 +441,38 @@ export async function processVoteTimeouts(): Promise<void> {
 
       const eventId = generateEventId("timeout", winnerId, state.battleId);
 
-      // Check idempotency
-      if (state.processedEventIds.includes(eventId)) {
+      // Atomically check idempotency and update battle state in a transaction
+      const processedInThisRun = await firestore.runTransaction(async (tx) => {
+        const battleRef = getBattleStateRef(state.battleId);
+        const snapshot = await tx.get(battleRef);
+
+        if (!snapshot.exists) {
+          return false;
+        }
+
+        const currentState = snapshot.data() as BattleVoteState;
+        const currentProcessedEventIds = currentState.processedEventIds || [];
+
+        if (currentProcessedEventIds.includes(eventId)) {
+          // Timeout for this eventId has already been processed
+          return false;
+        }
+
+        const updatedProcessedEventIds = [...currentProcessedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS);
+
+        tx.update(battleRef, {
+          status: "completed",
+          winnerId,
+          processedEventIds: updatedProcessedEventIds,
+        });
+
+        return true;
+      });
+
+      // If another process already handled this timeout, skip further processing
+      if (!processedInThisRun) {
         continue;
       }
-
-      await getBattleStateRef(state.battleId).update({
-        status: "completed",
-        winnerId,
-        processedEventIds: [...state.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
-      });
 
       // Update database
       if (db) {

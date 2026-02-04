@@ -34,7 +34,7 @@ vi.mock("../logger", () => ({
 }));
 
 // Mock analytics
-vi.mock("./analyticsService", () => ({
+vi.mock("../services/analyticsService", () => ({
   logServerEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -103,7 +103,6 @@ const {
   handleDisconnect,
   handleReconnect,
   forfeitGame,
-  getGameState,
   generateEventId,
 } = await import("../services/gameStateService");
 
