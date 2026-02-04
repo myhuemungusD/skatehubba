@@ -745,5 +745,30 @@ describe("GameStateService", () => {
       expect(id1).toContain("game-1");
       expect(id1).toContain("player-1");
     });
+
+    it("should generate deterministic event IDs with sequenceKey", () => {
+      const sequenceKey = "deadline-2026-02-04T10:00:00.000Z";
+
+      const id1 = generateEventId("timeout", "player-1", "game-1", sequenceKey);
+      const id2 = generateEventId("timeout", "player-1", "game-1", sequenceKey);
+
+      // Same sequenceKey should produce same ID
+      expect(id1).toBe(id2);
+      expect(id1).toContain("timeout");
+      expect(id1).toContain("game-1");
+      expect(id1).toContain("player-1");
+      expect(id1).toContain(sequenceKey);
+    });
+
+    it("should generate different IDs for different sequenceKeys", () => {
+      const sequenceKey1 = "deadline-2026-02-04T10:00:00.000Z";
+      const sequenceKey2 = "deadline-2026-02-04T10:01:00.000Z";
+
+      const id1 = generateEventId("timeout", "player-1", "game-1", sequenceKey1);
+      const id2 = generateEventId("timeout", "player-1", "game-1", sequenceKey2);
+
+      // Different sequenceKeys should produce different IDs
+      expect(id1).not.toBe(id2);
+    });
   });
 });
