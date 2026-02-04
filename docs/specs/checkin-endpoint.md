@@ -61,8 +61,16 @@ export type CheckInOutput = z.infer<typeof CheckInOutput>;
 ## Dependencies
 
 - **Firebase Admin SDK**: Token verification and user lookup
-- **PostgreSQL/Firestore**: Store check-in records
+- **PostgreSQL**: Authoritative storage for check-in records (`checkIns` table) and XP updates (`userProfiles.xp`)
+- **Firestore**: Sync XP to `users` collection for real-time client display
 - **Firebase Storage**: Video file storage (URL validation)
+
+## Data Flow
+
+1. Server validates request and writes check-in to PostgreSQL `checkIns` table
+2. Server calculates XP and updates PostgreSQL `userProfiles.xp` and `userProfiles.level`
+3. Server syncs updated XP/level to Firestore `users` collection for real-time display
+4. Server returns awarded points to client
 
 ## Error Responses
 
