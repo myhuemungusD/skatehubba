@@ -64,6 +64,9 @@ const mockTransaction = {
     const current = mockBattleStates.get(ref.id) || {};
     mockBattleStates.set(ref.id, { ...current, ...updates });
   }),
+  set: vi.fn().mockImplementation((ref: any, data: any) => {
+    mockBattleStates.set(ref.id, data);
+  }),
 };
 
 const mockDocRef = (id: string) => ({
