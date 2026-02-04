@@ -32,7 +32,7 @@ export default function AppDropdownMenu() {
       >
         <DropdownMenuLabel className="text-gray-400">Navigation</DropdownMenuLabel>
         {navItems.map((item) => {
-          const isActive = item.href ? location.split('?')[0] === item.href : false;
+          const isActive = item.href ? location.split("?")[0] === item.href : false;
 
           if (item.disabled || !item.href) {
             return (

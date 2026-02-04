@@ -5,12 +5,7 @@
  * Handles releasing held inventory back to sharded counters.
  */
 
-import {
-  Timestamp,
-  WriteBatch,
-  FieldValue,
-  DocumentReference,
-} from "firebase-admin/firestore";
+import { Timestamp, WriteBatch, FieldValue, DocumentReference } from "firebase-admin/firestore";
 import { logger } from "firebase-functions/v2";
 import { getAdminDb } from "../firebaseAdmin";
 import { HoldDoc } from "./types";

@@ -34,7 +34,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <ul className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = location.split('?')[0] === item.href;
+                const isActive = location.split("?")[0] === item.href;
 
                 return (
                   <li key={item.href}>
@@ -81,7 +81,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="mx-auto flex max-w-md items-center justify-between px-2 py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.split('?')[0] === item.href;
+            const isActive = location.split("?")[0] === item.href;
 
             return (
               <Link

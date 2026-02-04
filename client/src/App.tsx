@@ -321,7 +321,11 @@ function AppRoutes() {
         <ProtectedRoute path="/shop" component={DashboardShopRoute} allowMissingProfile />
         <ProtectedRoute path="/cart" component={DashboardCartRoute} allowMissingProfile />
         <ProtectedRoute path="/checkout" component={DashboardCheckoutRoute} allowMissingProfile />
-        <ProtectedRoute path="/order-confirmation" component={AppShellOrderConfirmationRoute} allowMissingProfile />
+        <ProtectedRoute
+          path="/order-confirmation"
+          component={AppShellOrderConfirmationRoute}
+          allowMissingProfile
+        />
 
         {/* Spot Detail - still uses AppShell for full-screen modal experience */}
         <ProtectedRoute path="/spots/:id" component={AppShellSpotDetailRoute} allowMissingProfile />

@@ -1,8 +1,8 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { SKATE } from '@/theme';
-import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { SKATE } from "@/theme";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 export default function ClosetScreen() {
   const { user, isAuthenticated, checkAuth } = useRequireAuth();
@@ -18,18 +18,19 @@ export default function ClosetScreen() {
           </View>
           <Text style={styles.guestTitle}>Your Closet Awaits</Text>
           <Text style={styles.guestText}>
-            Sign in to access your personal closet, save your favorite gear, and track your collection
+            Sign in to access your personal closet, save your favorite gear, and track your
+            collection
           </Text>
           <TouchableOpacity
             style={styles.signInButton}
-            onPress={() => router.push('/auth/sign-in')}
+            onPress={() => router.push("/auth/sign-in")}
           >
             <Ionicons name="log-in" size={20} color={SKATE.colors.white} />
             <Text style={styles.signInButtonText}>Sign In</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.createAccountButton}
-            onPress={() => router.push('/auth/sign-in')}
+            onPress={() => router.push("/auth/sign-in")}
           >
             <Text style={styles.createAccountText}>Don't have an account? Create one</Text>
           </TouchableOpacity>
@@ -49,12 +50,12 @@ export default function ClosetScreen() {
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarInitial}>
-                {user?.displayName?.charAt(0).toUpperCase() || 'S'}
+                {user?.displayName?.charAt(0).toUpperCase() || "S"}
               </Text>
             </View>
           )}
         </View>
-        <Text style={styles.userName}>{user?.displayName || 'Skater'}</Text>
+        <Text style={styles.userName}>{user?.displayName || "Skater"}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
 
         <View style={styles.statsRow}>
@@ -89,23 +90,20 @@ export default function ClosetScreen() {
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/(tabs)/leaderboard')}
+            onPress={() => router.push("/(tabs)/leaderboard")}
           >
             <Ionicons name="trophy" size={28} color={SKATE.colors.orange} />
             <Text style={styles.actionText}>Leaderboard</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.actionCard}
-            onPress={() => router.push('/(tabs)/users')}
-          >
+          <TouchableOpacity style={styles.actionCard} onPress={() => router.push("/(tabs)/users")}>
             <Ionicons name="people" size={28} color={SKATE.colors.orange} />
             <Text style={styles.actionText}>Find Skaters</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push('/(tabs)/settings')}
+            onPress={() => router.push("/(tabs)/settings")}
           >
             <Ionicons name="settings" size={28} color={SKATE.colors.orange} />
             <Text style={styles.actionText}>Settings</Text>
@@ -122,10 +120,7 @@ export default function ClosetScreen() {
           <Text style={styles.emptySubtext}>
             Your purchased gear and saved items will appear here
           </Text>
-          <TouchableOpacity
-            style={styles.browseButton}
-            onPress={() => router.push('/(tabs)/shop')}
-          >
+          <TouchableOpacity style={styles.browseButton} onPress={() => router.push("/(tabs)/shop")}>
             <Text style={styles.browseButtonText}>Browse Shop</Text>
           </TouchableOpacity>
         </View>
@@ -143,8 +138,8 @@ const styles = StyleSheet.create({
   },
   guestContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: SKATE.spacing.xl,
   },
   iconContainer: {
@@ -152,38 +147,38 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 60,
     backgroundColor: SKATE.colors.grime,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: SKATE.spacing.xl,
   },
   guestTitle: {
     color: SKATE.colors.white,
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: SKATE.spacing.md,
   },
   guestText: {
     color: SKATE.colors.lightGray,
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: SKATE.spacing.xl,
     lineHeight: 24,
   },
   signInButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: SKATE.colors.orange,
     paddingVertical: SKATE.spacing.lg,
     paddingHorizontal: SKATE.spacing.xxl,
     borderRadius: SKATE.borderRadius.lg,
     gap: SKATE.spacing.sm,
-    width: '100%',
+    width: "100%",
   },
   signInButtonText: {
     color: SKATE.colors.white,
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   createAccountButton: {
     marginTop: SKATE.spacing.lg,
@@ -194,7 +189,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   profileHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     padding: SKATE.spacing.xl,
     borderBottomWidth: 1,
     borderBottomColor: SKATE.colors.darkGray,
@@ -214,20 +209,20 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     backgroundColor: SKATE.colors.grime,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 3,
     borderColor: SKATE.colors.orange,
   },
   avatarInitial: {
     color: SKATE.colors.orange,
     fontSize: 40,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   userName: {
     color: SKATE.colors.white,
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   userEmail: {
     color: SKATE.colors.lightGray,
@@ -235,8 +230,8 @@ const styles = StyleSheet.create({
     marginTop: SKATE.spacing.xs,
   },
   statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginTop: SKATE.spacing.xl,
     backgroundColor: SKATE.colors.grime,
     borderRadius: SKATE.borderRadius.lg,
@@ -244,12 +239,12 @@ const styles = StyleSheet.create({
   },
   statItem: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   statValue: {
     color: SKATE.colors.white,
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   statLabel: {
     color: SKATE.colors.gray,
@@ -267,20 +262,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: SKATE.colors.white,
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: SKATE.spacing.md,
   },
   actionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: SKATE.spacing.md,
   },
   actionCard: {
-    width: '47%',
+    width: "47%",
     backgroundColor: SKATE.colors.grime,
     borderRadius: SKATE.borderRadius.lg,
     padding: SKATE.spacing.lg,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
     borderColor: SKATE.colors.darkGray,
   },
@@ -293,21 +288,21 @@ const styles = StyleSheet.create({
     backgroundColor: SKATE.colors.grime,
     borderRadius: SKATE.borderRadius.lg,
     padding: SKATE.spacing.xxl,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
     borderColor: SKATE.colors.darkGray,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
   },
   emptyText: {
     color: SKATE.colors.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: SKATE.spacing.md,
   },
   emptySubtext: {
     color: SKATE.colors.gray,
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: SKATE.spacing.sm,
   },
   browseButton: {
@@ -320,7 +315,7 @@ const styles = StyleSheet.create({
   browseButtonText: {
     color: SKATE.colors.white,
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   bottomPadding: {
     height: 40,

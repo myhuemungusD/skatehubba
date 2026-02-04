@@ -1,11 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { SKATE } from '@/theme';
-import { useRequireAuth } from '@/hooks/useRequireAuth';
-import { signOut } from 'firebase/auth';
-import { auth } from '@/lib/firebase.config';
-import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { SKATE } from "@/theme";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase.config";
+import { useState } from "react";
 
 type SettingItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -17,7 +17,15 @@ type SettingItemProps = {
   danger?: boolean;
 };
 
-function SettingItem({ icon, title, subtitle, onPress, showChevron = true, rightElement, danger }: SettingItemProps) {
+function SettingItem({
+  icon,
+  title,
+  subtitle,
+  onPress,
+  showChevron = true,
+  rightElement,
+  danger,
+}: SettingItemProps) {
   return (
     <TouchableOpacity
       style={styles.settingItem}
@@ -31,9 +39,10 @@ function SettingItem({ icon, title, subtitle, onPress, showChevron = true, right
         <Text style={[styles.settingTitle, danger && styles.settingTitleDanger]}>{title}</Text>
         {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
       </View>
-      {rightElement || (showChevron && onPress && (
-        <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
-      ))}
+      {rightElement ||
+        (showChevron && onPress && (
+          <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
+        ))}
     </TouchableOpacity>
   );
 }
@@ -45,39 +54,35 @@ export default function SettingsScreen() {
   const [locationEnabled, setLocationEnabled] = useState(true);
 
   const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut(auth);
-              router.replace('/(tabs)');
-            } catch (error) {
-              console.error('Sign out error:', error);
-            }
-          },
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await signOut(auth);
+            router.replace("/(tabs)");
+          } catch (error) {
+            console.error("Sign out error:", error);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      'Delete Account',
-      'This action cannot be undone. All your data will be permanently deleted.',
+      "Delete Account",
+      "This action cannot be undone. All your data will be permanently deleted.",
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: "Cancel", style: "cancel" },
         {
-          text: 'Delete',
-          style: 'destructive',
+          text: "Delete",
+          style: "destructive",
           onPress: () => {
             // Would implement account deletion here
-            Alert.alert('Coming Soon', 'Account deletion will be available soon.');
+            Alert.alert("Coming Soon", "Account deletion will be available soon.");
           },
         },
       ]
@@ -91,12 +96,10 @@ export default function SettingsScreen() {
         <View style={styles.guestContainer}>
           <Ionicons name="settings-outline" size={64} color={SKATE.colors.gray} />
           <Text style={styles.guestTitle}>Settings</Text>
-          <Text style={styles.guestText}>
-            Sign in to access your account settings
-          </Text>
+          <Text style={styles.guestText}>Sign in to access your account settings</Text>
           <TouchableOpacity
             style={styles.signInButton}
-            onPress={() => router.push('/auth/sign-in')}
+            onPress={() => router.push("/auth/sign-in")}
           >
             <Text style={styles.signInButtonText}>Sign In</Text>
           </TouchableOpacity>
@@ -120,13 +123,13 @@ export default function SettingsScreen() {
           <SettingItem
             icon="mail"
             title="Email"
-            subtitle={user?.email || 'Not set'}
+            subtitle={user?.email || "Not set"}
             showChevron={false}
           />
           <SettingItem
             icon="key"
             title="Change Password"
-            onPress={() => Alert.alert('Coming Soon', 'Password change will be available soon.')}
+            onPress={() => Alert.alert("Coming Soon", "Password change will be available soon.")}
           />
         </View>
       </View>
@@ -179,22 +182,22 @@ export default function SettingsScreen() {
           <SettingItem
             icon="help-circle"
             title="Help & FAQ"
-            onPress={() => Alert.alert('Coming Soon', 'Help section will be available soon.')}
+            onPress={() => Alert.alert("Coming Soon", "Help section will be available soon.")}
           />
           <SettingItem
             icon="chatbubble"
             title="Contact Us"
-            onPress={() => Alert.alert('Coming Soon', 'Contact form will be available soon.')}
+            onPress={() => Alert.alert("Coming Soon", "Contact form will be available soon.")}
           />
           <SettingItem
             icon="document-text"
             title="Terms of Service"
-            onPress={() => Alert.alert('Coming Soon', 'Terms of service will be available soon.')}
+            onPress={() => Alert.alert("Coming Soon", "Terms of service will be available soon.")}
           />
           <SettingItem
             icon="shield-checkmark"
             title="Privacy Policy"
-            onPress={() => Alert.alert('Coming Soon', 'Privacy policy will be available soon.')}
+            onPress={() => Alert.alert("Coming Soon", "Privacy policy will be available soon.")}
           />
         </View>
       </View>
@@ -237,20 +240,20 @@ const styles = StyleSheet.create({
   },
   guestContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: SKATE.spacing.xl,
   },
   guestTitle: {
     color: SKATE.colors.white,
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: SKATE.spacing.lg,
   },
   guestText: {
     color: SKATE.colors.lightGray,
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: SKATE.spacing.sm,
     marginBottom: SKATE.spacing.xl,
   },
@@ -263,7 +266,7 @@ const styles = StyleSheet.create({
   signInButtonText: {
     color: SKATE.colors.white,
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   section: {
     marginTop: SKATE.spacing.lg,
@@ -271,8 +274,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: SKATE.colors.gray,
     fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
+    fontWeight: "600",
+    textTransform: "uppercase",
     letterSpacing: 1,
     marginLeft: SKATE.spacing.lg,
     marginBottom: SKATE.spacing.sm,
@@ -281,11 +284,11 @@ const styles = StyleSheet.create({
     backgroundColor: SKATE.colors.grime,
     marginHorizontal: SKATE.spacing.lg,
     borderRadius: SKATE.borderRadius.lg,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     padding: SKATE.spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: SKATE.colors.darkGray,
@@ -295,12 +298,12 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 8,
     backgroundColor: SKATE.colors.darkGray,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginRight: SKATE.spacing.md,
   },
   settingIconDanger: {
-    backgroundColor: 'rgba(255, 26, 26, 0.2)',
+    backgroundColor: "rgba(255, 26, 26, 0.2)",
   },
   settingContent: {
     flex: 1,
@@ -318,7 +321,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   appInfo: {
-    alignItems: 'center',
+    alignItems: "center",
     padding: SKATE.spacing.xl,
     marginTop: SKATE.spacing.lg,
   },

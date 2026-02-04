@@ -54,7 +54,10 @@ async function getUserDisplayName(db: ReturnType<typeof getDb>, odv: string): Pr
 }
 
 // Helper to check if game is over (someone has SKATE)
-function isGameOver(player1Letters: string, player2Letters: string): { over: boolean; loserId: string | null } {
+function isGameOver(
+  player1Letters: string,
+  player2Letters: string
+): { over: boolean; loserId: string | null } {
   if (player1Letters.length >= 5) {
     return { over: true, loserId: "player1" };
   }
@@ -150,11 +153,7 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
     const db = getDb();
 
     // Get the game
-    const [game] = await db
-      .select()
-      .from(games)
-      .where(eq(games.id, gameId))
-      .limit(1);
+    const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
 
     if (!game) {
       return res.status(404).json({ error: "Game not found" });
@@ -235,11 +234,7 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
     const db = getDb();
 
     // Get the game
-    const [game] = await db
-      .select()
-      .from(games)
-      .where(eq(games.id, gameId))
-      .limit(1);
+    const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
 
     if (!game) {
       return res.status(404).json({ error: "Game not found" });
@@ -341,22 +336,14 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
     const db = getDb();
 
     // Get the turn
-    const [turn] = await db
-      .select()
-      .from(gameTurns)
-      .where(eq(gameTurns.id, turnId))
-      .limit(1);
+    const [turn] = await db.select().from(gameTurns).where(eq(gameTurns.id, turnId)).limit(1);
 
     if (!turn) {
       return res.status(404).json({ error: "Turn not found" });
     }
 
     // Get the game
-    const [game] = await db
-      .select()
-      .from(games)
-      .where(eq(games.id, turn.gameId))
-      .limit(1);
+    const [game] = await db.select().from(games).where(eq(games.id, turn.gameId)).limit(1);
 
     if (!game) {
       return res.status(404).json({ error: "Game not found" });
@@ -469,9 +456,10 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
         .returning();
 
       const judgerName = isPlayer1 ? game.player1Name : game.player2Name;
-      const letterMessage = result === "missed"
-        ? `${judgerName} missed and gets a letter!`
-        : `${judgerName} landed it!`;
+      const letterMessage =
+        result === "missed"
+          ? `${judgerName} missed and gets a letter!`
+          : `${judgerName} landed it!`;
 
       logger.info("[Games] Turn judged", {
         gameId: game.id,
@@ -550,11 +538,7 @@ router.get("/:id", authenticateUser, async (req, res) => {
     const db = getDb();
 
     // Get the game
-    const [game] = await db
-      .select()
-      .from(games)
-      .where(eq(games.id, gameId))
-      .limit(1);
+    const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
 
     if (!game) {
       return res.status(404).json({ error: "Game not found" });
