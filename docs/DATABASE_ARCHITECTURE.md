@@ -6,6 +6,8 @@ SkateHubba uses a **hybrid database architecture** optimized for cost, performan
 
 **Design Principle:** Use the right database for the right job.
 
+> **Important:** For the canonical list of what data lives where, see [DATA_BOUNDARIES.md](./architecture/DATA_BOUNDARIES.md). That document defines the authoritative storage location for every field and should be consulted before adding new data.
+
 ---
 
 ## Database Responsibilities
@@ -210,10 +212,11 @@ await db.update(games)
 3. **Is it user-uploaded media?** → Firebase Storage
 
 **Examples:**
-- User leaderboard → **PostgreSQL** (joins, aggregations)
-- Live chat → **Firebase** (real-time subscriptions)
+- User XP and level → **PostgreSQL** (authoritative), mirrored to Firestore for real-time display
+- Leaderboard computation → **PostgreSQL** (joins, aggregations), projected to Firestore for subscriptions
+- Live chat → **Firebase** (ephemeral, real-time subscriptions)
 - Product inventory → **PostgreSQL** (ACID transactions)
-- Active battle state → **Firebase** (instant updates)
+- Active battle state → **Firebase** (instant updates), final result in PostgreSQL
 - Battle history → **PostgreSQL** (analytics, reporting)
 
 ### Querying User Data

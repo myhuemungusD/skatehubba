@@ -96,11 +96,23 @@ Soft delete user account.
 4. **Pro Status**: Set via Stripe subscription webhook or admin action
 5. **Role Selection**: Users choose their role during onboarding
 
+## Data Storage
+
+> **Important:** See [DATA_BOUNDARIES.md](../architecture/DATA_BOUNDARIES.md) for the canonical data ownership reference.
+
+| Field | Authoritative Store | Notes |
+|-------|---------------------|-------|
+| uid, displayName, photoURL, bio | PostgreSQL `userProfiles` | Core profile data |
+| xp, level | PostgreSQL `userProfiles` | Updated by check-ins and challenges |
+| isPro, role | PostgreSQL `userProfiles` | Pro status from Stripe webhook |
+
+**Firestore `users` collection** is a read-optimized projection of PostgreSQL `userProfiles`. Clients subscribe to Firestore for real-time updates, but all writes go through the REST API which updates PostgreSQL first.
+
 ## Dependencies
 
 - **Firebase Auth**: User authentication and ID token verification
-- **Firebase Firestore**: Real-time user profile storage
-- **PostgreSQL**: Relational data for leaderboards and queries
+- **PostgreSQL**: Authoritative storage for all profile data including XP and level
+- **Firestore**: Real-time projection of profile data for client subscriptions
 - **Zustand**: Client-side state management
 
 ## Frontend Integration
