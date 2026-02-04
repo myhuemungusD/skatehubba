@@ -31,6 +31,7 @@ import {
   stopHealthMonitor,
   getHealthStats,
 } from "./health";
+import { startTimeoutScheduler, stopTimeoutScheduler } from "../services/timeoutScheduler";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -80,6 +81,9 @@ export function initializeSocketServer(
 
   // Start health monitor
   healthMonitorInterval = startHealthMonitor(io);
+
+  // Start timeout scheduler for game/battle timeouts
+  startTimeoutScheduler();
 
   // Connection handler
   io.on("connection", async (socket) => {
@@ -144,7 +148,7 @@ export function initializeSocketServer(
 
       // Cleanup subscriptions
       await cleanupBattleSubscriptions(socket);
-      await cleanupGameSubscriptions(socket);
+      await cleanupGameSubscriptions(io, socket);
       await leaveAllRooms(socket);
       handlePresenceDisconnect(io, socket);
       cleanupSocketHealth(socket.id);
@@ -223,6 +227,9 @@ export async function shutdownSocketServer(
     stopHealthMonitor(healthMonitorInterval);
     healthMonitorInterval = null;
   }
+
+  // Stop timeout scheduler
+  stopTimeoutScheduler();
 
   // Notify all clients
   broadcastSystemNotification(
