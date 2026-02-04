@@ -117,6 +117,32 @@ export interface GameEndedPayload {
   finalStandings: Array<{ odv: string; letters: string }>;
 }
 
+export interface GameStatePayload {
+  gameId: string;
+  players: Array<{ odv: string; letters: string; connected: boolean }>;
+  currentPlayer?: string;
+  currentAction: "set" | "attempt";
+  currentTrick?: string;
+  status: "waiting" | "active" | "paused" | "completed";
+}
+
+export interface GamePausedPayload {
+  gameId: string;
+  disconnectedPlayer: string;
+  reconnectTimeout: number; // seconds
+}
+
+export interface GameResumedPayload {
+  gameId: string;
+  reconnectedPlayer: string;
+}
+
+export interface BattleVotingStartedPayload {
+  battleId: string;
+  timeoutSeconds: number;
+  startedAt: string;
+}
+
 // ============================================================================
 // Notification Events
 // ============================================================================
@@ -160,6 +186,11 @@ export interface ClientToServerEvents {
   "game:join": (gameId: string) => void;
   "game:trick": (data: Omit<GameTrickPayload, "sentAt">) => void;
   "game:pass": (gameId: string) => void;
+  "game:forfeit": (gameId: string) => void;
+  "game:reconnect": (gameId: string) => void;
+
+  // Battle voting
+  "battle:startVoting": (battleId: string) => void;
 
   // Presence
   "presence:update": (status: "online" | "away") => void;
@@ -191,6 +222,12 @@ export interface ServerToClientEvents {
   "game:letter": (data: GameLetterPayload) => void;
   "game:turn": (data: GameTurnPayload) => void;
   "game:ended": (data: GameEndedPayload) => void;
+  "game:state": (data: GameStatePayload) => void;
+  "game:paused": (data: GamePausedPayload) => void;
+  "game:resumed": (data: GameResumedPayload) => void;
+
+  // Battle voting events
+  "battle:votingStarted": (data: BattleVotingStartedPayload) => void;
 
   // Notifications
   notification: (data: NotificationPayload) => void;

@@ -2,6 +2,7 @@
  * S.K.A.T.E. Game Event Handlers
  *
  * Real-time WebSocket handlers for multiplayer S.K.A.T.E. games.
+ * Uses Firestore for persistent, race-condition-safe game state.
  */
 
 import type { Server, Socket } from "socket.io";
@@ -16,48 +17,22 @@ import type {
   GameTrickPayload,
   GameTurnPayload,
 } from "../types";
+import {
+  createGame,
+  joinGame,
+  submitTrick,
+  passTrick,
+  handleDisconnect,
+  handleReconnect,
+  forfeitGame,
+  generateEventId,
+} from "../../services/gameStateService";
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
-// In-memory game state (move to Redis for production scaling)
-interface GameState {
-  id: string;
-  spotId: string;
-  creatorId: string;
-  players: string[];
-  maxPlayers: number;
-  currentTurn: number;
-  currentAction: "set" | "attempt";
-  letters: Map<string, string>;
-  status: "waiting" | "active" | "completed";
-  createdAt: Date;
-}
-
-const games = new Map<string, GameState>();
-
-/**
- * Generate game ID
- */
-function generateGameId(): string {
-  return `game-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-}
-
-/**
- * Get next letter in S.K.A.T.E.
- */
-function getNextLetter(currentLetters: string): string {
-  const SKATE = "SKATE";
-  const nextIndex = currentLetters.length;
-  return nextIndex < SKATE.length ? currentLetters + SKATE[nextIndex] : currentLetters;
-}
-
-/**
- * Check if player is eliminated
- */
-function isEliminated(letters: string): boolean {
-  return letters === "SKATE";
-}
+// Track which sockets are in which games for cleanup
+const socketGameMap = new Map<string, Set<string>>();
 
 /**
  * Register game event handlers on a socket
@@ -70,37 +45,45 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
    */
   socket.on("game:create", async (spotId: string, maxPlayers: number = 4) => {
     try {
-      const gameId = generateGameId();
+      const eventId = generateEventId("create", data.odv, "new");
 
-      const gameState: GameState = {
-        id: gameId,
+      const result = await createGame({
+        eventId,
         spotId,
         creatorId: data.odv,
-        players: [data.odv],
-        maxPlayers: Math.min(maxPlayers, 8),
-        currentTurn: 0,
-        currentAction: "set",
-        letters: new Map([[data.odv, ""]]),
-        status: "waiting",
-        createdAt: new Date(),
-      };
+        maxPlayers,
+      });
 
-      games.set(gameId, gameState);
+      if (!result.success || !result.game) {
+        socket.emit("error", {
+          code: "game_create_failed",
+          message: result.error || "Failed to create game",
+        });
+        return;
+      }
+
+      const game = result.game;
+
+      // Track socket-game association
+      if (!socketGameMap.has(socket.id)) {
+        socketGameMap.set(socket.id, new Set());
+      }
+      socketGameMap.get(socket.id)!.add(game.id);
 
       // Join game room
-      await joinRoom(socket, "game", gameId);
+      await joinRoom(socket, "game", game.id);
 
       const payload: GameCreatedPayload = {
-        gameId,
-        spotId,
+        gameId: game.id,
+        spotId: game.spotId,
         creatorId: data.odv,
-        maxPlayers: gameState.maxPlayers,
-        createdAt: gameState.createdAt.toISOString(),
+        maxPlayers: game.maxPlayers,
+        createdAt: game.createdAt,
       };
 
       socket.emit("game:created", payload);
 
-      logger.info("[Game] Created", { gameId, creatorId: data.odv, spotId });
+      logger.info("[Game] Created", { gameId: game.id, creatorId: data.odv, spotId });
     } catch (error) {
       logger.error("[Game] Create failed", { error, odv: data.odv });
       socket.emit("error", {
@@ -115,43 +98,34 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
    */
   socket.on("game:join", async (gameId: string) => {
     try {
-      const game = games.get(gameId);
+      const eventId = generateEventId("join", data.odv, gameId);
 
-      if (!game) {
+      const result = await joinGame({
+        eventId,
+        gameId,
+        odv: data.odv,
+      });
+
+      if (!result.success) {
         socket.emit("error", {
-          code: "game_not_found",
-          message: "Game not found",
+          code: "game_join_failed",
+          message: result.error || "Failed to join game",
         });
         return;
       }
 
-      if (game.status !== "waiting") {
-        socket.emit("error", {
-          code: "game_already_started",
-          message: "Game has already started",
-        });
+      // Skip broadcast if already processed (idempotency)
+      if (result.alreadyProcessed) {
         return;
       }
 
-      if (game.players.length >= game.maxPlayers) {
-        socket.emit("error", {
-          code: "game_full",
-          message: "Game is full",
-        });
-        return;
-      }
+      const game = result.game!;
 
-      if (game.players.includes(data.odv)) {
-        socket.emit("error", {
-          code: "already_in_game",
-          message: "You are already in this game",
-        });
-        return;
+      // Track socket-game association
+      if (!socketGameMap.has(socket.id)) {
+        socketGameMap.set(socket.id, new Set());
       }
-
-      // Add player
-      game.players.push(data.odv);
-      game.letters.set(data.odv, "");
+      socketGameMap.get(socket.id)!.add(gameId);
 
       // Join room
       await joinRoom(socket, "game", gameId);
@@ -165,14 +139,13 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
       // Broadcast to all players
       broadcastToRoom(io, "game", gameId, "game:joined", payload);
 
-      // If enough players, start the game
-      if (game.players.length >= 2) {
-        game.status = "active";
-
+      // If game just started, broadcast turn info
+      if (game.status === "active") {
         const turnPayload: GameTurnPayload = {
           gameId,
-          currentPlayer: game.players[0],
-          action: "set",
+          currentPlayer: game.players[game.currentTurnIndex].odv,
+          action: game.currentAction,
+          timeLimit: 60, // 60 second timeout
         };
 
         broadcastToRoom(io, "game", gameId, "game:turn", turnPayload);
@@ -199,25 +172,30 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
     "game:trick",
     async (input: { gameId: string; odv: string; trickName: string; clipUrl?: string }) => {
       try {
-        const game = games.get(input.gameId);
+        const eventId = generateEventId("trick", data.odv, input.gameId);
 
-        if (!game || game.status !== "active") {
+        const result = await submitTrick({
+          eventId,
+          gameId: input.gameId,
+          odv: data.odv,
+          trickName: input.trickName,
+          clipUrl: input.clipUrl,
+        });
+
+        if (!result.success) {
           socket.emit("error", {
-            code: "invalid_game_state",
-            message: "Game is not active",
+            code: "trick_failed",
+            message: result.error || "Failed to submit trick",
           });
           return;
         }
 
-        const currentPlayer = game.players[game.currentTurn];
-
-        if (currentPlayer !== data.odv) {
-          socket.emit("error", {
-            code: "not_your_turn",
-            message: "It's not your turn",
-          });
+        // Skip broadcast if already processed (idempotency)
+        if (result.alreadyProcessed) {
           return;
         }
+
+        const game = result.game!;
 
         const trickPayload: GameTrickPayload = {
           gameId: input.gameId,
@@ -230,49 +208,23 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
         // Broadcast trick to all players
         broadcastToRoom(io, "game", input.gameId, "game:trick", trickPayload);
 
-        // Move to next phase/player
-        const originalSetter = game.players[game.currentTurn];
-        if (game.currentAction === "set") {
-          // Setter landed, now others attempt
-          game.currentAction = "attempt";
-          game.currentTurn = (game.currentTurn + 1) % game.players.length;
-
-          // Skip the setter
-          if (game.players[game.currentTurn] === originalSetter) {
-            game.currentTurn = (game.currentTurn + 1) % game.players.length;
-          }
-        } else {
-          // Attempt succeeded, move to next player
-          game.currentTurn = (game.currentTurn + 1) % game.players.length;
-
-          // Check if round complete (back to setter)
-          if (game.currentAction === "attempt") {
-            // After all attempts, new setter
-            game.currentAction = "set";
-          }
-        }
-
-        // Check for eliminated players
-        const activePlayers = game.players.filter((p) => !isEliminated(game.letters.get(p) || ""));
-
-        if (activePlayers.length === 1) {
-          // Game over!
-          game.status = "completed";
-
+        // Check if game is completed
+        if (game.status === "completed" && game.winnerId) {
           broadcastToRoom(io, "game", input.gameId, "game:ended", {
             gameId: input.gameId,
-            winnerId: activePlayers[0],
+            winnerId: game.winnerId,
             finalStandings: game.players.map((p) => ({
-              odv: p,
-              letters: game.letters.get(p) || "",
+              odv: p.odv,
+              letters: p.letters,
             })),
           });
         } else {
-          // Next turn
+          // Broadcast next turn
           const turnPayload: GameTurnPayload = {
             gameId: input.gameId,
-            currentPlayer: game.players[game.currentTurn],
+            currentPlayer: game.players[game.currentTurnIndex].odv,
             action: game.currentAction,
+            timeLimit: 60,
           };
 
           broadcastToRoom(io, "game", input.gameId, "game:turn", turnPayload);
@@ -298,80 +250,60 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
    */
   socket.on("game:pass", async (gameId: string) => {
     try {
-      const game = games.get(gameId);
+      const eventId = generateEventId("pass", data.odv, gameId);
 
-      if (!game || game.status !== "active") {
+      const result = await passTrick({
+        eventId,
+        gameId,
+        odv: data.odv,
+      });
+
+      if (!result.success) {
         socket.emit("error", {
-          code: "invalid_game_state",
-          message: "Game is not active",
+          code: "pass_failed",
+          message: result.error || "Failed to pass",
         });
         return;
       }
 
-      if (game.currentAction !== "attempt") {
-        socket.emit("error", {
-          code: "cannot_pass",
-          message: "You can only pass during attempt phase",
-        });
+      // Skip broadcast if already processed (idempotency)
+      if (result.alreadyProcessed) {
         return;
       }
 
-      const currentPlayer = game.players[game.currentTurn];
-
-      if (currentPlayer !== data.odv) {
-        socket.emit("error", {
-          code: "not_your_turn",
-          message: "It's not your turn",
-        });
-        return;
-      }
-
-      // Add letter
-      const currentLetters = game.letters.get(data.odv) || "";
-      const newLetters = getNextLetter(currentLetters);
-      game.letters.set(data.odv, newLetters);
+      const game = result.game!;
 
       // Broadcast letter gained
       broadcastToRoom(io, "game", gameId, "game:letter", {
         gameId,
         odv: data.odv,
-        letters: newLetters,
+        letters: result.letterGained || "",
       });
 
-      // Move to next player
-      game.currentTurn = (game.currentTurn + 1) % game.players.length;
-
-      // Check if eliminated
-      const activePlayers = game.players.filter((p) => !isEliminated(game.letters.get(p) || ""));
-
-      if (activePlayers.length === 1) {
-        game.status = "completed";
-
+      // Check if game is completed
+      if (game.status === "completed" && game.winnerId) {
         broadcastToRoom(io, "game", gameId, "game:ended", {
           gameId,
-          winnerId: activePlayers[0],
+          winnerId: game.winnerId,
           finalStandings: game.players.map((p) => ({
-            odv: p,
-            letters: game.letters.get(p) || "",
+            odv: p.odv,
+            letters: p.letters,
           })),
         });
       } else {
-        // Next turn (new setter after all attempts)
-        if (game.currentTurn === 0) {
-          game.currentAction = "set";
-        }
-
+        // Broadcast next turn
         broadcastToRoom(io, "game", gameId, "game:turn", {
           gameId,
-          currentPlayer: game.players[game.currentTurn],
+          currentPlayer: game.players[game.currentTurnIndex].odv,
           action: game.currentAction,
+          timeLimit: 60,
         });
       }
 
       logger.info("[Game] Player passed", {
         gameId,
         odv: data.odv,
-        letters: newLetters,
+        letters: result.letterGained,
       });
     } catch (error) {
       logger.error("[Game] Pass failed", { error, gameId, odv: data.odv });
@@ -381,23 +313,168 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
       });
     }
   });
+
+  /**
+   * Forfeit a game voluntarily
+   */
+  socket.on("game:forfeit", async (gameId: string) => {
+    try {
+      const eventId = generateEventId("forfeit", data.odv, gameId);
+
+      const result = await forfeitGame({
+        eventId,
+        gameId,
+        odv: data.odv,
+        reason: "voluntary",
+      });
+
+      if (!result.success) {
+        socket.emit("error", {
+          code: "forfeit_failed",
+          message: result.error || "Failed to forfeit",
+        });
+        return;
+      }
+
+      if (result.alreadyProcessed) {
+        return;
+      }
+
+      const game = result.game!;
+
+      // Broadcast game ended
+      broadcastToRoom(io, "game", gameId, "game:ended", {
+        gameId,
+        winnerId: game.winnerId || "",
+        finalStandings: game.players.map((p) => ({
+          odv: p.odv,
+          letters: p.letters,
+        })),
+      });
+
+      logger.info("[Game] Player forfeited", { gameId, odv: data.odv });
+    } catch (error) {
+      logger.error("[Game] Forfeit failed", { error, gameId, odv: data.odv });
+      socket.emit("error", {
+        code: "forfeit_failed",
+        message: "Failed to forfeit",
+      });
+    }
+  });
+
+  /**
+   * Reconnect to a game after disconnect
+   */
+  socket.on("game:reconnect", async (gameId: string) => {
+    try {
+      const eventId = generateEventId("reconnect", data.odv, gameId);
+
+      const result = await handleReconnect({
+        eventId,
+        gameId,
+        odv: data.odv,
+      });
+
+      if (!result.success) {
+        socket.emit("error", {
+          code: "reconnect_failed",
+          message: result.error || "Failed to reconnect",
+        });
+        return;
+      }
+
+      const game = result.game!;
+
+      // Track socket-game association
+      if (!socketGameMap.has(socket.id)) {
+        socketGameMap.set(socket.id, new Set());
+      }
+      socketGameMap.get(socket.id)!.add(gameId);
+
+      // Rejoin room
+      await joinRoom(socket, "game", gameId);
+
+      // Send current game state to reconnected player
+      socket.emit("game:state", {
+        gameId: game.id,
+        players: game.players.map((p) => ({
+          odv: p.odv,
+          letters: p.letters,
+          connected: p.connected,
+        })),
+        currentPlayer: game.players[game.currentTurnIndex]?.odv,
+        currentAction: game.currentAction,
+        currentTrick: game.currentTrick,
+        status: game.status,
+      });
+
+      // If game resumed from paused, notify all players
+      if (game.status === "active" && !result.alreadyProcessed) {
+        broadcastToRoom(io, "game", gameId, "game:resumed", {
+          gameId,
+          reconnectedPlayer: data.odv,
+        });
+
+        broadcastToRoom(io, "game", gameId, "game:turn", {
+          gameId,
+          currentPlayer: game.players[game.currentTurnIndex].odv,
+          action: game.currentAction,
+          timeLimit: 60,
+        });
+      }
+
+      logger.info("[Game] Player reconnected", { gameId, odv: data.odv });
+    } catch (error) {
+      logger.error("[Game] Reconnect failed", { error, gameId, odv: data.odv });
+      socket.emit("error", {
+        code: "reconnect_failed",
+        message: "Failed to reconnect",
+      });
+    }
+  });
 }
 
 /**
  * Clean up game subscriptions on disconnect
  */
-export async function cleanupGameSubscriptions(socket: TypedSocket): Promise<void> {
+export async function cleanupGameSubscriptions(
+  io: TypedServer,
+  socket: TypedSocket
+): Promise<void> {
   const data = socket.data as SocketData;
+  const gameIds = socketGameMap.get(socket.id) || new Set();
 
-  for (const roomId of data.rooms) {
-    if (roomId.startsWith("game:")) {
-      const gameId = roomId.replace("game:", "");
+  for (const gameId of gameIds) {
+    try {
       await leaveRoom(socket, "game", gameId);
 
-      // TODO: Handle player disconnect in active game
-      // - Pause game
-      // - Set timeout for reconnection
-      // - Forfeit if no reconnection
+      // Notify game of disconnect
+      const eventId = generateEventId("disconnect", data.odv, gameId);
+      const result = await handleDisconnect({
+        eventId,
+        gameId,
+        odv: data.odv,
+      });
+
+      if (result.success && result.game && !result.alreadyProcessed) {
+        const game = result.game;
+
+        // Notify other players
+        if (game.status === "paused") {
+          broadcastToRoom(io, "game", gameId, "game:paused", {
+            gameId,
+            disconnectedPlayer: data.odv,
+            reconnectTimeout: 120, // 2 minutes
+          });
+        }
+
+        logger.info("[Game] Player disconnected from game", { gameId, odv: data.odv });
+      }
+    } catch (error) {
+      logger.error("[Game] Cleanup failed for game", { error, gameId, odv: data.odv });
     }
   }
+
+  // Clean up socket tracking
+  socketGameMap.delete(socket.id);
 }

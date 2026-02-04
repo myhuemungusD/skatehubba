@@ -19,6 +19,14 @@ export const EVENT_NAMES = [
   "battle_voted",
   "battle_completed",
 
+  // S.K.A.T.E. game loop
+  "game_created",
+  "game_joined",
+  "game_trick_submitted",
+  "game_trick_passed",
+  "game_completed",
+  "game_forfeited",
+
   // Supporting loop
   "clip_uploaded",
   "clip_exported",
@@ -114,6 +122,49 @@ export const CrewJoinedProps = z
   })
   .strict();
 
+// S.K.A.T.E. Game event properties
+export const GameCreatedProps = z
+  .object({
+    game_id: z.string().min(1),
+    spot_id: z.string().min(1).optional(),
+  })
+  .strict();
+
+export const GameJoinedProps = z
+  .object({
+    game_id: z.string().min(1),
+  })
+  .strict();
+
+export const GameTrickSubmittedProps = z
+  .object({
+    game_id: z.string().min(1),
+    trick_name: z.string().max(100).optional(),
+  })
+  .strict();
+
+export const GameTrickPassedProps = z
+  .object({
+    game_id: z.string().min(1),
+    letters: z.string().max(5).optional(),
+  })
+  .strict();
+
+export const GameCompletedProps = z
+  .object({
+    game_id: z.string().min(1),
+    winner_id: z.string().min(1).optional(),
+  })
+  .strict();
+
+export const GameForfeitedProps = z
+  .object({
+    game_id: z.string().min(1),
+    reason: z.enum(["voluntary", "disconnect_timeout", "turn_timeout"]).optional(),
+    winner_id: z.string().min(1).optional(),
+  })
+  .strict();
+
 /**
  * Validate event properties based on event name.
  * Throws ZodError if validation fails.
@@ -137,6 +188,18 @@ export function validateEventProps(
       return SpotCheckinProps.parse(properties);
     case "crew_joined":
       return CrewJoinedProps.parse(properties);
+    case "game_created":
+      return GameCreatedProps.parse(properties);
+    case "game_joined":
+      return GameJoinedProps.parse(properties);
+    case "game_trick_submitted":
+      return GameTrickSubmittedProps.parse(properties);
+    case "game_trick_passed":
+      return GameTrickPassedProps.parse(properties);
+    case "game_completed":
+      return GameCompletedProps.parse(properties);
+    case "game_forfeited":
+      return GameForfeitedProps.parse(properties);
     default:
       // Gradually tighten others as needed
       return properties;
