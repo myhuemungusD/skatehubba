@@ -80,18 +80,47 @@ export async function initializeVoting(input: {
 
   try {
     const now = new Date();
-    const state: BattleVoteState = {
-      battleId,
-      creatorId,
-      opponentId,
-      status: "voting",
-      votes: [],
-      votingStartedAt: now.toISOString(),
-      voteDeadlineAt: new Date(now.getTime() + VOTE_TIMEOUT_MS).toISOString(),
-      processedEventIds: [eventId],
-    };
+    
+    // Use transaction to check if voting is already initialized
+    const result = await firestore.runTransaction(async (transaction) => {
+      const stateRef = getBattleStateRef(battleId);
+      const snapshot = await transaction.get(stateRef);
 
-    await getBattleStateRef(battleId).set(state);
+      if (snapshot.exists) {
+        const existing = snapshot.data() as BattleVoteState;
+
+        // Idempotency: if this event already initialized voting, do nothing.
+        if (Array.isArray(existing.processedEventIds) && existing.processedEventIds.includes(eventId)) {
+          return { alreadyProcessed: true };
+        }
+
+        // Voting has already been initialized for this battle; avoid overwriting existing state.
+        logger.warn("[BattleState] Voting already initialized, skipping re-initialization", {
+          battleId,
+          creatorId,
+          opponentId,
+        });
+        return { alreadyInitialized: true };
+      }
+
+      const state: BattleVoteState = {
+        battleId,
+        creatorId,
+        opponentId,
+        status: "voting",
+        votes: [],
+        votingStartedAt: now.toISOString(),
+        voteDeadlineAt: new Date(now.getTime() + VOTE_TIMEOUT_MS).toISOString(),
+        processedEventIds: [eventId],
+      };
+
+      transaction.set(stateRef, state);
+      return { initialized: true };
+    });
+
+    if (result.alreadyProcessed || result.alreadyInitialized) {
+      return { success: true };
+    }
 
     // Update database status
     if (db) {
@@ -419,16 +448,38 @@ export async function processVoteTimeouts(): Promise<void> {
 
       const eventId = generateEventId("timeout", winnerId, state.battleId);
 
-      // Check idempotency
-      if (state.processedEventIds.includes(eventId)) {
+      // Atomically check idempotency and update battle state in a transaction
+      const processedInThisRun = await firestore.runTransaction(async (tx) => {
+        const battleRef = getBattleStateRef(state.battleId);
+        const snapshot = await tx.get(battleRef);
+
+        if (!snapshot.exists) {
+          return false;
+        }
+
+        const currentState = snapshot.data() as BattleVoteState;
+        const currentProcessedEventIds = currentState.processedEventIds || [];
+
+        if (currentProcessedEventIds.includes(eventId)) {
+          // Timeout for this eventId has already been processed
+          return false;
+        }
+
+        const updatedProcessedEventIds = [...currentProcessedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS);
+
+        tx.update(battleRef, {
+          status: "completed",
+          winnerId,
+          processedEventIds: updatedProcessedEventIds,
+        });
+
+        return true;
+      });
+
+      // If another process already handled this timeout, skip further processing
+      if (!processedInThisRun) {
         continue;
       }
-
-      await getBattleStateRef(state.battleId).update({
-        status: "completed",
-        winnerId,
-        processedEventIds: [...state.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
-      });
 
       // Update database
       if (db) {
