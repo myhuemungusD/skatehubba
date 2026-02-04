@@ -726,62 +726,99 @@ export async function processTimeouts(): Promise<void> {
 
     for (const doc of activeGamesQuery.docs) {
       const game = doc.data() as GameState;
-      const currentPlayer = game.players[game.currentTurnIndex];
 
-      if (currentPlayer) {
-        // Use turnDeadlineAt as sequence key for deterministic timeout event IDs
-        // This ensures multiple timeout processor runs for the same deadline are idempotent
-        const sequenceKey = `deadline-${game.turnDeadlineAt}`;
-        const eventId = generateEventId("timeout", currentPlayer.odv, game.id, sequenceKey);
+      // During attempt phase, timeout means defender wins (they don't get a letter)
+      // The setter's trick is invalidated - new round starts
+      if (game.currentAction === "attempt") {
+        // Move to next setter without giving anyone a letter
+        const result = await firestore.runTransaction(async (transaction) => {
+          const gameRef = getGameDocRef(game.id);
+          const freshDoc = await transaction.get(gameRef);
+          if (!freshDoc.exists) return null;
 
-        // During attempt phase, timeout means defender wins (they don't get a letter)
-        // The setter's trick is invalidated - new round starts
-        if (game.currentAction === "attempt") {
-          // Move to next setter without giving anyone a letter
-          await firestore.runTransaction(async (transaction) => {
-            const gameRef = getGameDocRef(game.id);
-            const freshDoc = await transaction.get(gameRef);
-            if (!freshDoc.exists) return;
+          const freshGame = freshDoc.data() as GameState;
 
-            const freshGame = freshDoc.data() as GameState;
-            if (freshGame.status !== "active") return;
-            if (freshGame.processedEventIds.includes(eventId)) return;
+          // Verify game is still active and deadline hasn't changed
+          if (freshGame.status !== "active") return null;
+          if (!freshGame.turnDeadlineAt || new Date(freshGame.turnDeadlineAt) >= now) return null;
+          if (freshGame.currentAction !== "attempt") return null;
 
-            // Find next setter (skip eliminated players)
-            const setterIndex = freshGame.players.findIndex((p) => p.odv === freshGame.setterId);
-            let newSetterIndex = (setterIndex + 1) % freshGame.players.length;
-            let attempts = 0;
-            while (
-              isEliminated(freshGame.players[newSetterIndex].letters) &&
-              attempts < freshGame.players.length
-            ) {
-              newSetterIndex = (newSetterIndex + 1) % freshGame.players.length;
-              attempts++;
-            }
+          // Derive eventId from fresh state to ensure consistency
+          const freshPlayer = freshGame.players[freshGame.currentTurnIndex];
+          if (!freshPlayer) return null;
 
-            transaction.update(gameRef, {
-              currentTurnIndex: newSetterIndex,
-              currentAction: "set",
-              currentTrick: undefined,
-              setterId: undefined,
-              updatedAt: nowISO,
-              turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS).toISOString(),
-              processedEventIds: [...freshGame.processedEventIds, eventId].slice(
-                -MAX_PROCESSED_EVENTS
-              ),
-            });
+          const sequenceKey = `deadline-${freshGame.turnDeadlineAt}`;
+          const eventId = generateEventId("timeout", freshPlayer.odv, freshGame.id, sequenceKey);
+
+          // Check idempotency
+          if (freshGame.processedEventIds.includes(eventId)) return null;
+
+          // Find next setter (skip eliminated players)
+          const setterIndex = freshGame.players.findIndex((p) => p.odv === freshGame.setterId);
+          let newSetterIndex = (setterIndex + 1) % freshGame.players.length;
+          let attempts = 0;
+          while (
+            isEliminated(freshGame.players[newSetterIndex].letters) &&
+            attempts < freshGame.players.length
+          ) {
+            newSetterIndex = (newSetterIndex + 1) % freshGame.players.length;
+            attempts++;
+          }
+
+          transaction.update(gameRef, {
+            currentTurnIndex: newSetterIndex,
+            currentAction: "set",
+            currentTrick: undefined,
+            setterId: undefined,
+            updatedAt: nowISO,
+            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS).toISOString(),
+            processedEventIds: [...freshGame.processedEventIds, eventId].slice(
+              -MAX_PROCESSED_EVENTS
+            ),
           });
 
+          return { timedOutPlayer: freshPlayer.odv };
+        });
+
+        if (result) {
           logger.info("[GameState] Turn timeout - defender wins round", {
             gameId: game.id,
-            timedOutPlayer: currentPlayer.odv,
+            timedOutPlayer: result.timedOutPlayer,
           });
-        } else {
-          // Set phase timeout - forfeit the game
+        }
+      } else {
+        // Set phase timeout - forfeit the game
+        // Need to verify fresh state and generate eventId inside forfeitGame transaction
+        const result = await firestore.runTransaction(async (transaction) => {
+          const gameRef = getGameDocRef(game.id);
+          const freshDoc = await transaction.get(gameRef);
+          if (!freshDoc.exists) return null;
+
+          const freshGame = freshDoc.data() as GameState;
+
+          // Verify game state hasn't changed
+          if (freshGame.status !== "active") return null;
+          if (!freshGame.turnDeadlineAt || new Date(freshGame.turnDeadlineAt) >= now) return null;
+          if (freshGame.currentAction !== "set") return null;
+
+          const freshPlayer = freshGame.players[freshGame.currentTurnIndex];
+          if (!freshPlayer) return null;
+
+          // Derive eventId from fresh state
+          const sequenceKey = `deadline-${freshGame.turnDeadlineAt}`;
+          const eventId = generateEventId("timeout", freshPlayer.odv, freshGame.id, sequenceKey);
+
+          // Check idempotency
+          if (freshGame.processedEventIds.includes(eventId)) return null;
+
+          return { eventId, odv: freshPlayer.odv };
+        });
+
+        if (result) {
           await forfeitGame({
-            eventId,
+            eventId: result.eventId,
             gameId: game.id,
-            odv: currentPlayer.odv,
+            odv: result.odv,
             reason: "turn_timeout",
           });
         }
@@ -804,16 +841,48 @@ export async function processTimeouts(): Promise<void> {
           const elapsed = now.getTime() - disconnectedTime;
 
           if (elapsed > RECONNECT_WINDOW_MS) {
-            // Use disconnectedAt as sequence key for deterministic disconnect timeout event IDs
-            const sequenceKey = `disconnected-${player.disconnectedAt}`;
-            const eventId = generateEventId("disconnect_timeout", player.odv, game.id, sequenceKey);
-            await forfeitGame({
-              eventId,
-              gameId: game.id,
-              odv: player.odv,
-              reason: "disconnect_timeout",
+            // Verify fresh state before forfeiting
+            const result = await firestore.runTransaction(async (transaction) => {
+              const gameRef = getGameDocRef(game.id);
+              const freshDoc = await transaction.get(gameRef);
+              if (!freshDoc.exists) return null;
+
+              const freshGame = freshDoc.data() as GameState;
+
+              // Verify player is still disconnected with same disconnectedAt timestamp
+              const freshPlayer = freshGame.players.find((p) => p.odv === player.odv);
+              if (
+                !freshPlayer ||
+                freshPlayer.connected ||
+                freshPlayer.disconnectedAt !== player.disconnectedAt
+              ) {
+                return null;
+              }
+
+              // Derive eventId from fresh state
+              const sequenceKey = `disconnected-${freshPlayer.disconnectedAt}`;
+              const eventId = generateEventId(
+                "disconnect_timeout",
+                freshPlayer.odv,
+                freshGame.id,
+                sequenceKey
+              );
+
+              // Check idempotency (forfeitGame will also check, but this avoids unnecessary call)
+              if (freshGame.processedEventIds.includes(eventId)) return null;
+
+              return { eventId, odv: freshPlayer.odv };
             });
-            break; // Only process one forfeit per game
+
+            if (result) {
+              await forfeitGame({
+                eventId: result.eventId,
+                gameId: game.id,
+                odv: result.odv,
+                reason: "disconnect_timeout",
+              });
+              break; // Only process one forfeit per game
+            }
           }
         }
       }

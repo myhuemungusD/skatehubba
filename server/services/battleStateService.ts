@@ -67,7 +67,12 @@ const MAX_PROCESSED_EVENTS = 50;
  * @param battleId - Battle ID
  * @param sequenceKey - Optional deterministic key for server-side events
  */
-function generateEventId(type: string, odv: string, battleId: string, sequenceKey?: string): string {
+function generateEventId(
+  type: string,
+  odv: string,
+  battleId: string,
+  sequenceKey?: string
+): string {
   // If a sequence key is provided, use it for deterministic ID generation
   if (sequenceKey) {
     return `${type}-${battleId}-${odv}-${sequenceKey}`;
@@ -138,8 +143,9 @@ export async function initializeVoting(input: {
       return { alreadyInitialized: false };
     });
 
-    // Update database status (only if we actually created the state)
-    if (!result.alreadyInitialized && db) {
+    // Update database status idempotently (even if state already exists)
+    // This ensures DB is reconciled even if previous calls failed at DB update step
+    if (db) {
       await db
         .update(battles)
         .set({ status: "voting", updatedAt: now })
@@ -445,31 +451,10 @@ export async function processVoteTimeouts(): Promise<void> {
     for (const doc of votingBattlesQuery.docs) {
       const state = doc.data() as BattleVoteState;
 
-      // Determine winner based on timeout
-      // Rule: The player who DID vote wins. If neither voted, creator wins.
-      const creatorVoted = state.votes.some((v) => v.odv === state.creatorId);
-      const opponentVoted = state.opponentId && state.votes.some((v) => v.odv === state.opponentId);
-
-      let winnerId: string;
-      let reason: string;
-
-      if (creatorVoted && !opponentVoted) {
-        // Opponent timed out - creator wins
-        winnerId = state.creatorId;
-        reason = "opponent_timeout";
-      } else if (!creatorVoted && opponentVoted && state.opponentId) {
-        // Creator timed out - opponent wins
-        winnerId = state.opponentId;
-        reason = "creator_timeout";
-      } else {
-        // Neither voted or both voted (shouldn't happen) - creator wins
-        winnerId = state.creatorId;
-        reason = "both_timeout";
-      }
-
       // Use voteDeadlineAt as sequence key for deterministic timeout event IDs
+      // Make eventId independent of winner computation (use battleId as the odv parameter)
       const sequenceKey = `deadline-${state.voteDeadlineAt}`;
-      const eventId = generateEventId("timeout", winnerId, state.battleId, sequenceKey);
+      const eventId = generateEventId("timeout", state.battleId, state.battleId, sequenceKey);
 
       // Use transaction to prevent race conditions when multiple timeout processors run
       const updated = await firestore.runTransaction(async (transaction) => {
@@ -492,13 +477,38 @@ export async function processVoteTimeouts(): Promise<void> {
           return false;
         }
 
+        // Determine winner from fresh state to avoid race conditions
+        // Rule: The player who DID vote wins. If neither voted, creator wins.
+        const creatorVoted = freshState.votes.some((v) => v.odv === freshState.creatorId);
+        const opponentVoted =
+          freshState.opponentId && freshState.votes.some((v) => v.odv === freshState.opponentId);
+
+        let winnerId: string;
+        let reason: string;
+
+        if (creatorVoted && !opponentVoted) {
+          // Opponent timed out - creator wins
+          winnerId = freshState.creatorId;
+          reason = "opponent_timeout";
+        } else if (!creatorVoted && opponentVoted && freshState.opponentId) {
+          // Creator timed out - opponent wins
+          winnerId = freshState.opponentId;
+          reason = "creator_timeout";
+        } else {
+          // Neither voted or both voted (shouldn't happen) - creator wins
+          winnerId = freshState.creatorId;
+          reason = "both_timeout";
+        }
+
         transaction.update(stateRef, {
           status: "completed",
           winnerId,
-          processedEventIds: [...freshState.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
+          processedEventIds: [...freshState.processedEventIds, eventId].slice(
+            -MAX_PROCESSED_EVENTS
+          ),
         });
 
-        return true;
+        return { winnerId, reason };
       });
 
       if (!updated) {
@@ -511,23 +521,23 @@ export async function processVoteTimeouts(): Promise<void> {
           .update(battles)
           .set({
             status: "completed",
-            winnerId,
+            winnerId: updated.winnerId,
             completedAt: now,
             updatedAt: now,
           })
           .where(eq(battles.id, state.battleId));
 
-        await logServerEvent(winnerId, "battle_completed", {
+        await logServerEvent(updated.winnerId, "battle_completed", {
           battle_id: state.battleId,
-          winner_id: winnerId,
-          completion_reason: reason,
+          winner_id: updated.winnerId,
+          completion_reason: updated.reason,
         });
       }
 
       logger.info("[BattleState] Vote timeout processed", {
         battleId: state.battleId,
-        winnerId,
-        reason,
+        winnerId: updated.winnerId,
+        reason: updated.reason,
       });
     }
   } catch (error) {

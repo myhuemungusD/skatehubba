@@ -134,6 +134,43 @@ describe("BattleStateService", () => {
       expect(state.voteDeadlineAt).toBeDefined();
       expect(state.votingStartedAt).toBeDefined();
     });
+
+    it("should not overwrite existing votes when called multiple times", async () => {
+      // First call - initialize voting
+      const result1 = await initializeVoting({
+        eventId: "init-event-1",
+        battleId: "battle-456",
+        creatorId: "player-1",
+        opponentId: "player-2",
+      });
+
+      expect(result1.success).toBe(true);
+      expect(result1.alreadyInitialized).toBeFalsy();
+
+      // Simulate some votes being cast
+      const state = mockBattleStates.get("battle-456");
+      state.votes = [{ odv: "player-1", vote: "clean", votedAt: new Date().toISOString() }];
+      state.processedEventIds.push("vote-event-1");
+      mockBattleStates.set("battle-456", state);
+
+      // Second call - should not overwrite existing state
+      const result2 = await initializeVoting({
+        eventId: "init-event-2",
+        battleId: "battle-456",
+        creatorId: "player-1",
+        opponentId: "player-2",
+      });
+
+      expect(result2.success).toBe(true);
+      expect(result2.alreadyInitialized).toBe(true);
+
+      // Verify votes and processedEventIds were not cleared
+      const finalState = mockBattleStates.get("battle-456");
+      expect(finalState.votes).toHaveLength(1);
+      expect(finalState.votes[0].odv).toBe("player-1");
+      expect(finalState.processedEventIds).toContain("vote-event-1");
+      expect(finalState.processedEventIds).not.toContain("init-event-2");
+    });
   });
 
   // =============================================================================
