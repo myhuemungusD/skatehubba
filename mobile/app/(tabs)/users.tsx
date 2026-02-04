@@ -74,8 +74,11 @@ export default function UsersScreen() {
         <Text style={styles.loadingText}>Loading skaters...</Text>
       ) : filteredUsers?.length === 0 ? (
         <View style={styles.emptyState}>
-          <Ionicons name="people-outline" size={64} color="#666" />
-          <Text style={styles.emptyText}>No skaters found</Text>
+          <Ionicons name="people-outline" size={64} color="#ff6600" />
+          <Text style={styles.emptyTitle}>Be the First!</Text>
+          <Text style={styles.emptyText}>
+            {search ? "No skaters match your search" : "Invite your crew to join SkateHubba"}
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -157,11 +160,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  emptyTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginTop: 16,
+    marginBottom: 8,
   },
   emptyText: {
-    color: '#666',
-    fontSize: 16,
-    marginTop: 12,
+    color: '#999',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   loadingText: {
     color: '#fff',

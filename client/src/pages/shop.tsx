@@ -50,8 +50,26 @@ export default function ShopPage() {
         )}
 
         {error && (
-          <div className="text-center py-12">
-            <p className="text-red-500">Failed to load products. Please try again.</p>
+          <div className="text-center py-16">
+            <div className="rounded-full bg-[#ff6a00]/10 p-6 inline-flex mb-6">
+              <ShoppingBag className="w-12 h-12 text-[#ff6a00]" />
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">Shop Coming Soon</h3>
+            <p className="text-gray-400 max-w-md mx-auto">
+              We're stocking the shelves with fresh gear. Check back soon for exclusive drops.
+            </p>
+          </div>
+        )}
+
+        {products && products.length === 0 && !error && (
+          <div className="text-center py-16">
+            <div className="rounded-full bg-[#ff6a00]/10 p-6 inline-flex mb-6">
+              <ShoppingBag className="w-12 h-12 text-[#ff6a00]" />
+            </div>
+            <h3 className="text-xl font-semibold text-white mb-2">Shop Coming Soon</h3>
+            <p className="text-gray-400 max-w-md mx-auto">
+              We're stocking the shelves with fresh gear. Check back soon for exclusive drops.
+            </p>
           </div>
         )}
 

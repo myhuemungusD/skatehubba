@@ -35,7 +35,7 @@ export default function FeedPage() {
       {error ? (
         <Card className="bg-neutral-900/60 border-neutral-800">
           <CardContent className="py-8 text-center text-sm text-neutral-400">
-            We couldn't load the live feed. Please try again in a moment.
+            No activity to show yet. Head to the map and be the first to check in!
           </CardContent>
         </Card>
       ) : null}

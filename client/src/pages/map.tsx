@@ -198,23 +198,22 @@ export default function MapPage() {
     if (geolocation.status === "denied") {
       lastToastRef.current = { type: "denied", time: now };
       toast({
-        title: "Location Access Denied",
-        description: "You can still browse spots, but check-ins require location access.",
-        variant: "destructive",
-        duration: 8000,
+        title: "Browse Mode Active",
+        description: "You can explore all spots! Enable location when you're ready to check in.",
+        duration: 5000,
       });
     } else if (geolocation.status === "timeout") {
       lastToastRef.current = { type: "timeout", time: now };
       toast({
-        title: "Location Timed Out",
-        description: "Getting your location took too long. Try again or browse without location.",
-        duration: 6000,
+        title: "Still Finding Your Location",
+        description: "Tap Retry or browse spots while we work on it.",
+        duration: 5000,
       });
     } else if (geolocation.status === "error" && geolocation.error) {
       lastToastRef.current = { type: "error", time: now };
       toast({
-        title: "Location Unavailable",
-        description: geolocation.error,
+        title: "Browse Mode",
+        description: "Explore spots now, enable location later to check in.",
         duration: 5000,
       });
     }
@@ -236,16 +235,16 @@ export default function MapPage() {
 
     if (isSpotsError) {
       return (
-        <p className="text-sm text-red-400 flex items-center gap-1 mt-1">
-          <AlertCircle className="w-3 h-3" />
-          Failed to load spots
+        <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
+          <MapPin className="w-3 h-3" />
+          No spots loaded yet.
           <Button
             variant="link"
             size="sm"
             onClick={() => refetchSpots()}
-            className="text-red-400 underline p-0 h-auto ml-1"
+            className="text-[#ff6a00] underline p-0 h-auto ml-1"
           >
-            Retry
+            Refresh
           </Button>
         </p>
       );
@@ -286,25 +285,25 @@ export default function MapPage() {
 
       case "denied":
         return (
-          <p className="text-sm text-red-400 flex items-center gap-1 mt-1">
-            <AlertCircle className="w-3 h-3" />
-            Location denied
+          <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
+            <Eye className="w-3 h-3" />
+            Browse mode — enable location for check-ins
           </p>
         );
 
       case "timeout":
         return (
-          <p className="text-sm text-orange-400 flex items-center gap-1 mt-1">
+          <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
             <Clock className="w-3 h-3" />
-            Location timed out
+            Location pending — tap Retry or browse spots
           </p>
         );
 
       case "error":
         return (
-          <p className="text-sm text-red-400 flex items-center gap-1 mt-1">
-            <AlertCircle className="w-3 h-3" />
-            Location unavailable
+          <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
+            <Eye className="w-3 h-3" />
+            Browse mode — location unavailable
           </p>
         );
 
