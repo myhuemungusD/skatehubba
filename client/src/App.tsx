@@ -40,7 +40,7 @@ import { analytics as firebaseAnalytics } from "./lib/firebase";
 import { GuestGate } from "./routing/GuestGate";
 import { usePerformanceMonitor } from "./hooks/usePerformanceMonitor";
 import { useSkipLink } from "./hooks/useSkipLink";
-import { AISkateChat } from "./components/AISkateChat";
+// AISkateChat removed for MVP - feature coming soon
 import { FeedbackButton } from "./components/FeedbackButton";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { logger } from "./lib/logger";
@@ -61,12 +61,9 @@ const ProfilePage = lazy(() => import("./pages/me"));
 const Tutorial = lazy(() => import("./pages/tutorial"));
 const Demo = lazy(() => import("./pages/demo"));
 const MapPage = lazy(() => import("./pages/map"));
-const ShopPage = lazy(() => import("./pages/shop"));
-const CartPage = lazy(() => import("./pages/cart"));
-const CheckoutPage = lazy(() => import("./pages/checkout"));
-const OrderConfirmationPage = lazy(() => import("./pages/order-confirmation"));
 const SpotDetailPage = lazy(() => import("./pages/spots/SpotDetailPage"));
 const TrickMintPage = lazy(() => import("./pages/trickmint"));
+// Shop, Cart, Checkout, OrderConfirmation removed for MVP - features coming soon
 
 // Auth pages
 const LoginPage = lazy(() => import("./pages/login"));
@@ -133,13 +130,7 @@ function RootRedirect() {
   return <LoadingScreen />;
 }
 
-function AppShellOrderConfirmationRoute() {
-  return (
-    <AppShell>
-      <OrderConfirmationPage />
-    </AppShell>
-  );
-}
+// AppShellOrderConfirmationRoute removed for MVP
 
 function AppShellSpotDetailRoute(props: { params: Params }) {
   return (
@@ -222,29 +213,7 @@ function DashboardMapRoute() {
   );
 }
 
-function DashboardShopRoute() {
-  return (
-    <DashboardLayout>
-      <ShopPage />
-    </DashboardLayout>
-  );
-}
-
-function DashboardCartRoute() {
-  return (
-    <DashboardLayout>
-      <CartPage />
-    </DashboardLayout>
-  );
-}
-
-function DashboardCheckoutRoute() {
-  return (
-    <DashboardLayout>
-      <CheckoutPage />
-    </DashboardLayout>
-  );
-}
+// DashboardShopRoute, DashboardCartRoute, DashboardCheckoutRoute removed for MVP
 
 function isE2EBypass(): boolean {
   if (typeof window === "undefined") return false;
@@ -318,14 +287,8 @@ function AppRoutes() {
         <ProtectedRoute path="/play" component={DashboardPlayRoute} allowMissingProfile />
         <ProtectedRoute path="/me" component={DashboardProfileRoute} allowMissingProfile />
         <ProtectedRoute path="/map" component={DashboardMapRoute} allowMissingProfile />
-        <ProtectedRoute path="/shop" component={DashboardShopRoute} allowMissingProfile />
-        <ProtectedRoute path="/cart" component={DashboardCartRoute} allowMissingProfile />
-        <ProtectedRoute path="/checkout" component={DashboardCheckoutRoute} allowMissingProfile />
-        <ProtectedRoute
-          path="/order-confirmation"
-          component={AppShellOrderConfirmationRoute}
-          allowMissingProfile
-        />
+        <ProtectedRoute path="/leaderboard" component={DashboardPlayRoute} allowMissingProfile />
+        {/* Shop, Cart, Checkout, OrderConfirmation routes removed for MVP */}
 
         {/* Spot Detail - still uses AppShell for full-screen modal experience */}
         <ProtectedRoute path="/spots/:id" component={AppShellSpotDetailRoute} allowMissingProfile />
@@ -342,7 +305,6 @@ function AppRoutes() {
         <ProtectedRoute path="/game/active" component={DashboardPlayRoute} allowMissingProfile />
         <ProtectedRoute path="/game" component={DashboardPlayRoute} allowMissingProfile />
         <ProtectedRoute path="/skate-game" component={DashboardPlayRoute} allowMissingProfile />
-        <ProtectedRoute path="/leaderboard" component={DashboardPlayRoute} allowMissingProfile />
         <ProtectedRoute path="/showcase" component={DashboardHubRoute} allowMissingProfile />
 
         {/* Protected legacy routes */}
@@ -462,7 +424,7 @@ export default function App() {
           <BuildStamp />
           <Toaster />
           <PWAInstallPrompt />
-          <AISkateChat />
+          {/* AISkateChat removed for MVP */}
           <FeedbackButton />
         </TooltipProvider>
       </QueryClientProvider>

@@ -1,22 +1,16 @@
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { Button } from "./ui/button";
 import {
   Home,
-  ShoppingCart,
   LogIn,
   User,
-  Package,
   Map,
   Trophy,
-  Search,
   Gamepad2,
   Menu,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
-import CartDrawer from "./cart/CartDrawer";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "./ui/dialog";
-import { ProfileSearch } from "./search/ProfileSearch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +26,6 @@ export default function Navigation() {
   const user = auth?.user ?? null;
   const profile = auth?.profile ?? null;
   const signOut = auth?.signOut;
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -46,13 +39,13 @@ export default function Navigation() {
 
   const profileLabel = profile?.username ?? user?.email ?? "Profile";
 
+  // MVP navigation items - 5 items maximum
   const navItems = [
-    { path: "/", label: "Home", icon: Home },
-    { path: "/shop", label: "Shop", icon: ShoppingCart },
+    { path: "/hub", label: "Home", icon: Home },
     { path: "/map", label: "Map", icon: Map },
-    { path: "/skate-game", label: "Play SKATE", icon: Gamepad2 },
+    { path: "/play", label: "Play SKATE", icon: Gamepad2 },
     { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
-    { path: "/closet", label: "Closet", icon: Package },
+    { path: "/me", label: "Profile", icon: User },
   ];
 
   return (
@@ -114,19 +107,6 @@ export default function Navigation() {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <Button
-                variant="ghost"
-                className="text-gray-300 hover:bg-neutral-800 hover:text-white"
-                onClick={() => setIsSearchOpen(true)}
-                data-testid="button-nav-search"
-                aria-label="Search for skaters"
-              >
-                <Search className="w-4 h-4 md:mr-2" aria-hidden="true" />
-                <span className="hidden md:inline">Find Skaters</span>
-              </Button>
-
-              <CartDrawer />
-
               <div className="flex items-center space-x-2">
                 {!isAuthenticated ? (
                   <Link href="/auth">
@@ -165,21 +145,6 @@ export default function Navigation() {
           </div>
         </div>
       </nav>
-
-      {/* Search Modal */}
-      <Dialog open={isSearchOpen} onOpenChange={setIsSearchOpen}>
-        <DialogContent className="bg-[#232323] border-gray-700 text-white">
-          <DialogHeader>
-            <DialogTitle className="text-orange-500">Find Skaters</DialogTitle>
-            <DialogDescription className="text-gray-400">
-              Search for skaters by their username to view their profile, stats, and send challenges
-            </DialogDescription>
-          </DialogHeader>
-          <div className="pt-4">
-            <ProfileSearch />
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Subtitle Banner */}
       <div className="bg-black/40 border-b border-neutral-800 py-3 sticky top-[92px] z-30">
