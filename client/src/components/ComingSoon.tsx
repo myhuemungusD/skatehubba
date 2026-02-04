@@ -27,7 +27,8 @@ export function ComingSoon({ title, description, icon }: ComingSoonProps) {
         <div className="space-y-2">
           <h1 className="text-2xl font-bold text-white">{title}</h1>
           <p className="text-gray-400">
-            {description || "This feature is coming soon. We're working hard to bring you an amazing experience."}
+            {description ||
+              "This feature is coming soon. We're working hard to bring you an amazing experience."}
           </p>
         </div>
 
@@ -39,10 +40,7 @@ export function ComingSoon({ title, description, icon }: ComingSoonProps) {
 
         <div className="pt-4">
           <Link href="/home">
-            <Button
-              variant="outline"
-              className="border-gray-600 text-gray-300 hover:bg-gray-800"
-            >
+            <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-800">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Home
             </Button>

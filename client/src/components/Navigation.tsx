@@ -96,7 +96,7 @@ export default function Navigation() {
                   <DropdownMenuLabel className="text-gray-400">Navigation</DropdownMenuLabel>
                   {navItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = location.split('?')[0] === item.path;
+                    const isActive = location.split("?")[0] === item.path;
                     return (
                       <DropdownMenuItem key={item.path} asChild>
                         <Link

@@ -26,13 +26,13 @@ export default function ForgotPasswordPage() {
       });
     } catch (err: unknown) {
       let errorMessage = "Failed to send reset email";
-      
+
       if (err instanceof Error) {
         errorMessage = err.message;
       } else if (err && typeof err === "object" && "message" in err) {
         errorMessage = String((err as { message: unknown }).message);
       }
-      
+
       toast({
         title: "Reset Failed",
         description: errorMessage,
@@ -69,7 +69,8 @@ export default function ForgotPasswordPage() {
                 <div className="flex flex-col items-center justify-center py-4">
                   <CheckCircle className="h-16 w-16 text-green-500 mb-4" />
                   <p className="text-gray-300 text-center">
-                    We've sent a password reset link to <strong className="text-white">{email}</strong>
+                    We've sent a password reset link to{" "}
+                    <strong className="text-white">{email}</strong>
                   </p>
                   <p className="text-gray-400 text-sm text-center mt-2">
                     Didn't receive the email? Check your spam folder or try again.

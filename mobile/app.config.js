@@ -62,9 +62,11 @@ export default {
         }
       ],
       [
-        "expo-camera",
+        "react-native-vision-camera",
         {
-          cameraPermission: "Allow SkateHubba to access your camera to record trick videos."
+          cameraPermissionText: "Allow SkateHubba to access your camera to record trick videos.",
+          enableMicrophonePermission: true,
+          microphonePermissionText: "Allow SkateHubba to access your microphone to record audio with trick videos."
         }
       ],
       [

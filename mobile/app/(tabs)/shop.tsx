@@ -1,21 +1,21 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { SKATE } from '@/theme';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { SKATE } from "@/theme";
 
 // Placeholder product data
 const FEATURED_PRODUCTS = [
-  { id: '1', name: 'SkateHubba Deck', price: 59.99, image: null, category: 'Decks' },
-  { id: '2', name: 'Pro Wheels Set', price: 45.99, image: null, category: 'Wheels' },
-  { id: '3', name: 'Grip Tape Pack', price: 12.99, image: null, category: 'Accessories' },
-  { id: '4', name: 'Skate Tool', price: 15.99, image: null, category: 'Tools' },
+  { id: "1", name: "SkateHubba Deck", price: 59.99, image: null, category: "Decks" },
+  { id: "2", name: "Pro Wheels Set", price: 45.99, image: null, category: "Wheels" },
+  { id: "3", name: "Grip Tape Pack", price: 12.99, image: null, category: "Accessories" },
+  { id: "4", name: "Skate Tool", price: 15.99, image: null, category: "Tools" },
 ];
 
 const CATEGORIES = [
-  { id: 'decks', name: 'Decks', icon: 'layers' as const },
-  { id: 'wheels', name: 'Wheels', icon: 'ellipse' as const },
-  { id: 'trucks', name: 'Trucks', icon: 'hardware-chip' as const },
-  { id: 'apparel', name: 'Apparel', icon: 'shirt' as const },
-  { id: 'accessories', name: 'Accessories', icon: 'bag-handle' as const },
+  { id: "decks", name: "Decks", icon: "layers" as const },
+  { id: "wheels", name: "Wheels", icon: "ellipse" as const },
+  { id: "trucks", name: "Trucks", icon: "hardware-chip" as const },
+  { id: "apparel", name: "Apparel", icon: "shirt" as const },
+  { id: "accessories", name: "Accessories", icon: "bag-handle" as const },
 ];
 
 export default function ShopScreen() {
@@ -33,7 +33,11 @@ export default function ShopScreen() {
       {/* Categories */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Categories</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesScroll}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.categoriesScroll}
+        >
           {CATEGORIES.map((category) => (
             <TouchableOpacity key={category.id} style={styles.categoryCard}>
               <View style={styles.categoryIcon}>
@@ -83,21 +87,21 @@ const styles = StyleSheet.create({
     margin: SKATE.spacing.lg,
     padding: SKATE.spacing.xl,
     borderRadius: SKATE.borderRadius.lg,
-    alignItems: 'center',
+    alignItems: "center",
     borderWidth: 1,
     borderColor: SKATE.colors.orange,
-    borderStyle: 'dashed',
+    borderStyle: "dashed",
   },
   bannerTitle: {
     color: SKATE.colors.white,
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: SKATE.spacing.md,
   },
   bannerText: {
     color: SKATE.colors.lightGray,
     fontSize: 14,
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: SKATE.spacing.sm,
   },
   section: {
@@ -106,7 +110,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: SKATE.colors.white,
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: SKATE.spacing.md,
   },
   categoriesScroll: {
@@ -114,7 +118,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SKATE.spacing.lg,
   },
   categoryCard: {
-    alignItems: 'center',
+    alignItems: "center",
     marginRight: SKATE.spacing.lg,
     width: 70,
   },
@@ -123,8 +127,8 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: SKATE.colors.grime,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     borderWidth: 1,
     borderColor: SKATE.colors.darkGray,
   },
@@ -132,15 +136,15 @@ const styles = StyleSheet.create({
     color: SKATE.colors.lightGray,
     fontSize: 12,
     marginTop: SKATE.spacing.sm,
-    textAlign: 'center',
+    textAlign: "center",
   },
   productsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: SKATE.spacing.md,
   },
   productCard: {
-    width: '47%',
+    width: "47%",
     backgroundColor: SKATE.colors.grime,
     borderRadius: SKATE.borderRadius.lg,
     padding: SKATE.spacing.md,
@@ -151,14 +155,14 @@ const styles = StyleSheet.create({
     height: 100,
     backgroundColor: SKATE.colors.darkGray,
     borderRadius: SKATE.borderRadius.md,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: SKATE.spacing.sm,
   },
   productName: {
     color: SKATE.colors.white,
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   productCategory: {
     color: SKATE.colors.gray,
@@ -168,13 +172,13 @@ const styles = StyleSheet.create({
   productPrice: {
     color: SKATE.colors.orange,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginTop: SKATE.spacing.sm,
   },
   notifyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: SKATE.colors.orange,
     margin: SKATE.spacing.lg,
     padding: SKATE.spacing.lg,
@@ -184,7 +188,7 @@ const styles = StyleSheet.create({
   notifyButtonText: {
     color: SKATE.colors.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   bottomPadding: {
     height: 40,

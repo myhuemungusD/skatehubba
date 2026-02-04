@@ -44,7 +44,9 @@ export default function HomeScreen() {
             <Ionicons name="person-circle" size={32} color={SKATE.colors.orange} />
             <View style={styles.signInText}>
               <Text style={styles.signInTitle}>Sign in to unlock all features</Text>
-              <Text style={styles.signInSubtitle}>Play S.K.A.T.E., check in at spots, and more</Text>
+              <Text style={styles.signInSubtitle}>
+                Play S.K.A.T.E., check in at spots, and more
+              </Text>
             </View>
           </View>
           <Ionicons name="chevron-forward" size={24} color={SKATE.colors.gray} />

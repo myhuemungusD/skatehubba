@@ -1,4 +1,16 @@
-import { Users, MapPin, Gamepad2, Award, Video, Shield, CheckCircle, Zap, ShoppingBag, Trophy, User } from "lucide-react";
+import {
+  Users,
+  MapPin,
+  Gamepad2,
+  Award,
+  Video,
+  Shield,
+  CheckCircle,
+  Zap,
+  ShoppingBag,
+  Trophy,
+  User,
+} from "lucide-react";
 
 export const homeContent = {
   hero: {

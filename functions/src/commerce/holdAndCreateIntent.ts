@@ -283,7 +283,7 @@ export const holdAndCreatePaymentIntent = onCall<
     for (const product of products.values()) {
       currencies.add(product.currency);
     }
-    
+
     if (currencies.size > 1) {
       throw new HttpsError(
         "invalid-argument",

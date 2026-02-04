@@ -11,6 +11,7 @@
 This document outlines the Minimum Viable Product (MVP) implementation for SkateHubba - an end-to-end working demo suitable for investor presentation.
 
 ### Primary Demo Surface
+
 **Web MVP** - Chosen for faster iteration, easy demo anywhere, and minimal app store friction.
 
 ---
@@ -19,14 +20,15 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 
 ### 1. Email Sign Up + Sign In + Password Reset
 
-| Feature | Route | Status |
-|---------|-------|--------|
-| Email sign up | `/signup` | Implemented |
-| Email sign in | `/signin` | Implemented |
+| Feature        | Route              | Status      |
+| -------------- | ------------------ | ----------- |
+| Email sign up  | `/signup`          | Implemented |
+| Email sign in  | `/signin`          | Implemented |
 | Password reset | `/forgot-password` | Implemented |
-| Profile setup | `/profile/setup` | Implemented |
+| Profile setup  | `/profile/setup`   | Implemented |
 
 **Implementation Details:**
+
 - Firebase Authentication with email/password provider
 - Automatic email verification sent on signup
 - Password reset via Firebase `sendPasswordResetEmail`
@@ -34,13 +36,14 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 
 ### 2. Email Verification
 
-| Feature | Status |
-|---------|--------|
-| Verification email on signup | Implemented |
+| Feature                                  | Status      |
+| ---------------------------------------- | ----------- |
+| Verification email on signup             | Implemented |
 | Verification banner for unverified users | Implemented |
 | Action restrictions for unverified users | Implemented |
 
 **Implementation Details:**
+
 - `EmailVerificationBanner` component shows in AppShell for unverified users
 - Unverified users cannot create spots (must verify first)
 - Resend verification email with 60-second cooldown
@@ -48,29 +51,31 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 
 ### 3. User Profile Creation
 
-| Feature | Status |
-|---------|--------|
-| Username (required) | Implemented |
-| Stance (optional) | Implemented |
+| Feature                     | Status      |
+| --------------------------- | ----------- |
+| Username (required)         | Implemented |
+| Stance (optional)           | Implemented |
 | Experience level (optional) | Implemented |
-| Username uniqueness | Implemented |
+| Username uniqueness         | Implemented |
 
 **Implementation Details:**
+
 - Username validation: 3-20 characters, alphanumeric
 - Real-time availability check with debouncing
 - Username reservation via API transaction
 
 ### 4. Map + Spots
 
-| Feature | Status |
-|---------|--------|
+| Feature                       | Status      |
+| ----------------------------- | ----------- |
 | Map loads spots from database | Implemented |
-| Spot markers with clustering | Implemented |
-| Add Spot functionality | Implemented |
-| Spot filtering by type | Implemented |
-| Geolocation support | Implemented |
+| Spot markers with clustering  | Implemented |
+| Add Spot functionality        | Implemented |
+| Spot filtering by type        | Implemented |
+| Geolocation support           | Implemented |
 
 **Implementation Details:**
+
 - Leaflet + React Leaflet for map rendering
 - PostgreSQL database with proper indexes
 - Real-time geolocation with accuracy tracking
@@ -78,14 +83,15 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 
 ### 5. Add Spot (Verified Users Only)
 
-| Feature | Status |
-|---------|--------|
-| Drop pin / auto-locate | Implemented |
-| Name (required) | Implemented |
-| Type (enum) | Implemented |
+| Feature                  | Status      |
+| ------------------------ | ----------- |
+| Drop pin / auto-locate   | Implemented |
+| Name (required)          | Implemented |
+| Type (enum)              | Implemented |
 | Spot appears immediately | Implemented |
 
 **Spot Data Model:**
+
 ```typescript
 {
   name: string;           // Required, 1-100 chars
@@ -101,16 +107,17 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 
 ### 6. Abuse Controls
 
-| Control | Implementation |
-|---------|----------------|
-| Rate limit (spots) | 3 spots per user per 24 hours |
+| Control             | Implementation                  |
+| ------------------- | ------------------------------- |
+| Rate limit (spots)  | 3 spots per user per 24 hours   |
 | Rate limit (global) | 30 writes per 10 minutes per IP |
-| Name validation | 1-100 characters, trimmed |
-| Location validation | Valid lat/lng ranges |
-| Duplicate check | Same name + ~50m radius |
-| Email verification | Required for posting |
+| Name validation     | 1-100 characters, trimmed       |
+| Location validation | Valid lat/lng ranges            |
+| Duplicate check     | Same name + ~50m radius         |
+| Email verification  | Required for posting            |
 
 **Rate Limiting Configuration:**
+
 - `perUserSpotWriteLimiter`: 3 spots/day per user
 - `publicWriteLimiter`: 30 writes/10min per IP
 - Duplicate detection: rejects spots with same name within 50 meters
@@ -119,21 +126,22 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 
 ## Explicitly Out of Scope (Coming Soon Placeholders)
 
-| Feature | Page | Status |
-|---------|------|--------|
-| S.K.A.T.E. Battles | `/game`, `/game/active` | Coming Soon |
-| TrickMint (Video Upload) | `/trickmint` | Coming Soon |
-| Payments/Checkout | `/checkout` | Coming Soon |
-| Live Streaming | N/A | Not implemented |
-| AR Check-ins | N/A | Not implemented |
-| Bounties | N/A | Not implemented |
-| Filmer Workflows | N/A | Not implemented |
+| Feature                  | Page                    | Status          |
+| ------------------------ | ----------------------- | --------------- |
+| S.K.A.T.E. Battles       | `/game`, `/game/active` | Coming Soon     |
+| TrickMint (Video Upload) | `/trickmint`            | Coming Soon     |
+| Payments/Checkout        | `/checkout`             | Coming Soon     |
+| Live Streaming           | N/A                     | Not implemented |
+| AR Check-ins             | N/A                     | Not implemented |
+| Bounties                 | N/A                     | Not implemented |
+| Filmer Workflows         | N/A                     | Not implemented |
 
 ---
 
 ## Authentication Flow
 
 ### Sign Up Flow
+
 1. User navigates to `/signup`
 2. Enters email + password (min 6 chars)
 3. Firebase creates user
@@ -143,6 +151,7 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 7. User can access app (with restrictions if unverified)
 
 ### Sign In Flow
+
 1. User navigates to `/signin`
 2. Enters credentials
 3. Firebase validates
@@ -150,6 +159,7 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 5. If profile exists → redirect to `/home`
 
 ### Password Reset Flow
+
 1. User navigates to `/forgot-password`
 2. Enters email
 3. Firebase sends reset link
@@ -162,6 +172,7 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 ## Unverified User Restrictions
 
 Users who haven't verified their email:
+
 - CAN view the map
 - CAN browse spots
 - CANNOT create new spots
@@ -172,6 +183,7 @@ Users who haven't verified their email:
 ## Routing Structure
 
 ### Public Routes (No Auth Required)
+
 - `/landing` - Conversion landing page
 - `/signup` - Registration
 - `/signin` - Login
@@ -179,6 +191,7 @@ Users who haven't verified their email:
 - `/privacy`, `/terms`, `/specs` - Legal pages
 
 ### Protected Routes (Auth Required)
+
 - `/home` - Member dashboard
 - `/map` - Spot map (allows unverified)
 - `/spots/:id` - Spot details (allows unverified)
@@ -188,6 +201,7 @@ Users who haven't verified their email:
 - `/leaderboard` - Rankings
 
 ### Coming Soon Routes
+
 - `/game` - S.K.A.T.E. lobby
 - `/game/active` - Active game
 - `/trickmint` - Video upload
@@ -198,17 +212,20 @@ Users who haven't verified their email:
 ## Database Schema (MVP Tables)
 
 ### users (PostgreSQL)
+
 - Core user data
 - Firebase UID reference
 - Profile fields (username, stance, experience)
 
 ### spots
+
 - Location data (lat, lng)
 - Metadata (name, type, tier)
 - Creator reference
 - Status tracking
 
 ### check_ins
+
 - User → Spot relationship
 - Timestamp tracking
 - Stats aggregation
@@ -217,21 +234,22 @@ Users who haven't verified their email:
 
 ## Technical Stack
 
-| Layer | Technology |
-|-------|------------|
+| Layer    | Technology                   |
+| -------- | ---------------------------- |
 | Frontend | React 18, Vite, Tailwind CSS |
-| Maps | Leaflet, React Leaflet |
-| State | Zustand, TanStack Query |
-| Backend | Express, TypeScript |
-| Database | PostgreSQL, Drizzle ORM |
-| Auth | Firebase Authentication |
-| Hosting | Vercel (planned) |
+| Maps     | Leaflet, React Leaflet       |
+| State    | Zustand, TanStack Query      |
+| Backend  | Express, TypeScript          |
+| Database | PostgreSQL, Drizzle ORM      |
+| Auth     | Firebase Authentication      |
+| Hosting  | Vercel (planned)             |
 
 ---
 
 ## QA Checklist
 
 ### Auth
+
 - [ ] Create account works
 - [ ] Verification email arrives
 - [ ] Verification link works
@@ -240,11 +258,13 @@ Users who haven't verified their email:
 - [ ] Password reset email works
 
 ### Profile
+
 - [ ] Username uniqueness enforced
 - [ ] Username reserved correctly
 - [ ] Session persists on refresh
 
 ### Map
+
 - [ ] Map loads reliably
 - [ ] Spots display correctly
 - [ ] Add spot creates in DB
@@ -253,6 +273,7 @@ Users who haven't verified their email:
 - [ ] Unverified users blocked from posting
 
 ### Observability
+
 - [ ] Errors appear in logs
 - [ ] Audit events tracked
 - [ ] No silent failures
@@ -262,11 +283,13 @@ Users who haven't verified their email:
 ## Files Changed
 
 ### New Files
+
 - `client/src/pages/forgot-password.tsx`
 - `client/src/components/ComingSoon.tsx`
 - `client/src/components/EmailVerificationBanner.tsx`
 
 ### Modified Files
+
 - `client/src/App.tsx` - Added forgot-password route
 - `client/src/pages/signin.tsx` - Added forgot password link
 - `client/src/pages/trickmint.tsx` - Coming Soon

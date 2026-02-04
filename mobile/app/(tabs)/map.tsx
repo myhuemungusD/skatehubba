@@ -1,14 +1,14 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
-import { useQuery } from '@tanstack/react-query';
-import { apiRequest } from '@/lib/queryClient';
-import { Spot } from '@/types';
-import * as Location from 'expo-location';
-import { useState, useEffect } from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import { SKATE } from '@/theme';
-import { useRequireAuth } from '@/hooks/useRequireAuth';
-import { showMessage } from 'react-native-flash-message';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert } from "react-native";
+import MapView, { Marker } from "react-native-maps";
+import { useQuery } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { Spot } from "@/types";
+import * as Location from "expo-location";
+import { useState, useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { SKATE } from "@/theme";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { showMessage } from "react-native-flash-message";
 
 export default function MapScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -19,7 +19,7 @@ export default function MapScreen() {
   useEffect(() => {
     (async () => {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== "granted") return;
 
       const location = await Location.getCurrentPositionAsync({});
       setLocation(location);
@@ -27,21 +27,21 @@ export default function MapScreen() {
   }, []);
 
   const { data: spots, isLoading } = useQuery({
-    queryKey: ['/api/spots'],
-    queryFn: () => apiRequest('/api/spots'),
+    queryKey: ["/api/spots"],
+    queryFn: () => apiRequest("/api/spots"),
   });
 
   const handleAddSpot = () => {
-    if (!checkAuth({ message: 'Sign in to add spots' })) return;
+    if (!checkAuth({ message: "Sign in to add spots" })) return;
     setShowAddSpotModal(true);
   };
 
   const handleCheckIn = (spot: Spot) => {
-    if (!checkAuth({ message: 'Sign in to check in' })) return;
+    if (!checkAuth({ message: "Sign in to check in" })) return;
     showMessage({
-      message: 'Checked In!',
+      message: "Checked In!",
       description: `You're now at ${spot.name}`,
-      type: 'success',
+      type: "success",
       duration: 2000,
     });
   };
@@ -97,19 +97,19 @@ export default function MapScreen() {
             <Text style={styles.legendTitle}>Difficulty</Text>
             <View style={styles.legendItems}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#34c759' }]} />
+                <View style={[styles.legendDot, { backgroundColor: "#34c759" }]} />
                 <Text style={styles.legendText}>Beginner</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#ff9500' }]} />
+                <View style={[styles.legendDot, { backgroundColor: "#ff9500" }]} />
                 <Text style={styles.legendText}>Intermediate</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#ff3b30' }]} />
+                <View style={[styles.legendDot, { backgroundColor: "#ff3b30" }]} />
                 <Text style={styles.legendText}>Advanced</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#ff6600' }]} />
+                <View style={[styles.legendDot, { backgroundColor: "#ff6600" }]} />
                 <Text style={styles.legendText}>Legendary</Text>
               </View>
             </View>
@@ -125,10 +125,7 @@ export default function MapScreen() {
             >
               <View style={styles.modalOverlay}>
                 <View style={styles.modalContent}>
-                  <TouchableOpacity
-                    style={styles.modalClose}
-                    onPress={() => setSelectedSpot(null)}
-                  >
+                  <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedSpot(null)}>
                     <Ionicons name="close" size={24} color={SKATE.colors.white} />
                   </TouchableOpacity>
 
@@ -136,9 +133,15 @@ export default function MapScreen() {
                   <Text style={styles.modalDescription}>{selectedSpot.description}</Text>
 
                   <View style={styles.modalDifficulty}>
-                    <View style={[styles.legendDot, { backgroundColor: getDifficultyColor(selectedSpot.difficulty) }]} />
+                    <View
+                      style={[
+                        styles.legendDot,
+                        { backgroundColor: getDifficultyColor(selectedSpot.difficulty) },
+                      ]}
+                    />
                     <Text style={styles.modalDifficultyText}>
-                      {selectedSpot.difficulty.charAt(0).toUpperCase() + selectedSpot.difficulty.slice(1)}
+                      {selectedSpot.difficulty.charAt(0).toUpperCase() +
+                        selectedSpot.difficulty.slice(1)}
                     </Text>
                   </View>
 
@@ -175,7 +178,8 @@ export default function MapScreen() {
 
                 <Text style={styles.modalTitle}>Add New Spot</Text>
                 <Text style={styles.modalDescription}>
-                  This feature is coming soon! You'll be able to add new skate spots to share with the community.
+                  This feature is coming soon! You'll be able to add new skate spots to share with
+                  the community.
                 </Text>
 
                 <TouchableOpacity
@@ -193,13 +197,18 @@ export default function MapScreen() {
   );
 }
 
-function getDifficultyColor(difficulty: Spot['difficulty']): string {
+function getDifficultyColor(difficulty: Spot["difficulty"]): string {
   switch (difficulty) {
-    case 'beginner': return '#34c759';
-    case 'intermediate': return '#ff9500';
-    case 'advanced': return '#ff3b30';
-    case 'legendary': return '#ff6600';
-    default: return '#999';
+    case "beginner":
+      return "#34c759";
+    case "intermediate":
+      return "#ff9500";
+    case "advanced":
+      return "#ff3b30";
+    case "legendary":
+      return "#ff6600";
+    default:
+      return "#999";
   }
 }
 
@@ -208,13 +217,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   map: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     backgroundColor: SKATE.colors.ink,
   },
   loadingText: {
@@ -222,7 +231,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   fabContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 100,
     right: SKATE.spacing.lg,
   },
@@ -231,34 +240,34 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 28,
     backgroundColor: SKATE.colors.orange,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
   },
   legend: {
-    position: 'absolute',
+    position: "absolute",
     bottom: SKATE.spacing.lg,
     left: SKATE.spacing.lg,
-    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
     borderRadius: SKATE.borderRadius.lg,
     padding: SKATE.spacing.md,
   },
   legendTitle: {
     color: SKATE.colors.white,
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: SKATE.spacing.sm,
   },
   legendItems: {
     gap: SKATE.spacing.xs,
   },
   legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: SKATE.spacing.sm,
   },
   legendDot: {
@@ -272,8 +281,8 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "flex-end",
   },
   modalContent: {
     backgroundColor: SKATE.colors.grime,
@@ -283,7 +292,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   modalClose: {
-    position: 'absolute',
+    position: "absolute",
     top: SKATE.spacing.lg,
     right: SKATE.spacing.lg,
     zIndex: 1,
@@ -291,7 +300,7 @@ const styles = StyleSheet.create({
   modalTitle: {
     color: SKATE.colors.white,
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: SKATE.spacing.md,
     marginTop: SKATE.spacing.lg,
   },
@@ -302,20 +311,20 @@ const styles = StyleSheet.create({
     marginBottom: SKATE.spacing.lg,
   },
   modalDifficulty: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: SKATE.spacing.sm,
     marginBottom: SKATE.spacing.xl,
   },
   modalDifficultyText: {
     color: SKATE.colors.white,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   checkInButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     backgroundColor: SKATE.colors.orange,
     padding: SKATE.spacing.lg,
     borderRadius: SKATE.borderRadius.lg,
@@ -324,6 +333,6 @@ const styles = StyleSheet.create({
   checkInButtonText: {
     color: SKATE.colors.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });
