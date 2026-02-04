@@ -55,7 +55,24 @@ const MAX_PROCESSED_EVENTS = 50;
 // Helper Functions
 // ============================================================================
 
-function generateEventId(type: string, odv: string, battleId: string): string {
+/**
+ * Generate a deterministic event ID for idempotency.
+ *
+ * IMPORTANT: For client-initiated actions, generate the eventId ONCE before
+ * the first request attempt and reuse it on all retries. This ensures that
+ * duplicate requests (due to network timeouts) are properly deduplicated.
+ *
+ * @param type - Event type (e.g., 'vote', 'timeout')
+ * @param odv - User ID
+ * @param battleId - Battle ID
+ * @param sequenceKey - Optional deterministic key for server-side events
+ */
+function generateEventId(type: string, odv: string, battleId: string, sequenceKey?: string): string {
+  // If a sequence key is provided, use it for deterministic ID generation
+  if (sequenceKey) {
+    return `${type}-${battleId}-${odv}-${sequenceKey}`;
+  }
+  // For backward compatibility, generate a unique ID (caller should cache and reuse on retries)
   return `${type}-${battleId}-${odv}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 }
 
@@ -75,34 +92,67 @@ export async function initializeVoting(input: {
   battleId: string;
   creatorId: string;
   opponentId: string;
-}): Promise<{ success: boolean; error?: string }> {
+}): Promise<{ success: boolean; error?: string; alreadyInitialized?: boolean }> {
   const { eventId, battleId, creatorId, opponentId } = input;
 
   try {
     const now = new Date();
-    const state: BattleVoteState = {
-      battleId,
-      creatorId,
-      opponentId,
-      status: "voting",
-      votes: [],
-      votingStartedAt: now.toISOString(),
-      voteDeadlineAt: new Date(now.getTime() + VOTE_TIMEOUT_MS).toISOString(),
-      processedEventIds: [eventId],
-    };
+    const stateRef = getBattleStateRef(battleId);
 
-    await getBattleStateRef(battleId).set(state);
+    // Use transaction to prevent overwriting existing voting state
+    const result = await firestore.runTransaction(async (transaction) => {
+      const existingDoc = await transaction.get(stateRef);
 
-    // Update database status
-    if (db) {
+      // If voting state already exists, don't overwrite (idempotent behavior)
+      if (existingDoc.exists) {
+        const existingState = existingDoc.data() as BattleVoteState;
+
+        // Check if this exact event was already processed
+        if (existingState.processedEventIds.includes(eventId)) {
+          return { alreadyInitialized: true };
+        }
+
+        // Voting state exists but with different eventId - still don't overwrite
+        // This protects against erasing existing votes
+        logger.warn("[BattleState] Voting already initialized, skipping", {
+          battleId,
+          existingStatus: existingState.status,
+          existingVotesCount: existingState.votes.length,
+        });
+        return { alreadyInitialized: true };
+      }
+
+      // Create new voting state
+      const state: BattleVoteState = {
+        battleId,
+        creatorId,
+        opponentId,
+        status: "voting",
+        votes: [],
+        votingStartedAt: now.toISOString(),
+        voteDeadlineAt: new Date(now.getTime() + VOTE_TIMEOUT_MS).toISOString(),
+        processedEventIds: [eventId],
+      };
+
+      transaction.set(stateRef, state);
+      return { alreadyInitialized: false };
+    });
+
+    // Update database status (only if we actually created the state)
+    if (!result.alreadyInitialized && db) {
       await db
         .update(battles)
         .set({ status: "voting", updatedAt: now })
         .where(eq(battles.id, battleId));
     }
 
-    logger.info("[BattleState] Voting initialized", { battleId, creatorId, opponentId });
-    return { success: true };
+    if (result.alreadyInitialized) {
+      logger.info("[BattleState] Voting already initialized (idempotent)", { battleId });
+    } else {
+      logger.info("[BattleState] Voting initialized", { battleId, creatorId, opponentId });
+    }
+
+    return { success: true, alreadyInitialized: result.alreadyInitialized };
   } catch (error) {
     logger.error("[BattleState] Failed to initialize voting", { error, battleId });
     return { success: false, error: "Failed to initialize voting" };
@@ -417,20 +467,45 @@ export async function processVoteTimeouts(): Promise<void> {
         reason = "both_timeout";
       }
 
-      const eventId = generateEventId("timeout", winnerId, state.battleId);
+      // Use voteDeadlineAt as sequence key for deterministic timeout event IDs
+      const sequenceKey = `deadline-${state.voteDeadlineAt}`;
+      const eventId = generateEventId("timeout", winnerId, state.battleId, sequenceKey);
 
-      // Check idempotency
-      if (state.processedEventIds.includes(eventId)) {
+      // Use transaction to prevent race conditions when multiple timeout processors run
+      const updated = await firestore.runTransaction(async (transaction) => {
+        const stateRef = getBattleStateRef(state.battleId);
+        const freshDoc = await transaction.get(stateRef);
+
+        if (!freshDoc.exists) {
+          return false;
+        }
+
+        const freshState = freshDoc.data() as BattleVoteState;
+
+        // Check idempotency inside transaction
+        if (freshState.processedEventIds.includes(eventId)) {
+          return false;
+        }
+
+        // Check if still in voting status (may have been resolved by another process)
+        if (freshState.status !== "voting") {
+          return false;
+        }
+
+        transaction.update(stateRef, {
+          status: "completed",
+          winnerId,
+          processedEventIds: [...freshState.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
+        });
+
+        return true;
+      });
+
+      if (!updated) {
         continue;
       }
 
-      await getBattleStateRef(state.battleId).update({
-        status: "completed",
-        winnerId,
-        processedEventIds: [...state.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
-      });
-
-      // Update database
+      // Update database outside transaction (already committed to Firestore)
       if (db) {
         await db
           .update(battles)

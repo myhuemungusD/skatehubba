@@ -84,7 +84,27 @@ function isEliminated(letters: string): boolean {
   return letters === SKATE;
 }
 
-function generateEventId(type: string, odv: string, gameId: string): string {
+/**
+ * Generate a deterministic event ID for idempotency.
+ *
+ * IMPORTANT: For client-initiated actions, generate the eventId ONCE before
+ * the first request attempt and reuse it on all retries. This ensures that
+ * duplicate requests (due to network timeouts) are properly deduplicated.
+ *
+ * For server-side timeout processing, include a sequence number or timestamp
+ * bucket to ensure deterministic IDs for the same logical timeout event.
+ *
+ * @param type - Event type (e.g., 'trick', 'join', 'timeout')
+ * @param odv - User ID
+ * @param gameId - Game ID
+ * @param sequenceKey - Optional deterministic key (e.g., turn number, timestamp bucket)
+ */
+function generateEventId(type: string, odv: string, gameId: string, sequenceKey?: string): string {
+  // If a sequence key is provided, use it for deterministic ID generation
+  if (sequenceKey) {
+    return `${type}-${gameId}-${odv}-${sequenceKey}`;
+  }
+  // For backward compatibility, generate a unique ID (caller should cache and reuse on retries)
   return `${type}-${gameId}-${odv}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
 }
 
@@ -289,12 +309,12 @@ export async function submitTrick(input: {
         }
 
         // Check if we've gone through all attempters and need a new setter
-        const settterIndex = game.players.findIndex((p) => p.odv === game.setterId);
-        const isBackToSetter = nextTurnIndex === settterIndex;
+        const setterIndex = game.players.findIndex((p) => p.odv === game.setterId);
+        const isBackToSetter = nextTurnIndex === setterIndex;
 
         updates = {
           currentTurnIndex: isBackToSetter
-            ? (settterIndex + 1) % game.players.length
+            ? (setterIndex + 1) % game.players.length
             : nextTurnIndex,
           currentAction: isBackToSetter ? "set" : "attempt",
           currentTrick: isBackToSetter ? undefined : game.currentTrick,
@@ -709,7 +729,10 @@ export async function processTimeouts(): Promise<void> {
       const currentPlayer = game.players[game.currentTurnIndex];
 
       if (currentPlayer) {
-        const eventId = generateEventId("timeout", currentPlayer.odv, game.id);
+        // Use turnDeadlineAt as sequence key for deterministic timeout event IDs
+        // This ensures multiple timeout processor runs for the same deadline are idempotent
+        const sequenceKey = `deadline-${game.turnDeadlineAt}`;
+        const eventId = generateEventId("timeout", currentPlayer.odv, game.id, sequenceKey);
 
         // During attempt phase, timeout means defender wins (they don't get a letter)
         // The setter's trick is invalidated - new round starts
@@ -781,7 +804,9 @@ export async function processTimeouts(): Promise<void> {
           const elapsed = now.getTime() - disconnectedTime;
 
           if (elapsed > RECONNECT_WINDOW_MS) {
-            const eventId = generateEventId("disconnect_timeout", player.odv, game.id);
+            // Use disconnectedAt as sequence key for deterministic disconnect timeout event IDs
+            const sequenceKey = `disconnected-${player.disconnectedAt}`;
+            const eventId = generateEventId("disconnect_timeout", player.odv, game.id, sequenceKey);
             await forfeitGame({
               eventId,
               gameId: game.id,
