@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   ArrowLeft,
   Lock,
-  AlertTriangle,
   Sparkles,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
@@ -44,7 +43,7 @@ export default function CheckinsPage() {
 
   const [state, setState] = useState<LoadState>("idle");
   const [checkins, setCheckins] = useState<CheckInResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
 
   const totalCount = checkins.length;
 

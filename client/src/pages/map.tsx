@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import {
   MapPin,
   Navigation as NavigationIcon,
-  AlertCircle,
   Plus,
   Clock,
   Eye,
