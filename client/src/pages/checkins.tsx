@@ -10,8 +10,8 @@ import {
   CheckCircle2,
   ArrowLeft,
   Lock,
-  AlertTriangle,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import type { CheckInResult } from "../../../packages/shared/checkin-types";
@@ -44,7 +44,7 @@ export default function CheckinsPage() {
 
   const [state, setState] = useState<LoadState>("idle");
   const [checkins, setCheckins] = useState<CheckInResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [_error, setError] = useState<string | null>(null);
 
   const totalCount = checkins.length;
 
@@ -162,17 +162,18 @@ export default function CheckinsPage() {
               </CardContent>
             </Card>
           ) : state === "error" ? (
-            <Card className="bg-red-900/20 backdrop-blur-md border-red-900/50 text-center py-16">
+            <Card className="bg-black/60 backdrop-blur-md border-zinc-800 border-dashed text-center py-16">
               <CardContent>
                 <AlertTriangle className="mx-auto mb-6 h-12 w-12 text-red-400" aria-hidden />
-                <h2 className="text-2xl font-bold mb-4 text-red-400">Error Loading Data</h2>
-                <p className="text-gray-400 mb-8">{error ?? "Failed to load check-ins."}</p>
+                <h2 className="text-2xl font-bold mb-4 text-white">Failed to Load Check-ins</h2>
+                <p className="text-gray-400 mb-6">
+                  {_error || "An error occurred while loading your check-ins."}
+                </p>
                 <Button
-                  variant="outline"
-                  className="border-red-900/50 hover:bg-red-900/20"
                   onClick={() => window.location.reload()}
+                  className="bg-orange-500 hover:bg-orange-600 px-10 py-6 text-lg font-bold"
                 >
-                  Retry
+                  Try Again
                 </Button>
               </CardContent>
             </Card>
