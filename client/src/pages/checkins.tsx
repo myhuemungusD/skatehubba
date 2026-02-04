@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Lock,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import type { CheckInResult } from "../../../packages/shared/checkin-types";
@@ -165,7 +166,9 @@ export default function CheckinsPage() {
               <CardContent>
                 <AlertTriangle className="mx-auto mb-6 h-12 w-12 text-red-400" aria-hidden />
                 <h2 className="text-2xl font-bold mb-4 text-white">Failed to Load Check-ins</h2>
-                <p className="text-gray-400 mb-6">{error || "An error occurred while loading your check-ins."}</p>
+                <p className="text-gray-400 mb-6">
+                  {_error || "An error occurred while loading your check-ins."}
+                </p>
                 <Button
                   onClick={() => window.location.reload()}
                   className="bg-orange-500 hover:bg-orange-600 px-10 py-6 text-lg font-bold"
