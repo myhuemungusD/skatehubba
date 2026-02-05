@@ -5,13 +5,16 @@ import { useAuth } from "../hooks/useAuth";
 import { ensureProfile } from "../lib/profile/ensureProfile";
 
 const ALLOWED_GUEST_ROUTES = new Set<string>([
+  "/hub",
   "/map",
+  "/play",
+  "/me",
+  "/leaderboard",
+  // Legacy routes that redirect to new paths
+  "/home",
   "/skate-game",
   "/game",
   "/game/active",
-  "/leaderboard",
-  "/shop",
-  "/home",
 ]);
 
 export function GuestGate({ children }: { children: React.ReactNode }) {
