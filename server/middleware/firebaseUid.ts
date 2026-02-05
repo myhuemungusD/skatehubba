@@ -66,7 +66,7 @@ export async function requireFirebaseUid(
     next();
   } catch (error) {
     // Don't leak error details to client
-    logger.error("[FirebaseAuth] Token verification failed", { error: String(error) });
+    logger.error("[FirebaseAuth] Token verification failed", { error });
     res.status(401).json({
       error: "auth_required",
       message: "Invalid or expired token.",

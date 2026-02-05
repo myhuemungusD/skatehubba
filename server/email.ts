@@ -46,7 +46,7 @@ export async function sendSubscriberNotification(subscriberData: { firstName: st
     await transporter.sendMail(mailOptions);
     logger.info('Subscriber notification email sent successfully');
   } catch (error) {
-    logger.error('Failed to send subscriber notification email', { error: String(error) });
+    logger.error('Failed to send subscriber notification email', { error });
     // Don't throw error - we don't want subscription to fail if email fails
   }
 }

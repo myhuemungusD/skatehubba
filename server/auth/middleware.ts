@@ -60,7 +60,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
         req.currentUser = { ...user, roles };
         return next();
       } catch (sessionError) {
-        logger.error("Session verification failed", { error: String(sessionError) });
+        logger.error("Session verification failed", { error: sessionError });
         // Fall through to try Authorization header
       }
     }
@@ -95,11 +95,11 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
       req.currentUser = { ...user, roles };
       next();
     } catch (firebaseError) {
-      logger.error("Firebase token verification failed", { error: String(firebaseError) });
+      logger.error("Firebase token verification failed", { error: firebaseError });
       return res.status(401).json({ error: GENERIC_AUTH_ERROR });
     }
   } catch (error) {
-    logger.error("Authentication error", { error: String(error) });
+    logger.error("Authentication error", { error });
     res.status(500).json({ error: GENERIC_AUTH_ERROR });
   }
 };
@@ -263,7 +263,7 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
       code: "ADMIN_REQUIRED",
     });
   } catch (error) {
-    logger.error("Admin check failed", { error: String(error) });
+    logger.error("Admin check failed", { error });
     return res.status(403).json({
       error: "Admin access required",
       code: "ADMIN_REQUIRED",
