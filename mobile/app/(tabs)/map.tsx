@@ -2,7 +2,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert } fro
 import MapView, { Marker } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Spot } from "@/types";
+import type { Spot } from "shared";
 import * as Location from "expo-location";
 import { useState, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
