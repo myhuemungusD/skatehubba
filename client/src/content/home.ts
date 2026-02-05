@@ -7,7 +7,6 @@ import {
   Shield,
   CheckCircle,
   Zap,
-  ShoppingBag,
   Trophy,
   User,
 } from "lucide-react";
@@ -35,16 +34,9 @@ export const homeContent = {
         color: "bg-blue-500",
       },
       {
-        icon: ShoppingBag,
-        label: "Hubba Shop",
-        href: "/shop",
-        description: "Gear and collectibles",
-        color: "bg-orange-500",
-      },
-      {
         icon: User,
         label: "Profile",
-        href: "/closet",
+        href: "/me",
         description: "View your progress",
         color: "bg-green-500",
       },
