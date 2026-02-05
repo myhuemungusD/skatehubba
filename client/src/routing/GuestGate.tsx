@@ -4,20 +4,17 @@ import { GUEST_MODE } from "../config/flags";
 import { useAuth } from "../hooks/useAuth";
 import { ensureProfile } from "../lib/profile/ensureProfile";
 
-// Routes that don't make sense in guest mode (auth flows, landing).
-// Everything else is allowed by default so new routes work without updating this list.
-const GUEST_BLOCKED_ROUTES = new Set<string>([
-  "/landing",
-  "/auth",
-  "/login",
-  "/signup",
-  "/signin",
-  "/forgot-password",
-  "/verify",
-  "/auth/verify",
-  "/verify-email",
-  "/verified",
-  "/profile/setup",
+const ALLOWED_GUEST_ROUTES = new Set<string>([
+  "/hub",
+  "/map",
+  "/play",
+  "/me",
+  "/leaderboard",
+  // Legacy routes that redirect to new paths
+  "/home",
+  "/skate-game",
+  "/game",
+  "/game/active",
 ]);
 
 export function GuestGate({ children }: { children: React.ReactNode }) {
@@ -26,7 +23,11 @@ export function GuestGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   const isAllowed = useMemo(() => {
-    return !GUEST_BLOCKED_ROUTES.has(loc);
+    const pathname = loc.split("?")[0];
+    if (ALLOWED_GUEST_ROUTES.has(pathname)) return true;
+    if (pathname.startsWith("/map/")) return true;
+    if (pathname.startsWith("/spots/")) return true;
+    return false;
   }, [loc]);
 
   useEffect(() => {
