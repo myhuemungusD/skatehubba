@@ -8,6 +8,7 @@ import {
   generateSitemapXml,
   validateEntry,
   validateAllEntries,
+  type CategorizedEntry,
 } from "../sitemap-config";
 
 describe("SITE_BASE_URL", () => {
@@ -72,13 +73,13 @@ describe("getEnabledEntries", () => {
 
 describe("getEntriesByCategory", () => {
   it("returns only core entries", () => {
-    const core = getEntriesByCategory("core");
+    const core = getEntriesByCategory("core") as CategorizedEntry[];
     expect(core.length).toBeGreaterThan(0);
     expect(core.every((e) => e.category === "core")).toBe(true);
   });
 
   it("returns only legal entries", () => {
-    const legal = getEntriesByCategory("legal");
+    const legal = getEntriesByCategory("legal") as CategorizedEntry[];
     expect(legal.length).toBeGreaterThan(0);
     expect(legal.every((e) => e.category === "legal")).toBe(true);
   });
