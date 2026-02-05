@@ -9,9 +9,9 @@ const ALLOWED_GUEST_ROUTES = new Set<string>([
   "/hub",
   "/play",
   "/me",
-  "/feed",
   "/leaderboard",
   // Legacy routes (still handled by App.tsx redirects)
+  "/feed",
   "/home",
   "/skate-game",
   "/game",
