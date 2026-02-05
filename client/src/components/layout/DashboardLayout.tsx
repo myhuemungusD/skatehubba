@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, MapPin, Gamepad2, ShoppingBag, User } from "lucide-react";
+import { Home, MapPin, Gamepad2, Trophy, User } from "lucide-react";
 import { useIsMobile } from "../../hooks/use-mobile";
 
 interface DashboardLayoutProps {
@@ -8,11 +8,11 @@ interface DashboardLayoutProps {
 }
 
 const navItems = [
-  { label: "Hub", href: "/hub", icon: Home },
-  { label: "Spots", href: "/map", icon: MapPin },
+  { label: "Home", href: "/hub", icon: Home },
+  { label: "Map", href: "/map", icon: MapPin },
   { label: "Play", href: "/play", icon: Gamepad2 },
-  { label: "Shop", href: "/shop", icon: ShoppingBag },
-  { label: "Me", href: "/me", icon: User },
+  { label: "Ranks", href: "/leaderboard", icon: Trophy },
+  { label: "Profile", href: "/me", icon: User },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {

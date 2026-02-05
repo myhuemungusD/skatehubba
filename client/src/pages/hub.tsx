@@ -1,21 +1,19 @@
 import { useState, lazy, Suspense } from "react";
 import { useLocation, useSearch } from "wouter";
-import { Home, Activity, User, Users } from "lucide-react";
+import { Home, Activity, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
 // Lazy load tab content for better performance
 const HomeContent = lazy(() => import("./home"));
 const FeedContent = lazy(() => import("./feed"));
-const ClosetContent = lazy(() => import("./closet"));
 const BoltsShowcaseContent = lazy(() => import("@/features/social/bolts-showcase/BoltsShowcase"));
 
-type HubTab = "overview" | "activity" | "profile" | "community";
+type HubTab = "overview" | "activity" | "community";
 
 const tabs: { id: HubTab; label: string; icon: typeof Home }[] = [
   { id: "overview", label: "Overview", icon: Home },
   { id: "activity", label: "Activity", icon: Activity },
-  { id: "profile", label: "Profile", icon: User },
   { id: "community", label: "Community", icon: Users },
 ];
 
@@ -77,12 +75,6 @@ export default function HubPage() {
           {activeTab === "activity" && (
             <section aria-label="Live Activity Feed">
               <FeedContent />
-            </section>
-          )}
-
-          {activeTab === "profile" && (
-            <section aria-label="Your Profile">
-              <ClosetContent />
             </section>
           )}
 
