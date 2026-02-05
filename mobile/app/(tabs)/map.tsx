@@ -69,13 +69,13 @@ export default function MapScreen() {
               <Marker
                 key={spot.id}
                 coordinate={{
-                  latitude: spot.lat,
-                  longitude: spot.lng,
+                  latitude: spot.latitude,
+                  longitude: spot.longitude,
                 }}
                 title={spot.name}
-                description={spot.description ?? undefined}
-                pinColor={getTierColor(spot.tier)}
-                accessibilityLabel={`${spot.name} skate spot, ${spot.tier ?? "bronze"} tier`}
+                description={spot.description}
+                pinColor={getDifficultyColor(spot.difficulty)}
+                accessibilityLabel={`${spot.name} skate spot, ${spot.difficulty} difficulty`}
                 onCalloutPress={() => setSelectedSpot(spot)}
               />
             ))}
@@ -94,19 +94,19 @@ export default function MapScreen() {
 
           {/* Legend */}
           <View style={styles.legend}>
-            <Text style={styles.legendTitle}>Tier</Text>
+            <Text style={styles.legendTitle}>Difficulty</Text>
             <View style={styles.legendItems}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#cd7f32" }]} />
-                <Text style={styles.legendText}>Bronze</Text>
+                <View style={[styles.legendDot, { backgroundColor: "#34c759" }]} />
+                <Text style={styles.legendText}>Beginner</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#c0c0c0" }]} />
-                <Text style={styles.legendText}>Silver</Text>
+                <View style={[styles.legendDot, { backgroundColor: "#ff9500" }]} />
+                <Text style={styles.legendText}>Intermediate</Text>
               </View>
               <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#ffd700" }]} />
-                <Text style={styles.legendText}>Gold</Text>
+                <View style={[styles.legendDot, { backgroundColor: "#ff3b30" }]} />
+                <Text style={styles.legendText}>Advanced</Text>
               </View>
               <View style={styles.legendItem}>
                 <View style={[styles.legendDot, { backgroundColor: "#ff6600" }]} />
@@ -136,12 +136,12 @@ export default function MapScreen() {
                     <View
                       style={[
                         styles.legendDot,
-                        { backgroundColor: getTierColor(selectedSpot.tier) },
+                        { backgroundColor: getDifficultyColor(selectedSpot.difficulty) },
                       ]}
                     />
                     <Text style={styles.modalDifficultyText}>
-                      {(selectedSpot.tier ?? "bronze").charAt(0).toUpperCase() +
-                        (selectedSpot.tier ?? "bronze").slice(1)}
+                      {selectedSpot.difficulty.charAt(0).toUpperCase() +
+                        selectedSpot.difficulty.slice(1)}
                     </Text>
                   </View>
 
@@ -197,18 +197,18 @@ export default function MapScreen() {
   );
 }
 
-function getTierColor(tier: Spot["tier"]): string {
-  switch (tier) {
-    case "bronze":
-      return "#cd7f32";
-    case "silver":
-      return "#c0c0c0";
-    case "gold":
-      return "#ffd700";
+function getDifficultyColor(difficulty: Spot["difficulty"]): string {
+  switch (difficulty) {
+    case "beginner":
+      return "#34c759";
+    case "intermediate":
+      return "#ff9500";
+    case "advanced":
+      return "#ff3b30";
     case "legendary":
       return "#ff6600";
     default:
-      return "#cd7f32"; // Default to bronze
+      return "#999";
   }
 }
 
