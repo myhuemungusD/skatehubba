@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Video, Pause, RotateCcw, Check, X } from "lucide-react";
+import { logger } from "../../lib/logger";
 
 interface TrickRecorderProps {
   spotId: string;
@@ -37,7 +38,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
           audio: true,
         });
       } catch (constraintError) {
-        console.warn(
+        logger.warn(
           "Back camera or facingMode constraint not available, retrying without facingMode:",
           constraintError
         );
@@ -57,7 +58,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
         setCameraReady(true);
       }
     } catch (error) {
-      console.error("Error accessing camera:", error);
+      logger.error("Error accessing camera:", error);
       alert("Unable to access camera. Please check permissions.");
     }
   }, []);
@@ -129,7 +130,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
       setIsRecording(true);
       setRecordingTime(0);
     } catch (error) {
-      console.error("Error starting recording:", error);
+      logger.error("Error starting recording:", error);
       alert("Unable to start recording.");
     }
   };

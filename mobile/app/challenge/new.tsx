@@ -143,7 +143,7 @@ export default function NewChallengeScreen() {
 
   // FFmpeg optimization for <6s LTE upload (requires react-native-ffmpeg or expo-av)
   // const ffmpegCommand = `-i ${videoUri} -c:v h264 -b:v 4M -maxrate 4M -bufsize 8M -preset ultrafast -r 30 -vf "scale=1280:720" -c:a aac -b:a 128k ${outputPath}`;
-  // TODO: Add video compression before upload to reduce file size by 60-70%
+  // NOTE: Video compression (FFmpeg, ~60-70% size reduction) deferred to mobile Phase 2.
 
   const stopRecording = () => {
     if (cameraRef.current) {

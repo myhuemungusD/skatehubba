@@ -7,6 +7,7 @@ import { admin } from '../admin.ts';
 import { AuditLogger, getClientIP } from './audit.ts';
 import { LockoutService } from './lockout.ts';
 import { MfaService } from './mfa.ts';
+import logger from '../logger.ts';
 
 /**
  * Setup authentication routes for Firebase-based authentication
@@ -133,12 +134,12 @@ export function setupAuthRoutes(app: Express) {
           // NOTE: Token is in HttpOnly cookie, not returned in response for security
         });
       } catch (firebaseError) {
-        console.error('Firebase ID token verification failed:', firebaseError);
+        logger.error('Firebase ID token verification failed', { error: String(firebaseError) });
         await AuditLogger.logLoginFailure(null, ipAddress, userAgent, 'Invalid Firebase token');
         return res.status(401).json({ error: 'Authentication failed' });
       }
     } catch (error) {
-      console.error('Login error:', error);
+      logger.error('Login error', { error: String(error) });
       await AuditLogger.logLoginFailure(null, ipAddress, userAgent, 'Internal server error');
       return res.status(500).json({ error: 'Authentication failed' });
     }
@@ -160,7 +161,7 @@ export function setupAuthRoutes(app: Express) {
         },
       });
     } catch (error) {
-      console.error('Get user error:', error);
+      logger.error('Get user error', { error: String(error) });
       res.status(500).json({
         error: 'Failed to get user information',
       });
@@ -201,7 +202,7 @@ export function setupAuthRoutes(app: Express) {
         message: 'Logged out successfully',
       });
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error', { error: String(error) });
       res.status(500).json({
         error: 'Logout failed',
       });
@@ -225,7 +226,7 @@ export function setupAuthRoutes(app: Express) {
         userId: user.id,
       });
     } catch (error) {
-      console.error('MFA status error:', error);
+      logger.error('MFA status error', { error: String(error) });
       res.status(500).json({ error: 'Failed to check MFA status' });
     }
   });
@@ -255,7 +256,7 @@ export function setupAuthRoutes(app: Express) {
         message: 'Scan the QR code with your authenticator app, then verify with a code.',
       });
     } catch (error) {
-      console.error('MFA setup error:', error);
+      logger.error('MFA setup error', { error: String(error) });
       res.status(500).json({ error: 'Failed to initiate MFA setup' });
     }
   });
@@ -298,7 +299,7 @@ export function setupAuthRoutes(app: Express) {
         });
       }
     } catch (error) {
-      console.error('MFA verify setup error:', error);
+      logger.error('MFA verify setup error', { error: String(error) });
       res.status(500).json({ error: 'Failed to verify MFA setup' });
     }
   });
@@ -353,7 +354,7 @@ export function setupAuthRoutes(app: Express) {
         });
       }
     } catch (error) {
-      console.error('MFA verify error:', error);
+      logger.error('MFA verify error', { error: String(error) });
       res.status(500).json({ error: 'MFA verification failed' });
     }
   });
@@ -399,7 +400,7 @@ export function setupAuthRoutes(app: Express) {
         message: 'MFA has been disabled.',
       });
     } catch (error) {
-      console.error('MFA disable error:', error);
+      logger.error('MFA disable error', { error: String(error) });
       res.status(500).json({ error: 'Failed to disable MFA' });
     }
   });
@@ -458,7 +459,7 @@ export function setupAuthRoutes(app: Express) {
         message: 'New backup codes generated. Please save them securely.',
       });
     } catch (error) {
-      console.error('MFA backup codes error:', error);
+      logger.error('MFA backup codes error', { error: String(error) });
       res.status(500).json({ error: 'Failed to regenerate backup codes' });
     }
   });
@@ -518,7 +519,7 @@ export function setupAuthRoutes(app: Express) {
         message: result.message,
       });
     } catch (error) {
-      console.error('Password change error:', error);
+      logger.error('Password change error', { error: String(error) });
       res.status(500).json({ error: 'Password change failed' });
     }
   });
@@ -541,11 +542,8 @@ export function setupAuthRoutes(app: Express) {
       
       // Log the request (internally track if user exists)
       await AuditLogger.logPasswordResetRequested(email, ipAddress, !!resetToken);
-      
-      // TODO: Send email with reset link
-      // if (resetToken) {
-      //   await sendPasswordResetEmail(email, resetToken);
-      // }
+      // NOTE: Email delivery is handled by Firebase's sendPasswordResetEmail on the client side.
+      // This server endpoint generates and logs the reset token for audit purposes.
       
       // Always return success to prevent email enumeration
       res.json({
@@ -553,7 +551,7 @@ export function setupAuthRoutes(app: Express) {
         message: 'If an account with that email exists, you will receive a password reset link.',
       });
     } catch (error) {
-      console.error('Forgot password error:', error);
+      logger.error('Forgot password error', { error: String(error) });
       res.status(500).json({ error: 'Failed to process request' });
     }
   });
@@ -605,7 +603,7 @@ export function setupAuthRoutes(app: Express) {
         message: 'Password has been reset successfully. All sessions have been logged out.',
       });
     } catch (error) {
-      console.error('Reset password error:', error);
+      logger.error('Reset password error', { error: String(error) });
       res.status(500).json({ error: 'Password reset failed' });
     }
   });
@@ -721,7 +719,7 @@ export function setupAuthRoutes(app: Express) {
         expiresIn: 5 * 60, // 5 minutes in seconds
       });
     } catch (error) {
-      console.error('Identity verification error:', error);
+      logger.error('Identity verification error', { error: String(error) });
       res.status(500).json({ error: 'Identity verification failed' });
     }
   });

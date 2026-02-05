@@ -11,6 +11,7 @@ import { Progress } from "../../components/ui/progress";
 import { usernameSchema } from "@shared/schema";
 import { apiRequest, buildApiUrl } from "../../lib/api/client";
 import { getUserFriendlyMessage, isApiError } from "../../lib/api/errors";
+import { logger } from "../../lib/logger";
 
 /**
  * Enterprise rules applied:
@@ -19,7 +20,7 @@ import { getUserFriendlyMessage, isApiError } from "../../lib/api/errors";
  * - Username availability check is cancelable (AbortController) + debounced.
  * - No undefined variables / no implicit contracts.
  * - Upload path remains JSON-based for now (base64) but guarded and isolated.
- *   TODO (recommended): move avatar upload to Storage and send storagePath.
+ *   NOTE: Avatar upload currently uses base64 JSON. Migrate to Firebase Storage when scaling.
  * - Supports ?next= param to preserve user's intended destination.
  */
 
@@ -183,7 +184,7 @@ export default function ProfileSetup() {
 
         // Network or server issue - allow submit, but show warning
         if (!usernameWarnedRef.current) {
-          console.warn("[ProfileSetup] Username check failed", error);
+          logger.warn("[ProfileSetup] Username check failed", error);
           usernameWarnedRef.current = true;
         }
         setUsernameStatus("unverified");
@@ -317,7 +318,7 @@ export default function ProfileSetup() {
         const nextUrl = getNextUrl();
         setLocation(nextUrl, { replace: true });
       } catch (error) {
-        console.error("[ProfileSetup] Failed to create profile", error);
+        logger.error("[ProfileSetup] Failed to create profile", error);
         if (isApiError(error)) {
           const details = error.details as Record<string, unknown> | undefined;
           const errorCode = typeof details?.error === "string" ? details.error : undefined;

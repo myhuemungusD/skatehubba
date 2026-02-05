@@ -5,6 +5,7 @@ import { type Server } from "http";
 import { nanoid } from "nanoid";
 import { fileURLToPath } from "node:url";
 import { staticFileLimiter } from "./middleware/security";
+import serverLogger from "./logger";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..");
@@ -40,7 +41,7 @@ export function log(message: string, source = "express") {
     hour12: true,
   });
 
-  console.log(`${formattedTime} [${source}] ${message}`);
+  serverLogger.info(`[${source}] ${message}`);
 }
 
 export async function setupVite(app: Express, server: Server) {

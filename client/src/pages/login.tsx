@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { SiGoogle } from "react-icons/si";
 import { UserCircle, Copy, Check } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { logger } from "../lib/logger";
 import { trackEvent } from "../lib/analytics";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
@@ -63,8 +64,8 @@ export default function LoginPage() {
   useEffect(() => {
     const isEmbedded = isEmbeddedBrowser();
     setInEmbeddedBrowser(isEmbedded);
-    console.log("[Login] User agent:", navigator.userAgent);
-    console.log("[Login] Is embedded browser:", isEmbedded);
+    logger.log("[Login] User agent:", navigator.userAgent);
+    logger.log("[Login] Is embedded browser:", isEmbedded);
   }, []);
 
   // Redirect when authenticated and profile status is known

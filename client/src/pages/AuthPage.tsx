@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Checkbox } from "../components/ui/checkbox";
 import { useToast } from "../hooks/use-toast";
 import { useAuth } from "../hooks/useAuth";
+import { logger } from "../lib/logger";
 import { setAuthPersistence } from "../lib/firebase";
 
 /**
@@ -126,8 +127,8 @@ export default function AuthPage() {
   useEffect(() => {
     const isEmbedded = isEmbeddedBrowser();
     setInEmbeddedBrowser(isEmbedded);
-    console.log("[AuthPage] User agent:", navigator.userAgent);
-    console.log("[AuthPage] Is embedded browser:", isEmbedded);
+    logger.log("[AuthPage] User agent:", navigator.userAgent);
+    logger.log("[AuthPage] Is embedded browser:", isEmbedded);
   }, []);
 
   // Handle case where auth context is not available yet
@@ -160,17 +161,17 @@ export default function AuthPage() {
       return;
     }
     try {
-      console.log("[AuthPage] Attempting sign in...");
+      logger.log("[AuthPage] Attempting sign in...");
       // Set persistence before signing in
       await setAuthPersistence(rememberMe);
       await signIn(data.email, data.password);
-      console.log("[AuthPage] Sign in successful");
+      logger.log("[AuthPage] Sign in successful");
       toast({
         title: "Welcome back! ",
         description: "You have successfully signed in.",
       });
     } catch (error) {
-      console.error("[AuthPage] Sign in error:", error);
+      logger.error("[AuthPage] Sign in error:", error);
       // Get the actual error message from AuthError
       const authError = error as { message?: string; code?: string };
       const message = authError.message || "Sign in failed. Please check your credentials.";
@@ -192,20 +193,20 @@ export default function AuthPage() {
       });
       return;
     }
-    console.log("[AuthPage] handleSignUp called:", { email: data.email });
+    logger.log("[AuthPage] handleSignUp called:", { email: data.email });
     try {
       await signUp(data.email, data.password);
-      console.log("[AuthPage] Sign up successful!");
+      logger.log("[AuthPage] Sign up successful!");
       toast({
         title: "Account Created! ",
         description: "Please check your email to verify your account.",
       });
       setLocation("/verify");
     } catch (error) {
-      console.error("[AuthPage] Sign up error:", error);
+      logger.error("[AuthPage] Sign up error:", error);
       const authError = error as { message?: string; code?: string };
       const message = authError.message || "Sign up failed. Please try again.";
-      console.error("[AuthPage] Displaying error:", message);
+      logger.error("[AuthPage] Displaying error:", message);
       toast({
         title: "Registration Failed",
         description: message,
