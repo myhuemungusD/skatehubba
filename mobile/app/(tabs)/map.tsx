@@ -140,8 +140,10 @@ export default function MapScreen() {
                       ]}
                     />
                     <Text style={styles.modalDifficultyText}>
-                      {(selectedSpot.tier ?? "bronze").charAt(0).toUpperCase() +
-                        (selectedSpot.tier ?? "bronze").slice(1)}
+                      {(() => {
+                        const tierValue = selectedSpot.tier ?? "bronze";
+                        return tierValue.charAt(0).toUpperCase() + tierValue.slice(1);
+                      })()}
                     </Text>
                   </View>
 
