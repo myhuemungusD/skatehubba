@@ -1,19 +1,17 @@
 import { useState, lazy, Suspense } from "react";
 import { useLocation, useSearch } from "wouter";
-import { Shirt, History, Settings, User } from "lucide-react";
+import { History, Settings, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAuth } from "@/hooks/useAuth";
 
 // Lazy load tab content
-const ClosetContent = lazy(() => import("./closet"));
 const CheckinsContent = lazy(() => import("./checkins"));
 const SettingsContent = lazy(() => import("./settings"));
 
-type ProfileTab = "closet" | "history" | "settings";
+type ProfileTab = "history" | "settings";
 
 const tabs: { id: ProfileTab; label: string; icon: typeof User; mobileLabel: string }[] = [
-  { id: "closet", label: "My Closet", icon: Shirt, mobileLabel: "Closet" },
   { id: "history", label: "Check-in History", icon: History, mobileLabel: "History" },
   { id: "settings", label: "Settings", icon: Settings, mobileLabel: "Settings" },
 ];
@@ -27,7 +25,7 @@ export default function ProfilePage() {
   // Get initial tab from URL query param
   const urlTab = new URLSearchParams(search).get("tab") as ProfileTab | null;
   const [activeTab, setActiveTab] = useState<ProfileTab>(
-    urlTab && tabs.some((t) => t.id === urlTab) ? urlTab : "closet"
+    urlTab && tabs.some((t) => t.id === urlTab) ? urlTab : "history"
   );
 
   const handleTabChange = (tab: ProfileTab) => {
@@ -88,12 +86,6 @@ export default function ProfilePage() {
       {/* Tab Content */}
       <Suspense fallback={<LoadingScreen />}>
         <div className="min-h-[60vh]">
-          {activeTab === "closet" && (
-            <section aria-label="Your Closet">
-              <ClosetContent />
-            </section>
-          )}
-
           {activeTab === "history" && (
             <section aria-label="Check-in History">
               <CheckinsContent />

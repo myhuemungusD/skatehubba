@@ -16,11 +16,11 @@ export function useNavItems(): NavItem[] {
       ];
     }
     return [
-      { label: "HUB", href: "/hub" },
-      { label: "S.K.A.T.E", href: "/play" },
-      { label: "SPOTMAP", href: "/map" },
-      { label: "HUBBA SHOP", href: "/shop" },
-      { label: "MY PROFILE", href: "/me" },
+      { label: "HOME", href: "/hub" },
+      { label: "MAP", href: "/map" },
+      { label: "PLAY", href: "/play" },
+      { label: "RANKS", href: "/leaderboard" },
+      { label: "PROFILE", href: "/me" },
     ];
   }, []);
 }
