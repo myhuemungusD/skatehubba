@@ -1,5 +1,4 @@
 import {
-  Users,
   MapPin,
   Gamepad2,
   Award,
@@ -22,7 +21,7 @@ export const homeContent = {
       {
         icon: Gamepad2,
         label: "S.K.A.T.E",
-        href: "/game",
+        href: "/play",
         description: "Challenge someone",
         color: "bg-purple-500",
       },
@@ -46,13 +45,6 @@ export const homeContent = {
         href: "/leaderboard",
         description: "Rankings & battles",
         color: "bg-yellow-500",
-      },
-      {
-        icon: Users,
-        label: "Feed",
-        href: "/feed",
-        description: "See what's happening",
-        color: "bg-pink-500",
       },
     ],
   },
