@@ -6,11 +6,16 @@ import { ensureProfile } from "../lib/profile/ensureProfile";
 
 const ALLOWED_GUEST_ROUTES = new Set<string>([
   "/map",
+  "/hub",
+  "/play",
+  "/me",
+  "/feed",
+  "/leaderboard",
+  // Legacy routes (still handled by App.tsx redirects)
+  "/home",
   "/skate-game",
   "/game",
   "/game/active",
-  "/leaderboard",
-  "/home",
 ]);
 
 export function GuestGate({ children }: { children: React.ReactNode }) {

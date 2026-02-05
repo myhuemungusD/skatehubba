@@ -22,7 +22,7 @@ export const homeContent = {
       {
         icon: Gamepad2,
         label: "S.K.A.T.E",
-        href: "/game",
+        href: "/play",
         description: "Challenge someone",
         color: "bg-purple-500",
       },
@@ -50,7 +50,7 @@ export const homeContent = {
       {
         icon: Users,
         label: "Feed",
-        href: "/feed",
+        href: "/hub",
         description: "See what's happening",
         color: "bg-pink-500",
       },
