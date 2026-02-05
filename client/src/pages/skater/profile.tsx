@@ -5,10 +5,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChallengeButton } from "@/components/skater/ChallengeButton";
-import { ClosetGrid } from "@/components/skater/ClosetGrid";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import type { UserProfile, ClosetItem } from "@shared/schema";
+import type { UserProfile } from "@shared/schema";
 
 export default function SkaterProfile() {
   const params = useParams();
@@ -19,11 +18,6 @@ export default function SkaterProfile() {
 
   const { data: profile, isLoading: profileLoading } = useQuery<UserProfile>({
     queryKey: ["/api/profiles", handle],
-    enabled: !!handle,
-  });
-
-  const { data: closetItems = [], isLoading: closetLoading } = useQuery<ClosetItem[]>({
-    queryKey: ["/api/profiles", handle, "closet"],
     enabled: !!handle,
   });
 
@@ -121,20 +115,14 @@ export default function SkaterProfile() {
         )}
       </section>
 
-      {/* Closet */}
+      {/* Closet - Coming Soon */}
       <section className="mx-auto w-full max-w-6xl px-4 pb-24 pt-8">
         <h2 className="mb-4 text-lg font-semibold uppercase tracking-wide text-orange-400">
           Closet
         </h2>
-        {closetLoading ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-            {[...Array(8)].map((_, i) => (
-              <Skeleton key={i} className="h-48 w-full" />
-            ))}
-          </div>
-        ) : (
-          <ClosetGrid items={closetItems} />
-        )}
+        <Card className="bg-neutral-900 border-neutral-700 p-8 text-center">
+          <p className="text-neutral-400">Closet collectibles coming soon!</p>
+        </Card>
       </section>
 
       {/* Footer brand strip */}

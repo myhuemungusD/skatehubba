@@ -541,8 +541,7 @@ export const apiDocumentation: APICategory[] = [
                 spotId: 'spot_001',
                 accessGrantedAt: 1730620800000,
                 expiresAt: 1730707200000,
-                trickId: 'trick_spot_001_1730620800000',
-                hologramUrl: '/tricks/holograms/spot_001.glb'
+                trickId: 'trick_spot_001_1730620800000'
               },
               distance: 15
             }
@@ -559,70 +558,12 @@ export const apiDocumentation: APICategory[] = [
         ],
         notes: [
           'Uses Haversine formula to calculate distance',
-          'Requires user to be within 30 meters of spot',
-          'Grants 24-hour access to AR content'
+          'Requires user to be within 30 meters of spot'
         ]
       }
     ]
   },
-  {
-    name: 'Products',
-    description: 'SkateHubba merchandise and shop',
-    endpoints: [
-      {
-        method: 'GET',
-        path: '/api/products',
-        description: 'Get all products',
-        responses: [
-          {
-            status: 200,
-            description: 'List of all products',
-            example: [
-              {
-                productId: 'prod_001',
-                name: 'SkateHubba Tee',
-                description: 'Official SkateHubba t-shirt',
-                price: 2999,
-                currency: 'usd'
-              }
-            ]
-          }
-        ]
-      },
-      {
-        method: 'GET',
-        path: '/api/products/:productId',
-        description: 'Get specific product details',
-        parameters: [
-          {
-            name: 'productId',
-            type: 'string',
-            location: 'path',
-            required: true,
-            description: 'Product ID'
-          }
-        ],
-        responses: [
-          {
-            status: 200,
-            description: 'Product details',
-            example: {
-              productId: 'prod_001',
-              name: 'SkateHubba Tee',
-              description: 'Official SkateHubba t-shirt',
-              price: 2999,
-              currency: 'usd'
-            }
-          },
-          {
-            status: 404,
-            description: 'Product not found',
-            example: { error: 'Product not found' }
-          }
-        ]
-      }
-    ]
-  },
+  // Products category removed for MVP
   {
     name: 'Payments',
     description: 'Stripe payment processing',
@@ -685,41 +626,7 @@ export const apiDocumentation: APICategory[] = [
           }
         ]
       },
-      {
-        method: 'POST',
-        path: '/api/create-shop-payment-intent',
-        description: 'Create payment intent for shop purchases',
-        requestBody: {
-          type: 'application/json',
-          example: {
-            items: [
-              { id: 'prod_001', quantity: 2 },
-              { id: 'prod_002', quantity: 1 }
-            ],
-            userId: 'user_123',
-            userEmail: 'user@example.com'
-          }
-        },
-        responses: [
-          {
-            status: 200,
-            description: 'Payment intent created',
-            example: {
-              clientSecret: 'pi_xxx_secret_xxx'
-            }
-          },
-          {
-            status: 400,
-            description: 'Invalid items',
-            example: { message: 'Invalid cart items' }
-          }
-        ],
-        notes: [
-          'Server validates prices from database',
-          'Prevents price manipulation by client',
-          'Creates order record in database'
-        ]
-      },
+      // create-shop-payment-intent removed for MVP
       {
         method: 'POST',
         path: '/api/record-donation',
@@ -845,79 +752,7 @@ export const apiDocumentation: APICategory[] = [
       }
     ]
   },
-  {
-    name: 'AI Chat',
-    description: 'AI-powered skateboarding assistant',
-    endpoints: [
-      {
-        method: 'POST',
-        path: '/api/ai/chat',
-        description: 'Chat with Hesher, the AI skate buddy',
-        requestBody: {
-          type: 'application/json',
-          example: {
-            messages: [
-              { role: 'user', content: 'How do I kickflip?' }
-            ]
-          }
-        },
-        responses: [
-          {
-            status: 200,
-            description: 'AI response',
-            example: {
-              ok: true,
-              reply: {
-                role: 'assistant',
-                content: 'Kickflips are all about the flick! Start with your back foot on the tail...'
-              }
-            }
-          },
-          {
-            status: 503,
-            description: 'AI service unavailable',
-            example: {
-              ok: false,
-              error: 'AI chat is currently unavailable'
-            }
-          }
-        ],
-        notes: [
-          'Powered by OpenAI GPT-4o-mini',
-          'Maintains last 12 messages for context',
-          'Responses limited to 150 words'
-        ]
-      },
-      {
-        method: 'POST',
-        path: '/api/assistant',
-        description: 'Legacy AI assistant (deprecated)',
-        requestBody: {
-          type: 'application/json',
-          example: {
-            persona: 'filmer',
-            messages: [
-              { role: 'user', content: 'How do I film a line?' }
-            ]
-          }
-        },
-        responses: [
-          {
-            status: 200,
-            description: 'AI response',
-            example: {
-              ok: true,
-              reply: {
-                role: 'assistant',
-                content: 'Yo! Keep that camera steady and follow through...'
-              }
-            }
-          }
-        ],
-        notes: ['Deprecated - use /api/ai/chat instead', 'Supports "filmer" and "editor" personas']
-      }
-    ]
-  },
+  // AI Chat category removed for MVP
   {
     name: 'S.K.A.T.E. Game',
     description: 'Remote S.K.A.T.E. game functionality',
