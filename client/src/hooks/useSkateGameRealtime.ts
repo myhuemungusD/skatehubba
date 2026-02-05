@@ -10,11 +10,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from './use-toast';
-import { 
-  GameService, 
+import {
+  GameService,
   type GameDocument,
-  type TurnPhase 
+  type TurnPhase
 } from '../lib/game';
+import { logger } from "../lib/logger";
 
 // =============================================================================
 // TYPES
@@ -357,7 +358,7 @@ export function useMatchmaking() {
         description: "Left the queue",
       });
     } catch (err) {
-      console.error('Failed to cancel matchmaking:', err);
+      logger.error('Failed to cancel matchmaking:', err);
     }
   }, [state.queueId, toast]);
 

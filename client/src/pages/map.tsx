@@ -353,10 +353,9 @@ export default function MapPage() {
         <div className="absolute bottom-24 right-4 z-[1000] pb-safe">
           <Button
             onClick={handleOpenAddSpot}
-            disabled={!userLocation}
-            className="shadow-lg bg-[#ff6a00] hover:bg-[#ff6a00]/90 text-white font-semibold h-14 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="shadow-lg bg-[#ff6a00] hover:bg-[#ff6a00]/90 text-white font-semibold h-14 px-6"
             data-testid="button-add-spot-mode"
-            aria-label="Add a new skate spot at your current location"
+            aria-label="Add a new skate spot"
           >
             <Plus className="w-5 h-5 mr-2" aria-hidden="true" />
             Add Spot

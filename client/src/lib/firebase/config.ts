@@ -24,6 +24,7 @@ import {
   isProd,
   isStaging,
 } from "@skatehubba/config";
+import { logger } from '../logger';
 
 // ============================================================================
 // Types
@@ -64,7 +65,7 @@ function initFirebase() {
   try {
     assertEnvWiring();
   } catch (error) {
-    console.error("[Firebase] Environment mismatch detected!", error);
+    logger.error("[Firebase] Environment mismatch detected!", error);
     // In production, fail hard. In dev, just warn.
     if (isProd()) {
       throw error;
@@ -76,10 +77,10 @@ function initFirebase() {
   // Log environment info in dev
   if (!isProd()) {
     const banner = getEnvBanner();
-    console.log(`[Firebase] ${banner}`);
-    console.log("[Firebase] Environment:", getAppEnv());
-    console.log("[Firebase] Project ID:", config.projectId);
-    console.log("[Firebase] App ID:", config.appId.substring(0, 30) + "...");
+    logger.log(`[Firebase] ${banner}`);
+    logger.log("[Firebase] Environment:", getAppEnv());
+    logger.log("[Firebase] Project ID:", config.projectId);
+    logger.log("[Firebase] App ID:", config.appId.substring(0, 30) + "...");
   }
 
   app = getApps().length ? getApp() : initializeApp(config);

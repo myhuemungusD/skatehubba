@@ -1,6 +1,7 @@
 // client/src/components/PlaySkateGame.tsx
 import { useState, useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
+import { logger } from "../lib/logger";
 
 interface Game {
   id: string;
@@ -48,7 +49,7 @@ export default function PlaySkateGame({ spotId, userToken }: PlaySkateGameProps)
       setGame({ id: data.gameId });
       socketRef.current?.emit("joinGame", data.gameId);
     } catch (error) {
-      console.error("Failed to create game:", error);
+      logger.error("Failed to create game:", error);
     }
   };
 
@@ -66,7 +67,7 @@ export default function PlaySkateGame({ spotId, userToken }: PlaySkateGameProps)
         body: JSON.stringify({ clipUrl: "https://example.com/clip.mp4", trickName: trick }),
       });
     } catch (error) {
-      console.error("Failed to send clip:", error);
+      logger.error("Failed to send clip:", error);
     }
   };
 

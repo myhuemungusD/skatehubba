@@ -5,12 +5,16 @@ import { useAuth } from "../hooks/useAuth";
 import { ensureProfile } from "../lib/profile/ensureProfile";
 
 const ALLOWED_GUEST_ROUTES = new Set<string>([
+  "/hub",
   "/map",
+  "/play",
+  "/me",
+  "/leaderboard",
+  // Legacy routes that redirect to new paths
+  "/home",
   "/skate-game",
   "/game",
   "/game/active",
-  "/leaderboard",
-  "/home",
 ]);
 
 export function GuestGate({ children }: { children: React.ReactNode }) {
@@ -19,9 +23,10 @@ export function GuestGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
 
   const isAllowed = useMemo(() => {
-    if (ALLOWED_GUEST_ROUTES.has(loc)) return true;
-    if (loc.startsWith("/map/")) return true;
-    if (loc.startsWith("/spots/")) return true;
+    const pathname = loc.split("?")[0];
+    if (ALLOWED_GUEST_ROUTES.has(pathname)) return true;
+    if (pathname.startsWith("/map/")) return true;
+    if (pathname.startsWith("/spots/")) return true;
     return false;
   }, [loc]);
 

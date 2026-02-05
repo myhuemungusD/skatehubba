@@ -35,6 +35,7 @@ import {
 import { auth } from './config';
 import { AuthUser, AuthError, AuthErrorCode } from './auth.types';
 import { toAuthUser } from './auth.types';
+import { logger } from '../logger';
 
 // ============================================================================
 // Error Handling
@@ -62,12 +63,12 @@ const ERROR_MESSAGES: Record<string, string> = {
  * Transform Firebase errors into structured AuthError objects
  */
 function createAuthError(error: unknown): AuthError {
-  console.error('[AuthService] Auth error:', error);
+  logger.error('[AuthService] Auth error:', error);
   const firebaseError = error as { code?: string; message?: string };
   const code = (firebaseError.code as AuthErrorCode) || 'unknown';
   const message = ERROR_MESSAGES[code] || firebaseError.message || 'An unexpected error occurred.';
   
-  console.error('[AuthService] Mapped error:', { code, message });
+  logger.error('[AuthService] Mapped error:', { code, message });
   return { code, message, originalError: error };
 }
 
@@ -80,14 +81,14 @@ function createAuthError(error: unknown): AuthError {
  * @param rememberMe - If true, stays logged in after browser closes. If false, logs out when browser closes.
  */
 export async function setAuthPersistence(rememberMe: boolean): Promise<void> {
-  console.log('[AuthService] Setting persistence, rememberMe:', rememberMe);
+  logger.log('[AuthService] Setting persistence, rememberMe:', rememberMe);
   try {
     await setPersistence(
       auth,
       rememberMe ? browserLocalPersistence : browserSessionPersistence
     );
   } catch (error) {
-    console.error('[AuthService] Failed to set persistence:', error);
+    logger.error('[AuthService] Failed to set persistence:', error);
     // Don't throw - persistence is a nice-to-have, not critical
   }
 }
@@ -110,13 +111,13 @@ export async function signUpWithEmail(
   password: string,
   profile?: { firstName?: string; lastName?: string }
 ): Promise<AuthUser> {
-  console.log('[AuthService] signUpWithEmail called with:', { email, profile });
-  console.log('[AuthService] Auth instance:', auth ? 'exists' : 'NULL');
+  logger.log('[AuthService] signUpWithEmail called with:', { email, profile });
+  logger.log('[AuthService] Auth instance:', auth ? 'exists' : 'NULL');
   
   try {
-    console.log('[AuthService] Calling createUserWithEmailAndPassword...');
+    logger.log('[AuthService] Calling createUserWithEmailAndPassword...');
     const credential = await createUserWithEmailAndPassword(auth, email, password);
-    console.log('[AuthService] Sign up successful, user:', credential.user.uid);
+    logger.log('[AuthService] Sign up successful, user:', credential.user.uid);
     const user = credential.user;
     
     // Set display name if provided
@@ -150,13 +151,13 @@ export async function signInWithEmail(
   email: string,
   password: string
 ): Promise<AuthUser> {
-  console.log('[AuthService] Attempting sign in for:', email);
+  logger.log('[AuthService] Attempting sign in for:', email);
   try {
     const credential = await signInWithEmailAndPassword(auth, email, password);
-    console.log('[AuthService] Sign in successful for:', credential.user.uid);
+    logger.log('[AuthService] Sign in successful for:', credential.user.uid);
     return toAuthUser(credential.user);
   } catch (error) {
-    console.error('[AuthService] Sign in failed:', error);
+    logger.error('[AuthService] Sign in failed:', error);
     throw createAuthError(error);
   }
 }
@@ -185,33 +186,33 @@ function isMobileDevice(): boolean {
  * @throws AuthError if sign-in fails
  */
 export async function signInWithGoogle(): Promise<AuthUser | null> {
-  console.log('[AuthService] signInWithGoogle called');
-  console.log('[AuthService] Auth instance:', auth);
-  console.log('[AuthService] Is mobile:', isMobileDevice());
+  logger.log('[AuthService] signInWithGoogle called');
+  logger.log('[AuthService] Auth instance:', auth);
+  logger.log('[AuthService] Is mobile:', isMobileDevice());
   
   try {
     if (isMobileDevice()) {
       // Mobile: Use redirect flow
-      console.log('[AuthService] Using redirect flow for mobile');
+      logger.log('[AuthService] Using redirect flow for mobile');
       await signInWithRedirect(auth, googleProvider);
       return null; // Will be handled by getGoogleRedirectResult
     }
     
     // Desktop: Try popup first
     try {
-      console.log('[AuthService] Attempting popup sign-in');
+      logger.log('[AuthService] Attempting popup sign-in');
       const result = await signInWithPopup(auth, googleProvider);
-      console.log('[AuthService] Popup sign-in successful:', result.user.uid);
+      logger.log('[AuthService] Popup sign-in successful:', result.user.uid);
       return toAuthUser(result.user);
     } catch (popupError) {
-      console.error('[AuthService] Popup error:', popupError);
+      logger.error('[AuthService] Popup error:', popupError);
       const error = popupError as { code?: string; message?: string };
-      console.error('[AuthService] Error code:', error.code);
-      console.error('[AuthService] Error message:', error.message);
+      logger.error('[AuthService] Error code:', error.code);
+      logger.error('[AuthService] Error message:', error.message);
       
       // Fall back to redirect if popup is blocked
       if (error.code === 'auth/popup-blocked') {
-        console.log('[AuthService] Popup blocked, falling back to redirect');
+        logger.log('[AuthService] Popup blocked, falling back to redirect');
         await signInWithRedirect(auth, googleProvider);
         return null;
       }
@@ -219,7 +220,7 @@ export async function signInWithGoogle(): Promise<AuthUser | null> {
       throw popupError;
     }
   } catch (error) {
-    console.error('[AuthService] signInWithGoogle final error:', error);
+    logger.error('[AuthService] signInWithGoogle final error:', error);
     throw createAuthError(error);
   }
 }
