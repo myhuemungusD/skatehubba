@@ -4,6 +4,7 @@ import type { CustomUser } from "../../packages/shared/schema.ts";
 import type { AuthenticatedUser } from "../types/express.d.ts";
 import { admin } from "../admin.ts";
 import "../types/express.d.ts";
+import logger from '../logger.ts';
 
 // Re-authentication window (5 minutes)
 const REAUTH_WINDOW_MS = 5 * 60 * 1000;
@@ -59,7 +60,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
         req.currentUser = { ...user, roles };
         return next();
       } catch (sessionError) {
-        console.error("Session verification failed:", sessionError);
+        logger.error("Session verification failed", { error: String(sessionError) });
         // Fall through to try Authorization header
       }
     }
@@ -94,11 +95,11 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
       req.currentUser = { ...user, roles };
       next();
     } catch (firebaseError) {
-      console.error("Firebase token verification failed:", firebaseError);
+      logger.error("Firebase token verification failed", { error: String(firebaseError) });
       return res.status(401).json({ error: GENERIC_AUTH_ERROR });
     }
   } catch (error) {
-    console.error("Authentication error:", error);
+    logger.error("Authentication error", { error: String(error) });
     res.status(500).json({ error: GENERIC_AUTH_ERROR });
   }
 };
@@ -262,7 +263,7 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
       code: "ADMIN_REQUIRED",
     });
   } catch (error) {
-    console.error("Admin check failed:", error);
+    logger.error("Admin check failed", { error: String(error) });
     return res.status(403).json({
       error: "Admin access required",
       code: "ADMIN_REQUIRED",

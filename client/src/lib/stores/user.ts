@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { logger } from "../logger";
 
 export type UserRole = "skater" | "filmer" | "pro";
 
@@ -69,7 +70,7 @@ export function useUserProfile() {
                 xp = data.xp ?? 0;
               }
             } catch {
-              console.warn("Could not fetch Firestore profile, using defaults");
+              logger.warn("Could not fetch Firestore profile, using defaults");
             }
 
             const level = Math.floor(xp / 500) + 1;
@@ -85,7 +86,7 @@ export function useUserProfile() {
               level,
             });
           } catch (err) {
-            console.error("Error fetching user profile:", err);
+            logger.error("Error fetching user profile:", err);
             setError("Failed to load user profile");
           }
         } else {
@@ -93,7 +94,7 @@ export function useUserProfile() {
         }
       });
     } catch (err) {
-      console.error("Firebase initialization error:", err);
+      logger.error("Firebase initialization error:", err);
       setError("Failed to initialize authentication");
     }
   };

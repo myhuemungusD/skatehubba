@@ -1,6 +1,7 @@
 import { AnalyticsIngestSchema, type EventName } from "@shared/analytics-events";
 import { auth } from "../firebase";
 import { getAppConfig } from '@skatehubba/config';
+import { logger } from "../logger";
 
 /**
  * Generate a ULID-like unique ID for event idempotency.
@@ -105,7 +106,7 @@ export async function logEvent(
     // Validate before sending (catches dev mistakes early)
     const parsed = AnalyticsIngestSchema.safeParse(payload);
     if (!parsed.success) {
-      console.warn("[Analytics] Invalid event payload:", parsed.error.flatten());
+      logger.warn("[Analytics] Invalid event payload:", parsed.error.flatten());
       return;
     }
 
@@ -121,7 +122,7 @@ export async function logEvent(
     });
   } catch (error) {
     // Silently fail - analytics should never break the app
-    console.warn("[Analytics] Failed to log event:", error);
+    logger.warn("[Analytics] Failed to log event:", error);
   }
 }
 
@@ -161,6 +162,6 @@ export async function logEventBatch(
       keepalive: true,
     });
   } catch (error) {
-    console.warn("[Analytics] Failed to log event batch:", error);
+    logger.warn("[Analytics] Failed to log event batch:", error);
   }
 }

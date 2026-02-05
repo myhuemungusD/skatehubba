@@ -41,7 +41,5 @@ export function logError(error: Error, context?: Record<string, any>) {
 }
 
 export function logPerformance(metric: string, value: number, unit: string = 'ms') {
-  if (isDevelopment) {
-    console.log(`[Performance] ${metric}: ${value}${unit}`);
-  }
+  logger.log(`[Performance] ${metric}: ${value}${unit}`);
 }

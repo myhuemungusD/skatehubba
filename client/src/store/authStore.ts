@@ -18,6 +18,7 @@ import { auth, db } from "../lib/firebase/config";
 import { GUEST_MODE } from "../config/flags";
 import { ensureProfile } from "../lib/profile/ensureProfile";
 import { apiRequest } from "../lib/api/client";
+import { logger } from "../lib/logger";
 
 export type UserRole = "admin" | "moderator" | "verified_pro";
 export type ProfileStatus = "unknown" | "exists" | "missing";
@@ -175,7 +176,7 @@ const fetchProfile = async (uid: string): Promise<UserProfile | null> => {
     }
     return null;
   } catch (err) {
-    console.error("[AuthStore] Failed to fetch profile:", err);
+    logger.error("[AuthStore] Failed to fetch profile:", err);
     return null;
   }
 };
@@ -185,7 +186,7 @@ const extractRolesFromToken = async (firebaseUser: FirebaseUser): Promise<UserRo
     const tokenResult = await getIdTokenResult(firebaseUser);
     return (tokenResult.claims.roles as UserRole[]) || [];
   } catch (err) {
-    console.error("[AuthStore] Failed to extract roles:", err);
+    logger.error("[AuthStore] Failed to extract roles:", err);
     return [];
   }
 };
@@ -230,9 +231,9 @@ async function authenticateGuestWithBackend(firebaseUser: FirebaseUser): Promise
         Authorization: `Bearer ${idToken}`,
       },
     });
-    console.log("[AuthStore] Guest authenticated with backend successfully");
+    logger.log("[AuthStore] Guest authenticated with backend successfully");
   } catch (error) {
-    console.error("[AuthStore] Guest backend authentication failed:", error);
+    logger.error("[AuthStore] Guest backend authentication failed:", error);
     // Don't throw - guest mode should work even if backend auth fails (degraded mode)
   }
 }
@@ -390,7 +391,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       });
     } catch (fatal) {
-      console.error("[AuthStore] Critical boot failure:", fatal);
+      logger.error("[AuthStore] Critical boot failure:", fatal);
       finalStatus = "degraded";
       if (fatal instanceof Error) {
         set({ error: fatal });
@@ -413,7 +414,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         sessionStorage.removeItem("googleRedirectPending");
       }
     } catch (err: unknown) {
-      console.error("[AuthStore] Redirect result error:", err);
+      logger.error("[AuthStore] Redirect result error:", err);
       sessionStorage.removeItem("googleRedirectPending");
       if (err instanceof Error) {
         set({ error: err });
@@ -445,7 +446,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       sessionStorage.setItem("googleRedirectPending", "true");
       await signInWithRedirect(auth, googleProvider);
     } catch (err: unknown) {
-      console.error("[AuthStore] Google sign-in error:", err);
+      logger.error("[AuthStore] Google sign-in error:", err);
       if (err && typeof err === "object" && "code" in err) {
         const code = (err as { code?: string }).code;
         const popupFallbackCodes = [
@@ -472,7 +473,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (err: unknown) {
-      console.error("[AuthStore] Email sign-in error:", err);
+      logger.error("[AuthStore] Email sign-in error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
@@ -485,7 +486,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await createUserWithEmailAndPassword(auth, email, password);
     } catch (err: unknown) {
-      console.error("[AuthStore] Email sign-up error:", err);
+      logger.error("[AuthStore] Email sign-up error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
@@ -498,7 +499,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await firebaseSignInAnonymously(auth);
     } catch (err: unknown) {
-      console.error("[AuthStore] Anonymous sign-in error:", err);
+      logger.error("[AuthStore] Anonymous sign-in error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
@@ -523,7 +524,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         clearProfileCache(currentUid);
       }
     } catch (err: unknown) {
-      console.error("[AuthStore] Sign-out error:", err);
+      logger.error("[AuthStore] Sign-out error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
@@ -536,7 +537,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await sendPasswordResetEmail(auth, email);
     } catch (err: unknown) {
-      console.error("[AuthStore] Password reset error:", err);
+      logger.error("[AuthStore] Password reset error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
@@ -556,10 +557,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const newRoles = (tokenResult.claims.roles as UserRole[]) || [];
 
       set({ roles: newRoles });
-      console.log("[AuthStore] Roles refreshed:", newRoles);
+      logger.log("[AuthStore] Roles refreshed:", newRoles);
       return newRoles;
     } catch (err: unknown) {
-      console.error("[AuthStore] Failed to refresh roles:", err);
+      logger.error("[AuthStore] Failed to refresh roles:", err);
       return get().roles;
     }
   },

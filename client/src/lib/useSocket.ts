@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { auth } from "./firebase";
+import { logger } from "./logger";
 import type { User } from "firebase/auth";
 import type { ClientToServerEvents, ServerToClientEvents } from "./socket-types";
 
@@ -132,7 +133,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
       });
 
       socket.on("connected", (data) => {
-        console.log("[Socket] Connected to server", data);
+        logger.log("[Socket] Connected to server", data);
       });
 
       socketRef.current = socket;

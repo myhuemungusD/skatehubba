@@ -4,6 +4,7 @@ import EnvErrorScreen from "./components/EnvErrorScreen";
 import "./index.css";
 import "./sentry";
 import "./vitals";
+import { logger } from "./lib/logger";
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -21,7 +22,7 @@ if (missing.length > 0) {
       root.render(<App />);
     })
     .catch((error) => {
-      console.error("[App] Failed to bootstrap application", error);
+      logger.error("[App] Failed to bootstrap application", error);
       root.render(<EnvErrorScreen missingKeys={[]} error={error} />);
     });
 }

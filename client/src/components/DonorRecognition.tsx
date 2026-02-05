@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Heart } from "lucide-react";
+import { logger } from "../lib/logger";
 
 interface Donor {
   firstName: string | null;
@@ -22,7 +23,7 @@ export function DonorRecognition() {
         setDonors(donorData);
       }
     } catch (error) {
-      console.error("Failed to fetch donors:", error);
+      logger.error("Failed to fetch donors:", error);
     } finally {
       setLoading(false);
     }
