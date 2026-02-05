@@ -1,7 +1,6 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "outDir": "./.tsbuild",
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
@@ -13,8 +12,7 @@
       "@/*": ["src/*"],
       "@shared/*": ["../packages/shared/*"],
       "@shared": ["../packages/shared/index"]
-    },
-    "tsBuildInfoFile": "./.tsbuild/tsconfig.tsbuildinfo"
+    }
   },
   "include": ["src", "../packages/shared", "vite.config.ts", "postcss.config.js", "index.html"],
   "exclude": ["../packages/shared/__tests__/**"]
