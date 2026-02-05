@@ -11,6 +11,7 @@ import {
   Unsubscribe,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { logger } from "../logger";
 
 export interface FirestoreHookOptions {
   enabled?: boolean;
@@ -64,13 +65,13 @@ export function useFirestoreCollection<T = any>(
           setLoading(false);
         },
         (err) => {
-          console.error(`Error fetching collection ${collectionPath}:`, err);
+          logger.error(`Error fetching collection ${collectionPath}:`, err);
           setError(err as Error);
           setLoading(false);
         }
       );
     } catch (err) {
-      console.error(`Error setting up listener for ${collectionPath}:`, err);
+      logger.error(`Error setting up listener for ${collectionPath}:`, err);
       setError(err as Error);
       setLoading(false);
     }
@@ -124,13 +125,13 @@ export function useFirestoreDocument<T = any>(
           setLoading(false);
         },
         (err) => {
-          console.error(`Error fetching document ${collectionPath}/${documentId}:`, err);
+          logger.error(`Error fetching document ${collectionPath}/${documentId}:`, err);
           setError(err as Error);
           setLoading(false);
         }
       );
     } catch (err) {
-      console.error(`Error setting up listener for ${collectionPath}/${documentId}:`, err);
+      logger.error(`Error setting up listener for ${collectionPath}/${documentId}:`, err);
       setError(err as Error);
       setLoading(false);
     }

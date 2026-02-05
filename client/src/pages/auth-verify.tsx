@@ -8,6 +8,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Link } from "wouter";
 import { auth } from "../lib/firebase";
+import { logger } from "../lib/logger";
 
 export default function AuthVerifyPage() {
   const [, setLocation] = useLocation();
@@ -68,7 +69,7 @@ export default function AuthVerifyPage() {
           setMessage("Invalid or expired verification link.");
         }
       } catch (error: any) {
-        console.error("Action error:", error);
+        logger.error("Action error:", error);
         setStatus("error");
         if (error.code === "auth/expired-action-code") {
           setMessage("This link has expired. Please request a new one.");
@@ -124,7 +125,7 @@ export default function AuthVerifyPage() {
         setLocation("/auth");
       }, 3000);
     } catch (error: any) {
-      console.error("Password reset error:", error);
+      logger.error("Password reset error:", error);
       if (error.code === "auth/expired-action-code") {
         setPasswordError("This reset link has expired. Please request a new one.");
       } else if (error.code === "auth/weak-password") {

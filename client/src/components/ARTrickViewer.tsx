@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { useToast } from "../hooks/use-toast";
 import { useSpotAccess } from "../store/useSpotAccess";
 import { Badge } from "./ui/badge";
+import { logger } from "../lib/logger";
 
 interface ARTrickViewerProps {
   spotId: string;
@@ -56,7 +57,7 @@ export function ARTrickViewer({
       setCameraPermission("granted");
       return true;
     } catch (error) {
-      console.error("Failed to request camera permission:", error);
+      logger.error("Failed to request camera permission:", error);
       setCameraPermission("denied");
       toast({
         title: "Camera Permission Required",

@@ -26,6 +26,7 @@ import {
   type Unsubscribe
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { logger } from '../logger';
 
 // =============================================================================
 // TYPES & STATE DEFINITIONS
@@ -469,7 +470,7 @@ export const GameService = {
         callback(null);
       }
     }, (error) => {
-      console.error('[GameService] Subscription error:', error);
+      logger.error('[GameService] Subscription error:', error);
       callback(null);
     });
   },

@@ -6,6 +6,7 @@ import L from "leaflet";
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
 import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
+import { logger } from "../lib/logger";
 
 // @ts-expect-error -- third-party typing mismatch (documented intentional override)
 delete L.Icon.Default.prototype._getIconUrl;
@@ -126,7 +127,7 @@ export const SpotMap = memo(function SpotMap({
           map.invalidateSize();
         }, 100);
       } catch (error) {
-        console.error("Failed to initialize map:", error);
+        logger.error("Failed to initialize map:", error);
       }
     };
 
