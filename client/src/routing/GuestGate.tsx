@@ -10,7 +10,6 @@ const ALLOWED_GUEST_ROUTES = new Set<string>([
   "/game",
   "/game/active",
   "/leaderboard",
-  "/shop",
   "/home",
 ]);
 
