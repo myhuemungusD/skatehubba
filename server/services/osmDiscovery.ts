@@ -62,12 +62,14 @@ function addToCache(key: string, timestamp: number): void {
       discoveryCache.delete(oldestKey);
     }
   }
-  // Add new entry (or update existing)
+  // Delete and re-insert to maintain LRU order (Maps maintain insertion order)
+  discoveryCache.delete(key);
   discoveryCache.set(key, timestamp);
 }
 
 /**
  * Check if we've already discovered spots for this area recently.
+ * Updates access time to maintain true LRU behavior.
  */
 export function isAreaCached(lat: number, lng: number): boolean {
   const key = getCacheKey(lat, lng);
@@ -77,6 +79,9 @@ export function isAreaCached(lat: number, lng: number): boolean {
     discoveryCache.delete(key);
     return false;
   }
+  // Update position in Map to maintain LRU order (delete and re-insert)
+  discoveryCache.delete(key);
+  discoveryCache.set(key, cachedAt);
   return true;
 }
 

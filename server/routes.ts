@@ -54,8 +54,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/profile", profileRouter);
 
   // 3d. Games Routes (S.K.A.T.E. game endpoints) - Pro/Premium only
-  // Note: authenticateUser is applied within the games router itself
-  app.use("/api/games", requirePaidOrPro, gamesRouter);
+  // Note: authenticateUser is also applied to individual routes within gamesRouter,
+  // making it redundant but harmless. We need it here for requirePaidOrPro to access req.currentUser.
+  app.use("/api/games", authenticateUser, requirePaidOrPro, gamesRouter);
 
   // 3e. Tier/Monetization Routes
   app.use("/api/tier", tierRouter);
