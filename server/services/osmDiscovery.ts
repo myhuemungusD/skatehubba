@@ -77,9 +77,9 @@ export function isAreaCached(lat: number, lng: number): boolean {
     discoveryCache.delete(key);
     return false;
   }
-  // Move to end (most recent) by re-inserting
+  // Move to end (most recent) by re-inserting with current timestamp for true LRU
   discoveryCache.delete(key);
-  discoveryCache.set(key, cachedAt);
+  discoveryCache.set(key, Date.now());
   return true;
 }
 
@@ -94,8 +94,13 @@ export async function discoverSkateparks(
   radiusMeters: number = 50000
 ): Promise<DiscoveredSpot[]> {
   // Validate radiusMeters to prevent query manipulation
-  if (typeof radiusMeters !== "number" || radiusMeters < 100 || radiusMeters > 100000) {
-    throw new Error("radiusMeters must be a number between 100 and 100000");
+  if (
+    typeof radiusMeters !== "number" ||
+    !Number.isFinite(radiusMeters) ||
+    radiusMeters < 100 ||
+    radiusMeters > 100000
+  ) {
+    throw new Error("radiusMeters must be a finite number between 100 and 100000");
   }
 
   // Check cache first - skip if we already queried this area recently
