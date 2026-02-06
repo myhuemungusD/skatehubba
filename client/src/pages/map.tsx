@@ -97,7 +97,6 @@ export default function MapPage() {
   // Data Fetching
   // ---------------------------------------------------------------------------
   const queryClient = useQueryClient();
-  const hasDiscoveredRef = useRef(false);
 
   const {
     data: spots = [],
@@ -111,34 +110,6 @@ export default function MapPage() {
     refetchOnWindowFocus: false,
     retry: 2,
   });
-
-  // Discover nearby skateparks from OpenStreetMap when user location is available
-  useEffect(() => {
-    if (
-      hasDiscoveredRef.current ||
-      geolocation.latitude === null ||
-      geolocation.longitude === null ||
-      geolocation.status !== "ready"
-    ) {
-      return;
-    }
-
-    hasDiscoveredRef.current = true;
-    const lat = geolocation.latitude;
-    const lng = geolocation.longitude;
-
-    fetch(`/api/spots/discover?lat=${lat}&lng=${lng}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.added > 0) {
-          // New spots were discovered - refresh the spots list
-          queryClient.invalidateQueries({ queryKey: ["/api/spots"] });
-        }
-      })
-      .catch(() => {
-        // Discovery is best-effort - don't block the map experience
-      });
-  }, [geolocation.latitude, geolocation.longitude, geolocation.status, queryClient]);
 
   // ---------------------------------------------------------------------------
   // Memoized Computations
