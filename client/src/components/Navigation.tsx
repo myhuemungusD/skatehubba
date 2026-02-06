@@ -9,6 +9,7 @@ import {
   Trophy,
   Gamepad2,
   Menu,
+  ShoppingBag,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import {
@@ -39,13 +40,14 @@ export default function Navigation() {
 
   const profileLabel = profile?.username ?? user?.email ?? "Profile";
 
-  // MVP navigation items - 5 items maximum
+  // MVP navigation items
   const navItems = [
     { path: "/hub", label: "Home", icon: Home },
     { path: "/map", label: "Map", icon: Map },
     { path: "/play", label: "Play SKATE", icon: Gamepad2 },
     { path: "/leaderboard", label: "Leaderboard", icon: Trophy },
     { path: "/me", label: "Profile", icon: User },
+    { path: "https://skatehubba.store/", label: "Merch", icon: ShoppingBag, external: true },
   ];
 
   return (
@@ -89,7 +91,24 @@ export default function Navigation() {
                   <DropdownMenuLabel className="text-gray-400">Navigation</DropdownMenuLabel>
                   {navItems.map((item) => {
                     const Icon = item.icon;
-                    const isActive = location.split("?")[0] === item.path;
+                    const isActive = !item.external && location.split("?")[0] === item.path;
+
+                    if (item.external) {
+                      return (
+                        <DropdownMenuItem key={item.path} asChild>
+                          <a
+                            href={item.path}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center w-full"
+                          >
+                            <Icon className="w-4 h-4 mr-2" />
+                            {item.label}
+                          </a>
+                        </DropdownMenuItem>
+                      );
+                    }
+
                     return (
                       <DropdownMenuItem key={item.path} asChild>
                         <Link

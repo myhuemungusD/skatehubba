@@ -9,7 +9,7 @@
 
 import { Link } from "wouter";
 import { Button } from "./ui/button";
-import { LogIn } from "lucide-react";
+import { LogIn, ShoppingBag } from "lucide-react";
 
 export default function PublicNavigation() {
   return (
@@ -30,16 +30,29 @@ export default function PublicNavigation() {
             </span>
           </Link>
 
-          {/* Sign In CTA */}
-          <Link href="/auth">
-            <Button
-              className="bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90 font-semibold"
-              data-testid="button-public-nav-signin"
+          <div className="flex items-center space-x-3">
+            {/* Merch Link */}
+            <a
+              href="https://skatehubba.store/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-300 hover:text-white transition-colors font-semibold text-sm flex items-center"
             >
-              <LogIn className="w-4 h-4 mr-2" aria-hidden="true" />
-              Sign In / Sign Up
-            </Button>
-          </Link>
+              <ShoppingBag className="w-4 h-4 mr-1" aria-hidden="true" />
+              Merch
+            </a>
+
+            {/* Sign In CTA */}
+            <Link href="/auth">
+              <Button
+                className="bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90 font-semibold"
+                data-testid="button-public-nav-signin"
+              >
+                <LogIn className="w-4 h-4 mr-2" aria-hidden="true" />
+                Sign In / Sign Up
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </nav>

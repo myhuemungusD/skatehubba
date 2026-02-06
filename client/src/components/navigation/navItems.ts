@@ -5,6 +5,7 @@ export type NavItem = {
   label: string;
   href?: string;
   disabled?: boolean;
+  external?: boolean;
 };
 
 export function useNavItems(): NavItem[] {
@@ -13,6 +14,7 @@ export function useNavItems(): NavItem[] {
       return [
         { label: "SPOTMAP", href: "/map" },
         { label: "S.K.A.T.E", href: "/play" },
+        { label: "MERCH", href: "https://skatehubba.store/", external: true },
       ];
     }
     return [
@@ -21,6 +23,7 @@ export function useNavItems(): NavItem[] {
       { label: "PLAY", href: "/play" },
       { label: "RANKS", href: "/leaderboard" },
       { label: "PROFILE", href: "/me" },
+      { label: "MERCH", href: "https://skatehubba.store/", external: true },
     ];
   }, []);
 }
