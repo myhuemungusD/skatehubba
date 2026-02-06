@@ -145,6 +145,8 @@ export const donations = pgTable("donations", {
 });
 
 // Custom authentication tables
+export const accountTierEnum = pgEnum("account_tier", ["free", "pro", "premium"]);
+
 export const customUsers = pgTable("custom_users", {
   id: varchar("id")
     .primaryKey()
@@ -162,6 +164,9 @@ export const customUsers = pgTable("custom_users", {
   resetPasswordExpires: timestamp("reset_password_expires"),
   isActive: boolean("is_active").default(true),
   trustLevel: integer("trust_level").default(0).notNull(),
+  accountTier: accountTierEnum("account_tier").default("free").notNull(),
+  proAwardedBy: varchar("pro_awarded_by", { length: 255 }),
+  premiumPurchasedAt: timestamp("premium_purchased_at"),
   lastLoginAt: timestamp("last_login_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -635,6 +640,9 @@ export type Donation = typeof donations.$inferSelect;
 export type InsertDonation = z.infer<typeof insertDonationSchema>;
 
 // Custom auth types
+export const ACCOUNT_TIERS = ["free", "pro", "premium"] as const;
+export type AccountTier = (typeof ACCOUNT_TIERS)[number];
+
 export type CustomUser = typeof customUsers.$inferSelect;
 export type InsertCustomUser = typeof customUsers.$inferInsert;
 export type AuthSession = typeof authSessions.$inferSelect;

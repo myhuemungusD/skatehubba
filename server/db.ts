@@ -3,6 +3,7 @@ import pg from "pg";
 import * as schema from "../packages/shared/schema.ts";
 import { env } from "./config/env";
 import logger from "./logger";
+import { defaultSpots } from "./seeds/defaultSpots";
 
 const { Pool } = pg;
 
@@ -95,8 +96,38 @@ export async function initializeDatabase() {
     } else {
       logger.info("Tutorial steps already initialized");
     }
+
+    // Seed default skateparks and legendary spots
+    const existingSpots = await db.select().from(schema.spots).limit(1);
+
+    if (existingSpots.length === 0) {
+      logger.info(`Seeding ${defaultSpots.length} default skateparks and spots...`);
+      for (const spot of defaultSpots) {
+        await db.insert(schema.spots).values({
+          name: spot.name,
+          description: spot.description,
+          spotType: spot.spotType,
+          tier: spot.tier,
+          lat: spot.lat,
+          lng: spot.lng,
+          address: spot.address,
+          city: spot.city,
+          state: spot.state,
+          country: spot.country,
+          createdBy: "system",
+          verified: true,
+          isActive: true,
+          checkInCount: 0,
+          rating: 0,
+          ratingCount: 0,
+        });
+      }
+      logger.info("Default skateparks seeded successfully");
+    } else {
+      logger.info("Spots already exist, skipping default seed");
+    }
   } catch (error) {
-    logger.error("Database initialization failed - continuing without default tutorial steps", {
+    logger.error("Database initialization failed - continuing without defaults", {
       error: error instanceof Error ? error.message : String(error),
     });
     if (env.NODE_ENV === "production") {
