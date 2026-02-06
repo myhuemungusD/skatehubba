@@ -33,14 +33,50 @@ export interface DiscoveredSpot {
 const OVERPASS_API = "https://overpass-api.de/api/interpreter";
 
 /**
+ * In-memory cache to prevent hammering the Overpass API for the same area.
+ * Key: rounded lat/lng grid cell (0.25 degree grid ~= 28km).
+ * Value: timestamp of last query.
+ * Cache entries expire after 1 hour.
+ */
+const discoveryCache = new Map<string, number>();
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const GRID_SIZE = 0.25; // ~28km grid cells
+
+function getCacheKey(lat: number, lng: number): string {
+  const gridLat = Math.round(lat / GRID_SIZE) * GRID_SIZE;
+  const gridLng = Math.round(lng / GRID_SIZE) * GRID_SIZE;
+  return `${gridLat.toFixed(2)},${gridLng.toFixed(2)}`;
+}
+
+/**
+ * Check if we've already discovered spots for this area recently.
+ */
+export function isAreaCached(lat: number, lng: number): boolean {
+  const key = getCacheKey(lat, lng);
+  const cachedAt = discoveryCache.get(key);
+  if (!cachedAt) return false;
+  if (Date.now() - cachedAt > CACHE_TTL_MS) {
+    discoveryCache.delete(key);
+    return false;
+  }
+  return true;
+}
+
+/**
  * Query OpenStreetMap Overpass API for skateparks near a lat/lng.
  * Searches for leisure=pitch+sport=skateboard and leisure=skatepark within a radius.
+ * Results are cached per grid cell to avoid repeated API calls.
  */
 export async function discoverSkateparks(
   lat: number,
   lng: number,
   radiusMeters: number = 50000
 ): Promise<DiscoveredSpot[]> {
+  // Check cache first - skip if we already queried this area recently
+  if (isAreaCached(lat, lng)) {
+    logger.info(`Skipping OSM discovery - area already cached for (${lat}, ${lng})`);
+    return [];
+  }
   // Overpass QL query: find skateparks (nodes, ways, relations) within radius
   const query = `
     [out:json][timeout:10];
@@ -109,6 +145,9 @@ export async function discoverSkateparks(
         country: tags["addr:country"] || "",
       });
     }
+
+    // Mark this area as cached
+    discoveryCache.set(getCacheKey(lat, lng), Date.now());
 
     logger.info(`Discovered ${results.length} skateparks from OSM near (${lat}, ${lng})`);
     return results;

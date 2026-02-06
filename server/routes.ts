@@ -21,7 +21,7 @@ import { admin } from "./admin";
 import { env } from "./config/env";
 import { authenticateUser, requireEmailVerification } from "./auth/middleware";
 import { verifyAndCheckIn } from "./services/spotService";
-import { discoverSkateparks } from "./services/osmDiscovery";
+import { discoverSkateparks, isAreaCached } from "./services/osmDiscovery";
 import { analyticsRouter } from "./routes/analytics";
 import { metricsRouter } from "./routes/metrics";
 import { validateBody } from "./middleware/validation";
@@ -70,6 +70,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ message: "Valid lat and lng query parameters are required" });
     }
 
+    // Fast path: if we already discovered for this area, just return existing spots
+    if (isAreaCached(lat, lng)) {
+      const allSpots = await spotStorage.getAllSpots();
+      return res.json({ discovered: 0, added: 0, cached: true, spots: allSpots });
+    }
+
     try {
       const discovered = await discoverSkateparks(lat, lng);
       let added = 0;
@@ -79,7 +85,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const isDuplicate = await spotStorage.checkDuplicate(spot.name, spot.lat, spot.lng);
         if (isDuplicate) continue;
 
-        await spotStorage.createSpot({
+        const created = await spotStorage.createSpot({
           name: spot.name,
           description: spot.description,
           spotType: spot.spotType,
@@ -91,6 +97,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           country: spot.country || "USA",
           createdBy: "system",
         });
+        // Mark OSM-sourced spots as verified since they're real confirmed places
+        await spotStorage.verifySpot(created.id);
         added++;
       }
 
