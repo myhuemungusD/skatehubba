@@ -219,39 +219,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
-  app.post(
-    "/api/spots/check-in",
-    authenticateUser,
-    requirePaidOrPro,
-    enforceTrustAction("checkin"),
-    async (req, res) => {
-      const parsed = SpotCheckInSchema.safeParse(req.body);
-      if (!parsed.success) {
-        return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
-      }
-
-      // authenticateUser guarantees req.currentUser is defined here (type narrowing)
-      const userId = req.currentUser!.id;
-
-      const { spotId, lat, lng } = parsed.data;
-
-      try {
-        const result = await verifyAndCheckIn(userId, spotId, lat, lng);
-        if (!result.success) {
-          return res.status(403).json({ message: result.message });
-        }
-
-        return res.status(200).json(result);
-      } catch (error) {
-        if (error instanceof Error && error.message === "Spot not found") {
-          return res.status(404).json({ message: "Spot not found" });
-        }
-
-        return res.status(500).json({ message: "Check-in failed" });
-      }
-    }
-  );
-
   const postSchema = z.object({
     mediaUrl: z.string().url().max(2000),
     caption: z.string().max(300).optional(),
