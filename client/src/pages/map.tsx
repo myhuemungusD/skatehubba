@@ -18,6 +18,8 @@ import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { useToast } from "../hooks/use-toast";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { useAccountTier } from "../hooks/useAccountTier";
+import { UpgradePrompt } from "../components/UpgradePrompt";
 import { calculateDistance, getProximity } from "../lib/distance";
 
 // ============================================================================
@@ -56,8 +58,11 @@ export default function MapPage() {
   // State
   // ---------------------------------------------------------------------------
   const { toast } = useToast();
+  const { isPaidOrPro } = useAccountTier();
   const [selectedSpotId, setSelectedSpotId] = useState<number | null>(null);
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
 
@@ -204,8 +209,13 @@ export default function MapPage() {
   }, []);
 
   const handleOpenAddSpot = useCallback(() => {
+    if (!isPaidOrPro) {
+      setUpgradeFeature("Add Spots");
+      setIsUpgradeOpen(true);
+      return;
+    }
     setIsAddSpotOpen(true);
-  }, []);
+  }, [isPaidOrPro]);
 
   const handleCloseAddSpot = useCallback(() => {
     setIsAddSpotOpen(false);
@@ -487,6 +497,13 @@ export default function MapPage() {
         isOpen={selectedSpotId !== null}
         onClose={handleCloseSpotDetail}
         userLocation={userLocationSimple}
+      />
+
+      {/* Upgrade Prompt for free users */}
+      <UpgradePrompt
+        isOpen={isUpgradeOpen}
+        onClose={() => setIsUpgradeOpen(false)}
+        feature={upgradeFeature}
       />
     </div>
   );

@@ -156,6 +156,7 @@ export function setupAuthRoutes(app: Express) {
           firstName: user.firstName,
           lastName: user.lastName,
           isEmailVerified: user.isEmailVerified,
+          accountTier: user.accountTier,
           lastLoginAt: user.lastLoginAt,
           createdAt: user.createdAt,
         },

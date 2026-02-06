@@ -33,6 +33,8 @@ import { createPost } from "./services/moderationStore";
 import { sendQuickMatchNotification } from "./services/notificationService";
 import { profileRouter } from "./routes/profile";
 import { gamesRouter, forfeitExpiredGames } from "./routes/games";
+import { tierRouter } from "./routes/tier";
+import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
 import logger from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -51,8 +53,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 3c. Profile Routes
   app.use("/api/profile", profileRouter);
 
-  // 3d. Games Routes (S.K.A.T.E. game endpoints)
-  app.use("/api/games", gamesRouter);
+  // 3d. Games Routes (S.K.A.T.E. game endpoints) - Pro/Premium only
+  app.use("/api/games", authenticateUser, requirePaidOrPro, gamesRouter);
+
+  // 3e. Tier/Monetization Routes
+  app.use("/api/tier", tierRouter);
 
   // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
@@ -136,6 +141,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/spots/:spotId/rate",
     authenticateUser,
+    requirePaidOrPro,
     validateBody(spotRatingSchema),
     async (req, res) => {
       const spotId = Number(req.params.spotId);
@@ -159,6 +165,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/spots",
     authenticateUser,
+    requirePaidOrPro,
     requireEmailVerification,
     publicWriteLimiter,
     perUserSpotWriteLimiter,
@@ -215,6 +222,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/spots/check-in",
     authenticateUser,
+    requirePaidOrPro,
     enforceTrustAction("checkin"),
     async (req, res) => {
       const parsed = SpotCheckInSchema.safeParse(req.body);
@@ -250,7 +258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     spotId: z.number().int().optional(),
   });
 
-  app.post("/api/posts", authenticateUser, enforceTrustAction("post"), async (req, res) => {
+  app.post("/api/posts", authenticateUser, requirePaidOrPro, enforceTrustAction("post"), async (req, res) => {
     const parsed = postSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
@@ -267,6 +275,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post(
     "/api/spots/check-in",
     authenticateUser,
+    requirePaidOrPro,
     checkInIpLimiter,
     perUserCheckInLimiter,
     validateBody(SpotCheckInSchema),
