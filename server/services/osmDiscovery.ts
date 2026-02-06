@@ -33,19 +33,37 @@ export interface DiscoveredSpot {
 const OVERPASS_API = "https://overpass-api.de/api/interpreter";
 
 /**
- * In-memory cache to prevent hammering the Overpass API for the same area.
+ * In-memory LRU cache to prevent hammering the Overpass API for the same area.
  * Key: rounded lat/lng grid cell (0.25 degree grid ~= 28km).
  * Value: timestamp of last query.
  * Cache entries expire after 1 hour.
+ * Maximum 1000 entries with LRU eviction to prevent unbounded memory growth.
  */
 const discoveryCache = new Map<string, number>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_MAX_SIZE = 1000; // Maximum number of cached grid cells
 const GRID_SIZE = 0.25; // ~28km grid cells
 
 function getCacheKey(lat: number, lng: number): string {
   const gridLat = Math.round(lat / GRID_SIZE) * GRID_SIZE;
   const gridLng = Math.round(lng / GRID_SIZE) * GRID_SIZE;
   return `${gridLat.toFixed(2)},${gridLng.toFixed(2)}`;
+}
+
+/**
+ * Add an entry to the cache with LRU eviction if cache is full.
+ * Removes the oldest entry if cache size exceeds CACHE_MAX_SIZE.
+ */
+function addToCache(key: string, timestamp: number): void {
+  // If cache is at capacity, remove the oldest entry (LRU eviction)
+  if (discoveryCache.size >= CACHE_MAX_SIZE) {
+    const oldestKey = discoveryCache.keys().next().value;
+    if (oldestKey) {
+      discoveryCache.delete(oldestKey);
+    }
+  }
+  // Add new entry (or update existing)
+  discoveryCache.set(key, timestamp);
 }
 
 /**
@@ -72,6 +90,12 @@ export async function discoverSkateparks(
   lng: number,
   radiusMeters: number = 50000
 ): Promise<DiscoveredSpot[]> {
+  // Validate radiusMeters to prevent query manipulation
+  if (radiusMeters < 1000 || radiusMeters > 100000) {
+    logger.warn(`Invalid radiusMeters: ${radiusMeters}, using default 50000`);
+    radiusMeters = 50000;
+  }
+
   // Check cache first - skip if we already queried this area recently
   if (isAreaCached(lat, lng)) {
     logger.info(`Skipping OSM discovery - area already cached for (${lat}, ${lng})`);
@@ -146,8 +170,8 @@ export async function discoverSkateparks(
       });
     }
 
-    // Mark this area as cached
-    discoveryCache.set(getCacheKey(lat, lng), Date.now());
+    // Mark this area as cached with LRU eviction
+    addToCache(getCacheKey(lat, lng), Date.now());
 
     logger.info(`Discovered ${results.length} skateparks from OSM near (${lat}, ${lng})`);
     return results;

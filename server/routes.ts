@@ -54,7 +54,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/profile", profileRouter);
 
   // 3d. Games Routes (S.K.A.T.E. game endpoints) - Pro/Premium only
-  app.use("/api/games", authenticateUser, requirePaidOrPro, gamesRouter);
+  // Note: authenticateUser is applied within the games router itself
+  app.use("/api/games", requirePaidOrPro, gamesRouter);
 
   // 3e. Tier/Monetization Routes
   app.use("/api/tier", tierRouter);
@@ -67,7 +68,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Discover skateparks near user's location from OpenStreetMap
   // This fetches real-world skateparks and saves them to the DB
-  app.get("/api/spots/discover", async (req, res) => {
+  // Requires authentication to prevent abuse
+  app.get("/api/spots/discover", authenticateUser, async (req, res) => {
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
 
