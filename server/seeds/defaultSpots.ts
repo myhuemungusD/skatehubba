@@ -1,0 +1,466 @@
+/**
+ * Default skateparks and legendary skate spots.
+ * These are pre-populated so users see real locations on the map immediately.
+ * All coordinates are for real, well-known skateparks and street spots.
+ */
+
+export interface DefaultSpot {
+  name: string;
+  description: string;
+  spotType: "park" | "street" | "bowl" | "diy" | "stairs" | "ledge" | "rail" | "gap" | "mini-ramp" | "vert";
+  tier: "bronze" | "silver" | "gold" | "legendary";
+  lat: number;
+  lng: number;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+}
+
+export const defaultSpots: DefaultSpot[] = [
+  // === LEGENDARY STREET SPOTS ===
+  {
+    name: "Hubba Hideout",
+    description:
+      "The legendary hubba ledge in San Francisco. One of the most iconic skate spots in history, featured in countless video parts. The namesake of SkateHubba.",
+    spotType: "ledge",
+    tier: "legendary",
+    lat: 37.7855,
+    lng: -122.3990,
+    address: "425 Mission St",
+    city: "San Francisco",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "LOVE Park",
+    description:
+      "JFK Plaza in Philadelphia, one of the most famous skate spots in the world. Popularized by legends like Stevie Williams and Josh Kalis.",
+    spotType: "street",
+    tier: "legendary",
+    lat: 39.9543,
+    lng: -75.1658,
+    address: "1599 John F Kennedy Blvd",
+    city: "Philadelphia",
+    state: "PA",
+    country: "USA",
+  },
+  {
+    name: "Brooklyn Banks",
+    description:
+      "Iconic street spot under the Brooklyn Bridge in Manhattan. A cornerstone of East Coast skateboarding since the 1980s.",
+    spotType: "street",
+    tier: "legendary",
+    lat: 40.7102,
+    lng: -74.0019,
+    address: "Brooklyn Bridge, Park Row",
+    city: "New York",
+    state: "NY",
+    country: "USA",
+  },
+  {
+    name: "El Toro 20-Stair",
+    description:
+      "The infamous 20-stair set at El Toro High School in Lake Forest, CA. One of the gnarliest stair sets ever skated.",
+    spotType: "stairs",
+    tier: "legendary",
+    lat: 33.6390,
+    lng: -117.6860,
+    address: "25255 Toledo Way",
+    city: "Lake Forest",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "Hollywood High 16-Stair",
+    description:
+      "The famous 16-stair set at Hollywood High School. A proving ground for generations of skaters.",
+    spotType: "stairs",
+    tier: "legendary",
+    lat: 34.1017,
+    lng: -118.3387,
+    address: "1521 N Highland Ave",
+    city: "Los Angeles",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "Wallenberg 4-Block",
+    description:
+      "The massive 4-block gap and stair set at Wallenberg High School in San Francisco. Scene of some of the biggest tricks in skateboarding.",
+    spotType: "stairs",
+    tier: "legendary",
+    lat: 37.7230,
+    lng: -122.4580,
+    address: "40 Vega St",
+    city: "San Francisco",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "Carlsbad Gap",
+    description:
+      "The legendary gap at Carlsbad High School. One of the most famous gaps in skateboarding history.",
+    spotType: "gap",
+    tier: "legendary",
+    lat: 33.1640,
+    lng: -117.3280,
+    address: "3557 Lancer Way",
+    city: "Carlsbad",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "Clipper Ledge",
+    description:
+      "San Francisco's famous Clipper ledge, a steep downhill hubba. Considered one of the scariest spots in skating.",
+    spotType: "ledge",
+    tier: "legendary",
+    lat: 37.7390,
+    lng: -122.4350,
+    address: "Clipper St & Dolores St",
+    city: "San Francisco",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "EMB (Embarcadero)",
+    description:
+      "The Embarcadero plaza in San Francisco. Birthplace of modern street skating in the late 80s and 90s. Featured in every classic skate video.",
+    spotType: "street",
+    tier: "legendary",
+    lat: 37.7945,
+    lng: -122.3960,
+    address: "Justin Herman Plaza, The Embarcadero",
+    city: "San Francisco",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "Pulaski Park",
+    description:
+      "Freedom Plaza / Pulaski Park in Washington DC. A legendary street spot with smooth ground and iconic ledges.",
+    spotType: "street",
+    tier: "legendary",
+    lat: 38.8953,
+    lng: -77.0300,
+    address: "1455 Pennsylvania Ave NW",
+    city: "Washington",
+    state: "DC",
+    country: "USA",
+  },
+
+  // === FAMOUS SKATEPARKS ===
+  {
+    name: "Venice Beach Skatepark",
+    description:
+      "World-famous skatepark right on the Venice Beach boardwalk. Features a snake run, deep bowl, and street section.",
+    spotType: "park",
+    tier: "gold",
+    lat: 33.9850,
+    lng: -118.4720,
+    address: "1800 Ocean Front Walk",
+    city: "Venice",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "Burnside Skatepark",
+    description:
+      "The original DIY skatepark under the Burnside Bridge in Portland. Built by skaters, for skaters, since 1990.",
+    spotType: "diy",
+    tier: "legendary",
+    lat: 45.5225,
+    lng: -122.6630,
+    address: "SE 2nd Ave & E Burnside St",
+    city: "Portland",
+    state: "OR",
+    country: "USA",
+  },
+  {
+    name: "FDR Skatepark",
+    description:
+      "DIY skatepark under the I-95 overpass in Philadelphia. One of the best DIY parks on the East Coast.",
+    spotType: "diy",
+    tier: "gold",
+    lat: 39.9172,
+    lng: -75.1778,
+    address: "1500 Pattison Ave",
+    city: "Philadelphia",
+    state: "PA",
+    country: "USA",
+  },
+  {
+    name: "Kona Skatepark",
+    description:
+      "The oldest continuously operating skatepark in the US, open since 1977. A piece of skateboarding history in Jacksonville.",
+    spotType: "park",
+    tier: "legendary",
+    lat: 30.3167,
+    lng: -81.6200,
+    address: "8739 Kona Ave",
+    city: "Jacksonville",
+    state: "FL",
+    country: "USA",
+  },
+  {
+    name: "Skatepark of Tampa (SPoT)",
+    description:
+      "Home of the annual Tampa Pro and Tampa Am contests. One of the most important skateparks in competitive skating.",
+    spotType: "park",
+    tier: "legendary",
+    lat: 27.9580,
+    lng: -82.4593,
+    address: "4215 E Columbus Dr",
+    city: "Tampa",
+    state: "FL",
+    country: "USA",
+  },
+  {
+    name: "Stoner Skate Plaza",
+    description:
+      "Public skate plaza in West Los Angeles with street-style obstacles, ledges, rails, and smooth ground.",
+    spotType: "park",
+    tier: "gold",
+    lat: 34.0367,
+    lng: -118.4483,
+    address: "1835 Stoner Ave",
+    city: "Los Angeles",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "LES Coleman Skatepark",
+    description:
+      "Public skatepark on the Lower East Side of Manhattan. The go-to park for NYC skaters.",
+    spotType: "park",
+    tier: "gold",
+    lat: 40.7208,
+    lng: -73.9885,
+    address: "62 Monroe St",
+    city: "New York",
+    state: "NY",
+    country: "USA",
+  },
+  {
+    name: "Burnham Skatepark",
+    description:
+      "Chicago's premier skatepark along the lakefront at Grant Park. Modern design with a variety of terrain.",
+    spotType: "park",
+    tier: "gold",
+    lat: 41.8613,
+    lng: -87.6190,
+    address: "350 E Monroe St",
+    city: "Chicago",
+    state: "IL",
+    country: "USA",
+  },
+  {
+    name: "Louisville Extreme Park",
+    description:
+      "One of the largest free public skateparks in the US. Features a massive concrete bowl, street course, and vert ramp.",
+    spotType: "park",
+    tier: "gold",
+    lat: 38.2605,
+    lng: -85.7410,
+    address: "601 Franklin Ave",
+    city: "Louisville",
+    state: "KY",
+    country: "USA",
+  },
+  {
+    name: "House Park Skatepark",
+    description:
+      "Austin's famous downtown skatepark. A hub for the Texas skate scene with great street and transition terrain.",
+    spotType: "park",
+    tier: "gold",
+    lat: 30.2749,
+    lng: -97.7370,
+    address: "1213 Shoal Creek Blvd",
+    city: "Austin",
+    state: "TX",
+    country: "USA",
+  },
+  {
+    name: "Denver Skatepark",
+    description:
+      "Large downtown Denver skatepark with 60,000 sq ft of terrain. One of the biggest free skateparks in the country.",
+    spotType: "park",
+    tier: "gold",
+    lat: 39.7561,
+    lng: -105.0006,
+    address: "2205 19th St",
+    city: "Denver",
+    state: "CO",
+    country: "USA",
+  },
+  {
+    name: "Lake Cunningham Skatepark",
+    description:
+      "One of the largest skateparks in California at 68,000 sq ft. World-class bowls and street sections in San Jose.",
+    spotType: "park",
+    tier: "gold",
+    lat: 37.3358,
+    lng: -121.8060,
+    address: "2305 S White Rd",
+    city: "San Jose",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "Etnies Skatepark",
+    description:
+      "The largest free public skatepark in California. 62,000 sq ft of concrete designed by California Skateparks.",
+    spotType: "park",
+    tier: "gold",
+    lat: 33.6400,
+    lng: -117.6720,
+    address: "20028 Lake Forest Dr",
+    city: "Lake Forest",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "Paine's Park",
+    description:
+      "Modern skate-friendly public plaza along the Schuylkill River Trail in Philadelphia. Designed with skaters in mind.",
+    spotType: "park",
+    tier: "silver",
+    lat: 39.9640,
+    lng: -75.1810,
+    address: "2400 B St",
+    city: "Philadelphia",
+    state: "PA",
+    country: "USA",
+  },
+  {
+    name: "Marginal Way Skatepark",
+    description:
+      "Seattle's largest skatepark with bowls, a street plaza, and transition sections. Located in the SODO neighborhood.",
+    spotType: "park",
+    tier: "gold",
+    lat: 47.5720,
+    lng: -122.3555,
+    address: "2450 Marginal Way S",
+    city: "Seattle",
+    state: "WA",
+    country: "USA",
+  },
+  {
+    name: "Pier 62 Skatepark",
+    description:
+      "Skatepark on the Hudson River in Manhattan with views of the waterfront. Part of Hudson River Park.",
+    spotType: "park",
+    tier: "silver",
+    lat: 40.7460,
+    lng: -74.0070,
+    address: "Pier 62, Hudson River Park",
+    city: "New York",
+    state: "NY",
+    country: "USA",
+  },
+  {
+    name: "Owl's Head Skatepark",
+    description:
+      "Popular outdoor skatepark in Bay Ridge, Brooklyn with bowls, rails, and street obstacles.",
+    spotType: "park",
+    tier: "silver",
+    lat: 40.6430,
+    lng: -74.0290,
+    address: "68th St & Colonial Rd",
+    city: "Brooklyn",
+    state: "NY",
+    country: "USA",
+  },
+  {
+    name: "Vans Off The Wall Skatepark",
+    description:
+      "Indoor skatepark in Orange, CA run by Vans. Features a Combi pool replica, mini ramp, and street course.",
+    spotType: "park",
+    tier: "gold",
+    lat: 33.7870,
+    lng: -117.8490,
+    address: "20 City Blvd W",
+    city: "Orange",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "Woodward West",
+    description:
+      "World-class action sports training facility in Tehachapi, CA. Indoor and outdoor parks, camps, and coaching.",
+    spotType: "park",
+    tier: "gold",
+    lat: 35.1320,
+    lng: -118.4490,
+    address: "28700 Stallion Springs Dr",
+    city: "Tehachapi",
+    state: "CA",
+    country: "USA",
+  },
+  {
+    name: "Woodward Pennsylvania",
+    description:
+      "The original Woodward camp in Central PA. Legendary training grounds for skaters, BMXers, and more since 1970.",
+    spotType: "park",
+    tier: "gold",
+    lat: 40.9620,
+    lng: -77.3710,
+    address: "134 Sports Camp Dr",
+    city: "Woodward",
+    state: "PA",
+    country: "USA",
+  },
+  {
+    name: "Ed Benedict Skatepark",
+    description:
+      "Popular Portland skatepark with smooth concrete bowls and street sections. A Pacific Northwest favorite.",
+    spotType: "park",
+    tier: "silver",
+    lat: 45.4920,
+    lng: -122.6140,
+    address: "SE Powell Blvd & SE 104th Ave",
+    city: "Portland",
+    state: "OR",
+    country: "USA",
+  },
+  {
+    name: "Ann Arbor Skatepark",
+    description:
+      "Modern concrete skatepark in Veterans Memorial Park. A top destination for skaters in the Midwest.",
+    spotType: "park",
+    tier: "silver",
+    lat: 42.2660,
+    lng: -83.7490,
+    address: "2150 Jackson Ave",
+    city: "Ann Arbor",
+    state: "MI",
+    country: "USA",
+  },
+  {
+    name: "Shaw Millennium Park",
+    description:
+      "One of the largest outdoor skateparks in the world at 75,000 sq ft, located in Calgary, Canada.",
+    spotType: "park",
+    tier: "gold",
+    lat: 51.0420,
+    lng: -114.0900,
+    address: "333 9 Ave SW",
+    city: "Calgary",
+    state: "AB",
+    country: "Canada",
+  },
+  {
+    name: "Lauridsen Skatepark",
+    description:
+      "The largest open skatepark in the US at 88,000 sq ft. Located along the Des Moines River with world-class terrain.",
+    spotType: "park",
+    tier: "gold",
+    lat: 41.5810,
+    lng: -93.6310,
+    address: "201 SW 2nd St",
+    city: "Des Moines",
+    state: "IA",
+    country: "USA",
+  },
+];
