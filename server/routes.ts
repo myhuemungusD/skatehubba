@@ -21,6 +21,7 @@ import { admin } from "./admin";
 import { env } from "./config/env";
 import { authenticateUser, requireEmailVerification } from "./auth/middleware";
 import { verifyAndCheckIn } from "./services/spotService";
+import { discoverSkateparks } from "./services/osmDiscovery";
 import { analyticsRouter } from "./routes/analytics";
 import { metricsRouter } from "./routes/metrics";
 import { validateBody } from "./middleware/validation";
@@ -57,6 +58,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/spots", async (_req, res) => {
     const spots = await spotStorage.getAllSpots();
     res.json(spots);
+  });
+
+  // Discover skateparks near user's location from OpenStreetMap
+  // This fetches real-world skateparks and saves them to the DB
+  app.get("/api/spots/discover", async (req, res) => {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+
+    if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return res.status(400).json({ message: "Valid lat and lng query parameters are required" });
+    }
+
+    try {
+      const discovered = await discoverSkateparks(lat, lng);
+      let added = 0;
+
+      for (const spot of discovered) {
+        // Skip if a spot with the same name already exists nearby
+        const isDuplicate = await spotStorage.checkDuplicate(spot.name, spot.lat, spot.lng);
+        if (isDuplicate) continue;
+
+        await spotStorage.createSpot({
+          name: spot.name,
+          description: spot.description,
+          spotType: spot.spotType,
+          lat: spot.lat,
+          lng: spot.lng,
+          address: spot.address || undefined,
+          city: spot.city || undefined,
+          state: spot.state || undefined,
+          country: spot.country || "USA",
+          createdBy: "system",
+        });
+        added++;
+      }
+
+      // Return all spots (including newly added ones)
+      const allSpots = await spotStorage.getAllSpots();
+      return res.json({ discovered: discovered.length, added, spots: allSpots });
+    } catch (error) {
+      logger.error("Spot discovery failed", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      // Still return existing spots even if discovery failed
+      const allSpots = await spotStorage.getAllSpots();
+      return res.json({ discovered: 0, added: 0, spots: allSpots });
+    }
   });
 
   app.get("/api/spots/:spotId", async (req, res) => {
