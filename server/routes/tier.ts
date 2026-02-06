@@ -132,7 +132,15 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
   }
 
   try {
-    // TODO: Verify the paymentIntentId with Stripe
+    // ⚠️ CRITICAL: PAYMENT VERIFICATION NOT IMPLEMENTED ⚠️
+    // This endpoint currently accepts ANY paymentIntentId without verification.
+    // Before production deployment, this MUST verify with Stripe that:
+    // 1. The payment intent exists and is valid
+    // 2. The payment status is 'succeeded'
+    // 3. The payment amount matches the expected $9.99 (999 cents)
+    // 4. The payment hasn't already been used to grant Premium to another user
+    //
+    // TODO: Uncomment and configure the following Stripe verification:
     // const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     // const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
     // if (intent.status !== 'succeeded' || intent.amount !== 999) {
