@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { admin } from "../admin.ts";
+import logger from '../logger.ts';
 
 /**
  * Extended Request type with Firebase UID
@@ -65,7 +66,7 @@ export async function requireFirebaseUid(
     next();
   } catch (error) {
     // Don't leak error details to client
-    console.error("[FirebaseAuth] Token verification failed:", error);
+    logger.error("[FirebaseAuth] Token verification failed", { error: String(error) });
     res.status(401).json({
       error: "auth_required",
       message: "Invalid or expired token.",

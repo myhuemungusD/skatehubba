@@ -15,9 +15,14 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./client/src/*"],
+      "@shared/*": ["./packages/shared/*"],
+      "@shared": ["./packages/shared/index"]
+    }
   },
   "include": ["client/src", "server", "packages"],
-  "exclude": ["node_modules", "dist", "**/dist/**", "mobile/**"],
-  "references": [{ "path": "./client" }, { "path": "./server" }]
+  "exclude": ["node_modules", "dist", "**/dist/**", "mobile/**", "**/__tests__/**", "**/*.test.ts"]
 }

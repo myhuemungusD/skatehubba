@@ -6,6 +6,7 @@ import { Textarea } from './ui/textarea';
 import { Label } from './ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { useToast } from '../hooks/use-toast';
+import { logger } from '../lib/logger';
 import { MapPin, Camera } from 'lucide-react';
 
 interface AddSpotDialogProps {
@@ -82,7 +83,7 @@ export function AddSpotDialog({ isOpen, onClose, lat, lng }: AddSpotDialogProps)
     existingDrafts.push(draft);
     localStorage.setItem('spotDrafts', JSON.stringify(existingDrafts));
 
-    console.log('[SpotDraft] Saved draft:', draft);
+    logger.log('[SpotDraft] Saved draft:', draft);
 
     toast({
       title: 'Spot Saved!',

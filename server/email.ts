@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { env } from './config/env';
+import logger from './logger';
 
 const transporter = nodemailer.createTransport({
   service: 'gmail',
@@ -43,9 +44,9 @@ export async function sendSubscriberNotification(subscriberData: { firstName: st
 
   try {
     await transporter.sendMail(mailOptions);
-    console.log('Subscriber notification email sent successfully');
+    logger.info('Subscriber notification email sent successfully');
   } catch (error) {
-    console.error('Failed to send subscriber notification email:', error);
+    logger.error('Failed to send subscriber notification email', { error: String(error) });
     // Don't throw error - we don't want subscription to fail if email fails
   }
 }

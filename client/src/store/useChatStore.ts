@@ -11,6 +11,7 @@ import {
   doc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { logger } from "../lib/logger";
 
 export interface ChatMessage {
   id: string;
@@ -52,7 +53,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       
       set({ isLoading: false });
     } catch (error: any) {
-      console.error("Error sending message:", error);
+      logger.error("Error sending message:", error);
       set({ error: error.message, isLoading: false });
     }
   },
@@ -67,7 +68,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         isAI: true,
       });
     } catch (error: any) {
-      console.error("Error sending AI message:", error);
+      logger.error("Error sending AI message:", error);
     }
   },
 
@@ -98,7 +99,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
         set({ messages, isLoading: false });
       },
       (error) => {
-        console.error("Error listening to messages:", error);
+        logger.error("Error listening to messages:", error);
         set({ error: error.message, isLoading: false });
       }
     );
@@ -115,7 +116,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       await Promise.all(deletePromises);
       set({ messages: [] });
     } catch (error: any) {
-      console.error("Error clearing messages:", error);
+      logger.error("Error clearing messages:", error);
       set({ error: error.message });
     }
   },

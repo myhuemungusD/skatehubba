@@ -27,7 +27,7 @@ if (process.env.NODE_ENV === "production") {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", "data:", "https:", "blob:"],
           connectSrc: ["'self'", "https:"],
@@ -48,8 +48,10 @@ const corsOptions = {
     callback: (err: Error | null, allow?: boolean) => void
   ) {
     const allowed = process.env.ALLOWED_ORIGINS?.split(",") || [];
-    // Allow requests with no origin (like mobile apps) or matching allowed domains
-    if (!origin || allowed.indexOf(origin) !== -1 || process.env.NODE_ENV !== "production") {
+    const devOrigins = ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
+    const allAllowed = process.env.NODE_ENV === "production" ? allowed : [...allowed, ...devOrigins];
+    // Allow requests with no origin (mobile apps, server-to-server) or matching allowed domains
+    if (!origin || allAllowed.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));

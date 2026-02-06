@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { Spot } from "@shared/schema";
 import { CheckInButton } from "@/features/checkins/CheckInButton";
+import { logger } from "../../lib/logger";
 
 // Labels with emojis for display
 const SPOT_TYPE_LABELS: Record<string, string> = {
@@ -163,7 +164,7 @@ export function SpotDetailModal({
         });
       }
     } catch (error) {
-      console.error("Failed to share spot:", error);
+      logger.error("Failed to share spot:", error);
     }
   };
 

@@ -11,6 +11,7 @@ import LocationPicker, { type Location } from "./LocationPicker";
 import { useAuth } from "../../hooks/useAuth";
 import { db } from "../../lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { logger } from "../../lib/logger";
 
 export default function TrickUpload() {
   const { toast } = useToast();
@@ -107,7 +108,7 @@ export default function TrickUpload() {
         setLocation("/");
       }, 1500);
     } catch (error: any) {
-      console.error("Error uploading trick:", error);
+      logger.error("Error uploading trick:", error);
       toast({
         title: "Upload failed",
         description: error.message || "Failed to upload trick. Please try again.",

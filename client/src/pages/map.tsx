@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   MapPin,
   Navigation as NavigationIcon,
@@ -18,6 +18,8 @@ import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { useToast } from "../hooks/use-toast";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { useAccountTier } from "../hooks/useAccountTier";
+import { UpgradePrompt } from "../components/UpgradePrompt";
 import { calculateDistance, getProximity } from "../lib/distance";
 
 // ============================================================================
@@ -56,8 +58,11 @@ export default function MapPage() {
   // State
   // ---------------------------------------------------------------------------
   const { toast } = useToast();
+  const { isPaidOrPro } = useAccountTier();
   const [selectedSpotId, setSelectedSpotId] = useState<number | null>(null);
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
 
@@ -91,6 +96,9 @@ export default function MapPage() {
   // ---------------------------------------------------------------------------
   // Data Fetching
   // ---------------------------------------------------------------------------
+  const queryClient = useQueryClient();
+  const hasDiscoveredRef = useRef(false);
+
   const {
     data: spots = [],
     isLoading: isSpotsLoading,
@@ -103,6 +111,34 @@ export default function MapPage() {
     refetchOnWindowFocus: false,
     retry: 2,
   });
+
+  // Discover nearby skateparks from OpenStreetMap when user location is available
+  useEffect(() => {
+    if (
+      hasDiscoveredRef.current ||
+      geolocation.latitude === null ||
+      geolocation.longitude === null ||
+      geolocation.status !== "ready"
+    ) {
+      return;
+    }
+
+    hasDiscoveredRef.current = true;
+    const lat = geolocation.latitude;
+    const lng = geolocation.longitude;
+
+    fetch(`/api/spots/discover?lat=${lat}&lng=${lng}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.added > 0) {
+          // New spots were discovered - refresh the spots list
+          queryClient.invalidateQueries({ queryKey: ["/api/spots"] });
+        }
+      })
+      .catch(() => {
+        // Discovery is best-effort - don't block the map experience
+      });
+  }, [geolocation.latitude, geolocation.longitude, geolocation.status, queryClient]);
 
   // ---------------------------------------------------------------------------
   // Memoized Computations
@@ -173,8 +209,13 @@ export default function MapPage() {
   }, []);
 
   const handleOpenAddSpot = useCallback(() => {
+    if (!isPaidOrPro) {
+      setUpgradeFeature("Add Spots");
+      setIsUpgradeOpen(true);
+      return;
+    }
     setIsAddSpotOpen(true);
-  }, []);
+  }, [isPaidOrPro]);
 
   const handleCloseAddSpot = useCallback(() => {
     setIsAddSpotOpen(false);
@@ -456,6 +497,13 @@ export default function MapPage() {
         isOpen={selectedSpotId !== null}
         onClose={handleCloseSpotDetail}
         userLocation={userLocationSimple}
+      />
+
+      {/* Upgrade Prompt for free users */}
+      <UpgradePrompt
+        isOpen={isUpgradeOpen}
+        onClose={() => setIsUpgradeOpen(false)}
+        feature={upgradeFeature}
       />
     </div>
   );

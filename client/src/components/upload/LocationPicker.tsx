@@ -4,6 +4,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useToast } from "../../hooks/use-toast";
+import { logger } from "../../lib/logger";
 import L from "leaflet";
 
 import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
@@ -94,7 +95,7 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
         mapRef.current = map;
         setLeafletLoaded(true);
       } catch (error) {
-        console.error("Failed to initialize Leaflet map", error);
+        logger.error("Failed to initialize Leaflet map", error);
       }
     };
 
@@ -134,7 +135,7 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
         setIsGettingLocation(false);
       },
       (error) => {
-        console.error("Geolocation error:", error);
+        logger.error("Geolocation error:", error);
         toast({
           title: "Location access denied",
           description: "Please enable location services or enter coordinates manually.",
