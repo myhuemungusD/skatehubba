@@ -77,9 +77,6 @@ export function isAreaCached(lat: number, lng: number): boolean {
     discoveryCache.delete(key);
     return false;
   }
-  // Move to end (most recent) by re-inserting with current timestamp for true LRU
-  discoveryCache.delete(key);
-  discoveryCache.set(key, Date.now());
   return true;
 }
 
