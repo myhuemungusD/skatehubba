@@ -563,11 +563,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // This should be called by an external scheduler (Vercel Cron, Cloud Scheduler, etc.)
   // Secured with a simple secret key check
   app.post("/api/cron/forfeit-expired-games", async (req, res) => {
-    // Simple secret verification - set CRON_SECRET in environment
+    // Require CRON_SECRET to be configured — reject if missing
     const cronSecret = process.env.CRON_SECRET;
-    const authHeader = req.headers.authorization;
+    if (!cronSecret) {
+      logger.warn("[Cron] CRON_SECRET not configured — rejecting request");
+      return res.status(401).json({ error: "Unauthorized" });
+    }
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    const authHeader = req.headers.authorization;
+    if (authHeader !== `Bearer ${cronSecret}`) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
