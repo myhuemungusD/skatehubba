@@ -61,8 +61,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
-    const spots = await spotStorage.getAllSpots();
-    res.json(spots);
+    try {
+      const spots = await spotStorage.getAllSpots();
+      res.json(spots);
+    } catch (error) {
+      logger.error("Failed to fetch spots", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      res.json([]);
+    }
   });
 
   // Discover skateparks near user's location from OpenStreetMap
@@ -126,12 +133,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(400).json({ message: "Invalid spot ID" });
     }
 
-    const spot = await spotStorage.getSpotById(spotId);
-    if (!spot) {
-      return res.status(404).json({ message: "Spot not found" });
+    try {
+      const spot = await spotStorage.getSpotById(spotId);
+      if (!spot) {
+        return res.status(404).json({ message: "Spot not found" });
+      }
+      return res.json(spot);
+    } catch (error) {
+      logger.error("Failed to fetch spot", {
+        spotId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return res.status(500).json({ message: "Failed to load spot" });
     }
-
-    return res.json(spot);
   });
 
   const spotRatingSchema = z.object({
