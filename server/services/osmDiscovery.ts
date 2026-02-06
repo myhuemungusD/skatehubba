@@ -37,10 +37,35 @@ const OVERPASS_API = "https://overpass-api.de/api/interpreter";
  * Key: rounded lat/lng grid cell (0.25 degree grid ~= 28km).
  * Value: timestamp of last query.
  * Cache entries expire after 1 hour.
+ * LRU eviction when cache exceeds max size.
  */
+const MAX_CACHE_SIZE = 500; // Limit cache to 500 entries
 const discoveryCache = new Map<string, number>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const GRID_SIZE = 0.25; // ~28km grid cells
+
+/**
+ * Evict oldest entries when cache exceeds max size.
+ * Uses LRU (Least Recently Used) strategy.
+ */
+function evictOldestIfNeeded(): void {
+  if (discoveryCache.size >= MAX_CACHE_SIZE) {
+    // Find oldest entry
+    let oldestKey: string | null = null;
+    let oldestTime = Date.now();
+
+    for (const [key, timestamp] of discoveryCache.entries()) {
+      if (timestamp < oldestTime) {
+        oldestTime = timestamp;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      discoveryCache.delete(oldestKey);
+    }
+  }
+}
 
 function getCacheKey(lat: number, lng: number): string {
   const gridLat = Math.round(lat / GRID_SIZE) * GRID_SIZE;
@@ -72,6 +97,17 @@ export async function discoverSkateparks(
   lng: number,
   radiusMeters: number = 50000
 ): Promise<DiscoveredSpot[]> {
+  // Validate inputs to prevent query manipulation
+  if (
+    typeof radiusMeters !== "number" ||
+    radiusMeters < 1000 ||
+    radiusMeters > 100000 ||
+    !Number.isFinite(radiusMeters)
+  ) {
+    logger.warn("Invalid radiusMeters parameter", { radiusMeters });
+    radiusMeters = 50000; // Default to safe value
+  }
+
   // Check cache first - skip if we already queried this area recently
   if (isAreaCached(lat, lng)) {
     logger.info(`Skipping OSM discovery - area already cached for (${lat}, ${lng})`);
@@ -147,6 +183,7 @@ export async function discoverSkateparks(
     }
 
     // Mark this area as cached
+    evictOldestIfNeeded();
     discoveryCache.set(getCacheKey(lat, lng), Date.now());
 
     logger.info(`Discovered ${results.length} skateparks from OSM near (${lat}, ${lng})`);

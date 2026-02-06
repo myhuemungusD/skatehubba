@@ -54,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/profile", profileRouter);
 
   // 3d. Games Routes (S.K.A.T.E. game endpoints) - Pro/Premium only
-  app.use("/api/games", authenticateUser, requirePaidOrPro, gamesRouter);
+  app.use("/api/games", requirePaidOrPro, gamesRouter);
 
   // 3e. Tier/Monetization Routes
   app.use("/api/tier", tierRouter);
@@ -67,11 +67,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Discover skateparks near user's location from OpenStreetMap
   // This fetches real-world skateparks and saves them to the DB
-  app.get("/api/spots/discover", async (req, res) => {
+  // Requires authentication to prevent abuse
+  app.get("/api/spots/discover", authenticateUser, async (req, res) => {
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
 
-    if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    if (
+      Number.isNaN(lat) ||
+      Number.isNaN(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
       return res.status(400).json({ message: "Valid lat and lng query parameters are required" });
     }
 
@@ -258,19 +266,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     spotId: z.number().int().optional(),
   });
 
-  app.post("/api/posts", authenticateUser, requirePaidOrPro, enforceTrustAction("post"), async (req, res) => {
-    const parsed = postSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
-    }
+  app.post(
+    "/api/posts",
+    authenticateUser,
+    requirePaidOrPro,
+    enforceTrustAction("post"),
+    async (req, res) => {
+      const parsed = postSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
+      }
 
-    if (!req.currentUser?.id) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+      if (!req.currentUser?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
-    const post = await createPost(req.currentUser.id, parsed.data);
-    return res.status(201).json({ postId: post.id });
-  });
+      const post = await createPost(req.currentUser.id, parsed.data);
+      return res.status(201).json({ postId: post.id });
+    }
+  );
 
   app.post(
     "/api/spots/check-in",

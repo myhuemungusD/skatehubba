@@ -132,12 +132,26 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
   }
 
   try {
-    // TODO: Verify the paymentIntentId with Stripe
+    // SECURITY WARNING: Payment verification is not implemented!
+    // DO NOT deploy to production without implementing Stripe verification.
+    // This endpoint currently grants Premium access without verifying payment.
+    //
+    // TODO: Implement Stripe payment verification before production deployment
     // const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     // const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
     // if (intent.status !== 'succeeded' || intent.amount !== 999) {
     //   return res.status(402).json({ error: 'Payment not verified' });
     // }
+
+    // For development/testing only - remove this check before production
+    if (process.env.NODE_ENV === "production") {
+      logger.error("Premium purchase attempted in production without Stripe verification", {
+        userId: user.id,
+      });
+      return res.status(503).json({
+        error: "Payment processing is not yet available. Please check back later.",
+      });
+    }
 
     const db = getDb();
 

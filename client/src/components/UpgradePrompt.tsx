@@ -1,15 +1,9 @@
 import { useState } from "react";
-import { Lock, Crown, Users, X } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "./ui/dialog";
+import { Lock, Crown, Users } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { useAccountTier } from "../hooks/useAccountTier";
-import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 
 interface UpgradePromptProps {

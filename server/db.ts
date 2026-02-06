@@ -102,8 +102,9 @@ export async function initializeDatabase() {
 
     if (existingSpots.length === 0) {
       logger.info(`Seeding ${defaultSpots.length} default skateparks and spots...`);
-      for (const spot of defaultSpots) {
-        await db.insert(schema.spots).values({
+      // Use batch insert for efficiency - inserts all spots in a single database query
+      await db.insert(schema.spots).values(
+        defaultSpots.map((spot) => ({
           name: spot.name,
           description: spot.description,
           spotType: spot.spotType,
@@ -120,8 +121,8 @@ export async function initializeDatabase() {
           checkInCount: 0,
           rating: 0,
           ratingCount: 0,
-        });
-      }
+        }))
+      );
       logger.info("Default skateparks seeded successfully");
     } else {
       logger.info("Spots already exist, skipping default seed");
