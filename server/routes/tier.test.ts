@@ -43,20 +43,20 @@ describe("Tier Routes Logic", () => {
     });
 
     it("should allow awarding to different user", () => {
-      const awarderId = "user1";
-      const targetUserId = "user2";
+      const awarderId = "user1" as string;
+      const targetUserId = "user2" as string;
       const isSelfAward = awarderId === targetUserId;
       expect(isSelfAward).toBe(false);
     });
 
     it("should verify target user is on free tier before awarding", () => {
-      const targetUser = { accountTier: "premium" };
+      const targetUser = { accountTier: "premium" as "free" | "pro" | "premium" };
       const canAward = targetUser.accountTier === "free";
       expect(canAward).toBe(false);
     });
 
     it("should allow awarding to free tier users", () => {
-      const targetUser = { accountTier: "free" };
+      const targetUser = { accountTier: "free" as "free" | "pro" | "premium" };
       const canAward = targetUser.accountTier === "free";
       expect(canAward).toBe(true);
     });
@@ -82,21 +82,21 @@ describe("Tier Routes Logic", () => {
     });
 
     it("should allow premium purchase for non-premium users", () => {
-      const freeUser = { accountTier: "free" };
-      const proUser = { accountTier: "pro" };
+      const freeUser = { accountTier: "free" as "free" | "pro" | "premium" };
+      const proUser = { accountTier: "pro" as "free" | "pro" | "premium" };
       expect(freeUser.accountTier === "premium").toBe(false);
       expect(proUser.accountTier === "premium").toBe(false);
     });
 
     it("should block production purchases without Stripe verification", () => {
-      const env = "production";
+      const env = "production" as string;
       const hasStripeVerification = false;
       const shouldBlock = env === "production" && !hasStripeVerification;
       expect(shouldBlock).toBe(true);
     });
 
     it("should allow non-production purchases for testing", () => {
-      const env = "development";
+      const env = "development" as string;
       const hasStripeVerification = false;
       const shouldBlock = env === "production" && !hasStripeVerification;
       expect(shouldBlock).toBe(false);
@@ -117,25 +117,25 @@ describe("Tier Routes Logic", () => {
 
   describe("Tier authorization logic", () => {
     it("should recognize pro tier as paid", () => {
-      const tier = "pro";
+      const tier = "pro" as "free" | "pro" | "premium" | undefined;
       const isPaid = tier === "pro" || tier === "premium";
       expect(isPaid).toBe(true);
     });
 
     it("should recognize premium tier as paid", () => {
-      const tier = "premium";
+      const tier = "premium" as "free" | "pro" | "premium" | undefined;
       const isPaid = tier === "pro" || tier === "premium";
       expect(isPaid).toBe(true);
     });
 
     it("should recognize free tier as not paid", () => {
-      const tier = "free";
+      const tier = "free" as "free" | "pro" | "premium" | undefined;
       const isPaid = tier === "pro" || tier === "premium";
       expect(isPaid).toBe(false);
     });
 
     it("should handle undefined tier as not paid", () => {
-      const tier = undefined;
+      const tier = undefined as "free" | "pro" | "premium" | undefined;
       const isPaid = tier === "pro" || tier === "premium";
       expect(isPaid).toBe(false);
     });
@@ -161,22 +161,22 @@ describe("Tier Routes Logic", () => {
 
   describe("User tier transitions", () => {
     it("should transition from free to pro", () => {
-      const oldTier = "free";
-      const newTier = "pro";
+      const oldTier = "free" as "free" | "pro" | "premium";
+      const newTier = "pro" as "free" | "pro" | "premium";
       expect(oldTier).not.toBe(newTier);
       expect(newTier === "pro" || newTier === "premium").toBe(true);
     });
 
     it("should transition from free to premium", () => {
-      const oldTier = "free";
-      const newTier = "premium";
+      const oldTier = "free" as "free" | "pro" | "premium";
+      const newTier = "premium" as "free" | "pro" | "premium";
       expect(oldTier).not.toBe(newTier);
       expect(newTier === "pro" || newTier === "premium").toBe(true);
     });
 
     it("should not allow downgrade from premium", () => {
-      const currentTier = "premium";
-      const attemptedTier = "free";
+      const currentTier = "premium" as "free" | "pro" | "premium";
+      const attemptedTier = "free" as "free" | "pro" | "premium";
       const isDowngrade = currentTier === "premium" && attemptedTier !== "premium";
       expect(isDowngrade).toBe(true);
     });

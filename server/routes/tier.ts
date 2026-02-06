@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getDb, isDatabaseAvailable } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { requirePaidOrPro } from "../middleware/requirePaidOrPro";
+import { premiumPurchaseLimiter } from "../middleware/security";
 import { customUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
@@ -111,7 +112,7 @@ const purchasePremiumSchema = z.object({
   paymentIntentId: z.string().min(1, "Payment intent ID is required"),
 });
 
-router.post("/purchase-premium", authenticateUser, async (req, res) => {
+router.post("/purchase-premium", authenticateUser, premiumPurchaseLimiter, async (req, res) => {
   const parsed = purchasePremiumSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });

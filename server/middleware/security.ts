@@ -216,6 +216,38 @@ export const profileCreateLimiter = rateLimit({
 });
 
 /**
+ * Rate limiter for OSM skatepark discovery endpoint
+ * Limits to 10 discovery requests per hour per user
+ * Prevents abuse of external OSM Overpass API
+ */
+export const spotDiscoveryLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 discovery requests per hour per user
+  message: {
+    error: "Too many discovery requests, please try again later.",
+  },
+  keyGenerator: userKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
+ * Rate limiter for premium purchase attempts
+ * Limits to 5 purchase attempts per hour per user
+ * Prevents spam of purchase endpoint and log flooding
+ */
+export const premiumPurchaseLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // 5 purchase attempts per hour per user
+  message: {
+    error: "Too many purchase attempts, please try again later.",
+  },
+  keyGenerator: userKeyGenerator,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+/**
  * Static file rate limiter for HTML/template serving
  * Limits to 60 requests per minute per IP address
  * Prevents abuse of file system operations while allowing normal browsing

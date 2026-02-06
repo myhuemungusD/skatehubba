@@ -11,6 +11,7 @@ import {
   perUserCheckInLimiter,
   perUserSpotWriteLimiter,
   publicWriteLimiter,
+  spotDiscoveryLimiter,
 } from "./middleware/security";
 import { requireCsrfToken } from "./middleware/csrf";
 import { enforceTrustAction } from "./middleware/trustSafety";
@@ -68,7 +69,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Discover skateparks near user's location from OpenStreetMap
   // This fetches real-world skateparks and saves them to the DB
   // Requires authentication to prevent abuse
-  app.get("/api/spots/discover", authenticateUser, async (req, res) => {
+  app.get("/api/spots/discover", authenticateUser, spotDiscoveryLimiter, async (req, res) => {
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
 
