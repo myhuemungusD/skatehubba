@@ -36,16 +36,34 @@ const OVERPASS_API = "https://overpass-api.de/api/interpreter";
  * In-memory cache to prevent hammering the Overpass API for the same area.
  * Key: rounded lat/lng grid cell (0.25 degree grid ~= 28km).
  * Value: timestamp of last query.
- * Cache entries expire after 1 hour.
+ * Cache entries expire after 1 hour and size is limited with LRU eviction.
  */
 const discoveryCache = new Map<string, number>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_MAX_SIZE = 1000; // Maximum number of cached areas
 const GRID_SIZE = 0.25; // ~28km grid cells
 
 function getCacheKey(lat: number, lng: number): string {
   const gridLat = Math.round(lat / GRID_SIZE) * GRID_SIZE;
   const gridLng = Math.round(lng / GRID_SIZE) * GRID_SIZE;
   return `${gridLat.toFixed(2)},${gridLng.toFixed(2)}`;
+}
+
+/**
+ * Evict oldest entries from cache when size limit is exceeded.
+ * Uses LRU (Least Recently Used) strategy - removes oldest timestamps first.
+ */
+function evictOldestCacheEntries(): void {
+  if (discoveryCache.size <= CACHE_MAX_SIZE) return;
+
+  // Convert to array and sort by timestamp (oldest first)
+  const entries = Array.from(discoveryCache.entries()).sort((a, b) => a[1] - b[1]);
+
+  // Remove oldest entries until we're under the limit
+  const toRemove = entries.slice(0, discoveryCache.size - CACHE_MAX_SIZE);
+  for (const [key] of toRemove) {
+    discoveryCache.delete(key);
+  }
 }
 
 /**
@@ -59,6 +77,9 @@ export function isAreaCached(lat: number, lng: number): boolean {
     discoveryCache.delete(key);
     return false;
   }
+  // Move to end (most recent) by re-inserting
+  discoveryCache.delete(key);
+  discoveryCache.set(key, cachedAt);
   return true;
 }
 
@@ -72,6 +93,11 @@ export async function discoverSkateparks(
   lng: number,
   radiusMeters: number = 50000
 ): Promise<DiscoveredSpot[]> {
+  // Validate radiusMeters to prevent query manipulation
+  if (typeof radiusMeters !== "number" || radiusMeters < 100 || radiusMeters > 100000) {
+    throw new Error("radiusMeters must be a number between 100 and 100000");
+  }
+
   // Check cache first - skip if we already queried this area recently
   if (isAreaCached(lat, lng)) {
     logger.info(`Skipping OSM discovery - area already cached for (${lat}, ${lng})`);
@@ -147,6 +173,7 @@ export async function discoverSkateparks(
     }
 
     // Mark this area as cached
+    evictOldestCacheEntries();
     discoveryCache.set(getCacheKey(lat, lng), Date.now());
 
     logger.info(`Discovered ${results.length} skateparks from OSM near (${lat}, ${lng})`);
