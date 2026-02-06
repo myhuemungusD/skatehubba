@@ -9,7 +9,6 @@ import {
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { useAccountTier } from "../hooks/useAccountTier";
-import { apiRequest } from "../lib/queryClient";
 import { useToast } from "../hooks/use-toast";
 
 interface UpgradePromptProps {
