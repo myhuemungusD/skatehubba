@@ -30,6 +30,38 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
   const GENERIC_AUTH_ERROR = "Authentication failed";
 
   try {
+    // Dev-only admin bypass — allows e2e testing without Firebase auth
+    // BLOCKED in production: only active when NODE_ENV !== "production"
+    if (
+      process.env.NODE_ENV !== "production" &&
+      req.headers["x-dev-admin"] === "true"
+    ) {
+      req.currentUser = {
+        id: "dev-admin-000",
+        firebaseUid: "dev-admin-uid",
+        email: "admin@skatehubba.local",
+        passwordHash: "",
+        firstName: "Dev",
+        lastName: "Admin",
+        isActive: true,
+        isEmailVerified: true,
+        accountTier: "pro" as const,
+        trustLevel: 100,
+        roles: ["admin"],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        pushToken: null,
+        proAwardedBy: null,
+        premiumPurchasedAt: null,
+        emailVerificationToken: null,
+        emailVerificationExpires: null,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+        lastLoginAt: new Date(),
+      };
+      return next();
+    }
+
     // Option 1: Check for HttpOnly session cookie (PREFERRED - XSS safe)
     const sessionToken = req.cookies?.sessionToken;
 

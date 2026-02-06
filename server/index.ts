@@ -13,6 +13,7 @@ import logger from "./logger.ts";
 import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { apiLimiter, staticFileLimiter, securityMiddleware } from "./middleware/security.ts";
 import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
+import { initializeDatabase } from "./db.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -90,6 +91,9 @@ app.use("/api", requireCsrfToken);
 // Register all API routes
 await registerRoutes(app);
 
+// Initialize database (seed default spots + tutorial steps if empty)
+await initializeDatabase();
+
 // Initialize WebSocket server
 const io = initializeSocketServer(server);
 logger.info("[Server] WebSocket server initialized");
@@ -157,7 +161,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Start server
-const port = parseInt(process.env.PORT || "5000", 10);
+const port = parseInt(process.env.PORT || "3001", 10);
 server.listen(port, "0.0.0.0", () => {
   const mode = process.env.NODE_ENV || "development";
   if (mode === "development") {
