@@ -104,8 +104,8 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, async (req, res) =
 /**
  * POST /api/tier/purchase-premium - Purchase Premium for $9.99 (one-time)
  *
- * In production, this should verify a Stripe payment intent/receipt.
- * For now, it accepts a paymentIntentId that should be verified with Stripe.
+ * Verifies the Stripe payment intent before granting premium status.
+ * Only succeeds if payment has been completed and amount matches exactly $9.99.
  */
 const purchasePremiumSchema = z.object({
   paymentIntentId: z.string().min(1, "Payment intent ID is required"),
@@ -132,12 +132,48 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
   }
 
   try {
-    // TODO: Verify the paymentIntentId with Stripe
-    // const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-    // const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
-    // if (intent.status !== 'succeeded' || intent.amount !== 999) {
-    //   return res.status(402).json({ error: 'Payment not verified' });
-    // }
+    // Verify the paymentIntentId with Stripe before granting premium access
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+      logger.error("STRIPE_SECRET_KEY not configured");
+      return res.status(500).json({ error: "Payment verification not available" });
+    }
+
+    // Dynamic import for stripe to avoid hard dependency
+    const Stripe = await import("stripe").then((m) => m.default);
+    const stripe = new Stripe(stripeSecretKey);
+
+    try {
+      const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
+
+      // Verify payment succeeded and amount is correct ($9.99 = 999 cents)
+      if (intent.status !== "succeeded") {
+        return res.status(402).json({
+          error: "Payment not completed",
+          status: intent.status,
+        });
+      }
+
+      if (intent.amount !== 999) {
+        logger.error("Payment intent amount mismatch", {
+          userId: user.id,
+          expected: 999,
+          received: intent.amount,
+          paymentIntentId,
+        });
+        return res.status(402).json({ error: "Payment amount invalid" });
+      }
+
+      // Optional: Verify this payment hasn't been used before
+      // You might want to store processed payment intent IDs to prevent reuse
+    } catch (stripeError) {
+      logger.error("Stripe payment verification failed", {
+        userId: user.id,
+        paymentIntentId,
+        error: stripeError instanceof Error ? stripeError.message : String(stripeError),
+      });
+      return res.status(402).json({ error: "Payment verification failed" });
+    }
 
     const db = getDb();
 
