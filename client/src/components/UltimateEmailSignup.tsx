@@ -37,7 +37,7 @@ export default function UltimateEmailSignup({
     // Simulate real-time counter updates for psychological effect
     const interval = setInterval(() => {
       if (crypto.getRandomValues(new Uint8Array(1))[0] > 242) {
-        // ~5% chance every second (242/255 ≈ 0.95)
+        // ~5% chance every second (13/256 ≈ 5.08%)
         setSubscriberCount((prev) => prev + 1);
       }
     }, 1000);
