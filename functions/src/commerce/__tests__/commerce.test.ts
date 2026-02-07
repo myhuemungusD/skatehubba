@@ -164,7 +164,8 @@ vi.mock("firebase-admin/firestore", () => ({
 // Import after mocks
 // ============================================================================
 
-const { hashToShard, releaseHoldAtomic, consumeHold } = await import("../stockRelease");
+const { hashToShard, releaseHoldAtomic, consumeHold, restockFromConsumedHold } =
+  await import("../stockRelease");
 const { markEventProcessedOrSkip } = await import("../webhookDedupe");
 const { expireHolds } = await import("../expireHolds");
 
@@ -512,6 +513,83 @@ describe("Commerce / Payment Flow", () => {
       };
 
       await expect(holdAndCreatePaymentIntent(request)).rejects.toThrow("Maximum 2 per customer");
+    });
+  });
+
+  // ==========================================================================
+  // Restock from consumed hold (refund/dispute path)
+  // ==========================================================================
+
+  describe("restockFromConsumedHold", () => {
+    it("restocks inventory from a consumed hold", async () => {
+      mockDocs.set("holds/order-refund", {
+        status: "consumed",
+        items: [{ productId: "prod-1", qty: 3 }],
+      });
+      mockDocs.set("products/prod-1", { shards: 5 });
+
+      const result = await restockFromConsumedHold("order-refund");
+      expect(result).toBe(true);
+
+      // Hold status should be updated to released
+      const hold = mockDocs.get("holds/order-refund");
+      expect(hold.status).toBe("released");
+      expect(mockBatch.commit).toHaveBeenCalled();
+    });
+
+    it("returns false when hold not found", async () => {
+      const result = await restockFromConsumedHold("nonexistent");
+      expect(result).toBe(false);
+    });
+
+    it("returns false when hold is not in consumed status", async () => {
+      mockDocs.set("holds/order-held", {
+        status: "held",
+        items: [{ productId: "prod-1", qty: 1 }],
+      });
+
+      const result = await restockFromConsumedHold("order-held");
+      expect(result).toBe(false);
+    });
+
+    it("returns false for already-released hold", async () => {
+      mockDocs.set("holds/order-released", {
+        status: "released",
+        items: [],
+      });
+
+      const result = await restockFromConsumedHold("order-released");
+      expect(result).toBe(false);
+    });
+
+    it("handles consumed hold with empty items list", async () => {
+      mockDocs.set("holds/order-empty", {
+        status: "consumed",
+        items: [],
+      });
+
+      const result = await restockFromConsumedHold("order-empty");
+      expect(result).toBe(true);
+
+      const hold = mockDocs.get("holds/order-empty");
+      expect(hold.status).toBe("released");
+    });
+
+    it("restocks multiple items to correct shards", async () => {
+      mockDocs.set("holds/order-multi", {
+        status: "consumed",
+        items: [
+          { productId: "prod-1", qty: 2 },
+          { productId: "prod-2", qty: 5 },
+        ],
+      });
+      mockDocs.set("products/prod-1", { shards: 10 });
+      mockDocs.set("products/prod-2", { shards: 5 });
+
+      const result = await restockFromConsumedHold("order-multi");
+      expect(result).toBe(true);
+      expect(mockBatch.set).toHaveBeenCalledTimes(2);
+      expect(mockBatch.commit).toHaveBeenCalled();
     });
   });
 

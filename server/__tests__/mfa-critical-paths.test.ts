@@ -2,10 +2,9 @@
  * @fileoverview Critical path tests for MFA (Multi-Factor Authentication)
  *
  * Tests the TOTP-based MFA flow:
- * - Secret generation and QR code URL construction
- * - TOTP code generation and verification
- * - Base32 encode/decode roundtrip
- * - AES-256-GCM encryption/decryption of secrets
+ * - Secret generation (base32 format) and QR code URL construction
+ * - TOTP code verification (invalid code rejection)
+ * - Encrypted secret storage (verifies ciphertext is stored, not plaintext)
  * - Backup code generation and verification
  * - MFA setup, verify-setup, and disable lifecycle
  */
