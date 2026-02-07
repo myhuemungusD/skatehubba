@@ -5,28 +5,14 @@ import { Button } from "../components/ui/button";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Link, useLocation } from "wouter";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
 
-function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
-  if (!pw) return { score: 0, label: "", color: "" };
-  let score = 0;
-  if (pw.length >= PASSWORD_MIN_LENGTH) score++;
-  if (/[a-z]/.test(pw)) score++;
-  if (/[A-Z]/.test(pw)) score++;
-  if (/\d/.test(pw)) score++;
-  if (/[^a-zA-Z0-9]/.test(pw)) score++;
-
-  if (score <= 2) return { score, label: "Weak", color: "bg-red-500" };
-  if (score <= 3) return { score, label: "Fair", color: "bg-yellow-500" };
-  if (score <= 4) return { score, label: "Good", color: "bg-blue-500" };
-  return { score, label: "Strong", color: "bg-green-500" };
-}
-
 export default function SignupPage() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -43,8 +29,8 @@ export default function SignupPage() {
     return null;
   }, [password]);
 
-  const strength = useMemo(() => getPasswordStrength(password), [password]);
-  const canSubmit = email && password.length >= PASSWORD_MIN_LENGTH && !passwordError;
+  const canSubmit =
+    name.trim().length > 0 && email && password.length >= PASSWORD_MIN_LENGTH && !passwordError;
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -62,13 +48,11 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
-      await auth?.signUpWithEmail(email, password);
+      await auth?.signUpWithEmail(email, password, name.trim());
       toast({
         title: "Account Created!",
-        description: "We sent a verification email. Let's set up your profile!",
+        description: "We sent a verification email. Now pick a username!",
       });
-      // Explicit redirect — don't rely solely on profileStatus reactivity
-      // which can race with the onAuthStateChanged listener
       setLocation("/profile/setup");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Registration failed";
@@ -91,7 +75,6 @@ export default function SignupPage() {
         title: "Account Created!",
         description: "Now let's set up your profile!",
       });
-      // Explicit redirect for Google signup — profile setup is always next
       setLocation("/profile/setup");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-up failed";
@@ -120,11 +103,29 @@ export default function SignupPage() {
           <CardHeader>
             <CardTitle className="text-2xl text-white">Create Account</CardTitle>
             <CardDescription className="text-gray-400">
-              Sign up to start your skating journey
+              Sign up, verify your email, then pick a username
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
+              {/* Name */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Your name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    autoComplete="name"
+                    className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                    data-testid="input-signup-name"
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
               <div className="space-y-2">
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -141,6 +142,7 @@ export default function SignupPage() {
                 </div>
               </div>
 
+              {/* Password */}
               <div className="space-y-2">
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -152,7 +154,6 @@ export default function SignupPage() {
                     required
                     minLength={PASSWORD_MIN_LENGTH}
                     autoComplete="new-password"
-                    aria-describedby="password-feedback"
                     className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                     data-testid="input-signup-password"
                   />
@@ -165,37 +166,10 @@ export default function SignupPage() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {password && (
-                  <div className="space-y-1" id="password-feedback" aria-live="polite">
-                    <div
-                      className="flex gap-1"
-                      role="meter"
-                      aria-label="Password strength"
-                      aria-valuenow={strength.score}
-                      aria-valuemin={0}
-                      aria-valuemax={5}
-                    >
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <div
-                          key={i}
-                          className={`h-1 flex-1 rounded-full ${
-                            i <= strength.score ? strength.color : "bg-gray-700"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    {passwordError ? (
-                      <p className="text-xs text-red-400" role="alert">
-                        {passwordError}
-                      </p>
-                    ) : (
-                      <p
-                        className={`text-xs ${strength.score >= 4 ? "text-green-400" : "text-gray-400"}`}
-                      >
-                        {strength.label}
-                      </p>
-                    )}
-                  </div>
+                {passwordError && (
+                  <p className="text-xs text-red-400" role="alert">
+                    {passwordError}
+                  </p>
                 )}
               </div>
 
@@ -245,7 +219,7 @@ export default function SignupPage() {
                   className="text-gray-400 hover:text-white cursor-pointer inline-block"
                   data-testid="link-back-home"
                 >
-                  ← Back to Home
+                  Back to Home
                 </span>
               </Link>
             </div>
