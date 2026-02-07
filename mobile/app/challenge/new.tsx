@@ -115,8 +115,7 @@ export default function NewChallengeScreen() {
           setRecording(false);
           setVideoUri(video.path);
         },
-        onRecordingError: (error) => {
-          console.error("[NewChallenge] Recording error:", error);
+        onRecordingError: () => {
           setRecording(false);
           showMessage({
             message: "Recording failed. Please try again.",
@@ -131,8 +130,7 @@ export default function NewChallengeScreen() {
           cameraRef.current.stopRecording();
         }
       }, MAX_RECORDING_DURATION * 1000);
-    } catch (error) {
-      console.error("[NewChallenge] Failed to start recording:", error);
+    } catch {
       setRecording(false);
       showMessage({
         message: "Failed to start recording",

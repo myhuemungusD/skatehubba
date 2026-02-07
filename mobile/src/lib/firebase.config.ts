@@ -9,7 +9,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   getFirebaseConfig as getSharedFirebaseConfig,
   assertEnvWiring,
-  getEnvBanner,
   getAppEnv,
   isProd,
   isStaging,
@@ -21,25 +20,14 @@ validateEnv();
 
 try {
   assertEnvWiring();
-} catch (error) {
-  console.error("[Firebase Mobile] Environment mismatch detected!", error);
+} catch (e) {
   if (isProd()) {
-    throw error;
+    throw e;
   }
 }
 
 // Get Firebase configuration from shared package
 const firebaseConfig = getSharedFirebaseConfig();
-
-// Log environment on startup (non-prod only)
-if (!isProd()) {
-  const banner = getEnvBanner();
-  if (banner) {
-    console.log(`[Firebase Mobile] ${banner}`);
-  }
-  console.log(`[Firebase Mobile] Environment: ${getAppEnv()}`);
-  console.log(`[Firebase Mobile] Project: ${firebaseConfig.projectId}`);
-}
 
 // Initialize Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];

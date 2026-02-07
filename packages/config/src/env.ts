@@ -260,10 +260,7 @@ export function validateEnv(): void {
 
   if (missing.length > 0) {
     // In production we still allow fallback to hardcoded config to avoid total outage.
-    // Log loudly so ops can fix env, but do not crash the app.
-    console.warn(
-      `Missing required environment variables (using fallback Firebase config):\n${missing.join("\n")}`
-    );
+    // Missing vars are expected in local dev when relying on hardcoded fallback.
   }
 }
 

@@ -47,7 +47,6 @@ export default function SignIn() {
 
       setLoading(true);
       signInWithCredential(auth, credential).catch((error) => {
-        console.error("Mobile Google Sign-In Error:", error);
         Alert.alert("Login Failed", error.message);
         setLoading(false);
       });
@@ -79,8 +78,7 @@ export default function SignIn() {
       try {
         const provider = new GoogleAuthProvider();
         await signInWithPopup(auth, provider);
-      } catch (error: any) {
-        console.error(error);
+      } catch {
         setLoading(false);
       }
     } else {

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { logger } from '../lib/logger';
 
 const envSchema = z.object({
   MODE: z.string().default('development'),
@@ -29,25 +30,25 @@ function validateEnv() {
     // Validate critical Firebase config in production
     if (import.meta.env.PROD) {
       if (!parsed.VITE_FIREBASE_API_KEY || parsed.VITE_FIREBASE_API_KEY === 'undefined') {
-        console.error('[ENV] CRITICAL: VITE_FIREBASE_API_KEY is missing in production!');
+        logger.error('[ENV] CRITICAL: VITE_FIREBASE_API_KEY is missing in production!');
       }
       if (!parsed.VITE_FIREBASE_PROJECT_ID || parsed.VITE_FIREBASE_PROJECT_ID === 'undefined') {
-        console.error('[ENV] CRITICAL: VITE_FIREBASE_PROJECT_ID is missing in production!');
+        logger.error('[ENV] CRITICAL: VITE_FIREBASE_PROJECT_ID is missing in production!');
       }
     }
     
     return parsed;
   } catch (error) {
-    console.error('[ENV] Environment validation failed:', error);
+    logger.error('[ENV] Environment validation failed:', error);
     if (error instanceof z.ZodError) {
       // In production, log the specific missing variables
       if (import.meta.env.PROD) {
-        console.error('[ENV] Validation errors:', error.errors);
+        logger.error('[ENV] Validation errors:', error.errors);
         throw new Error('Critical environment variables missing. Cannot start application.');
       }
     }
     // Development fallback only
-    console.warn('[ENV] Using fallback empty env for development');
+    logger.warn('[ENV] Using fallback empty env for development');
     return envSchema.parse({});
   }
 }

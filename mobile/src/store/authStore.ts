@@ -27,8 +27,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await firebaseSignOut(auth);
       set({ user: null });
-    } catch (error) {
-      console.error("[AuthStore] Sign out failed", error);
+    } catch {
+      // Sign out failed silently
     }
   },
 }));

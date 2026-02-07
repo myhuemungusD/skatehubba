@@ -569,10 +569,6 @@ mapTest.describe("🏎️ Performance", () => {
 
       expect(metrics.markerCount, "Expected at least 1 marker to be rendered").toBeGreaterThan(0);
 
-      // Log metrics for CI reporting
-      console.log(
-        `[Perf] Loaded ${CONFIG.PERFORMANCE_SPOT_COUNT} spots, rendered ${metrics.markerCount} in ${metrics.loadTimeMs}ms`
-      );
     }
   );
 
@@ -591,8 +587,6 @@ mapTest.describe("🏎️ Performance", () => {
     // Both counts should be culled
     expect(afterPanCount).toBeLessThan(CONFIG.MAX_VISIBLE_MARKERS);
     expect(afterPanCount).toBeGreaterThan(0);
-
-    console.log(`[Perf] Pan: ${initialCount} → ${afterPanCount} markers`);
   });
 
   mapTest("should load within performance budget @perf", async ({ mapPage, api }) => {
@@ -651,7 +645,6 @@ mapTest.describe("🎮 User Interactions", () => {
     expect(afterZoomIn).toBeGreaterThanOrEqual(0);
     expect(afterZoomOut).toBeGreaterThanOrEqual(0);
 
-    console.log(`[Zoom] Initial: ${initialCount}, +Zoom: ${afterZoomIn}, -Zoom: ${afterZoomOut}`);
   });
 
   mapTest("should pan map with mouse drag @interaction", async ({ mapPage }) => {
@@ -663,8 +656,6 @@ mapTest.describe("🎮 User Interactions", () => {
     await mapPage.pan(0, 100); // Down
 
     const afterPan = await mapPage.getMarkerCount();
-
-    console.log(`[Pan] Initial: ${initialCount}, After: ${afterPan}`);
 
     // Map should still show markers (may differ after pan)
     expect(afterPan).toBeGreaterThanOrEqual(0);
@@ -808,9 +799,8 @@ mapTest.describe("♿ Accessibility", () => {
 
     await mapPage.goto();
 
-    // Loading indicator should have aria-busy or appropriate role
-    const hasAriaBusy = await mapPage.loadingIndicator.isVisible().catch(() => false);
-    console.log(`[A11y] Loading indicator visible during slow load: ${hasAriaBusy}`);
+    // Loading indicator should be visible during slow load
+    await mapPage.loadingIndicator.isVisible().catch(() => false);
 
     // Wait for load to complete
     await mapPage.waitForReady();
@@ -909,8 +899,7 @@ mapTest.describe("⏳ Loading States", () => {
     await mapPage.goto();
 
     // Check loading state (might be brief)
-    const wasLoading = await mapPage.isLoading();
-    console.log(`[Loading] Loading indicator was visible: ${wasLoading}`);
+    await mapPage.isLoading();
 
     // Wait for full load
     await mapPage.waitForReady();

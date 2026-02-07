@@ -237,7 +237,7 @@ export const manageUserRole = functions.https.onCall(
         timestamp: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      console.log(`Role ${action}: ${role} for ${userRecord.email} by ${context.auth.token.email}`);
+      functions.logger.info(`Role ${action}: ${role} for ${userRecord.email} by ${context.auth.token.email}`);
 
       return {
         success: true,
@@ -245,7 +245,7 @@ export const manageUserRole = functions.https.onCall(
         roles: newRoles,
       };
     } catch (error: unknown) {
-      console.error("Role Management Error:", error);
+      functions.logger.error("Role Management Error:", error);
 
       const firebaseError = error as { code?: string };
       if (firebaseError.code === "auth/user-not-found") {
@@ -359,12 +359,12 @@ export const validateChallengeVideo = functions.storage.object().onFinalize(asyn
 
     if (duration < 14.5 || duration > 15.5) {
       await file.delete();
-      console.warn(
+      functions.logger.warn(
         `[validateChallengeVideo] Deleted invalid clip ${filePath} (duration ${duration}s)`
       );
     }
   } catch (error) {
-    console.error("[validateChallengeVideo] Failed to validate clip:", filePath, error);
+    functions.logger.error("[validateChallengeVideo] Failed to validate clip:", filePath, error);
   } finally {
     try {
       fs.unlinkSync(tempFilePath);
@@ -875,10 +875,10 @@ async function sendVoteReminderNotifications(
             },
           },
         });
-        console.log(`[VoteReminder] Sent notification to ${playerId} for game ${gameId}`);
+        functions.logger.info(`[VoteReminder] Sent notification to ${playerId} for game ${gameId}`);
       }
     } catch (error) {
-      console.error(`[VoteReminder] Failed to send notification to ${playerId}:`, error);
+      functions.logger.error(`[VoteReminder] Failed to send notification to ${playerId}:`, error);
     }
   }
 }
@@ -950,7 +950,7 @@ async function autoResolveVoteTimeout(
 
     transaction.update(gameRef, updateData);
 
-    console.log(`[VoteTimeout] Auto-resolved game ${gameId}: defender wins by timeout`);
+    functions.logger.info(`[VoteTimeout] Auto-resolved game ${gameId}: defender wins by timeout`);
   });
 
   // Send notifications about timeout resolution
@@ -986,7 +986,7 @@ async function sendTimeoutNotifications(
         });
       }
     } catch (error) {
-      console.error(`[VoteTimeout] Failed to notify ${playerId}:`, error);
+      functions.logger.error(`[VoteTimeout] Failed to notify ${playerId}:`, error);
     }
   }
 }

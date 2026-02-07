@@ -72,7 +72,7 @@ export function assertEnvWiring(): void {
       throw new EnvMismatchError("staging build pointing at prod API");
     }
     if (apiLooksLocal) {
-      console.warn("⚠️ Staging build pointing at localhost - is this intentional?");
+      // Staging build pointing at localhost — likely intentional during development
     }
   }
 
@@ -93,8 +93,7 @@ export function assertEnvWiring(): void {
     }
   }
 
-  // Log successful validation
-  console.log(`✅ Environment wiring validated: ${env}`);
+  // Validation passed
 }
 
 /**
@@ -136,7 +135,6 @@ export function validateWritePath(path: string): void {
   if (!path.startsWith(expectedPrefix)) {
     // Allow writes in local dev without namespace (for backwards compatibility)
     if (env === "local") {
-      console.warn(`⚠️ Write path "${path}" is not namespaced. Consider using getEnvPath().`);
       return;
     }
     throw new EnvMismatchError(

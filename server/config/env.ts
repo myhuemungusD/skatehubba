@@ -1,4 +1,5 @@
 import { z } from "zod";
+import logger from "../logger";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
@@ -17,7 +18,7 @@ const envSchema = z.object({
         if (process.env.NODE_ENV === "production") {
           throw new Error("JWT_SECRET is required in production");
         } else {
-          console.warn("JWT_SECRET not set, using fallback for dev");
+          logger.warn("JWT_SECRET not set, using fallback for dev");
         }
       }
       return val || "dev-jwt-secret-change-in-production-32chars";
