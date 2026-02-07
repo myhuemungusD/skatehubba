@@ -63,8 +63,8 @@ export default function SettingsScreen() {
           try {
             await signOut(auth);
             router.replace("/(tabs)");
-          } catch (error) {
-            console.error("Sign out error:", error);
+          } catch {
+            // Sign out failed silently
           }
         },
       },

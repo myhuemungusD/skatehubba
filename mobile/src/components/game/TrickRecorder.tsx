@@ -165,8 +165,7 @@ export function TrickRecorder({
             setShowTrickInput(true);
           }
         },
-        onRecordingError: (error) => {
-          console.error("[TrickRecorder] Recording error:", error);
+        onRecordingError: () => {
           setRecording(false);
           Alert.alert("Recording Failed", "Please try again.");
         },
@@ -178,8 +177,7 @@ export function TrickRecorder({
           cameraRef.current.stopRecording();
         }
       }, MAX_RECORDING_DURATION * 1000);
-    } catch (error) {
-      console.error("[TrickRecorder] Failed to start recording:", error);
+    } catch {
       setRecording(false);
       Alert.alert("Recording Failed", "Please try again.");
     }

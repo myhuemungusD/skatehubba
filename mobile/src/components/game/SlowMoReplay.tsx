@@ -61,8 +61,8 @@ export function SlowMoReplay({
         try {
           const speed = isSlowMo ? SLOW_MO_SPEED : NORMAL_SPEED;
           await videoRef.current.setRateAsync(speed, true);
-        } catch (err) {
-          console.error("[SlowMoReplay] Failed to set playback rate:", err);
+        } catch {
+          // Playback rate change failed silently
         }
       }
     };
@@ -80,7 +80,6 @@ export function SlowMoReplay({
     } else if (status.error) {
       setIsLoading(false);
       setError("Failed to load video");
-      console.error("[SlowMoReplay] Playback error:", status.error);
     }
   }, []);
 
@@ -101,8 +100,8 @@ export function SlowMoReplay({
       } else {
         await videoRef.current.playAsync();
       }
-    } catch (err) {
-      console.error("[SlowMoReplay] Failed to toggle playback:", err);
+    } catch {
+      // Toggle playback failed silently
     }
   }, [isPlaying]);
 
@@ -113,8 +112,8 @@ export function SlowMoReplay({
     try {
       const newPosition = Math.max(0, positionMillis - 2000);
       await videoRef.current.setPositionAsync(newPosition);
-    } catch (err) {
-      console.error("[SlowMoReplay] Failed to seek:", err);
+    } catch {
+      // Seek failed silently
     }
   }, [positionMillis]);
 
@@ -125,8 +124,8 @@ export function SlowMoReplay({
     try {
       const newPosition = Math.min(durationMillis, positionMillis + 2000);
       await videoRef.current.setPositionAsync(newPosition);
-    } catch (err) {
-      console.error("[SlowMoReplay] Failed to seek:", err);
+    } catch {
+      // Seek failed silently
     }
   }, [positionMillis, durationMillis]);
 
@@ -137,8 +136,8 @@ export function SlowMoReplay({
     try {
       await videoRef.current.setPositionAsync(0);
       await videoRef.current.playAsync();
-    } catch (err) {
-      console.error("[SlowMoReplay] Failed to restart:", err);
+    } catch {
+      // Restart failed silently
     }
   }, []);
 

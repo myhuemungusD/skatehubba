@@ -96,20 +96,16 @@ export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): Fire
   })();
 
   if (envConfig) {
-    console.log(`[Firebase] Using env-provided config for ${env}`);
     return envConfig;
   }
 
   // Fall back to hardcoded config based on environment
   switch (env) {
     case "prod":
-      console.warn("[Firebase] Missing env config; using hardcoded prod config");
       return PRODUCTION_CONFIG;
     case "staging":
-      console.warn("[Firebase] Missing env config; using hardcoded staging config");
       return STAGING_CONFIG;
     default:
-      console.log("[Firebase] Using hardcoded config for local dev");
       return PRODUCTION_CONFIG; // Local dev uses prod Firebase (namespaced data)
   }
 }

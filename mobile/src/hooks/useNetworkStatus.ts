@@ -23,8 +23,7 @@ export function useNetworkStatus() {
           setConnected(connected !== false);
           isInitialized.current = true;
         }
-      } catch (error) {
-        console.error("[useNetworkStatus] Failed to check network state:", error);
+      } catch {
         // Assume connected on error to avoid false positives
         if (mounted) {
           setConnected(true);
