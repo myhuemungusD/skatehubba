@@ -2,19 +2,6 @@ import type { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 import type { FirebaseAuthedRequest } from "./firebaseUid";
 
-const PUBLIC_PREFIXES = [
-  "/assets/",
-  "/fonts/",
-  "/icons/",
-  "/images/",
-  "/favicon.ico",
-  "/manifest.json",
-  "/robots.txt",
-  "/sitemap.xml",
-  "/sw.js",
-  "/service-worker.js",
-];
-
 /**
  * Security middleware: bypass static/public assets, apply to everything else.
  * Keep heavy checks (auth/rate limit) on /api paths in the server bootstrap.
@@ -362,7 +349,7 @@ export const validateUserAgent = (req: Request, res: Response, next: NextFunctio
  * @param res - Express response object
  * @param next - Express next function
  */
-export const logIPAddress = (req: Request, res: Response, next: NextFunction) => {
+export const logIPAddress = (req: Request, _res: Response, next: NextFunction) => {
   // Get real IP address (accounting for proxies)
   const ip =
     req.headers["x-forwarded-for"] ||

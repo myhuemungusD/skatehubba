@@ -26,7 +26,6 @@ import {
 import {
   initSocketHealth,
   cleanupSocketHealth,
-  recordMessage,
   startHealthMonitor,
   stopHealthMonitor,
   getHealthStats,
