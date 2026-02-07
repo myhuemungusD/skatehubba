@@ -59,44 +59,22 @@ const readLocal = (filePath) => normalize(readFileSync(filePath, "utf8"));
 
 /**
  * Executes firebase-tools via npx without invoking a shell.
- * Any --token argument is moved into the child env to avoid exposing it in process listings.
+ * Token is passed exclusively via environment variable - never as a CLI argument.
  */
 function runFirebase(args) {
-  // Copy args so we can safely modify them
-  const processedArgs = [...args];
-
-  // Build child environment and ensure we do not accidentally inherit FIREBASE_TOKEN
+  // Minimal child environment: only what firebase-tools needs
   const childEnv = {
-    ...process.env,
-    FIREBASE_TOKEN: undefined,
+    PATH: process.env.PATH,
+    HOME: process.env.HOME,
+    NODE_ENV: process.env.NODE_ENV,
+    FIREBASE_TOKEN: token,
+    npm_config_cache: process.env.npm_config_cache,
   };
-
-  // Extract token from CLI args, if present, and move it into the environment
-  for (let i = 0; i < processedArgs.length; i += 1) {
-    const arg = processedArgs[i];
-
-    // Handle "--token <value>"
-    if (arg === "--token" && i + 1 < processedArgs.length) {
-      const value = processedArgs[i + 1];
-      childEnv.FIREBASE_TOKEN = value;
-      processedArgs.splice(i, 2);
-      i -= 1;
-      continue;
-    }
-
-    // Handle "--token=<value>"
-    if (arg.startsWith("--token=")) {
-      const value = arg.slice("--token=".length);
-      childEnv.FIREBASE_TOKEN = value;
-      processedArgs.splice(i, 1);
-      i -= 1;
-    }
-  }
 
   try {
     return execFileSync(
       "npx",
-      ["firebase-tools@" + toolsVersion, ...processedArgs],
+      ["firebase-tools@" + toolsVersion, ...args],
       {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
@@ -108,7 +86,7 @@ function runFirebase(args) {
     const stdout = typeof err?.stdout === "string" ? err.stdout : "";
     const stderr = typeof err?.stderr === "string" ? err.stderr : "";
     const msg = typeof err?.message === "string" ? err.message : "firebase-tools failed";
-    const safe = (txt) => (txt ? txt.replaceAll(token, "***MASKED***") : txt);
+    const safe = (txt) => (token && txt ? txt.replaceAll(token, "***MASKED***") : txt);
 
     console.error("❌ firebase-tools command failed.");
     console.error(safe(msg));
@@ -130,8 +108,6 @@ function validateRules() {
       "firestore:rules",
       "--project",
       projectId,
-      "--token",
-      token,
       "--non-interactive",
       "--dry-run",
     ]);
@@ -148,8 +124,6 @@ function validateRules() {
       "storage",
       "--project",
       projectId,
-      "--token",
-      token,
       "--non-interactive",
       "--dry-run",
     ]);

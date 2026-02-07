@@ -203,7 +203,7 @@ vercel promote <previous-deployment-url>   # Promote last working
 **6. Commit SHA Verification:**
 
 ```bash
-# Add to build script (scripts/doctor.mjs)
+# Add to build script
 const meta = {
   build: process.env.VERCEL_GIT_COMMIT_SHA || process.env.GITHUB_SHA || 'local',
   branch: process.env.VERCEL_GIT_COMMIT_REF || process.env.GITHUB_REF_NAME || 'unknown',
@@ -1249,5 +1249,4 @@ vercel env rm VERCEL_FORCE_NO_BUILD_CACHE
 | `vercel.json` | Deployment config (authoritative) |
 | `client/vite.config.ts` | Build config |
 | `client/tsconfig.json` | TypeScript + path aliases |
-| `scripts/doctor.mjs` | Pre-deploy validation |
 | `.github/workflows/` | CI/CD pipelines |
