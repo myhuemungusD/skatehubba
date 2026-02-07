@@ -1,41 +1,75 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Link, useLocation } from "wouter";
-import { Mail, Lock } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
+
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+
+function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
+  if (!pw) return { score: 0, label: "", color: "" };
+  let score = 0;
+  if (pw.length >= PASSWORD_MIN_LENGTH) score++;
+  if (/[a-z]/.test(pw)) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/\d/.test(pw)) score++;
+  if (/[^a-zA-Z0-9]/.test(pw)) score++;
+
+  if (score <= 2) return { score, label: "Weak", color: "bg-red-500" };
+  if (score <= 3) return { score, label: "Fair", color: "bg-yellow-500" };
+  if (score <= 4) return { score, label: "Good", color: "bg-blue-500" };
+  return { score, label: "Strong", color: "bg-green-500" };
+}
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const auth = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect if already authenticated and has profile
+  const passwordError = useMemo(() => {
+    if (!password) return null;
+    if (password.length < PASSWORD_MIN_LENGTH)
+      return `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
+    if (!PASSWORD_REGEX.test(password)) return "Must include uppercase, lowercase, and a number";
+    return null;
+  }, [password]);
+
+  const strength = useMemo(() => getPasswordStrength(password), [password]);
+  const canSubmit = email && password.length >= PASSWORD_MIN_LENGTH && !passwordError;
+
+  // Redirect if already authenticated
   useEffect(() => {
-    if (auth?.isAuthenticated && auth?.profile) {
-      setLocation("/home");
-    } else if (auth?.isAuthenticated && !auth?.profile) {
+    if (!auth?.isAuthenticated) return;
+    if (auth?.profileStatus === "exists") {
+      setLocation("/hub");
+    } else if (auth?.profileStatus === "missing") {
       setLocation("/profile/setup");
     }
-  }, [auth?.isAuthenticated, auth?.profile, setLocation]);
+  }, [auth?.isAuthenticated, auth?.profileStatus, setLocation]);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    if (!canSubmit) return;
     setIsLoading(true);
 
     try {
       await auth?.signUpWithEmail(email, password);
       toast({
         title: "Account Created!",
-        description: "Now let's set up your profile!",
+        description: "We sent a verification email. Let's set up your profile!",
       });
-      setLocation("/profile/setup");
+      // Auth store now sends verification email automatically.
+      // With isFirebaseUserAuthenticated allowing unverified users,
+      // the useEffect above will redirect to /profile/setup once profileStatus resolves.
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Registration failed";
       toast({
@@ -57,7 +91,6 @@ export default function SignupPage() {
         title: "Account Created!",
         description: "Now let's set up your profile!",
       });
-      setLocation("/profile/setup");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-up failed";
       toast({
@@ -109,22 +142,53 @@ export default function SignupPage() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
-                    type="password"
-                    placeholder="Password (6+ chars)"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Password (8+ chars, mixed case, number)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
-                    className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                    minLength={PASSWORD_MIN_LENGTH}
+                    className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                     data-testid="input-signup-password"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
+                {password && (
+                  <div className="space-y-1">
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-1 flex-1 rounded-full ${
+                            i <= strength.score ? strength.color : "bg-gray-700"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    {passwordError ? (
+                      <p className="text-xs text-red-400">{passwordError}</p>
+                    ) : (
+                      <p
+                        className={`text-xs ${strength.score >= 4 ? "text-green-400" : "text-gray-400"}`}
+                      >
+                        {strength.label}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <Button
                 type="submit"
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                disabled={isLoading}
+                disabled={isLoading || !canSubmit}
                 data-testid="button-signup-submit"
               >
                 {isLoading ? "Creating Account..." : "Sign Up"}

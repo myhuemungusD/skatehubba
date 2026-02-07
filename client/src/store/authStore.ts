@@ -9,6 +9,7 @@ import {
   signInAnonymously as firebaseSignInAnonymously,
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
+  sendEmailVerification,
   getIdTokenResult,
   GoogleAuthProvider,
   type User as FirebaseUser,
@@ -521,6 +522,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const result = await createUserWithEmailAndPassword(auth, email, password);
       // Create backend session + DB user record for new account
       await authenticateWithBackend(result.user, { isRegistration: true });
+      // Send Firebase verification email (non-blocking - don't fail signup if this errors)
+      try {
+        await sendEmailVerification(result.user);
+        logger.log("[AuthStore] Verification email sent to", email);
+      } catch (verifyErr) {
+        logger.error("[AuthStore] Failed to send verification email:", verifyErr);
+      }
     } catch (err: unknown) {
       logger.error("[AuthStore] Email sign-up error:", err);
       if (err instanceof Error) {
