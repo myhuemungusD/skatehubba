@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { AuthService } from "./service.ts";
 import type { CustomUser as _CustomUser } from "../../packages/shared/schema.ts";
@@ -5,12 +6,15 @@ import type { AuthenticatedUser as _AuthenticatedUser } from "../types/express.d
 import { admin } from "../admin.ts";
 import "../types/express.d.ts";
 import logger from "../logger.ts";
+import { getRedisClient } from "../redis.ts";
 
 // Re-authentication window (5 minutes)
 const REAUTH_WINDOW_MS = 5 * 60 * 1000;
+const REAUTH_TTL_SECONDS = Math.ceil(REAUTH_WINDOW_MS / 1000);
+const REAUTH_KEY_PREFIX = "reauth:";
 
-// Store for recent authentications (in production, use Redis)
-const recentAuths = new Map<string, number>();
+// Fallback in-memory store when Redis is unavailable
+const recentAuthsFallback = new Map<string, number>();
 
 /**
  * Authentication middleware to protect routes
@@ -211,16 +215,25 @@ export const requireEmailVerification = (req: Request, res: Response, next: Next
  * @param res - Express response object
  * @param next - Express next function
  */
-export const requireRecentAuth = (req: Request, res: Response, next: NextFunction) => {
+export const requireRecentAuth = async (req: Request, res: Response, next: NextFunction) => {
   if (!req.currentUser) {
     return res.status(401).json({ error: "Authentication failed" });
   }
 
   const userId = req.currentUser.id;
-  const lastAuth = recentAuths.get(userId);
-  const now = Date.now();
+  const redis = getRedisClient();
 
-  if (!lastAuth || now - lastAuth > REAUTH_WINDOW_MS) {
+  let isRecent = false;
+
+  if (redis) {
+    const val = await redis.get(`${REAUTH_KEY_PREFIX}${userId}`);
+    isRecent = val !== null;
+  } else {
+    const lastAuth = recentAuthsFallback.get(userId);
+    isRecent = !!lastAuth && Date.now() - lastAuth <= REAUTH_WINDOW_MS;
+  }
+
+  if (!isRecent) {
     return res.status(403).json({
       error: "Please verify your identity to continue",
       code: "REAUTH_REQUIRED",
@@ -238,14 +251,20 @@ export const requireRecentAuth = (req: Request, res: Response, next: NextFunctio
  * @param userId - User ID to record re-auth for
  */
 export function recordRecentAuth(userId: string): void {
-  recentAuths.set(userId, Date.now());
+  const redis = getRedisClient();
 
-  // Clean up old entries periodically
-  if (Math.random() < 0.1) {
-    const cutoff = Date.now() - REAUTH_WINDOW_MS;
-    for (const [id, timestamp] of recentAuths.entries()) {
-      if (timestamp < cutoff) {
-        recentAuths.delete(id);
+  if (redis) {
+    redis.set(`${REAUTH_KEY_PREFIX}${userId}`, String(Date.now()), "EX", REAUTH_TTL_SECONDS);
+  } else {
+    recentAuthsFallback.set(userId, Date.now());
+
+    // Clean up old entries periodically using crypto for unbiased randomness
+    if (crypto.randomInt(10) === 0) {
+      const cutoff = Date.now() - REAUTH_WINDOW_MS;
+      for (const [id, timestamp] of recentAuthsFallback.entries()) {
+        if (timestamp < cutoff) {
+          recentAuthsFallback.delete(id);
+        }
       }
     }
   }
@@ -258,7 +277,13 @@ export function recordRecentAuth(userId: string): void {
  * @param userId - User ID to clear re-auth for
  */
 export function clearRecentAuth(userId: string): void {
-  recentAuths.delete(userId);
+  const redis = getRedisClient();
+
+  if (redis) {
+    redis.del(`${REAUTH_KEY_PREFIX}${userId}`);
+  } else {
+    recentAuthsFallback.delete(userId);
+  }
 }
 
 /**

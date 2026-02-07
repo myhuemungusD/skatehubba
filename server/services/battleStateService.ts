@@ -8,6 +8,7 @@
  * - Double-vote protection
  */
 
+import crypto from "node:crypto";
 import { db } from "../db";
 import { db as firestore } from "../firestore";
 import { battles, battleVotes } from "../../packages/shared/schema";
@@ -78,7 +79,7 @@ function generateEventId(
     return `${type}-${battleId}-${odv}-${sequenceKey}`;
   }
   // For backward compatibility, generate a unique ID (caller should cache and reuse on retries)
-  return `${type}-${battleId}-${odv}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  return `${type}-${battleId}-${odv}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 }
 
 function getBattleStateRef(battleId: string) {

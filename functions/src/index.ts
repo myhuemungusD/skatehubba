@@ -12,6 +12,7 @@
  * - Firestore transactions for race condition prevention
  */
 
+import * as crypto from "crypto";
 import * as functions from "firebase-functions";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
@@ -338,7 +339,7 @@ export const validateChallengeVideo = functions.storage.object().onFinalize(asyn
   const file = bucket.file(filePath);
   const tempFilePath = path.join(
     os.tmpdir(),
-    `${path.basename(filePath)}_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    `${path.basename(filePath)}_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`
   );
 
   try {
@@ -474,7 +475,7 @@ export const submitTrick = functions.https.onCall(
       }
 
       // Create move
-      const moveId = `move_${userId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+      const moveId = `move_${userId}_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
       const move = {
         id: moveId,
         idempotencyKey,

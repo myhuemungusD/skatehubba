@@ -12,6 +12,7 @@
  * - Auto-forfeit after disconnection timeout
  */
 
+import crypto from "node:crypto";
 import { db as firestore, collections } from "../firestore";
 import logger from "../logger";
 import { logServerEvent } from "./analyticsService";
@@ -105,7 +106,7 @@ function generateEventId(type: string, odv: string, gameId: string, sequenceKey?
     return `${type}-${gameId}-${odv}-${sequenceKey}`;
   }
   // For backward compatibility, generate a unique ID (caller should cache and reuse on retries)
-  return `${type}-${gameId}-${odv}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  return `${type}-${gameId}-${odv}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 }
 
 function getGameDocRef(gameId: string) {
@@ -126,7 +127,7 @@ export async function createGame(input: {
   maxPlayers?: number;
 }): Promise<TransitionResult> {
   const { eventId, spotId, creatorId, maxPlayers = 4 } = input;
-  const gameId = `game-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  const gameId = `game-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 
   try {
     const now = new Date().toISOString();
