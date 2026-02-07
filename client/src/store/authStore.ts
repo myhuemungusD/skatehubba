@@ -392,7 +392,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             if (profileResult.status === "ok" && profileResult.data) {
               set({ profile: profileResult.data, profileStatus: "exists" });
               writeProfileCache(user.uid, { status: "exists", profile: profileResult.data });
+            } else if (profileResult.status === "ok" && !profileResult.data) {
+              // Profile fetch succeeded but no profile exists (new user)
+              set({ profile: null, profileStatus: "missing" });
+              writeProfileCache(user.uid, { status: "missing", profile: null });
             } else {
+              // Profile fetch failed — fall back to cache
               const cached = readProfileCache(user.uid);
               if (cached) {
                 set({ profile: cached.profile, profileStatus: cached.status });

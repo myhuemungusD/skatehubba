@@ -59,7 +59,12 @@ export default function VerifyEmailPage() {
           body: JSON.stringify({ token }),
         });
 
-        const data = await response.json();
+        let data: { error?: string; message?: string };
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error("Unexpected server response. Please try again later.");
+        }
 
         if (!response.ok) {
           throw new Error(data.error || "Verification failed");

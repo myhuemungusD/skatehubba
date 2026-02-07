@@ -4,7 +4,7 @@ import { authenticateUser, recordRecentAuth } from "./middleware.ts";
 import { authLimiter } from "../middleware/rateLimit.ts";
 import { requireCsrfToken } from "../middleware/csrf.ts";
 import { admin } from "../admin.ts";
-import { AuditLogger, getClientIP } from "./audit.ts";
+import { AuditLogger, AUDIT_EVENTS, getClientIP } from "./audit.ts";
 import { LockoutService } from "./lockout.ts";
 import { MfaService } from "./mfa.ts";
 import logger from "../logger.ts";
@@ -486,7 +486,7 @@ export function setupAuthRoutes(app: Express) {
       }
 
       await AuditLogger.log({
-        eventType: "AUTH_EMAIL_VERIFIED" as any,
+        eventType: AUDIT_EVENTS.EMAIL_VERIFIED,
         userId: user.id,
         email: user.email,
         ipAddress,
@@ -506,38 +506,54 @@ export function setupAuthRoutes(app: Express) {
   /**
    * Resend verification email (authenticated users)
    */
-  app.post("/api/auth/resend-verification", authenticateUser, authLimiter, async (req, res) => {
-    try {
-      const user = req.currentUser!;
+  app.post(
+    "/api/auth/resend-verification",
+    authenticateUser,
+    requireCsrfToken,
+    authLimiter,
+    async (req, res) => {
+      const ipAddress = getClientIP(req);
 
-      if (user.isEmailVerified) {
-        return res.status(400).json({
-          error: "Email is already verified",
-          code: "ALREADY_VERIFIED",
+      try {
+        const user = req.currentUser!;
+
+        if (user.isEmailVerified) {
+          return res.status(400).json({
+            error: "Email is already verified",
+            code: "ALREADY_VERIFIED",
+          });
+        }
+
+        // Generate new verification token
+        const token = AuthService.generateSecureToken();
+        const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        await AuthService.updateUser(user.id, {
+          emailVerificationToken: token,
+          emailVerificationExpires: expiry,
         });
+
+        await AuditLogger.log({
+          eventType: AUDIT_EVENTS.EMAIL_VERIFICATION_SENT,
+          userId: user.id,
+          email: user.email,
+          ipAddress,
+          success: true,
+        });
+
+        // NOTE: Email delivery is handled by Firebase's sendEmailVerification on the client side.
+        // This endpoint regenerates the server-side token for audit/backup verification.
+
+        res.json({
+          success: true,
+          message: "Verification email has been sent.",
+        });
+      } catch (error) {
+        logger.error("Resend verification error", { error: String(error) });
+        res.status(500).json({ error: "Failed to resend verification email" });
       }
-
-      // Generate new verification token
-      const token = AuthService.generateSecureToken();
-      const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-      await AuthService.updateUser(user.id, {
-        emailVerificationToken: token,
-        emailVerificationExpires: expiry,
-      });
-
-      // NOTE: Email delivery is handled by Firebase's sendEmailVerification on the client side.
-      // This endpoint regenerates the server-side token for audit/backup verification.
-
-      res.json({
-        success: true,
-        message: "Verification email has been sent.",
-      });
-    } catch (error) {
-      logger.error("Resend verification error", { error: String(error) });
-      res.status(500).json({ error: "Failed to resend verification email" });
     }
-  });
+  );
 
   // =========================================================================
   // Password Management Routes

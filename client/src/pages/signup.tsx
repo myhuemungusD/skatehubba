@@ -67,9 +67,9 @@ export default function SignupPage() {
         title: "Account Created!",
         description: "We sent a verification email. Let's set up your profile!",
       });
-      // Auth store now sends verification email automatically.
-      // With isFirebaseUserAuthenticated allowing unverified users,
-      // the useEffect above will redirect to /profile/setup once profileStatus resolves.
+      // Explicit redirect — don't rely solely on profileStatus reactivity
+      // which can race with the onAuthStateChanged listener
+      setLocation("/profile/setup");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Registration failed";
       toast({
@@ -91,6 +91,8 @@ export default function SignupPage() {
         title: "Account Created!",
         description: "Now let's set up your profile!",
       });
+      // Explicit redirect for Google signup — profile setup is always next
+      setLocation("/profile/setup");
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Google sign-up failed";
       toast({
