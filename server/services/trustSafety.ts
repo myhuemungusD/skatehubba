@@ -105,6 +105,10 @@ interface RateLimitState {
   resetAt: number;
 }
 
+export interface RateLimiter {
+  check: (key: string, now?: number) => Promise<RateLimitDecision>;
+}
+
 export const createInMemoryRateLimiter = (options: RateLimitOptions): InMemoryRateLimiter => {
   const store = new Map<string, RateLimitState>();
 
@@ -126,6 +130,49 @@ export const createInMemoryRateLimiter = (options: RateLimitOptions): InMemoryRa
       limit: options.max,
       resetAt,
     };
+  };
+
+  return { check };
+};
+
+/**
+ * Redis-backed rate limiter for multi-instance deployments.
+ * Uses atomic INCR + EXPIRE for race-condition-safe counting.
+ * Falls back to in-memory if Redis is unavailable.
+ */
+export const createRedisRateLimiter = (
+  options: RateLimitOptions,
+  redis: import("ioredis").default,
+  keyPrefix = "rl:"
+): RateLimiter => {
+  const memoryFallback = createInMemoryRateLimiter(options);
+  const windowSeconds = Math.ceil(options.windowMs / 1000);
+
+  const check = async (key: string, now = Date.now()): Promise<RateLimitDecision> => {
+    try {
+      const redisKey = `${keyPrefix}${key}`;
+      const count = await redis.incr(redisKey);
+
+      if (count === 1) {
+        await redis.expire(redisKey, windowSeconds);
+      }
+
+      const ttl = await redis.ttl(redisKey);
+      const resetAt = now + ttl * 1000;
+      const allowed = count <= options.max;
+
+      return {
+        allowed,
+        status: allowed ? 200 : 429,
+        retryAfterMs: allowed ? 0 : Math.max(resetAt - now, 0),
+        remaining: Math.max(options.max - count, 0),
+        limit: options.max,
+        resetAt,
+      };
+    } catch {
+      // Redis failure — degrade to memory
+      return memoryFallback.check(key, now);
+    }
   };
 
   return { check };

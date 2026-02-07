@@ -14,6 +14,7 @@ import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { apiLimiter, staticFileLimiter, securityMiddleware } from "./middleware/security.ts";
 import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
 import { initializeDatabase } from "./db.ts";
+import { getRedisClient, shutdownRedis } from "./redis.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,6 +92,9 @@ app.use("/api", requireCsrfToken);
 // Register all API routes
 await registerRoutes(app);
 
+// Initialize Redis (eagerly connect if REDIS_URL is set)
+getRedisClient();
+
 // Initialize database (seed default spots + tutorial steps if empty)
 await initializeDatabase();
 
@@ -99,8 +103,8 @@ const io = initializeSocketServer(server);
 logger.info("[Server] WebSocket server initialized");
 
 // Health check endpoint with socket stats
-app.get("/api/health", (_req, res) => {
-  const stats = getSocketStats();
+app.get("/api/health", async (_req, res) => {
+  const stats = await getSocketStats();
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
@@ -177,6 +181,7 @@ server.listen(port, "0.0.0.0", () => {
 process.on("SIGTERM", async () => {
   logger.info("[Server] SIGTERM received, shutting down gracefully...");
   await shutdownSocketServer(io);
+  await shutdownRedis();
   server.close(() => {
     logger.info("[Server] HTTP server closed");
     process.exit(0);
@@ -186,6 +191,7 @@ process.on("SIGTERM", async () => {
 process.on("SIGINT", async () => {
   logger.info("[Server] SIGINT received, shutting down gracefully...");
   await shutdownSocketServer(io);
+  await shutdownRedis();
   server.close(() => {
     logger.info("[Server] HTTP server closed");
     process.exit(0);

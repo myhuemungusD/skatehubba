@@ -13,36 +13,56 @@ import { admin } from "../admin";
 import { AuthService } from "../auth/service";
 import logger from "../logger";
 import type { SocketData } from "./types";
+import { getRedisClient } from "../redis";
 
 // Connection rate limiting (per IP)
-const connectionAttempts = new Map<string, { count: number; resetAt: number }>();
 const MAX_CONNECTIONS_PER_MINUTE = 10;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const SOCKET_RL_PREFIX = "sock_rl:";
+
+// Fallback in-memory store
+const connectionAttemptsFallback = new Map<string, { count: number; resetAt: number }>();
 
 /**
- * Clean up stale rate limit entries
+ * Clean up stale fallback rate limit entries
  */
 function cleanupRateLimits(): void {
   const now = Date.now();
-  for (const [ip, data] of connectionAttempts.entries()) {
+  for (const [ip, data] of connectionAttemptsFallback.entries()) {
     if (now > data.resetAt) {
-      connectionAttempts.delete(ip);
+      connectionAttemptsFallback.delete(ip);
     }
   }
 }
 
-// Run cleanup every minute
+// Run cleanup every minute (for fallback only)
 setInterval(cleanupRateLimits, RATE_LIMIT_WINDOW_MS);
 
 /**
- * Check rate limit for an IP address
+ * Check rate limit for an IP address.
+ * Uses Redis when available, falls back to in-memory.
  */
-function checkRateLimit(ip: string): boolean {
+async function checkRateLimit(ip: string): Promise<boolean> {
+  const redis = getRedisClient();
+
+  if (redis) {
+    try {
+      const key = `${SOCKET_RL_PREFIX}${ip}`;
+      const count = await redis.incr(key);
+      if (count === 1) {
+        await redis.expire(key, Math.ceil(RATE_LIMIT_WINDOW_MS / 1000));
+      }
+      return count <= MAX_CONNECTIONS_PER_MINUTE;
+    } catch {
+      // Fall through to memory
+    }
+  }
+
   const now = Date.now();
-  const existing = connectionAttempts.get(ip);
+  const existing = connectionAttemptsFallback.get(ip);
 
   if (!existing || now > existing.resetAt) {
-    connectionAttempts.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    connectionAttemptsFallback.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
     return true;
   }
 
@@ -77,7 +97,7 @@ export async function socketAuthMiddleware(
 
   try {
     // Rate limiting
-    if (!checkRateLimit(ip)) {
+    if (!(await checkRateLimit(ip))) {
       logger.warn("[Socket] Rate limit exceeded", { ip });
       return next(new Error("rate_limit_exceeded"));
     }

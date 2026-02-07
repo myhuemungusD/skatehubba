@@ -83,7 +83,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     // Fast path: if we already discovered for this area, just return existing spots
-    if (isAreaCached(lat, lng)) {
+    if (await isAreaCached(lat, lng)) {
       const allSpots = await spotStorage.getAllSpots();
       return res.json({ discovered: 0, added: 0, cached: true, spots: allSpots });
     }

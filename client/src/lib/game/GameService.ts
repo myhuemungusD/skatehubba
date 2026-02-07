@@ -159,8 +159,8 @@ export const GameService = {
         const matchData = matchDoc.data() as QueueEntry;
         const gameId = doc(collection(db, COLLECTIONS.GAMES)).id;
 
-        // Coin flip for who starts (simple: creator starts)
-        const starterIndex = Math.random() < 0.5 ? 0 : 1;
+        // Coin flip for who starts (crypto-secure)
+        const starterIndex = crypto.getRandomValues(new Uint32Array(1))[0] % 2;
         const players: [string, string] = [matchData.createdBy, userId];
         const starterId = players[starterIndex];
 

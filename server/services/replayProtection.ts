@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { admin } from "../admin";
+import { getRedisClient } from "../redis";
 
 type ReplayCheckResult =
   | { ok: true }
@@ -106,10 +107,48 @@ export const createMemoryReplayStore = (): ReplayStore => {
   };
 };
 
+/**
+ * Redis-backed replay store for multi-instance deployments.
+ * Uses SET NX (set-if-not-exists) with TTL for atomic nonce tracking.
+ */
+export const createRedisReplayStore = (): ReplayStore => {
+  const redis = getRedisClient();
+  const memoryFallback = createMemoryReplayStore();
+
+  return {
+    async checkAndStore(record) {
+      if (!redis) return memoryFallback.checkAndStore(record);
+
+      try {
+        const key = `replay:${record.userId}_${record.nonce}`;
+        const ttlSeconds = Math.ceil((record.expiresAtMs - Date.now()) / 1000);
+
+        if (ttlSeconds <= 0) return "stored";
+
+        // SET NX = set only if key does not exist; returns "OK" on success, null on exists
+        const result = await redis.set(key, record.actionHash, "EX", ttlSeconds, "NX");
+
+        return result === "OK" ? "stored" : "replay";
+      } catch {
+        return memoryFallback.checkAndStore(record);
+      }
+    },
+  };
+};
+
+/**
+ * Default store selection: Redis > Firestore > Memory
+ */
+function getDefaultReplayStore(): ReplayStore {
+  const redis = getRedisClient();
+  if (redis) return createRedisReplayStore();
+  return createFirestoreReplayStore();
+}
+
 export const verifyReplayProtection = async (
   userId: string,
   payload: ReplayCheckPayload,
-  store: ReplayStore = createFirestoreReplayStore()
+  store: ReplayStore = getDefaultReplayStore()
 ): Promise<ReplayCheckResult> => {
   const parsed = Date.parse(payload.clientTimestamp);
   if (Number.isNaN(parsed)) {

@@ -2,6 +2,8 @@
  * Presence Handler
  *
  * Tracks user online/offline status across the platform.
+ * Uses Redis Hash for shared presence state across instances.
+ * Falls back to in-memory Map when Redis is unavailable.
  */
 
 import type { Server, Socket } from "socket.io";
@@ -12,32 +14,60 @@ import type {
   SocketData,
   PresencePayload,
 } from "../types";
+import { getRedisClient } from "../../redis";
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
-// Online users (move to Redis for horizontal scaling)
-const onlineUsers = new Map<string, { status: "online" | "away"; lastSeen: Date }>();
+const PRESENCE_HASH = "presence:users";
+const PRESENCE_TTL = 300; // 5-minute TTL per user entry (heartbeat refreshes)
+
+// Fallback in-memory store when Redis is unavailable
+const onlineUsersFallback = new Map<string, { status: "online" | "away"; lastSeen: Date }>();
 
 /**
  * Get all online users
  */
-export function getOnlineUsers(): string[] {
-  return Array.from(onlineUsers.keys());
+export async function getOnlineUsers(): Promise<string[]> {
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const all = await redis.hkeys(PRESENCE_HASH);
+      return all;
+    } catch { /* fall through */ }
+  }
+  return Array.from(onlineUsersFallback.keys());
 }
 
 /**
  * Check if user is online
  */
-export function isUserOnline(odv: string): boolean {
-  return onlineUsers.has(odv);
+export async function isUserOnline(odv: string): Promise<boolean> {
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const val = await redis.hget(PRESENCE_HASH, odv);
+      return val !== null;
+    } catch { /* fall through */ }
+  }
+  return onlineUsersFallback.has(odv);
 }
 
 /**
  * Get user presence
  */
-export function getUserPresence(odv: string): PresencePayload | null {
-  const presence = onlineUsers.get(odv);
+export async function getUserPresence(odv: string): Promise<PresencePayload | null> {
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const val = await redis.hget(PRESENCE_HASH, odv);
+      if (!val) return null;
+      const parsed = JSON.parse(val) as { status: "online" | "away"; lastSeen: string };
+      return { odv, status: parsed.status, lastSeen: parsed.lastSeen };
+    } catch { /* fall through */ }
+  }
+
+  const presence = onlineUsersFallback.get(odv);
   if (!presence) return null;
 
   return {
@@ -45,6 +75,33 @@ export function getUserPresence(odv: string): PresencePayload | null {
     status: presence.status,
     lastSeen: presence.lastSeen.toISOString(),
   };
+}
+
+/**
+ * Set user presence in store
+ */
+function setPresence(odv: string, status: "online" | "away"): void {
+  const now = new Date();
+  const redis = getRedisClient();
+
+  if (redis) {
+    const val = JSON.stringify({ status, lastSeen: now.toISOString() });
+    redis.hset(PRESENCE_HASH, odv, val).catch(() => {});
+  } else {
+    onlineUsersFallback.set(odv, { status, lastSeen: now });
+  }
+}
+
+/**
+ * Remove user presence from store
+ */
+function removePresence(odv: string): void {
+  const redis = getRedisClient();
+  if (redis) {
+    redis.hdel(PRESENCE_HASH, odv).catch(() => {});
+  } else {
+    onlineUsersFallback.delete(odv);
+  }
 }
 
 /**
@@ -57,7 +114,7 @@ export function registerPresenceHandlers(io: TypedServer, socket: TypedSocket): 
   socket.join(`user:${data.odv}`);
 
   // Mark user as online
-  onlineUsers.set(data.odv, { status: "online", lastSeen: new Date() });
+  setPresence(data.odv, "online");
 
   // Broadcast presence update
   const presencePayload: PresencePayload = {
@@ -70,11 +127,7 @@ export function registerPresenceHandlers(io: TypedServer, socket: TypedSocket): 
 
   // Handle status updates
   socket.on("presence:update", (status: "online" | "away") => {
-    const existing = onlineUsers.get(data.odv);
-    if (existing) {
-      existing.status = status;
-      existing.lastSeen = new Date();
-    }
+    setPresence(data.odv, status);
 
     socket.broadcast.emit("presence:update", {
       odv: data.odv,
@@ -92,7 +145,7 @@ export function handlePresenceDisconnect(io: TypedServer, socket: TypedSocket): 
   const data = socket.data as SocketData;
 
   // Mark offline
-  onlineUsers.delete(data.odv);
+  removePresence(data.odv);
 
   // Broadcast offline status
   socket.broadcast.emit("presence:update", {
@@ -107,14 +160,32 @@ export function handlePresenceDisconnect(io: TypedServer, socket: TypedSocket): 
 /**
  * Get presence stats
  */
-export function getPresenceStats(): {
+export async function getPresenceStats(): Promise<{
   online: number;
   away: number;
-} {
+}> {
+  const redis = getRedisClient();
+
+  if (redis) {
+    try {
+      const all = await redis.hvals(PRESENCE_HASH);
+      let online = 0;
+      let away = 0;
+      for (const val of all) {
+        try {
+          const parsed = JSON.parse(val) as { status: string };
+          if (parsed.status === "online") online++;
+          else away++;
+        } catch { /* skip malformed entries */ }
+      }
+      return { online, away };
+    } catch { /* fall through */ }
+  }
+
   let online = 0;
   let away = 0;
 
-  for (const presence of onlineUsers.values()) {
+  for (const presence of onlineUsersFallback.values()) {
     if (presence.status === "online") online++;
     else away++;
   }

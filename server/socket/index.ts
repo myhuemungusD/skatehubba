@@ -183,16 +183,16 @@ export function initializeSocketServer(
 /**
  * Get socket server stats for monitoring
  */
-export function getSocketStats(): {
+export async function getSocketStats(): Promise<{
   connections: number;
   rooms: ReturnType<typeof getRoomStats>;
-  presence: ReturnType<typeof getPresenceStats>;
+  presence: Awaited<ReturnType<typeof getPresenceStats>>;
   health: ReturnType<typeof getHealthStats>;
-} {
+}> {
   return {
     connections: connectedSockets,
     rooms: getRoomStats(),
-    presence: getPresenceStats(),
+    presence: await getPresenceStats(),
     health: getHealthStats(),
   };
 }
