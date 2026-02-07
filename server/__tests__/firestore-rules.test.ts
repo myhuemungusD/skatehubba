@@ -18,10 +18,12 @@ const rulesPath = resolveRulesPath("firestore.rules");
 const rules = readFileSync(rulesPath, "utf8");
 
 describe("Firestore rules contract", () => {
-  it("locks down prod writes to sensitive collections", () => {
+  it("locks down prod writes to all collections via default deny", () => {
     expect(rules).toMatch(/match \/env\/prod\/\{collection\}\/\{docId=\*\*\}/);
+    // Prod catch-all now blocks ALL client writes (previously used a denylist).
+    // Individual collections that need client writes have explicit match rules.
     expect(rules).toMatch(
-      /collection in \['billing', 'admin', 'moderation', 'analytics_events', 'users'\]/
+      /match \/env\/prod\/\{collection\}\/\{docId=\*\*\}[\s\S]*?allow write: if false/
     );
   });
 
