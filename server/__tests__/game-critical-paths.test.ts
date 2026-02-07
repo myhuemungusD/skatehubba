@@ -22,7 +22,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ============================================================================
-// Mocks - Game State
+// Mocks
 // ============================================================================
 
 vi.mock("../config/env", () => ({
@@ -45,83 +45,186 @@ vi.mock("../services/analyticsService", () => ({
   logServerEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
-// In-memory Firestore mock for game states
-const mockGameStates = new Map<string, any>();
+// Mock drizzle-orm operators to return inspectable objects
+vi.mock("drizzle-orm", () => ({
+  eq: (col: any, val: any) => ({ _op: "eq", col, val }),
+  and: (...conditions: any[]) => ({ _op: "and", conditions }),
+  lt: (col: any, val: any) => ({ _op: "lt", col, val }),
+  sql: Object.assign(
+    (strings: TemplateStringsArray, ..._values: any[]) => ({ _sql: true, strings }),
+    { raw: (s: string) => ({ _sql: true, raw: s }) }
+  ),
+}));
 
-const mockTransaction = {
-  get: vi.fn().mockImplementation(async (ref: any) => {
-    const data = mockGameStates.get(ref.id);
-    return { exists: !!data, data: () => data };
-  }),
-  update: vi.fn().mockImplementation((ref: any, updates: any) => {
-    const current = mockGameStates.get(ref.id) || {};
-    mockGameStates.set(ref.id, { ...current, ...updates });
-  }),
-  set: vi.fn().mockImplementation((ref: any, data: any) => {
-    mockGameStates.set(ref.id, data);
-  }),
+// Mock schema table references with _isPrimary markers for ID extraction
+vi.mock("@shared/schema", () => ({
+  gameSessions: {
+    _table: "gameSessions",
+    id: { name: "id", _isPrimary: true },
+    status: { name: "status" },
+    turnDeadlineAt: { name: "turnDeadlineAt" },
+  },
+  battleVoteState: {
+    _table: "battleVoteState",
+    battleId: { name: "battleId", _isPrimary: true },
+    status: { name: "status" },
+    voteDeadlineAt: { name: "voteDeadlineAt" },
+  },
+  battles: {
+    _table: "battles",
+    id: { name: "id", _isPrimary: true },
+    status: { name: "status" },
+  },
+  battleVotes: {
+    _table: "battleVotes",
+    battleId: { name: "battleId", _isPrimary: true },
+    odv: { name: "odv" },
+  },
+}));
+
+// ============================================================================
+// In-memory Drizzle mock (multi-table)
+// ============================================================================
+
+const stores: Record<string, Map<string, any>> = {
+  gameSessions: new Map(),
+  battleVoteState: new Map(),
+  battles: new Map(),
+  battleVotes: new Map(),
 };
 
-const mockDocRef = (id: string) => ({
-  id,
-  get: vi.fn().mockImplementation(async () => {
-    const data = mockGameStates.get(id);
-    return { exists: !!data, data: () => data };
-  }),
-  set: vi.fn().mockImplementation(async (data: any) => {
-    mockGameStates.set(id, data);
-  }),
-  update: vi.fn().mockImplementation(async (updates: any) => {
-    const current = mockGameStates.get(id) || {};
-    mockGameStates.set(id, { ...current, ...updates });
-  }),
-  delete: vi.fn().mockImplementation(async () => {
-    mockGameStates.delete(id);
-  }),
-});
+function extractPrimaryId(where: any): string | null {
+  if (!where) return null;
+  if (where._op === "eq" && where.col?._isPrimary) return where.val;
+  if (where._op === "and") {
+    for (const c of where.conditions) {
+      const id = extractPrimaryId(c);
+      if (id) return id;
+    }
+  }
+  return null;
+}
 
-vi.mock("../firestore", () => ({
-  db: {
-    collection: vi.fn().mockImplementation((name: string) => ({
-      doc: vi.fn().mockImplementation((id: string) => mockDocRef(id)),
-      where: vi.fn().mockReturnThis(),
-      get: vi.fn().mockResolvedValue({ docs: [] }),
-    })),
-    runTransaction: vi.fn().mockImplementation(async (callback: any) => {
-      return await callback(mockTransaction);
-    }),
-  },
-  collections: {
-    gameSessions: "game_sessions",
-  },
-}));
+function getStore(tableName: string): Map<string, any> {
+  if (!stores[tableName]) stores[tableName] = new Map();
+  return stores[tableName];
+}
 
-// Mock for battleStateService (and shared schema)
-vi.mock("../../packages/shared/schema", () => ({
-  battles: { id: "id" },
-  battleVotes: { battleId: "battleId", odv: "odv" },
-}));
+function createQueryChain() {
+  let op = "select";
+  let currentTable = "";
+  let setData: any = null;
+  let insertData: any = null;
+  let whereClause: any = null;
+  let hasReturning = false;
+
+  const resolve = () => {
+    const store = getStore(currentTable);
+
+    if (op === "select") {
+      const id = extractPrimaryId(whereClause);
+      if (id) {
+        const row = store.get(id);
+        return row ? [row] : [];
+      }
+      return Array.from(store.values());
+    }
+    if (op === "insert") {
+      const id =
+        insertData?.id ??
+        insertData?.battleId ??
+        `auto-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      store.set(id, { ...insertData, id });
+      return hasReturning ? [{ ...insertData, id }] : undefined;
+    }
+    if (op === "update") {
+      const id = extractPrimaryId(whereClause);
+      if (id && store.has(id)) {
+        const updated = { ...store.get(id), ...setData };
+        store.set(id, updated);
+        return hasReturning ? [{ ...updated }] : undefined;
+      }
+      return hasReturning ? [] : undefined;
+    }
+    if (op === "delete") {
+      const id = extractPrimaryId(whereClause);
+      if (id) {
+        store.delete(id);
+      }
+      return undefined;
+    }
+    return undefined;
+  };
+
+  const chain: any = {};
+  const reset = (newOp: string, table?: string) => {
+    op = newOp;
+    if (table !== undefined) currentTable = table;
+    setData = null;
+    insertData = null;
+    whereClause = null;
+    hasReturning = false;
+  };
+
+  chain.select = vi.fn(() => {
+    reset("select");
+    return chain;
+  });
+  chain.from = vi.fn((table: any) => {
+    currentTable = table?._table || "";
+    return chain;
+  });
+  chain.where = vi.fn((condition: any) => {
+    whereClause = condition;
+    return chain;
+  });
+  chain.for = vi.fn(() => chain);
+  chain.limit = vi.fn(() => chain);
+  chain.insert = vi.fn((table: any) => {
+    reset("insert", table?._table || "");
+    return chain;
+  });
+  chain.values = vi.fn((data: any) => {
+    insertData = data;
+    return chain;
+  });
+  chain.update = vi.fn((table: any) => {
+    reset("update", table?._table || "");
+    return chain;
+  });
+  chain.set = vi.fn((data: any) => {
+    setData = data;
+    return chain;
+  });
+  chain.delete = vi.fn((table: any) => {
+    reset("delete", table?._table || "");
+    return chain;
+  });
+  chain.returning = vi.fn(() => {
+    hasReturning = true;
+    return chain;
+  });
+  chain.onConflictDoUpdate = vi.fn(() => chain);
+  chain.target = vi.fn(() => chain);
+
+  chain.then = (onFulfilled: any, onRejected?: any) => {
+    try {
+      return Promise.resolve(resolve()).then(onFulfilled, onRejected);
+    } catch (e) {
+      return onRejected ? Promise.reject(e).catch(onRejected) : Promise.reject(e);
+    }
+  };
+
+  return chain;
+}
+
+const mockChain = createQueryChain();
 
 vi.mock("../db", () => ({
-  db: {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue([]),
-      }),
-    }),
-    insert: vi.fn().mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
-      }),
-    }),
-    update: vi.fn().mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
-      }),
-    }),
-  },
-  getDb: () => null,
-  isDatabaseAvailable: () => false,
+  getDb: () => ({
+    ...mockChain,
+    transaction: vi.fn(async (callback: any) => callback(mockChain)),
+  }),
 }));
 
 // ============================================================================
@@ -151,7 +254,9 @@ const { initializeVoting, castVote, getBattleVoteState } =
 describe("Game State Transitions - Critical Paths", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGameStates.clear();
+    for (const store of Object.values(stores)) {
+      store.clear();
+    }
   });
 
   // ==========================================================================
@@ -199,34 +304,33 @@ describe("Game State Transitions - Critical Paths", () => {
       expect(passResult.success).toBe(true);
 
       // Verify letter accumulated
-      const gameAfterPass = mockGameStates.get(gameId);
-      const playerB = gameAfterPass.players.find((p: any) => p.odv === "player-B");
-      expect(playerB.letters).toBe("S");
+      const playerB = passResult.game!.players.find((p: any) => p.odv === "player-B");
+      expect(playerB!.letters).toBe("S");
     });
 
     it("player accumulates all SKATE letters and loses", async () => {
-      // Set up game in mid-progress
       const gameId = "game-skate";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
         spotId: "spot-1",
         creatorId: "player-A",
         players: [
           { odv: "player-A", letters: "", connected: true },
-          { odv: "player-B", letters: "SKAT", connected: true }, // One letter from SKATE
+          { odv: "player-B", letters: "SKAT", connected: true },
         ],
         maxPlayers: 4,
-        currentTurnIndex: 1, // Player B's turn
+        currentTurnIndex: 1,
         currentAction: "attempt",
         currentTrick: "heelflip",
         setterId: "player-A",
         status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
+        turnDeadlineAt: new Date(Date.now() + 60000),
         processedEventIds: [],
       });
 
-      // Player B passes -> gets final E -> eliminated -> Player A wins
       const result = await passTrick({
         eventId: "evt-final-pass",
         gameId,
@@ -246,27 +350,28 @@ describe("Game State Transitions - Critical Paths", () => {
   describe("turn rotation", () => {
     it("skips eliminated players when advancing turn", async () => {
       const gameId = "game-3player";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
         spotId: "spot-1",
         creatorId: "player-A",
         players: [
           { odv: "player-A", letters: "", connected: true },
-          { odv: "player-B", letters: "SKATE", connected: true }, // Eliminated
+          { odv: "player-B", letters: "SKATE", connected: true },
           { odv: "player-C", letters: "SK", connected: true },
         ],
         maxPlayers: 4,
-        currentTurnIndex: 0, // Player A's turn
+        currentTurnIndex: 0,
         currentAction: "attempt",
         currentTrick: "kickflip",
         setterId: "player-C",
         status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
+        turnDeadlineAt: new Date(Date.now() + 60000),
         processedEventIds: [],
       });
 
-      // Player A lands the trick, next turn should skip eliminated Player B
       const result = await submitTrick({
         eventId: "evt-land",
         gameId,
@@ -275,11 +380,9 @@ describe("Game State Transitions - Critical Paths", () => {
       });
 
       expect(result.success).toBe(true);
-      // Should skip player-B (index 1, eliminated) and go to player-C (index 2)
-      // Or wrap around depending on setter logic
       const game = result.game!;
       const currentPlayer = game.players[game.currentTurnIndex];
-      expect(currentPlayer.letters).not.toBe("SKATE"); // Not the eliminated player
+      expect(currentPlayer.letters).not.toBe("SKATE");
     });
   });
 
@@ -290,7 +393,8 @@ describe("Game State Transitions - Critical Paths", () => {
   describe("disconnect and reconnect flow", () => {
     it("disconnect pauses an active game", async () => {
       const gameId = "game-disconnect";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
         spotId: "spot-1",
         creatorId: "player-A",
@@ -302,8 +406,9 @@ describe("Game State Transitions - Critical Paths", () => {
         currentTurnIndex: 0,
         currentAction: "set",
         status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
+        pausedAt: null,
         processedEventIds: [],
       });
 
@@ -322,7 +427,8 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("reconnect resumes a paused game when all players back", async () => {
       const gameId = "game-reconnect";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
         spotId: "spot-1",
         creatorId: "player-A",
@@ -332,16 +438,17 @@ describe("Game State Transitions - Critical Paths", () => {
             odv: "player-B",
             letters: "",
             connected: false,
-            disconnectedAt: new Date().toISOString(),
+            disconnectedAt: now.toISOString(),
           },
         ],
         maxPlayers: 4,
         currentTurnIndex: 0,
         currentAction: "set",
         status: "paused",
-        pausedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        pausedAt: now,
+        turnDeadlineAt: null,
+        createdAt: now,
+        updatedAt: now,
         processedEventIds: [],
       });
 
@@ -359,7 +466,8 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("reconnect keeps game paused if other players still disconnected", async () => {
       const gameId = "game-partial-rc";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
         spotId: "spot-1",
         creatorId: "player-A",
@@ -368,22 +476,23 @@ describe("Game State Transitions - Critical Paths", () => {
             odv: "player-A",
             letters: "",
             connected: false,
-            disconnectedAt: new Date().toISOString(),
+            disconnectedAt: now.toISOString(),
           },
           {
             odv: "player-B",
             letters: "",
             connected: false,
-            disconnectedAt: new Date().toISOString(),
+            disconnectedAt: now.toISOString(),
           },
         ],
         maxPlayers: 4,
         currentTurnIndex: 0,
         currentAction: "set",
         status: "paused",
-        pausedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        pausedAt: now,
+        turnDeadlineAt: null,
+        createdAt: now,
+        updatedAt: now,
         processedEventIds: [],
       });
 
@@ -394,17 +503,20 @@ describe("Game State Transitions - Critical Paths", () => {
       });
 
       expect(result.success).toBe(true);
-      expect(result.game!.status).toBe("paused"); // Still paused - player A disconnected
+      expect(result.game!.status).toBe("paused");
     });
 
     it("disconnect of non-existent player fails", async () => {
       const gameId = "game-dc-unknown";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
         spotId: "spot-1",
         creatorId: "player-A",
         players: [{ odv: "player-A", letters: "", connected: true }],
         status: "active",
+        createdAt: now,
+        updatedAt: now,
         processedEventIds: [],
       });
 
@@ -426,7 +538,8 @@ describe("Game State Transitions - Critical Paths", () => {
   describe("forfeit game", () => {
     it("voluntary forfeit ends game with opponent as winner", async () => {
       const gameId = "game-forfeit";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
         spotId: "spot-1",
         creatorId: "player-A",
@@ -438,8 +551,8 @@ describe("Game State Transitions - Critical Paths", () => {
         currentTurnIndex: 0,
         currentAction: "set",
         status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
         processedEventIds: [],
       });
 
@@ -457,10 +570,15 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("forfeit of completed game fails", async () => {
       const gameId = "game-already-done";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
+        spotId: "spot-1",
+        creatorId: "player-A",
         players: [{ odv: "player-A", letters: "" }],
         status: "completed",
+        createdAt: now,
+        updatedAt: now,
         processedEventIds: [],
       });
 
@@ -477,20 +595,25 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("forfeit from non-participant fails", async () => {
       const gameId = "game-forfeit-stranger";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
+        spotId: "spot-1",
+        creatorId: "player-A",
         players: [
           { odv: "player-A", letters: "" },
           { odv: "player-B", letters: "" },
         ],
         status: "active",
+        createdAt: now,
+        updatedAt: now,
         processedEventIds: [],
       });
 
       const result = await forfeitGame({
         eventId: "evt-forfeit-stranger",
         gameId,
-        odv: "player-C", // Not in game
+        odv: "player-C",
         reason: "voluntary",
       });
 
@@ -506,7 +629,8 @@ describe("Game State Transitions - Critical Paths", () => {
   describe("idempotency", () => {
     it("duplicate join event is safely ignored", async () => {
       const gameId = "game-idempotent";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
         spotId: "spot-1",
         creatorId: "player-A",
@@ -519,8 +643,8 @@ describe("Game State Transitions - Critical Paths", () => {
         currentAction: "set",
         status: "active",
         processedEventIds: ["evt-join-dup"],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       });
 
       const result = await joinGame({
@@ -535,7 +659,8 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("duplicate trick submission is safely ignored", async () => {
       const gameId = "game-idempotent-trick";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
         spotId: "spot-1",
         creatorId: "player-A",
@@ -548,8 +673,8 @@ describe("Game State Transitions - Critical Paths", () => {
         currentAction: "set",
         status: "active",
         processedEventIds: ["evt-trick-dup"],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       });
 
       const result = await submitTrick({
@@ -565,7 +690,8 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("duplicate pass is safely ignored", async () => {
       const gameId = "game-idempotent-pass";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
         spotId: "spot-1",
         creatorId: "player-A",
@@ -580,8 +706,8 @@ describe("Game State Transitions - Critical Paths", () => {
         setterId: "player-A",
         status: "active",
         processedEventIds: ["evt-pass-dup"],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: now,
+        updatedAt: now,
       });
 
       const result = await passTrick({
@@ -596,14 +722,19 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("duplicate forfeit is safely ignored", async () => {
       const gameId = "game-idempotent-forfeit";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
+        spotId: "spot-1",
+        creatorId: "player-A",
         players: [
           { odv: "player-A", letters: "" },
           { odv: "player-B", letters: "" },
         ],
         status: "active",
         processedEventIds: ["evt-forfeit-dup"],
+        createdAt: now,
+        updatedAt: now,
       });
 
       const result = await forfeitGame({
@@ -635,8 +766,11 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("cannot join a game that already started", async () => {
       const gameId = "game-started";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
+        spotId: "spot-1",
+        creatorId: "player-A",
         players: [
           { odv: "player-A", letters: "", connected: true },
           { odv: "player-B", letters: "", connected: true },
@@ -644,6 +778,8 @@ describe("Game State Transitions - Critical Paths", () => {
         maxPlayers: 4,
         status: "active",
         processedEventIds: [],
+        createdAt: now,
+        updatedAt: now,
       });
 
       const result = await joinGame({
@@ -658,8 +794,11 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("cannot join a full game", async () => {
       const gameId = "game-full";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
+        spotId: "spot-1",
+        creatorId: "p1",
         players: [
           { odv: "p1", letters: "", connected: true },
           { odv: "p2", letters: "", connected: true },
@@ -667,6 +806,8 @@ describe("Game State Transitions - Critical Paths", () => {
         maxPlayers: 2,
         status: "waiting",
         processedEventIds: [],
+        createdAt: now,
+        updatedAt: now,
       });
 
       const result = await joinGame({
@@ -681,22 +822,27 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("cannot submit trick when not your turn", async () => {
       const gameId = "game-wrong-turn";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
+        spotId: "spot-1",
+        creatorId: "player-A",
         players: [
           { odv: "player-A", letters: "", connected: true },
           { odv: "player-B", letters: "", connected: true },
         ],
-        currentTurnIndex: 0, // Player A's turn
+        currentTurnIndex: 0,
         currentAction: "set",
         status: "active",
         processedEventIds: [],
+        createdAt: now,
+        updatedAt: now,
       });
 
       const result = await submitTrick({
         eventId: "evt-wrong-turn",
         gameId,
-        odv: "player-B", // Not their turn
+        odv: "player-B",
         trickName: "kickflip",
       });
 
@@ -706,16 +852,21 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("cannot pass during set phase", async () => {
       const gameId = "game-wrong-phase";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
+        spotId: "spot-1",
+        creatorId: "player-A",
         players: [
           { odv: "player-A", letters: "", connected: true },
           { odv: "player-B", letters: "", connected: true },
         ],
         currentTurnIndex: 0,
-        currentAction: "set", // Set phase, not attempt
+        currentAction: "set",
         status: "active",
         processedEventIds: [],
+        createdAt: now,
+        updatedAt: now,
       });
 
       const result = await passTrick({
@@ -730,8 +881,11 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("cannot play on inactive game", async () => {
       const gameId = "game-completed";
-      mockGameStates.set(gameId, {
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
         id: gameId,
+        spotId: "spot-1",
+        creatorId: "player-A",
         players: [
           { odv: "player-A", letters: "", connected: true },
           { odv: "player-B", letters: "SKATE", connected: true },
@@ -740,6 +894,8 @@ describe("Game State Transitions - Critical Paths", () => {
         currentAction: "set",
         status: "completed",
         processedEventIds: [],
+        createdAt: now,
+        updatedAt: now,
       });
 
       const result = await submitTrick({
@@ -767,14 +923,16 @@ describe("Game State Transitions - Critical Paths", () => {
 
     it("game deletion removes game from store", async () => {
       const gameId = "game-delete-me";
-      mockGameStates.set(gameId, {
+      stores.gameSessions.set(gameId, {
         id: gameId,
         status: "completed",
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
 
       const deleted = await deleteGame(gameId);
       expect(deleted).toBe(true);
-      expect(mockGameStates.has(gameId)).toBe(false);
+      expect(stores.gameSessions.has(gameId)).toBe(false);
     });
 
     it("getGameState returns null for nonexistent game", async () => {
@@ -801,19 +959,9 @@ describe("Game State Transitions - Critical Paths", () => {
     });
 
     it("generates unique IDs without sequence key", () => {
-      const nowSpy = vi.spyOn(Date, "now");
-      nowSpy.mockReturnValueOnce(1_700_000_000_000).mockReturnValueOnce(1_700_000_000_500);
-
-      const randomSpy = vi.spyOn(Math, "random");
-      randomSpy.mockReturnValueOnce(0.1).mockReturnValueOnce(0.9);
-
       const id1 = generateEventId("trick", "player-1", "game-1");
       const id2 = generateEventId("trick", "player-1", "game-1");
-
       expect(id1).not.toBe(id2);
-
-      nowSpy.mockRestore();
-      randomSpy.mockRestore();
     });
 
     it("includes type, game, and player in the ID", () => {
@@ -832,7 +980,9 @@ describe("Game State Transitions - Critical Paths", () => {
 describe("Battle State Transitions - Critical Paths", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGameStates.clear();
+    for (const store of Object.values(stores)) {
+      store.clear();
+    }
   });
 
   describe("initializeVoting", () => {
@@ -847,7 +997,8 @@ describe("Battle State Transitions - Critical Paths", () => {
       expect(result.success).toBe(true);
       expect(result.alreadyInitialized).toBe(false);
 
-      const state = mockGameStates.get("battle-1");
+      const state = stores.battleVoteState.get("battle-1");
+      expect(state).toBeDefined();
       expect(state.status).toBe("voting");
       expect(state.creatorId).toBe("creator-1");
       expect(state.opponentId).toBe("opponent-1");
@@ -913,8 +1064,6 @@ describe("Battle State Transitions - Critical Paths", () => {
 
       expect(result.success).toBe(true);
       expect(result.battleComplete).toBe(true);
-      // Creator voted clean → opponent gets 1 point
-      // Opponent voted sketch → creator gets 0 points
       expect(result.winnerId).toBe("opponent-1");
       expect(result.finalScore).toEqual({ "creator-1": 0, "opponent-1": 1 });
     });
@@ -935,7 +1084,6 @@ describe("Battle State Transitions - Critical Paths", () => {
       });
 
       expect(result.battleComplete).toBe(true);
-      // Both voted clean: score is 1-1 → tie → creator wins
       expect(result.winnerId).toBe("creator-1");
       expect(result.finalScore).toEqual({ "creator-1": 1, "opponent-1": 1 });
     });
@@ -973,7 +1121,6 @@ describe("Battle State Transitions - Critical Paths", () => {
     });
 
     it("allows vote update (double vote replaces existing)", async () => {
-      // First vote: clean
       await castVote({
         eventId: "evt-vote-1",
         battleId: "battle-1",
@@ -981,7 +1128,6 @@ describe("Battle State Transitions - Critical Paths", () => {
         vote: "clean",
       });
 
-      // Change mind to sketch
       await castVote({
         eventId: "evt-vote-1b",
         battleId: "battle-1",
@@ -989,7 +1135,6 @@ describe("Battle State Transitions - Critical Paths", () => {
         vote: "sketch",
       });
 
-      // Complete with opponent vote
       const result = await castVote({
         eventId: "evt-vote-2",
         battleId: "battle-1",
@@ -998,8 +1143,6 @@ describe("Battle State Transitions - Critical Paths", () => {
       });
 
       expect(result.battleComplete).toBe(true);
-      // Creator changed to sketch → opponent gets 0 points
-      // Opponent voted clean → creator gets 1 point
       expect(result.winnerId).toBe("creator-1");
     });
 

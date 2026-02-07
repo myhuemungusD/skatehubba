@@ -2,7 +2,7 @@
  * @fileoverview Unit tests for BattleStateService
  * @module server/__tests__/battleStateService.test
  *
- * Tests battle voting with:
+ * Tests battle voting with PostgreSQL transactions:
  * - Vote timeouts
  * - Tie handling
  * - Double-vote protection
@@ -35,69 +35,161 @@ vi.mock("../services/analyticsService", () => ({
   logServerEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
-// Mock database
-vi.mock("../db", () => ({
-  db: {
-    insert: vi.fn().mockReturnThis(),
-    values: vi.fn().mockReturnThis(),
-    onConflictDoUpdate: vi.fn().mockResolvedValue(undefined),
-    update: vi.fn().mockReturnThis(),
-    set: vi.fn().mockReturnThis(),
-    where: vi.fn().mockResolvedValue(undefined),
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
+// Mock drizzle-orm operators to return inspectable objects
+vi.mock("drizzle-orm", () => ({
+  eq: (col: any, val: any) => ({ _op: "eq", col, val }),
+  and: (...conditions: any[]) => ({ _op: "and", conditions }),
+  lt: (col: any, val: any) => ({ _op: "lt", col, val }),
+}));
+
+// Mock schema table references
+vi.mock("@shared/schema", () => ({
+  battleVoteState: {
+    _table: "battleVoteState",
+    battleId: { name: "battleId", _isPrimary: true },
+    status: { name: "status" },
+    voteDeadlineAt: { name: "voteDeadlineAt" },
+  },
+  battles: {
+    _table: "battles",
+    id: { name: "id", _isPrimary: true },
+    status: { name: "status" },
+  },
+  battleVotes: {
+    _table: "battleVotes",
+    battleId: { name: "battleId", _isPrimary: true },
+    odv: { name: "odv" },
   },
 }));
 
-// In-memory Firestore mock for battle state
-const mockBattleStates = new Map<string, any>();
+// ============================================================================
+// In-memory Drizzle mock (multi-table)
+// ============================================================================
 
-const mockTransaction = {
-  get: vi.fn().mockImplementation(async (ref: any) => {
-    const data = mockBattleStates.get(ref.id);
-    return {
-      exists: !!data,
-      data: () => data,
-    };
-  }),
-  update: vi.fn().mockImplementation((ref: any, updates: any) => {
-    const current = mockBattleStates.get(ref.id) || {};
-    mockBattleStates.set(ref.id, { ...current, ...updates });
-  }),
-  set: vi.fn().mockImplementation((ref: any, data: any) => {
-    mockBattleStates.set(ref.id, data);
-  }),
+const stores: Record<string, Map<string, any>> = {
+  battleVoteState: new Map(),
+  battles: new Map(),
+  battleVotes: new Map(),
 };
 
-const mockDocRef = (id: string) => ({
-  id,
-  get: vi.fn().mockImplementation(async () => {
-    const data = mockBattleStates.get(id);
-    return { exists: !!data, data: () => data };
-  }),
-  set: vi.fn().mockImplementation(async (data: any) => {
-    mockBattleStates.set(id, data);
-  }),
-  update: vi.fn().mockImplementation(async (updates: any) => {
-    const current = mockBattleStates.get(id) || {};
-    mockBattleStates.set(id, { ...current, ...updates });
-  }),
-});
+function extractPrimaryId(where: any): string | null {
+  if (!where) return null;
+  if (where._op === "eq" && where.col?._isPrimary) return where.val;
+  if (where._op === "and") {
+    for (const c of where.conditions) {
+      const id = extractPrimaryId(c);
+      if (id) return id;
+    }
+  }
+  return null;
+}
 
-vi.mock("../firestore", () => ({
-  db: {
-    collection: vi.fn().mockImplementation((name: string) => ({
-      doc: vi.fn().mockImplementation((id: string) => mockDocRef(id)),
-      where: vi.fn().mockReturnThis(),
-      get: vi.fn().mockResolvedValue({ docs: [] }),
-    })),
-    runTransaction: vi.fn().mockImplementation(async (callback: any) => {
-      return await callback(mockTransaction);
-    }),
-  },
-  collections: {
-    battleState: "battle_state",
-  },
+function getStore(tableName: string): Map<string, any> {
+  if (!stores[tableName]) stores[tableName] = new Map();
+  return stores[tableName];
+}
+
+function createQueryChain() {
+  let op = "select";
+  let currentTable = "";
+  let setData: any = null;
+  let insertData: any = null;
+  let whereClause: any = null;
+  let hasReturning = false;
+
+  const resolve = () => {
+    const store = getStore(currentTable);
+
+    if (op === "select") {
+      const id = extractPrimaryId(whereClause);
+      if (id) {
+        const row = store.get(id);
+        return row ? [row] : [];
+      }
+      return Array.from(store.values());
+    }
+    if (op === "insert") {
+      const id = insertData?.id ?? insertData?.battleId ?? `auto-${Date.now()}`;
+      store.set(id, { ...insertData });
+      return hasReturning ? [{ ...insertData }] : undefined;
+    }
+    if (op === "update") {
+      const id = extractPrimaryId(whereClause);
+      if (id && store.has(id)) {
+        const updated = { ...store.get(id), ...setData };
+        store.set(id, updated);
+        return hasReturning ? [{ ...updated }] : undefined;
+      }
+      return hasReturning ? [] : undefined;
+    }
+    return undefined;
+  };
+
+  const chain: any = {};
+  const reset = (newOp: string, table?: string) => {
+    op = newOp;
+    if (table !== undefined) currentTable = table;
+    setData = null;
+    insertData = null;
+    whereClause = null;
+    hasReturning = false;
+  };
+
+  chain.select = vi.fn(() => {
+    reset("select");
+    return chain;
+  });
+  chain.from = vi.fn((table: any) => {
+    currentTable = table?._table || "";
+    return chain;
+  });
+  chain.where = vi.fn((condition: any) => {
+    whereClause = condition;
+    return chain;
+  });
+  chain.for = vi.fn(() => chain);
+  chain.limit = vi.fn(() => chain);
+  chain.insert = vi.fn((table: any) => {
+    reset("insert", table?._table || "");
+    return chain;
+  });
+  chain.values = vi.fn((data: any) => {
+    insertData = data;
+    return chain;
+  });
+  chain.update = vi.fn((table: any) => {
+    reset("update", table?._table || "");
+    return chain;
+  });
+  chain.set = vi.fn((data: any) => {
+    setData = data;
+    return chain;
+  });
+  chain.returning = vi.fn(() => {
+    hasReturning = true;
+    return chain;
+  });
+  chain.onConflictDoUpdate = vi.fn(() => chain);
+  chain.target = vi.fn(() => chain);
+
+  chain.then = (onFulfilled: any, onRejected?: any) => {
+    try {
+      return Promise.resolve(resolve()).then(onFulfilled, onRejected);
+    } catch (e) {
+      return onRejected ? Promise.reject(e).catch(onRejected) : Promise.reject(e);
+    }
+  };
+
+  return chain;
+}
+
+const mockChain = createQueryChain();
+
+vi.mock("../db", () => ({
+  getDb: () => ({
+    ...mockChain,
+    transaction: vi.fn(async (callback: any) => callback(mockChain)),
+  }),
 }));
 
 // Import after mocking
@@ -107,7 +199,9 @@ const { initializeVoting, castVote, getBattleVoteState, generateEventId } =
 describe("BattleStateService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockBattleStates.clear();
+    for (const store of Object.values(stores)) {
+      store.clear();
+    }
   });
 
   // =============================================================================
@@ -125,7 +219,7 @@ describe("BattleStateService", () => {
 
       expect(result.success).toBe(true);
 
-      const state = mockBattleStates.get("battle-123");
+      const state = stores.battleVoteState.get("battle-123");
       expect(state).toBeDefined();
       expect(state.status).toBe("voting");
       expect(state.creatorId).toBe("player-1");
@@ -148,10 +242,9 @@ describe("BattleStateService", () => {
       expect(result1.alreadyInitialized).toBeFalsy();
 
       // Simulate some votes being cast
-      const state = mockBattleStates.get("battle-456");
+      const state = stores.battleVoteState.get("battle-456");
       state.votes = [{ odv: "player-1", vote: "clean", votedAt: new Date().toISOString() }];
       state.processedEventIds.push("vote-event-1");
-      mockBattleStates.set("battle-456", state);
 
       // Second call - should not overwrite existing state
       const result2 = await initializeVoting({
@@ -165,7 +258,7 @@ describe("BattleStateService", () => {
       expect(result2.alreadyInitialized).toBe(true);
 
       // Verify votes and processedEventIds were not cleared
-      const finalState = mockBattleStates.get("battle-456");
+      const finalState = stores.battleVoteState.get("battle-456");
       expect(finalState.votes).toHaveLength(1);
       expect(finalState.votes[0].odv).toBe("player-1");
       expect(finalState.processedEventIds).toContain("vote-event-1");
@@ -181,15 +274,18 @@ describe("BattleStateService", () => {
     beforeEach(() => {
       // Setup: Voting state
       const now = new Date();
-      mockBattleStates.set("voting-battle", {
+      stores.battleVoteState.set("voting-battle", {
         battleId: "voting-battle",
         creatorId: "player-1",
         opponentId: "player-2",
         status: "voting",
         votes: [],
-        votingStartedAt: now.toISOString(),
-        voteDeadlineAt: new Date(now.getTime() + 60000).toISOString(),
+        votingStartedAt: now,
+        voteDeadlineAt: new Date(now.getTime() + 60000),
+        winnerId: null,
         processedEventIds: [],
+        createdAt: now,
+        updatedAt: now,
       });
     });
 
@@ -214,10 +310,6 @@ describe("BattleStateService", () => {
         vote: "clean",
       });
 
-      // Update state to include first vote
-      const state = mockBattleStates.get("voting-battle");
-      state.votes = [{ odv: "player-1", vote: "clean", votedAt: new Date().toISOString() }];
-
       // Second vote
       const result = await castVote({
         eventId: "vote-event-3",
@@ -233,12 +325,16 @@ describe("BattleStateService", () => {
     });
 
     it("should handle tie by awarding win to creator", async () => {
-      const state = mockBattleStates.get("voting-battle");
-      state.votes = [{ odv: "player-1", vote: "sketch", votedAt: new Date().toISOString() }];
-
       // Both vote sketch (no points) - tie
+      await castVote({
+        eventId: "vote-event-4a",
+        battleId: "voting-battle",
+        odv: "player-1",
+        vote: "sketch",
+      });
+
       const result = await castVote({
-        eventId: "vote-event-4",
+        eventId: "vote-event-4b",
         battleId: "voting-battle",
         odv: "player-2",
         vote: "sketch",
@@ -251,19 +347,25 @@ describe("BattleStateService", () => {
     });
 
     it("should allow updating existing vote (double-vote protection)", async () => {
-      const state = mockBattleStates.get("voting-battle");
-      state.votes = [{ odv: "player-1", vote: "sketch", votedAt: new Date().toISOString() }];
+      // First vote
+      await castVote({
+        eventId: "vote-event-5a",
+        battleId: "voting-battle",
+        odv: "player-1",
+        vote: "sketch",
+      });
 
       // Same player votes again - should update not duplicate
       const result = await castVote({
-        eventId: "vote-event-5",
+        eventId: "vote-event-5b",
         battleId: "voting-battle",
         odv: "player-1",
         vote: "clean", // Changed vote
       });
 
       expect(result.success).toBe(true);
-      // Vote should be updated, not added
+      // Vote should be updated, not added - still waiting for player-2
+      expect(result.battleComplete).toBe(false);
     });
 
     it("should reject vote from non-participant", async () => {
@@ -279,7 +381,7 @@ describe("BattleStateService", () => {
     });
 
     it("should reject vote when voting is not active", async () => {
-      const state = mockBattleStates.get("voting-battle");
+      const state = stores.battleVoteState.get("voting-battle");
       state.status = "completed";
 
       const result = await castVote({
@@ -295,7 +397,7 @@ describe("BattleStateService", () => {
 
     it("should handle idempotent votes", async () => {
       const eventId = "duplicate-vote-event";
-      const state = mockBattleStates.get("voting-battle");
+      const state = stores.battleVoteState.get("voting-battle");
       state.processedEventIds = [eventId];
 
       const result = await castVote({
@@ -317,26 +419,33 @@ describe("BattleStateService", () => {
   describe("scoring logic", () => {
     beforeEach(() => {
       const now = new Date();
-      mockBattleStates.set("score-battle", {
+      stores.battleVoteState.set("score-battle", {
         battleId: "score-battle",
         creatorId: "player-1",
         opponentId: "player-2",
         status: "voting",
         votes: [],
-        votingStartedAt: now.toISOString(),
-        voteDeadlineAt: new Date(now.getTime() + 60000).toISOString(),
+        votingStartedAt: now,
+        voteDeadlineAt: new Date(now.getTime() + 60000),
+        winnerId: null,
         processedEventIds: [],
+        createdAt: now,
+        updatedAt: now,
       });
     });
 
     it("should award point to opponent when voting clean", async () => {
       // Player 1 votes clean on player 2's trick
-      const state = mockBattleStates.get("score-battle");
-      state.votes = [{ odv: "player-1", vote: "clean", votedAt: new Date().toISOString() }];
+      await castVote({
+        eventId: "score-event-1a",
+        battleId: "score-battle",
+        odv: "player-1",
+        vote: "clean",
+      });
 
       // Player 2 votes sketch on player 1's trick
       const result = await castVote({
-        eventId: "score-event-1",
+        eventId: "score-event-1b",
         battleId: "score-battle",
         odv: "player-2",
         vote: "sketch",
@@ -352,11 +461,15 @@ describe("BattleStateService", () => {
     });
 
     it("should correctly handle both clean votes", async () => {
-      const state = mockBattleStates.get("score-battle");
-      state.votes = [{ odv: "player-1", vote: "clean", votedAt: new Date().toISOString() }];
+      await castVote({
+        eventId: "score-event-2a",
+        battleId: "score-battle",
+        odv: "player-1",
+        vote: "clean",
+      });
 
       const result = await castVote({
-        eventId: "score-event-2",
+        eventId: "score-event-2b",
         battleId: "score-battle",
         odv: "player-2",
         vote: "clean",
