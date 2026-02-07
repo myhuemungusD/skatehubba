@@ -88,7 +88,7 @@ vi.mock("../db", () => ({
   isDatabaseAvailable: () => false,
 }));
 
-vi.mock("./audit", () => ({
+vi.mock("../auth/audit", () => ({
   AuditLogger: {
     log: vi.fn().mockResolvedValue(undefined),
     logMfaEvent: vi.fn().mockResolvedValue(undefined),
@@ -225,8 +225,7 @@ describe("MFA - Critical Paths", () => {
       // Try to verify with a wrong code
       const result = await MfaService.verifySetup("user-1", "user@test.com", "000000", "127.0.0.1");
 
-      // May or may not be false depending on timing - the code "000000" is unlikely valid
-      expect(typeof result).toBe("boolean");
+      expect(result).toBe(false);
     });
 
     it("returns false when no MFA record exists", async () => {

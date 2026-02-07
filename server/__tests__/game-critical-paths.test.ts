@@ -19,7 +19,7 @@
  * - Idempotency for votes
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ============================================================================
 // Mocks - Game State
@@ -96,39 +96,12 @@ vi.mock("../firestore", () => ({
   },
 }));
 
-// Battle state mock (separate store)
-const mockBattleStates = new Map<string, any>();
+// Mock for battleStateService (and shared schema)
+vi.mock("../../packages/shared/schema", () => ({
+  battles: { id: "id" },
+  battleVotes: { battleId: "battleId", odv: "odv" },
+}));
 
-const mockBattleTransaction = {
-  get: vi.fn().mockImplementation(async (ref: any) => {
-    const data = mockBattleStates.get(ref.id);
-    return { exists: !!data, data: () => data };
-  }),
-  update: vi.fn().mockImplementation((ref: any, updates: any) => {
-    const current = mockBattleStates.get(ref.id) || {};
-    mockBattleStates.set(ref.id, { ...current, ...updates });
-  }),
-  set: vi.fn().mockImplementation((ref: any, data: any) => {
-    mockBattleStates.set(ref.id, data);
-  }),
-};
-
-const mockBattleDocRef = (id: string) => ({
-  id,
-  get: vi.fn().mockImplementation(async () => {
-    const data = mockBattleStates.get(id);
-    return { exists: !!data, data: () => data };
-  }),
-  set: vi.fn().mockImplementation(async (data: any) => {
-    mockBattleStates.set(id, data);
-  }),
-  update: vi.fn().mockImplementation(async (updates: any) => {
-    const current = mockBattleStates.get(id) || {};
-    mockBattleStates.set(id, { ...current, ...updates });
-  }),
-});
-
-// Mock for battleStateService
 vi.mock("../db", () => ({
   db: {
     select: vi.fn().mockReturnValue({
@@ -167,6 +140,9 @@ const {
   deleteGame,
   generateEventId,
 } = await import("../services/gameStateService");
+
+const { initializeVoting, castVote, getBattleVoteState } =
+  await import("../services/battleStateService");
 
 // ============================================================================
 // Tests - Game State Transitions
@@ -841,109 +817,221 @@ describe("Game State Transitions - Critical Paths", () => {
 });
 
 // ============================================================================
-// Battle State Tests (separate describe for clarity)
+// Battle State Tests - using real battleStateService code
 // ============================================================================
 
-// Re-mock firestore for battle state service (it imports from a different path)
-// Since battleStateService uses both firestore and db, we need both mocks
-
 describe("Battle State Transitions - Critical Paths", () => {
-  // We can't easily re-mock modules, so we test the scoring/winner logic
-  // by exercising the battle state through the already-mocked infrastructure
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockGameStates.clear();
+  });
 
-  describe("scoring logic", () => {
-    it("clean vote gives point to the OTHER player", () => {
-      // The scoring rule: "clean" = the other player's trick was clean (point for them)
-      // This is tested indirectly through the calculateWinner function
-      // Testing the contract: if creator votes "clean", opponent gets a point
+  describe("initializeVoting", () => {
+    it("creates voting state for a new battle", async () => {
+      const result = await initializeVoting({
+        eventId: "evt-init",
+        battleId: "battle-1",
+        creatorId: "creator-1",
+        opponentId: "opponent-1",
+      });
 
-      // Set up a battle state manually and verify the scoring contract
-      const votes = [
-        { odv: "creator", vote: "clean" as const, votedAt: new Date().toISOString() },
-        { odv: "opponent", vote: "sketch" as const, votedAt: new Date().toISOString() },
-      ];
+      expect(result.success).toBe(true);
+      expect(result.alreadyInitialized).toBe(false);
 
-      // Creator voted clean = opponent gets 1 point
-      // Opponent voted sketch = no points for creator
-      // Expected: opponent wins with 1-0
-
-      // We test this by verifying the scoring contract holds
-      let creatorScore = 0;
-      let opponentScore = 0;
-      for (const v of votes) {
-        if (v.vote === "clean") {
-          if (v.odv === "creator") opponentScore++;
-          else creatorScore++;
-        }
-      }
-      expect(opponentScore).toBe(1);
-      expect(creatorScore).toBe(0);
+      const state = mockGameStates.get("battle-1");
+      expect(state.status).toBe("voting");
+      expect(state.creatorId).toBe("creator-1");
+      expect(state.opponentId).toBe("opponent-1");
+      expect(state.votes).toHaveLength(0);
     });
 
-    it("tie goes to creator (challenger advantage)", () => {
-      const votes = [
-        { odv: "creator", vote: "clean" as const, votedAt: new Date().toISOString() },
-        { odv: "opponent", vote: "clean" as const, votedAt: new Date().toISOString() },
-      ];
+    it("is idempotent for duplicate initialization", async () => {
+      await initializeVoting({
+        eventId: "evt-init",
+        battleId: "battle-1",
+        creatorId: "creator-1",
+        opponentId: "opponent-1",
+      });
 
-      // Both voted clean = both get 1 point = tie
-      let creatorScore = 0;
-      let opponentScore = 0;
-      for (const v of votes) {
-        if (v.vote === "clean") {
-          if (v.odv === "creator") opponentScore++;
-          else creatorScore++;
-        }
-      }
-      expect(creatorScore).toBe(1);
-      expect(opponentScore).toBe(1);
-      // Tie rule: creator wins
-      const winnerId =
-        creatorScore > opponentScore
-          ? "creator"
-          : opponentScore > creatorScore
-            ? "opponent"
-            : "creator"; // tie -> creator
-      expect(winnerId).toBe("creator");
+      const result = await initializeVoting({
+        eventId: "evt-init",
+        battleId: "battle-1",
+        creatorId: "creator-1",
+        opponentId: "opponent-1",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.alreadyInitialized).toBe(true);
+    });
+  });
+
+  describe("castVote", () => {
+    beforeEach(async () => {
+      await initializeVoting({
+        eventId: "evt-init",
+        battleId: "battle-1",
+        creatorId: "creator-1",
+        opponentId: "opponent-1",
+      });
     });
 
-    it("both sketch = 0-0 tie, creator wins", () => {
-      const votes = [
-        { odv: "creator", vote: "sketch" as const, votedAt: new Date().toISOString() },
-        { odv: "opponent", vote: "sketch" as const, votedAt: new Date().toISOString() },
-      ];
+    it("records first vote without completing battle", async () => {
+      const result = await castVote({
+        eventId: "evt-vote-1",
+        battleId: "battle-1",
+        odv: "creator-1",
+        vote: "clean",
+      });
 
-      let creatorScore = 0;
-      let opponentScore = 0;
-      for (const v of votes) {
-        if (v.vote === "clean") {
-          if (v.odv === "creator") opponentScore++;
-          else creatorScore++;
-        }
-      }
-      expect(creatorScore).toBe(0);
-      expect(opponentScore).toBe(0);
-      // 0-0 tie: creator wins
-      const winnerId = creatorScore === opponentScore ? "creator" : "N/A";
-      expect(winnerId).toBe("creator");
+      expect(result.success).toBe(true);
+      expect(result.battleComplete).toBe(false);
     });
 
-    it("opponent clean, creator sketch = creator gets 1, opponent 0", () => {
-      const votes = [
-        { odv: "creator", vote: "sketch" as const, votedAt: new Date().toISOString() },
-        { odv: "opponent", vote: "clean" as const, votedAt: new Date().toISOString() },
-      ];
+    it("clean vote gives point to OTHER player (opponent wins 1-0)", async () => {
+      await castVote({
+        eventId: "evt-vote-1",
+        battleId: "battle-1",
+        odv: "creator-1",
+        vote: "clean",
+      });
 
-      let creatorScore = 0;
-      let opponentScore = 0;
-      for (const v of votes) {
-        if (v.vote === "clean") {
-          if (v.odv === "creator") opponentScore++;
-          else creatorScore++;
-        }
-      }
-      expect(creatorScore).toBe(1);
-      expect(opponentScore).toBe(0);
+      const result = await castVote({
+        eventId: "evt-vote-2",
+        battleId: "battle-1",
+        odv: "opponent-1",
+        vote: "sketch",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.battleComplete).toBe(true);
+      // Creator voted clean → opponent gets 1 point
+      // Opponent voted sketch → creator gets 0 points
+      expect(result.winnerId).toBe("opponent-1");
+      expect(result.finalScore).toEqual({ "creator-1": 0, "opponent-1": 1 });
+    });
+
+    it("tie goes to creator (challenger advantage)", async () => {
+      await castVote({
+        eventId: "evt-vote-1",
+        battleId: "battle-1",
+        odv: "creator-1",
+        vote: "clean",
+      });
+
+      const result = await castVote({
+        eventId: "evt-vote-2",
+        battleId: "battle-1",
+        odv: "opponent-1",
+        vote: "clean",
+      });
+
+      expect(result.battleComplete).toBe(true);
+      // Both voted clean: score is 1-1 → tie → creator wins
+      expect(result.winnerId).toBe("creator-1");
+      expect(result.finalScore).toEqual({ "creator-1": 1, "opponent-1": 1 });
+    });
+
+    it("both sketch = 0-0 tie, creator wins", async () => {
+      await castVote({
+        eventId: "evt-vote-1",
+        battleId: "battle-1",
+        odv: "creator-1",
+        vote: "sketch",
+      });
+
+      const result = await castVote({
+        eventId: "evt-vote-2",
+        battleId: "battle-1",
+        odv: "opponent-1",
+        vote: "sketch",
+      });
+
+      expect(result.battleComplete).toBe(true);
+      expect(result.winnerId).toBe("creator-1");
+      expect(result.finalScore).toEqual({ "creator-1": 0, "opponent-1": 0 });
+    });
+
+    it("rejects non-participant votes", async () => {
+      const result = await castVote({
+        eventId: "evt-vote-stranger",
+        battleId: "battle-1",
+        odv: "stranger",
+        vote: "clean",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Not a participant");
+    });
+
+    it("allows vote update (double vote replaces existing)", async () => {
+      // First vote: clean
+      await castVote({
+        eventId: "evt-vote-1",
+        battleId: "battle-1",
+        odv: "creator-1",
+        vote: "clean",
+      });
+
+      // Change mind to sketch
+      await castVote({
+        eventId: "evt-vote-1b",
+        battleId: "battle-1",
+        odv: "creator-1",
+        vote: "sketch",
+      });
+
+      // Complete with opponent vote
+      const result = await castVote({
+        eventId: "evt-vote-2",
+        battleId: "battle-1",
+        odv: "opponent-1",
+        vote: "clean",
+      });
+
+      expect(result.battleComplete).toBe(true);
+      // Creator changed to sketch → opponent gets 0 points
+      // Opponent voted clean → creator gets 1 point
+      expect(result.winnerId).toBe("creator-1");
+    });
+
+    it("deduplicates votes with same eventId", async () => {
+      await castVote({
+        eventId: "evt-vote-1",
+        battleId: "battle-1",
+        odv: "creator-1",
+        vote: "clean",
+      });
+
+      const result = await castVote({
+        eventId: "evt-vote-1",
+        battleId: "battle-1",
+        odv: "creator-1",
+        vote: "clean",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.alreadyProcessed).toBe(true);
+    });
+  });
+
+  describe("getBattleVoteState", () => {
+    it("returns null for nonexistent battle", async () => {
+      const state = await getBattleVoteState("nonexistent");
+      expect(state).toBeNull();
+    });
+
+    it("returns vote state after initialization", async () => {
+      await initializeVoting({
+        eventId: "evt-init",
+        battleId: "battle-1",
+        creatorId: "creator-1",
+        opponentId: "opponent-1",
+      });
+
+      const state = await getBattleVoteState("battle-1");
+      expect(state).not.toBeNull();
+      expect(state!.battleId).toBe("battle-1");
+      expect(state!.status).toBe("voting");
     });
   });
 });

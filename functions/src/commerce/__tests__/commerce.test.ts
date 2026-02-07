@@ -166,6 +166,7 @@ vi.mock("firebase-admin/firestore", () => ({
 
 const { hashToShard, releaseHoldAtomic, consumeHold } = await import("../stockRelease");
 const { markEventProcessedOrSkip } = await import("../webhookDedupe");
+const { expireHolds } = await import("../expireHolds");
 
 // ============================================================================
 // Tests
@@ -196,13 +197,13 @@ describe("Commerce / Payment Flow", () => {
       expect(a).toBe(b);
     });
 
-    it("produces different shards for different item indices", () => {
+    it("produces valid shards for different item indices", () => {
       const a = hashToShard("order-abc", 0, 20);
       const b = hashToShard("order-abc", 1, 20);
-      // Not guaranteed to be different, but djb2 should spread well
-      // Testing that the function handles different indices
-      expect(typeof a).toBe("number");
-      expect(typeof b).toBe("number");
+      expect(a).toBeGreaterThanOrEqual(0);
+      expect(a).toBeLessThan(20);
+      expect(b).toBeGreaterThanOrEqual(0);
+      expect(b).toBeLessThan(20);
     });
 
     it("handles single shard (always returns 0)", () => {
@@ -515,82 +516,67 @@ describe("Commerce / Payment Flow", () => {
   });
 
   // ==========================================================================
-  // Stripe Webhook - Payment Succeeded / Failed
+  // Expire Holds (scheduled function - real code coverage)
   // ==========================================================================
 
-  describe("stripeWebhook handlers", () => {
-    // Since the webhook handlers are internal to the Express app,
-    // we test the critical state transitions they cause
-
-    it("payment succeeded transitions order to paid and consumes hold", async () => {
-      // Simulate the state that handlePaymentSucceeded would process
-      mockDocs.set("orders/order-1", {
-        status: "pending",
+  describe("expireHolds scheduled function", () => {
+    it("releases expired holds and updates status to expired", async () => {
+      mockDocs.set("holds/expired-1", {
+        status: "held",
         uid: "user-1",
-        stripePaymentIntentId: "pi_123",
+        items: [{ productId: "prod-1", qty: 2 }],
+        expiresAt: { toMillis: () => Date.now() - 60000 },
       });
-      mockDocs.set("holds/order-1", {
+      mockDocs.set("products/prod-1", { shards: 5 });
+
+      await expireHolds();
+
+      const hold = mockDocs.get("holds/expired-1");
+      expect(hold.status).toBe("expired");
+    });
+
+    it("does nothing when no expired holds exist", async () => {
+      // Empty store - no holds to process
+      mockBatch.commit.mockClear();
+
+      await expireHolds();
+
+      expect(mockBatch.commit).not.toHaveBeenCalled();
+    });
+
+    it("processes multiple expired holds", async () => {
+      mockDocs.set("holds/exp-1", {
         status: "held",
-        items: [{ productId: "p1", qty: 1 }],
+        uid: "user-1",
+        items: [{ productId: "prod-1", qty: 1 }],
+        expiresAt: { toMillis: () => Date.now() - 60000 },
       });
-
-      // After payment succeeds, order should transition to paid
-      // We can verify this by testing consumeHold directly (which is called by the handler)
-      const consumed = await consumeHold("order-1");
-      expect(consumed).toBe(true);
-    });
-
-    it("payment failed allows hold release", async () => {
-      mockDocs.set("holds/order-failed", {
+      mockDocs.set("holds/exp-2", {
         status: "held",
-        items: [{ productId: "p1", qty: 1 }],
+        uid: "user-2",
+        items: [{ productId: "prod-2", qty: 3 }],
+        expiresAt: { toMillis: () => Date.now() - 120000 },
       });
-      mockDocs.set("products/p1", { shards: 5 });
+      mockDocs.set("products/prod-1", { shards: 5 });
+      mockDocs.set("products/prod-2", { shards: 5 });
 
-      // After payment fails, stock should be released
-      const released = await releaseHoldAtomic("order-failed", "order-failed");
-      expect(released).toBe(true);
+      await expireHolds();
+
+      expect(mockDocs.get("holds/exp-1").status).toBe("expired");
+      expect(mockDocs.get("holds/exp-2").status).toBe("expired");
     });
 
-    it("idempotent: consuming already-consumed hold returns false", async () => {
-      mockDocs.set("holds/order-1", { status: "consumed", items: [] });
-
-      const result = await consumeHold("order-1");
-      expect(result).toBe(false);
-    });
-
-    it("idempotent: releasing already-released hold returns false", async () => {
-      mockDocs.set("holds/order-1", { status: "released", items: [] });
-
-      const result = await releaseHoldAtomic("order-1", "order-1");
-      expect(result).toBe(false);
-    });
-  });
-
-  // ==========================================================================
-  // Hold Expiration Logic
-  // ==========================================================================
-
-  describe("hold expiration", () => {
-    it("expired holds are eligible for stock release", async () => {
-      // An expired hold still in "held" status should be releasable
-      const pastExpiry = new Date(Date.now() - 20 * 60 * 1000); // 20 minutes ago
-      mockDocs.set("holds/expired-order", {
+    it("continues processing when individual hold release fails", async () => {
+      // Hold with missing product - releaseHoldAtomic uses default shard count
+      mockDocs.set("holds/hold-1", {
         status: "held",
-        items: [{ productId: "p1", qty: 2 }],
-        expiresAt: { toMillis: () => pastExpiry.getTime() },
+        uid: "user-1",
+        items: [{ productId: "missing-prod", qty: 1 }],
+        expiresAt: { toMillis: () => Date.now() - 60000 },
       });
-      mockDocs.set("products/p1", { shards: 5 });
 
-      const released = await releaseHoldAtomic("expired-order", "expired-order");
-      expect(released).toBe(true);
-    });
-
-    it("non-held holds are skipped during expiration", async () => {
-      mockDocs.set("holds/consumed-order", { status: "consumed", items: [] });
-
-      const released = await releaseHoldAtomic("consumed-order", "consumed-order");
-      expect(released).toBe(false);
+      // Should not throw - errors are caught per-hold
+      await expireHolds();
     });
   });
 });

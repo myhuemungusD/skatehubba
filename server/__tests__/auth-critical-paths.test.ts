@@ -93,7 +93,7 @@ vi.mock("../admin", () => ({
   },
 }));
 
-vi.mock("./audit", () => ({
+vi.mock("../auth/audit", () => ({
   AuditLogger: {
     log: vi.fn().mockResolvedValue(undefined),
     logLoginSuccess: vi.fn().mockResolvedValue(undefined),
@@ -241,9 +241,10 @@ describe("Auth Flow - Critical Paths", () => {
       expect(result).toBeNull();
     });
 
-    it("deleteSession removes session from database", async () => {
-      await AuthService.deleteSession("some-token");
-      // Just verify it doesn't throw
+    it("deleteSession completes for valid token", async () => {
+      mockDbReturns.deleteResult = [{ id: "session-1" }];
+      const result = await AuthService.deleteSession("some-token");
+      expect(result).toBeUndefined();
     });
 
     it("deleteAllUserSessions returns count of deleted sessions", async () => {
