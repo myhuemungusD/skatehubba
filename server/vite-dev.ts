@@ -16,21 +16,27 @@ let viteModule: typeof import("vite") | null = null;
 
 let viteLogger: import("vite").Logger | null = null;
 
+let reactPlugin: any = null;
+
 // Inline vite config for dev server (avoids importing root vite.config.ts which has external deps)
 const viteConfig = {
   root: path.join(rootDir, "client"),
   resolve: {
     alias: {
       "@": path.join(rootDir, "client/src"),
-      "@shared": path.join(rootDir, "shared"),
+      "@shared": path.join(rootDir, "packages/shared"),
     },
   },
+  envDir: rootDir,
+  envPrefix: ["VITE_", "EXPO_PUBLIC_"],
   publicDir: path.join(rootDir, "public"),
 };
 
 if (process.env.NODE_ENV === "development") {
   viteModule = await import("vite");
   viteLogger = viteModule.createLogger();
+  const reactPluginModule = await import("@vitejs/plugin-react");
+  reactPlugin = reactPluginModule.default;
 }
 
 export function log(message: string, source = "express") {
@@ -54,6 +60,7 @@ export async function setupVite(app: Express, server: Server) {
 
   const vite = await viteModule.createServer({
     ...viteConfig,
+    plugins: [reactPlugin()],
     configFile: false,
     customLogger: viteLogger
       ? {
