@@ -137,6 +137,100 @@ export async function releaseHoldAtomic(orderId: string, seed: string): Promise<
 }
 
 /**
+ * Restock inventory from a consumed hold (used after refund/dispute).
+ * Unlike releaseHoldAtomic, this operates on holds that have already
+ * been consumed (payment was successful, then reversed).
+ *
+ * @param orderId - The order/hold ID
+ * @returns true if restock was successful
+ */
+export async function restockFromConsumedHold(orderId: string): Promise<boolean> {
+  const db = getAdminDb();
+  const holdRef = db.collection("holds").doc(orderId);
+
+  const holdSnap = await holdRef.get();
+  if (!holdSnap.exists) {
+    logger.warn("Hold not found for restock", { orderId });
+    return false;
+  }
+
+  const hold = holdSnap.data() as HoldDoc;
+
+  if (hold.status !== "consumed") {
+    logger.warn("Hold not in consumed status for restock", {
+      orderId,
+      currentStatus: hold.status,
+    });
+    return false;
+  }
+
+  const ops: BatchOp[] = [];
+  const productShardCounts = new Map<string, number>();
+
+  for (const item of hold.items) {
+    if (!productShardCounts.has(item.productId)) {
+      const productSnap = await db.collection("products").doc(item.productId).get();
+      const shards = productSnap.exists ? (productSnap.data()?.shards ?? 20) : 20;
+      productShardCounts.set(item.productId, shards);
+    }
+  }
+
+  for (let i = 0; i < hold.items.length; i++) {
+    const item = hold.items[i];
+    const shardCount = productShardCounts.get(item.productId) ?? 20;
+    const shardId = hashToShard(orderId, i, shardCount);
+
+    const shardRef = db
+      .collection("products")
+      .doc(item.productId)
+      .collection("stockShards")
+      .doc(String(shardId));
+
+    ops.push({ ref: shardRef, increment: item.qty });
+  }
+
+  const chunks: BatchOp[][] = [];
+  for (let i = 0; i < ops.length; i += MAX_BATCH_OPS) {
+    chunks.push(ops.slice(i, i + MAX_BATCH_OPS));
+  }
+
+  const now = Timestamp.now();
+
+  for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex++) {
+    const chunk = chunks[chunkIndex];
+    const batch: WriteBatch = db.batch();
+
+    for (const op of chunk) {
+      batch.set(op.ref, { available: FieldValue.increment(op.increment) }, { merge: true });
+    }
+
+    if (chunkIndex === chunks.length - 1) {
+      batch.update(holdRef, {
+        status: "released",
+        releasedAt: now,
+      });
+    }
+
+    await batch.commit();
+  }
+
+  if (chunks.length === 0) {
+    await holdRef.update({
+      status: "released",
+      releasedAt: now,
+    });
+  }
+
+  logger.info("Stock restocked from consumed hold", {
+    orderId,
+    itemCount: hold.items.length,
+    batchCount: chunks.length || 1,
+  });
+
+  return true;
+}
+
+/**
  * Mark a hold as consumed (payment successful).
  * Uses a transaction to ensure atomic status update.
  *
