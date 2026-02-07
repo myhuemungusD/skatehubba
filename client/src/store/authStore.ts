@@ -214,28 +214,46 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
 }
 
 /**
- * Authenticate guest user with the backend server.
- * Creates a database user record and sets up the session cookie.
+ * Authenticate a Firebase user with the backend server.
+ * Creates a database user record (custom_users) and sets up the session cookie.
+ * This is essential for all authenticated API calls that use the authenticateUser middleware.
+ *
+ * Must be called after every successful Firebase auth (login, signup, Google OAuth, guest).
  */
-async function authenticateGuestWithBackend(firebaseUser: FirebaseUser): Promise<void> {
+async function authenticateWithBackend(
+  firebaseUser: FirebaseUser,
+  options?: { firstName?: string; lastName?: string; isRegistration?: boolean }
+): Promise<void> {
   try {
     const idToken = await firebaseUser.getIdToken();
+    const displayName = firebaseUser.displayName || "";
+    const [defaultFirst, ...lastParts] = displayName.split(" ");
+
     await apiRequest({
       method: "POST",
       path: "/api/auth/login",
       body: {
-        firstName: "Guest",
-        lastName: "",
+        firstName: options?.firstName || defaultFirst || "Skater",
+        lastName: options?.lastName || lastParts.join(" ") || "",
+        isRegistration: options?.isRegistration || false,
       },
       headers: {
         Authorization: `Bearer ${idToken}`,
       },
     });
-    logger.log("[AuthStore] Guest authenticated with backend successfully");
+    logger.log("[AuthStore] Backend session created successfully");
   } catch (error) {
-    logger.error("[AuthStore] Guest backend authentication failed:", error);
-    // Don't throw - guest mode should work even if backend auth fails (degraded mode)
+    logger.error("[AuthStore] Backend authentication failed:", error);
+    // Don't throw - allow degraded mode where Firebase token auth fallback works
   }
+}
+
+/**
+ * Authenticate guest user with the backend server.
+ * Creates a database user record and sets up the session cookie.
+ */
+async function authenticateGuestWithBackend(firebaseUser: FirebaseUser): Promise<void> {
+  return authenticateWithBackend(firebaseUser, { firstName: "Guest", lastName: "" });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -286,6 +304,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // PHASE 2: Data (Parallel, 4s Cap)
       if (currentUser) {
         set({ bootPhase: "hydrating", user: currentUser, profile: null, profileStatus: "unknown" });
+
+        // Ensure backend session exists for returning users
+        if (!GUEST_MODE) {
+          await withTimeout(authenticateWithBackend(currentUser), 5000, "backend_sync");
+        }
 
         // In Guest Mode, we also want to ensure a profile exists, but we won't block strictly on it
         const promises: Promise<any>[] = [
@@ -353,6 +376,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // User signed in or session valid
           set({ user, loading: false });
 
+          // Ensure backend session exists (creates DB user if needed, sets session cookie)
+          // This handles cases like returning users with saved Firebase session
+          await withTimeout(authenticateWithBackend(user), 5000, "backend_sync");
+
           // Fetch profile and roles if not already set
           const currentState = get();
           if (!currentState.profile || currentState.profileStatus === "unknown") {
@@ -412,6 +439,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const result = await getRedirectResult(auth);
       if (result?.user) {
         sessionStorage.removeItem("googleRedirectPending");
+        // Create backend session for Google redirect auth
+        await authenticateWithBackend(result.user);
       }
     } catch (err: unknown) {
       logger.error("[AuthStore] Redirect result error:", err);
@@ -454,7 +483,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           "auth/unauthorized-domain",
         ];
         if (code && popupFallbackCodes.includes(code) && isPopupSafe()) {
-          await signInWithPopup(auth, googleProvider);
+          const popupResult = await signInWithPopup(auth, googleProvider);
+          if (popupResult.user) {
+            await authenticateWithBackend(popupResult.user);
+          }
           return;
         }
       }
@@ -471,7 +503,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signInWithEmail: async (email: string, password: string) => {
     set({ error: null });
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      // Create backend session + DB user record
+      await authenticateWithBackend(result.user);
     } catch (err: unknown) {
       logger.error("[AuthStore] Email sign-in error:", err);
       if (err instanceof Error) {
@@ -484,7 +518,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signUpWithEmail: async (email: string, password: string) => {
     set({ error: null });
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      // Create backend session + DB user record for new account
+      await authenticateWithBackend(result.user, { isRegistration: true });
     } catch (err: unknown) {
       logger.error("[AuthStore] Email sign-up error:", err);
       if (err instanceof Error) {
@@ -497,7 +533,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signInAnonymously: async () => {
     set({ error: null });
     try {
-      await firebaseSignInAnonymously(auth);
+      const result = await firebaseSignInAnonymously(auth);
+      // Create backend session for anonymous/guest user
+      await authenticateWithBackend(result.user, { firstName: "Guest", lastName: "" });
     } catch (err: unknown) {
       logger.error("[AuthStore] Anonymous sign-in error:", err);
       if (err instanceof Error) {
@@ -513,6 +551,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
     try {
       const currentUid = get().user?.uid;
+      // Clear backend session cookie
+      try {
+        await apiRequest({
+          method: "POST",
+          path: "/api/auth/logout",
+        });
+      } catch {
+        // Ignore backend logout errors - still proceed with client-side sign out
+      }
       await firebaseSignOut(auth);
       set({
         user: null,
