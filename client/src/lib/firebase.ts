@@ -16,9 +16,8 @@ import {
   db,
   functions,
   isFirebaseInitialized,
+  setAuthPersistence,
 } from "./firebase/config";
-
-import { setAuthPersistence } from "./firebase/auth.service";
 
 // Analytics placeholder - can be implemented with Firebase Analytics if needed
 const analytics = null;
