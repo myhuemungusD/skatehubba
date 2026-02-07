@@ -6,8 +6,8 @@
  * Run: node scripts/validate-env.mjs [--production]
  */
 
-import { readFileSync, existsSync } from 'fs';
-import { join, dirname } from 'path';
+import { readFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { join, dirname, extname } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -42,6 +42,11 @@ const FORBIDDEN_PATTERNS = [
   /ghp_[0-9a-zA-Z]{36}/, // GitHub Personal Access Token
   /sk_live_[0-9a-zA-Z]{24,}/, // Stripe Live Key
   /sk-[a-zA-Z0-9]{48}/, // OpenAI API Key
+  /AKIA[0-9A-Z]{16}/, // AWS Access Key ID
+  /mongodb\+srv:\/\/[^\s"']+/, // MongoDB connection string
+  /https:\/\/hooks\.slack\.com\/services\/[^\s"']+/, // Slack Webhook URL
+  /xoxb-[0-9A-Za-z-]+/, // Slack Bot Token
+  /SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}/, // SendGrid API Key
 ];
 
 const errors = [];
@@ -71,20 +76,31 @@ for (const varName of REQUIRED_VARS.recommended) {
 // Scan source files for hardcoded secrets
 console.log('  Scanning for hardcoded secrets...');
 
-const filesToScan = [
-  'server/index.ts',
-  'server/auth/routes.ts',
-  'server/config/env.ts',
-  'client/src/config/env.ts',
-];
+const SOURCE_EXTS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs']);
+const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', '.next', 'coverage']);
 
-for (const relativePath of filesToScan) {
-  const fullPath = join(rootDir, relativePath);
-  
-  if (!existsSync(fullPath)) continue;
-  
+function walkSourceFiles(dir) {
+  const results = [];
+  if (!existsSync(dir)) return results;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (SKIP_DIRS.has(entry.name)) continue;
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...walkSourceFiles(full));
+    } else if (SOURCE_EXTS.has(extname(entry.name))) {
+      results.push(full);
+    }
+  }
+  return results;
+}
+
+const scanDirs = ['server', 'client/src', 'shared', 'packages'].map(d => join(rootDir, d));
+const filesToScan = scanDirs.flatMap(d => walkSourceFiles(d));
+
+for (const fullPath of filesToScan) {
   const content = readFileSync(fullPath, 'utf-8');
-  
+  const relativePath = fullPath.slice(rootDir.length + 1);
+
   for (const pattern of FORBIDDEN_PATTERNS) {
     if (pattern.test(content)) {
       errors.push(`SECURITY: Potential hardcoded secret found in ${relativePath}`);

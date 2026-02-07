@@ -238,7 +238,7 @@ function ProfileSetupRoute() {
   useEffect(() => {
     if (bypass) return;
     if (!auth.isAuthenticated) {
-      setLocation("/login", { replace: true });
+      setLocation("/signin", { replace: true });
       return;
     }
 

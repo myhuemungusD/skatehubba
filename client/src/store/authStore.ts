@@ -73,7 +73,7 @@ interface AuthState {
   signInWithGoogle: () => Promise<void>;
   signInGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>;
   signInAnonymously: () => Promise<void>;
   signInAnon: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -521,12 +521,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUpWithEmail: async (email: string, password: string) => {
+  signUpWithEmail: async (email: string, password: string, name?: string) => {
     set({ error: null });
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
+      // Parse name into first/last for backend
+      const parts = (name ?? "").trim().split(/\s+/);
+      const firstName = parts[0] || undefined;
+      const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
       // Create backend session + DB user record for new account
-      await authenticateWithBackend(result.user, { isRegistration: true });
+      await authenticateWithBackend(result.user, { firstName, lastName, isRegistration: true });
       // Send Firebase verification email (non-blocking - don't fail signup if this errors)
       try {
         await sendEmailVerification(result.user);

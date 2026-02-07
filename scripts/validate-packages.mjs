@@ -11,7 +11,7 @@
  * Run with --strict to fail on warnings too
  */
 
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -19,14 +19,45 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 const strictMode = process.argv.includes('--strict');
 
-const PACKAGE_PATHS = [
-  'package.json',
-  'client/package.json',
-  'server/package.json',
-  'shared/package.json',
-  'mobile/package.json',
-  'functions/package.json',
-];
+/**
+ * Discover workspace package.json paths from pnpm-workspace.yaml.
+ * Falls back to a hardcoded list if the workspace file is missing.
+ */
+function discoverPackagePaths() {
+  const paths = ['package.json']; // always include root
+  const wsPath = join(rootDir, 'pnpm-workspace.yaml');
+
+  if (!existsSync(wsPath)) {
+    // Fallback to well-known locations
+    return ['package.json', 'client/package.json', 'server/package.json',
+            'shared/package.json', 'mobile/package.json', 'functions/package.json'];
+  }
+
+  const wsContent = readFileSync(wsPath, 'utf-8');
+  const entries = wsContent.match(/- ["']?([^"'\n]+)["']?/g) || [];
+
+  for (const entry of entries) {
+    const pattern = entry.replace(/^- ["']?/, '').replace(/["']?$/, '').trim();
+
+    if (pattern.endsWith('/*')) {
+      // Glob-style: expand directory
+      const baseDir = join(rootDir, pattern.slice(0, -2));
+      if (existsSync(baseDir)) {
+        for (const child of readdirSync(baseDir, { withFileTypes: true })) {
+          if (child.isDirectory()) {
+            paths.push(join(pattern.slice(0, -2), child.name, 'package.json'));
+          }
+        }
+      }
+    } else {
+      paths.push(join(pattern, 'package.json'));
+    }
+  }
+
+  return paths;
+}
+
+const PACKAGE_PATHS = discoverPackagePaths();
 
 // Critical dependencies that MUST have matching versions
 const CRITICAL_DEPS = [
