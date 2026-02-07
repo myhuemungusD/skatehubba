@@ -75,42 +75,47 @@ const { mockDb } = vi.hoisted(() => {
     let countersData: MockCounter[] = [];
 
     const select = vi.fn(() => ({
-      from: vi.fn((table: unknown) => ({
-        where: vi.fn(() => ({
-          limit: vi.fn(async () => {
-            if (table === checkIns) {
-              return checkInsData.slice(0, 1);
-            }
-            if (table === customUsers) {
-              return usersData.slice(0, 1);
-            }
-            if (table === userProfiles) {
-              return profilesData.slice(0, 1);
-            }
-            if (table === filmerRequests) {
-              return requestsData.slice(0, 1);
-            }
-            if (table === filmerDailyCounters) {
-              return countersData.slice(0, 1);
-            }
-            return [];
-          }),
-        })),
-        orderBy: vi.fn(() => ({
-          limit: vi.fn(async () => {
-            if (table === filmerRequests) {
-              return requestsData.slice(0, 1);
-            }
-            return [];
-          }),
-        })),
-        limit: vi.fn(async () => {
+      from: vi.fn((table: unknown) => {
+        const limitFn = vi.fn(async () => {
+          if (table === checkIns) {
+            return checkInsData.slice(0, 1);
+          }
+          if (table === customUsers) {
+            return usersData.slice(0, 1);
+          }
+          if (table === userProfiles) {
+            return profilesData.slice(0, 1);
+          }
           if (table === filmerRequests) {
             return requestsData.slice(0, 1);
           }
+          if (table === filmerDailyCounters) {
+            return countersData.slice(0, 1);
+          }
           return [];
-        }),
-      })),
+        });
+        const forFn = vi.fn(() => ({ limit: limitFn }));
+        return {
+          where: vi.fn(() => ({
+            limit: limitFn,
+            for: forFn,
+          })),
+          orderBy: vi.fn(() => ({
+            limit: vi.fn(async () => {
+              if (table === filmerRequests) {
+                return requestsData.slice(0, 1);
+              }
+              return [];
+            }),
+          })),
+          limit: vi.fn(async () => {
+            if (table === filmerRequests) {
+              return requestsData.slice(0, 1);
+            }
+            return [];
+          }),
+        };
+      }),
     }));
 
     const insert = vi.fn((table: unknown) => ({
