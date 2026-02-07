@@ -90,7 +90,7 @@ export default function AuthPage() {
 
   // Parse ?next= param for redirect after login
   const getNextUrl = (): string => {
-    if (typeof window === "undefined") return "/landing";
+    if (typeof window === "undefined") return "/hub";
     const params = new URLSearchParams(window.location.search);
     const next = params.get("next");
     if (next) {
@@ -104,7 +104,7 @@ export default function AuthPage() {
         // Invalid encoding
       }
     }
-    return "/landing";
+    return "/hub";
   };
 
   // Redirect when authenticated and profile status is known
@@ -116,7 +116,7 @@ export default function AuthPage() {
     } else if (auth.profileStatus === "missing") {
       const nextUrl = getNextUrl();
       const setupUrl =
-        nextUrl !== "/landing"
+        nextUrl !== "/hub"
           ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
           : "/profile/setup";
       setLocation(setupUrl);
