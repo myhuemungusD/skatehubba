@@ -15,6 +15,7 @@ import { apiLimiter, staticFileLimiter, securityMiddleware } from "./middleware/
 import { requestTracing } from "./middleware/requestTracing.ts";
 import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
 import { initializeDatabase } from "./db.ts";
+import { getRedisClient, shutdownRedis } from "./redis.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,6 +96,9 @@ app.use("/api", requireCsrfToken);
 // Register all API routes
 await registerRoutes(app);
 
+// Initialize Redis (eagerly connect if REDIS_URL is set)
+getRedisClient();
+
 // Initialize database (seed default spots + tutorial steps if empty)
 await initializeDatabase();
 
@@ -103,6 +107,8 @@ const io = initializeSocketServer(server);
 logger.info("[Server] WebSocket server initialized");
 
 // Health check endpoint with socket stats
+app.get("/api/health", async (_req, res) => {
+  const stats = await getSocketStats();
 app.get("/api/health", (req, res) => {
   const stats = getSocketStats();
   res.json({
@@ -182,6 +188,7 @@ server.listen(port, "0.0.0.0", () => {
 process.on("SIGTERM", async () => {
   logger.info("[Server] SIGTERM received, shutting down gracefully...");
   await shutdownSocketServer(io);
+  await shutdownRedis();
   server.close(() => {
     logger.info("[Server] HTTP server closed");
     process.exit(0);
@@ -191,6 +198,7 @@ process.on("SIGTERM", async () => {
 process.on("SIGINT", async () => {
   logger.info("[Server] SIGINT received, shutting down gracefully...");
   await shutdownSocketServer(io);
+  await shutdownRedis();
   server.close(() => {
     logger.info("[Server] HTTP server closed");
     process.exit(0);

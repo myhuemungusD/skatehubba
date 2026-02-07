@@ -122,7 +122,7 @@ All game state mutations now use Firestore transactions, which provide:
 
 ```typescript
 // Client generates key before each request
-const idempotencyKey = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+const idempotencyKey = crypto.randomUUID();
 
 // Server tracks processed keys (last 50 to bound storage)
 processedIdempotencyKeys: [...processedKeys.slice(-49), idempotencyKey];

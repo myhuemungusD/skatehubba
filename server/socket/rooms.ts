@@ -3,6 +3,9 @@
  *
  * Handles room subscriptions with validation and cleanup.
  * Supports battle rooms, game rooms, spot rooms, and global broadcasts.
+ *
+ * Uses Redis Sets for room membership (shared across instances).
+ * Falls back to in-memory Maps when Redis is unavailable.
  */
 
 import type { Server, Socket } from "socket.io";
@@ -14,9 +17,12 @@ import type {
   ServerToClientEvents,
   ClientToServerEvents,
 } from "./types";
+import { getRedisClient } from "../redis";
 
-// Active rooms registry
-const rooms = new Map<string, RoomInfo>();
+const ROOM_KEY_PREFIX = "room:";
+
+// Fallback active rooms registry
+const roomsFallback = new Map<string, RoomInfo>();
 
 // Room size limits
 const ROOM_LIMITS: Record<RoomType, number> = {
@@ -44,11 +50,11 @@ export function parseRoomId(roomId: string): { type: RoomType; id: string } | nu
 }
 
 /**
- * Get or create a room
+ * Get or create a room (fallback)
  */
-function getOrCreateRoom(type: RoomType, id: string): RoomInfo {
+function getOrCreateRoomFallback(type: RoomType, id: string): RoomInfo {
   const roomId = getRoomId(type, id);
-  let room = rooms.get(roomId);
+  let room = roomsFallback.get(roomId);
 
   if (!room) {
     room = {
@@ -57,7 +63,7 @@ function getOrCreateRoom(type: RoomType, id: string): RoomInfo {
       members: new Set(),
       createdAt: new Date(),
     };
-    rooms.set(roomId, room);
+    roomsFallback.set(roomId, room);
   }
 
   return room;
@@ -67,9 +73,9 @@ function getOrCreateRoom(type: RoomType, id: string): RoomInfo {
  * Clean up empty rooms
  */
 export function cleanupEmptyRooms(): void {
-  for (const [roomId, room] of rooms.entries()) {
+  for (const [roomId, room] of roomsFallback.entries()) {
     if (room.members.size === 0) {
-      rooms.delete(roomId);
+      roomsFallback.delete(roomId);
       logger.debug("[Socket] Cleaned up empty room", { roomId });
     }
   }
@@ -77,6 +83,20 @@ export function cleanupEmptyRooms(): void {
 
 // Run cleanup every 5 minutes
 setInterval(cleanupEmptyRooms, 5 * 60 * 1000);
+
+/**
+ * Get room member count
+ */
+async function getRoomMemberCount(roomId: string): Promise<number> {
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      return await redis.scard(`${ROOM_KEY_PREFIX}${roomId}`);
+    } catch { /* fall through */ }
+  }
+  const room = roomsFallback.get(roomId);
+  return room?.members.size ?? 0;
+}
 
 /**
  * Join a room
@@ -88,10 +108,10 @@ export async function joinRoom(
 ): Promise<boolean> {
   const data = socket.data as SocketData;
   const roomId = getRoomId(type, id);
-  const room = getOrCreateRoom(type, id);
 
   // Check room capacity
-  if (room.members.size >= ROOM_LIMITS[type]) {
+  const memberCount = await getRoomMemberCount(roomId);
+  if (memberCount >= ROOM_LIMITS[type]) {
     logger.warn("[Socket] Room full", { roomId, odv: data.odv });
     socket.emit("error", { code: "room_full", message: "This room is full" });
     return false;
@@ -100,14 +120,23 @@ export async function joinRoom(
   // Join socket.io room
   await socket.join(roomId);
 
-  // Track membership
+  // Track membership in Redis
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      await redis.sadd(`${ROOM_KEY_PREFIX}${roomId}`, data.odv);
+    } catch { /* fall through to fallback */ }
+  }
+
+  // Always track in fallback for local stats
+  const room = getOrCreateRoomFallback(type, id);
   room.members.add(data.odv);
   data.rooms.add(roomId);
 
   logger.info("[Socket] Joined room", {
     roomId,
     odv: data.odv,
-    memberCount: room.members.size,
+    memberCount: memberCount + 1,
   });
 
   return true;
@@ -123,12 +152,20 @@ export async function leaveRoom(
 ): Promise<void> {
   const data = socket.data as SocketData;
   const roomId = getRoomId(type, id);
-  const room = rooms.get(roomId);
 
   // Leave socket.io room
   await socket.leave(roomId);
 
-  // Update tracking
+  // Update Redis tracking
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      await redis.srem(`${ROOM_KEY_PREFIX}${roomId}`, data.odv);
+    } catch { /* fall through */ }
+  }
+
+  // Update fallback tracking
+  const room = roomsFallback.get(roomId);
   if (room) {
     room.members.delete(data.odv);
   }
@@ -197,14 +234,14 @@ export function sendToUser<E extends keyof ServerToClientEvents>(
  * Get room info
  */
 export function getRoomInfo(type: RoomType, id: string): RoomInfo | undefined {
-  return rooms.get(getRoomId(type, id));
+  return roomsFallback.get(getRoomId(type, id));
 }
 
 /**
  * Get all rooms of a type
  */
 export function getRoomsByType(type: RoomType): RoomInfo[] {
-  return Array.from(rooms.values()).filter((r) => r.type === type);
+  return Array.from(roomsFallback.values()).filter((r) => r.type === type);
 }
 
 /**
@@ -224,13 +261,13 @@ export function getRoomStats(): {
 
   let totalMembers = 0;
 
-  for (const room of rooms.values()) {
+  for (const room of roomsFallback.values()) {
     byType[room.type]++;
     totalMembers += room.members.size;
   }
 
   return {
-    totalRooms: rooms.size,
+    totalRooms: roomsFallback.size,
     totalMembers,
     byType,
   };
