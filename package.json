@@ -2,6 +2,7 @@
   "name": "skatehubba-monorepo",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.28.1",
   "engines": {
     "node": ">=20.0.0",
