@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
-import { admin } from "../admin";
+import { eq } from "drizzle-orm";
+import { getDb } from "../db";
+import { checkinNonces } from "@shared/schema";
 
 type ReplayCheckResult =
   | { ok: true }
@@ -38,47 +40,54 @@ const hashAction = (userId: string, payload: ReplayCheckPayload) => {
   return crypto.createHash("sha256").update(base).digest("hex");
 };
 
-const createFirestoreReplayStore = (): ReplayStore => ({
+const createPostgresReplayStore = (): ReplayStore => ({
   async checkAndStore(record) {
-    const firestore = admin.firestore();
+    const db = getDb();
     const docId = `${record.userId}_${record.nonce}`;
-    const docRef = firestore.collection("checkin_nonces").doc(docId);
-    const now = admin.firestore.Timestamp.now();
-    const expiresAt = admin.firestore.Timestamp.fromMillis(record.expiresAtMs);
+    const now = new Date();
+    const expiresAt = new Date(record.expiresAtMs);
 
-    const result = await firestore.runTransaction(async (transaction) => {
-      const snapshot = await transaction.get(docRef);
-      const data = snapshot.data();
-      const existingExpiry = data?.expiresAt;
-      const existingActionHash = data?.actionHash;
+    // Use a transaction with SELECT FOR UPDATE to prevent race conditions
+    const result = await db.transaction(async (tx) => {
+      const [existing] = await tx
+        .select()
+        .from(checkinNonces)
+        .where(eq(checkinNonces.id, docId))
+        .for("update");
 
-      if (snapshot.exists && existingExpiry instanceof admin.firestore.Timestamp) {
-        if (existingExpiry.toMillis() > now.toMillis()) {
-          // Nonce is still valid; ensure it is only ever used for the same action.
-          if (typeof existingActionHash === "string" && existingActionHash !== record.actionHash) {
-            // Nonce was previously bound to a different action, treat as replay attempt.
-            return "replay" as const;
-          }
-          // Even if the action matches, reusing the nonce is a replay.
+      if (existing) {
+        // Nonce exists and hasn't expired
+        if (existing.expiresAt > now) {
           return "replay" as const;
         }
+        // Nonce expired — overwrite with new data
+        await tx
+          .update(checkinNonces)
+          .set({
+            actionHash: record.actionHash,
+            spotId: record.spotId,
+            lat: record.lat,
+            lng: record.lng,
+            clientTimestamp: record.clientTimestamp,
+            expiresAt,
+            createdAt: now,
+          })
+          .where(eq(checkinNonces.id, docId));
+        return "stored" as const;
       }
 
-      transaction.set(
-        docRef,
-        {
-          userId: record.userId,
-          nonce: record.nonce,
-          actionHash: record.actionHash,
-          spotId: record.spotId,
-          lat: record.lat,
-          lng: record.lng,
-          clientTimestamp: record.clientTimestamp,
-          createdAt: now,
-          expiresAt,
-        },
-        { merge: false }
-      );
+      await tx.insert(checkinNonces).values({
+        id: docId,
+        userId: record.userId,
+        nonce: record.nonce,
+        actionHash: record.actionHash,
+        spotId: record.spotId,
+        lat: record.lat,
+        lng: record.lng,
+        clientTimestamp: record.clientTimestamp,
+        expiresAt,
+        createdAt: now,
+      });
 
       return "stored" as const;
     });
@@ -109,7 +118,7 @@ export const createMemoryReplayStore = (): ReplayStore => {
 export const verifyReplayProtection = async (
   userId: string,
   payload: ReplayCheckPayload,
-  store: ReplayStore = createFirestoreReplayStore()
+  store: ReplayStore = createPostgresReplayStore()
 ): Promise<ReplayCheckResult> => {
   const parsed = Date.parse(payload.clientTimestamp);
   if (Number.isNaN(parsed)) {

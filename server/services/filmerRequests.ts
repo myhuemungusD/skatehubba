@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { and, desc, eq, lt, or } from "drizzle-orm";
+import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 import { AuditLogger, AUDIT_EVENTS } from "../auth/audit";
 import { env } from "../config/env";
 import { getDb } from "../db";
@@ -99,10 +99,14 @@ const ensureQuota = async (
   day: string,
   limit: number
 ) => {
+  // Use SELECT FOR UPDATE to prevent TOCTOU race conditions on quota check.
+  // The row lock ensures two concurrent requests cannot both read the same count
+  // and both pass the quota check.
   const [current] = await tx
     .select()
     .from(filmerDailyCounters)
     .where(and(eq(filmerDailyCounters.counterKey, counterKey), eq(filmerDailyCounters.day, day)))
+    .for("update")
     .limit(1);
 
   if (current && current.count >= limit) {
@@ -110,9 +114,10 @@ const ensureQuota = async (
   }
 
   if (current) {
+    // Atomic increment using SQL expression
     await tx
       .update(filmerDailyCounters)
-      .set({ count: current.count + 1, updatedAt: new Date() })
+      .set({ count: sql`${filmerDailyCounters.count} + 1`, updatedAt: new Date() })
       .where(and(eq(filmerDailyCounters.counterKey, counterKey), eq(filmerDailyCounters.day, day)));
     return;
   }
