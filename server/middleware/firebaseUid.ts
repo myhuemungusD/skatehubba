@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { admin } from "../admin.ts";
-import logger from '../logger.ts';
+import logger from "../logger.ts";
 
 /**
  * Extended Request type with Firebase UID
@@ -85,7 +85,7 @@ export async function requireFirebaseUid(
  */
 export async function optionalFirebaseUid(
   req: Request,
-  res: Response,
+  _res: Response,
   next: NextFunction
 ): Promise<void> {
   try {
