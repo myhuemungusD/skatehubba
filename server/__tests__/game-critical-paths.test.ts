@@ -315,7 +315,7 @@ describe("Game State Transitions - Critical Paths", () => {
 
       expect(result.success).toBe(true);
       expect(result.game!.status).toBe("paused");
-      const playerB = result.game!.players.find((p: any) => p.odv === "player-B");
+      const playerB = result.game!.players.find((p: any) => p.odv === "player-B")!;
       expect(playerB.connected).toBe(false);
       expect(playerB.disconnectedAt).toBeDefined();
     });
@@ -353,7 +353,7 @@ describe("Game State Transitions - Critical Paths", () => {
 
       expect(result.success).toBe(true);
       expect(result.game!.status).toBe("active");
-      const playerB = result.game!.players.find((p: any) => p.odv === "player-B");
+      const playerB = result.game!.players.find((p: any) => p.odv === "player-B")!;
       expect(playerB.connected).toBe(true);
     });
 
