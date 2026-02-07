@@ -11,7 +11,7 @@
  */
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence, browserSessionPersistence, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
 
@@ -98,4 +98,19 @@ initFirebase();
 // Public exports
 // ============================================================================
 
-export { app, auth, db, functions, isFirebaseInitialized, getAppEnv, isProd, isStaging };
+/**
+ * Set auth persistence mode.
+ * @param rememberMe - If true, persists across browser restarts. If false, session only.
+ */
+async function setAuthPersistence(rememberMe: boolean): Promise<void> {
+  try {
+    await setPersistence(
+      auth,
+      rememberMe ? browserLocalPersistence : browserSessionPersistence
+    );
+  } catch (error) {
+    logger.error('[Firebase] Failed to set persistence:', error);
+  }
+}
+
+export { app, auth, db, functions, isFirebaseInitialized, getAppEnv, isProd, isStaging, setAuthPersistence };
