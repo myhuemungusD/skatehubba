@@ -12,13 +12,18 @@ import cookieParser from "cookie-parser";
 import logger from "./logger.ts";
 import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { apiLimiter, staticFileLimiter, securityMiddleware } from "./middleware/security.ts";
+import { requestTracing } from "./middleware/requestTracing.ts";
 import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
+import { initializeDatabase } from "./db.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
+
+// Request tracing — generate/propagate request ID before anything else
+app.use(requestTracing);
 
 // Security middleware
 if (process.env.NODE_ENV === "production") {
@@ -27,7 +32,7 @@ if (process.env.NODE_ENV === "production") {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          scriptSrc: ["'self'", "'unsafe-inline'"],
+          scriptSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", "data:", "https:", "blob:"],
           connectSrc: ["'self'", "https:"],
@@ -48,8 +53,10 @@ const corsOptions = {
     callback: (err: Error | null, allow?: boolean) => void
   ) {
     const allowed = process.env.ALLOWED_ORIGINS?.split(",") || [];
-    // Allow requests with no origin (like mobile apps) or matching allowed domains
-    if (!origin || allowed.indexOf(origin) !== -1 || process.env.NODE_ENV !== "production") {
+    const devOrigins = ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
+    const allAllowed = process.env.NODE_ENV === "production" ? allowed : [...allowed, ...devOrigins];
+    // Allow requests with no origin (mobile apps, server-to-server) or matching allowed domains
+    if (!origin || allAllowed.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
       callback(new Error("Not allowed by CORS"));
@@ -88,16 +95,20 @@ app.use("/api", requireCsrfToken);
 // Register all API routes
 await registerRoutes(app);
 
+// Initialize database (seed default spots + tutorial steps if empty)
+await initializeDatabase();
+
 // Initialize WebSocket server
 const io = initializeSocketServer(server);
 logger.info("[Server] WebSocket server initialized");
 
 // Health check endpoint with socket stats
-app.get("/api/health", (_req, res) => {
+app.get("/api/health", (req, res) => {
   const stats = getSocketStats();
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
+    requestId: req.requestId,
     websocket: {
       connections: stats.connections,
       rooms: stats.rooms.totalRooms,
@@ -155,7 +166,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Start server
-const port = parseInt(process.env.PORT || "5000", 10);
+const port = parseInt(process.env.PORT || "3001", 10);
 server.listen(port, "0.0.0.0", () => {
   const mode = process.env.NODE_ENV || "development";
   if (mode === "development") {

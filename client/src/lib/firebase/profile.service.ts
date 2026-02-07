@@ -8,6 +8,7 @@
 import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from "firebase/firestore";
 import { db } from "./config";
 import { UserProfile } from "./auth.types";
+import { logger } from "../logger";
 
 const PROFILES_COLLECTION = "profiles";
 
@@ -36,7 +37,7 @@ export async function getProfile(uid: string): Promise<UserProfile | null> {
     }
   }
 
-  console.error("[ProfileService] All retries failed:", lastError);
+  logger.error("[ProfileService] All retries failed:", lastError);
   throw new Error("Failed to load user profile.");
 }
 
@@ -51,7 +52,7 @@ export async function updateProfile(
       updatedAt: serverTimestamp(),
     });
   } catch (error) {
-    console.error("[ProfileService] Failed to update profile:", error);
+    logger.error("[ProfileService] Failed to update profile:", error);
     throw new Error("Failed to update user profile.");
   }
 }

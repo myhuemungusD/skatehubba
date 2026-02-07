@@ -11,7 +11,7 @@
  */
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, type Auth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence, browserSessionPersistence, type Auth } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
 
@@ -24,6 +24,7 @@ import {
   isProd,
   isStaging,
 } from "@skatehubba/config";
+import { logger } from '../logger';
 
 // ============================================================================
 // Types
@@ -64,7 +65,7 @@ function initFirebase() {
   try {
     assertEnvWiring();
   } catch (error) {
-    console.error("[Firebase] Environment mismatch detected!", error);
+    logger.error("[Firebase] Environment mismatch detected!", error);
     // In production, fail hard. In dev, just warn.
     if (isProd()) {
       throw error;
@@ -76,10 +77,10 @@ function initFirebase() {
   // Log environment info in dev
   if (!isProd()) {
     const banner = getEnvBanner();
-    console.log(`[Firebase] ${banner}`);
-    console.log("[Firebase] Environment:", getAppEnv());
-    console.log("[Firebase] Project ID:", config.projectId);
-    console.log("[Firebase] App ID:", config.appId.substring(0, 30) + "...");
+    logger.log(`[Firebase] ${banner}`);
+    logger.log("[Firebase] Environment:", getAppEnv());
+    logger.log("[Firebase] Project ID:", config.projectId);
+    logger.log("[Firebase] App ID:", config.appId.substring(0, 30) + "...");
   }
 
   app = getApps().length ? getApp() : initializeApp(config);
@@ -97,4 +98,19 @@ initFirebase();
 // Public exports
 // ============================================================================
 
-export { app, auth, db, functions, isFirebaseInitialized, getAppEnv, isProd, isStaging };
+/**
+ * Set auth persistence mode.
+ * @param rememberMe - If true, persists across browser restarts. If false, session only.
+ */
+async function setAuthPersistence(rememberMe: boolean): Promise<void> {
+  try {
+    await setPersistence(
+      auth,
+      rememberMe ? browserLocalPersistence : browserSessionPersistence
+    );
+  } catch (error) {
+    logger.error('[Firebase] Failed to set persistence:', error);
+  }
+}
+
+export { app, auth, db, functions, isFirebaseInitialized, getAppEnv, isProd, isStaging, setAuthPersistence };

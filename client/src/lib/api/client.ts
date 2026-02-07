@@ -1,6 +1,7 @@
 import { getApiBaseUrl } from "@skatehubba/config";
 import { auth } from "../firebase/config";
 import { ApiError, normalizeApiError } from "./errors";
+import { isDevAdmin } from "../devAdmin";
 
 export interface ApiRequestOptions<TBody = unknown> {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -68,6 +69,11 @@ const buildHeaders = async (options: ApiRequestOptions<unknown>): Promise<Header
   const csrfToken = getCsrfToken();
   if (csrfToken && options.method !== "GET") {
     headers.set("X-CSRF-Token", csrfToken);
+  }
+
+  // Dev admin bypass — sends header that backend recognizes in non-production
+  if (isDevAdmin()) {
+    headers.set("X-Dev-Admin", "true");
   }
 
   const token = await getAuthToken();

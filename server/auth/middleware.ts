@@ -1,9 +1,10 @@
 import type { Request, Response, NextFunction } from "express";
 import { AuthService } from "./service.ts";
-import type { CustomUser } from "../../packages/shared/schema.ts";
-import type { AuthenticatedUser } from "../types/express.d.ts";
+import type { CustomUser as _CustomUser } from "../../packages/shared/schema.ts";
+import type { AuthenticatedUser as _AuthenticatedUser } from "../types/express.d.ts";
 import { admin } from "../admin.ts";
 import "../types/express.d.ts";
+import logger from "../logger.ts";
 
 // Re-authentication window (5 minutes)
 const REAUTH_WINDOW_MS = 5 * 60 * 1000;
@@ -29,6 +30,35 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
   const GENERIC_AUTH_ERROR = "Authentication failed";
 
   try {
+    // Dev-only admin bypass — allows e2e testing without Firebase auth
+    // BLOCKED in production: only active when NODE_ENV !== "production"
+    if (process.env.NODE_ENV !== "production" && req.headers["x-dev-admin"] === "true") {
+      req.currentUser = {
+        id: "dev-admin-000",
+        firebaseUid: "dev-admin-uid",
+        email: "admin@skatehubba.local",
+        passwordHash: "",
+        firstName: "Dev",
+        lastName: "Admin",
+        isActive: true,
+        isEmailVerified: true,
+        accountTier: "pro" as const,
+        trustLevel: 100,
+        roles: ["admin"],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        pushToken: null,
+        proAwardedBy: null,
+        premiumPurchasedAt: null,
+        emailVerificationToken: null,
+        emailVerificationExpires: null,
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+        lastLoginAt: new Date(),
+      };
+      return next();
+    }
+
     // Option 1: Check for HttpOnly session cookie (PREFERRED - XSS safe)
     const sessionToken = req.cookies?.sessionToken;
 
@@ -59,7 +89,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
         req.currentUser = { ...user, roles };
         return next();
       } catch (sessionError) {
-        console.error("Session verification failed:", sessionError);
+        logger.error("Session verification failed", { error: String(sessionError) });
         // Fall through to try Authorization header
       }
     }
@@ -94,11 +124,11 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
       req.currentUser = { ...user, roles };
       next();
     } catch (firebaseError) {
-      console.error("Firebase token verification failed:", firebaseError);
+      logger.error("Firebase token verification failed", { error: String(firebaseError) });
       return res.status(401).json({ error: GENERIC_AUTH_ERROR });
     }
   } catch (error) {
-    console.error("Authentication error:", error);
+    logger.error("Authentication error", { error: String(error) });
     res.status(500).json({ error: GENERIC_AUTH_ERROR });
   }
 };
@@ -114,7 +144,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
  * @param res - Express response object
  * @param next - Express next function
  */
-export const optionalAuthentication = async (req: Request, res: Response, next: NextFunction) => {
+export const optionalAuthentication = async (req: Request, _res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -262,7 +292,7 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
       code: "ADMIN_REQUIRED",
     });
   } catch (error) {
-    console.error("Admin check failed:", error);
+    logger.error("Admin check failed", { error: String(error) });
     return res.status(403).json({
       error: "Admin access required",
       code: "ADMIN_REQUIRED",

@@ -65,7 +65,7 @@ export default function ProtectedRoute({
         const nextPath = encodeURIComponent(getCurrentPath());
 
         if (!auth.isAuthenticated && !bypass) {
-          setLocation(`/login?next=${nextPath}`, { replace: true });
+          setLocation(`/signin?next=${nextPath}`, { replace: true });
           return null;
         }
 

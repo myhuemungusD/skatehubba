@@ -46,6 +46,21 @@ export default function AppDropdownMenu() {
             );
           }
 
+          if (item.external) {
+            return (
+              <DropdownMenuItem key={item.label} asChild>
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center w-full uppercase tracking-wide text-sm"
+                >
+                  {item.label}
+                </a>
+              </DropdownMenuItem>
+            );
+          }
+
           return (
             <DropdownMenuItem key={item.label} asChild>
               <Link

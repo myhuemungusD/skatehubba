@@ -1,14 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
-import {
-  MapPin,
-  Navigation as NavigationIcon,
-  Plus,
-  Clock,
-  Eye,
-  Search,
-  Loader2,
-} from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { MapPin, Navigation as NavigationIcon, Plus, Eye, Search, Loader2 } from "lucide-react";
 import { type Spot, SPOT_TYPES } from "@shared/schema";
 import { AddSpotModal } from "../components/map/AddSpotModal";
 import { SpotDetailModal } from "../components/map/SpotDetailModal";
@@ -18,7 +10,10 @@ import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { useToast } from "../hooks/use-toast";
 import { useGeolocation } from "../hooks/useGeolocation";
+import { useAccountTier } from "../hooks/useAccountTier";
+import { UpgradePrompt } from "../components/UpgradePrompt";
 import { calculateDistance, getProximity } from "../lib/distance";
+import { DEMO_SPOTS, isDemoSpot } from "../lib/demo-data";
 
 // ============================================================================
 // TYPES
@@ -41,13 +36,6 @@ type UserLocationSimple = {
 };
 
 // ============================================================================
-// CONSTANTS
-// ============================================================================
-
-/** Debounce time for showing error toasts (prevents spam) */
-const TOAST_DEBOUNCE_MS = 10_000;
-
-// ============================================================================
 // COMPONENT
 // ============================================================================
 
@@ -56,13 +44,13 @@ export default function MapPage() {
   // State
   // ---------------------------------------------------------------------------
   const { toast } = useToast();
+  const { isPaidOrPro } = useAccountTier();
   const [selectedSpotId, setSelectedSpotId] = useState<number | null>(null);
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
+  const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
+  const [upgradeFeature, setUpgradeFeature] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
-
-  // Track last toast to prevent duplicate error notifications
-  const lastToastRef = useRef<{ type: string; time: number } | null>(null);
 
   // ---------------------------------------------------------------------------
   // Geolocation
@@ -91,11 +79,13 @@ export default function MapPage() {
   // ---------------------------------------------------------------------------
   // Data Fetching
   // ---------------------------------------------------------------------------
+  const queryClient = useQueryClient();
+  const hasDiscoveredRef = useRef(false);
+
   const {
-    data: spots = [],
+    data: apiSpots,
     isLoading: isSpotsLoading,
     isError: isSpotsError,
-    refetch: refetchSpots,
   } = useQuery<Spot[]>({
     queryKey: ["/api/spots"],
     staleTime: 30_000, // Consider fresh for 30 seconds
@@ -103,6 +93,43 @@ export default function MapPage() {
     refetchOnWindowFocus: false,
     retry: 2,
   });
+
+  // Use API spots when available, fall back to demo spots when API fails
+  const { spots, isFallback: isUsingDemoSpots } = useMemo(() => {
+    if (apiSpots && apiSpots.length > 0) return { spots: apiSpots, isFallback: false };
+    if (isSpotsError || (!isSpotsLoading && (!apiSpots || apiSpots.length === 0))) {
+      return { spots: DEMO_SPOTS, isFallback: true };
+    }
+    return { spots: [] as Spot[], isFallback: false };
+  }, [apiSpots, isSpotsError, isSpotsLoading]);
+
+  // Discover nearby skateparks from OpenStreetMap when user location is available
+  useEffect(() => {
+    if (
+      hasDiscoveredRef.current ||
+      geolocation.latitude === null ||
+      geolocation.longitude === null ||
+      geolocation.status !== "ready"
+    ) {
+      return;
+    }
+
+    hasDiscoveredRef.current = true;
+    const lat = geolocation.latitude;
+    const lng = geolocation.longitude;
+
+    fetch(`/api/spots/discover?lat=${lat}&lng=${lng}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.added > 0) {
+          // New spots were discovered - refresh the spots list
+          queryClient.invalidateQueries({ queryKey: ["/api/spots"] });
+        }
+      })
+      .catch(() => {
+        // Discovery is best-effort - don't block the map experience
+      });
+  }, [geolocation.latitude, geolocation.longitude, geolocation.status, queryClient]);
 
   // ---------------------------------------------------------------------------
   // Memoized Computations
@@ -173,8 +200,13 @@ export default function MapPage() {
   }, []);
 
   const handleOpenAddSpot = useCallback(() => {
+    if (!isPaidOrPro) {
+      setUpgradeFeature("Add Spots");
+      setIsUpgradeOpen(true);
+      return;
+    }
     setIsAddSpotOpen(true);
-  }, []);
+  }, [isPaidOrPro]);
 
   const handleCloseAddSpot = useCallback(() => {
     setIsAddSpotOpen(false);
@@ -184,39 +216,18 @@ export default function MapPage() {
   // Effects
   // ---------------------------------------------------------------------------
 
-  // Debounced toast for geolocation errors - prevents spamming the user
+  // Show a single friendly toast when entering browse mode (geolocation unavailable)
+  const hasShownBrowseToastRef = useRef(false);
   useEffect(() => {
-    const now = Date.now();
-    const lastToast = lastToastRef.current;
-
-    // Skip if we recently showed a toast for this status type
-    if (lastToast?.type === geolocation.status && now - lastToast.time < TOAST_DEBOUNCE_MS) {
-      return;
-    }
-
-    if (geolocation.status === "denied") {
-      lastToastRef.current = { type: "denied", time: now };
+    if (geolocation.status === "browse" && !hasShownBrowseToastRef.current) {
+      hasShownBrowseToastRef.current = true;
       toast({
-        title: "Browse Mode Active",
-        description: "You can explore all spots! Enable location when you're ready to check in.",
-        duration: 5000,
-      });
-    } else if (geolocation.status === "timeout") {
-      lastToastRef.current = { type: "timeout", time: now };
-      toast({
-        title: "Still Finding Your Location",
-        description: "Tap Retry or browse spots while we work on it.",
-        duration: 5000,
-      });
-    } else if (geolocation.status === "error" && geolocation.error) {
-      lastToastRef.current = { type: "error", time: now };
-      toast({
-        title: "Browse Mode",
-        description: "Explore spots now, enable location later to check in.",
-        duration: 5000,
+        title: "Explore Mode",
+        description: "Browse spots around the world. Enable location to check in.",
+        duration: 4000,
       });
     }
-  }, [geolocation.status, geolocation.error, toast]);
+  }, [geolocation.status, toast]);
 
   // ---------------------------------------------------------------------------
   // Render Helpers
@@ -232,98 +243,57 @@ export default function MapPage() {
       );
     }
 
-    if (isSpotsError) {
+    if (isUsingDemoSpots) {
       return (
         <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
           <MapPin className="w-3 h-3" />
-          No spots loaded yet.
-          <Button
-            variant="link"
-            size="sm"
-            onClick={() => refetchSpots()}
-            className="text-[#ff6a00] underline p-0 h-auto ml-1"
-          >
-            Refresh
-          </Button>
+          Showing iconic spots worldwide
         </p>
       );
     }
 
-    switch (geolocation.status) {
-      case "ready":
-        if (filteredSpots.length === 0 && !searchQuery && !activeTypeFilter) {
-          return (
-            <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-              <Search className="w-3 h-3" />
-              No spots nearby yet. Drop a pin to add one!
-            </p>
-          );
-        }
+    if (geolocation.status === "ready") {
+      if (filteredSpots.length === 0 && !searchQuery && !activeTypeFilter) {
         return (
           <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-            <NavigationIcon className="w-3 h-3" />
-            {checkInRangeCount} spot{checkInRangeCount !== 1 ? "s" : ""} in check-in range
+            <Search className="w-3 h-3" />
+            No spots nearby yet. Drop a pin to add one!
           </p>
         );
-
-      case "locating":
-        return (
-          <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            Finding your location...
-          </p>
-        );
-
-      case "browse":
-        return (
-          <p className="text-sm text-blue-400 flex items-center gap-1 mt-1">
-            <Eye className="w-3 h-3" />
-            Browse mode - check-ins disabled
-          </p>
-        );
-
-      case "denied":
-        return (
-          <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-            <Eye className="w-3 h-3" />
-            Browse mode — enable location for check-ins
-          </p>
-        );
-
-      case "timeout":
-        return (
-          <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-            <Clock className="w-3 h-3" />
-            Location pending — tap Retry or browse spots
-          </p>
-        );
-
-      case "error":
-        return (
-          <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-            <Eye className="w-3 h-3" />
-            Browse mode — location unavailable
-          </p>
-        );
-
-      default:
-        return null;
+      }
+      return (
+        <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
+          <NavigationIcon className="w-3 h-3" />
+          {checkInRangeCount} spot{checkInRangeCount !== 1 ? "s" : ""} in check-in range
+        </p>
+      );
     }
+
+    if (geolocation.status === "locating") {
+      return (
+        <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Finding your location...
+        </p>
+      );
+    }
+
+    // Browse mode (default for all geolocation failures)
+    return (
+      <p className="text-sm text-blue-400 flex items-center gap-1 mt-1">
+        <Eye className="w-3 h-3" />
+        Explore mode — tap a spot for details
+      </p>
+    );
   }, [
     isSpotsLoading,
-    isSpotsError,
+    isUsingDemoSpots,
     geolocation.status,
     filteredSpots.length,
     checkInRangeCount,
-    refetchSpots,
     searchQuery,
     activeTypeFilter,
   ]);
-
-  const showRetryButtons =
-    geolocation.status === "denied" ||
-    geolocation.status === "timeout" ||
-    geolocation.status === "error";
 
   // ---------------------------------------------------------------------------
   // Render
@@ -353,10 +323,9 @@ export default function MapPage() {
         <div className="absolute bottom-24 right-4 z-[1000] pb-safe">
           <Button
             onClick={handleOpenAddSpot}
-            disabled={!userLocation}
-            className="shadow-lg bg-[#ff6a00] hover:bg-[#ff6a00]/90 text-white font-semibold h-14 px-6 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="shadow-lg bg-[#ff6a00] hover:bg-[#ff6a00]/90 text-white font-semibold h-14 px-6"
             data-testid="button-add-spot-mode"
-            aria-label="Add a new skate spot at your current location"
+            aria-label="Add a new skate spot"
           >
             <Plus className="w-5 h-5 mr-2" aria-hidden="true" />
             Add Spot
@@ -385,29 +354,6 @@ export default function MapPage() {
                   </h1>
                   {renderStatusMessage()}
                 </div>
-
-                {showRetryButtons && (
-                  <div className="flex gap-2" role="group" aria-label="Location options">
-                    <Button
-                      onClick={geolocation.retry}
-                      variant="outline"
-                      size="sm"
-                      className="border-[#ff6a00] text-[#ff6a00] hover:bg-[#ff6a00] hover:text-white"
-                      data-testid="button-retry-location"
-                    >
-                      Retry
-                    </Button>
-                    <Button
-                      onClick={geolocation.browseWithoutLocation}
-                      variant="outline"
-                      size="sm"
-                      className="border-gray-500 text-gray-400 hover:bg-gray-700 hover:text-white"
-                      data-testid="button-browse-mode"
-                    >
-                      Browse
-                    </Button>
-                  </div>
-                )}
               </div>
 
               {/* Search and Filters */}
@@ -457,6 +403,14 @@ export default function MapPage() {
         isOpen={selectedSpotId !== null}
         onClose={handleCloseSpotDetail}
         userLocation={userLocationSimple}
+        readOnly={selectedSpotId !== null && isDemoSpot({ id: selectedSpotId })}
+      />
+
+      {/* Upgrade Prompt for free users */}
+      <UpgradePrompt
+        isOpen={isUpgradeOpen}
+        onClose={() => setIsUpgradeOpen(false)}
+        feature={upgradeFeature}
       />
     </div>
   );

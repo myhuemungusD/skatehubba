@@ -9,6 +9,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { db } from "../lib/firebase";
+import { logger } from "../lib/logger";
 
 export interface UserPresence {
   userId: string;
@@ -46,7 +47,7 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
       });
       set({ isConnected: true });
     } catch (error) {
-      console.error("Error setting user online:", error);
+      logger.error("Error setting user online:", error);
     }
   },
 
@@ -58,7 +59,7 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
         lastSeen: Timestamp.now(),
       });
     } catch (error) {
-      console.error("Error setting user offline:", error);
+      logger.error("Error setting user offline:", error);
     }
   },
 
@@ -70,7 +71,7 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
         lastSeen: Timestamp.now(),
       });
     } catch (error) {
-      console.error("Error updating user page:", error);
+      logger.error("Error updating user page:", error);
     }
   },
 
@@ -102,7 +103,7 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
         set({ onlineUsers, isConnected: true });
       },
       (error) => {
-        console.error("Error listening to presence:", error);
+        logger.error("Error listening to presence:", error);
         // Mark as disconnected on listener error
         set({ isConnected: false });
       }

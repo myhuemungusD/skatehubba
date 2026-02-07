@@ -130,7 +130,7 @@ export default function MapScreen() {
                   </TouchableOpacity>
 
                   <Text style={styles.modalTitle}>{selectedSpot.name}</Text>
-                  <Text style={styles.modalDescription}>{selectedSpot.description}</Text>
+                  <Text style={styles.modalDescription}>{selectedSpot.description ?? ""}</Text>
 
                   <View style={styles.modalDifficulty}>
                     <View

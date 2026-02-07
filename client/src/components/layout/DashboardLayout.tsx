@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, MapPin, Gamepad2, Trophy, User } from "lucide-react";
+import { Home, MapPin, Trophy, User, LogOut } from "lucide-react";
 import { useIsMobile } from "../../hooks/use-mobile";
+import { useAuth } from "../../hooks/useAuth";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -10,27 +11,37 @@ interface DashboardLayoutProps {
 const navItems = [
   { label: "Home", href: "/hub", icon: Home },
   { label: "Map", href: "/map", icon: MapPin },
-  { label: "Play", href: "/play", icon: Gamepad2 },
   { label: "Ranks", href: "/leaderboard", icon: Trophy },
   { label: "Profile", href: "/me", icon: User },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const isMobile = useIsMobile();
+  const auth = useAuth();
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await auth?.signOut?.();
+    } catch {
+      // Best-effort logout
+    } finally {
+      setLocation("/");
+    }
+  }, [auth, setLocation]);
 
   // Desktop layout with sidebar
   if (!isMobile) {
     return (
       <div className="min-h-screen bg-neutral-950 text-white flex">
         {/* Desktop Sidebar */}
-        <aside className="fixed left-0 top-0 h-full w-64 border-r border-neutral-800 bg-neutral-900/50 backdrop-blur-sm z-40">
+        <aside className="fixed left-0 top-0 h-full w-64 border-r border-neutral-800 bg-neutral-900/50 backdrop-blur-sm z-40 flex flex-col">
           <div className="p-6">
             <Link href="/hub" className="flex items-center gap-2">
               <span className="text-2xl font-bold text-yellow-400">SkateHubba</span>
             </Link>
           </div>
-          <nav className="px-4 py-2" role="navigation" aria-label="Main navigation">
+          <nav className="px-4 py-2 flex-1" role="navigation" aria-label="Main navigation">
             <ul className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -55,6 +66,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               })}
             </ul>
           </nav>
+
+          {/* Logout at bottom of sidebar */}
+          <div className="px-4 py-4 border-t border-neutral-800">
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors w-full"
+            >
+              <LogOut className="h-5 w-5" aria-hidden="true" />
+              <span>Sign Out</span>
+            </button>
+          </div>
         </aside>
 
         {/* Main content area */}

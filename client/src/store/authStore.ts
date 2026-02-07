@@ -9,6 +9,7 @@ import {
   signInAnonymously as firebaseSignInAnonymously,
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
+  sendEmailVerification,
   getIdTokenResult,
   GoogleAuthProvider,
   type User as FirebaseUser,
@@ -18,6 +19,7 @@ import { auth, db } from "../lib/firebase/config";
 import { GUEST_MODE } from "../config/flags";
 import { ensureProfile } from "../lib/profile/ensureProfile";
 import { apiRequest } from "../lib/api/client";
+import { logger } from "../lib/logger";
 
 export type UserRole = "admin" | "moderator" | "verified_pro";
 export type ProfileStatus = "unknown" | "exists" | "missing";
@@ -71,7 +73,7 @@ interface AuthState {
   signInWithGoogle: () => Promise<void>;
   signInGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>;
   signInAnonymously: () => Promise<void>;
   signInAnon: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -175,7 +177,7 @@ const fetchProfile = async (uid: string): Promise<UserProfile | null> => {
     }
     return null;
   } catch (err) {
-    console.error("[AuthStore] Failed to fetch profile:", err);
+    logger.error("[AuthStore] Failed to fetch profile:", err);
     return null;
   }
 };
@@ -185,7 +187,7 @@ const extractRolesFromToken = async (firebaseUser: FirebaseUser): Promise<UserRo
     const tokenResult = await getIdTokenResult(firebaseUser);
     return (tokenResult.claims.roles as UserRole[]) || [];
   } catch (err) {
-    console.error("[AuthStore] Failed to extract roles:", err);
+    logger.error("[AuthStore] Failed to extract roles:", err);
     return [];
   }
 };
@@ -213,28 +215,46 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
 }
 
 /**
- * Authenticate guest user with the backend server.
- * Creates a database user record and sets up the session cookie.
+ * Authenticate a Firebase user with the backend server.
+ * Creates a database user record (custom_users) and sets up the session cookie.
+ * This is essential for all authenticated API calls that use the authenticateUser middleware.
+ *
+ * Must be called after every successful Firebase auth (login, signup, Google OAuth, guest).
  */
-async function authenticateGuestWithBackend(firebaseUser: FirebaseUser): Promise<void> {
+async function authenticateWithBackend(
+  firebaseUser: FirebaseUser,
+  options?: { firstName?: string; lastName?: string; isRegistration?: boolean }
+): Promise<void> {
   try {
     const idToken = await firebaseUser.getIdToken();
+    const displayName = firebaseUser.displayName || "";
+    const [defaultFirst, ...lastParts] = displayName.split(" ");
+
     await apiRequest({
       method: "POST",
       path: "/api/auth/login",
       body: {
-        firstName: "Guest",
-        lastName: "",
+        firstName: options?.firstName || defaultFirst || "Skater",
+        lastName: options?.lastName || lastParts.join(" ") || "",
+        isRegistration: options?.isRegistration || false,
       },
       headers: {
         Authorization: `Bearer ${idToken}`,
       },
     });
-    console.log("[AuthStore] Guest authenticated with backend successfully");
+    logger.log("[AuthStore] Backend session created successfully");
   } catch (error) {
-    console.error("[AuthStore] Guest backend authentication failed:", error);
-    // Don't throw - guest mode should work even if backend auth fails (degraded mode)
+    logger.error("[AuthStore] Backend authentication failed:", error);
+    // Don't throw - allow degraded mode where Firebase token auth fallback works
   }
+}
+
+/**
+ * Authenticate guest user with the backend server.
+ * Creates a database user record and sets up the session cookie.
+ */
+async function authenticateGuestWithBackend(firebaseUser: FirebaseUser): Promise<void> {
+  return authenticateWithBackend(firebaseUser, { firstName: "Guest", lastName: "" });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -285,6 +305,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // PHASE 2: Data (Parallel, 4s Cap)
       if (currentUser) {
         set({ bootPhase: "hydrating", user: currentUser, profile: null, profileStatus: "unknown" });
+
+        // Ensure backend session exists for returning users
+        if (!GUEST_MODE) {
+          await withTimeout(authenticateWithBackend(currentUser), 5000, "backend_sync");
+        }
 
         // In Guest Mode, we also want to ensure a profile exists, but we won't block strictly on it
         const promises: Promise<any>[] = [
@@ -352,6 +377,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // User signed in or session valid
           set({ user, loading: false });
 
+          // Ensure backend session exists (creates DB user if needed, sets session cookie)
+          // This handles cases like returning users with saved Firebase session
+          await withTimeout(authenticateWithBackend(user), 5000, "backend_sync");
+
           // Fetch profile and roles if not already set
           const currentState = get();
           if (!currentState.profile || currentState.profileStatus === "unknown") {
@@ -363,7 +392,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             if (profileResult.status === "ok" && profileResult.data) {
               set({ profile: profileResult.data, profileStatus: "exists" });
               writeProfileCache(user.uid, { status: "exists", profile: profileResult.data });
+            } else if (profileResult.status === "ok" && !profileResult.data) {
+              // Profile fetch succeeded but no profile exists (new user)
+              set({ profile: null, profileStatus: "missing" });
+              writeProfileCache(user.uid, { status: "missing", profile: null });
             } else {
+              // Profile fetch failed — fall back to cache
               const cached = readProfileCache(user.uid);
               if (cached) {
                 set({ profile: cached.profile, profileStatus: cached.status });
@@ -390,7 +424,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
       });
     } catch (fatal) {
-      console.error("[AuthStore] Critical boot failure:", fatal);
+      logger.error("[AuthStore] Critical boot failure:", fatal);
       finalStatus = "degraded";
       if (fatal instanceof Error) {
         set({ error: fatal });
@@ -411,9 +445,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const result = await getRedirectResult(auth);
       if (result?.user) {
         sessionStorage.removeItem("googleRedirectPending");
+        // Create backend session for Google redirect auth
+        await authenticateWithBackend(result.user);
       }
     } catch (err: unknown) {
-      console.error("[AuthStore] Redirect result error:", err);
+      logger.error("[AuthStore] Redirect result error:", err);
       sessionStorage.removeItem("googleRedirectPending");
       if (err instanceof Error) {
         set({ error: err });
@@ -445,7 +481,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       sessionStorage.setItem("googleRedirectPending", "true");
       await signInWithRedirect(auth, googleProvider);
     } catch (err: unknown) {
-      console.error("[AuthStore] Google sign-in error:", err);
+      logger.error("[AuthStore] Google sign-in error:", err);
       if (err && typeof err === "object" && "code" in err) {
         const code = (err as { code?: string }).code;
         const popupFallbackCodes = [
@@ -453,7 +489,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           "auth/unauthorized-domain",
         ];
         if (code && popupFallbackCodes.includes(code) && isPopupSafe()) {
-          await signInWithPopup(auth, googleProvider);
+          const popupResult = await signInWithPopup(auth, googleProvider);
+          if (popupResult.user) {
+            await authenticateWithBackend(popupResult.user);
+          }
           return;
         }
       }
@@ -470,9 +509,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signInWithEmail: async (email: string, password: string) => {
     set({ error: null });
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      // Create backend session + DB user record
+      await authenticateWithBackend(result.user);
     } catch (err: unknown) {
-      console.error("[AuthStore] Email sign-in error:", err);
+      logger.error("[AuthStore] Email sign-in error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
@@ -480,12 +521,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  signUpWithEmail: async (email: string, password: string) => {
+  signUpWithEmail: async (email: string, password: string, name?: string) => {
     set({ error: null });
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      // Parse name into first/last for backend
+      const parts = (name ?? "").trim().split(/\s+/);
+      const firstName = parts[0] || undefined;
+      const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
+      // Create backend session + DB user record for new account
+      await authenticateWithBackend(result.user, { firstName, lastName, isRegistration: true });
+      // Send Firebase verification email (non-blocking - don't fail signup if this errors)
+      try {
+        await sendEmailVerification(result.user);
+        logger.log("[AuthStore] Verification email sent to", email);
+      } catch (verifyErr) {
+        logger.error("[AuthStore] Failed to send verification email:", verifyErr);
+      }
     } catch (err: unknown) {
-      console.error("[AuthStore] Email sign-up error:", err);
+      logger.error("[AuthStore] Email sign-up error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
@@ -496,9 +550,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   signInAnonymously: async () => {
     set({ error: null });
     try {
-      await firebaseSignInAnonymously(auth);
+      const result = await firebaseSignInAnonymously(auth);
+      // Create backend session for anonymous/guest user
+      await authenticateWithBackend(result.user, { firstName: "Guest", lastName: "" });
     } catch (err: unknown) {
-      console.error("[AuthStore] Anonymous sign-in error:", err);
+      logger.error("[AuthStore] Anonymous sign-in error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
@@ -512,6 +568,15 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
     try {
       const currentUid = get().user?.uid;
+      // Clear backend session cookie
+      try {
+        await apiRequest({
+          method: "POST",
+          path: "/api/auth/logout",
+        });
+      } catch {
+        // Ignore backend logout errors - still proceed with client-side sign out
+      }
       await firebaseSignOut(auth);
       set({
         user: null,
@@ -523,7 +588,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         clearProfileCache(currentUid);
       }
     } catch (err: unknown) {
-      console.error("[AuthStore] Sign-out error:", err);
+      logger.error("[AuthStore] Sign-out error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
@@ -536,7 +601,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await sendPasswordResetEmail(auth, email);
     } catch (err: unknown) {
-      console.error("[AuthStore] Password reset error:", err);
+      logger.error("[AuthStore] Password reset error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
@@ -556,10 +621,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const newRoles = (tokenResult.claims.roles as UserRole[]) || [];
 
       set({ roles: newRoles });
-      console.log("[AuthStore] Roles refreshed:", newRoles);
+      logger.log("[AuthStore] Roles refreshed:", newRoles);
       return newRoles;
     } catch (err: unknown) {
-      console.error("[AuthStore] Failed to refresh roles:", err);
+      logger.error("[AuthStore] Failed to refresh roles:", err);
       return get().roles;
     }
   },

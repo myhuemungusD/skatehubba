@@ -2,6 +2,7 @@
   "name": "skatehubba-monorepo",
   "version": "0.0.1",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.28.1",
   "engines": {
     "node": ">=20.0.0",
@@ -13,7 +14,6 @@
     "build": "pnpm run verify:public-env && turbo build",
     "build:ci": "pnpm install --frozen-lockfile && pnpm run verify:public-env && turbo build",
     "check": "turbo typecheck",
-    "package:dist": "node scripts/assemble-dist.mjs",
     "lint": "turbo lint",
     "typecheck": "pnpm -r run typecheck",
     "e2e:client": "pnpm -C client cypress:run",
@@ -30,7 +30,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "set-admin": "tsx scripts/set-admin.ts"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

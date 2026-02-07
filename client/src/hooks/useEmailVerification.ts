@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback } from "react";
 import { sendEmailVerification } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { useAuth } from "./useAuth";
+import { isDevAdmin } from "../lib/devAdmin";
 
 const RESEND_COOLDOWN_MS = 60000; // 1 minute cooldown
 
@@ -51,6 +52,19 @@ export function useEmailVerification() {
       setIsResending(false);
     }
   }, [canResend, lastResendTime]);
+
+  // Dev admin bypass — skip verification gate entirely
+  if (isDevAdmin()) {
+    return {
+      isVerified: true,
+      requiresVerification: false,
+      isEmailUser: false,
+      canResend: false,
+      isResending: false,
+      resendVerificationEmail: async () => {},
+      userEmail: "admin@skatehubba.local",
+    };
+  }
 
   return {
     isVerified,

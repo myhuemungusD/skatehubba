@@ -4,6 +4,7 @@ import { Link } from 'wouter';
 import { Button } from './ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from './ui/card';
 import { AlertCircle, Home, RefreshCw } from 'lucide-react';
+import { logger } from '../lib/logger';
 
 interface Props {
   children: ReactNode;
@@ -54,8 +55,8 @@ class ErrorBoundary extends Component<Props, State> {
 
     // Log to console in development
     if (import.meta.env.DEV) {
-      console.error('Error Boundary caught error:', error);
-      console.error('Component stack:', errorInfo.componentStack);
+      logger.error('Error Boundary caught error:', error);
+      logger.error('Component stack:', errorInfo.componentStack);
     }
   }
 

@@ -2,6 +2,7 @@
   "name": "skatehubba-mobile",
   "version": "0.0.1",
   "private": true,
+  "type": "commonjs",
   "description": "SkateHubba mobile app (Expo) with minimal Detox E2E scaffold.",
   "scripts": {
     "e2e:build:ios": "detox build --configuration ios.sim.debug",

@@ -23,32 +23,26 @@
  */
 
 import { readFileSync, writeFileSync } from 'fs';
-import { execSync } from 'child_process';
+import { execFileSync } from 'child_process';
 
 const CHANGELOG_PATH = './CHANGELOG.md';
 const PACKAGE_JSON_PATH = './package.json';
 
-// Version validation regex - only allow digits and dots
-const VERSION_REGEX = /^[\d.]+$/;
+// Version validation regex - strict semver X.Y.Z
+const VERSION_REGEX = /^\d+\.\d+\.\d+$/;
 
 // Commit type regex for conventional commits
 const COMMIT_TYPE_REGEX = /^(feat|feature|fix|docs|style|refactor|perf|test|chore):\s*/i;
 
 /**
- * Escape shell argument by wrapping in single quotes and escaping any single quotes
+ * Execute git command using execFileSync to avoid shell injection.
+ * Accepts either a string (split on spaces) or an array of arguments.
  */
-function shellEscape(arg) {
-  return `'${arg.replace(/'/g, "'\\''")}'`;
-}
-
-/**
- * Execute git command and return output
- */
-function git(command) {
+function git(...args) {
   try {
-    return execSync(`git ${shellEscape(command)}`, { encoding: 'utf8' }).trim();
+    return execFileSync('git', args, { encoding: 'utf8' }).trim();
   } catch (error) {
-    console.error(`Git command failed: git ${command}`);
+    console.error(`Git command failed: git ${args.join(' ')}`);
     console.error(error.message);
     return '';
   }
@@ -58,7 +52,7 @@ function git(command) {
  * Get the last release tag
  */
 function getLastReleaseTag() {
-  const tags = git('tag -l "v*" --sort=-v:refname');
+  const tags = git('tag', '-l', 'v*', '--sort=-v:refname');
   if (!tags) return null;
   return tags.split('\n')[0];
 }
@@ -72,10 +66,10 @@ function getCommitsSinceLastRelease() {
   const range = lastTag ? `${lastTag}..HEAD` : 'HEAD';
   
   // First try to get merge commits (these represent merged PRs)
-  const log = git(`log ${range} --pretty=format:"%H|%s|%b" --merges`);
+  const log = git('log', range, '--pretty=format:%H|%s|%b', '--merges');
   if (!log) {
     // If no merge commits found, get all commits
-    const allLog = git(`log ${range} --pretty=format:"%H|%s|%b"`);
+    const allLog = git('log', range, '--pretty=format:%H|%s|%b');
     return parseCommits(allLog);
   }
   
@@ -333,9 +327,7 @@ function createGitTag(version) {
   }
   
   const tagName = `v${version}`;
-  const escapedTagName = shellEscape(tagName);
-  const escapedMessage = shellEscape(`Release ${tagName}`);
-  git(`tag -a ${escapedTagName} -m ${escapedMessage}`);
+  git('tag', '-a', tagName, '-m', `Release ${tagName}`);
   console.log(`✅ Created git tag: ${tagName}`);
   return tagName;
 }
@@ -444,13 +436,12 @@ async function main() {
   
   // 6. Commit changes
   console.log('\n💾 Committing changes...');
-  git('add package.json CHANGELOG.md');
+  git('add', 'package.json', 'CHANGELOG.md');
   // Validate version format before using in commit message
   if (!VERSION_REGEX.test(newVersion)) {
     throw new Error(`Invalid version format for commit: ${newVersion}`);
   }
-  const escapedCommitMsg = shellEscape(`chore(release): ${newVersion}`);
-  git(`commit -m ${escapedCommitMsg}`);
+  git('commit', '-m', `chore(release): ${newVersion}`);
   console.log('   ✅ Changes committed');
   
   // 7. Create tag

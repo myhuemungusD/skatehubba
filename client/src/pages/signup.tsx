@@ -1,39 +1,57 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../hooks/useAuth";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Link, useLocation } from "wouter";
-import { Mail, Lock } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 
+const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+
 export default function SignupPage() {
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const auth = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect if already authenticated and has profile
+  const passwordError = useMemo(() => {
+    if (!password) return null;
+    if (password.length < PASSWORD_MIN_LENGTH)
+      return `Password must be at least ${PASSWORD_MIN_LENGTH} characters`;
+    if (!PASSWORD_REGEX.test(password)) return "Must include uppercase, lowercase, and a number";
+    return null;
+  }, [password]);
+
+  const canSubmit =
+    name.trim().length > 0 && email && password.length >= PASSWORD_MIN_LENGTH && !passwordError;
+
+  // Redirect if already authenticated
   useEffect(() => {
-    if (auth?.isAuthenticated && auth?.profile) {
-      setLocation("/home");
-    } else if (auth?.isAuthenticated && !auth?.profile) {
+    if (!auth?.isAuthenticated) return;
+    if (auth?.profileStatus === "exists") {
+      setLocation("/hub");
+    } else if (auth?.profileStatus === "missing") {
       setLocation("/profile/setup");
     }
-  }, [auth?.isAuthenticated, auth?.profile, setLocation]);
+  }, [auth?.isAuthenticated, auth?.profileStatus, setLocation]);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    if (!canSubmit) return;
     setIsLoading(true);
 
     try {
-      await auth?.signUpWithEmail(email, password);
+      await auth?.signUpWithEmail(email, password, name.trim());
       toast({
         title: "Account Created!",
-        description: "Now let's set up your profile!",
+        description: "We sent a verification email. Now pick a username!",
       });
       setLocation("/profile/setup");
     } catch (err: unknown) {
@@ -85,11 +103,29 @@ export default function SignupPage() {
           <CardHeader>
             <CardTitle className="text-2xl text-white">Create Account</CardTitle>
             <CardDescription className="text-gray-400">
-              Sign up to start your skating journey
+              Sign up, verify your email, then pick a username
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSignup} className="space-y-4">
+              {/* Name */}
+              <div className="space-y-2">
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Your name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    autoComplete="name"
+                    className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                    data-testid="input-signup-name"
+                  />
+                </div>
+              </div>
+
+              {/* Email */}
               <div className="space-y-2">
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -99,32 +135,48 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoComplete="email"
                     className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                     data-testid="input-signup-email"
                   />
                 </div>
               </div>
 
+              {/* Password */}
               <div className="space-y-2">
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
-                    type="password"
-                    placeholder="Password (6+ chars)"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Password (8+ chars, mixed case, number)"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    minLength={6}
-                    className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                    minLength={PASSWORD_MIN_LENGTH}
+                    autoComplete="new-password"
+                    className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                     data-testid="input-signup-password"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
+                {passwordError && (
+                  <p className="text-xs text-red-400" role="alert">
+                    {passwordError}
+                  </p>
+                )}
               </div>
 
               <Button
                 type="submit"
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                disabled={isLoading}
+                disabled={isLoading || !canSubmit}
                 data-testid="button-signup-submit"
               >
                 {isLoading ? "Creating Account..." : "Sign Up"}
@@ -167,7 +219,7 @@ export default function SignupPage() {
                   className="text-gray-400 hover:text-white cursor-pointer inline-block"
                   data-testid="link-back-home"
                 >
-                  ← Back to Home
+                  Back to Home
                 </span>
               </Link>
             </div>

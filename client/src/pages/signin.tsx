@@ -32,7 +32,7 @@ export default function SigninPage() {
         // Invalid encoding
       }
     }
-    return "/landing";
+    return "/hub";
   }, []);
 
   // Redirect if already authenticated and profile status is known
@@ -46,7 +46,7 @@ export default function SigninPage() {
       // Preserve next param when redirecting to profile setup
       const nextUrl = getNextUrl();
       const setupUrl =
-        nextUrl !== "/landing"
+        nextUrl !== "/hub"
           ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
           : "/profile/setup";
       setLocation(setupUrl);
@@ -125,6 +125,7 @@ export default function SigninPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoComplete="email"
                     className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                     data-testid="input-signin-email"
                   />
@@ -140,6 +141,7 @@ export default function SigninPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    autoComplete="current-password"
                     className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                     data-testid="input-signin-password"
                   />

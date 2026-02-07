@@ -11,6 +11,7 @@ import { useState, useCallback } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "../lib/firebase/config";
 import { useAuth, UserRole } from "../hooks/useAuth";
+import { logger } from "../lib/logger";
 
 export type { UserRole };
 
@@ -63,10 +64,10 @@ export function useUserRoles(): UseUserRolesReturn {
     try {
       const manageUserRole = httpsCallable(functions, "manageUserRole");
       await manageUserRole({ targetUid, role, action: "grant" });
-      console.log(`[useUserRoles] Granted ${role} to ${targetUid}`);
+      logger.log(`[useUserRoles] Granted ${role} to ${targetUid}`);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to grant role";
-      console.error("[useUserRoles] Error granting role:", err);
+      logger.error("[useUserRoles] Error granting role:", err);
       setError(errorMessage);
       throw err;
     } finally {
@@ -84,10 +85,10 @@ export function useUserRoles(): UseUserRolesReturn {
     try {
       const manageUserRole = httpsCallable(functions, "manageUserRole");
       await manageUserRole({ targetUid, role, action: "revoke" });
-      console.log(`[useUserRoles] Revoked ${role} from ${targetUid}`);
+      logger.log(`[useUserRoles] Revoked ${role} from ${targetUid}`);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Failed to revoke role";
-      console.error("[useUserRoles] Error revoking role:", err);
+      logger.error("[useUserRoles] Error revoking role:", err);
       setError(errorMessage);
       throw err;
     } finally {

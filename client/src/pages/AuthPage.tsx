@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { Checkbox } from "../components/ui/checkbox";
 import { useToast } from "../hooks/use-toast";
 import { useAuth } from "../hooks/useAuth";
+import { logger } from "../lib/logger";
 import { setAuthPersistence } from "../lib/firebase";
 
 /**
@@ -54,8 +55,7 @@ const signInSchema = z.object({
 });
 
 const signUpSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  name: z.string().min(1, "Name is required"),
   email: z.string().email("Please enter a valid email address"),
   password: z
     .string()
@@ -89,7 +89,7 @@ export default function AuthPage() {
 
   // Parse ?next= param for redirect after login
   const getNextUrl = (): string => {
-    if (typeof window === "undefined") return "/landing";
+    if (typeof window === "undefined") return "/hub";
     const params = new URLSearchParams(window.location.search);
     const next = params.get("next");
     if (next) {
@@ -103,7 +103,7 @@ export default function AuthPage() {
         // Invalid encoding
       }
     }
-    return "/landing";
+    return "/hub";
   };
 
   // Redirect when authenticated and profile status is known
@@ -115,7 +115,7 @@ export default function AuthPage() {
     } else if (auth.profileStatus === "missing") {
       const nextUrl = getNextUrl();
       const setupUrl =
-        nextUrl !== "/landing"
+        nextUrl !== "/hub"
           ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
           : "/profile/setup";
       setLocation(setupUrl);
@@ -126,8 +126,8 @@ export default function AuthPage() {
   useEffect(() => {
     const isEmbedded = isEmbeddedBrowser();
     setInEmbeddedBrowser(isEmbedded);
-    console.log("[AuthPage] User agent:", navigator.userAgent);
-    console.log("[AuthPage] Is embedded browser:", isEmbedded);
+    logger.log("[AuthPage] User agent:", navigator.userAgent);
+    logger.log("[AuthPage] Is embedded browser:", isEmbedded);
   }, []);
 
   // Handle case where auth context is not available yet
@@ -146,7 +146,7 @@ export default function AuthPage() {
   // Sign Up Form
   const signUpForm = useForm<SignUpForm>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { firstName: "", lastName: "", email: "", password: "" },
+    defaultValues: { name: "", email: "", password: "" },
   });
 
   // Handle Sign In
@@ -160,17 +160,17 @@ export default function AuthPage() {
       return;
     }
     try {
-      console.log("[AuthPage] Attempting sign in...");
+      logger.log("[AuthPage] Attempting sign in...");
       // Set persistence before signing in
       await setAuthPersistence(rememberMe);
       await signIn(data.email, data.password);
-      console.log("[AuthPage] Sign in successful");
+      logger.log("[AuthPage] Sign in successful");
       toast({
         title: "Welcome back! ",
         description: "You have successfully signed in.",
       });
     } catch (error) {
-      console.error("[AuthPage] Sign in error:", error);
+      logger.error("[AuthPage] Sign in error:", error);
       // Get the actual error message from AuthError
       const authError = error as { message?: string; code?: string };
       const message = authError.message || "Sign in failed. Please check your credentials.";
@@ -192,20 +192,20 @@ export default function AuthPage() {
       });
       return;
     }
-    console.log("[AuthPage] handleSignUp called:", { email: data.email });
+    logger.log("[AuthPage] handleSignUp called:", { email: data.email });
     try {
-      await signUp(data.email, data.password);
-      console.log("[AuthPage] Sign up successful!");
+      await signUp(data.email, data.password, data.name);
+      logger.log("[AuthPage] Sign up successful!");
       toast({
-        title: "Account Created! ",
-        description: "Please check your email to verify your account.",
+        title: "Account Created!",
+        description: "We sent a verification email. Now pick a username!",
       });
-      setLocation("/verify");
+      setLocation("/profile/setup");
     } catch (error) {
-      console.error("[AuthPage] Sign up error:", error);
+      logger.error("[AuthPage] Sign up error:", error);
       const authError = error as { message?: string; code?: string };
       const message = authError.message || "Sign up failed. Please try again.";
-      console.error("[AuthPage] Displaying error:", message);
+      logger.error("[AuthPage] Displaying error:", message);
       toast({
         title: "Registration Failed",
         description: message,
@@ -501,43 +501,25 @@ export default function AuthPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4">
-                  {/* Name Fields */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="firstName" className="text-gray-300">
-                        First Name
-                      </Label>
-                      <div className="relative">
-                        <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                        <Input
-                          id="firstName"
-                          placeholder="John"
-                          {...signUpForm.register("firstName")}
-                          className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
-                        />
-                      </div>
-                      {signUpForm.formState.errors.firstName && (
-                        <p className="text-sm text-red-400">
-                          {signUpForm.formState.errors.firstName.message}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="lastName" className="text-gray-300">
-                        Last Name
-                      </Label>
+                  {/* Name */}
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-name" className="text-gray-300">
+                      Name
+                    </Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                       <Input
-                        id="lastName"
-                        placeholder="Doe"
-                        {...signUpForm.register("lastName")}
-                        className="bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                        id="signup-name"
+                        placeholder="Your name"
+                        {...signUpForm.register("name")}
+                        className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                       />
-                      {signUpForm.formState.errors.lastName && (
-                        <p className="text-sm text-red-400">
-                          {signUpForm.formState.errors.lastName.message}
-                        </p>
-                      )}
                     </div>
+                    {signUpForm.formState.errors.name && (
+                      <p className="text-sm text-red-400">
+                        {signUpForm.formState.errors.name.message}
+                      </p>
+                    )}
                   </div>
 
                   {/* Email */}

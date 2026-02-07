@@ -56,6 +56,7 @@ import ProtectedRoute, { type Params } from "./lib/protected-route";
 const HubPage = lazy(() => import("./pages/hub"));
 const PlayPage = lazy(() => import("./pages/play"));
 const ProfilePage = lazy(() => import("./pages/me"));
+const LeaderboardPage = lazy(() => import("./pages/leaderboard"));
 
 // Standalone pages
 const Tutorial = lazy(() => import("./pages/tutorial"));
@@ -213,6 +214,14 @@ function DashboardMapRoute() {
   );
 }
 
+function DashboardLeaderboardRoute() {
+  return (
+    <DashboardLayout>
+      <LeaderboardPage />
+    </DashboardLayout>
+  );
+}
+
 // DashboardShopRoute, DashboardCartRoute, DashboardCheckoutRoute removed for MVP
 
 function isE2EBypass(): boolean {
@@ -229,7 +238,7 @@ function ProfileSetupRoute() {
   useEffect(() => {
     if (bypass) return;
     if (!auth.isAuthenticated) {
-      setLocation("/login", { replace: true });
+      setLocation("/signin", { replace: true });
       return;
     }
 
@@ -287,7 +296,11 @@ function AppRoutes() {
         <ProtectedRoute path="/play" component={DashboardPlayRoute} allowMissingProfile />
         <ProtectedRoute path="/me" component={DashboardProfileRoute} allowMissingProfile />
         <ProtectedRoute path="/map" component={DashboardMapRoute} allowMissingProfile />
-        <ProtectedRoute path="/leaderboard" component={DashboardPlayRoute} allowMissingProfile />
+        <ProtectedRoute
+          path="/leaderboard"
+          component={DashboardLeaderboardRoute}
+          allowMissingProfile
+        />
         {/* Shop, Cart, Checkout, OrderConfirmation routes removed for MVP */}
 
         {/* Spot Detail - still uses AppShell for full-screen modal experience */}

@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation, useSearch } from "wouter";
-import { AlertTriangle, CheckCircle, Loader2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2, XCircle, Mail } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -11,6 +11,7 @@ import { Progress } from "../../components/ui/progress";
 import { usernameSchema } from "@shared/schema";
 import { apiRequest, buildApiUrl } from "../../lib/api/client";
 import { getUserFriendlyMessage, isApiError } from "../../lib/api/errors";
+import { logger } from "../../lib/logger";
 
 /**
  * Enterprise rules applied:
@@ -19,7 +20,7 @@ import { getUserFriendlyMessage, isApiError } from "../../lib/api/errors";
  * - Username availability check is cancelable (AbortController) + debounced.
  * - No undefined variables / no implicit contracts.
  * - Upload path remains JSON-based for now (base64) but guarded and isolated.
- *   TODO (recommended): move avatar upload to Storage and send storagePath.
+ *   NOTE: Avatar upload currently uses base64 JSON. Migrate to Firebase Storage when scaling.
  * - Supports ?next= param to preserve user's intended destination.
  */
 
@@ -92,7 +93,7 @@ export default function ProfileSetup() {
         // Invalid encoding, fall back to default
       }
     }
-    return "/landing";
+    return "/hub";
   }, [searchString]);
 
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
@@ -183,7 +184,7 @@ export default function ProfileSetup() {
 
         // Network or server issue - allow submit, but show warning
         if (!usernameWarnedRef.current) {
-          console.warn("[ProfileSetup] Username check failed", error);
+          logger.warn("[ProfileSetup] Username check failed", error);
           usernameWarnedRef.current = true;
         }
         setUsernameStatus("unverified");
@@ -317,7 +318,7 @@ export default function ProfileSetup() {
         const nextUrl = getNextUrl();
         setLocation(nextUrl, { replace: true });
       } catch (error) {
-        console.error("[ProfileSetup] Failed to create profile", error);
+        logger.error("[ProfileSetup] Failed to create profile", error);
         if (isApiError(error)) {
           const details = error.details as Record<string, unknown> | undefined;
           const errorCode = typeof details?.error === "string" ? details.error : undefined;
@@ -385,6 +386,19 @@ export default function ProfileSetup() {
             Lock in a unique handle and show the crew how you skate. This only happens once.
           </p>
         </header>
+
+        {!auth.isEmailVerified && (
+          <div className="mt-4 flex items-start gap-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3">
+            <Mail className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-orange-300">Verify your email</p>
+              <p className="text-xs text-neutral-400">
+                Check your inbox for a verification link. Some features (like adding spots) require
+                a verified email.
+              </p>
+            </div>
+          </div>
+        )}
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-2">

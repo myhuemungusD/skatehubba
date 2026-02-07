@@ -8,22 +8,7 @@
  */
 
 // Configuration & Instances
-export { app, auth, db, isFirebaseInitialized } from './config';
-
-// Auth Service
-export {
-  signUpWithEmail,
-  signInWithEmail,
-  signInWithGoogle,
-  signInAnonymously,
-  getGoogleRedirectResult,
-  signOutUser,
-  onAuthStateChange,
-  getCurrentUser,
-  resendVerificationEmail,
-  resetPassword,
-  setAuthPersistence,
-} from './auth.service';
+export { app, auth, db, isFirebaseInitialized, setAuthPersistence } from './config';
 
 // Profile Service
 export {
