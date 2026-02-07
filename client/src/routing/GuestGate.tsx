@@ -17,6 +17,32 @@ const ALLOWED_GUEST_ROUTES = new Set<string>([
   "/game/active",
 ]);
 
+/** Routes that must always render, even without a user in GUEST_MODE */
+const AUTH_ROUTES = new Set<string>([
+  "/auth",
+  "/login",
+  "/signin",
+  "/signup",
+  "/forgot-password",
+  "/verify",
+  "/verify-email",
+  "/verified",
+  "/landing",
+  "/privacy",
+  "/terms",
+  "/specs",
+  "/demo",
+]);
+
+function isAuthRoute(pathname: string): boolean {
+  if (AUTH_ROUTES.has(pathname)) return true;
+  if (pathname.startsWith("/auth/")) return true;
+  if (pathname.startsWith("/profile/")) return true;
+  if (pathname.startsWith("/p/")) return true;
+  if (pathname.startsWith("/skater/")) return true;
+  return false;
+}
+
 export function GuestGate({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const [loc, setLoc] = useLocation();
@@ -30,11 +56,20 @@ export function GuestGate({ children }: { children: React.ReactNode }) {
     return false;
   }, [loc]);
 
+  const pathname = loc.split("?")[0];
+  const onAuthRoute = isAuthRoute(pathname);
+
   useEffect(() => {
     let cancelled = false;
 
     async function run() {
       if (!GUEST_MODE) {
+        setReady(true);
+        return;
+      }
+
+      // Always allow auth/public routes to render, even without a user
+      if (onAuthRoute) {
         setReady(true);
         return;
       }
@@ -57,7 +92,7 @@ export function GuestGate({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user, loading, isAllowed, setLoc]);
+  }, [user, loading, isAllowed, onAuthRoute, setLoc]);
 
   if (!ready) return null;
   return <>{children}</>;
