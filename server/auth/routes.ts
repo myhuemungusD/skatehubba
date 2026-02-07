@@ -82,7 +82,7 @@ export function setupAuthRoutes(app: Express) {
         }
 
         const uid = decoded.uid;
-        const { firstName, lastName, isRegistration } = req.body;
+        const { firstName, lastName, isRegistration: _isRegistration } = req.body;
 
         // Find or create user record
         let user = await AuthService.findUserByFirebaseUid(uid);
