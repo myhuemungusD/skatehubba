@@ -1,4 +1,5 @@
 import logger from "../logger";
+import { getRedisClient } from "../redis";
 
 /**
  * Service that discovers skateparks near a location using OpenStreetMap's Overpass API.
@@ -33,14 +34,15 @@ export interface DiscoveredSpot {
 const OVERPASS_API = "https://overpass-api.de/api/interpreter";
 
 /**
- * In-memory cache to prevent hammering the Overpass API for the same area.
+ * Cache to prevent hammering the Overpass API for the same area.
+ * Uses Redis when available, falls back to in-memory Map.
  * Key: rounded lat/lng grid cell (0.25 degree grid ~= 28km).
- * Value: timestamp of last query.
- * Cache entries expire after 1 hour.
  */
-const discoveryCache = new Map<string, number>();
+const discoveryCacheFallback = new Map<string, number>();
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+const CACHE_TTL_SECONDS = Math.ceil(CACHE_TTL_MS / 1000);
 const GRID_SIZE = 0.25; // ~28km grid cells
+const DISCOVERY_KEY_PREFIX = "osm_cache:";
 
 function getCacheKey(lat: number, lng: number): string {
   const gridLat = Math.round(lat / GRID_SIZE) * GRID_SIZE;
@@ -51,12 +53,21 @@ function getCacheKey(lat: number, lng: number): string {
 /**
  * Check if we've already discovered spots for this area recently.
  */
-export function isAreaCached(lat: number, lng: number): boolean {
+export async function isAreaCached(lat: number, lng: number): Promise<boolean> {
   const key = getCacheKey(lat, lng);
-  const cachedAt = discoveryCache.get(key);
+  const redis = getRedisClient();
+
+  if (redis) {
+    try {
+      const exists = await redis.exists(`${DISCOVERY_KEY_PREFIX}${key}`);
+      return exists === 1;
+    } catch { /* fall through */ }
+  }
+
+  const cachedAt = discoveryCacheFallback.get(key);
   if (!cachedAt) return false;
   if (Date.now() - cachedAt > CACHE_TTL_MS) {
-    discoveryCache.delete(key);
+    discoveryCacheFallback.delete(key);
     return false;
   }
   return true;
@@ -73,7 +84,7 @@ export async function discoverSkateparks(
   radiusMeters: number = 50000
 ): Promise<DiscoveredSpot[]> {
   // Check cache first - skip if we already queried this area recently
-  if (isAreaCached(lat, lng)) {
+  if (await isAreaCached(lat, lng)) {
     logger.info(`Skipping OSM discovery - area already cached for (${lat}, ${lng})`);
     return [];
   }
@@ -147,7 +158,13 @@ export async function discoverSkateparks(
     }
 
     // Mark this area as cached
-    discoveryCache.set(getCacheKey(lat, lng), Date.now());
+    const cacheKey = getCacheKey(lat, lng);
+    const redis = getRedisClient();
+    if (redis) {
+      redis.set(`${DISCOVERY_KEY_PREFIX}${cacheKey}`, String(Date.now()), "EX", CACHE_TTL_SECONDS).catch(() => {});
+    } else {
+      discoveryCacheFallback.set(cacheKey, Date.now());
+    }
 
     logger.info(`Discovered ${results.length} skateparks from OSM near (${lat}, ${lng})`);
     return results;

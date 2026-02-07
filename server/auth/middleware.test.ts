@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("./service", () => ({
@@ -86,38 +87,38 @@ describe("requireRecentAuth", () => {
     vi.clearAllMocks();
   });
 
-  it("returns 401 if no currentUser", () => {
+  it("returns 401 if no currentUser", async () => {
     const req = mockReq();
     const res = mockRes();
     const next = vi.fn();
 
-    requireRecentAuth(req, res, next);
+    await requireRecentAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("returns 403 REAUTH_REQUIRED if no recent auth recorded", () => {
+  it("returns 403 REAUTH_REQUIRED if no recent auth recorded", async () => {
     const req = mockReq({ currentUser: { id: "user-no-auth" } });
     const res = mockRes();
     const next = vi.fn();
 
-    requireRecentAuth(req, res, next);
+    await requireRecentAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "REAUTH_REQUIRED" }));
     expect(next).not.toHaveBeenCalled();
   });
 
-  it("calls next if recently authenticated", () => {
-    const userId = "user-recent-" + Math.random();
+  it("calls next if recently authenticated", async () => {
+    const userId = "user-recent-" + crypto.randomUUID();
     recordRecentAuth(userId);
 
     const req = mockReq({ currentUser: { id: userId } });
     const res = mockRes();
     const next = vi.fn();
 
-    requireRecentAuth(req, res, next);
+    await requireRecentAuth(req, res, next);
 
     expect(next).toHaveBeenCalled();
     expect(res.status).not.toHaveBeenCalled();
@@ -126,8 +127,8 @@ describe("requireRecentAuth", () => {
     clearRecentAuth(userId);
   });
 
-  it("returns 403 after auth window expires", () => {
-    const userId = "user-expired-" + Math.random();
+  it("returns 403 after auth window expires", async () => {
+    const userId = "user-expired-" + crypto.randomUUID();
     recordRecentAuth(userId);
 
     // Manually advance time past the 5-minute window
@@ -138,7 +139,7 @@ describe("requireRecentAuth", () => {
     const res = mockRes();
     const next = vi.fn();
 
-    requireRecentAuth(req, res, next);
+    await requireRecentAuth(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(403);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "REAUTH_REQUIRED" }));
@@ -149,15 +150,15 @@ describe("requireRecentAuth", () => {
 });
 
 describe("recordRecentAuth", () => {
-  it("records auth timestamp for user", () => {
-    const userId = "record-test-" + Math.random();
+  it("records auth timestamp for user", async () => {
+    const userId = "record-test-" + crypto.randomUUID();
     recordRecentAuth(userId);
 
     const req = mockReq({ currentUser: { id: userId } });
     const res = mockRes();
     const next = vi.fn();
 
-    requireRecentAuth(req, res, next);
+    await requireRecentAuth(req, res, next);
     expect(next).toHaveBeenCalled();
 
     clearRecentAuth(userId);
@@ -165,8 +166,8 @@ describe("recordRecentAuth", () => {
 });
 
 describe("clearRecentAuth", () => {
-  it("clears auth timestamp so reauth is required", () => {
-    const userId = "clear-test-" + Math.random();
+  it("clears auth timestamp so reauth is required", async () => {
+    const userId = "clear-test-" + crypto.randomUUID();
     recordRecentAuth(userId);
     clearRecentAuth(userId);
 
@@ -174,7 +175,7 @@ describe("clearRecentAuth", () => {
     const res = mockRes();
     const next = vi.fn();
 
-    requireRecentAuth(req, res, next);
+    await requireRecentAuth(req, res, next);
     expect(res.status).toHaveBeenCalledWith(403);
     expect(next).not.toHaveBeenCalled();
   });

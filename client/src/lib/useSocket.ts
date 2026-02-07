@@ -102,8 +102,10 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     setError(null);
 
     try {
-      // Get fresh ID token for the initial connection
-      const token = await user.getIdToken();
+      // Shared promise that the auth callback awaits after a force-refresh
+      // is triggered by a connect_error. This ensures the next reconnect
+      // attempt uses the freshly-refreshed token, not the stale cached one.
+      let pendingRefresh: Promise<string> | null = null;
 
       // Create socket connection.
       // Pass auth as a function so socket.io calls it on every reconnect
@@ -114,14 +116,21 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
           try {
             const currentUser = auth.currentUser;
             if (!currentUser) {
-              cb({ token });
+              // No user — send empty auth so server rejects cleanly.
+              // Don't fall back to a stale token.
+              cb({});
               return;
+            }
+            // If connect_error triggered a force-refresh, await it so
+            // getIdToken() below returns the new token, not the stale one.
+            if (pendingRefresh) {
+              await pendingRefresh.catch(() => {});
+              pendingRefresh = null;
             }
             const freshToken = await currentUser.getIdToken();
             cb({ token: freshToken });
           } catch {
-            // Fall back to the token we already have
-            cb({ token });
+            cb({});
           }
         },
         transports: ["websocket", "polling"],
@@ -152,16 +161,14 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
           err.message === "authentication_required" ||
           err.message === "authentication_failed";
 
-        if (isAuthError) {
-          // Token likely expired — force-refresh and retry once.
-          // The auth function above will fetch a fresh token on the
-          // next reconnection attempt automatically.
+        if (isAuthError && !pendingRefresh) {
+          // Token likely expired — kick off a force-refresh.
+          // The auth callback above will await this before fetching the
+          // next token, ensuring the reconnect uses a fresh one.
           const currentUser = auth.currentUser;
           if (currentUser) {
             logger.log("[Socket] Auth error, forcing token refresh before reconnect");
-            currentUser.getIdToken(true).catch(() => {
-              // Refresh failed; socket.io will still retry with the auth fn
-            });
+            pendingRefresh = currentUser.getIdToken(true);
           }
         }
 
@@ -186,6 +193,7 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
 
   const disconnect = useCallback(() => {
     if (socketRef.current) {
+      socketRef.current.removeAllListeners();
       socketRef.current.disconnect();
       socketRef.current = null;
       setConnectionState("disconnected");

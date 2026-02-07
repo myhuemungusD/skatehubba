@@ -32,19 +32,6 @@ service cloud.firestore {
         && request.resource.data[field] <= request.time + duration.value(1, 'm');
     }
 
-    // Block client writes to protected trust/moderation fields
-    function hasProtectedProfileFields(data) {
-      return data.keys().hasAny([
-        'trustLevel',
-        'reputationScore',
-        'reputationSignals',
-        'isBanned',
-        'banExpiresAt',
-        'proVerificationStatus',
-        'isProVerified'
-      ]);
-    }
-
     function isGameParticipant(gameData) {
       return isAuthenticated()
         && (gameData.player1Id == request.auth.uid || gameData.player2Id == request.auth.uid);
@@ -71,9 +58,11 @@ service cloud.firestore {
       ];
     }
 
-    // Validate profile field types and size limits when present
+    // Validate profile field types and size limits when present.
+    // uid is checked against the authenticated user to prevent impersonation.
     function isValidProfileFields(data) {
-      return (!('username' in data) || (data.username is string && data.username.size() >= 1 && data.username.size() <= 50))
+      return (!('uid' in data) || data.uid == request.auth.uid)
+        && (!('username' in data) || (data.username is string && data.username.size() >= 1 && data.username.size() <= 50))
         && (!('displayName' in data) || (data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100))
         && (!('isGuest' in data) || data.isGuest is bool)
         && (!('stance' in data) || data.stance == null || data.stance in ['regular', 'goofy'])
@@ -145,14 +134,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    // Production environment: read allowed for authenticated users; client writes blocked for sensitive collections
+    // Production environment: read allowed for authenticated users.
+    // Client writes are only allowed for explicitly listed collections below.
+    // Everything else (billing, admin, moderation, analytics_events, etc.) is
+    // server-only via Admin SDK.
+    // NOTE: 'users' writes are handled by the explicit /env/prod/users/{userId} match above.
     match /env/prod/{collection}/{docId=**} {
       allow read: if isAuthenticated();
-
-      // Block client writes to sensitive collections. These should be server-only.
-      // NOTE: 'users' is blocked here, but explicitly allowed above in /env/prod/users/{userId}.
-      allow write: if isAuthenticated()
-        && !(collection in ['billing', 'admin', 'moderation', 'analytics_events', 'users']);
+      allow write: if false;
     }
 
     // =========================================================================

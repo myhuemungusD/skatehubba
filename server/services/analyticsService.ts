@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { db } from "../db";
 import { analyticsEvents } from "../../packages/shared/schema-analytics";
 import type { EventName } from "../../packages/shared/analytics-events";
@@ -5,10 +6,9 @@ import logger from "../logger";
 
 /**
  * Generate a unique event ID for server-side events.
- * Using timestamp + random for simplicity.
  */
 function generateEventId(): string {
-  return `srv-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  return `srv-${Date.now()}-${crypto.randomBytes(8).toString("hex")}`;
 }
 
 /**

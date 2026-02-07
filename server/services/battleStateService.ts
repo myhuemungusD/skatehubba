@@ -14,6 +14,11 @@
 import { getDb } from "../db";
 import { battles, battleVotes, battleVoteState } from "@shared/schema";
 import { eq, and, lt } from "drizzle-orm";
+import crypto from "node:crypto";
+import { db } from "../db";
+import { db as firestore } from "../firestore";
+import { battles, battleVotes } from "../../packages/shared/schema";
+import { eq } from "drizzle-orm";
 import logger from "../logger";
 import { logServerEvent } from "./analyticsService";
 
@@ -67,6 +72,8 @@ function generateEventId(
     return `${type}-${battleId}-${odv}-${sequenceKey}`;
   }
   return `${type}-${battleId}-${odv}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+  // For backward compatibility, generate a unique ID (caller should cache and reuse on retries)
+  return `${type}-${battleId}-${odv}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 }
 
 // ============================================================================

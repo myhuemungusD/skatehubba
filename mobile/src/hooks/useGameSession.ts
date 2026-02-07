@@ -16,7 +16,7 @@ const RETRY_DELAYS: readonly [number, number, number] = [2000, 4000, 8000];
 
 /** Generate a unique idempotency key for deduplication */
 function generateIdempotencyKey(): string {
-  return `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+  return crypto.randomUUID();
 }
 
 const gameKeys = {
