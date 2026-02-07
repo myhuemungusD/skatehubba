@@ -32,9 +32,21 @@ export async function getOnlineUsers(): Promise<string[]> {
   const redis = getRedisClient();
   if (redis) {
     try {
-      // Scan for all presence keys
-      const keys = await redis.keys(`${PRESENCE_KEY_PREFIX}*`);
-      return keys.map((key) => key.substring(PRESENCE_KEY_PREFIX.length));
+      const users: string[] = [];
+      let cursor = "0";
+
+      // Use SCAN instead of KEYS for non-blocking iteration
+      do {
+        const result = await redis.scan(cursor, "MATCH", `${PRESENCE_KEY_PREFIX}*`, "COUNT", 100);
+        cursor = result[0];
+        const keys = result[1];
+
+        for (const key of keys) {
+          users.push(key.substring(PRESENCE_KEY_PREFIX.length));
+        }
+      } while (cursor !== "0");
+
+      return users;
     } catch {
       /* fall through */
     }
@@ -175,25 +187,32 @@ export async function getPresenceStats(): Promise<{
 
   if (redis) {
     try {
-      // Get all presence keys
-      const keys = await redis.keys(`${PRESENCE_KEY_PREFIX}*`);
       let online = 0;
       let away = 0;
+      let cursor = "0";
 
-      // Get values for all keys
-      if (keys.length > 0) {
-        const values = await redis.mget(...keys);
-        for (const val of values) {
-          if (!val) continue;
-          try {
-            const parsed = JSON.parse(val) as { status: string };
-            if (parsed.status === "online") online++;
-            else away++;
-          } catch {
-            /* skip malformed entries */
+      // Use SCAN instead of KEYS for non-blocking iteration
+      do {
+        const result = await redis.scan(cursor, "MATCH", `${PRESENCE_KEY_PREFIX}*`, "COUNT", 100);
+        cursor = result[0];
+        const keys = result[1];
+
+        // Get values for scanned keys
+        if (keys.length > 0) {
+          const values = await redis.mget(...keys);
+          for (const val of values) {
+            if (!val) continue;
+            try {
+              const parsed = JSON.parse(val) as { status: string };
+              if (parsed.status === "online") online++;
+              else away++;
+            } catch {
+              /* skip malformed entries */
+            }
           }
         }
-      }
+      } while (cursor !== "0");
+
       return { online, away };
     } catch {
       /* fall through */
