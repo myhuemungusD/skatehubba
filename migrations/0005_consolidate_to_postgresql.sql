@@ -168,3 +168,40 @@ CREATE UNIQUE INDEX IF NOT EXISTS "unique_checkin_nonce" ON "checkin_nonces" ("u
 CREATE UNIQUE INDEX IF NOT EXISTS "unique_spot_name_location"
   ON "spots" (lower(trim("name")), round("lat"::numeric, 4), round("lng"::numeric, 4))
   WHERE "is_active" = true;
+
+-- ============================================================================
+-- Beta Signups (replaces Firestore mail_list collection)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS "beta_signups" (
+  "id" varchar(64) PRIMARY KEY,
+  "email" varchar(255) NOT NULL,
+  "platform" varchar(50),
+  "ip_hash" varchar(64),
+  "source" varchar(100) DEFAULT 'skatehubba.com',
+  "submit_count" integer NOT NULL DEFAULT 1,
+  "last_submitted_at" timestamp NOT NULL DEFAULT now(),
+  "created_at" timestamp NOT NULL DEFAULT now()
+);
+
+-- ============================================================================
+-- Onboarding Profiles (replaces Firestore profiles collection)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS "onboarding_profiles" (
+  "uid" varchar(255) PRIMARY KEY,
+  "username" varchar(50) NOT NULL,
+  "stance" varchar(20),
+  "experience_level" varchar(20),
+  "favorite_tricks" json NOT NULL DEFAULT '[]',
+  "bio" text,
+  "sponsor_flow" varchar(255),
+  "sponsor_team" varchar(255),
+  "hometown_shop" varchar(255),
+  "spots_visited" integer NOT NULL DEFAULT 0,
+  "crew_name" varchar(100),
+  "credibility_score" integer NOT NULL DEFAULT 0,
+  "avatar_url" varchar(500),
+  "created_at" timestamp NOT NULL DEFAULT now(),
+  "updated_at" timestamp NOT NULL DEFAULT now()
+);

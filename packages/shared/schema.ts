@@ -1014,3 +1014,44 @@ export const checkinNonces = pgTable(
     userNonceIdx: uniqueIndex("unique_checkin_nonce").on(table.userId, table.nonce),
   })
 );
+
+// ============================================================================
+// Beta signups — replaces Firestore mail_list collection
+// ============================================================================
+
+export const betaSignups = pgTable("beta_signups", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  email: varchar("email", { length: 255 }).notNull(),
+  platform: varchar("platform", { length: 50 }),
+  ipHash: varchar("ip_hash", { length: 64 }),
+  source: varchar("source", { length: 100 }).default("skatehubba.com"),
+  submitCount: integer("submit_count").notNull().default(1),
+  lastSubmittedAt: timestamp("last_submitted_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type BetaSignup = typeof betaSignups.$inferSelect;
+
+// ============================================================================
+// Onboarding profiles — replaces Firestore profiles collection
+// ============================================================================
+
+export const onboardingProfiles = pgTable("onboarding_profiles", {
+  uid: varchar("uid", { length: 255 }).primaryKey(),
+  username: varchar("username", { length: 50 }).notNull(),
+  stance: varchar("stance", { length: 20 }),
+  experienceLevel: varchar("experience_level", { length: 20 }),
+  favoriteTricks: json("favorite_tricks").$type<string[]>().notNull().default([]),
+  bio: text("bio"),
+  sponsorFlow: varchar("sponsor_flow", { length: 255 }),
+  sponsorTeam: varchar("sponsor_team", { length: 255 }),
+  hometownShop: varchar("hometown_shop", { length: 255 }),
+  spotsVisited: integer("spots_visited").notNull().default(0),
+  crewName: varchar("crew_name", { length: 100 }),
+  credibilityScore: integer("credibility_score").notNull().default(0),
+  avatarUrl: varchar("avatar_url", { length: 500 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type OnboardingProfile = typeof onboardingProfiles.$inferSelect;

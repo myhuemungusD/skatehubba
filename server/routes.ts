@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { setupAuthRoutes } from "./auth/routes";
 import { spotStorage } from "./storage/spots";
 import { getDb, isDatabaseAvailable } from "./db";
-import { customUsers, spots, games } from "@shared/schema";
+import { customUsers, spots, games, betaSignups } from "@shared/schema";
 import { ilike, or, eq, count, sql } from "drizzle-orm";
 import { insertSpotSchema } from "@shared/schema";
 import {
@@ -17,7 +17,7 @@ import { enforceTrustAction } from "./middleware/trustSafety";
 import { z } from "zod";
 import crypto from "node:crypto";
 import { BetaSignupInput } from "@shared/validation/betaSignup";
-import { admin } from "./admin";
+
 import { env } from "./config/env";
 import { authenticateUser, requireEmailVerification } from "./auth/middleware";
 import { verifyAndCheckIn } from "./services/spotService";
@@ -367,9 +367,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
 
-  const getTimestampMillis = (value: unknown) =>
-    value instanceof admin.firestore.Timestamp ? value.toMillis() : null;
-
   app.post(
     "/api/beta-signup",
     validateBody(BetaSignupInput, { errorCode: "VALIDATION_ERROR" }),
@@ -380,52 +377,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const ipHash = ip && salt ? hashIp(ip, salt) : undefined;
 
       try {
+        const db = getDb();
         const docId = crypto.createHash("sha256").update(email).digest("hex").slice(0, 32);
+        const now = new Date();
 
-        const docRef = admin.firestore().collection("mail_list").doc(docId);
-        const nowMillis = admin.firestore.Timestamp.now().toMillis();
+        const [existing] = await db
+          .select()
+          .from(betaSignups)
+          .where(eq(betaSignups.id, docId))
+          .limit(1);
 
-        await admin.firestore().runTransaction(async (transaction) => {
-          const snapshot = await transaction.get(docRef);
-          const data = snapshot.exists ? snapshot.data() : null;
-          const lastSubmittedAtMillis =
-            getTimestampMillis(data?.lastSubmittedAt) ?? getTimestampMillis(data?.createdAt);
-
-          if (lastSubmittedAtMillis && nowMillis - lastSubmittedAtMillis < RATE_LIMIT_WINDOW_MS) {
-            throw new Error("RATE_LIMITED");
+        if (existing) {
+          const lastMs = existing.lastSubmittedAt.getTime();
+          if (now.getTime() - lastMs < RATE_LIMIT_WINDOW_MS) {
+            return res.status(429).json({ ok: false, error: "RATE_LIMITED" });
           }
 
-          if (snapshot.exists) {
-            transaction.set(
-              docRef,
-              {
-                platform,
-                ...(ipHash ? { ipHash } : {}),
-                lastSubmittedAt: admin.firestore.FieldValue.serverTimestamp(),
-                submitCount: admin.firestore.FieldValue.increment(1),
-                source: "skatehubba.com",
-              },
-              { merge: true }
-            );
-            return;
-          }
-
-          transaction.set(docRef, {
+          await db
+            .update(betaSignups)
+            .set({
+              platform: platform ?? existing.platform,
+              ...(ipHash ? { ipHash } : {}),
+              lastSubmittedAt: now,
+              submitCount: sql`${betaSignups.submitCount} + 1`,
+              source: "skatehubba.com",
+            })
+            .where(eq(betaSignups.id, docId));
+        } else {
+          await db.insert(betaSignups).values({
+            id: docId,
             email,
-            platform,
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            lastSubmittedAt: admin.firestore.FieldValue.serverTimestamp(),
-            submitCount: 1,
+            platform: platform ?? null,
             ...(ipHash ? { ipHash } : {}),
             source: "skatehubba.com",
+            submitCount: 1,
+            lastSubmittedAt: now,
+            createdAt: now,
           });
-        });
+        }
 
         return res.status(200).json({ ok: true });
       } catch (error) {
-        if (error instanceof Error && error.message === "RATE_LIMITED") {
-          return res.status(429).json({ ok: false, error: "RATE_LIMITED" });
-        }
         return res.status(500).json({ ok: false, error: "SERVER_ERROR" });
       }
     }

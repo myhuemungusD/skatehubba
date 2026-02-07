@@ -4,6 +4,8 @@ import { profileCreateSchema, usernameSchema } from "@shared/validation/profile"
 import { admin } from "../admin";
 import { env } from "../config/env";
 import { getDb, isDatabaseAvailable } from "../db";
+import { onboardingProfiles } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
 import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
 import { createProfileWithRollback, createUsernameStore } from "../services/profileService";
@@ -14,47 +16,9 @@ const avatarAlphabet = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 8)
 const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const allowedMimeTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
-type FirestoreTimestamp = {
-  toDate: () => Date;
-};
-
-interface FirestoreProfile {
-  uid: string;
-  username: string;
-  stance: "regular" | "goofy" | null;
-  experienceLevel: "beginner" | "intermediate" | "advanced" | "pro" | null;
-  favoriteTricks: string[];
-  bio: string | null;
-  sponsorFlow?: string | null;
-  sponsorTeam?: string | null;
-  hometownShop?: string | null;
-  spotsVisited: number;
-  crewName: string | null;
-  credibilityScore: number;
-  avatarUrl: string | null;
-  createdAt: FirestoreTimestamp | Date;
-  updatedAt: FirestoreTimestamp | Date;
-}
-
 interface StorageFile {
   delete: (options: { ignoreNotFound: boolean }) => Promise<unknown>;
 }
-
-const toDate = (value: FirestoreTimestamp | Date | null | undefined): Date => {
-  if (!value) {
-    return new Date();
-  }
-  if (value instanceof Date) {
-    return value;
-  }
-  return value.toDate();
-};
-
-const serializeProfile = (data: FirestoreProfile) => ({
-  ...data,
-  createdAt: toDate(data.createdAt).toISOString(),
-  updatedAt: toDate(data.updatedAt).toISOString(),
-});
 
 const parseAvatarDataUrl = (dataUrl: string): { buffer: Buffer; contentType: string } | null => {
   const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
@@ -116,13 +80,17 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
   const uid = firebaseUid;
   const db = getDb();
   const usernameStore = createUsernameStore(db);
-  const firestore = admin.firestore();
-  const profileRef = firestore.collection("profiles").doc(uid);
-  const existingProfile = await profileRef.get();
-  if (existingProfile.exists) {
-    const existing = existingProfile.data() as FirestoreProfile;
-    if (existing.username) {
-      const ensured = await usernameStore.ensure(uid, existing.username);
+
+  // Check if profile already exists in PostgreSQL
+  const [existingProfile] = await db
+    .select()
+    .from(onboardingProfiles)
+    .where(eq(onboardingProfiles.uid, uid))
+    .limit(1);
+
+  if (existingProfile) {
+    if (existingProfile.username) {
+      const ensured = await usernameStore.ensure(uid, existingProfile.username);
       if (!ensured) {
         return res.status(409).json({
           error: "username_taken",
@@ -132,7 +100,11 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
       }
     }
     return res.status(200).json({
-      profile: serializeProfile(existing),
+      profile: {
+        ...existingProfile,
+        createdAt: existingProfile.createdAt.toISOString(),
+        updatedAt: existingProfile.updatedAt.toISOString(),
+      },
     });
   }
 
@@ -205,6 +177,7 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
         });
       }
 
+      // Firebase Storage for file uploads (not a database — kept intentionally)
       const bucket = env.FIREBASE_STORAGE_BUCKET
         ? admin.storage().bucket(env.FIREBASE_STORAGE_BUCKET)
         : admin.storage().bucket();
@@ -222,34 +195,38 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
       avatarUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodedPath}?alt=media`;
     }
 
-    const profileData: FirestoreProfile = {
-      uid,
-      username: reservedUsername,
-      stance: parsed.data.stance ?? null,
-      experienceLevel: parsed.data.experienceLevel ?? null,
-      favoriteTricks: parsed.data.favoriteTricks ?? [],
-      bio: parsed.data.bio ?? null,
-      sponsorFlow: parsed.data.sponsorFlow ?? null,
-      sponsorTeam: parsed.data.sponsorTeam ?? null,
-      hometownShop: parsed.data.hometownShop ?? null,
-      spotsVisited: parsed.data.spotsVisited ?? 0,
-      crewName: parsed.data.crewName ?? null,
-      credibilityScore: parsed.data.credibilityScore ?? 0,
-      avatarUrl,
-      createdAt: admin.firestore.FieldValue.serverTimestamp() as unknown as FirestoreTimestamp,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp() as unknown as FirestoreTimestamp,
-    };
+    const now = new Date();
 
     const createdProfile = await createProfileWithRollback({
       uid,
       usernameStore,
       writeProfile: async () => {
-        await profileRef.create(profileData);
-        return serializeProfile({
-          ...profileData,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        });
+        const [profile] = await db
+          .insert(onboardingProfiles)
+          .values({
+            uid,
+            username: reservedUsername,
+            stance: parsed.data.stance ?? null,
+            experienceLevel: parsed.data.experienceLevel ?? null,
+            favoriteTricks: parsed.data.favoriteTricks ?? [],
+            bio: parsed.data.bio ?? null,
+            sponsorFlow: parsed.data.sponsorFlow ?? null,
+            sponsorTeam: parsed.data.sponsorTeam ?? null,
+            hometownShop: parsed.data.hometownShop ?? null,
+            spotsVisited: parsed.data.spotsVisited ?? 0,
+            crewName: parsed.data.crewName ?? null,
+            credibilityScore: parsed.data.credibilityScore ?? 0,
+            avatarUrl,
+            createdAt: now,
+            updatedAt: now,
+          })
+          .returning();
+
+        return {
+          ...profile,
+          createdAt: profile.createdAt.toISOString(),
+          updatedAt: profile.updatedAt.toISOString(),
+        };
       },
     });
 

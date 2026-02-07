@@ -293,7 +293,16 @@ export async function submitTrick(input: {
       let updateData: Partial<typeof gameSessions.$inferInsert>;
 
       if (state.currentAction === "set") {
-        const nextTurnIndex = (state.currentTurnIndex + 1) % state.players.length;
+        // Find the next non-eliminated player to attempt the trick
+        let nextTurnIndex = (state.currentTurnIndex + 1) % state.players.length;
+        let skipAttempts = 0;
+        while (
+          isEliminated(state.players[nextTurnIndex].letters) &&
+          skipAttempts < state.players.length
+        ) {
+          nextTurnIndex = (nextTurnIndex + 1) % state.players.length;
+          skipAttempts++;
+        }
 
         updateData = {
           currentAction: "attempt",
@@ -319,17 +328,38 @@ export async function submitTrick(input: {
         const setterIndex = state.players.findIndex((p) => p.odv === state.setterId);
         const isBackToSetter = nextTurnIndex === setterIndex;
 
-        updateData = {
-          currentTurnIndex: isBackToSetter
-            ? (setterIndex + 1) % state.players.length
-            : nextTurnIndex,
-          currentAction: isBackToSetter ? "set" : "attempt",
-          currentTrick: isBackToSetter ? null : trickName,
-          setterId: isBackToSetter ? null : state.setterId,
-          updatedAt: now,
-          turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS),
-          processedEventIds,
-        };
+        if (isBackToSetter) {
+          // Find the next non-eliminated player to be the new setter
+          let newSetterIndex = (setterIndex + 1) % state.players.length;
+          let skipCount = 0;
+          while (
+            isEliminated(state.players[newSetterIndex].letters) &&
+            skipCount < state.players.length
+          ) {
+            newSetterIndex = (newSetterIndex + 1) % state.players.length;
+            skipCount++;
+          }
+
+          updateData = {
+            currentTurnIndex: newSetterIndex,
+            currentAction: "set",
+            currentTrick: null,
+            setterId: null,
+            updatedAt: now,
+            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+            processedEventIds,
+          };
+        } else {
+          updateData = {
+            currentTurnIndex: nextTurnIndex,
+            currentAction: "attempt",
+            currentTrick: trickName,
+            setterId: state.setterId,
+            updatedAt: now,
+            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+            processedEventIds,
+          };
+        }
       }
 
       const [updated] = await tx

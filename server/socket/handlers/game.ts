@@ -2,7 +2,7 @@
  * S.K.A.T.E. Game Event Handlers
  *
  * Real-time WebSocket handlers for multiplayer S.K.A.T.E. games.
- * Uses Firestore for persistent, race-condition-safe game state.
+ * Uses PostgreSQL for persistent, race-condition-safe game state.
  */
 
 import type { Server, Socket } from "socket.io";
