@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, MapPin, Gamepad2, Trophy, User, ShoppingBag } from "lucide-react";
+import { Home, MapPin, Trophy, User } from "lucide-react";
 import { useIsMobile } from "../../hooks/use-mobile";
 
 interface DashboardLayoutProps {
@@ -10,10 +10,8 @@ interface DashboardLayoutProps {
 const navItems = [
   { label: "Home", href: "/hub", icon: Home },
   { label: "Map", href: "/map", icon: MapPin },
-  { label: "Play", href: "/play", icon: Gamepad2 },
   { label: "Ranks", href: "/leaderboard", icon: Trophy },
   { label: "Profile", href: "/me", icon: User },
-  { label: "Merch", href: "https://skatehubba.store/", icon: ShoppingBag, external: true },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -35,34 +33,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <ul className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = !item.external && location.split("?")[0] === item.href;
+                const isActive = location.split("?")[0] === item.href;
 
                 return (
                   <li key={item.href}>
-                    {item.external ? (
-                      <a
-                        href={item.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors text-neutral-400 hover:bg-neutral-800 hover:text-white"
-                      >
-                        <Icon className="h-5 w-5" aria-hidden="true" />
-                        <span>{item.label}</span>
-                      </a>
-                    ) : (
-                      <Link
-                        href={item.href}
-                        className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-                          isActive
-                            ? "bg-yellow-400/10 text-yellow-400"
-                            : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
-                        }`}
-                        aria-current={isActive ? "page" : undefined}
-                      >
-                        <Icon className="h-5 w-5" aria-hidden="true" />
-                        <span>{item.label}</span>
-                      </Link>
-                    )}
+                    <Link
+                      href={item.href}
+                      className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+                        isActive
+                          ? "bg-yellow-400/10 text-yellow-400"
+                          : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
+                      }`}
+                      aria-current={isActive ? "page" : undefined}
+                    >
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                      <span>{item.label}</span>
+                    </Link>
                   </li>
                 );
               })}
@@ -94,22 +80,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="mx-auto flex max-w-md items-center justify-between px-2 py-2">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const isActive = !item.external && location.split("?")[0] === item.href;
-
-            if (item.external) {
-              return (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex min-w-[64px] flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-medium transition-colors text-neutral-400 hover:text-white"
-                >
-                  <Icon className="h-5 w-5" aria-hidden="true" />
-                  <span>{item.label}</span>
-                </a>
-              );
-            }
+            const isActive = location.split("?")[0] === item.href;
 
             return (
               <Link

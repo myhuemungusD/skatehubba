@@ -1,14 +1,6 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  MapPin,
-  Navigation as NavigationIcon,
-  Plus,
-  Clock,
-  Eye,
-  Search,
-  Loader2,
-} from "lucide-react";
+import { MapPin, Navigation as NavigationIcon, Plus, Eye, Search, Loader2 } from "lucide-react";
 import { type Spot, SPOT_TYPES } from "@shared/schema";
 import { AddSpotModal } from "../components/map/AddSpotModal";
 import { SpotDetailModal } from "../components/map/SpotDetailModal";
@@ -43,11 +35,199 @@ type UserLocationSimple = {
 };
 
 // ============================================================================
-// CONSTANTS
+// DEMO FALLBACK SPOTS
+// Real iconic skate spots shown when the API is unavailable, so the map always
+// looks alive during demos. These are well-known public skateparks.
 // ============================================================================
 
-/** Debounce time for showing error toasts (prevents spam) */
-const TOAST_DEBOUNCE_MS = 10_000;
+const DEMO_SPOTS: Spot[] = [
+  {
+    id: -1,
+    name: "Hubba Hideout",
+    description:
+      "The legendary San Francisco ledge spot. Iconic for ledge tricks and part of skate history.",
+    spotType: "ledge",
+    tier: "legendary",
+    lat: 37.7849,
+    lng: -122.4094,
+    address: "1 Dr Carlton B Goodlett Pl",
+    city: "San Francisco",
+    state: "CA",
+    country: "USA",
+    photoUrl: null,
+    thumbnailUrl: null,
+    createdBy: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    verified: true,
+    isActive: true,
+    checkInCount: 342,
+    rating: 4.9,
+    ratingCount: 127,
+  },
+  {
+    id: -2,
+    name: "MACBA",
+    description:
+      "Museum of Contemporary Art plaza. One of the most famous street spots in the world.",
+    spotType: "street",
+    tier: "legendary",
+    lat: 41.3833,
+    lng: 2.17,
+    address: "Plaça dels Àngels, 1",
+    city: "Barcelona",
+    state: null,
+    country: "Spain",
+    photoUrl: null,
+    thumbnailUrl: null,
+    createdBy: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    verified: true,
+    isActive: true,
+    checkInCount: 518,
+    rating: 4.8,
+    ratingCount: 203,
+  },
+  {
+    id: -3,
+    name: "Venice Beach Skatepark",
+    description: "Iconic oceanside skatepark with snake run, bowls, and street section.",
+    spotType: "park",
+    tier: "gold",
+    lat: 33.985,
+    lng: -118.4725,
+    address: "1800 Ocean Front Walk",
+    city: "Los Angeles",
+    state: "CA",
+    country: "USA",
+    photoUrl: null,
+    thumbnailUrl: null,
+    createdBy: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    verified: true,
+    isActive: true,
+    checkInCount: 891,
+    rating: 4.7,
+    ratingCount: 314,
+  },
+  {
+    id: -4,
+    name: "LES Coleman Park",
+    description: "Lower East Side community skatepark under the Manhattan Bridge.",
+    spotType: "park",
+    tier: "gold",
+    lat: 40.7138,
+    lng: -73.9903,
+    address: "Pike St & Monroe St",
+    city: "New York",
+    state: "NY",
+    country: "USA",
+    photoUrl: null,
+    thumbnailUrl: null,
+    createdBy: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    verified: true,
+    isActive: true,
+    checkInCount: 267,
+    rating: 4.5,
+    ratingCount: 89,
+  },
+  {
+    id: -5,
+    name: "Burnside Skatepark",
+    description: "DIY legend under the Burnside Bridge. Built by skaters, for skaters.",
+    spotType: "diy",
+    tier: "legendary",
+    lat: 45.5228,
+    lng: -122.6654,
+    address: "E Burnside St & SE 2nd Ave",
+    city: "Portland",
+    state: "OR",
+    country: "USA",
+    photoUrl: null,
+    thumbnailUrl: null,
+    createdBy: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    verified: true,
+    isActive: true,
+    checkInCount: 445,
+    rating: 4.8,
+    ratingCount: 167,
+  },
+  {
+    id: -6,
+    name: "FDR Skatepark",
+    description: "Massive DIY skatepark under I-95 in Philadelphia. Deep bowls and transitions.",
+    spotType: "diy",
+    tier: "gold",
+    lat: 39.9131,
+    lng: -75.1821,
+    address: "Pattison Ave & S Broad St",
+    city: "Philadelphia",
+    state: "PA",
+    country: "USA",
+    photoUrl: null,
+    thumbnailUrl: null,
+    createdBy: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    verified: true,
+    isActive: true,
+    checkInCount: 334,
+    rating: 4.6,
+    ratingCount: 112,
+  },
+  {
+    id: -7,
+    name: "Southbank Undercroft",
+    description: "Historic concrete banks and ledges beneath the National Theatre in London.",
+    spotType: "street",
+    tier: "legendary",
+    lat: 51.5065,
+    lng: -0.1164,
+    address: "Belvedere Rd",
+    city: "London",
+    state: null,
+    country: "UK",
+    photoUrl: null,
+    thumbnailUrl: null,
+    createdBy: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    verified: true,
+    isActive: true,
+    checkInCount: 612,
+    rating: 4.7,
+    ratingCount: 241,
+  },
+  {
+    id: -8,
+    name: "Lincoln Memorial Steps",
+    description: "Classic East Coast gap and stair set. A DC staple since the 90s.",
+    spotType: "stairs",
+    tier: "gold",
+    lat: 38.8893,
+    lng: -77.0502,
+    address: "2 Lincoln Memorial Cir NW",
+    city: "Washington",
+    state: "DC",
+    country: "USA",
+    photoUrl: null,
+    thumbnailUrl: null,
+    createdBy: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    verified: true,
+    isActive: true,
+    checkInCount: 156,
+    rating: 4.3,
+    ratingCount: 58,
+  },
+];
 
 // ============================================================================
 // COMPONENT
@@ -65,9 +245,6 @@ export default function MapPage() {
   const [upgradeFeature, setUpgradeFeature] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
-
-  // Track last toast to prevent duplicate error notifications
-  const lastToastRef = useRef<{ type: string; time: number } | null>(null);
 
   // ---------------------------------------------------------------------------
   // Geolocation
@@ -100,10 +277,9 @@ export default function MapPage() {
   const hasDiscoveredRef = useRef(false);
 
   const {
-    data: spots = [],
+    data: apiSpots,
     isLoading: isSpotsLoading,
     isError: isSpotsError,
-    refetch: refetchSpots,
   } = useQuery<Spot[]>({
     queryKey: ["/api/spots"],
     staleTime: 30_000, // Consider fresh for 30 seconds
@@ -111,6 +287,17 @@ export default function MapPage() {
     refetchOnWindowFocus: false,
     retry: 2,
   });
+
+  // Use API spots when available, fall back to demo spots when API fails
+  const spots = useMemo(() => {
+    if (apiSpots && apiSpots.length > 0) return apiSpots;
+    if (isSpotsError || (!isSpotsLoading && (!apiSpots || apiSpots.length === 0))) {
+      return DEMO_SPOTS;
+    }
+    return [];
+  }, [apiSpots, isSpotsError, isSpotsLoading]);
+
+  const isUsingDemoSpots = spots === DEMO_SPOTS;
 
   // Discover nearby skateparks from OpenStreetMap when user location is available
   useEffect(() => {
@@ -225,39 +412,18 @@ export default function MapPage() {
   // Effects
   // ---------------------------------------------------------------------------
 
-  // Debounced toast for geolocation errors - prevents spamming the user
+  // Show a single friendly toast when entering browse mode (geolocation unavailable)
+  const hasShownBrowseToastRef = useRef(false);
   useEffect(() => {
-    const now = Date.now();
-    const lastToast = lastToastRef.current;
-
-    // Skip if we recently showed a toast for this status type
-    if (lastToast?.type === geolocation.status && now - lastToast.time < TOAST_DEBOUNCE_MS) {
-      return;
-    }
-
-    if (geolocation.status === "denied") {
-      lastToastRef.current = { type: "denied", time: now };
+    if (geolocation.status === "browse" && !hasShownBrowseToastRef.current) {
+      hasShownBrowseToastRef.current = true;
       toast({
-        title: "Browse Mode Active",
-        description: "You can explore all spots! Enable location when you're ready to check in.",
-        duration: 5000,
-      });
-    } else if (geolocation.status === "timeout") {
-      lastToastRef.current = { type: "timeout", time: now };
-      toast({
-        title: "Still Finding Your Location",
-        description: "Tap Retry or browse spots while we work on it.",
-        duration: 5000,
-      });
-    } else if (geolocation.status === "error" && geolocation.error) {
-      lastToastRef.current = { type: "error", time: now };
-      toast({
-        title: "Browse Mode",
-        description: "Explore spots now, enable location later to check in.",
-        duration: 5000,
+        title: "Explore Mode",
+        description: "Browse spots around the world. Enable location to check in.",
+        duration: 4000,
       });
     }
-  }, [geolocation.status, geolocation.error, toast]);
+  }, [geolocation.status, toast]);
 
   // ---------------------------------------------------------------------------
   // Render Helpers
@@ -273,98 +439,57 @@ export default function MapPage() {
       );
     }
 
-    if (isSpotsError) {
+    if (isUsingDemoSpots) {
       return (
         <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
           <MapPin className="w-3 h-3" />
-          No spots loaded yet.
-          <Button
-            variant="link"
-            size="sm"
-            onClick={() => refetchSpots()}
-            className="text-[#ff6a00] underline p-0 h-auto ml-1"
-          >
-            Refresh
-          </Button>
+          Showing iconic spots worldwide
         </p>
       );
     }
 
-    switch (geolocation.status) {
-      case "ready":
-        if (filteredSpots.length === 0 && !searchQuery && !activeTypeFilter) {
-          return (
-            <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-              <Search className="w-3 h-3" />
-              No spots nearby yet. Drop a pin to add one!
-            </p>
-          );
-        }
+    if (geolocation.status === "ready") {
+      if (filteredSpots.length === 0 && !searchQuery && !activeTypeFilter) {
         return (
           <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-            <NavigationIcon className="w-3 h-3" />
-            {checkInRangeCount} spot{checkInRangeCount !== 1 ? "s" : ""} in check-in range
+            <Search className="w-3 h-3" />
+            No spots nearby yet. Drop a pin to add one!
           </p>
         );
-
-      case "locating":
-        return (
-          <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            Finding your location...
-          </p>
-        );
-
-      case "browse":
-        return (
-          <p className="text-sm text-blue-400 flex items-center gap-1 mt-1">
-            <Eye className="w-3 h-3" />
-            Browse mode - check-ins disabled
-          </p>
-        );
-
-      case "denied":
-        return (
-          <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-            <Eye className="w-3 h-3" />
-            Browse mode — enable location for check-ins
-          </p>
-        );
-
-      case "timeout":
-        return (
-          <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-            <Clock className="w-3 h-3" />
-            Location pending — tap Retry or browse spots
-          </p>
-        );
-
-      case "error":
-        return (
-          <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-            <Eye className="w-3 h-3" />
-            Browse mode — location unavailable
-          </p>
-        );
-
-      default:
-        return null;
+      }
+      return (
+        <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
+          <NavigationIcon className="w-3 h-3" />
+          {checkInRangeCount} spot{checkInRangeCount !== 1 ? "s" : ""} in check-in range
+        </p>
+      );
     }
+
+    if (geolocation.status === "locating") {
+      return (
+        <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Finding your location...
+        </p>
+      );
+    }
+
+    // Browse mode (default for all geolocation failures)
+    return (
+      <p className="text-sm text-blue-400 flex items-center gap-1 mt-1">
+        <Eye className="w-3 h-3" />
+        Explore mode — tap a spot for details
+      </p>
+    );
   }, [
     isSpotsLoading,
-    isSpotsError,
+    isUsingDemoSpots,
     geolocation.status,
     filteredSpots.length,
     checkInRangeCount,
-    refetchSpots,
     searchQuery,
     activeTypeFilter,
   ]);
-
-  const showRetryButtons =
-    geolocation.status === "denied" ||
-    geolocation.status === "timeout" ||
-    geolocation.status === "error";
 
   // ---------------------------------------------------------------------------
   // Render
@@ -425,29 +550,6 @@ export default function MapPage() {
                   </h1>
                   {renderStatusMessage()}
                 </div>
-
-                {showRetryButtons && (
-                  <div className="flex gap-2" role="group" aria-label="Location options">
-                    <Button
-                      onClick={geolocation.retry}
-                      variant="outline"
-                      size="sm"
-                      className="border-[#ff6a00] text-[#ff6a00] hover:bg-[#ff6a00] hover:text-white"
-                      data-testid="button-retry-location"
-                    >
-                      Retry
-                    </Button>
-                    <Button
-                      onClick={geolocation.browseWithoutLocation}
-                      variant="outline"
-                      size="sm"
-                      className="border-gray-500 text-gray-400 hover:bg-gray-700 hover:text-white"
-                      data-testid="button-browse-mode"
-                    >
-                      Browse
-                    </Button>
-                  </div>
-                )}
               </div>
 
               {/* Search and Filters */}
