@@ -35,7 +35,9 @@ export async function getOnlineUsers(): Promise<string[]> {
       // Scan for all presence keys
       const keys = await redis.keys(`${PRESENCE_KEY_PREFIX}*`);
       return keys.map((key) => key.substring(PRESENCE_KEY_PREFIX.length));
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
   return Array.from(onlineUsersFallback.keys());
 }
@@ -49,7 +51,9 @@ export async function isUserOnline(odv: string): Promise<boolean> {
     try {
       const val = await redis.get(`${PRESENCE_KEY_PREFIX}${odv}`);
       return val !== null;
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
   return onlineUsersFallback.has(odv);
 }
@@ -65,7 +69,9 @@ export async function getUserPresence(odv: string): Promise<PresencePayload | nu
       if (!val) return null;
       const parsed = JSON.parse(val) as { status: "online" | "away"; lastSeen: string };
       return { odv, status: parsed.status, lastSeen: parsed.lastSeen };
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
 
   const presence = onlineUsersFallback.get(odv);
@@ -169,18 +175,29 @@ export async function getPresenceStats(): Promise<{
 
   if (redis) {
     try {
-      const all = await redis.hvals(PRESENCE_HASH);
+      // Get all presence keys
+      const keys = await redis.keys(`${PRESENCE_KEY_PREFIX}*`);
       let online = 0;
       let away = 0;
-      for (const val of all) {
-        try {
-          const parsed = JSON.parse(val) as { status: string };
-          if (parsed.status === "online") online++;
-          else away++;
-        } catch { /* skip malformed entries */ }
+
+      // Get values for all keys
+      if (keys.length > 0) {
+        const values = await redis.mget(...keys);
+        for (const val of values) {
+          if (!val) continue;
+          try {
+            const parsed = JSON.parse(val) as { status: string };
+            if (parsed.status === "online") online++;
+            else away++;
+          } catch {
+            /* skip malformed entries */
+          }
+        }
       }
       return { online, away };
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
 
   let online = 0;
