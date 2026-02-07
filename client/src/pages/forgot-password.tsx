@@ -5,7 +5,7 @@ import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Link } from "wouter";
 import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
-import { resetPassword } from "../lib/firebase/auth.service";
+import { useAuthStore } from "../store/authStore";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -18,7 +18,7 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
-      await resetPassword(email);
+      await useAuthStore.getState().resetPassword(email);
       setIsSuccess(true);
       toast({
         title: "Reset email sent!",
