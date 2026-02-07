@@ -55,7 +55,8 @@ const corsOptions = {
   ) {
     const allowed = process.env.ALLOWED_ORIGINS?.split(",") || [];
     const devOrigins = ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
-    const allAllowed = process.env.NODE_ENV === "production" ? allowed : [...allowed, ...devOrigins];
+    const allAllowed =
+      process.env.NODE_ENV === "production" ? allowed : [...allowed, ...devOrigins];
     // Allow requests with no origin (mobile apps, server-to-server) or matching allowed domains
     if (!origin || allAllowed.indexOf(origin) !== -1) {
       callback(null, true);
@@ -107,10 +108,8 @@ const io = initializeSocketServer(server);
 logger.info("[Server] WebSocket server initialized");
 
 // Health check endpoint with socket stats
-app.get("/api/health", async (_req, res) => {
+app.get("/api/health", async (req, res) => {
   const stats = await getSocketStats();
-app.get("/api/health", (req, res) => {
-  const stats = getSocketStats();
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),

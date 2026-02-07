@@ -5,9 +5,8 @@ import type { CustomUser as _CustomUser } from "../../packages/shared/schema.ts"
 import type { AuthenticatedUser as _AuthenticatedUser } from "../types/express.d.ts";
 import { admin } from "../admin.ts";
 import "../types/express.d.ts";
-import logger from '../logger.ts';
-import { getRedisClient } from "../redis.ts";
 import logger from "../logger.ts";
+import { getRedisClient } from "../redis.ts";
 
 // Re-authentication window (5 minutes)
 const REAUTH_WINDOW_MS = 5 * 60 * 1000;
