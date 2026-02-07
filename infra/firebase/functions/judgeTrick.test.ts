@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { describe, it, expect } from "vitest";
 
 /**
@@ -473,7 +474,7 @@ describe("idempotency", () => {
   });
 
   it("should generate unique idempotency keys", () => {
-    const generateKey = () => `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+    const generateKey = () => crypto.randomUUID();
 
     const keys = new Set<string>();
     for (let i = 0; i < 100; i++) {
