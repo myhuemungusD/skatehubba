@@ -1,4 +1,10 @@
+-- Migration 0003: Create Spots and Check-ins Tables
+-- Description: Creates tables for skate spot locations and user check-ins
+-- Dependencies: None
+-- Rollback: Use 0003_create_spots_table_down.sql
+
 -- Spots table for skate locations
+-- Stores information about skate spots including location, ratings, and metadata
 CREATE TABLE IF NOT EXISTS "spots" (
   "id" serial PRIMARY KEY,
   "name" text NOT NULL,
@@ -24,11 +30,14 @@ CREATE TABLE IF NOT EXISTS "spots" (
 );
 
 -- Indexes for the spots table
+-- These indexes optimize geospatial queries and filtering
 CREATE INDEX IF NOT EXISTS "IDX_spot_location" ON "spots" ("lat", "lng");
 CREATE INDEX IF NOT EXISTS "IDX_spot_city" ON "spots" ("city");
 CREATE INDEX IF NOT EXISTS "IDX_spot_created_by" ON "spots" ("created_by");
 
 -- Filmer request status enum type
+-- Used to track the status of filmer requests for check-ins
+-- Using DO block with exception handling to make this idempotent
 DO $$ BEGIN
   CREATE TYPE filmer_request_status AS ENUM ('pending', 'accepted', 'rejected');
 EXCEPTION
@@ -36,6 +45,8 @@ EXCEPTION
 END $$;
 
 -- Check-ins table for spot visits
+-- Tracks when users visit spots, including AR check-ins and filmer requests
+-- CASCADE on DELETE ensures check-ins are removed when parent spot is deleted
 CREATE TABLE IF NOT EXISTS "check_ins" (
   "id" serial PRIMARY KEY,
   "user_id" varchar(255) NOT NULL,
@@ -50,8 +61,10 @@ CREATE TABLE IF NOT EXISTS "check_ins" (
 );
 
 -- Indexes for check_ins table
+-- These indexes optimize queries for user and spot check-in history
 CREATE INDEX IF NOT EXISTS "IDX_check_ins_user" ON "check_ins" ("user_id");
 CREATE INDEX IF NOT EXISTS "IDX_check_ins_spot" ON "check_ins" ("spot_id");
 
 -- Unique constraint: one check-in per user per spot per day
+-- This prevents duplicate check-ins and ensures data integrity
 CREATE UNIQUE INDEX IF NOT EXISTS "unique_check_in_per_day" ON "check_ins" ("user_id", "spot_id", (DATE("timestamp")));
