@@ -801,10 +801,19 @@ describe("Game State Transitions - Critical Paths", () => {
     });
 
     it("generates unique IDs without sequence key", () => {
+      const nowSpy = vi.spyOn(Date, "now");
+      nowSpy.mockReturnValueOnce(1_700_000_000_000).mockReturnValueOnce(1_700_000_000_500);
+
+      const randomSpy = vi.spyOn(Math, "random");
+      randomSpy.mockReturnValueOnce(0.1).mockReturnValueOnce(0.9);
+
       const id1 = generateEventId("trick", "player-1", "game-1");
       const id2 = generateEventId("trick", "player-1", "game-1");
-      // Without sequence key, includes timestamp + random - very likely different
+
       expect(id1).not.toBe(id2);
+
+      nowSpy.mockRestore();
+      randomSpy.mockRestore();
     });
 
     it("includes type, game, and player in the ID", () => {
