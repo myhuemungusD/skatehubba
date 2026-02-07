@@ -99,13 +99,10 @@ function checkRateLimit(uid: string): void {
 
 /**
  * Verify App Check token if available (soft enforcement)
- * Set to hard enforcement in production by uncommenting the throw
  */
 function verifyAppCheck(context: functions.https.CallableContext): void {
   if (!context.app) {
     console.warn("[Security] Request without App Check token from:", context.auth?.uid);
-    // Uncomment for hard enforcement:
-    // throw new functions.https.HttpsError('failed-precondition', 'App Check verification failed.');
   }
 }
 
