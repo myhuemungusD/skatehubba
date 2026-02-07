@@ -21,15 +21,18 @@ const serverPublicDir = path.join(outputDir, 'public');
 
 if (fs.existsSync(clientDir)) {
   console.log('📂 Copying client assets to server public directory...');
-  
+
   // Remove existing public directory
   if (fs.existsSync(serverPublicDir)) {
-    fs.rmSync(serverPublicDir, { recursive: true });
+    fs.rmSync(serverPublicDir, { recursive: true, force: true });
   }
-  
+
   // Copy client build to server public
   fs.cpSync(clientDir, serverPublicDir, { recursive: true });
   console.log('✅ Client assets copied successfully');
+} else {
+  console.warn('⚠️  Client build not found at', clientDir);
+  console.warn('   Run the client build first, or server will have no static assets.');
 }
 
 // ESBuild configuration for server bundling
@@ -54,6 +57,9 @@ try {
   await build(config);
   console.log('✅ Server built successfully to dist/server/index.js');
 } catch (error) {
-  console.error('❌ Server build failed:', error);
+  console.error('❌ Server build failed.');
+  console.error('   Entry:', config.entryPoints[0]);
+  console.error('   Output:', config.outfile);
+  console.error(error.message || error);
   process.exit(1);
 }

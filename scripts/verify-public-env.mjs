@@ -17,15 +17,15 @@ const allowMissing = process.env.ALLOW_MISSING_PUBLIC_ENV === "true";
 const strict = (isVercel || isProd) && !allowMissing;
 
 const missing = REQUIRED_VITE.filter((key) => !process.env[key]);
-const expoPresent = REQUIRED_VITE.filter((key) => process.env[key.replace("VITE_", "EXPO_PUBLIC_")]);
+const expoEquivalents = REQUIRED_VITE.filter((key) => process.env[key.replace("VITE_", "EXPO_PUBLIC_")]);
 
 if (missing.length > 0) {
   console.error("\n❌ Missing required public env vars for web build (VITE_*):");
   missing.forEach((key) => console.error(`  - ${key}`));
 
-  if (expoPresent.length > 0) {
+  if (expoEquivalents.length > 0) {
     console.error("\n⚠️  EXPO_PUBLIC_* equivalents were found, but Vite expects VITE_*.");
-    expoPresent.forEach((key) =>
+    expoEquivalents.forEach((key) =>
       console.error(`  - ${key} (found ${key.replace("VITE_", "EXPO_PUBLIC_")})`)
     );
   }
@@ -34,6 +34,8 @@ if (missing.length > 0) {
 
   if (strict) {
     process.exit(1);
+  } else {
+    console.warn("⚠️  Non-strict mode: continuing despite missing vars. Build may fail at runtime.\n");
   }
 } else {
   console.log("✅ Public env check passed:");
