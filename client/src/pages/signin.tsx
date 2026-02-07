@@ -32,7 +32,7 @@ export default function SigninPage() {
         // Invalid encoding
       }
     }
-    return "/landing";
+    return "/hub";
   }, []);
 
   // Redirect if already authenticated and profile status is known
@@ -46,7 +46,7 @@ export default function SigninPage() {
       // Preserve next param when redirecting to profile setup
       const nextUrl = getNextUrl();
       const setupUrl =
-        nextUrl !== "/landing"
+        nextUrl !== "/hub"
           ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
           : "/profile/setup";
       setLocation(setupUrl);
