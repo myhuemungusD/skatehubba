@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { CheckCircle, XCircle, Mail } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useToast } from "../hooks/use-toast";
 import { buildApiUrl } from "../lib/api/client";
+
+/** Token must be hex string, max 128 chars (generateSecureToken produces 64) */
+function isValidTokenFormat(token: string): boolean {
+  return token.length > 0 && token.length <= 128 && /^[a-f0-9]+$/i.test(token);
+}
 
 export default function VerifyEmailPage() {
   const [, setLocation] = useLocation();
@@ -15,9 +20,11 @@ export default function VerifyEmailPage() {
   const [message, setMessage] = useState("");
   const hasStarted = useRef(false);
 
-  // Get token from URL params
-  const urlParams = new URLSearchParams(window.location.search);
-  const token = urlParams.get("token");
+  // Memoize token from URL — doesn't change after mount
+  const token = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("token");
+  }, []);
 
   useEffect(() => {
     if (hasStarted.current) return;
@@ -29,9 +36,14 @@ export default function VerifyEmailPage() {
       return;
     }
 
+    if (!isValidTokenFormat(token)) {
+      setVerificationStatus("error");
+      setMessage("Invalid verification link.");
+      return;
+    }
+
     async function verifyToken() {
       try {
-        // Read CSRF token from cookie
         const csrfToken = document.cookie
           .split("; ")
           .find((row) => row.startsWith("csrfToken="))

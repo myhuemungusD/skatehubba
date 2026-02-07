@@ -456,14 +456,24 @@ export function setupAuthRoutes(app: Express) {
 
   /**
    * Verify email address using token (sent via verification email)
-   * Unauthenticated - user clicks link from email
+   * Unauthenticated - user clicks link from email, SPA loads and POSTs token
    */
-  app.post("/api/auth/verify-email", authLimiter, async (req, res) => {
+  app.post("/api/auth/verify-email", authLimiter, requireCsrfToken, async (req, res) => {
+    const ipAddress = getClientIP(req);
+
     try {
       const { token } = req.body;
 
       if (!token || typeof token !== "string") {
         return res.status(400).json({ error: "Verification token is required" });
+      }
+
+      // Validate token format: must be 64-char hex (from generateSecureToken)
+      if (token.length > 128 || !/^[a-f0-9]+$/i.test(token)) {
+        return res.status(400).json({
+          error: "Invalid verification token format.",
+          code: "INVALID_TOKEN",
+        });
       }
 
       const user = await AuthService.verifyEmail(token);
@@ -475,7 +485,13 @@ export function setupAuthRoutes(app: Express) {
         });
       }
 
-      logger.info("Email verified successfully", { userId: user.id, email: user.email });
+      await AuditLogger.log({
+        eventType: "AUTH_EMAIL_VERIFIED" as any,
+        userId: user.id,
+        email: user.email,
+        ipAddress,
+        success: true,
+      });
 
       res.json({
         success: true,
@@ -508,7 +524,7 @@ export function setupAuthRoutes(app: Express) {
       await AuthService.updateUser(user.id, {
         emailVerificationToken: token,
         emailVerificationExpires: expiry,
-      } as any);
+      });
 
       // NOTE: Email delivery is handled by Firebase's sendEmailVerification on the client side.
       // This endpoint regenerates the server-side token for audit/backup verification.

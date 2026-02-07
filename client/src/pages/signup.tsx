@@ -132,6 +132,7 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
+                    autoComplete="email"
                     className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                     data-testid="input-signup-email"
                   />
@@ -148,6 +149,8 @@ export default function SignupPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     minLength={PASSWORD_MIN_LENGTH}
+                    autoComplete="new-password"
+                    aria-describedby="password-feedback"
                     className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                     data-testid="input-signup-password"
                   />
@@ -161,8 +164,15 @@ export default function SignupPage() {
                   </button>
                 </div>
                 {password && (
-                  <div className="space-y-1">
-                    <div className="flex gap-1">
+                  <div className="space-y-1" id="password-feedback" aria-live="polite">
+                    <div
+                      className="flex gap-1"
+                      role="meter"
+                      aria-label="Password strength"
+                      aria-valuenow={strength.score}
+                      aria-valuemin={0}
+                      aria-valuemax={5}
+                    >
                       {[1, 2, 3, 4, 5].map((i) => (
                         <div
                           key={i}
@@ -173,7 +183,9 @@ export default function SignupPage() {
                       ))}
                     </div>
                     {passwordError ? (
-                      <p className="text-xs text-red-400">{passwordError}</p>
+                      <p className="text-xs text-red-400" role="alert">
+                        {passwordError}
+                      </p>
                     ) : (
                       <p
                         className={`text-xs ${strength.score >= 4 ? "text-green-400" : "text-gray-400"}`}
