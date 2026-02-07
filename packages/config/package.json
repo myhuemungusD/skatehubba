@@ -12,13 +12,15 @@
     "./firebase": "./src/firebase.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --config ../vitest.config.mts --dir ."
   },
   "dependencies": {
     "firebase": "^11.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.4",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.0.18"
   }
 }
