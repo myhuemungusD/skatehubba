@@ -40,7 +40,7 @@ export interface HoldDoc {
   expiredAt?: Timestamp;
 }
 
-export type OrderStatus = "pending" | "paid" | "fulfilled" | "refunded" | "canceled";
+export type OrderStatus = "pending" | "paid" | "fulfilled" | "refunded" | "disputed" | "canceled";
 
 export interface OrderDoc {
   uid: string;
@@ -57,6 +57,8 @@ export interface OrderDoc {
   updatedAt: Timestamp;
   paidAt?: Timestamp;
   canceledAt?: Timestamp;
+  disputedAt?: Timestamp;
+  refundedAt?: Timestamp;
 }
 
 export interface ProductDoc {
