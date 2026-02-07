@@ -2,7 +2,7 @@
  * Presence Handler
  *
  * Tracks user online/offline status across the platform.
- * Uses Redis Hash for shared presence state across instances.
+ * Uses Redis individual keys with TTL for shared presence state across instances.
  * Falls back to in-memory Map when Redis is unavailable.
  */
 
@@ -19,7 +19,7 @@ import { getRedisClient } from "../../redis";
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
-const PRESENCE_HASH = "presence:users";
+const PRESENCE_KEY_PREFIX = "presence:user:";
 const PRESENCE_TTL = 300; // 5-minute TTL per user entry (heartbeat refreshes)
 
 // Fallback in-memory store when Redis is unavailable
@@ -32,8 +32,9 @@ export async function getOnlineUsers(): Promise<string[]> {
   const redis = getRedisClient();
   if (redis) {
     try {
-      const all = await redis.hkeys(PRESENCE_HASH);
-      return all;
+      // Scan for all presence keys
+      const keys = await redis.keys(`${PRESENCE_KEY_PREFIX}*`);
+      return keys.map((key) => key.substring(PRESENCE_KEY_PREFIX.length));
     } catch { /* fall through */ }
   }
   return Array.from(onlineUsersFallback.keys());
@@ -46,7 +47,7 @@ export async function isUserOnline(odv: string): Promise<boolean> {
   const redis = getRedisClient();
   if (redis) {
     try {
-      const val = await redis.hget(PRESENCE_HASH, odv);
+      const val = await redis.get(`${PRESENCE_KEY_PREFIX}${odv}`);
       return val !== null;
     } catch { /* fall through */ }
   }
@@ -60,7 +61,7 @@ export async function getUserPresence(odv: string): Promise<PresencePayload | nu
   const redis = getRedisClient();
   if (redis) {
     try {
-      const val = await redis.hget(PRESENCE_HASH, odv);
+      const val = await redis.get(`${PRESENCE_KEY_PREFIX}${odv}`);
       if (!val) return null;
       const parsed = JSON.parse(val) as { status: "online" | "away"; lastSeen: string };
       return { odv, status: parsed.status, lastSeen: parsed.lastSeen };
@@ -86,7 +87,7 @@ function setPresence(odv: string, status: "online" | "away"): void {
 
   if (redis) {
     const val = JSON.stringify({ status, lastSeen: now.toISOString() });
-    redis.hset(PRESENCE_HASH, odv, val).catch(() => {});
+    redis.set(`${PRESENCE_KEY_PREFIX}${odv}`, val, "EX", PRESENCE_TTL).catch(() => {});
   } else {
     onlineUsersFallback.set(odv, { status, lastSeen: now });
   }
@@ -98,7 +99,7 @@ function setPresence(odv: string, status: "online" | "away"): void {
 function removePresence(odv: string): void {
   const redis = getRedisClient();
   if (redis) {
-    redis.hdel(PRESENCE_HASH, odv).catch(() => {});
+    redis.del(`${PRESENCE_KEY_PREFIX}${odv}`).catch(() => {});
   } else {
     onlineUsersFallback.delete(odv);
   }

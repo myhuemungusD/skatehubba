@@ -635,7 +635,18 @@ const SidebarMenuSkeleton = React.forwardRef<
 >(({ className, showIcon = false, ...props }, ref) => {
   // Random width between 50 to 90%.
   const width = React.useMemo(() => {
-    return `${(crypto.getRandomValues(new Uint8Array(1))[0] % 41) + 50}%`;
+    const randomBytes = new Uint8Array(1);
+    let value: number;
+
+    // Use rejection sampling to avoid modulo bias when mapping a byte to 41 values.
+    // 246 is the largest multiple of 41 less than 256 (41 * 6 = 246).
+    do {
+      crypto.getRandomValues(randomBytes);
+      value = randomBytes[0];
+    } while (value >= 246);
+
+    const randomWidth = (value % 41) + 50;
+    return `${randomWidth}%`;
   }, []);
 
   return (

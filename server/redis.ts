@@ -17,13 +17,17 @@ import Redis from "ioredis";
 import logger from "./logger.ts";
 
 let redis: Redis | null = null;
+let warnedNoRedisUrl = false;
 
 export function getRedisClient(): Redis | null {
   if (redis) return redis;
 
   const url = process.env.REDIS_URL;
   if (!url) {
-    logger.warn("[Redis] REDIS_URL not set — falling back to in-memory stores. Set REDIS_URL for production.");
+    if (!warnedNoRedisUrl) {
+      logger.warn("[Redis] REDIS_URL not set — falling back to in-memory stores. Set REDIS_URL for production.");
+      warnedNoRedisUrl = true;
+    }
     return null;
   }
 

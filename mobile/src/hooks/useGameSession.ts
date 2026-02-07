@@ -4,6 +4,7 @@ import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp } from "firebase
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { z } from "zod";
+import * as Crypto from "expo-crypto";
 import { db, storage, auth, functions } from "@/lib/firebase.config";
 import { showMessage } from "react-native-flash-message";
 import { useGameStore } from "@/store/gameStore";
@@ -16,7 +17,7 @@ const RETRY_DELAYS: readonly [number, number, number] = [2000, 4000, 8000];
 
 /** Generate a unique idempotency key for deduplication */
 function generateIdempotencyKey(): string {
-  return crypto.randomUUID();
+  return Crypto.randomUUID();
 }
 
 const gameKeys = {

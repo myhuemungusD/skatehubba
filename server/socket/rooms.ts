@@ -20,6 +20,25 @@ import type {
 import { getRedisClient } from "../redis";
 
 const ROOM_KEY_PREFIX = "room:";
+const ROOM_TTL = 3600; // 1 hour TTL for room keys, refreshed on activity
+
+// Lua script for atomic capacity check + add
+// Returns 1 if member was added, 0 if room is full
+const JOIN_ROOM_SCRIPT = `
+  local key = KEYS[1]
+  local member = ARGV[1]
+  local limit = tonumber(ARGV[2])
+  local ttl = tonumber(ARGV[3])
+  
+  local count = redis.call('SCARD', key)
+  if count >= limit then
+    return 0
+  end
+  
+  redis.call('SADD', key, member)
+  redis.call('EXPIRE', key, ttl)
+  return 1
+`;
 
 // Fallback active rooms registry
 const roomsFallback = new Map<string, RoomInfo>();
@@ -108,35 +127,55 @@ export async function joinRoom(
 ): Promise<boolean> {
   const data = socket.data as SocketData;
   const roomId = getRoomId(type, id);
-
-  // Check room capacity
-  const memberCount = await getRoomMemberCount(roomId);
-  if (memberCount >= ROOM_LIMITS[type]) {
-    logger.warn("[Socket] Room full", { roomId, odv: data.odv });
-    socket.emit("error", { code: "room_full", message: "This room is full" });
-    return false;
-  }
+  const limit = ROOM_LIMITS[type];
 
   // Join socket.io room
   await socket.join(roomId);
 
-  // Track membership in Redis
+  // Track membership in Redis with atomic capacity check
   const redis = getRedisClient();
   if (redis) {
     try {
-      await redis.sadd(`${ROOM_KEY_PREFIX}${roomId}`, data.odv);
-    } catch { /* fall through to fallback */ }
+      const result = await redis.eval(
+        JOIN_ROOM_SCRIPT,
+        1,
+        `${ROOM_KEY_PREFIX}${roomId}`,
+        data.odv,
+        limit.toString(),
+        ROOM_TTL.toString()
+      );
+      
+      if (result === 0) {
+        // Room is full
+        await socket.leave(roomId);
+        logger.warn("[Socket] Room full", { roomId, odv: data.odv });
+        socket.emit("error", { code: "room_full", message: "This room is full" });
+        return false;
+      }
+    } catch (err) {
+      logger.error("[Socket] Redis error in joinRoom", { error: String(err) });
+      // Fall through to fallback check
+    }
   }
 
   // Always track in fallback for local stats
   const room = getOrCreateRoomFallback(type, id);
+  
+  // Check capacity in fallback if Redis failed
+  if (!redis && room.members.size >= limit) {
+    await socket.leave(roomId);
+    logger.warn("[Socket] Room full", { roomId, odv: data.odv });
+    socket.emit("error", { code: "room_full", message: "This room is full" });
+    return false;
+  }
+  
   room.members.add(data.odv);
   data.rooms.add(roomId);
 
   logger.info("[Socket] Joined room", {
     roomId,
     odv: data.odv,
-    memberCount: memberCount + 1,
+    memberCount: room.members.size,
   });
 
   return true;
@@ -161,7 +200,16 @@ export async function leaveRoom(
   if (redis) {
     try {
       await redis.srem(`${ROOM_KEY_PREFIX}${roomId}`, data.odv);
-    } catch { /* fall through */ }
+      
+      // Clean up empty room sets
+      const count = await redis.scard(`${ROOM_KEY_PREFIX}${roomId}`);
+      if (count === 0) {
+        await redis.del(`${ROOM_KEY_PREFIX}${roomId}`);
+        logger.debug("[Socket] Deleted empty Redis room set", { roomId });
+      }
+    } catch (err) {
+      logger.error("[Socket] Redis error in leaveRoom", { error: String(err) });
+    }
   }
 
   // Update fallback tracking

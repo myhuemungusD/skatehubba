@@ -227,8 +227,14 @@ export const requireRecentAuth = async (req: Request, res: Response, next: NextF
   let isRecent = false;
 
   if (redis) {
-    const val = await redis.get(`${REAUTH_KEY_PREFIX}${userId}`);
-    isRecent = val !== null;
+    try {
+      const val = await redis.get(`${REAUTH_KEY_PREFIX}${userId}`);
+      isRecent = val !== null;
+    } catch (err) {
+      logger.error("[Auth] Redis error in requireRecentAuth, falling back to memory", { error: String(err) });
+      const lastAuth = recentAuthsFallback.get(userId);
+      isRecent = !!lastAuth && Date.now() - lastAuth <= REAUTH_WINDOW_MS;
+    }
   } else {
     const lastAuth = recentAuthsFallback.get(userId);
     isRecent = !!lastAuth && Date.now() - lastAuth <= REAUTH_WINDOW_MS;
@@ -255,7 +261,13 @@ export function recordRecentAuth(userId: string): void {
   const redis = getRedisClient();
 
   if (redis) {
-    redis.set(`${REAUTH_KEY_PREFIX}${userId}`, String(Date.now()), "EX", REAUTH_TTL_SECONDS);
+    redis
+      .set(`${REAUTH_KEY_PREFIX}${userId}`, String(Date.now()), "EX", REAUTH_TTL_SECONDS)
+      .catch((err) => {
+        logger.error("[Auth] Redis error in recordRecentAuth", { error: String(err) });
+        // Fallback to in-memory on error
+        recentAuthsFallback.set(userId, Date.now());
+      });
   } else {
     recentAuthsFallback.set(userId, Date.now());
 
@@ -281,7 +293,9 @@ export function clearRecentAuth(userId: string): void {
   const redis = getRedisClient();
 
   if (redis) {
-    redis.del(`${REAUTH_KEY_PREFIX}${userId}`);
+    redis.del(`${REAUTH_KEY_PREFIX}${userId}`).catch((err) => {
+      logger.error("[Auth] Redis error in clearRecentAuth", { error: String(err) });
+    });
   } else {
     recentAuthsFallback.delete(userId);
   }

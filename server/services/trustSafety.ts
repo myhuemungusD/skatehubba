@@ -158,7 +158,16 @@ export const createRedisRateLimiter = (
       }
 
       const ttl = await redis.ttl(redisKey);
-      const resetAt = now + ttl * 1000;
+      
+      // Handle missing or no-expire keys
+      let effectiveTtlSeconds = ttl;
+      if (effectiveTtlSeconds < 0) {
+        // Key has no TTL (-1) or does not exist (-2); enforce windowSeconds as TTL
+        await redis.expire(redisKey, windowSeconds);
+        effectiveTtlSeconds = windowSeconds;
+      }
+      
+      const resetAt = now + effectiveTtlSeconds * 1000;
       const allowed = count <= options.max;
 
       return {
