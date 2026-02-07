@@ -43,6 +43,9 @@
   --gray-900: 17 24 39;
   --gray-950: 3 7 18;
   
+  /* Focus / Accent — used by :focus-visible outlines and skip-link */
+  --orange: #f97316;
+
   /* Semantic Colors - WCAG AA Compliant */
   --white: 255 255 255;
   --black: 0 0 0;

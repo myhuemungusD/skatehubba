@@ -78,7 +78,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
 
-    if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    if (
+      Number.isNaN(lat) ||
+      Number.isNaN(lng) ||
+      lat < -90 ||
+      lat > 90 ||
+      lng < -180 ||
+      lng > 180
+    ) {
       return res.status(400).json({ message: "Valid lat and lng query parameters are required" });
     }
 
@@ -239,19 +246,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     spotId: z.number().int().optional(),
   });
 
-  app.post("/api/posts", authenticateUser, requirePaidOrPro, enforceTrustAction("post"), async (req, res) => {
-    const parsed = postSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
-    }
+  app.post(
+    "/api/posts",
+    authenticateUser,
+    requirePaidOrPro,
+    enforceTrustAction("post"),
+    async (req, res) => {
+      const parsed = postSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
+      }
 
-    if (!req.currentUser?.id) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+      if (!req.currentUser?.id) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
-    const post = await createPost(req.currentUser.id, parsed.data);
-    return res.status(201).json({ postId: post.id });
-  });
+      const post = await createPost(req.currentUser.id, parsed.data);
+      return res.status(201).json({ postId: post.id });
+    }
+  );
 
   app.post(
     "/api/spots/check-in",
@@ -467,7 +480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/users", authenticateUser, async (req, res) => {
+  app.get("/api/users", authenticateUser, async (_req, res) => {
     if (!isDatabaseAvailable()) {
       return res.json([]);
     }

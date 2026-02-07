@@ -1,12 +1,13 @@
 import crypto from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { AuthService } from "./service.ts";
-import type { CustomUser } from "../../packages/shared/schema.ts";
-import type { AuthenticatedUser } from "../types/express.d.ts";
+import type { CustomUser as _CustomUser } from "../../packages/shared/schema.ts";
+import type { AuthenticatedUser as _AuthenticatedUser } from "../types/express.d.ts";
 import { admin } from "../admin.ts";
 import "../types/express.d.ts";
 import logger from '../logger.ts';
 import { getRedisClient } from "../redis.ts";
+import logger from "../logger.ts";
 
 // Re-authentication window (5 minutes)
 const REAUTH_WINDOW_MS = 5 * 60 * 1000;
@@ -36,10 +37,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
   try {
     // Dev-only admin bypass — allows e2e testing without Firebase auth
     // BLOCKED in production: only active when NODE_ENV !== "production"
-    if (
-      process.env.NODE_ENV !== "production" &&
-      req.headers["x-dev-admin"] === "true"
-    ) {
+    if (process.env.NODE_ENV !== "production" && req.headers["x-dev-admin"] === "true") {
       req.currentUser = {
         id: "dev-admin-000",
         firebaseUid: "dev-admin-uid",
@@ -151,7 +149,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
  * @param res - Express response object
  * @param next - Express next function
  */
-export const optionalAuthentication = async (req: Request, res: Response, next: NextFunction) => {
+export const optionalAuthentication = async (req: Request, _res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {

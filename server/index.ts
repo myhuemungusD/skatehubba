@@ -12,6 +12,7 @@ import cookieParser from "cookie-parser";
 import logger from "./logger.ts";
 import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { apiLimiter, staticFileLimiter, securityMiddleware } from "./middleware/security.ts";
+import { requestTracing } from "./middleware/requestTracing.ts";
 import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
 import { initializeDatabase } from "./db.ts";
 import { getRedisClient, shutdownRedis } from "./redis.ts";
@@ -21,6 +22,9 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
+
+// Request tracing — generate/propagate request ID before anything else
+app.use(requestTracing);
 
 // Security middleware
 if (process.env.NODE_ENV === "production") {
@@ -105,9 +109,12 @@ logger.info("[Server] WebSocket server initialized");
 // Health check endpoint with socket stats
 app.get("/api/health", async (_req, res) => {
   const stats = await getSocketStats();
+app.get("/api/health", (req, res) => {
+  const stats = getSocketStats();
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
+    requestId: req.requestId,
     websocket: {
       connections: stats.connections,
       rooms: stats.rooms.totalRooms,

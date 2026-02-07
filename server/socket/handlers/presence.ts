@@ -107,7 +107,7 @@ function removePresence(odv: string): void {
 /**
  * Register presence handlers
  */
-export function registerPresenceHandlers(io: TypedServer, socket: TypedSocket): void {
+export function registerPresenceHandlers(_io: TypedServer, socket: TypedSocket): void {
   const data = socket.data as SocketData;
 
   // Join user's personal room for direct messages
@@ -141,7 +141,7 @@ export function registerPresenceHandlers(io: TypedServer, socket: TypedSocket): 
 /**
  * Handle user disconnect
  */
-export function handlePresenceDisconnect(io: TypedServer, socket: TypedSocket): void {
+export function handlePresenceDisconnect(_io: TypedServer, socket: TypedSocket): void {
   const data = socket.data as SocketData;
 
   // Mark offline
