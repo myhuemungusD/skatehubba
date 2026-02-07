@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from "react";
 
-export type GeolocationStatus = 'idle' | 'locating' | 'ready' | 'denied' | 'timeout' | 'error' | 'browse';
+export type GeolocationStatus = "idle" | "locating" | "ready" | "browse";
 
 export interface GeolocationState {
   latitude: number | null;
@@ -8,7 +8,7 @@ export interface GeolocationState {
   accuracy: number | null;
   status: GeolocationStatus;
   error: string | null;
-  errorCode: 'denied' | 'timeout' | 'unavailable' | 'unsupported' | null;
+  errorCode: "denied" | "timeout" | "unavailable" | "unsupported" | null;
 }
 
 export function useGeolocation(watch = true) {
@@ -16,61 +16,66 @@ export function useGeolocation(watch = true) {
     latitude: null,
     longitude: null,
     accuracy: null,
-    status: 'idle',
+    status: "idle",
     error: null,
     errorCode: null,
   });
 
+  const enterBrowseMode = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      status: "browse",
+      error: null,
+    }));
+  }, []);
+
   const requestLocation = useCallback(() => {
     if (!navigator.geolocation) {
-      setState(prev => ({
+      // No geolocation support — silently enter browse mode instead of showing error
+      setState((prev) => ({
         ...prev,
-        status: 'error',
-        error: 'Geolocation is not supported by your browser',
-        errorCode: 'unsupported',
+        status: "browse",
+        error: null,
+        errorCode: "unsupported",
       }));
       return;
     }
 
-    setState(prev => ({ ...prev, status: 'locating', error: null, errorCode: null }));
+    setState((prev) => ({ ...prev, status: "locating", error: null, errorCode: null }));
 
     const onSuccess: PositionCallback = (position) => {
       setState({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
-        status: 'ready',
+        status: "ready",
         error: null,
         errorCode: null,
       });
     };
 
     const onError: PositionErrorCallback = (error) => {
-      let errorMessage = 'Failed to get your location';
-      let status: GeolocationStatus = 'error';
-      let errorCode: GeolocationState['errorCode'] = null;
+      // On any geolocation failure, auto-enter browse mode so the user sees a
+      // working map instead of a red error banner. The map is fully usable
+      // without user location — check-ins are the only thing that requires it.
+      let errorCode: GeolocationState["errorCode"] = null;
 
       switch (error.code) {
         case error.PERMISSION_DENIED:
-          errorMessage = 'Location access was denied. Check your browser settings to enable location.';
-          status = 'denied';
-          errorCode = 'denied';
+          errorCode = "denied";
           break;
         case error.POSITION_UNAVAILABLE:
-          errorMessage = 'Your location could not be determined. GPS signal may be weak.';
-          errorCode = 'unavailable';
+          errorCode = "unavailable";
           break;
         case error.TIMEOUT:
-          errorMessage = 'Location request timed out. Your device may need more time to get a GPS fix.';
-          status = 'timeout';
-          errorCode = 'timeout';
+          errorCode = "timeout";
           break;
       }
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
-        status,
-        error: errorMessage,
+        status: "browse",
+        error: null,
         errorCode,
       }));
     };
@@ -89,14 +94,6 @@ export function useGeolocation(watch = true) {
     }
   }, [watch]);
 
-  const enterBrowseMode = useCallback(() => {
-    setState(prev => ({
-      ...prev,
-      status: 'browse',
-      error: null,
-    }));
-  }, []);
-
   useEffect(() => {
     const cleanup = requestLocation();
     return cleanup;
@@ -106,7 +103,7 @@ export function useGeolocation(watch = true) {
     ...state,
     retry: requestLocation,
     browseWithoutLocation: enterBrowseMode,
-    isBrowseMode: state.status === 'browse',
-    hasLocation: state.status === 'ready' && state.latitude !== null,
+    isBrowseMode: state.status === "browse",
+    hasLocation: state.status === "ready" && state.latitude !== null,
   };
 }

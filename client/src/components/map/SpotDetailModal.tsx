@@ -64,6 +64,8 @@ interface SpotDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   userLocation?: { lat: number; lng: number } | null;
+  /** When true, disables mutations (rating, check-in, share link). Used for demo spots. */
+  readOnly?: boolean;
 }
 
 export function SpotDetailModal({
@@ -72,6 +74,7 @@ export function SpotDetailModal({
   isOpen,
   onClose,
   userLocation,
+  readOnly = false,
 }: SpotDetailModalProps) {
   const { toast } = useToast();
   const [userRating, setUserRating] = useState<number>(0);
@@ -90,7 +93,7 @@ export function SpotDetailModal({
       const response = await apiRequest("GET", `/api/spots/${spotId}`);
       return response.json();
     },
-    enabled: isOpen && spotId !== null && !initialSpot,
+    enabled: isOpen && spotId !== null && !initialSpot && !readOnly,
     // Use initialSpot as initial data if available
     initialData: initialSpot ?? undefined,
   });
@@ -303,40 +306,42 @@ export function SpotDetailModal({
                 </div>
               </div>
 
-              {/* Rating Input */}
-              <div className="space-y-3">
-                <div className="text-sm text-gray-400">Rate this spot:</div>
-                <div className="flex items-center gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button
-                      key={star}
-                      onClick={() => {
-                        setUserRating(star);
-                        rateMutation.mutate(star);
-                      }}
-                      onMouseEnter={() => setHoverRating(star)}
-                      onMouseLeave={() => setHoverRating(0)}
-                      disabled={rateMutation.isPending}
-                      className="p-1 transition-transform hover:scale-110 disabled:opacity-50"
-                    >
-                      <Star
-                        className={`w-8 h-8 ${
-                          star <= (hoverRating || userRating)
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-gray-600"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                  {rateMutation.isPending && (
-                    <Loader2 className="w-5 h-5 ml-2 animate-spin text-gray-400" />
-                  )}
+              {/* Rating Input — disabled for demo spots */}
+              {!readOnly && (
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-400">Rate this spot:</div>
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => {
+                          setUserRating(star);
+                          rateMutation.mutate(star);
+                        }}
+                        onMouseEnter={() => setHoverRating(star)}
+                        onMouseLeave={() => setHoverRating(0)}
+                        disabled={rateMutation.isPending}
+                        className="p-1 transition-transform hover:scale-110 disabled:opacity-50"
+                      >
+                        <Star
+                          className={`w-8 h-8 ${
+                            star <= (hoverRating || userRating)
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-gray-600"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                    {rateMutation.isPending && (
+                      <Loader2 className="w-5 h-5 ml-2 animate-spin text-gray-400" />
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              {/* Actions */}
+              {/* Actions — check-in and share disabled for demo spots */}
               <div className="flex gap-3">
-                {spot && (
+                {spot && !readOnly && (
                   <CheckInButton
                     spotId={spot.id}
                     spotName={spot.name}
@@ -349,13 +354,26 @@ export function SpotDetailModal({
                   />
                 )}
 
-                <Button
-                  variant="outline"
-                  onClick={handleShare}
-                  className="border-neutral-700 text-white hover:bg-neutral-800"
-                >
-                  <Share2 className="w-4 h-4" />
-                </Button>
+                {!readOnly && (
+                  <Button
+                    variant="outline"
+                    onClick={handleShare}
+                    className="border-neutral-700 text-white hover:bg-neutral-800"
+                  >
+                    <Share2 className="w-4 h-4" />
+                  </Button>
+                )}
+
+                {readOnly && (
+                  <Button
+                    variant="outline"
+                    onClick={openInMaps}
+                    className="flex-1 border-neutral-700 text-white hover:bg-neutral-800"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open in Google Maps
+                  </Button>
+                )}
               </div>
 
               {/* Meta info */}
