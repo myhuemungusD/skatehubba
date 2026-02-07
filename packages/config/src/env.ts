@@ -247,20 +247,9 @@ export function getFeatureFlags() {
  * Call this at app startup
  */
 export function validateEnv(): void {
-  const required = [
-    "EXPO_PUBLIC_FIREBASE_API_KEY",
-    "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
-    "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
-    "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
-    "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-    "EXPO_PUBLIC_FIREBASE_APP_ID",
-  ];
-
-  const missing = required.filter((name) => !readEnv(name));
-
   // In production we still allow fallback to hardcoded config to avoid total outage.
   // Missing vars (if any) are expected in local dev when relying on hardcoded fallback.
-  // This validation is informational only - the app continues either way.
+  // This validation is informational only - the app continues with hardcoded config if needed.
 }
 
 /**
