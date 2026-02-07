@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation, useSearch } from "wouter";
-import { AlertTriangle, CheckCircle, Loader2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, Loader2, XCircle, Mail } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -386,6 +386,19 @@ export default function ProfileSetup() {
             Lock in a unique handle and show the crew how you skate. This only happens once.
           </p>
         </header>
+
+        {!auth.isEmailVerified && (
+          <div className="mt-4 flex items-start gap-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3">
+            <Mail className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-orange-300">Verify your email</p>
+              <p className="text-xs text-neutral-400">
+                Check your inbox for a verification link. Some features (like adding spots) require
+                a verified email.
+              </p>
+            </div>
+          </div>
+        )}
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
           <div className="space-y-2">
