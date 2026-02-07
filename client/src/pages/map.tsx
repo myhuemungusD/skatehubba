@@ -13,6 +13,7 @@ import { useGeolocation } from "../hooks/useGeolocation";
 import { useAccountTier } from "../hooks/useAccountTier";
 import { UpgradePrompt } from "../components/UpgradePrompt";
 import { calculateDistance, getProximity } from "../lib/distance";
+import { DEMO_SPOTS, isDemoSpot } from "../lib/demo-data";
 
 // ============================================================================
 // TYPES
@@ -33,201 +34,6 @@ type UserLocationSimple = {
   lat: number;
   lng: number;
 };
-
-// ============================================================================
-// DEMO FALLBACK SPOTS
-// Real iconic skate spots shown when the API is unavailable, so the map always
-// looks alive during demos. These are well-known public skateparks.
-// ============================================================================
-
-const DEMO_SPOTS: Spot[] = [
-  {
-    id: -1,
-    name: "Hubba Hideout",
-    description:
-      "The legendary San Francisco ledge spot. Iconic for ledge tricks and part of skate history.",
-    spotType: "ledge",
-    tier: "legendary",
-    lat: 37.7849,
-    lng: -122.4094,
-    address: "1 Dr Carlton B Goodlett Pl",
-    city: "San Francisco",
-    state: "CA",
-    country: "USA",
-    photoUrl: null,
-    thumbnailUrl: null,
-    createdBy: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    verified: true,
-    isActive: true,
-    checkInCount: 342,
-    rating: 4.9,
-    ratingCount: 127,
-  },
-  {
-    id: -2,
-    name: "MACBA",
-    description:
-      "Museum of Contemporary Art plaza. One of the most famous street spots in the world.",
-    spotType: "street",
-    tier: "legendary",
-    lat: 41.3833,
-    lng: 2.17,
-    address: "Plaça dels Àngels, 1",
-    city: "Barcelona",
-    state: null,
-    country: "Spain",
-    photoUrl: null,
-    thumbnailUrl: null,
-    createdBy: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    verified: true,
-    isActive: true,
-    checkInCount: 518,
-    rating: 4.8,
-    ratingCount: 203,
-  },
-  {
-    id: -3,
-    name: "Venice Beach Skatepark",
-    description: "Iconic oceanside skatepark with snake run, bowls, and street section.",
-    spotType: "park",
-    tier: "gold",
-    lat: 33.985,
-    lng: -118.4725,
-    address: "1800 Ocean Front Walk",
-    city: "Los Angeles",
-    state: "CA",
-    country: "USA",
-    photoUrl: null,
-    thumbnailUrl: null,
-    createdBy: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    verified: true,
-    isActive: true,
-    checkInCount: 891,
-    rating: 4.7,
-    ratingCount: 314,
-  },
-  {
-    id: -4,
-    name: "LES Coleman Park",
-    description: "Lower East Side community skatepark under the Manhattan Bridge.",
-    spotType: "park",
-    tier: "gold",
-    lat: 40.7138,
-    lng: -73.9903,
-    address: "Pike St & Monroe St",
-    city: "New York",
-    state: "NY",
-    country: "USA",
-    photoUrl: null,
-    thumbnailUrl: null,
-    createdBy: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    verified: true,
-    isActive: true,
-    checkInCount: 267,
-    rating: 4.5,
-    ratingCount: 89,
-  },
-  {
-    id: -5,
-    name: "Burnside Skatepark",
-    description: "DIY legend under the Burnside Bridge. Built by skaters, for skaters.",
-    spotType: "diy",
-    tier: "legendary",
-    lat: 45.5228,
-    lng: -122.6654,
-    address: "E Burnside St & SE 2nd Ave",
-    city: "Portland",
-    state: "OR",
-    country: "USA",
-    photoUrl: null,
-    thumbnailUrl: null,
-    createdBy: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    verified: true,
-    isActive: true,
-    checkInCount: 445,
-    rating: 4.8,
-    ratingCount: 167,
-  },
-  {
-    id: -6,
-    name: "FDR Skatepark",
-    description: "Massive DIY skatepark under I-95 in Philadelphia. Deep bowls and transitions.",
-    spotType: "diy",
-    tier: "gold",
-    lat: 39.9131,
-    lng: -75.1821,
-    address: "Pattison Ave & S Broad St",
-    city: "Philadelphia",
-    state: "PA",
-    country: "USA",
-    photoUrl: null,
-    thumbnailUrl: null,
-    createdBy: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    verified: true,
-    isActive: true,
-    checkInCount: 334,
-    rating: 4.6,
-    ratingCount: 112,
-  },
-  {
-    id: -7,
-    name: "Southbank Undercroft",
-    description: "Historic concrete banks and ledges beneath the National Theatre in London.",
-    spotType: "street",
-    tier: "legendary",
-    lat: 51.5065,
-    lng: -0.1164,
-    address: "Belvedere Rd",
-    city: "London",
-    state: null,
-    country: "UK",
-    photoUrl: null,
-    thumbnailUrl: null,
-    createdBy: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    verified: true,
-    isActive: true,
-    checkInCount: 612,
-    rating: 4.7,
-    ratingCount: 241,
-  },
-  {
-    id: -8,
-    name: "Lincoln Memorial Steps",
-    description: "Classic East Coast gap and stair set. A DC staple since the 90s.",
-    spotType: "stairs",
-    tier: "gold",
-    lat: 38.8893,
-    lng: -77.0502,
-    address: "2 Lincoln Memorial Cir NW",
-    city: "Washington",
-    state: "DC",
-    country: "USA",
-    photoUrl: null,
-    thumbnailUrl: null,
-    createdBy: null,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    verified: true,
-    isActive: true,
-    checkInCount: 156,
-    rating: 4.3,
-    ratingCount: 58,
-  },
-];
 
 // ============================================================================
 // COMPONENT
@@ -289,15 +95,13 @@ export default function MapPage() {
   });
 
   // Use API spots when available, fall back to demo spots when API fails
-  const spots = useMemo(() => {
-    if (apiSpots && apiSpots.length > 0) return apiSpots;
+  const { spots, isFallback: isUsingDemoSpots } = useMemo(() => {
+    if (apiSpots && apiSpots.length > 0) return { spots: apiSpots, isFallback: false };
     if (isSpotsError || (!isSpotsLoading && (!apiSpots || apiSpots.length === 0))) {
-      return DEMO_SPOTS;
+      return { spots: DEMO_SPOTS, isFallback: true };
     }
-    return [];
+    return { spots: [] as Spot[], isFallback: false };
   }, [apiSpots, isSpotsError, isSpotsLoading]);
-
-  const isUsingDemoSpots = spots === DEMO_SPOTS;
 
   // Discover nearby skateparks from OpenStreetMap when user location is available
   useEffect(() => {
@@ -599,6 +403,7 @@ export default function MapPage() {
         isOpen={selectedSpotId !== null}
         onClose={handleCloseSpotDetail}
         userLocation={userLocationSimple}
+        readOnly={selectedSpotId !== null && isDemoSpot({ id: selectedSpotId })}
       />
 
       {/* Upgrade Prompt for free users */}

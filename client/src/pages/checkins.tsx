@@ -11,6 +11,7 @@ import {
   ArrowLeft,
   Lock,
   Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import type { CheckInResult } from "../../../packages/shared/checkin-types";
@@ -160,7 +161,24 @@ export default function CheckinsPage() {
                 </Link>
               </CardContent>
             </Card>
-          ) : state === "error" || totalCount === 0 ? (
+          ) : state === "error" ? (
+            <Card className="bg-black/60 backdrop-blur-md border-zinc-800 border-dashed text-center py-16">
+              <CardContent>
+                <RefreshCw className="mx-auto mb-6 h-12 w-12 text-gray-500" aria-hidden />
+                <h2 className="text-2xl font-bold mb-4 text-white">Couldn&apos;t load check-ins</h2>
+                <p className="text-gray-400 mb-8 max-w-sm mx-auto">
+                  {_error || "Something went wrong. Your check-ins are still safe."}
+                </p>
+                <Button
+                  onClick={() => window.location.reload()}
+                  className="bg-orange-500 hover:bg-orange-600 px-10 py-6 text-lg font-bold"
+                >
+                  <RefreshCw className="w-5 h-5 mr-2" aria-hidden />
+                  Retry
+                </Button>
+              </CardContent>
+            </Card>
+          ) : totalCount === 0 ? (
             <Card className="bg-black/60 backdrop-blur-md border-zinc-800 border-dashed text-center py-20">
               <CardContent>
                 <Sparkles className="mx-auto mb-6 h-12 w-12 text-orange-400" aria-hidden />

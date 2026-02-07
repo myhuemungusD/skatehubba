@@ -1,13 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 
-export type GeolocationStatus =
-  | "idle"
-  | "locating"
-  | "ready"
-  | "denied"
-  | "timeout"
-  | "error"
-  | "browse";
+export type GeolocationStatus = "idle" | "locating" | "ready" | "browse";
 
 export interface GeolocationState {
   latitude: number | null;
