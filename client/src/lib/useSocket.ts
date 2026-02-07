@@ -83,6 +83,13 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
       return;
     }
 
+    // Clean up any existing disconnected socket before creating a new one
+    if (socketRef.current) {
+      socketRef.current.removeAllListeners();
+      socketRef.current.disconnect();
+      socketRef.current = null;
+    }
+
     // Get current Firebase user
     const user = auth.currentUser;
     if (!user) {
@@ -95,12 +102,28 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
     setError(null);
 
     try {
-      // Get fresh ID token
+      // Get fresh ID token for the initial connection
       const token = await user.getIdToken();
 
-      // Create socket connection
+      // Create socket connection.
+      // Pass auth as a function so socket.io calls it on every reconnect
+      // attempt, ensuring a fresh Firebase ID token is used instead of the
+      // stale one from the original handshake.
       const socket: TypedSocket = io({
-        auth: { token },
+        auth: async (cb) => {
+          try {
+            const currentUser = auth.currentUser;
+            if (!currentUser) {
+              cb({ token });
+              return;
+            }
+            const freshToken = await currentUser.getIdToken();
+            cb({ token: freshToken });
+          } catch {
+            // Fall back to the token we already have
+            cb({ token });
+          }
+        },
         transports: ["websocket", "polling"],
         reconnectionAttempts,
         reconnectionDelay,
@@ -124,6 +147,24 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
       });
 
       socket.on("connect_error", (err) => {
+        const isAuthError =
+          err.message === "invalid_token" ||
+          err.message === "authentication_required" ||
+          err.message === "authentication_failed";
+
+        if (isAuthError) {
+          // Token likely expired — force-refresh and retry once.
+          // The auth function above will fetch a fresh token on the
+          // next reconnection attempt automatically.
+          const currentUser = auth.currentUser;
+          if (currentUser) {
+            logger.log("[Socket] Auth error, forcing token refresh before reconnect");
+            currentUser.getIdToken(true).catch(() => {
+              // Refresh failed; socket.io will still retry with the auth fn
+            });
+          }
+        }
+
         setError(err.message);
         setConnectionState("error");
       });
