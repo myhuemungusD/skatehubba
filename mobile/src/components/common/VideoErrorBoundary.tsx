@@ -36,10 +36,6 @@ export class VideoErrorBoundary extends Component<
     };
   }
 
-  componentDidCatch(_error: Error, _errorInfo: React.ErrorInfo): void {
-    // Error already captured via getDerivedStateFromError
-  }
-
   handleRetry = (): void => {
     this.setState({ hasError: false, errorMessage: null });
     this.props.onRetry?.();

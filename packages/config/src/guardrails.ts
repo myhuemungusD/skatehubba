@@ -71,9 +71,7 @@ export function assertEnvWiring(): void {
     if (apiLooksProd) {
       throw new EnvMismatchError("staging build pointing at prod API");
     }
-    if (apiLooksLocal) {
-      // Staging build pointing at localhost — likely intentional during development
-    }
+    // Staging build pointing at localhost is allowed (likely intentional during development)
   }
 
   // Check Firebase appId consistency (if using single-project app separation)

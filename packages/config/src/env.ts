@@ -258,10 +258,9 @@ export function validateEnv(): void {
 
   const missing = required.filter((name) => !readEnv(name));
 
-  if (missing.length > 0) {
-    // In production we still allow fallback to hardcoded config to avoid total outage.
-    // Missing vars are expected in local dev when relying on hardcoded fallback.
-  }
+  // In production we still allow fallback to hardcoded config to avoid total outage.
+  // Missing vars (if any) are expected in local dev when relying on hardcoded fallback.
+  // This validation is informational only - the app continues either way.
 }
 
 /**

@@ -800,7 +800,9 @@ mapTest.describe("♿ Accessibility", () => {
     await mapPage.goto();
 
     // Loading indicator should be visible during slow load
-    await mapPage.loadingIndicator.isVisible().catch(() => false);
+    await expect(mapPage.loadingIndicator).toBeVisible({
+      timeout: CONFIG.MAX_INITIAL_LOAD_MS * 2,
+    });
 
     // Wait for load to complete
     await mapPage.waitForReady();
@@ -899,7 +901,8 @@ mapTest.describe("⏳ Loading States", () => {
     await mapPage.goto();
 
     // Check loading state (might be brief)
-    await mapPage.isLoading();
+    const wasLoading = await mapPage.isLoading();
+    expect(wasLoading).toBe(true);
 
     // Wait for full load
     await mapPage.waitForReady();
