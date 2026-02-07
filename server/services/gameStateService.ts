@@ -13,7 +13,9 @@
  */
 
 import crypto from "node:crypto";
-import { db as firestore, collections } from "../firestore";
+import { getDb } from "../db";
+import { gameSessions } from "@shared/schema";
+import { eq, and, lt } from "drizzle-orm";
 import logger from "../logger";
 import { logServerEvent } from "./analyticsService";
 

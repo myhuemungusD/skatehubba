@@ -1,5 +1,7 @@
 import crypto from "node:crypto";
-import { admin } from "../admin";
+import { getDb } from "../db";
+import { checkinNonces } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { getRedisClient } from "../redis";
 
 type ReplayCheckResult =
@@ -144,12 +146,12 @@ export const createRedisReplayStore = (): ReplayStore => {
 };
 
 /**
- * Default store selection: Redis > Firestore > Memory
+ * Default store selection: Redis > PostgreSQL > Memory
  */
 function getDefaultReplayStore(): ReplayStore {
   const redis = getRedisClient();
   if (redis) return createRedisReplayStore();
-  return createFirestoreReplayStore();
+  return createPostgresReplayStore();
 }
 
 export const verifyReplayProtection = async (
