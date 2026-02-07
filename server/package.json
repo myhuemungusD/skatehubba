@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "tsx index.ts",
-    "dev": "tsx watch --exclude ../client/** index.ts",
+    "dev": "NODE_ENV=development tsx watch --exclude ../client/** index.ts",
     "check": "tsc --noEmit",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --config ../vitest.config.mts --dir .",

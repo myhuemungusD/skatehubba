@@ -1,10 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { useMutation } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Mail } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useToast } from "../hooks/use-toast";
+import { buildApiUrl } from "../lib/api/client";
+
+/** Token must be hex string, max 128 chars (generateSecureToken produces 64) */
+function isValidTokenFormat(token: string): boolean {
+  return token.length > 0 && token.length <= 128 && /^[a-f0-9]+$/i.test(token);
+}
 
 export default function VerifyEmailPage() {
   const [, setLocation] = useLocation();
@@ -13,65 +18,85 @@ export default function VerifyEmailPage() {
     "pending"
   );
   const [message, setMessage] = useState("");
+  const hasStarted = useRef(false);
 
-  // Get token from URL params
-  const urlParams = new URLSearchParams(window.location.search);
-  const token = urlParams.get("token");
-
-  const verifyMutation = useMutation({
-    mutationFn: async (token: string) => {
-      const response = await fetch("/api/auth/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token }),
-      });
-      if (!response.ok) throw new Error("Verification failed");
-      return response.json();
-    },
-    onSuccess: (response: any) => {
-      setVerificationStatus("success");
-      setMessage(response.message || "Email verified successfully!");
-      toast({
-        title: "Email Verified! ",
-        description: "You can now sign in to your account.",
-        variant: "default",
-      });
-    },
-    onError: (error: any) => {
-      setVerificationStatus("error");
-      setMessage(error.message || "Email verification failed.");
-      toast({
-        title: "Verification Failed",
-        description: error.message || "The verification link may be expired or invalid.",
-        variant: "destructive",
-      });
-    },
-  });
+  // Memoize token from URL — doesn't change after mount
+  const token = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("token");
+  }, []);
 
   useEffect(() => {
-    if (token) {
-      verifyMutation.mutate(token);
-    } else {
+    if (hasStarted.current) return;
+    hasStarted.current = true;
+
+    if (!token) {
       setVerificationStatus("error");
       setMessage("No verification token provided.");
+      return;
     }
-  }, [token, verifyMutation]);
 
-  const handleSignIn = () => {
-    setLocation("/auth");
-  };
+    if (!isValidTokenFormat(token)) {
+      setVerificationStatus("error");
+      setMessage("Invalid verification link.");
+      return;
+    }
 
-  const handleGoHome = () => {
-    setLocation("/");
-  };
+    async function verifyToken() {
+      try {
+        const csrfToken = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("csrfToken="))
+          ?.split("=")[1];
+
+        const response = await fetch(buildApiUrl("/api/auth/verify-email"), {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
+          },
+          credentials: "include",
+          body: JSON.stringify({ token }),
+        });
+
+        let data: { error?: string; message?: string };
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error("Unexpected server response. Please try again later.");
+        }
+
+        if (!response.ok) {
+          throw new Error(data.error || "Verification failed");
+        }
+
+        setVerificationStatus("success");
+        setMessage(data.message || "Email verified successfully!");
+        toast({
+          title: "Email Verified!",
+          description: "You can now sign in to your account.",
+        });
+      } catch (error) {
+        setVerificationStatus("error");
+        const errorMsg = error instanceof Error ? error.message : "Email verification failed.";
+        setMessage(errorMsg);
+        toast({
+          title: "Verification Failed",
+          description: "The verification link may be expired or invalid.",
+          variant: "destructive",
+        });
+      }
+    }
+
+    void verifyToken();
+  }, [token, toast]);
 
   return (
     <div className="min-h-screen bg-[#181818] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <div className="h-12 w-12 text-orange-500 mr-2 text-4xl"></div>
+            <div className="h-12 w-12 text-orange-500 mr-2 text-4xl">SH</div>
             <h1 className="text-3xl font-bold text-white">SkateHubba</h1>
           </div>
         </div>
@@ -83,7 +108,7 @@ export default function VerifyEmailPage() {
                 <Mail className="h-16 w-16 text-orange-500 animate-pulse" />
               )}
               {verificationStatus === "success" && (
-                <CheckCircle className="h-16 w-16 text-success" />
+                <CheckCircle className="h-16 w-16 text-green-500" />
               )}
               {verificationStatus === "error" && <XCircle className="h-16 w-16 text-red-500" />}
             </div>
@@ -95,18 +120,18 @@ export default function VerifyEmailPage() {
           </CardHeader>
           <CardContent className="text-center space-y-6">
             <p className="text-gray-300">
-              {verificationStatus === "pending" &&
-                "Please wait while we verify your email address..."}
-              {message || "We're processing your email verification."}
+              {verificationStatus === "pending"
+                ? "Please wait while we verify your email address..."
+                : message}
             </p>
 
             {verificationStatus === "success" && (
               <div className="space-y-4">
-                <p className="text-success text-sm">
-                  Welcome to the SkateHubba community! Your account is now active.
+                <p className="text-green-400 text-sm">
+                  Your email is now verified. You have full access to SkateHubba.
                 </p>
                 <Button
-                  onClick={handleSignIn}
+                  onClick={() => setLocation("/signin")}
                   className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                   data-testid="button-sign-in"
                 >
@@ -118,24 +143,24 @@ export default function VerifyEmailPage() {
             {verificationStatus === "error" && (
               <div className="space-y-4">
                 <p className="text-red-400 text-sm">
-                  The verification link may be expired or invalid. Please try signing up again or
-                  contact support.
+                  The verification link may be expired or invalid. Please try signing in or request
+                  a new verification email.
                 </p>
                 <div className="space-y-2">
                   <Button
-                    onClick={handleSignIn}
+                    onClick={() => setLocation("/signin")}
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                    data-testid="button-try-again"
+                    data-testid="button-try-signin"
                   >
-                    Try Sign In
+                    Sign In
                   </Button>
                   <Button
-                    onClick={handleGoHome}
+                    onClick={() => setLocation("/signup")}
                     variant="outline"
                     className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
-                    data-testid="button-go-home"
+                    data-testid="button-signup"
                   >
-                    Go to Home
+                    Create New Account
                   </Button>
                 </div>
               </div>
@@ -143,7 +168,7 @@ export default function VerifyEmailPage() {
 
             {verificationStatus === "pending" && (
               <Button
-                onClick={handleGoHome}
+                onClick={() => setLocation("/")}
                 variant="link"
                 className="text-gray-400 hover:text-white"
                 data-testid="button-back-home"
