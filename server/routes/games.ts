@@ -384,7 +384,6 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
       .where(eq(gameTurns.id, turnId));
 
     // Determine next state
-    const isOpponentPlayer1 = turn.playerId === game.player1Id;
     let newPlayer1Letters = game.player1Letters || "";
     let newPlayer2Letters = game.player2Letters || "";
     let newCurrentTurn = turn.playerId; // Default: trick setter goes again
