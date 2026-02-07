@@ -1,15 +1,8 @@
 import { useMemo } from "react";
 import type { User } from "firebase/auth";
 import { useAuthStore } from "../store/authStore";
+import { useShallow } from "zustand/react/shallow";
 
-/**
- * Determines if a Firebase user is authenticated for the application.
- * Any signed-in user (including unverified email/password) is considered authenticated.
- * Email verification is tracked separately via `isEmailVerified` and enforced
- * server-side on sensitive operations (e.g., adding spots via requireEmailVerification).
- * This allows email/password users to proceed to profile setup immediately
- * after signup while verification happens asynchronously.
- */
 function isFirebaseUserAuthenticated(user: User | null): boolean {
   return user !== null;
 }
@@ -27,55 +20,53 @@ function isUserEmailVerified(user: User | null): boolean {
   return user.providerData.some((provider) => provider.providerId !== "password");
 }
 
-/**
- * Individual selectors — each returns a stable reference so the component
- * only re-renders when that specific slice changes (Zustand uses Object.is).
- * Functions defined in create() are referentially stable across renders.
- */
-const selectUser = (s: ReturnType<typeof useAuthStore.getState>) => s.user;
-const selectProfile = (s: ReturnType<typeof useAuthStore.getState>) => s.profile;
-const selectProfileStatus = (s: ReturnType<typeof useAuthStore.getState>) => s.profileStatus;
-const selectRoles = (s: ReturnType<typeof useAuthStore.getState>) => s.roles;
-const selectLoading = (s: ReturnType<typeof useAuthStore.getState>) => s.loading;
-const selectIsInitialized = (s: ReturnType<typeof useAuthStore.getState>) => s.isInitialized;
-const selectError = (s: ReturnType<typeof useAuthStore.getState>) => s.error;
-
-const selectSignInWithGoogle = (s: ReturnType<typeof useAuthStore.getState>) => s.signInWithGoogle;
-const selectSignInGoogle = (s: ReturnType<typeof useAuthStore.getState>) => s.signInGoogle;
-const selectSignInWithEmail = (s: ReturnType<typeof useAuthStore.getState>) => s.signInWithEmail;
-const selectSignUpWithEmail = (s: ReturnType<typeof useAuthStore.getState>) => s.signUpWithEmail;
-const selectSignInAnonymously = (s: ReturnType<typeof useAuthStore.getState>) => s.signInAnonymously;
-const selectSignInAnon = (s: ReturnType<typeof useAuthStore.getState>) => s.signInAnon;
-const selectSignOut = (s: ReturnType<typeof useAuthStore.getState>) => s.signOut;
-const selectResetPassword = (s: ReturnType<typeof useAuthStore.getState>) => s.resetPassword;
-const selectRefreshRoles = (s: ReturnType<typeof useAuthStore.getState>) => s.refreshRoles;
-const selectHasRole = (s: ReturnType<typeof useAuthStore.getState>) => s.hasRole;
-const selectClearError = (s: ReturnType<typeof useAuthStore.getState>) => s.clearError;
-const selectSetProfile = (s: ReturnType<typeof useAuthStore.getState>) => s.setProfile;
-
 export function useAuth() {
-  // State slices — each selector triggers re-render only when its value changes
-  const user = useAuthStore(selectUser);
-  const profile = useAuthStore(selectProfile);
-  const profileStatus = useAuthStore(selectProfileStatus);
-  const roles = useAuthStore(selectRoles);
-  const loading = useAuthStore(selectLoading);
-  const isInitialized = useAuthStore(selectIsInitialized);
-  const error = useAuthStore(selectError);
-
-  // Actions — stable references, never cause re-renders
-  const signInWithGoogle = useAuthStore(selectSignInWithGoogle);
-  const signInGoogle = useAuthStore(selectSignInGoogle);
-  const signInWithEmail = useAuthStore(selectSignInWithEmail);
-  const signUpWithEmail = useAuthStore(selectSignUpWithEmail);
-  const signInAnonymously = useAuthStore(selectSignInAnonymously);
-  const signInAnon = useAuthStore(selectSignInAnon);
-  const signOut = useAuthStore(selectSignOut);
-  const resetPassword = useAuthStore(selectResetPassword);
-  const refreshRoles = useAuthStore(selectRefreshRoles);
-  const hasRole = useAuthStore(selectHasRole);
-  const clearError = useAuthStore(selectClearError);
-  const setProfile = useAuthStore(selectSetProfile);
+  // useShallow does shallow (Object.is) comparison on each value in the
+  // returned object.  State values trigger re-renders only when they change.
+  // Actions are referentially stable in Zustand and never trigger re-renders.
+  const {
+    user,
+    profile,
+    profileStatus,
+    roles,
+    loading,
+    isInitialized,
+    error,
+    signInWithGoogle,
+    signInGoogle,
+    signInWithEmail,
+    signUpWithEmail,
+    signInAnonymously,
+    signInAnon,
+    signOut,
+    resetPassword,
+    refreshRoles,
+    hasRole,
+    clearError,
+    setProfile,
+  } = useAuthStore(
+    useShallow((s) => ({
+      user: s.user,
+      profile: s.profile,
+      profileStatus: s.profileStatus,
+      roles: s.roles,
+      loading: s.loading,
+      isInitialized: s.isInitialized,
+      error: s.error,
+      signInWithGoogle: s.signInWithGoogle,
+      signInGoogle: s.signInGoogle,
+      signInWithEmail: s.signInWithEmail,
+      signUpWithEmail: s.signUpWithEmail,
+      signInAnonymously: s.signInAnonymously,
+      signInAnon: s.signInAnon,
+      signOut: s.signOut,
+      resetPassword: s.resetPassword,
+      refreshRoles: s.refreshRoles,
+      hasRole: s.hasRole,
+      clearError: s.clearError,
+      setProfile: s.setProfile,
+    }))
+  );
 
   // Derived state
   const isAuthenticated = useMemo(() => isFirebaseUserAuthenticated(user), [user]);

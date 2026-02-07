@@ -5,20 +5,21 @@ import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Link } from "wouter";
 import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
-import { useAuthStore } from "../store/authStore";
+import { useAuth } from "../hooks/useAuth";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const { toast } = useToast();
+  const { resetPassword } = useAuth();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      await useAuthStore.getState().resetPassword(email);
+      await resetPassword(email);
       setIsSuccess(true);
       toast({
         title: "Reset email sent!",
