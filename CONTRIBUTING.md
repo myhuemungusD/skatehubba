@@ -5,7 +5,7 @@ First off, thank you for stepping up to contribute to the future of skateboardin
 SkateHubba™ operates as a TypeScript pnpm workspace. This ensures that our "Shared DNA" (types and logic) remains synchronized across all platforms.
 
 Project Map
-/client: Next.js / Vite frontend—The core user experience.
+/client: React + Vite + TypeScript frontend—The core user experience.
 
 /server: Express / Firebase API—The business logic engine.
 
