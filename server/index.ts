@@ -15,6 +15,7 @@ import { apiLimiter, staticFileLimiter, securityMiddleware } from "./middleware/
 import { requestTracing } from "./middleware/requestTracing.ts";
 import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
 import { initializeDatabase } from "./db.ts";
+import { getRedisClient, shutdownRedis } from "./redis.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,7 +55,8 @@ const corsOptions = {
   ) {
     const allowed = process.env.ALLOWED_ORIGINS?.split(",") || [];
     const devOrigins = ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
-    const allAllowed = process.env.NODE_ENV === "production" ? allowed : [...allowed, ...devOrigins];
+    const allAllowed =
+      process.env.NODE_ENV === "production" ? allowed : [...allowed, ...devOrigins];
     // Allow requests with no origin (mobile apps, server-to-server) or matching allowed domains
     if (!origin || allAllowed.indexOf(origin) !== -1) {
       callback(null, true);
@@ -95,6 +97,9 @@ app.use("/api", requireCsrfToken);
 // Register all API routes
 await registerRoutes(app);
 
+// Initialize Redis (eagerly connect if REDIS_URL is set)
+getRedisClient();
+
 // Initialize database (seed default spots + tutorial steps if empty)
 await initializeDatabase();
 
@@ -103,8 +108,8 @@ const io = initializeSocketServer(server);
 logger.info("[Server] WebSocket server initialized");
 
 // Health check endpoint with socket stats
-app.get("/api/health", (req, res) => {
-  const stats = getSocketStats();
+app.get("/api/health", async (req, res) => {
+  const stats = await getSocketStats();
   res.json({
     status: "ok",
     timestamp: new Date().toISOString(),
@@ -182,6 +187,7 @@ server.listen(port, "0.0.0.0", () => {
 process.on("SIGTERM", async () => {
   logger.info("[Server] SIGTERM received, shutting down gracefully...");
   await shutdownSocketServer(io);
+  await shutdownRedis();
   server.close(() => {
     logger.info("[Server] HTTP server closed");
     process.exit(0);
@@ -191,6 +197,7 @@ process.on("SIGTERM", async () => {
 process.on("SIGINT", async () => {
   logger.info("[Server] SIGINT received, shutting down gracefully...");
   await shutdownSocketServer(io);
+  await shutdownRedis();
   server.close(() => {
     logger.info("[Server] HTTP server closed");
     process.exit(0);

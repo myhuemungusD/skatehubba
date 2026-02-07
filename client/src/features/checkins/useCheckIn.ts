@@ -20,10 +20,7 @@ interface CheckInApiResponse {
 }
 
 const createNonce = (): string => {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+  return crypto.randomUUID();
 };
 
 export const useCheckIn = () => {

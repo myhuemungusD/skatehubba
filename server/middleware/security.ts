@@ -1,6 +1,22 @@
 import type { Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis";
 import type { FirebaseAuthedRequest } from "./firebaseUid";
+import { getRedisClient } from "../redis";
+
+/**
+ * Build a RedisStore for express-rate-limit if Redis is available.
+ * Returns undefined (uses default MemoryStore) when Redis is not configured.
+ */
+function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined {
+  const redis = getRedisClient();
+  if (!redis) return undefined;
+
+  return new RedisStore({
+    sendCommand: (...args: string[]) => redis.call(...(args as [string, ...string[]])) as Promise<any>,
+    prefix,
+  });
+}
 
 /**
  * Security middleware: bypass static/public assets, apply to everything else.
@@ -51,6 +67,7 @@ export const emailSignupLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildStore("rl:signup:"),
 });
 
 /**
@@ -68,6 +85,7 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful logins
+  store: buildStore("rl:secauth:"),
 });
 
 /**
@@ -83,6 +101,7 @@ export const publicWriteLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildStore("rl:pubwrite:"),
 });
 
 const getDeviceFingerprint = (req: Request): string | null => {
@@ -124,6 +143,7 @@ export const checkInIpLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildStore("rl:checkinip:"),
 });
 
 export const perUserSpotWriteLimiter = rateLimit({
@@ -135,6 +155,7 @@ export const perUserSpotWriteLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userKeyGenerator,
+  store: buildStore("rl:spotwrite:"),
 });
 
 export const perUserCheckInLimiter = rateLimit({
@@ -146,6 +167,7 @@ export const perUserCheckInLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userKeyGenerator,
+  store: buildStore("rl:checkinuser:"),
 });
 
 /**
@@ -161,6 +183,7 @@ export const passwordResetLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildStore("rl:pwreset:"),
 });
 
 /**
@@ -176,6 +199,7 @@ export const apiLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildStore("rl:api:"),
 });
 
 export const usernameCheckLimiter = rateLimit({
@@ -186,6 +210,7 @@ export const usernameCheckLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildStore("rl:username:"),
 });
 
 export const profileCreateLimiter = rateLimit({
@@ -200,6 +225,7 @@ export const profileCreateLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildStore("rl:profile:"),
 });
 
 /**
@@ -216,6 +242,7 @@ export const staticFileLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildStore("rl:static:"),
   skip: (req) => {
     // Skip rate limiting for static assets (CSS, JS, images)
     const staticExtensions = /\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i;

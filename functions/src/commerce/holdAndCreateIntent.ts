@@ -8,6 +8,7 @@
  * 4. Creates hold and order documents
  */
 
+import * as crypto from "crypto";
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { logger } from "firebase-functions/v2";
@@ -53,7 +54,7 @@ async function tryReserveFromShards(
     // Pick a random shard we haven't tried
     let shardId: number;
     do {
-      shardId = Math.floor(Math.random() * shardCount);
+      shardId = crypto.randomInt(shardCount);
     } while (attemptedShards.has(shardId) && attemptedShards.size < shardCount);
 
     if (attemptedShards.has(shardId)) {

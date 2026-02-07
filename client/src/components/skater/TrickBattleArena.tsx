@@ -120,8 +120,8 @@ export default function TrickBattleArena({ spotId }: TrickBattleArenaProps) {
     const updatedPlayers = [...players];
     const opponentIndex = updatedPlayers.findIndex((p) => p.id === "2");
 
-    // 70% chance opponent lands the trick
-    const success = Math.random() > 0.3;
+    // 70% chance opponent lands the trick (crypto-secure randomness)
+    const success = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000 > 0.3;
 
     if (success && currentTrick) {
       const comboMultiplier = 1 + updatedPlayers[opponentIndex].combo * 0.5;

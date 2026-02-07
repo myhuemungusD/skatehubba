@@ -623,7 +623,7 @@ export function validateEnv(): EnvConfig {
   }
   
   if (missing.length > 0) {
-    const correlationId = `ENV-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const correlationId = `ENV-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
     throw new EnvValidationError(
       `Missing required environment variables: ${missing.join(', ')}`,
       correlationId,
@@ -683,7 +683,7 @@ export class ErrorBoundary extends Component<Props, State> {
   static getDerivedStateFromError(error: Error): State {
     const correlationId = error instanceof EnvValidationError 
       ? error.correlationId 
-      : `ERR-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      : `ERR-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
     
     return { hasError: true, error, correlationId };
   }

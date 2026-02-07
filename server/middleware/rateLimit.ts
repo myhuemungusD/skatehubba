@@ -1,6 +1,20 @@
 import rateLimit from "express-rate-limit";
+import { RedisStore } from "rate-limit-redis";
+import { getRedisClient } from "../redis.ts";
 
-// NOTE: MemoryStore is not shared across instances; use RedisStore for multi-instance deployments.
+/**
+ * Build a RedisStore for express-rate-limit if Redis is available.
+ * Returns undefined (uses default MemoryStore) when Redis is not configured.
+ */
+function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined {
+  const redis = getRedisClient();
+  if (!redis) return undefined;
+
+  return new RedisStore({
+    sendCommand: (...args: string[]) => redis.call(...(args as [string, ...string[]])) as Promise<any>,
+    prefix,
+  });
+}
 
 export const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
@@ -9,7 +23,7 @@ export const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
-  // Login failures must return 401/403 for skipSuccessfulRequests to work.
+  store: buildStore("rl:auth:"),
   message: {
     error: "Too many login attempts, please try again later.",
   },
@@ -21,6 +35,7 @@ export const aiLimiter = rateLimit({
   limit: 10,
   standardHeaders: true,
   legacyHeaders: false,
+  store: buildStore("rl:ai:"),
   message: {
     error: "Too many AI requests, please try again later.",
   },
