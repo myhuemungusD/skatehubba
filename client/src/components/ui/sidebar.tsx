@@ -627,6 +627,25 @@ const SidebarMenuBadge = React.forwardRef<HTMLDivElement, React.ComponentProps<"
 );
 SidebarMenuBadge.displayName = "SidebarMenuBadge";
 
+function getUnbiasedRandomInt(maxExclusive: number): number {
+  if (maxExclusive <= 0 || maxExclusive > 256) {
+    throw new Error("maxExclusive must be between 1 and 256");
+  }
+  const range = 256;
+  const maxMultiple = Math.floor(range / maxExclusive) * maxExclusive;
+  const buffer = new Uint8Array(1);
+
+  // Rejection sampling to avoid modulo bias.
+  // Values >= maxMultiple are discarded to keep distribution uniform.
+  while (true) {
+    crypto.getRandomValues(buffer);
+    const value = buffer[0];
+    if (value < maxMultiple) {
+      return value % maxExclusive;
+    }
+  }
+}
+
 const SidebarMenuSkeleton = React.forwardRef<
   HTMLDivElement,
   React.ComponentProps<"div"> & {
@@ -635,7 +654,8 @@ const SidebarMenuSkeleton = React.forwardRef<
 >(({ className, showIcon = false, ...props }, ref) => {
   // Random width between 50 to 90%.
   const width = React.useMemo(() => {
-    return `${(crypto.getRandomValues(new Uint8Array(1))[0] % 41) + 50}%`;
+    const randomOffset = getUnbiasedRandomInt(41); // 0 to 40 inclusive
+    return `${randomOffset + 50}%`;
   }, []);
 
   return (
