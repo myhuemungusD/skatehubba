@@ -27,29 +27,57 @@ function isUserEmailVerified(user: User | null): boolean {
   return user.providerData.some((provider) => provider.providerId !== "password");
 }
 
-export function useAuth() {
-  const {
-    user,
-    profile,
-    profileStatus,
-    roles,
-    loading,
-    isInitialized,
-    error,
-    signInWithGoogle,
-    signInGoogle,
-    signInWithEmail,
-    signUpWithEmail,
-    signInAnonymously,
-    signInAnon,
-    signOut,
-    resetPassword,
-    refreshRoles,
-    hasRole,
-    clearError,
-    setProfile,
-  } = useAuthStore();
+/**
+ * Individual selectors — each returns a stable reference so the component
+ * only re-renders when that specific slice changes (Zustand uses Object.is).
+ * Functions defined in create() are referentially stable across renders.
+ */
+const selectUser = (s: ReturnType<typeof useAuthStore.getState>) => s.user;
+const selectProfile = (s: ReturnType<typeof useAuthStore.getState>) => s.profile;
+const selectProfileStatus = (s: ReturnType<typeof useAuthStore.getState>) => s.profileStatus;
+const selectRoles = (s: ReturnType<typeof useAuthStore.getState>) => s.roles;
+const selectLoading = (s: ReturnType<typeof useAuthStore.getState>) => s.loading;
+const selectIsInitialized = (s: ReturnType<typeof useAuthStore.getState>) => s.isInitialized;
+const selectError = (s: ReturnType<typeof useAuthStore.getState>) => s.error;
 
+const selectSignInWithGoogle = (s: ReturnType<typeof useAuthStore.getState>) => s.signInWithGoogle;
+const selectSignInGoogle = (s: ReturnType<typeof useAuthStore.getState>) => s.signInGoogle;
+const selectSignInWithEmail = (s: ReturnType<typeof useAuthStore.getState>) => s.signInWithEmail;
+const selectSignUpWithEmail = (s: ReturnType<typeof useAuthStore.getState>) => s.signUpWithEmail;
+const selectSignInAnonymously = (s: ReturnType<typeof useAuthStore.getState>) => s.signInAnonymously;
+const selectSignInAnon = (s: ReturnType<typeof useAuthStore.getState>) => s.signInAnon;
+const selectSignOut = (s: ReturnType<typeof useAuthStore.getState>) => s.signOut;
+const selectResetPassword = (s: ReturnType<typeof useAuthStore.getState>) => s.resetPassword;
+const selectRefreshRoles = (s: ReturnType<typeof useAuthStore.getState>) => s.refreshRoles;
+const selectHasRole = (s: ReturnType<typeof useAuthStore.getState>) => s.hasRole;
+const selectClearError = (s: ReturnType<typeof useAuthStore.getState>) => s.clearError;
+const selectSetProfile = (s: ReturnType<typeof useAuthStore.getState>) => s.setProfile;
+
+export function useAuth() {
+  // State slices — each selector triggers re-render only when its value changes
+  const user = useAuthStore(selectUser);
+  const profile = useAuthStore(selectProfile);
+  const profileStatus = useAuthStore(selectProfileStatus);
+  const roles = useAuthStore(selectRoles);
+  const loading = useAuthStore(selectLoading);
+  const isInitialized = useAuthStore(selectIsInitialized);
+  const error = useAuthStore(selectError);
+
+  // Actions — stable references, never cause re-renders
+  const signInWithGoogle = useAuthStore(selectSignInWithGoogle);
+  const signInGoogle = useAuthStore(selectSignInGoogle);
+  const signInWithEmail = useAuthStore(selectSignInWithEmail);
+  const signUpWithEmail = useAuthStore(selectSignUpWithEmail);
+  const signInAnonymously = useAuthStore(selectSignInAnonymously);
+  const signInAnon = useAuthStore(selectSignInAnon);
+  const signOut = useAuthStore(selectSignOut);
+  const resetPassword = useAuthStore(selectResetPassword);
+  const refreshRoles = useAuthStore(selectRefreshRoles);
+  const hasRole = useAuthStore(selectHasRole);
+  const clearError = useAuthStore(selectClearError);
+  const setProfile = useAuthStore(selectSetProfile);
+
+  // Derived state
   const isAuthenticated = useMemo(() => isFirebaseUserAuthenticated(user), [user]);
   const isEmailVerified = useMemo(() => isUserEmailVerified(user), [user]);
   const isAdmin = useMemo(() => roles.includes("admin"), [roles]);
