@@ -130,7 +130,7 @@ describe("useUserLookup", () => {
 
   describe("query behavior", () => {
     it("should use correct queryKey", async () => {
-      const { result } = renderHook(() => useUserLookup("testuser"), { wrapper });
+      renderHook(() => useUserLookup("testuser"), { wrapper });
 
       await waitFor(() => {
         const queryState = queryClient.getQueryState(["/api/profiles", "testuser"]);
