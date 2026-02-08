@@ -1,4 +1,12 @@
-import { admin } from "../admin";
+import { eq, desc, and } from "drizzle-orm";
+import { getDb } from "../db";
+import {
+  moderationProfiles,
+  moderationReports,
+  modActions,
+  moderationQuotas,
+  posts,
+} from "@shared/schema";
 import {
   type ModerationAction,
   type ModerationProfile,
@@ -49,12 +57,6 @@ export class QuotaExceededError extends Error {
   }
 }
 
-const moderationCollection = () => admin.firestore().collection("moderation_users");
-const reportsCollection = () => admin.firestore().collection("reports");
-const modActionsCollection = () => admin.firestore().collection("mod_actions");
-const quotaCollection = () => admin.firestore().collection("moderation_quotas");
-const postsCollection = () => admin.firestore().collection("posts");
-
 const defaultProfile: ModerationProfile = {
   trustLevel: 0,
   reputationScore: 0,
@@ -64,30 +66,25 @@ const defaultProfile: ModerationProfile = {
   isProVerified: false,
 };
 
-const toDate = (value: unknown): Date | null => {
-  if (value instanceof Date) {
-    return value;
-  }
-  if (value instanceof admin.firestore.Timestamp) {
-    return value.toDate();
-  }
-  return null;
-};
-
 export const getModerationProfile = async (userId: string): Promise<ModerationProfile> => {
-  const snapshot = await moderationCollection().doc(userId).get();
-  if (!snapshot.exists) {
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(moderationProfiles)
+    .where(eq(moderationProfiles.userId, userId))
+    .limit(1);
+
+  if (!row) {
     return { ...defaultProfile };
   }
 
-  const data = snapshot.data();
   return {
-    trustLevel: (data?.trustLevel ?? 0) as TrustLevel,
-    reputationScore: typeof data?.reputationScore === "number" ? data.reputationScore : 0,
-    isBanned: Boolean(data?.isBanned ?? false),
-    banExpiresAt: toDate(data?.banExpiresAt),
-    proVerificationStatus: (data?.proVerificationStatus ?? "none") as ProVerificationStatus,
-    isProVerified: Boolean(data?.isProVerified ?? false),
+    trustLevel: (row.trustLevel ?? 0) as TrustLevel,
+    reputationScore: typeof row.reputationScore === "number" ? row.reputationScore : 0,
+    isBanned: Boolean(row.isBanned ?? false),
+    banExpiresAt: row.banExpiresAt ?? null,
+    proVerificationStatus: (row.proVerificationStatus ?? "none") as ProVerificationStatus,
+    isProVerified: Boolean(row.isProVerified ?? false),
   };
 };
 
@@ -101,33 +98,42 @@ export const consumeQuota = async (
   const limit = TRUST_QUOTAS[trustLevel][action];
   const dateKey = getDateKey();
   const docId = `${userId}_${action}_${dateKey}`;
-  const docRef = quotaCollection().doc(docId);
+  const db = getDb();
 
-  const result = await admin.firestore().runTransaction(async (transaction) => {
-    const snapshot = await transaction.get(docRef);
-    const count = snapshot.exists ? Number(snapshot.data()?.count ?? 0) : 0;
+  // Use a transaction with SELECT FOR UPDATE to prevent race conditions
+  const result = await db.transaction(async (tx) => {
+    const [existing] = await tx
+      .select()
+      .from(moderationQuotas)
+      .where(eq(moderationQuotas.id, docId))
+      .for("update");
+
+    const count = existing ? existing.count : 0;
 
     if (count >= limit) {
       throw new QuotaExceededError();
     }
 
     const nextCount = count + 1;
+    const now = new Date();
 
-    transaction.set(
-      docRef,
-      {
+    if (existing) {
+      await tx
+        .update(moderationQuotas)
+        .set({ count: nextCount, updatedAt: now })
+        .where(eq(moderationQuotas.id, docId));
+    } else {
+      await tx.insert(moderationQuotas).values({
+        id: docId,
         userId,
         action,
         dateKey,
         count: nextCount,
         limit,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        createdAt: snapshot.exists
-          ? (snapshot.data()?.createdAt ?? admin.firestore.FieldValue.serverTimestamp())
-          : admin.firestore.FieldValue.serverTimestamp(),
-      },
-      { merge: true }
-    );
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
 
     return { count: nextCount, limit };
   });
@@ -136,52 +142,61 @@ export const consumeQuota = async (
 };
 
 export const createReport = async (input: ModerationReportInput) => {
-  const reportRef = reportsCollection().doc();
-  const payload = {
-    reporterId: input.reporterId,
-    targetType: input.targetType,
-    targetId: input.targetId,
-    reason: input.reason,
-    notes: input.notes,
-    status: "queued",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  };
+  const db = getDb();
+  const [report] = await db
+    .insert(moderationReports)
+    .values({
+      reporterId: input.reporterId,
+      targetType: input.targetType,
+      targetId: input.targetId,
+      reason: input.reason,
+      notes: input.notes,
+    })
+    .returning();
 
-  await reportRef.set(payload);
-  return { id: reportRef.id, ...payload };
+  return report;
 };
 
 export const listReports = async (status?: string) => {
-  let query = reportsCollection().orderBy("createdAt", "desc").limit(100);
-  if (status) {
-    query = query.where("status", "==", status);
-  }
-  const snapshot = await query.get();
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const db = getDb();
+
+  const conditions = status ? [eq(moderationReports.status, status)] : [];
+
+  const reports = await db
+    .select()
+    .from(moderationReports)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(moderationReports.createdAt))
+    .limit(100);
+
+  return reports;
 };
 
 export const logModAction = async (input: ModActionInput) => {
-  const actionRef = modActionsCollection().doc();
-  const payload = {
-    adminId: input.adminId,
-    targetUserId: input.targetUserId,
-    actionType: input.actionType,
-    reasonCode: input.reasonCode,
-    notes: input.notes,
-    reversible: input.reversible,
-    expiresAt: input.expiresAt,
-    relatedReportId: input.relatedReportId,
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  };
+  const db = getDb();
+  const [action] = await db
+    .insert(modActions)
+    .values({
+      adminId: input.adminId,
+      targetUserId: input.targetUserId,
+      actionType: input.actionType,
+      reasonCode: input.reasonCode,
+      notes: input.notes,
+      reversible: input.reversible,
+      expiresAt: input.expiresAt,
+      relatedReportId: input.relatedReportId,
+    })
+    .returning();
 
-  await actionRef.set(payload);
-  return { id: actionRef.id, ...payload };
+  return action;
 };
 
 export const applyModerationAction = async (input: ModActionInput) => {
-  const profileRef = moderationCollection().doc(input.targetUserId);
+  const db = getDb();
+  const now = new Date();
+
   const updates: Record<string, unknown> = {
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: now,
   };
 
   if (input.actionType === "temp_ban") {
@@ -204,24 +219,48 @@ export const applyModerationAction = async (input: ModActionInput) => {
     updates.isProVerified = false;
   }
 
-  await profileRef.set(updates, { merge: true });
+  // Upsert the moderation profile
+  await db
+    .insert(moderationProfiles)
+    .values({
+      userId: input.targetUserId,
+      ...updates,
+      createdAt: now,
+    } as typeof moderationProfiles.$inferInsert)
+    .onConflictDoUpdate({
+      target: moderationProfiles.userId,
+      set: updates as Partial<typeof moderationProfiles.$inferInsert>,
+    });
+
   const log = await logModAction(input);
   return { ...log, updates };
 };
 
 export const setProVerificationStatus = async (input: ProVerificationInput) => {
-  const profileRef = moderationCollection().doc(input.userId);
+  const db = getDb();
+  const now = new Date();
 
-  await profileRef.set(
-    {
+  await db
+    .insert(moderationProfiles)
+    .values({
+      userId: input.userId,
       proVerificationStatus: input.status,
       isProVerified: input.status === "verified",
       proVerificationEvidence: input.evidence,
       proVerificationNotes: input.notes,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    },
-    { merge: true }
-  );
+      updatedAt: now,
+      createdAt: now,
+    })
+    .onConflictDoUpdate({
+      target: moderationProfiles.userId,
+      set: {
+        proVerificationStatus: input.status,
+        isProVerified: input.status === "verified",
+        proVerificationEvidence: input.evidence,
+        proVerificationNotes: input.notes,
+        updatedAt: now,
+      },
+    });
 
   return logModAction({
     adminId: input.adminId,
@@ -236,12 +275,15 @@ export const setProVerificationStatus = async (input: ProVerificationInput) => {
 };
 
 export const createPost = async (userId: string, payload: Record<string, unknown>) => {
-  const postRef = postsCollection().doc();
-  await postRef.set({
-    ...payload,
-    userId,
-    status: "active",
-    createdAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
-  return { id: postRef.id, ...payload };
+  const db = getDb();
+  const [post] = await db
+    .insert(posts)
+    .values({
+      userId,
+      status: "active",
+      content: payload,
+    })
+    .returning();
+
+  return post;
 };

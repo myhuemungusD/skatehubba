@@ -2,7 +2,7 @@
  * @fileoverview Unit tests for GameStateService
  * @module server/__tests__/gameStateService.test
  *
- * Tests game state management with Firestore transactions, including:
+ * Tests game state management with PostgreSQL transactions, including:
  * - Game creation and joining
  * - Trick submission and passing
  * - Turn transitions
@@ -38,60 +38,146 @@ vi.mock("../services/analyticsService", () => ({
   logServerEvent: vi.fn().mockResolvedValue(undefined),
 }));
 
-// In-memory Firestore mock
-const mockGameStates = new Map<string, any>();
-let transactionCallback: ((transaction: any) => Promise<any>) | null = null;
+// Mock drizzle-orm operators to return inspectable objects
+vi.mock("drizzle-orm", () => ({
+  eq: (col: any, val: any) => ({ _op: "eq", col, val }),
+  and: (...conditions: any[]) => ({ _op: "and", conditions }),
+  lt: (col: any, val: any) => ({ _op: "lt", col, val }),
+}));
 
-const mockTransaction = {
-  get: vi.fn().mockImplementation(async (ref: any) => {
-    const data = mockGameStates.get(ref.id);
-    return {
-      exists: !!data,
-      data: () => data,
-    };
-  }),
-  update: vi.fn().mockImplementation((ref: any, updates: any) => {
-    const current = mockGameStates.get(ref.id) || {};
-    mockGameStates.set(ref.id, { ...current, ...updates });
-  }),
-  set: vi.fn().mockImplementation((ref: any, data: any) => {
-    mockGameStates.set(ref.id, data);
-  }),
-};
-
-const mockDocRef = (id: string) => ({
-  id,
-  get: vi.fn().mockImplementation(async () => {
-    const data = mockGameStates.get(id);
-    return { exists: !!data, data: () => data };
-  }),
-  set: vi.fn().mockImplementation(async (data: any) => {
-    mockGameStates.set(id, data);
-  }),
-  update: vi.fn().mockImplementation(async (updates: any) => {
-    const current = mockGameStates.get(id) || {};
-    mockGameStates.set(id, { ...current, ...updates });
-  }),
-  delete: vi.fn().mockImplementation(async () => {
-    mockGameStates.delete(id);
-  }),
-});
-
-vi.mock("../firestore", () => ({
-  db: {
-    collection: vi.fn().mockImplementation((name: string) => ({
-      doc: vi.fn().mockImplementation((id: string) => mockDocRef(id)),
-      where: vi.fn().mockReturnThis(),
-      get: vi.fn().mockResolvedValue({ docs: [] }),
-    })),
-    runTransaction: vi.fn().mockImplementation(async (callback: any) => {
-      transactionCallback = callback;
-      return await callback(mockTransaction);
-    }),
+// Mock schema table reference
+vi.mock("@shared/schema", () => ({
+  gameSessions: {
+    _table: "gameSessions",
+    id: { name: "id", _isPrimary: true },
+    status: { name: "status" },
+    creatorId: { name: "creatorId" },
+    turnDeadlineAt: { name: "turnDeadlineAt" },
+    pausedAt: { name: "pausedAt" },
   },
-  collections: {
-    gameSessions: "game_sessions",
-  },
+}));
+
+// ============================================================================
+// In-memory Drizzle mock
+// ============================================================================
+
+const gameStore = new Map<string, any>();
+
+function extractPrimaryId(where: any): string | null {
+  if (!where) return null;
+  if (where._op === "eq" && where.col?._isPrimary) return where.val;
+  if (where._op === "and") {
+    for (const c of where.conditions) {
+      const id = extractPrimaryId(c);
+      if (id) return id;
+    }
+  }
+  return null;
+}
+
+function createQueryChain() {
+  let op = "select";
+  let setData: any = null;
+  let insertData: any = null;
+  let whereClause: any = null;
+  let hasReturning = false;
+
+  const resolve = () => {
+    if (op === "select") {
+      const id = extractPrimaryId(whereClause);
+      if (id) {
+        const row = gameStore.get(id);
+        return row ? [row] : [];
+      }
+      return Array.from(gameStore.values());
+    }
+    if (op === "insert") {
+      const id = insertData?.id ?? `auto-${Date.now()}`;
+      gameStore.set(id, { ...insertData });
+      return hasReturning ? [{ ...insertData }] : undefined;
+    }
+    if (op === "update") {
+      const id = extractPrimaryId(whereClause);
+      if (id && gameStore.has(id)) {
+        const updated = { ...gameStore.get(id), ...setData };
+        gameStore.set(id, updated);
+        return hasReturning ? [{ ...updated }] : undefined;
+      }
+      return hasReturning ? [] : undefined;
+    }
+    if (op === "delete") {
+      const id = extractPrimaryId(whereClause);
+      if (id) gameStore.delete(id);
+      return undefined;
+    }
+    return undefined;
+  };
+
+  const chain: any = {};
+  const reset = (newOp: string) => {
+    op = newOp;
+    setData = null;
+    insertData = null;
+    whereClause = null;
+    hasReturning = false;
+  };
+
+  chain.select = vi.fn(() => {
+    reset("select");
+    return chain;
+  });
+  chain.from = vi.fn(() => chain);
+  chain.where = vi.fn((condition: any) => {
+    whereClause = condition;
+    return chain;
+  });
+  chain.for = vi.fn(() => chain);
+  chain.limit = vi.fn(() => chain);
+  chain.insert = vi.fn(() => {
+    reset("insert");
+    return chain;
+  });
+  chain.values = vi.fn((data: any) => {
+    insertData = data;
+    return chain;
+  });
+  chain.update = vi.fn(() => {
+    reset("update");
+    return chain;
+  });
+  chain.set = vi.fn((data: any) => {
+    setData = data;
+    return chain;
+  });
+  chain.delete = vi.fn(() => {
+    reset("delete");
+    return chain;
+  });
+  chain.returning = vi.fn(() => {
+    hasReturning = true;
+    return chain;
+  });
+  chain.onConflictDoUpdate = vi.fn(() => chain);
+
+  // Make the chain thenable (awaitable)
+  chain.then = (onFulfilled: any, onRejected?: any) => {
+    try {
+      return Promise.resolve(resolve()).then(onFulfilled, onRejected);
+    } catch (e) {
+      return onRejected ? Promise.reject(e).catch(onRejected) : Promise.reject(e);
+    }
+  };
+
+  return chain;
+}
+
+const mockChain = createQueryChain();
+
+vi.mock("../db", () => ({
+  getDb: () => ({
+    ...mockChain,
+    transaction: vi.fn(async (callback: any) => callback(mockChain)),
+  }),
 }));
 
 // Import after mocking
@@ -110,12 +196,10 @@ const {
 describe("GameStateService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGameStates.clear();
+    gameStore.clear();
   });
 
-  afterEach(() => {
-    transactionCallback = null;
-  });
+  afterEach(() => {});
 
   // =============================================================================
   // GAME CREATION TESTS
@@ -171,9 +255,8 @@ describe("GameStateService", () => {
   // =============================================================================
 
   describe("joinGame", () => {
-    beforeEach(async () => {
-      // Setup: Create a game first
-      mockGameStates.set("test-game", {
+    beforeEach(() => {
+      gameStore.set("test-game", {
         id: "test-game",
         spotId: "spot-123",
         creatorId: "player-1",
@@ -182,8 +265,10 @@ describe("GameStateService", () => {
         currentTurnIndex: 0,
         currentAction: "set",
         status: "waiting",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        turnDeadlineAt: null,
+        pausedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         processedEventIds: ["create-event"],
       });
     });
@@ -244,11 +329,8 @@ describe("GameStateService", () => {
         odv: "player-2",
       });
 
-      // Update state to include the event ID
-      const state = mockGameStates.get("test-game");
-      state.processedEventIds.push(eventId);
-
-      // Duplicate join with same event ID
+      // The first join already stored the eventId via the update.
+      // Second join with same eventId should be idempotent.
       const result = await joinGame({
         eventId,
         gameId: "test-game",
@@ -260,8 +342,7 @@ describe("GameStateService", () => {
     });
 
     it("should reject if game is full", async () => {
-      // Fill the game
-      const state = mockGameStates.get("test-game");
+      const state = gameStore.get("test-game");
       state.players = [
         { odv: "player-1", letters: "", connected: true },
         { odv: "player-2", letters: "", connected: true },
@@ -280,7 +361,7 @@ describe("GameStateService", () => {
     });
 
     it("should reject if game already started", async () => {
-      const state = mockGameStates.get("test-game");
+      const state = gameStore.get("test-game");
       state.status = "active";
 
       const result = await joinGame({
@@ -300,8 +381,7 @@ describe("GameStateService", () => {
 
   describe("submitTrick", () => {
     beforeEach(() => {
-      // Setup: Active game with 2 players
-      mockGameStates.set("active-game", {
+      gameStore.set("active-game", {
         id: "active-game",
         spotId: "spot-123",
         creatorId: "player-1",
@@ -313,8 +393,10 @@ describe("GameStateService", () => {
         currentTurnIndex: 0,
         currentAction: "set",
         status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        turnDeadlineAt: null,
+        pausedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         processedEventIds: [],
       });
     });
@@ -346,7 +428,7 @@ describe("GameStateService", () => {
     });
 
     it("should reject if game is not active", async () => {
-      const state = mockGameStates.get("active-game");
+      const state = gameStore.get("active-game");
       state.status = "completed";
 
       const result = await submitTrick({
@@ -361,7 +443,7 @@ describe("GameStateService", () => {
     });
 
     it("should move to next setter after all attempts", async () => {
-      const state = mockGameStates.get("active-game");
+      const state = gameStore.get("active-game");
       state.currentAction = "attempt";
       state.setterId = "player-1";
       state.currentTurnIndex = 1; // Player 2's turn to attempt
@@ -377,6 +459,79 @@ describe("GameStateService", () => {
       // Should move back to set phase with next setter
       expect(result.game!.currentAction).toBe("set");
     });
+
+    it("should skip eliminated players when finding first attempter in set phase", async () => {
+      // 3-player game where next player is eliminated
+      gameStore.set("skip-game", {
+        id: "skip-game",
+        spotId: "spot-123",
+        creatorId: "player-1",
+        players: [
+          { odv: "player-1", letters: "", connected: true },
+          { odv: "player-2", letters: "SKATE", connected: true }, // Eliminated
+          { odv: "player-3", letters: "S", connected: true },
+        ],
+        maxPlayers: 4,
+        currentTurnIndex: 0, // Player 1 is setter
+        currentAction: "set",
+        status: "active",
+        turnDeadlineAt: null,
+        pausedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        processedEventIds: [],
+      });
+
+      const result = await submitTrick({
+        eventId: "trick-skip-1",
+        gameId: "skip-game",
+        odv: "player-1",
+        trickName: "Kickflip",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.game!.currentAction).toBe("attempt");
+      // Should skip eliminated player-2 (index 1) and go to player-3 (index 2)
+      expect(result.game!.currentTurnIndex).toBe(2);
+    });
+
+    it("should skip eliminated players when rotating to new setter", async () => {
+      // 3-player game in attempt phase, about to rotate setter
+      gameStore.set("rotate-game", {
+        id: "rotate-game",
+        spotId: "spot-123",
+        creatorId: "player-1",
+        players: [
+          { odv: "player-1", letters: "", connected: true }, // setter
+          { odv: "player-2", letters: "SKATE", connected: true }, // Eliminated
+          { odv: "player-3", letters: "S", connected: true },
+        ],
+        maxPlayers: 4,
+        currentTurnIndex: 2, // Player 3 is attempting (last non-eliminated attempter)
+        currentAction: "attempt",
+        currentTrick: "Kickflip",
+        setterId: "player-1",
+        status: "active",
+        turnDeadlineAt: null,
+        pausedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        processedEventIds: [],
+      });
+
+      const result = await submitTrick({
+        eventId: "trick-rotate-1",
+        gameId: "rotate-game",
+        odv: "player-3",
+        trickName: "Kickflip",
+      });
+
+      expect(result.success).toBe(true);
+      // All attempters done, rotating to new setter
+      // Next setter after player-1 (index 0) should skip player-2 (SKATE) and go to player-3 (index 2)
+      expect(result.game!.currentAction).toBe("set");
+      expect(result.game!.currentTurnIndex).toBe(2);
+    });
   });
 
   // =============================================================================
@@ -385,8 +540,7 @@ describe("GameStateService", () => {
 
   describe("passTrick", () => {
     beforeEach(() => {
-      // Setup: Game in attempt phase
-      mockGameStates.set("attempt-game", {
+      gameStore.set("attempt-game", {
         id: "attempt-game",
         spotId: "spot-123",
         creatorId: "player-1",
@@ -400,8 +554,10 @@ describe("GameStateService", () => {
         currentTrick: "Kickflip",
         setterId: "player-1",
         status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        turnDeadlineAt: null,
+        pausedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         processedEventIds: [],
       });
     });
@@ -419,7 +575,7 @@ describe("GameStateService", () => {
     });
 
     it("should accumulate letters S-K-A-T-E", async () => {
-      const state = mockGameStates.get("attempt-game");
+      const state = gameStore.get("attempt-game");
       state.players[1].letters = "SKAT"; // One away from elimination
 
       const result = await passTrick({
@@ -434,7 +590,7 @@ describe("GameStateService", () => {
     });
 
     it("should end game when only one player remains", async () => {
-      const state = mockGameStates.get("attempt-game");
+      const state = gameStore.get("attempt-game");
       state.players[1].letters = "SKAT";
 
       const result = await passTrick({
@@ -449,7 +605,7 @@ describe("GameStateService", () => {
     });
 
     it("should reject pass during set phase", async () => {
-      const state = mockGameStates.get("attempt-game");
+      const state = gameStore.get("attempt-game");
       state.currentAction = "set";
       state.currentTurnIndex = 0;
 
@@ -465,7 +621,7 @@ describe("GameStateService", () => {
 
     it("should skip eliminated players in turn order", async () => {
       // 3-player game with one eliminated
-      mockGameStates.set("three-player-game", {
+      gameStore.set("three-player-game", {
         id: "three-player-game",
         spotId: "spot-123",
         creatorId: "player-1",
@@ -480,8 +636,10 @@ describe("GameStateService", () => {
         currentTrick: "Kickflip",
         setterId: "player-1",
         status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        turnDeadlineAt: null,
+        pausedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         processedEventIds: [],
       });
 
@@ -502,7 +660,7 @@ describe("GameStateService", () => {
 
   describe("handleDisconnect", () => {
     beforeEach(() => {
-      mockGameStates.set("disconnect-game", {
+      gameStore.set("disconnect-game", {
         id: "disconnect-game",
         spotId: "spot-123",
         creatorId: "player-1",
@@ -514,8 +672,10 @@ describe("GameStateService", () => {
         currentTurnIndex: 0,
         currentAction: "set",
         status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        turnDeadlineAt: null,
+        pausedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         processedEventIds: [],
       });
     });
@@ -545,7 +705,7 @@ describe("GameStateService", () => {
     });
 
     it("should not pause waiting games", async () => {
-      const state = mockGameStates.get("disconnect-game");
+      const state = gameStore.get("disconnect-game");
       state.status = "waiting";
 
       const result = await handleDisconnect({
@@ -565,7 +725,7 @@ describe("GameStateService", () => {
 
   describe("handleReconnect", () => {
     beforeEach(() => {
-      mockGameStates.set("paused-game", {
+      gameStore.set("paused-game", {
         id: "paused-game",
         spotId: "spot-123",
         creatorId: "player-1",
@@ -582,9 +742,10 @@ describe("GameStateService", () => {
         currentTurnIndex: 0,
         currentAction: "set",
         status: "paused",
-        pausedAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        pausedAt: new Date(),
+        turnDeadlineAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         processedEventIds: [],
       });
     });
@@ -615,7 +776,7 @@ describe("GameStateService", () => {
     });
 
     it("should stay paused if other players still disconnected", async () => {
-      const state = mockGameStates.get("paused-game");
+      const state = gameStore.get("paused-game");
       state.players[1].connected = false;
 
       const result = await handleReconnect({
@@ -635,7 +796,7 @@ describe("GameStateService", () => {
 
   describe("forfeitGame", () => {
     beforeEach(() => {
-      mockGameStates.set("forfeit-game", {
+      gameStore.set("forfeit-game", {
         id: "forfeit-game",
         spotId: "spot-123",
         creatorId: "player-1",
@@ -647,8 +808,10 @@ describe("GameStateService", () => {
         currentTurnIndex: 0,
         currentAction: "set",
         status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        turnDeadlineAt: null,
+        pausedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         processedEventIds: [],
       });
     });
@@ -679,7 +842,7 @@ describe("GameStateService", () => {
     });
 
     it("should reject forfeit for completed games", async () => {
-      const state = mockGameStates.get("forfeit-game");
+      const state = gameStore.get("forfeit-game");
       state.status = "completed";
 
       const result = await forfeitGame({
@@ -700,7 +863,7 @@ describe("GameStateService", () => {
 
   describe("idempotency", () => {
     beforeEach(() => {
-      mockGameStates.set("idempotent-game", {
+      gameStore.set("idempotent-game", {
         id: "idempotent-game",
         spotId: "spot-123",
         creatorId: "player-1",
@@ -712,8 +875,10 @@ describe("GameStateService", () => {
         currentTurnIndex: 0,
         currentAction: "set",
         status: "active",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        turnDeadlineAt: null,
+        pausedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
         processedEventIds: ["existing-event-id"],
       });
     });

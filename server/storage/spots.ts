@@ -260,22 +260,18 @@ export class SpotStorage {
       throw new Error("Database not available");
     }
 
-    const spot = await this.getSpotById(id);
-    if (!spot) return;
-
-    const newCount = spot.ratingCount + 1;
-    const newAvg = ((spot.rating || 0) * spot.ratingCount + newRating) / newCount;
-
+    // Atomic rating update using SQL expressions to avoid TOCTOU race conditions.
+    // Both ratingCount and rating are updated in a single statement without reading first.
     await db
       .update(spots)
       .set({
-        rating: newAvg,
-        ratingCount: newCount,
+        rating: sql`(COALESCE(${spots.rating}, 0) * ${spots.ratingCount} + ${newRating}) / (${spots.ratingCount} + 1)`,
+        ratingCount: sql`${spots.ratingCount} + 1`,
         updatedAt: new Date(),
       })
       .where(eq(spots.id, id));
 
-    logger.info("Spot rating updated", { spotId: id, newRating: newAvg, count: newCount });
+    logger.info("Spot rating updated (atomic)", { spotId: id, newRating });
   }
 
   /**
