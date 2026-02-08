@@ -12,9 +12,11 @@ package-lock.json
 # Build outputs
 dist
 build
+.next
 .turbo
 functions/lib
 *.log
+*.tsbuildinfo
 
 # Test artifacts
 test-results
