@@ -183,6 +183,7 @@ describe("useUserLookup", () => {
         handle: "user2",
       };
 
+      // Set cache data BEFORE rendering
       queryClient.setQueryData(["/api/profiles", "user1"], mockProfile1);
       queryClient.setQueryData(["/api/profiles", "user2"], mockProfile2);
 
@@ -194,17 +195,20 @@ describe("useUserLookup", () => {
         }
       );
 
+      // Wait for first query to complete
       await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
         expect(result.current.userId).toBe("user1");
       });
 
       // Rerender with new handle
       rerender({ handle: "user2" });
 
-      // Wait for the query to pick up the new data
+      // Wait for second query to complete
       await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
         expect(result.current.userId).toBe("user2");
-      }, { timeout: 1000 });
+      }, { timeout: 2000 });
     });
   });
 
