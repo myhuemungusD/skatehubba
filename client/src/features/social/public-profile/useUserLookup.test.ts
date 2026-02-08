@@ -18,6 +18,7 @@ describe("useUserLookup", () => {
         queries: {
           retry: false,
           gcTime: 0,
+          staleTime: Infinity, // Prevent refetching, use cached data
           queryFn: async () => undefined,
         },
       },
@@ -185,11 +186,13 @@ describe("useUserLookup", () => {
         expect(result.current.userId).toBe("user1");
       });
 
+      // Rerender with new handle
       rerender({ handle: "user2" });
 
+      // Wait for the query to pick up the new data
       await waitFor(() => {
         expect(result.current.userId).toBe("user2");
-      });
+      }, { timeout: 1000 });
     });
   });
 

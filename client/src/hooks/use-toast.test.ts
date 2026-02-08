@@ -7,8 +7,16 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { useToast, toast, reducer } from "./use-toast";
 
 describe("use-toast", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers();
+    // Reset module state between tests to prevent pollution
+    // Use dynamic import to access fresh module and reset internal state
+    const mod = await import("./use-toast");
+    // Access and reset internal state through module
+    // @ts-ignore - accessing private module state for test cleanup
+    if (mod.memoryState) mod.memoryState = { toasts: [] };
+    // @ts-ignore - accessing private module state for test cleanup
+    if (mod.listeners) mod.listeners.length = 0;
   });
 
   afterEach(() => {
