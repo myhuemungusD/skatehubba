@@ -95,7 +95,7 @@ Input validation and sanitization.
 ## Key Features
 
 ### Retry Logic
-The API client includes intelligent retry logic:
+React Query, configured in `queryClient.ts`, provides intelligent retry logic for API requests:
 - Retries network errors and 5xx server errors
 - Does NOT retry client errors (4xx)
 - Exponential backoff (1s, 2s, 4s)
