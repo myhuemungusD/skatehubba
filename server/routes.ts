@@ -32,7 +32,7 @@ import { moderationRouter } from "./routes/moderation";
 import { createPost } from "./services/moderationStore";
 import { sendQuickMatchNotification } from "./services/notificationService";
 import { profileRouter } from "./routes/profile";
-import { gamesRouter, forfeitExpiredGames } from "./routes/games";
+import { gamesRouter, forfeitExpiredGames, notifyDeadlineWarnings } from "./routes/games";
 import { tierRouter } from "./routes/tier";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
 import logger from "./logger";
@@ -601,6 +601,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("[Cron] Forfeit expired games failed", { error });
       res.status(500).json({ error: "Failed to process forfeit" });
+    }
+  });
+
+  // Cron endpoint for deadline warnings (≤1 hour remaining)
+  app.post("/api/cron/deadline-warnings", async (req, res) => {
+    const cronSecret = process.env.CRON_SECRET;
+    if (!cronSecret) {
+      logger.warn("[Cron] CRON_SECRET not configured — rejecting request");
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const result = await notifyDeadlineWarnings();
+      logger.info("[Cron] Deadline warnings sent", result);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      logger.error("[Cron] Deadline warnings failed", { error });
+      res.status(500).json({ error: "Failed to send deadline warnings" });
     }
   });
 

@@ -1,7 +1,8 @@
 /**
  * S.K.A.T.E. Game API Hooks
  *
- * React Query hooks for turn-based 1v1 S.K.A.T.E. games
+ * React Query hooks for async turn-based S.K.A.T.E. games.
+ * No soft language. Direct feedback.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -13,60 +14,41 @@ const QUERY_KEYS = {
   gameDetails: (id: string) => ['games', id] as const,
 };
 
-/**
- * Hook to fetch all my games (pending, active, completed)
- */
 export function useMyGames() {
   return useQuery({
     queryKey: QUERY_KEYS.myGames,
     queryFn: () => gameApi.getMyGames(),
-    refetchInterval: 5000, // Poll every 5 seconds for real-time feel
-    staleTime: 3000,
+    refetchInterval: 10000,
+    staleTime: 5000,
   });
 }
 
-/**
- * Hook to fetch game details with turns
- */
 export function useGameDetails(gameId: string | null) {
   return useQuery({
     queryKey: gameId ? QUERY_KEYS.gameDetails(gameId) : ['games', 'null'],
     queryFn: () => (gameId ? gameApi.getGameDetails(gameId) : null),
     enabled: !!gameId,
-    refetchInterval: 3000, // Poll every 3 seconds for real-time updates
-    staleTime: 2000,
+    refetchInterval: 10000,
+    staleTime: 5000,
   });
 }
 
-/**
- * Hook to create a new game challenge
- */
 export function useCreateGame() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (opponentId: string) => gameApi.createGame(opponentId),
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
-      toast({
-        title: 'Challenge Sent! 🎮',
-        description: data.message,
-      });
+      toast({ title: 'Challenge sent.' });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to Create Challenge',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
     },
   });
 }
 
-/**
- * Hook to respond to a game challenge (accept or decline)
- */
 export function useRespondToGame() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -77,25 +59,14 @@ export function useRespondToGame() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
-
-      toast({
-        title: variables.accept ? 'Challenge Accepted! 🔥' : 'Challenge Declined',
-        description: data.message,
-      });
+      toast({ title: variables.accept ? 'Game on.' : 'Declined.' });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to Respond',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
     },
   });
 }
 
-/**
- * Hook to submit a turn (video trick)
- */
 export function useSubmitTurn() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -105,33 +76,24 @@ export function useSubmitTurn() {
       gameId,
       trickDescription,
       videoUrl,
+      videoDurationMs,
     }: {
       gameId: string;
       trickDescription: string;
       videoUrl: string;
-    }) => gameApi.submitTurn(gameId, trickDescription, videoUrl),
+      videoDurationMs: number;
+    }) => gameApi.submitTurn(gameId, trickDescription, videoUrl, videoDurationMs),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
-
-      toast({
-        title: 'Trick Submitted! 🛹',
-        description: data.message,
-      });
+      toast({ title: 'Sent.' });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to Submit Turn',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
     },
   });
 }
 
-/**
- * Hook to judge a turn (landed or missed)
- */
 export function useJudgeTurn() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -142,69 +104,127 @@ export function useJudgeTurn() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
-
-      const title = data.gameOver
-        ? '🏆 Game Over!'
-        : variables.result === 'landed'
-        ? '✅ Landed!'
-        : '❌ Missed!';
-
-      toast({
-        title,
-        description: data.message,
-      });
+      toast({ title: data.message });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Failed to Judge Turn',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
     },
   });
 }
 
-/**
- * Hook to get game state for a specific player
- */
+export function useFileDispute() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ gameId, turnId }: { gameId: string; turnId: number }) =>
+      gameApi.fileDispute(gameId, turnId),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
+      toast({ title: 'Dispute filed.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useResolveDispute() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      disputeId,
+      finalResult,
+      gameId,
+    }: {
+      disputeId: number;
+      finalResult: 'landed' | 'missed';
+      gameId: string;
+    }) => gameApi.resolveDispute(disputeId, finalResult),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      toast({ title: data.message });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
+export function useForfeitGame() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (gameId: string) => gameApi.forfeitGame(gameId),
+    onSuccess: (_data, gameId) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      toast({ title: 'You forfeited.' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+    },
+  });
+}
+
 export function useGameState(gameId: string | null, userId: string | undefined) {
   const { data, isLoading, error } = useGameDetails(gameId);
 
   if (!data || !userId) {
     return {
       game: null,
+      turns: [],
+      disputes: [],
       isLoading,
       error,
       isMyTurn: false,
       needsToJudge: false,
+      needsToRespond: false,
+      pendingTurnId: null as number | null,
+      canDispute: false,
       myLetters: '',
       oppLetters: '',
       opponentName: '',
       isGameOver: false,
       iWon: false,
+      turnPhase: null as string | null,
+      isOffensive: false,
+      isDefensive: false,
     };
   }
 
-  const { game, turns, isMyTurn, needsToJudge, pendingTurnId } = data;
+  const { game, turns, disputes, isMyTurn, needsToJudge, needsToRespond, pendingTurnId, canDispute } = data;
   const isPlayer1 = game.player1Id === userId;
   const myLetters = isPlayer1 ? game.player1Letters : game.player2Letters;
   const oppLetters = isPlayer1 ? game.player2Letters : game.player1Letters;
   const opponentName = isPlayer1 ? game.player2Name : game.player1Name;
   const isGameOver = game.status === 'completed' || game.status === 'forfeited';
   const iWon = game.winnerId === userId;
+  const isOffensive = game.offensivePlayerId === userId;
+  const isDefensive = game.defensivePlayerId === userId;
 
   return {
     game,
     turns,
+    disputes,
     isLoading,
     error,
     isMyTurn,
     needsToJudge,
+    needsToRespond,
     pendingTurnId,
+    canDispute,
     myLetters,
     oppLetters,
     opponentName,
     isGameOver,
     iWon,
+    turnPhase: game.turnPhase,
+    isOffensive,
+    isDefensive,
   };
 }
