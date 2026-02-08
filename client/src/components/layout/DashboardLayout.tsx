@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Home, MapPin, Trophy, User, LogOut } from "lucide-react";
 import { useIsMobile } from "../../hooks/use-mobile";
 import { useAuth } from "../../hooks/useAuth";
+import { EmailVerificationBanner } from "../EmailVerificationBanner";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -81,6 +82,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
         {/* Main content area */}
         <main className="flex-1 ml-64">
+          <EmailVerificationBanner />
           <div className="min-h-screen">
             <div className="mx-auto max-w-4xl px-6 py-8">{children}</div>
           </div>
@@ -92,6 +94,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   // Mobile layout with bottom navigation
   return (
     <div className="min-h-screen bg-neutral-950 text-white flex flex-col">
+      <EmailVerificationBanner />
       <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="mx-auto w-full max-w-md px-4 pt-4">{children}</div>
       </main>

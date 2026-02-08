@@ -14,7 +14,8 @@ import {
   GoogleAuthProvider,
   type User as FirebaseUser,
 } from "firebase/auth";
-import { auth } from "../lib/firebase/config";
+import { auth, db } from "../lib/firebase/config";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { GUEST_MODE } from "../config/flags";
 import { ensureProfile } from "../lib/profile/ensureProfile";
 import { apiRequest } from "../lib/api/client";
@@ -528,6 +529,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
       // Create backend session + DB user record for new account
       await authenticateWithBackend(result.user, { firstName, lastName, isRegistration: true });
+      // Create Firestore users/{uid} document (non-blocking - backend is source of truth)
+      try {
+        await setDoc(doc(db, "users", result.user.uid), {
+          uid: result.user.uid,
+          displayName: name?.trim() || "",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        logger.log("[AuthStore] Firestore user doc created for", result.user.uid);
+      } catch (firestoreErr) {
+        logger.error("[AuthStore] Failed to create Firestore user doc:", firestoreErr);
+      }
       // Send Firebase verification email (non-blocking - don't fail signup if this errors)
       try {
         await sendEmailVerification(result.user);
