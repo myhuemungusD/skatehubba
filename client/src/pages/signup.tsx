@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../co
 import { Link, useLocation } from "wouter";
 import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
+import { getAuthErrorMessage } from "../lib/firebase/auth-errors";
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
@@ -55,10 +56,9 @@ export default function SignupPage() {
       });
       setLocation("/profile/setup");
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Registration failed";
       toast({
         title: "Registration Failed",
-        description: errorMessage,
+        description: getAuthErrorMessage(err),
         variant: "destructive",
       });
     } finally {
@@ -77,10 +77,9 @@ export default function SignupPage() {
       });
       setLocation("/profile/setup");
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Google sign-up failed";
       toast({
         title: "Google sign-up failed",
-        description: errorMessage,
+        description: getAuthErrorMessage(err),
         variant: "destructive",
       });
     } finally {

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../co
 import { Link } from "wouter";
 import { Mail, ArrowLeft, CheckCircle } from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
+import { getAuthErrorMessage } from "../lib/firebase/auth-errors";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -26,17 +27,9 @@ export default function ForgotPasswordPage() {
         description: "Check your inbox for password reset instructions.",
       });
     } catch (err: unknown) {
-      let errorMessage = "Failed to send reset email";
-
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      } else if (err && typeof err === "object" && "message" in err) {
-        errorMessage = String((err as { message: unknown }).message);
-      }
-
       toast({
         title: "Reset Failed",
-        description: errorMessage,
+        description: getAuthErrorMessage(err),
         variant: "destructive",
       });
     } finally {
