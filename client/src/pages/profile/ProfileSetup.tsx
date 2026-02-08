@@ -29,8 +29,8 @@ const experienceLevelSchema = z.enum(["beginner", "intermediate", "advanced"]);
 
 const formSchema = z.object({
   username: usernameSchema.optional().or(z.literal("")),
-  stance: stanceSchema.optional(),
-  experienceLevel: experienceLevelSchema.optional(),
+  stance: stanceSchema.optional().or(z.literal("")),
+  experienceLevel: experienceLevelSchema.optional().or(z.literal("")),
   sponsorFlow: z.string().max(100).optional(),
   sponsorTeam: z.string().max(100).optional(),
   hometownShop: z.string().max(100).optional(),
@@ -294,8 +294,8 @@ export default function ProfileSetup() {
 
         const payload: ProfileCreatePayload = {
           username: skip ? undefined : values.username,
-          stance: values.stance,
-          experienceLevel: values.experienceLevel,
+          stance: values.stance || undefined,
+          experienceLevel: values.experienceLevel || undefined,
           sponsorFlow: values.sponsorFlow?.trim() ? values.sponsorFlow.trim() : undefined,
           sponsorTeam: values.sponsorTeam?.trim() ? values.sponsorTeam.trim() : undefined,
           hometownShop: values.hometownShop?.trim() ? values.hometownShop.trim() : undefined,
