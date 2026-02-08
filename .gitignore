@@ -16,6 +16,7 @@ build
 .turbo
 functions/lib
 *.log
+*.tsbuildinfo
 
 # Test artifacts
 test-results
