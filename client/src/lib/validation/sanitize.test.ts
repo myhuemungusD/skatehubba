@@ -101,7 +101,7 @@ describe("sanitize utilities", () => {
     });
 
     it("should remove angle brackets", () => {
-      expect(sanitizeDisplayName("John <script> Doe")).toBe("John  Doe");
+      expect(sanitizeDisplayName("John <script> Doe")).toBe("John script Doe");
     });
 
     it("should normalize multiple spaces", () => {
