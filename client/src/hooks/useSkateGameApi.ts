@@ -147,8 +147,8 @@ export function useJudgeTurn() {
       result: 'landed' | 'missed';
       gameId: string;
     }) => gameApi.judgeTurn(turnId, result),
-    onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
+    onSuccess: (data, { gameId, result }) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
 
       const title = data.gameOver

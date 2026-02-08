@@ -6,7 +6,6 @@
 
 import { apiRequest } from '../client';
 import type {
-  Game,
   GameWithDetails,
   MyGames,
   CreateGameRequest,

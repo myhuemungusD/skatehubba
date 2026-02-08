@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearch, useLocation } from 'wouter';
 import { Swords, Clock, Trophy, Upload, Check, X, AlertCircle, ArrowLeft } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -7,7 +7,6 @@ import { useGameState, useSubmitTurn, useJudgeTurn } from '@/hooks/useSkateGameA
 import { LettersDisplay, TurnHistory } from '@/components/game';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { cn } from '@/lib/utils';
 
@@ -84,7 +83,9 @@ export default function SkateGamePage() {
       <div className="text-center py-12">
         <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
         <h2 className="text-xl font-semibold text-white mb-2">Failed to Load Game</h2>
-        <p className="text-sm text-neutral-400 mb-4">{error || 'Game not found'}</p>
+        <p className="text-sm text-neutral-400 mb-4">
+          {error ? String(error) : 'Game not found'}
+        </p>
         <Button onClick={handleBackToLobby}>Back to Lobby</Button>
       </div>
     );

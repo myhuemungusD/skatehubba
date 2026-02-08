@@ -7,7 +7,6 @@ import { GameCard } from '@/components/game';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LoadingScreen } from '@/components/LoadingScreen';
-import { cn } from '@/lib/utils';
 
 export default function ChallengeLobby() {
   const { user } = useAuth();
