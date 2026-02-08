@@ -122,15 +122,14 @@ describe("useUserLookup", () => {
 
       const { result } = renderHook(() => useUserLookup("erroruser"), { wrapper });
 
-      await waitFor(() => {
-        if (result.current.error === "unknown") {
+      await waitFor(
+        () => {
           expect(result.current.error).toBe("unknown");
           expect(result.current.userId).toBe(null);
           expect(result.current.profile).toBe(null);
-        }
-      }, { timeout: 100 }).catch(() => {
-        // Expected to timeout if error state isn't set
-      });
+        },
+        { timeout: 100 }
+      );
     });
   });
 
