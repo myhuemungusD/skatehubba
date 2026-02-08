@@ -98,7 +98,7 @@ export const apiRequestRaw = async <TBody = unknown>(
   // Setup timeout handling
   const timeout = options.timeout ?? 30000; // Default 30s
   const controller = new AbortController();
-  let timeoutId: NodeJS.Timeout | number | undefined;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
   // Use provided signal or create one with timeout
   const signal = options.signal ?? controller.signal;
