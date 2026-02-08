@@ -177,7 +177,18 @@ export function sanitizeEmail(input: string): string | null {
  */
 export function stripHTMLTags(input: string): string {
   return input.replace(/<[^>]*>/g, "").trim();
-}
+  let output = input;
+  let previous: string;
+
+  // Repeatedly remove tags until no more <...> patterns remain,
+  // preventing partially removed constructs (e.g., nested or malformed tags)
+  // from leaving behind unsafe substrings like "<script".
+  do {
+    previous = output;
+    output = output.replace(/<[^>]*>/g, "");
+  } while (output !== previous);
+
+  return output.trim();
 
 /**
  * Sanitizes a filename to remove path traversal attempts and unsafe characters.
