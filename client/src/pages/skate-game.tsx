@@ -81,7 +81,6 @@ export default function SkateGamePage() {
     error,
     isMyTurn,
     needsToJudge,
-    needsToRespond,
     pendingTurnId,
     canDispute,
     myLetters,

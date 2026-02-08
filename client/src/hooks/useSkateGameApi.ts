@@ -56,7 +56,7 @@ export function useRespondToGame() {
   return useMutation({
     mutationFn: ({ gameId, accept }: { gameId: string; accept: boolean }) =>
       gameApi.respondToGame(gameId, accept),
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       toast({ title: variables.accept ? 'Game on.' : 'Declined.' });
@@ -83,7 +83,7 @@ export function useSubmitTurn() {
       videoUrl: string;
       videoDurationMs: number;
     }) => gameApi.submitTurn(gameId, trickDescription, videoUrl, videoDurationMs),
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
       toast({ title: 'Sent.' });
@@ -119,7 +119,7 @@ export function useFileDispute() {
   return useMutation({
     mutationFn: ({ gameId, turnId }: { gameId: string; turnId: number }) =>
       gameApi.fileDispute(gameId, turnId),
-    onSuccess: (data, variables) => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       toast({ title: 'Dispute filed.' });
     },
