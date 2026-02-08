@@ -118,14 +118,14 @@ const getDeviceFingerprint = (req: Request): string | null => {
 };
 
 const userKeyGenerator = (req: Request): string => {
-  const userId = req.currentUser?.id ?? "unauthenticated";
+  const userId = req.currentUser?.id ?? "anonymous";
   const ip = req.ip ?? "unknown-ip";
   const device = getDeviceFingerprint(req) ?? "unknown-device";
 
   // Handle edge case where all identifiers are at their fallback values.
   // Add additional entropy from request headers so that such requests do not
   // all share the same rate limit key.
-  if (userId === "unauthenticated" && ip === "unknown-ip" && device === "unknown-device") {
+  if (userId === "anonymous" && ip === "unknown-ip" && device === "unknown-device") {
     const userAgent = req.get("user-agent") ?? "unknown-ua";
     const acceptLanguage = req.get("accept-language") ?? "unknown-lang";
     const forwardedFor = req.get("x-forwarded-for") ?? "unknown-forwarded";

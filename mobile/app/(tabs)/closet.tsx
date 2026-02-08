@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
@@ -10,7 +10,11 @@ export default function ClosetScreen() {
 
   // Unauthenticated users are redirected to sign-in by the root layout guard.
   if (!isAuthenticated) {
-    return null;
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={SKATE.colors.orange} />
+      </View>
+    );
   }
 
   // Authenticated user view
