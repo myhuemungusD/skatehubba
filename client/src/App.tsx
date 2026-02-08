@@ -2,7 +2,6 @@ function BuildStamp() {
   // These can be replaced at build time by your CI/CD (e.g. Vercel, Turbo, etc.)
   const commit = import.meta.env.VITE_COMMIT_SHA || "dev";
   const buildTime = import.meta.env.VITE_BUILD_TIME || new Date().toISOString();
-  const guestMode = GUEST_MODE ? "true" : "false";
   return (
     <footer
       style={{
@@ -18,7 +17,7 @@ function BuildStamp() {
         borderRadius: "6px 0 0 0",
       }}
     >
-      build: {commit} | {buildTime} | guest_mode={guestMode}
+      build: {commit} | {buildTime}
     </footer>
   );
 }
@@ -30,14 +29,12 @@ import { Toaster } from "./components/ui/toaster";
 import { TooltipProvider } from "./components/ui/tooltip";
 import { useToast } from "./hooks/use-toast";
 import { useAuth } from "./hooks/useAuth";
-import { GUEST_MODE } from "./config/flags";
 import { useAuthListener } from "./hooks/useAuthListener";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { PWAInstallPrompt } from "./components/PWAInstallPrompt";
 import { StagingBanner } from "./components/StagingBanner";
 import { OrganizationStructuredData, WebAppStructuredData } from "./components/StructuredData";
 import { analytics as firebaseAnalytics } from "./lib/firebase";
-import { GuestGate } from "./routing/GuestGate";
 import { usePerformanceMonitor } from "./hooks/usePerformanceMonitor";
 import { useSkipLink } from "./hooks/useSkipLink";
 // AISkateChat removed for MVP - feature coming soon
@@ -115,11 +112,6 @@ function RootRedirect() {
 
   useEffect(() => {
     if (loading || !isInitialized) return;
-
-    if (GUEST_MODE) {
-      setLocation("/map", { replace: true });
-      return;
-    }
 
     if (user) {
       // Wait for profile status to resolve before redirecting
@@ -389,14 +381,10 @@ export default function App() {
     }
   }, []);
 
-  // Guest Mode contract log (safety rail)
-  const { user, profile, isInitialized } = useAuth();
+  // Expose UID only in dev, Cypress, or explicit E2E mode
+  const { user, isInitialized } = useAuth();
   useEffect(() => {
     if (!isInitialized) return;
-    logger.info(
-      `[GUEST_MODE] guest_mode=${GUEST_MODE} uid=${user?.uid ?? "none"} profile_exists=${!!profile}`
-    );
-    // Expose UID only in dev, Cypress, or explicit E2E mode
     const exposeUid =
       import.meta.env.DEV ||
       (typeof window !== "undefined" && (window as any).Cypress) ||
@@ -404,7 +392,7 @@ export default function App() {
     if (exposeUid && typeof window !== "undefined") {
       (window as any).__SKATEHUBBA_UID__ = user?.uid ?? null;
     }
-  }, [isInitialized, user, profile]);
+  }, [isInitialized, user]);
 
   return (
     <ErrorBoundary>
@@ -437,9 +425,7 @@ export default function App() {
             }}
           />
           <Router>
-            <GuestGate>
-              <AppRoutes />
-            </GuestGate>
+            <AppRoutes />
           </Router>
           <BuildStamp />
           <Toaster />

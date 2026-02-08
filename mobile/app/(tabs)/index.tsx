@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { Ionicons } from "@expo/vector-icons";
@@ -16,42 +16,22 @@ export default function HomeScreen() {
     );
   }
 
+  // Unauthenticated users are redirected to sign-in by the root layout guard.
+  if (!user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={SKATE.colors.orange} />
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} testID="home-screen">
       {/* Hero Section */}
       <View style={styles.hero}>
-        {user ? (
-          <>
-            <Text style={styles.greeting}>Welcome back,</Text>
-            <Text style={styles.userName}>{user.displayName || "Skater"}</Text>
-          </>
-        ) : (
-          <>
-            <Text style={styles.heroTitle}>SkateHubba</Text>
-            <Text style={styles.heroSubtitle}>Your skateboarding community</Text>
-          </>
-        )}
+        <Text style={styles.greeting}>Welcome back,</Text>
+        <Text style={styles.userName}>{user.displayName || "Skater"}</Text>
       </View>
-
-      {/* Sign In Banner for Guests */}
-      {!user && (
-        <TouchableOpacity
-          style={styles.signInBanner}
-          onPress={() => router.push("/auth/sign-in" as any)}
-          testID="home-sign-in"
-        >
-          <View style={styles.signInContent}>
-            <Ionicons name="person-circle" size={32} color={SKATE.colors.orange} />
-            <View style={styles.signInText}>
-              <Text style={styles.signInTitle}>Sign in to unlock all features</Text>
-              <Text style={styles.signInSubtitle}>
-                Play S.K.A.T.E., check in at spots, and more
-              </Text>
-            </View>
-          </View>
-          <Ionicons name="chevron-forward" size={24} color={SKATE.colors.gray} />
-        </TouchableOpacity>
-      )}
 
       {/* Quick Actions Grid */}
       <View style={styles.section}>
@@ -71,7 +51,6 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.cardTitle}>Play S.K.A.T.E.</Text>
             <Text style={styles.cardDesc}>Challenge skaters worldwide</Text>
-            {!user && <Text style={styles.cardBadge}>Sign in required</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.card} onPress={() => router.push("/(tabs)/leaderboard")}>
@@ -93,54 +72,52 @@ export default function HomeScreen() {
       </View>
 
       {/* User-specific Quick Actions */}
-      {user && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Your Activity</Text>
-          <View style={styles.activityList}>
-            <TouchableOpacity
-              style={styles.activityItem}
-              onPress={() => router.push(`/profile/${user.uid}` as any)}
-            >
-              <View style={styles.activityIcon}>
-                <Ionicons name="person" size={20} color={SKATE.colors.orange} />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>My Profile</Text>
-                <Text style={styles.activitySubtitle}>View your stats and achievements</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
-            </TouchableOpacity>
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Your Activity</Text>
+        <View style={styles.activityList}>
+          <TouchableOpacity
+            style={styles.activityItem}
+            onPress={() => router.push(`/profile/${user.uid}` as any)}
+          >
+            <View style={styles.activityIcon}>
+              <Ionicons name="person" size={20} color={SKATE.colors.orange} />
+            </View>
+            <View style={styles.activityContent}>
+              <Text style={styles.activityTitle}>My Profile</Text>
+              <Text style={styles.activitySubtitle}>View your stats and achievements</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.activityItem}
-              onPress={() => router.push("/(tabs)/closet")}
-            >
-              <View style={styles.activityIcon}>
-                <Ionicons name="shirt" size={20} color={SKATE.colors.orange} />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>My Closet</Text>
-                <Text style={styles.activitySubtitle}>Your gear collection</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
-            </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.activityItem}
+            onPress={() => router.push("/(tabs)/closet")}
+          >
+            <View style={styles.activityIcon}>
+              <Ionicons name="shirt" size={20} color={SKATE.colors.orange} />
+            </View>
+            <View style={styles.activityContent}>
+              <Text style={styles.activityTitle}>My Closet</Text>
+              <Text style={styles.activitySubtitle}>Your gear collection</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.activityItem}
-              onPress={() => router.push("/(tabs)/users")}
-            >
-              <View style={styles.activityIcon}>
-                <Ionicons name="people" size={20} color={SKATE.colors.orange} />
-              </View>
-              <View style={styles.activityContent}>
-                <Text style={styles.activityTitle}>Find Skaters</Text>
-                <Text style={styles.activitySubtitle}>Connect with the community</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.activityItem}
+            onPress={() => router.push("/(tabs)/users")}
+          >
+            <View style={styles.activityIcon}>
+              <Ionicons name="people" size={20} color={SKATE.colors.orange} />
+            </View>
+            <View style={styles.activityContent}>
+              <Text style={styles.activityTitle}>Find Skaters</Text>
+              <Text style={styles.activitySubtitle}>Connect with the community</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
+          </TouchableOpacity>
         </View>
-      )}
+      </View>
 
       <View style={styles.bottomPadding} />
     </ScrollView>
@@ -166,16 +143,6 @@ const styles = StyleSheet.create({
     padding: SKATE.spacing.xl,
     paddingTop: SKATE.spacing.xxl,
   },
-  heroTitle: {
-    fontSize: 36,
-    fontWeight: "bold",
-    color: SKATE.colors.orange,
-  },
-  heroSubtitle: {
-    fontSize: 16,
-    color: SKATE.colors.lightGray,
-    marginTop: SKATE.spacing.xs,
-  },
   greeting: {
     fontSize: 16,
     color: SKATE.colors.lightGray,
@@ -184,37 +151,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "bold",
     color: SKATE.colors.white,
-  },
-  signInBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: SKATE.colors.grime,
-    marginHorizontal: SKATE.spacing.lg,
-    marginBottom: SKATE.spacing.lg,
-    padding: SKATE.spacing.lg,
-    borderRadius: SKATE.borderRadius.lg,
-    borderWidth: 1,
-    borderColor: SKATE.colors.orange,
-  },
-  signInContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    gap: SKATE.spacing.md,
-  },
-  signInText: {
-    flex: 1,
-  },
-  signInTitle: {
-    color: SKATE.colors.white,
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  signInSubtitle: {
-    color: SKATE.colors.lightGray,
-    fontSize: 12,
-    marginTop: 2,
   },
   section: {
     paddingHorizontal: SKATE.spacing.lg,
@@ -263,12 +199,6 @@ const styles = StyleSheet.create({
     color: SKATE.colors.gray,
     textAlign: "center",
     marginTop: SKATE.spacing.xs,
-  },
-  cardBadge: {
-    fontSize: 10,
-    color: SKATE.colors.orange,
-    marginTop: SKATE.spacing.sm,
-    fontWeight: "600",
   },
   activityList: {
     backgroundColor: SKATE.colors.grime,

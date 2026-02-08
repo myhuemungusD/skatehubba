@@ -20,7 +20,18 @@ export default function RootLayout() {
 
   useAuthListener();
 
-  // Gate routing until auth is initialized
+  // Redirect logged-in users away from auth screens; redirect unauthenticated to sign-in
+  useEffect(() => {
+    if (!isInitialized) return;
+    const inAuthGroup = segments[0] === "auth";
+    if (user && inAuthGroup) {
+      router.replace("/(tabs)");
+    } else if (!user && !inAuthGroup) {
+      router.replace("/auth/sign-in");
+    }
+  }, [user, isInitialized, segments, router]);
+
+  // Gate rendering until auth is initialized
   if (!isInitialized) {
     return (
       <View
@@ -35,17 +46,6 @@ export default function RootLayout() {
       </View>
     );
   }
-
-  // Only redirect logged-in users away from auth screens
-  // Allow guests to browse the app freely
-  useEffect(() => {
-    if (!isInitialized) return;
-    const inAuthGroup = segments[0] === "auth";
-    // If user is logged in and on auth screen, redirect to home
-    if (user && inAuthGroup) {
-      router.replace("/(tabs)");
-    }
-  }, [user, isInitialized, segments, router]);
 
   return (
     <QueryClientProvider client={queryClient}>

@@ -9,13 +9,11 @@ function isFirebaseUserAuthenticated(user: User | null): boolean {
 
 /**
  * Determines if a Firebase user has verified their email.
- * - Anonymous users: always true (no email to verify)
  * - OAuth users (Google, etc.): always true (provider verified)
  * - Email/password users: true only if emailVerified flag is set
  */
 function isUserEmailVerified(user: User | null): boolean {
   if (!user) return false;
-  if (user.isAnonymous) return true;
   if (user.emailVerified) return true;
   return user.providerData.some((provider) => provider.providerId !== "password");
 }
@@ -36,8 +34,6 @@ export function useAuth() {
     signInGoogle,
     signInWithEmail,
     signUpWithEmail,
-    signInAnonymously,
-    signInAnon,
     signOut,
     resetPassword,
     refreshRoles,
@@ -57,8 +53,6 @@ export function useAuth() {
       signInGoogle: s.signInGoogle,
       signInWithEmail: s.signInWithEmail,
       signUpWithEmail: s.signUpWithEmail,
-      signInAnonymously: s.signInAnonymously,
-      signInAnon: s.signInAnon,
       signOut: s.signOut,
       resetPassword: s.resetPassword,
       refreshRoles: s.refreshRoles,
@@ -97,8 +91,6 @@ export function useAuth() {
     signInGoogle,
     signInWithEmail,
     signUpWithEmail,
-    signInAnonymously,
-    signInAnon,
     signOut,
     resetPassword,
     refreshRoles,

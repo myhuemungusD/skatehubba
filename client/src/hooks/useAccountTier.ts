@@ -14,7 +14,7 @@ export function useAccountTier() {
 
   const { data, isLoading } = useQuery<TierInfo>({
     queryKey: ["/api/tier"],
-    enabled: !!user && !user.isAnonymous,
+    enabled: !!user,
     staleTime: 60_000,
     gcTime: 5 * 60_000,
     retry: 1,
