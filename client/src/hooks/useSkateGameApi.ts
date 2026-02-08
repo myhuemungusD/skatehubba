@@ -7,7 +7,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from './use-toast';
 import { gameApi } from '@/lib/api/game';
-import type { MyGames, GameWithDetails } from '@/lib/api/game';
 
 const QUERY_KEYS = {
   myGames: ['games', 'my-games'] as const,
@@ -138,22 +137,15 @@ export function useJudgeTurn() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({
-      turnId,
-      result,
-      gameId,
-    }: {
-      turnId: number;
-      result: 'landed' | 'missed';
-      gameId: string;
-    }) => gameApi.judgeTurn(turnId, result),
-    onSuccess: (data, { gameId, result }) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
+    mutationFn: (variables: { turnId: number; result: 'landed' | 'missed'; gameId: string }) =>
+      gameApi.judgeTurn(variables.turnId, variables.result),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
 
       const title = data.gameOver
         ? '🏆 Game Over!'
-        : result === 'landed'
+        : variables.result === 'landed'
         ? '✅ Landed!'
         : '❌ Missed!';
 
