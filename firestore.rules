@@ -205,12 +205,45 @@ service cloud.firestore {
     }
 
     // =========================================================================
-    // DEPRECATED /users (legacy presence/compat path)
+    // USERS - /users/{userId}
+    // Core user document created on signup. Owner can read and create their
+    // own doc; updates restricted to mutable profile fields.
     // =========================================================================
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if false;
+
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(profileAllowedFields())
+        && isValidProfileFields(request.resource.data);
+
+      allow update: if isOwner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileMutableFields())
+        && isValidProfileFields(request.resource.data);
+
+      allow delete: if false;
+    }
+
+    // =========================================================================
+    // USERNAMES - /usernames/{username}
+    // Create-only reservation map. Each doc ID is a lowercase username,
+    // containing only the uid of the owner. Once created, it cannot be
+    // updated or deleted by clients, ensuring username permanence.
+    // =========================================================================
+
+    match /usernames/{username} {
+      allow read: if true;
+
+      allow create: if isAuthenticated()
+        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt is timestamp
+        // Username format: 3-20 chars, lowercase alphanumeric
+        && username.size() >= 3
+        && username.size() <= 20
+        && username.matches('^[a-z0-9]+$');
+
+      allow update, delete: if false;
     }
 
     // =========================================================================

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../co
 import { Link, useLocation } from "wouter";
 import { Mail, Lock } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
+import { getAuthErrorMessage } from "../lib/firebase/auth-errors";
 
 export default function SigninPage() {
   const [email, setEmail] = useState("");
@@ -65,10 +66,9 @@ export default function SigninPage() {
         description: "Signing you in...",
       });
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Login failed";
       toast({
         title: "Login failed",
-        description: errorMessage,
+        description: getAuthErrorMessage(err),
         variant: "destructive",
       });
       setIsLoading(false);
@@ -86,10 +86,9 @@ export default function SigninPage() {
         description: "Signing you in with Google...",
       });
     } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : "Google sign-in failed";
       toast({
         title: "Google sign-in failed",
-        description: errorMessage,
+        description: getAuthErrorMessage(err),
         variant: "destructive",
       });
       setIsLoading(false);
