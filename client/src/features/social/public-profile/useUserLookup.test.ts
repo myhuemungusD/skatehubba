@@ -99,14 +99,10 @@ describe("useUserLookup", () => {
 
       // Force refetch to trigger error
       await waitFor(() => {
-        if (result.current.error === "notFound") {
-          expect(result.current.error).toBe("notFound");
-          expect(result.current.userId).toBe(null);
-          expect(result.current.profile).toBe(null);
-        }
-      }, { timeout: 100 }).catch(() => {
-        // Expected to timeout if error state isn't set
-      });
+        expect(result.current.error).toBe("notFound");
+        expect(result.current.userId).toBe(null);
+        expect(result.current.profile).toBe(null);
+      }, { timeout: 100 });
     });
 
     it("should return 'unknown' error for non-404 errors", async () => {

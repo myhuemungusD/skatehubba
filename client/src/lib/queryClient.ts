@@ -117,8 +117,9 @@ export const queryClient = new QueryClient({
       retryDelay,
     },
     mutations: {
-      retry: shouldRetry,
-      retryDelay,
+      // Mutations disabled by default to prevent duplicate non-idempotent writes
+      // Enable per-mutation as needed for idempotent operations
+      retry: false,
     },
   },
 });

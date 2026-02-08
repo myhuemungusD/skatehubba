@@ -36,7 +36,7 @@ This directory contains reusable React hooks that encapsulate common functionali
 
 ## Testing
 
-All hooks have comprehensive unit tests in `.test.ts` files. Run tests with:
+Unit tests are available for several hooks in `.test.ts` files. Run tests with:
 
 ```bash
 pnpm vitest run hooks/

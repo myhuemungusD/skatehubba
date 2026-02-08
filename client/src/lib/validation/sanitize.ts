@@ -9,7 +9,7 @@
 
 /**
  * Escapes HTML special characters to prevent XSS attacks.
- * Converts: < > & " ' / to HTML entities in the correct order.
+ * Converts: < > & " ' and / to HTML entities in the correct order.
  * Note: & must be escaped first to prevent double-encoding.
  *
  * @param input - The string to sanitize
