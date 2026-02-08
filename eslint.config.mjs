@@ -22,6 +22,7 @@ export default tseslint.config(
       "**/e2e/**",
       "**/tailwind.config.ts",
       "mobile/**",
+      "**/.next/**",
     ],
   },
 
