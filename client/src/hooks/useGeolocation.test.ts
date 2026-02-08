@@ -1,6 +1,6 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { useGeolocation, GeolocationStatus } from "./useGeolocation";
+import { useGeolocation } from "./useGeolocation";
 
 describe("useGeolocation", () => {
   let mockGeolocation: {
