@@ -1,6 +1,14 @@
+/**
+ * @vitest-environment jsdom
+ */
+
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { useToast, toast, reducer } from "./use-toast";
+
+// Don't import at top level - use dynamic imports in tests to get fresh state
+let useToast: any;
+let toast: any;
+let reducer: any;
 
 // Helper to reset toast state between tests
 const clearAllToasts = () => {
@@ -11,8 +19,15 @@ const clearAllToasts = () => {
 };
 
 describe("use-toast", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.useFakeTimers();
+    // Reset modules to get fresh state
+    vi.resetModules();
+    // Import fresh module
+    const mod = await import("./use-toast");
+    useToast = mod.useToast;
+    toast = mod.toast;
+    reducer = mod.reducer;
   });
 
   afterEach(() => {

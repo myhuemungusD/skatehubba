@@ -1,3 +1,7 @@
+/**
+ * @vitest-environment jsdom
+ */
+
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -14,7 +18,8 @@ describe("useUserLookup", () => {
         queries: {
           retry: false,
           gcTime: 0,
-          queryFn: async () => undefined,
+          staleTime: Infinity, // Prevent refetching, use cached data
+          // No default queryFn - let queries use their own or fail gracefully
         },
       },
     });
@@ -177,11 +182,13 @@ describe("useUserLookup", () => {
         expect(result.current.userId).toBe("user1");
       });
 
+      // Rerender with new handle
       rerender({ handle: "user2" });
 
+      // Wait for the query to pick up the new data
       await waitFor(() => {
         expect(result.current.userId).toBe("user2");
-      });
+      }, { timeout: 1000 });
     });
   });
 
