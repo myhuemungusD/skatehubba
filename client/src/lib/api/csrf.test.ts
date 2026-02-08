@@ -3,6 +3,7 @@ import { apiRequestRaw } from "./client";
 
 describe("CSRF Protection", () => {
   const originalDocument = global.document;
+  const originalFetch = global.fetch;
 
   beforeEach(() => {
     global.fetch = vi.fn();
@@ -11,6 +12,7 @@ describe("CSRF Protection", () => {
 
   afterEach(() => {
     global.document = originalDocument;
+    global.fetch = originalFetch;
   });
 
   const createMockDocument = (cookieValue: string) => {

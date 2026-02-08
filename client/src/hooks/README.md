@@ -36,7 +36,7 @@ This directory contains reusable React hooks that encapsulate common functionali
 
 ## Testing
 
-All hooks have comprehensive unit tests in `.test.ts` files. Run tests with:
+Key hooks have unit tests in `.test.ts` files (e.g., `useGeolocation.test.ts`, `use-toast.test.ts`). Run tests with:
 
 ```bash
 pnpm vitest run hooks/

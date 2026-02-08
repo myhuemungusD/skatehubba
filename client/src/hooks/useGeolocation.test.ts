@@ -28,7 +28,7 @@ describe("useGeolocation", () => {
   });
 
   describe("initialization", () => {
-    it("should initialize with idle status", () => {
+    it("should initialize with locating status", () => {
       const { result } = renderHook(() => useGeolocation(false));
 
       expect(result.current.status).toBe("locating");

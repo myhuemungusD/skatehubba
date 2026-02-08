@@ -2,6 +2,14 @@ import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { useToast, toast, reducer } from "./use-toast";
 
+// Helper to reset toast state between tests
+const clearAllToasts = () => {
+  const { result } = renderHook(() => useToast());
+  act(() => {
+    result.current.dismiss(); // Dismiss all toasts
+  });
+};
+
 describe("use-toast", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -202,10 +210,15 @@ describe("use-toast", () => {
   });
 
   describe("useToast hook", () => {
+    beforeEach(() => {
+      // Clear toast state from previous tests
+      clearAllToasts();
+    });
+
     it("should return current toast state", () => {
       const { result } = renderHook(() => useToast());
 
-      expect(result.current.toasts).toEqual([]);
+      expect(result.current.toasts.length).toBe(0);
       expect(typeof result.current.toast).toBe("function");
       expect(typeof result.current.dismiss).toBe("function");
     });

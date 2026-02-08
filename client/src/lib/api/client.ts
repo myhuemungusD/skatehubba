@@ -99,12 +99,16 @@ export const apiRequestRaw = async <TBody = unknown>(
   const timeout = options.timeout ?? 30000; // Default 30s
   const controller = new AbortController();
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let didTimeout = false;
 
   // Use provided signal or create one with timeout
   const signal = options.signal ?? controller.signal;
 
   if (timeout > 0 && !options.signal) {
-    timeoutId = setTimeout(() => controller.abort(), timeout);
+    timeoutId = setTimeout(() => {
+      didTimeout = true;
+      controller.abort();
+    }, timeout);
   }
 
   try {
@@ -127,8 +131,8 @@ export const apiRequestRaw = async <TBody = unknown>(
 
     return response;
   } catch (error) {
-    // Convert timeout errors to a more specific error
-    if (error instanceof DOMException && error.name === "AbortError") {
+    // Only convert to timeout error if our internal timeout fired
+    if (error instanceof DOMException && error.name === "AbortError" && didTimeout) {
       throw new ApiError(
         "Request timeout. Please check your connection and try again.",
         "UNKNOWN",
