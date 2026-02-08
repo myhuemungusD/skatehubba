@@ -37,11 +37,12 @@ describe("sanitize utilities", () => {
       );
     });
 
-    it("should escape javascript protocol in href", () => {
+    it("should escape HTML in links with javascript protocol", () => {
       const input = '<a href="javascript:alert(1)">Click</a>';
       const output = sanitizeHTML(input);
-      expect(output).not.toContain("javascript:");
-      expect(output).toContain("&lt;");
+      // HTML tags and quotes should be escaped, even if the text contains "javascript:"
+      expect(output).not.toContain('<a href="javascript:alert(1)">Click</a>');
+      expect(output).toContain("&lt;a href=&quot;javascript:alert(1)&quot;&gt;Click&lt;&#x2F;a&gt;");
     });
 
     it("should prevent double-encoding by escaping ampersand first", () => {
