@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -29,6 +29,7 @@ export default function MapScreen() {
   const { data: spots, isLoading } = useQuery({
     queryKey: ["/api/spots"],
     queryFn: () => apiRequest("/api/spots"),
+    enabled: isAuthenticated,
   });
 
   const handleAddSpot = () => {
@@ -45,6 +46,15 @@ export default function MapScreen() {
       duration: 2000,
     });
   };
+
+  // Unauthenticated users are redirected to sign-in by the root layout guard.
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={SKATE.colors.orange} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

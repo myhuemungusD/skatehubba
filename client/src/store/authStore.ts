@@ -6,7 +6,6 @@ import {
   getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInAnonymously as firebaseSignInAnonymously,
   signOut as firebaseSignOut,
   sendPasswordResetEmail,
   sendEmailVerification,
@@ -16,8 +15,6 @@ import {
 } from "firebase/auth";
 import { auth, db } from "../lib/firebase/config";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
-import { GUEST_MODE } from "../config/flags";
-import { ensureProfile } from "../lib/profile/ensureProfile";
 import { apiRequest } from "../lib/api/client";
 import { isApiError } from "../lib/api/errors";
 import { logger } from "../lib/logger";
@@ -75,8 +72,6 @@ interface AuthState {
   signInGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>;
-  signInAnonymously: () => Promise<void>;
-  signInAnon: () => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   refreshRoles: () => Promise<UserRole[]>;
@@ -217,7 +212,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): P
  * Creates a database user record (custom_users) and sets up the session cookie.
  * This is essential for all authenticated API calls that use the authenticateUser middleware.
  *
- * Must be called after every successful Firebase auth (login, signup, Google OAuth, guest).
+ * Must be called after every successful Firebase auth (login, signup, Google OAuth).
  */
 async function authenticateWithBackend(
   firebaseUser: FirebaseUser,
@@ -245,14 +240,6 @@ async function authenticateWithBackend(
     logger.error("[AuthStore] Backend authentication failed:", error);
     // Don't throw - allow degraded mode where Firebase token auth fallback works
   }
-}
-
-/**
- * Authenticate guest user with the backend server.
- * Creates a database user record and sets up the session cookie.
- */
-async function authenticateGuestWithBackend(firebaseUser: FirebaseUser): Promise<void> {
-  return authenticateWithBackend(firebaseUser, { firstName: "Guest", lastName: "" });
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -286,40 +273,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       });
 
       const authResult = await withTimeout(authPromise, BOOT_TIMEOUT_MS, "auth_check");
-      let currentUser = authResult.status === "ok" ? authResult.data : null;
+      const currentUser = authResult.status === "ok" ? authResult.data : null;
 
-      // Guest Mode Fallback
-      if (!currentUser && GUEST_MODE) {
-        const anonResult = await withTimeout(firebaseSignInAnonymously(auth), 5000, "anon_signin");
-        if (anonResult.status === "ok") {
-          currentUser = anonResult.data.user;
-          // Create database user record and session for guest
-          await withTimeout(authenticateGuestWithBackend(currentUser), 5000, "guest_backend_auth");
-        } else {
-          finalStatus = "degraded";
-        }
-      }
+      // No user = not authenticated. Unauthenticated users must sign in.
 
       // PHASE 2: Data (Parallel, 4s Cap)
       if (currentUser) {
         set({ bootPhase: "hydrating", user: currentUser, profile: null, profileStatus: "unknown" });
 
         // Ensure backend session exists for returning users
-        if (!GUEST_MODE) {
-          await withTimeout(authenticateWithBackend(currentUser), 5000, "backend_sync");
-        }
+        await withTimeout(authenticateWithBackend(currentUser), 5000, "backend_sync");
 
-        // In Guest Mode, we also want to ensure a profile exists, but we won't block strictly on it
-        const promises: Promise<any>[] = [
+        const results = await Promise.allSettled([
           withTimeout(fetchProfile(currentUser.uid), 4000, "fetchProfile"),
           withTimeout(extractRolesFromToken(currentUser), 4000, "fetchRoles"),
-        ];
-
-        if (GUEST_MODE) {
-          promises.push(withTimeout(ensureProfile(currentUser.uid), 4000, "ensureProfile"));
-        }
-
-        const results = await Promise.allSettled(promises);
+        ]);
 
         const profileRes = results[0] as PromiseSettledResult<Result<UserProfile | null>>;
         const rolesRes = results[1] as PromiseSettledResult<Result<UserRole[]>>;
@@ -556,23 +524,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       throw err;
     }
   },
-
-  signInAnonymously: async () => {
-    set({ error: null });
-    try {
-      const result = await firebaseSignInAnonymously(auth);
-      // Create backend session for anonymous/guest user
-      await authenticateWithBackend(result.user, { firstName: "Guest", lastName: "" });
-    } catch (err: unknown) {
-      logger.error("[AuthStore] Anonymous sign-in error:", err);
-      if (err instanceof Error) {
-        set({ error: err });
-      }
-      throw err;
-    }
-  },
-
-  signInAnon: async () => get().signInAnonymously(),
 
   signOut: async () => {
     set({ error: null });

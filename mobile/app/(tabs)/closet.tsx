@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
@@ -8,33 +8,11 @@ export default function ClosetScreen() {
   const { user, isAuthenticated, checkAuth } = useRequireAuth();
   const router = useRouter();
 
-  // Show sign-in prompt for guests
+  // Unauthenticated users are redirected to sign-in by the root layout guard.
   if (!isAuthenticated) {
     return (
       <View style={styles.container}>
-        <View style={styles.guestContainer}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="shirt-outline" size={80} color={SKATE.colors.gray} />
-          </View>
-          <Text style={styles.guestTitle}>Your Closet Awaits</Text>
-          <Text style={styles.guestText}>
-            Sign in to access your personal closet, save your favorite gear, and track your
-            collection
-          </Text>
-          <TouchableOpacity
-            style={styles.signInButton}
-            onPress={() => router.push("/auth/sign-in")}
-          >
-            <Ionicons name="log-in" size={20} color={SKATE.colors.white} />
-            <Text style={styles.signInButtonText}>Sign In</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.createAccountButton}
-            onPress={() => router.push("/auth/sign-in")}
-          >
-            <Text style={styles.createAccountText}>Don't have an account? Create one</Text>
-          </TouchableOpacity>
-        </View>
+        <ActivityIndicator size="large" color={SKATE.colors.orange} />
       </View>
     );
   }
@@ -135,58 +113,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: SKATE.colors.ink,
-  },
-  guestContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: SKATE.spacing.xl,
-  },
-  iconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: SKATE.colors.grime,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: SKATE.spacing.xl,
-  },
-  guestTitle: {
-    color: SKATE.colors.white,
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: SKATE.spacing.md,
-  },
-  guestText: {
-    color: SKATE.colors.lightGray,
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: SKATE.spacing.xl,
-    lineHeight: 24,
-  },
-  signInButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: SKATE.colors.orange,
-    paddingVertical: SKATE.spacing.lg,
-    paddingHorizontal: SKATE.spacing.xxl,
-    borderRadius: SKATE.borderRadius.lg,
-    gap: SKATE.spacing.sm,
-    width: "100%",
-  },
-  signInButtonText: {
-    color: SKATE.colors.white,
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  createAccountButton: {
-    marginTop: SKATE.spacing.lg,
-    padding: SKATE.spacing.md,
-  },
-  createAccountText: {
-    color: SKATE.colors.orange,
-    fontSize: 14,
   },
   profileHeader: {
     alignItems: "center",

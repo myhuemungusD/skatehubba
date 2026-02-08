@@ -6,7 +6,7 @@ Accepted
 
 ## Context
 
-Need authentication supporting email/password, OAuth (Google, Apple), and anonymous users with potential upgrade path.
+Need authentication supporting email/password and OAuth (Google, Apple). All users must be authenticated.
 
 ## Decision
 
@@ -14,6 +14,6 @@ Use Firebase Authentication for identity, with server-side session management in
 
 ## Consequences
 
-- **Positive:** Firebase handles OAuth complexity, anonymous-to-permanent upgrade path, battle-tested security
+- **Positive:** Firebase handles OAuth complexity, battle-tested security
 - **Negative:** Dependency on Firebase, token validation on every request
 - **Enables:** Multi-provider auth without building OAuth flows, rate limiting and lockout at server level

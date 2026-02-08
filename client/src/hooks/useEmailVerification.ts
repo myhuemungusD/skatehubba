@@ -20,7 +20,6 @@ export function useEmailVerification() {
 
   const isVerified = useMemo(() => {
     if (!user) return false;
-    if (user.isAnonymous) return true;
     if (user.emailVerified) return true;
     return user.providerData.some((p) => p.providerId !== "password");
   }, [user]);

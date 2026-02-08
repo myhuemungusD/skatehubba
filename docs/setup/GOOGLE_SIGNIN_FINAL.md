@@ -137,7 +137,7 @@ eas build --platform all --profile production
 
 ### Why It Works Now
 
-- ✅ **Real Firebase credential** created (not fake/anonymous)
+- ✅ **Real Firebase credential** created
 - ✅ **useAuth reflects state** after authentication
 - ✅ **Navigation happens AFTER** auth succeeds
 - ✅ **Auto-redirect** if already authenticated

@@ -1,1 +1,2 @@
-export const GUEST_MODE = import.meta.env.VITE_GUEST_MODE === "true";
+// Feature flags for the application.
+// All users must authenticate with email/password or Google OAuth.
