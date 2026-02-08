@@ -14,8 +14,7 @@ import {
   GoogleAuthProvider,
   type User as FirebaseUser,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "../lib/firebase/config";
+import { auth } from "../lib/firebase/config";
 import { GUEST_MODE } from "../config/flags";
 import { ensureProfile } from "../lib/profile/ensureProfile";
 import { apiRequest } from "../lib/api/client";
@@ -157,26 +156,28 @@ const transformProfile = (uid: string, data: Record<string, unknown>): UserProfi
     crewName: (data.crewName as string | null) ?? null,
     credibilityScore: typeof data.credibilityScore === "number" ? data.credibilityScore : 0,
     avatarUrl: (data.avatarUrl as string | null) ?? null,
-    createdAt:
-      data.createdAt && typeof data.createdAt === "object" && "toDate" in data.createdAt
-        ? (data.createdAt as { toDate: () => Date }).toDate()
-        : new Date(),
-    updatedAt:
-      data.updatedAt && typeof data.updatedAt === "object" && "toDate" in data.updatedAt
-        ? (data.updatedAt as { toDate: () => Date }).toDate()
-        : new Date(),
+    createdAt: typeof data.createdAt === "string" ? new Date(data.createdAt) : new Date(),
+    updatedAt: typeof data.updatedAt === "string" ? new Date(data.updatedAt) : new Date(),
   };
 };
 
 const fetchProfile = async (uid: string): Promise<UserProfile | null> => {
   try {
-    const docRef = doc(db, "profiles", uid);
-    const snapshot = await getDoc(docRef);
-    if (snapshot.exists()) {
-      return transformProfile(uid, snapshot.data());
-    }
-    return null;
+    const res = await apiRequest<{ profile: Record<string, unknown> }>({
+      method: "GET",
+      path: "/api/profile/me",
+    });
+    return transformProfile(uid, res.profile);
   } catch (err) {
+    // 404 means no profile exists yet (new user) — not an error
+    if (
+      err &&
+      typeof err === "object" &&
+      "status" in err &&
+      (err as { status: number }).status === 404
+    ) {
+      return null;
+    }
     logger.error("[AuthStore] Failed to fetch profile:", err);
     return null;
   }
