@@ -113,7 +113,7 @@ export class SpotStorage {
       ...row,
       creatorName: row.creatorFirstName
         ? `${row.creatorFirstName} ${row.creatorLastName || ""}`.trim()
-        : "Anonymous",
+        : "Unknown Skater",
     }));
   }
 
@@ -141,7 +141,7 @@ export class SpotStorage {
       ...spot,
       creatorName: spot.creatorFirstName
         ? `${spot.creatorFirstName} ${spot.creatorLastName || ""}`.trim()
-        : "Anonymous",
+        : "Unknown Skater",
     };
   }
 
@@ -186,7 +186,7 @@ export class SpotStorage {
       ...row,
       creatorName: row.creatorFirstName
         ? `${row.creatorFirstName} ${row.creatorLastName || ""}`.trim()
-        : "Anonymous",
+        : "Unknown Skater",
     }));
   }
 
@@ -317,7 +317,7 @@ export class SpotStorage {
       ...row,
       creatorName: row.creatorFirstName
         ? `${row.creatorFirstName} ${row.creatorLastName || ""}`.trim()
-        : "Anonymous",
+        : "Unknown Skater",
     }));
   }
 

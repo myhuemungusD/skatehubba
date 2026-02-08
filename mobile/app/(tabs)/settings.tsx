@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
@@ -89,21 +89,12 @@ export default function SettingsScreen() {
     );
   };
 
-  // Guest view
+  // Unauthenticated users are redirected to sign-in by the root layout guard.
+  // If somehow reached without auth, show nothing while redirect occurs.
   if (!isAuthenticated) {
     return (
       <View style={styles.container}>
-        <View style={styles.guestContainer}>
-          <Ionicons name="settings-outline" size={64} color={SKATE.colors.gray} />
-          <Text style={styles.guestTitle}>Settings</Text>
-          <Text style={styles.guestText}>Sign in to access your account settings</Text>
-          <TouchableOpacity
-            style={styles.signInButton}
-            onPress={() => router.push("/auth/sign-in")}
-          >
-            <Text style={styles.signInButtonText}>Sign In</Text>
-          </TouchableOpacity>
-        </View>
+        <ActivityIndicator size="large" color={SKATE.colors.orange} />
       </View>
     );
   }
@@ -237,36 +228,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: SKATE.colors.ink,
-  },
-  guestContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: SKATE.spacing.xl,
-  },
-  guestTitle: {
-    color: SKATE.colors.white,
-    fontSize: 24,
-    fontWeight: "bold",
-    marginTop: SKATE.spacing.lg,
-  },
-  guestText: {
-    color: SKATE.colors.lightGray,
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: SKATE.spacing.sm,
-    marginBottom: SKATE.spacing.xl,
-  },
-  signInButton: {
-    backgroundColor: SKATE.colors.orange,
-    paddingVertical: SKATE.spacing.lg,
-    paddingHorizontal: SKATE.spacing.xxl,
-    borderRadius: SKATE.borderRadius.lg,
-  },
-  signInButtonText: {
-    color: SKATE.colors.white,
-    fontSize: 18,
-    fontWeight: "bold",
   },
   section: {
     marginTop: SKATE.spacing.lg,

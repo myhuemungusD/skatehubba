@@ -33,7 +33,7 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Sign In Banner for Guests */}
+      {/* Sign In Banner for unauthenticated users */}
       {!user && (
         <TouchableOpacity
           style={styles.signInBanner}

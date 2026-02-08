@@ -40,7 +40,6 @@ export function setupAuthRoutes(app: Express) {
         // Handle mock tokens ONLY in development mode (no Firebase configured)
         // SECURITY: Mock tokens are blocked in production
         const isMockToken =
-          idToken === "mock-guest-token" ||
           idToken === "mock-google-token" ||
           idToken === "mock-token";
         const isDevelopment = process.env.NODE_ENV !== "production";
@@ -49,9 +48,9 @@ export function setupAuthRoutes(app: Express) {
           // Use deterministic UIDs so that subsequent logins find the existing user
           const isGoogle = idToken.includes("google");
           decoded = {
-            uid: isGoogle ? "mock-google-uid-12345" : "mock-guest-uid-12345",
-            email: isGoogle ? "google@skatehubba.local" : "guest@skatehubba.local",
-            name: isGoogle ? "Google Skater" : "Guest Skater",
+            uid: isGoogle ? "mock-google-uid-12345" : "mock-uid-12345",
+            email: isGoogle ? "google@skatehubba.local" : "dev@skatehubba.local",
+            name: isGoogle ? "Google Skater" : "Dev Skater",
           };
         } else if (isMockToken && !isDevelopment) {
           // Block mock tokens in production

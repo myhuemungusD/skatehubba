@@ -34,43 +34,9 @@ export default function ChallengesScreen() {
     enabled: !!user,
   });
 
-  // Show sign-in prompt for guests
+  // Unauthenticated users are redirected to sign-in by the root layout guard.
   if (!isAuthenticated) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.guestContainer}>
-          <View style={styles.playIconContainer}>
-            <Ionicons name="play" size={64} color={SKATE.colors.orange} />
-          </View>
-          <Text style={styles.guestTitle}>Play S.K.A.T.E.</Text>
-          <Text style={styles.guestText}>
-            Challenge skaters worldwide in the classic game of S.K.A.T.E. Record your tricks, send
-            challenges, and climb the leaderboard!
-          </Text>
-          <View style={styles.featureList}>
-            <View style={styles.featureItem}>
-              <Ionicons name="videocam" size={20} color={SKATE.colors.orange} />
-              <Text style={styles.featureText}>Record 15-second trick clips</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="people" size={20} color={SKATE.colors.orange} />
-              <Text style={styles.featureText}>Challenge any skater</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="trophy" size={20} color={SKATE.colors.orange} />
-              <Text style={styles.featureText}>Earn points and rank up</Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.signInButton}
-            onPress={() => router.push("/auth/sign-in")}
-          >
-            <Ionicons name="log-in" size={20} color={SKATE.colors.white} />
-            <Text style={styles.signInButtonText}>Sign In to Play</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
+    return null;
   }
 
   const renderChallenge = ({ item }: { item: Challenge }) => {
@@ -161,65 +127,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: SKATE.colors.ink,
-  },
-  guestContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: SKATE.spacing.xl,
-  },
-  playIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: SKATE.colors.grime,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: SKATE.spacing.xl,
-    borderWidth: 3,
-    borderColor: SKATE.colors.orange,
-  },
-  guestTitle: {
-    color: SKATE.colors.white,
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: SKATE.spacing.md,
-  },
-  guestText: {
-    color: SKATE.colors.lightGray,
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: SKATE.spacing.xl,
-    lineHeight: 24,
-  },
-  featureList: {
-    marginBottom: SKATE.spacing.xl,
-  },
-  featureItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: SKATE.spacing.md,
-    gap: SKATE.spacing.md,
-  },
-  featureText: {
-    color: SKATE.colors.white,
-    fontSize: 14,
-  },
-  signInButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: SKATE.colors.orange,
-    paddingVertical: SKATE.spacing.lg,
-    paddingHorizontal: SKATE.spacing.xxl,
-    borderRadius: SKATE.borderRadius.lg,
-    gap: SKATE.spacing.sm,
-    width: "100%",
-  },
-  signInButtonText: {
-    color: SKATE.colors.white,
-    fontSize: 18,
-    fontWeight: "bold",
   },
   createButton: {
     flexDirection: "row",

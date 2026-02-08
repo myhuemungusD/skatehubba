@@ -141,7 +141,7 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
  * Optional authentication middleware
  *
  * Attempts to authenticate user but doesn't require authentication.
- * Useful for endpoints that provide different content for authenticated vs anonymous users.
+ * Useful for endpoints that provide different content for authenticated vs unauthenticated users.
  * Sets req.currentUser if authentication succeeds, continues either way.
  *
  * @param req - Express request object

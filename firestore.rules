@@ -41,7 +41,7 @@ service cloud.firestore {
     // spotsVisited and credibilityScore are server-managed and excluded from client writes.
     function profileAllowedFields() {
       return [
-        'uid', 'username', 'displayName', 'isGuest',
+        'uid', 'username', 'displayName',
         'stance', 'experienceLevel', 'favoriteTricks',
         'bio', 'sponsorFlow', 'sponsorTeam', 'hometownShop',
         'crewName', 'avatarUrl', 'createdAt', 'updatedAt'
@@ -51,7 +51,7 @@ service cloud.firestore {
     // Fields the client may change after creation (excludes uid, createdAt, server metrics)
     function profileMutableFields() {
       return [
-        'username', 'displayName', 'isGuest',
+        'username', 'displayName',
         'stance', 'experienceLevel', 'favoriteTricks',
         'bio', 'sponsorFlow', 'sponsorTeam', 'hometownShop',
         'crewName', 'avatarUrl', 'updatedAt'
@@ -64,7 +64,6 @@ service cloud.firestore {
       return (!('uid' in data) || data.uid == request.auth.uid)
         && (!('username' in data) || (data.username is string && data.username.size() >= 1 && data.username.size() <= 50))
         && (!('displayName' in data) || (data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100))
-        && (!('isGuest' in data) || data.isGuest is bool)
         && (!('stance' in data) || data.stance == null || data.stance in ['regular', 'goofy'])
         && (!('experienceLevel' in data) || data.experienceLevel == null || data.experienceLevel in ['beginner', 'intermediate', 'advanced', 'pro'])
         && (!('favoriteTricks' in data) || (data.favoriteTricks is list && data.favoriteTricks.size() <= 50))
@@ -107,10 +106,9 @@ service cloud.firestore {
     }
 
     // -------------------------------------------------------------------------
-    // CRITICAL FIX (Guest Mode + prod bootstrap):
-    // /env/prod/... has a prod catch-all below that blocks writes to 'users'.
-    // Because /env/prod is a literal path, it can override the generic /env/{environment}.
-    // This explicit match ensures owner-only profile bootstrap works in prod.
+    // Explicit prod match: /env/prod is a literal path that can override
+    // the generic /env/{environment} match. This ensures owner-only profile
+    // writes work in prod despite the catch-all below.
     // -------------------------------------------------------------------------
     match /env/prod/users/{userId} {
       allow read: if isAuthenticated();
@@ -167,7 +165,7 @@ service cloud.firestore {
 
     // =========================================================================
     // USER PROFILES - /profiles/{uid}
-    // Used by Guest Mode bootstrap and profile setup.
+    // Used by profile setup.
     // =========================================================================
 
     match /profiles/{uid} {

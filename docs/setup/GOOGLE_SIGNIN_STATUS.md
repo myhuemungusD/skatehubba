@@ -48,18 +48,18 @@ Map Page (/(tabs)/map)
 2. Taps "Sign In" → Routes to `/auth/signin`
 3. Sees Google Sign-In screen with "Continue with Google" button
 4. Taps button → Shows toast: "Signing in... 🛹"
-5. **Firebase Anonymous Auth executes** → User is authenticated
+5. **Firebase Email/Password or Google OAuth executes** → User is authenticated
 6. Shows toast: "Signed in successfully! 🛹"
 7. Navigates to map page at `/(tabs)/map`
 8. **User stays authenticated** - useAuth() reflects signed-in state
 
-**Why Anonymous Auth in dev?** Google OAuth requires:
+**Note on dev auth:** Google OAuth requires:
 
 - Native build (EAS or `expo run:android`)
 - Properly configured OAuth redirect URIs
 - Won't work in Expo Go or web preview
 
-Anonymous Auth provides the same authentication flow for testing without requiring EAS build.
+For local development, use email/password auth or mock tokens instead.
 
 ### In Production (After EAS Build)
 

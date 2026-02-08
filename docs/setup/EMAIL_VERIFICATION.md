@@ -96,7 +96,7 @@ Wraps protected pages and enforces:
 
 - `/` → Root redirect (→ /landing if unauthenticated, /home if authenticated)
 - `/landing` → Marketing / CTA landing page
-- `/login` → Sign in (Google/Guest)
+- `/login` → Sign in (Google/Email)
 - `/signin` → Sign in (Email/Password)
 - `/signup` → Create account
 - `/auth` → Combined auth page with tabs
