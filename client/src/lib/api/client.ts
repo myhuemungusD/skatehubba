@@ -10,6 +10,11 @@ export interface ApiRequestOptions<TBody = unknown> {
   headers?: HeadersInit;
   nonce?: string;
   signal?: AbortSignal;
+  /**
+   * Request timeout in milliseconds. Defaults to 30000 (30 seconds).
+   * Set to 0 to disable timeout.
+   */
+  timeout?: number;
 }
 
 const isAbsoluteUrl = (value: string): boolean => /^https?:\/\//i.test(value);
@@ -90,24 +95,53 @@ export const apiRequestRaw = async <TBody = unknown>(
   const headers = await buildHeaders(options);
   const body = options.body !== undefined ? JSON.stringify(options.body) : undefined;
 
-  const response = await fetch(buildApiUrl(options.path), {
-    method: options.method,
-    headers,
-    body,
-    credentials: "include",
-    signal: options.signal,
-  });
+  // Setup timeout handling
+  const timeout = options.timeout ?? 30000; // Default 30s
+  const controller = new AbortController();
+  let timeoutId: NodeJS.Timeout | number | undefined;
 
-  if (!response.ok) {
-    const payload = await parseJsonSafely(response);
-    throw normalizeApiError({
-      status: response.status,
-      statusText: response.statusText,
-      payload,
-    });
+  // Use provided signal or create one with timeout
+  const signal = options.signal ?? controller.signal;
+
+  if (timeout > 0 && !options.signal) {
+    timeoutId = setTimeout(() => controller.abort(), timeout);
   }
 
-  return response;
+  try {
+    const response = await fetch(buildApiUrl(options.path), {
+      method: options.method,
+      headers,
+      body,
+      credentials: "include",
+      signal,
+    });
+
+    if (!response.ok) {
+      const payload = await parseJsonSafely(response);
+      throw normalizeApiError({
+        status: response.status,
+        statusText: response.statusText,
+        payload,
+      });
+    }
+
+    return response;
+  } catch (error) {
+    // Convert timeout errors to a more specific error
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError(
+        "Request timeout. Please check your connection and try again.",
+        "UNKNOWN",
+        undefined,
+        { timeout, originalError: error }
+      );
+    }
+    throw error;
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 };
 
 export const apiRequest = async <TResponse, TBody = unknown>(
