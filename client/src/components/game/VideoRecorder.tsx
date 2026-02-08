@@ -35,10 +35,16 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
   const startTimeRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onCompleteRef = useRef(onRecordingComplete);
 
   const [state, setState] = useState<RecorderState>('idle');
   const [elapsedMs, setElapsedMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // Keep callback ref current to avoid stale closures
+  useEffect(() => {
+    onCompleteRef.current = onRecordingComplete;
+  }, [onRecordingComplete]);
 
   const cleanup = useCallback(() => {
     if (timerRef.current) {
@@ -48,6 +54,14 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
     if (autoStopRef.current) {
       clearTimeout(autoStopRef.current);
       autoStopRef.current = null;
+    }
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.onstop = null;
+      mediaRecorderRef.current.onerror = null;
+      if (mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      mediaRecorderRef.current = null;
     }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
@@ -103,7 +117,13 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
         setState('sent');
 
         // Auto-send. No preview. No confirmation. Done.
-        onRecordingComplete(blob, durationMs);
+        onCompleteRef.current(blob, durationMs);
+      };
+
+      recorder.onerror = () => {
+        cleanup();
+        setState('idle');
+        setError('Recording failed.');
       };
 
       mediaRecorderRef.current = recorder;
@@ -128,7 +148,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
       setState('idle');
       setError('Camera access denied.');
     }
-  }, [state, disabled, onRecordingComplete, cleanup]);
+  }, [state, disabled, cleanup]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current?.state === 'recording') {

@@ -578,19 +578,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Cron endpoint for auto-forfeit expired games
-  // This should be called by an external scheduler (Vercel Cron, Cloud Scheduler, etc.)
-  // Secured with a simple secret key check
-  app.post("/api/cron/forfeit-expired-games", async (req, res) => {
-    // Require CRON_SECRET to be configured — reject if missing
+  // Timing-safe cron secret verification to prevent timing attacks
+  const verifyCronSecret = (authHeader: string | undefined): boolean => {
     const cronSecret = process.env.CRON_SECRET;
     if (!cronSecret) {
       logger.warn("[Cron] CRON_SECRET not configured — rejecting request");
-      return res.status(401).json({ error: "Unauthorized" });
+      return false;
     }
+    const expected = `Bearer ${cronSecret}`;
+    if (!authHeader || authHeader.length !== expected.length) return false;
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(authHeader),
+        Buffer.from(expected)
+      );
+    } catch {
+      return false;
+    }
+  };
 
-    const authHeader = req.headers.authorization;
-    if (authHeader !== `Bearer ${cronSecret}`) {
+  // Cron endpoint for auto-forfeit expired games
+  app.post("/api/cron/forfeit-expired-games", async (req, res) => {
+    if (!verifyCronSecret(req.headers.authorization)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -606,14 +615,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Cron endpoint for deadline warnings (≤1 hour remaining)
   app.post("/api/cron/deadline-warnings", async (req, res) => {
-    const cronSecret = process.env.CRON_SECRET;
-    if (!cronSecret) {
-      logger.warn("[Cron] CRON_SECRET not configured — rejecting request");
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const authHeader = req.headers.authorization;
-    if (authHeader !== `Bearer ${cronSecret}`) {
+    if (!verifyCronSecret(req.headers.authorization)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 

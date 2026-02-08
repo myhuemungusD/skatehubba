@@ -10,7 +10,7 @@
  * - game over: Locked permanently
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useSearch, useLocation } from 'wouter';
 import {
   Swords,
@@ -38,6 +38,7 @@ import { LettersDisplay, TurnHistory, VideoRecorder } from '@/components/game';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LoadingScreen } from '@/components/LoadingScreen';
+import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
 // Lazy-loaded Firebase Storage
@@ -65,9 +66,12 @@ export default function SkateGamePage() {
   const search = useSearch();
   const gameId = new URLSearchParams(search).get('gameId');
 
+  const { toast } = useToast();
   const [trickDescription, setTrickDescription] = useState('');
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const trickDescriptionRef = useRef(trickDescription);
+  trickDescriptionRef.current = trickDescription;
 
   const {
     game,
@@ -98,30 +102,37 @@ export default function SkateGamePage() {
 
   const handleRecordingComplete = useCallback(
     async (blob: Blob, durationMs: number) => {
-      if (!gameId || !trickDescription.trim()) return;
+      const description = trickDescriptionRef.current.trim();
+      if (!gameId || !user?.uid || !description) return;
 
       setIsUploading(true);
       try {
         const timestamp = Date.now();
-        const videoPath = `games/${gameId}/turns/${user?.uid}_${timestamp}.webm`;
+        const videoPath = `games/${gameId}/turns/${user.uid}_${timestamp}.webm`;
         const videoUrl = await uploadVideoBlob(videoPath, blob);
 
         // Submit turn — auto-send, no preview, no confirmation
         await submitTurn.mutateAsync({
           gameId,
-          trickDescription: trickDescription.trim(),
+          trickDescription: description,
           videoUrl,
           videoDurationMs: durationMs,
         });
 
         setTrickDescription('');
-      } catch {
-        // Error handled by mutation hook toast
+      } catch (err) {
+        // Mutation errors handled by useSubmitTurn toast.
+        // Upload errors (Firebase Storage) need explicit handling.
+        toast({
+          title: 'Upload failed',
+          description: err instanceof Error ? err.message : 'Try again.',
+          variant: 'destructive',
+        });
       } finally {
         setIsUploading(false);
       }
     },
-    [gameId, trickDescription, user?.uid, submitTurn]
+    [gameId, user?.uid, submitTurn, toast]
   );
 
   const handleJudge = (result: 'landed' | 'missed') => {
@@ -326,6 +337,7 @@ export default function SkateGamePage() {
                 onChange={(e) => setTrickDescription(e.target.value)}
                 className="bg-neutral-900 border-neutral-700"
                 maxLength={500}
+                disabled={isUploading}
               />
             </div>
 
@@ -393,6 +405,7 @@ export default function SkateGamePage() {
               onChange={(e) => setTrickDescription(e.target.value)}
               className="bg-neutral-900 border-neutral-700"
               maxLength={500}
+              disabled={isUploading}
             />
           </div>
 
