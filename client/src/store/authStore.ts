@@ -18,6 +18,7 @@ import { auth } from "../lib/firebase/config";
 import { GUEST_MODE } from "../config/flags";
 import { ensureProfile } from "../lib/profile/ensureProfile";
 import { apiRequest } from "../lib/api/client";
+import { isApiError } from "../lib/api/errors";
 import { logger } from "../lib/logger";
 
 export type UserRole = "admin" | "moderator" | "verified_pro";
@@ -169,13 +170,8 @@ const fetchProfile = async (uid: string): Promise<UserProfile | null> => {
     });
     return transformProfile(uid, res.profile);
   } catch (err) {
-    // 404 means no profile exists yet (new user) — not an error
-    if (
-      err &&
-      typeof err === "object" &&
-      "status" in err &&
-      (err as { status: number }).status === 404
-    ) {
+    // 404 = no profile yet (new user), not an error worth logging
+    if (isApiError(err) && err.status === 404) {
       return null;
     }
     logger.error("[AuthStore] Failed to fetch profile:", err);

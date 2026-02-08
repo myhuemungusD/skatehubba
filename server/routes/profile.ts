@@ -43,24 +43,31 @@ router.get("/me", requireFirebaseUid, async (req, res) => {
     });
   }
 
-  const db = getDb();
-  const [profile] = await db
-    .select()
-    .from(onboardingProfiles)
-    .where(eq(onboardingProfiles.uid, firebaseUid))
-    .limit(1);
+  try {
+    const db = getDb();
+    const [profile] = await db
+      .select()
+      .from(onboardingProfiles)
+      .where(eq(onboardingProfiles.uid, firebaseUid))
+      .limit(1);
 
-  if (!profile) {
-    return res.status(404).json({ error: "profile_not_found" });
+    if (!profile) {
+      return res.status(404).json({ error: "profile_not_found" });
+    }
+
+    return res.json({
+      profile: {
+        ...profile,
+        createdAt: profile.createdAt.toISOString(),
+        updatedAt: profile.updatedAt.toISOString(),
+      },
+    });
+  } catch {
+    return res.status(500).json({
+      error: "profile_fetch_failed",
+      message: "Failed to load profile. Please try again.",
+    });
   }
-
-  return res.json({
-    profile: {
-      ...profile,
-      createdAt: profile.createdAt.toISOString(),
-      updatedAt: profile.updatedAt.toISOString(),
-    },
-  });
 });
 
 router.get("/username-check", usernameCheckLimiter, async (req, res) => {
