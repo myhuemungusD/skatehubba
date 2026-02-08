@@ -14,6 +14,7 @@ describe("useUserLookup", () => {
         queries: {
           retry: false,
           gcTime: 0,
+          queryFn: async () => undefined,
         },
       },
     });
