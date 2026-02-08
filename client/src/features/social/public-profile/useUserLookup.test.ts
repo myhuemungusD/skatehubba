@@ -5,11 +5,6 @@ import { useUserLookup } from "./useUserLookup";
 import type { UserProfile } from "@shared/schema";
 import React from "react";
 
-// Mock the API client
-vi.mock("../../../lib/api/client", () => ({
-  apiRequestRaw: vi.fn(),
-}));
-
 describe("useUserLookup", () => {
   let queryClient: QueryClient;
 
