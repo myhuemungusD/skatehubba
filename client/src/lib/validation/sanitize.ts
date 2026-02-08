@@ -9,7 +9,8 @@
 
 /**
  * Escapes HTML special characters to prevent XSS attacks.
- * Converts: < > & " ' to HTML entities.
+ * Converts: < > & " ' / to HTML entities in the correct order.
+ * Note: & must be escaped first to prevent double-encoding.
  *
  * @param input - The string to sanitize
  * @returns Sanitized string with HTML entities
@@ -21,16 +22,14 @@
  * ```
  */
 export function sanitizeHTML(input: string): string {
-  const htmlEntities: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#x27;",
-    "/": "&#x2F;",
-  };
-
-  return input.replace(/[&<>"'/]/g, (char) => htmlEntities[char] || char);
+  // IMPORTANT: & must be replaced first to prevent double-encoding
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;")
+    .replace(/\//g, "&#x2F;");
 }
 
 /**

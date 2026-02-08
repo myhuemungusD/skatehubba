@@ -43,6 +43,19 @@ describe("sanitize utilities", () => {
       expect(output).not.toContain("javascript:");
       expect(output).toContain("&lt;");
     });
+
+    it("should prevent double-encoding by escaping ampersand first", () => {
+      // If & is not escaped first, &lt; could become &amp;lt;
+      expect(sanitizeHTML("&lt;")).toBe("&amp;lt;");
+      expect(sanitizeHTML("&")).toBe("&amp;");
+      // Verify the order prevents XSS bypass attempts
+      expect(sanitizeHTML("&lt;script&gt;")).toBe("&amp;lt;script&amp;gt;");
+    });
+
+    it("should handle consecutive special characters", () => {
+      expect(sanitizeHTML("<<>>")).toBe("&lt;&lt;&gt;&gt;");
+      expect(sanitizeHTML("<script><script>")).toBe("&lt;script&gt;&lt;script&gt;");
+    });
   });
 
   describe("sanitizeUsername", () => {
