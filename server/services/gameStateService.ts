@@ -1,19 +1,21 @@
 /**
  * Game State Service
  *
- * Manages real-time S.K.A.T.E. game state using Firestore with transactional updates.
- * Replaces in-memory Map storage with persistent, race-condition-safe storage.
+ * Manages real-time S.K.A.T.E. game state using PostgreSQL with transactional updates.
+ * Uses SELECT FOR UPDATE for distributed locking to prevent race conditions.
  *
  * Features:
- * - Atomic state transitions via Firestore transactions
+ * - Atomic state transitions via PostgreSQL transactions with row-level locking
  * - Idempotency keys to prevent duplicate event processing
- * - Vote timeouts (60s, defender wins on timeout)
+ * - Turn timeouts (60s, defender wins on timeout)
  * - Disconnect handling with reconnection window
  * - Auto-forfeit after disconnection timeout
  */
 
 import crypto from "node:crypto";
-import { db as firestore, collections } from "../firestore";
+import { getDb } from "../db";
+import { gameSessions } from "@shared/schema";
+import { eq, and, lt } from "drizzle-orm";
 import logger from "../logger";
 import { logServerEvent } from "./analyticsService";
 
@@ -87,21 +89,8 @@ function isEliminated(letters: string): boolean {
 
 /**
  * Generate a deterministic event ID for idempotency.
- *
- * IMPORTANT: For client-initiated actions, generate the eventId ONCE before
- * the first request attempt and reuse it on all retries. This ensures that
- * duplicate requests (due to network timeouts) are properly deduplicated.
- *
- * For server-side timeout processing, include a sequence number or timestamp
- * bucket to ensure deterministic IDs for the same logical timeout event.
- *
- * @param type - Event type (e.g., 'trick', 'join', 'timeout')
- * @param odv - User ID
- * @param gameId - Game ID
- * @param sequenceKey - Optional deterministic key (e.g., turn number, timestamp bucket)
  */
 function generateEventId(type: string, odv: string, gameId: string, sequenceKey?: string): string {
-  // If a sequence key is provided, use it for deterministic ID generation
   if (sequenceKey) {
     return `${type}-${gameId}-${odv}-${sequenceKey}`;
   }
@@ -109,8 +98,26 @@ function generateEventId(type: string, odv: string, gameId: string, sequenceKey?
   return `${type}-${gameId}-${odv}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 }
 
-function getGameDocRef(gameId: string) {
-  return firestore.collection(collections.gameSessions).doc(gameId);
+/** Convert a DB row to GameState */
+function rowToGameState(row: typeof gameSessions.$inferSelect): GameState {
+  return {
+    id: row.id,
+    spotId: row.spotId,
+    creatorId: row.creatorId,
+    players: row.players as GamePlayer[],
+    maxPlayers: row.maxPlayers,
+    currentTurnIndex: row.currentTurnIndex,
+    currentAction: row.currentAction as "set" | "attempt",
+    currentTrick: row.currentTrick ?? undefined,
+    setterId: row.setterId ?? undefined,
+    status: row.status as GameState["status"],
+    winnerId: row.winnerId ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    turnDeadlineAt: row.turnDeadlineAt?.toISOString(),
+    pausedAt: row.pausedAt?.toISOString(),
+    processedEventIds: row.processedEventIds as string[],
+  };
 }
 
 // ============================================================================
@@ -118,7 +125,7 @@ function getGameDocRef(gameId: string) {
 // ============================================================================
 
 /**
- * Create a new game with atomic Firestore write
+ * Create a new game with atomic PostgreSQL write
  */
 export async function createGame(input: {
   eventId: string;
@@ -130,35 +137,33 @@ export async function createGame(input: {
   const gameId = `game-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 
   try {
-    const now = new Date().toISOString();
-    const gameState: GameState = {
-      id: gameId,
-      spotId,
-      creatorId,
-      players: [
-        {
-          odv: creatorId,
-          letters: "",
-          connected: true,
-        },
-      ],
-      maxPlayers: Math.min(maxPlayers, 8),
-      currentTurnIndex: 0,
-      currentAction: "set",
-      status: "waiting",
-      createdAt: now,
-      updatedAt: now,
-      processedEventIds: [eventId],
-    };
+    const db = getDb();
+    const now = new Date();
 
-    await getGameDocRef(gameId).set(gameState);
+    const [row] = await db
+      .insert(gameSessions)
+      .values({
+        spotId,
+        creatorId,
+        players: [{ odv: creatorId, letters: "", connected: true }],
+        maxPlayers: Math.min(maxPlayers, 8),
+        currentTurnIndex: 0,
+        currentAction: "set",
+        status: "waiting",
+        processedEventIds: [eventId],
+        createdAt: now,
+        updatedAt: now,
+      })
+      .returning();
+
+    const gameState = rowToGameState(row);
 
     await logServerEvent(creatorId, "game_created", {
-      game_id: gameId,
+      game_id: gameState.id,
       spot_id: spotId,
     });
 
-    logger.info("[GameState] Game created", { gameId, creatorId, spotId });
+    logger.info("[GameState] Game created", { gameId: gameState.id, creatorId, spotId });
 
     return { success: true, game: gameState };
   } catch (error) {
@@ -168,7 +173,7 @@ export async function createGame(input: {
 }
 
 /**
- * Join an existing game with transactional update
+ * Join an existing game with transactional update and row-level locking
  */
 export async function joinGame(input: {
   eventId: string;
@@ -178,56 +183,59 @@ export async function joinGame(input: {
   const { eventId, gameId, odv } = input;
 
   try {
-    const result = await firestore.runTransaction(async (transaction) => {
-      const gameRef = getGameDocRef(gameId);
-      const gameDoc = await transaction.get(gameRef);
+    const db = getDb();
 
-      if (!gameDoc.exists) {
-        return { success: false, error: "Game not found" };
+    const result = await db.transaction(async (tx) => {
+      // Lock the row for update to prevent concurrent joins
+      const [game] = await tx
+        .select()
+        .from(gameSessions)
+        .where(eq(gameSessions.id, gameId))
+        .for("update");
+
+      if (!game) {
+        return { success: false, error: "Game not found" } as TransitionResult;
       }
 
-      const game = gameDoc.data() as GameState;
+      const state = rowToGameState(game);
 
       // Check idempotency
-      if (game.processedEventIds.includes(eventId)) {
-        return { success: true, game, alreadyProcessed: true };
+      if (state.processedEventIds.includes(eventId)) {
+        return { success: true, game: state, alreadyProcessed: true } as TransitionResult;
       }
 
-      if (game.status !== "waiting") {
-        return { success: false, error: "Game has already started" };
+      if (state.status !== "waiting") {
+        return { success: false, error: "Game has already started" } as TransitionResult;
       }
 
-      if (game.players.length >= game.maxPlayers) {
-        return { success: false, error: "Game is full" };
+      if (state.players.length >= state.maxPlayers) {
+        return { success: false, error: "Game is full" } as TransitionResult;
       }
 
-      if (game.players.some((p) => p.odv === odv)) {
-        return { success: false, error: "Already in game" };
+      if (state.players.some((p) => p.odv === odv)) {
+        return { success: false, error: "Already in game" } as TransitionResult;
       }
 
-      // Add player
-      const updatedPlayers = [...game.players, { odv, letters: "", connected: true }];
-
-      const now = new Date().toISOString();
+      const updatedPlayers = [...state.players, { odv, letters: "", connected: true }];
+      const now = new Date();
       const shouldStartGame = updatedPlayers.length >= 2;
+      const processedEventIds = [...state.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS);
 
-      // Keep last N event IDs for idempotency
-      const processedEventIds = [...game.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS);
+      const [updated] = await tx
+        .update(gameSessions)
+        .set({
+          players: updatedPlayers,
+          updatedAt: now,
+          processedEventIds,
+          ...(shouldStartGame && {
+            status: "active",
+            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+          }),
+        })
+        .where(eq(gameSessions.id, gameId))
+        .returning();
 
-      const updates: Partial<GameState> = {
-        players: updatedPlayers,
-        updatedAt: now,
-        processedEventIds,
-        ...(shouldStartGame && {
-          status: "active",
-          turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS).toISOString(),
-        }),
-      };
-
-      transaction.update(gameRef, updates);
-
-      const updatedGame: GameState = { ...game, ...updates };
-      return { success: true, game: updatedGame };
+      return { success: true, game: rowToGameState(updated) } as TransitionResult;
     });
 
     if (result.success && !result.alreadyProcessed) {
@@ -243,7 +251,7 @@ export async function joinGame(input: {
 }
 
 /**
- * Submit a trick with transactional state update
+ * Submit a trick with transactional state update and row-level locking
  */
 export async function submitTrick(input: {
   eventId: string;
@@ -255,81 +263,115 @@ export async function submitTrick(input: {
   const { eventId, gameId, odv, trickName } = input;
 
   try {
-    const result = await firestore.runTransaction(async (transaction) => {
-      const gameRef = getGameDocRef(gameId);
-      const gameDoc = await transaction.get(gameRef);
+    const db = getDb();
 
-      if (!gameDoc.exists) {
-        return { success: false, error: "Game not found" };
+    const result = await db.transaction(async (tx) => {
+      const [game] = await tx
+        .select()
+        .from(gameSessions)
+        .where(eq(gameSessions.id, gameId))
+        .for("update");
+
+      if (!game) {
+        return { success: false, error: "Game not found" } as TransitionResult;
       }
 
-      const game = gameDoc.data() as GameState;
+      const state = rowToGameState(game);
 
-      // Check idempotency
-      if (game.processedEventIds.includes(eventId)) {
-        return { success: true, game, alreadyProcessed: true };
+      if (state.processedEventIds.includes(eventId)) {
+        return { success: true, game: state, alreadyProcessed: true } as TransitionResult;
       }
 
-      if (game.status !== "active") {
-        return { success: false, error: "Game is not active" };
+      if (state.status !== "active") {
+        return { success: false, error: "Game is not active" } as TransitionResult;
       }
 
-      const currentPlayer = game.players[game.currentTurnIndex];
+      const currentPlayer = state.players[state.currentTurnIndex];
       if (currentPlayer?.odv !== odv) {
-        return { success: false, error: "Not your turn" };
+        return { success: false, error: "Not your turn" } as TransitionResult;
       }
 
-      const now = new Date().toISOString();
-      let updates: Partial<GameState>;
+      const now = new Date();
+      const processedEventIds = [...state.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS);
+      let updateData: Partial<typeof gameSessions.$inferInsert>;
 
-      if (game.currentAction === "set") {
-        // Player is setting the trick - move to attempt phase
-        const nextTurnIndex = (game.currentTurnIndex + 1) % game.players.length;
+      if (state.currentAction === "set") {
+        // Find the next non-eliminated player to attempt the trick
+        let nextTurnIndex = (state.currentTurnIndex + 1) % state.players.length;
+        let skipAttempts = 0;
+        while (
+          isEliminated(state.players[nextTurnIndex].letters) &&
+          skipAttempts < state.players.length
+        ) {
+          nextTurnIndex = (nextTurnIndex + 1) % state.players.length;
+          skipAttempts++;
+        }
 
-        updates = {
+        updateData = {
           currentAction: "attempt",
           currentTrick: trickName,
           setterId: odv,
           currentTurnIndex: nextTurnIndex,
           updatedAt: now,
-          turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS).toISOString(),
-          processedEventIds: [...game.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
+          turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+          processedEventIds,
         };
       } else {
-        // Player landed the trick during attempt - move to next player
-        let nextTurnIndex = (game.currentTurnIndex + 1) % game.players.length;
+        let nextTurnIndex = (state.currentTurnIndex + 1) % state.players.length;
 
-        // Skip eliminated players
         let attempts = 0;
         while (
-          isEliminated(game.players[nextTurnIndex].letters) &&
-          attempts < game.players.length
+          isEliminated(state.players[nextTurnIndex].letters) &&
+          attempts < state.players.length
         ) {
-          nextTurnIndex = (nextTurnIndex + 1) % game.players.length;
+          nextTurnIndex = (nextTurnIndex + 1) % state.players.length;
           attempts++;
         }
 
-        // Check if we've gone through all attempters and need a new setter
-        const setterIndex = game.players.findIndex((p) => p.odv === game.setterId);
+        const setterIndex = state.players.findIndex((p) => p.odv === state.setterId);
         const isBackToSetter = nextTurnIndex === setterIndex;
 
-        updates = {
-          currentTurnIndex: isBackToSetter
-            ? (setterIndex + 1) % game.players.length
-            : nextTurnIndex,
-          currentAction: isBackToSetter ? "set" : "attempt",
-          currentTrick: isBackToSetter ? undefined : game.currentTrick,
-          setterId: isBackToSetter ? undefined : game.setterId,
-          updatedAt: now,
-          turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS).toISOString(),
-          processedEventIds: [...game.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
-        };
+        if (isBackToSetter) {
+          // Find the next non-eliminated player to be the new setter
+          let newSetterIndex = (setterIndex + 1) % state.players.length;
+          let skipCount = 0;
+          while (
+            isEliminated(state.players[newSetterIndex].letters) &&
+            skipCount < state.players.length
+          ) {
+            newSetterIndex = (newSetterIndex + 1) % state.players.length;
+            skipCount++;
+          }
+
+          updateData = {
+            currentTurnIndex: newSetterIndex,
+            currentAction: "set",
+            currentTrick: null,
+            setterId: null,
+            updatedAt: now,
+            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+            processedEventIds,
+          };
+        } else {
+          updateData = {
+            currentTurnIndex: nextTurnIndex,
+            currentAction: "attempt",
+            currentTrick: trickName,
+            setterId: state.setterId,
+            updatedAt: now,
+            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+            processedEventIds,
+          };
+        }
       }
 
-      transaction.update(gameRef, updates);
+      const [updated] = await tx
+        .update(gameSessions)
+        .set(updateData)
+        .where(eq(gameSessions.id, gameId))
+        .returning();
 
-      const updatedGame: GameState = { ...game, ...updates };
-      return { success: true, game: updatedGame };
+      return { success: true, game: rowToGameState(updated) } as TransitionResult;
     });
 
     if (result.success && !result.alreadyProcessed) {
@@ -358,115 +400,116 @@ export async function passTrick(input: {
   const { eventId, gameId, odv } = input;
 
   try {
-    const result = await firestore.runTransaction(async (transaction) => {
-      const gameRef = getGameDocRef(gameId);
-      const gameDoc = await transaction.get(gameRef);
+    const db = getDb();
 
-      if (!gameDoc.exists) {
+    const result = await db.transaction(async (tx) => {
+      const [game] = await tx
+        .select()
+        .from(gameSessions)
+        .where(eq(gameSessions.id, gameId))
+        .for("update");
+
+      if (!game) {
         return { success: false, error: "Game not found" };
       }
 
-      const game = gameDoc.data() as GameState;
+      const state = rowToGameState(game);
 
-      // Check idempotency
-      if (game.processedEventIds.includes(eventId)) {
-        return { success: true, game, alreadyProcessed: true };
+      if (state.processedEventIds.includes(eventId)) {
+        return { success: true, game: state, alreadyProcessed: true };
       }
 
-      if (game.status !== "active") {
+      if (state.status !== "active") {
         return { success: false, error: "Game is not active" };
       }
 
-      if (game.currentAction !== "attempt") {
+      if (state.currentAction !== "attempt") {
         return { success: false, error: "Can only pass during attempt phase" };
       }
 
-      const currentPlayer = game.players[game.currentTurnIndex];
+      const currentPlayer = state.players[state.currentTurnIndex];
       if (currentPlayer?.odv !== odv) {
         return { success: false, error: "Not your turn" };
       }
 
-      // Add letter to player
       const currentLetters = currentPlayer.letters;
       const newLetters = getNextLetter(currentLetters);
       const playerEliminated = isEliminated(newLetters);
 
-      const updatedPlayers = game.players.map((p) =>
+      const updatedPlayers = state.players.map((p) =>
         p.odv === odv ? { ...p, letters: newLetters } : p
       );
 
-      // Check for game over (only one player left)
       const activePlayers = updatedPlayers.filter((p) => !isEliminated(p.letters));
 
-      const now = new Date().toISOString();
-      let updates: Partial<GameState>;
+      const now = new Date();
+      const processedEventIds = [...state.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS);
+      let updateData: Partial<typeof gameSessions.$inferInsert>;
 
       if (activePlayers.length === 1) {
-        // Game over!
-        updates = {
+        updateData = {
           players: updatedPlayers,
           status: "completed",
           winnerId: activePlayers[0].odv,
           updatedAt: now,
-          turnDeadlineAt: undefined,
-          processedEventIds: [...game.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
+          turnDeadlineAt: null,
+          processedEventIds,
         };
       } else {
-        // Move to next player
-        let nextTurnIndex = (game.currentTurnIndex + 1) % game.players.length;
+        let nextTurnIndex = (state.currentTurnIndex + 1) % state.players.length;
 
-        // Skip eliminated players
         let attempts = 0;
         while (
           isEliminated(updatedPlayers[nextTurnIndex].letters) &&
-          attempts < game.players.length
+          attempts < state.players.length
         ) {
-          nextTurnIndex = (nextTurnIndex + 1) % game.players.length;
+          nextTurnIndex = (nextTurnIndex + 1) % state.players.length;
           attempts++;
         }
 
-        // Check if we've gone through all attempters
-        const setterIndex = game.players.findIndex((p) => p.odv === game.setterId);
+        const setterIndex = state.players.findIndex((p) => p.odv === state.setterId);
         const isBackToSetter = nextTurnIndex === setterIndex;
 
         if (isBackToSetter) {
-          // New round - next person sets
-          let newSetterIndex = (setterIndex + 1) % game.players.length;
+          let newSetterIndex = (setterIndex + 1) % state.players.length;
           while (
             isEliminated(updatedPlayers[newSetterIndex].letters) &&
-            attempts < game.players.length
+            attempts < state.players.length
           ) {
-            newSetterIndex = (newSetterIndex + 1) % game.players.length;
+            newSetterIndex = (newSetterIndex + 1) % state.players.length;
             attempts++;
           }
 
-          updates = {
+          updateData = {
             players: updatedPlayers,
             currentTurnIndex: newSetterIndex,
             currentAction: "set",
-            currentTrick: undefined,
-            setterId: undefined,
+            currentTrick: null,
+            setterId: null,
             updatedAt: now,
-            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS).toISOString(),
-            processedEventIds: [...game.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
+            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+            processedEventIds,
           };
         } else {
-          updates = {
+          updateData = {
             players: updatedPlayers,
             currentTurnIndex: nextTurnIndex,
             updatedAt: now,
-            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS).toISOString(),
-            processedEventIds: [...game.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
+            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+            processedEventIds,
           };
         }
       }
 
-      transaction.update(gameRef, updates);
+      const [updated] = await tx
+        .update(gameSessions)
+        .set(updateData)
+        .where(eq(gameSessions.id, gameId))
+        .returning();
 
-      const updatedGame: GameState = { ...game, ...updates };
       return {
         success: true,
-        game: updatedGame,
+        game: rowToGameState(updated),
         letterGained: newLetters,
         isEliminated: playerEliminated,
       };
@@ -498,49 +541,53 @@ export async function handleDisconnect(input: {
   const { eventId, gameId, odv } = input;
 
   try {
-    const result = await firestore.runTransaction(async (transaction) => {
-      const gameRef = getGameDocRef(gameId);
-      const gameDoc = await transaction.get(gameRef);
+    const db = getDb();
 
-      if (!gameDoc.exists) {
-        return { success: false, error: "Game not found" };
+    const result = await db.transaction(async (tx) => {
+      const [game] = await tx
+        .select()
+        .from(gameSessions)
+        .where(eq(gameSessions.id, gameId))
+        .for("update");
+
+      if (!game) {
+        return { success: false, error: "Game not found" } as TransitionResult;
       }
 
-      const game = gameDoc.data() as GameState;
+      const state = rowToGameState(game);
 
-      // Check idempotency
-      if (game.processedEventIds.includes(eventId)) {
-        return { success: true, game, alreadyProcessed: true };
+      if (state.processedEventIds.includes(eventId)) {
+        return { success: true, game: state, alreadyProcessed: true } as TransitionResult;
       }
 
-      // Only process if game is active
-      if (game.status !== "active" && game.status !== "paused") {
-        return { success: true, game }; // No action needed for waiting/completed
+      if (state.status !== "active" && state.status !== "paused") {
+        return { success: true, game: state } as TransitionResult;
       }
 
-      const playerIndex = game.players.findIndex((p) => p.odv === odv);
+      const playerIndex = state.players.findIndex((p) => p.odv === odv);
       if (playerIndex === -1) {
-        return { success: false, error: "Player not in game" };
+        return { success: false, error: "Player not in game" } as TransitionResult;
       }
 
-      const now = new Date().toISOString();
-      const updatedPlayers = game.players.map((p) =>
-        p.odv === odv ? { ...p, connected: false, disconnectedAt: now } : p
+      const now = new Date();
+      const nowISO = now.toISOString();
+      const updatedPlayers = state.players.map((p) =>
+        p.odv === odv ? { ...p, connected: false, disconnectedAt: nowISO } : p
       );
 
-      // Pause the game if it was active
-      const updates: Partial<GameState> = {
-        players: updatedPlayers,
-        status: game.status === "active" ? "paused" : game.status,
-        pausedAt: game.status === "active" ? now : game.pausedAt,
-        updatedAt: now,
-        processedEventIds: [...game.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
-      };
+      const [updated] = await tx
+        .update(gameSessions)
+        .set({
+          players: updatedPlayers,
+          status: state.status === "active" ? "paused" : state.status,
+          pausedAt: state.status === "active" ? now : game.pausedAt,
+          updatedAt: now,
+          processedEventIds: [...state.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
+        })
+        .where(eq(gameSessions.id, gameId))
+        .returning();
 
-      transaction.update(gameRef, updates);
-
-      const updatedGame: GameState = { ...game, ...updates };
-      return { success: true, game: updatedGame };
+      return { success: true, game: rowToGameState(updated) } as TransitionResult;
     });
 
     if (result.success && !result.alreadyProcessed) {
@@ -565,50 +612,54 @@ export async function handleReconnect(input: {
   const { eventId, gameId, odv } = input;
 
   try {
-    const result = await firestore.runTransaction(async (transaction) => {
-      const gameRef = getGameDocRef(gameId);
-      const gameDoc = await transaction.get(gameRef);
+    const db = getDb();
 
-      if (!gameDoc.exists) {
-        return { success: false, error: "Game not found" };
+    const result = await db.transaction(async (tx) => {
+      const [game] = await tx
+        .select()
+        .from(gameSessions)
+        .where(eq(gameSessions.id, gameId))
+        .for("update");
+
+      if (!game) {
+        return { success: false, error: "Game not found" } as TransitionResult;
       }
 
-      const game = gameDoc.data() as GameState;
+      const state = rowToGameState(game);
 
-      // Check idempotency
-      if (game.processedEventIds.includes(eventId)) {
-        return { success: true, game, alreadyProcessed: true };
+      if (state.processedEventIds.includes(eventId)) {
+        return { success: true, game: state, alreadyProcessed: true } as TransitionResult;
       }
 
-      const playerIndex = game.players.findIndex((p) => p.odv === odv);
+      const playerIndex = state.players.findIndex((p) => p.odv === odv);
       if (playerIndex === -1) {
-        return { success: false, error: "Player not in game" };
+        return { success: false, error: "Player not in game" } as TransitionResult;
       }
 
-      const now = new Date().toISOString();
-      const updatedPlayers = game.players.map((p) =>
+      const updatedPlayers = state.players.map((p) =>
         p.odv === odv ? { ...p, connected: true, disconnectedAt: undefined } : p
       );
 
-      // Check if all players are now connected
       const allConnected = updatedPlayers.every((p) => p.connected);
+      const now = new Date();
 
-      const updates: Partial<GameState> = {
-        players: updatedPlayers,
-        status: allConnected && game.status === "paused" ? "active" : game.status,
-        pausedAt: allConnected ? undefined : game.pausedAt,
-        updatedAt: now,
-        turnDeadlineAt:
-          allConnected && game.status === "paused"
-            ? new Date(Date.now() + TURN_TIMEOUT_MS).toISOString()
-            : game.turnDeadlineAt,
-        processedEventIds: [...game.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
-      };
+      const [updated] = await tx
+        .update(gameSessions)
+        .set({
+          players: updatedPlayers,
+          status: allConnected && state.status === "paused" ? "active" : state.status,
+          pausedAt: allConnected ? null : game.pausedAt,
+          updatedAt: now,
+          turnDeadlineAt:
+            allConnected && state.status === "paused"
+              ? new Date(Date.now() + TURN_TIMEOUT_MS)
+              : game.turnDeadlineAt,
+          processedEventIds: [...state.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
+        })
+        .where(eq(gameSessions.id, gameId))
+        .returning();
 
-      transaction.update(gameRef, updates);
-
-      const updatedGame: GameState = { ...game, ...updates };
-      return { success: true, game: updatedGame };
+      return { success: true, game: rowToGameState(updated) } as TransitionResult;
     });
 
     if (result.success && !result.alreadyProcessed) {
@@ -634,47 +685,51 @@ export async function forfeitGame(input: {
   const { eventId, gameId, odv, reason } = input;
 
   try {
-    const result = await firestore.runTransaction(async (transaction) => {
-      const gameRef = getGameDocRef(gameId);
-      const gameDoc = await transaction.get(gameRef);
+    const db = getDb();
 
-      if (!gameDoc.exists) {
-        return { success: false, error: "Game not found" };
+    const result = await db.transaction(async (tx) => {
+      const [game] = await tx
+        .select()
+        .from(gameSessions)
+        .where(eq(gameSessions.id, gameId))
+        .for("update");
+
+      if (!game) {
+        return { success: false, error: "Game not found" } as TransitionResult;
       }
 
-      const game = gameDoc.data() as GameState;
+      const state = rowToGameState(game);
 
-      // Check idempotency
-      if (game.processedEventIds.includes(eventId)) {
-        return { success: true, game, alreadyProcessed: true };
+      if (state.processedEventIds.includes(eventId)) {
+        return { success: true, game: state, alreadyProcessed: true } as TransitionResult;
       }
 
-      if (game.status === "completed") {
-        return { success: false, error: "Game already completed" };
+      if (state.status === "completed") {
+        return { success: false, error: "Game already completed" } as TransitionResult;
       }
 
-      const playerIndex = game.players.findIndex((p) => p.odv === odv);
+      const playerIndex = state.players.findIndex((p) => p.odv === odv);
       if (playerIndex === -1) {
-        return { success: false, error: "Player not in game" };
+        return { success: false, error: "Player not in game" } as TransitionResult;
       }
 
-      // Find winner (any other active player)
-      const activePlayers = game.players.filter((p) => p.odv !== odv && !isEliminated(p.letters));
+      const activePlayers = state.players.filter((p) => p.odv !== odv && !isEliminated(p.letters));
       const winnerId = activePlayers[0]?.odv;
 
-      const now = new Date().toISOString();
-      const updates: Partial<GameState> = {
-        status: "completed",
-        winnerId,
-        updatedAt: now,
-        turnDeadlineAt: undefined,
-        processedEventIds: [...game.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
-      };
+      const now = new Date();
+      const [updated] = await tx
+        .update(gameSessions)
+        .set({
+          status: "completed",
+          winnerId: winnerId ?? null,
+          updatedAt: now,
+          turnDeadlineAt: null,
+          processedEventIds: [...state.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS),
+        })
+        .where(eq(gameSessions.id, gameId))
+        .returning();
 
-      transaction.update(gameRef, updates);
-
-      const updatedGame: GameState = { ...game, ...updates };
-      return { success: true, game: updatedGame };
+      return { success: true, game: rowToGameState(updated) } as TransitionResult;
     });
 
     if (result.success && !result.alreadyProcessed) {
@@ -698,11 +753,12 @@ export async function forfeitGame(input: {
  */
 export async function getGameState(gameId: string): Promise<GameState | null> {
   try {
-    const doc = await getGameDocRef(gameId).get();
-    if (!doc.exists) {
+    const db = getDb();
+    const [row] = await db.select().from(gameSessions).where(eq(gameSessions.id, gameId));
+    if (!row) {
       return null;
     }
-    return doc.data() as GameState;
+    return rowToGameState(row);
   } catch (error) {
     logger.error("[GameState] Failed to get game state", { error, gameId });
     return null;
@@ -715,102 +771,96 @@ export async function getGameState(gameId: string): Promise<GameState | null> {
  */
 export async function processTimeouts(): Promise<void> {
   try {
+    const db = getDb();
     const now = new Date();
-    const nowISO = now.toISOString();
 
-    // Find games with expired turn deadlines
-    const activeGamesQuery = await firestore
-      .collection(collections.gameSessions)
-      .where("status", "==", "active")
-      .where("turnDeadlineAt", "<", nowISO)
-      .get();
+    // Find active games with expired turn deadlines
+    const activeGames = await db
+      .select()
+      .from(gameSessions)
+      .where(and(eq(gameSessions.status, "active"), lt(gameSessions.turnDeadlineAt, now)));
 
-    for (const doc of activeGamesQuery.docs) {
-      const game = doc.data() as GameState;
+    for (const game of activeGames) {
+      const state = rowToGameState(game);
 
-      // During attempt phase, timeout means defender wins (they don't get a letter)
-      // The setter's trick is invalidated - new round starts
-      if (game.currentAction === "attempt") {
-        // Move to next setter without giving anyone a letter
-        const result = await firestore.runTransaction(async (transaction) => {
-          const gameRef = getGameDocRef(game.id);
-          const freshDoc = await transaction.get(gameRef);
-          if (!freshDoc.exists) return null;
+      if (state.currentAction === "attempt") {
+        // Attempt phase timeout — defender wins round, move to next setter
+        await db.transaction(async (tx) => {
+          const [fresh] = await tx
+            .select()
+            .from(gameSessions)
+            .where(eq(gameSessions.id, game.id))
+            .for("update");
 
-          const freshGame = freshDoc.data() as GameState;
+          if (!fresh) return;
+          const freshState = rowToGameState(fresh);
 
-          // Verify game is still active and deadline hasn't changed
-          if (freshGame.status !== "active") return null;
-          if (!freshGame.turnDeadlineAt || new Date(freshGame.turnDeadlineAt) >= now) return null;
-          if (freshGame.currentAction !== "attempt") return null;
+          if (freshState.status !== "active") return;
+          if (!fresh.turnDeadlineAt || fresh.turnDeadlineAt >= now) return;
+          if (freshState.currentAction !== "attempt") return;
 
-          // Derive eventId from fresh state to ensure consistency
-          const freshPlayer = freshGame.players[freshGame.currentTurnIndex];
-          if (!freshPlayer) return null;
+          const freshPlayer = freshState.players[freshState.currentTurnIndex];
+          if (!freshPlayer) return;
 
-          const sequenceKey = `deadline-${freshGame.turnDeadlineAt}`;
-          const eventId = generateEventId("timeout", freshPlayer.odv, freshGame.id, sequenceKey);
+          const sequenceKey = `deadline-${fresh.turnDeadlineAt.toISOString()}`;
+          const eventId = generateEventId("timeout", freshPlayer.odv, freshState.id, sequenceKey);
 
-          // Check idempotency
-          if (freshGame.processedEventIds.includes(eventId)) return null;
+          if (freshState.processedEventIds.includes(eventId)) return;
 
-          // Find next setter (skip eliminated players)
-          const setterIndex = freshGame.players.findIndex((p) => p.odv === freshGame.setterId);
-          let newSetterIndex = (setterIndex + 1) % freshGame.players.length;
+          const setterIndex = freshState.players.findIndex((p) => p.odv === freshState.setterId);
+          let newSetterIndex = (setterIndex + 1) % freshState.players.length;
           let attempts = 0;
           while (
-            isEliminated(freshGame.players[newSetterIndex].letters) &&
-            attempts < freshGame.players.length
+            isEliminated(freshState.players[newSetterIndex].letters) &&
+            attempts < freshState.players.length
           ) {
-            newSetterIndex = (newSetterIndex + 1) % freshGame.players.length;
+            newSetterIndex = (newSetterIndex + 1) % freshState.players.length;
             attempts++;
           }
 
-          transaction.update(gameRef, {
-            currentTurnIndex: newSetterIndex,
-            currentAction: "set",
-            currentTrick: undefined,
-            setterId: undefined,
-            updatedAt: nowISO,
-            turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS).toISOString(),
-            processedEventIds: [...freshGame.processedEventIds, eventId].slice(
-              -MAX_PROCESSED_EVENTS
-            ),
-          });
+          await tx
+            .update(gameSessions)
+            .set({
+              currentTurnIndex: newSetterIndex,
+              currentAction: "set",
+              currentTrick: null,
+              setterId: null,
+              updatedAt: now,
+              turnDeadlineAt: new Date(Date.now() + TURN_TIMEOUT_MS),
+              processedEventIds: [...freshState.processedEventIds, eventId].slice(
+                -MAX_PROCESSED_EVENTS
+              ),
+            })
+            .where(eq(gameSessions.id, game.id));
 
-          return { timedOutPlayer: freshPlayer.odv };
-        });
-
-        if (result) {
           logger.info("[GameState] Turn timeout - defender wins round", {
             gameId: game.id,
-            timedOutPlayer: result.timedOutPlayer,
+            timedOutPlayer: freshPlayer.odv,
           });
-        }
+        });
       } else {
-        // Set phase timeout - forfeit the game
-        // Need to verify fresh state and generate eventId inside forfeitGame transaction
-        const result = await firestore.runTransaction(async (transaction) => {
-          const gameRef = getGameDocRef(game.id);
-          const freshDoc = await transaction.get(gameRef);
-          if (!freshDoc.exists) return null;
+        // Set phase timeout — forfeit the game
+        const result = await db.transaction(async (tx) => {
+          const [fresh] = await tx
+            .select()
+            .from(gameSessions)
+            .where(eq(gameSessions.id, game.id))
+            .for("update");
 
-          const freshGame = freshDoc.data() as GameState;
+          if (!fresh) return null;
+          const freshState = rowToGameState(fresh);
 
-          // Verify game state hasn't changed
-          if (freshGame.status !== "active") return null;
-          if (!freshGame.turnDeadlineAt || new Date(freshGame.turnDeadlineAt) >= now) return null;
-          if (freshGame.currentAction !== "set") return null;
+          if (freshState.status !== "active") return null;
+          if (!fresh.turnDeadlineAt || fresh.turnDeadlineAt >= now) return null;
+          if (freshState.currentAction !== "set") return null;
 
-          const freshPlayer = freshGame.players[freshGame.currentTurnIndex];
+          const freshPlayer = freshState.players[freshState.currentTurnIndex];
           if (!freshPlayer) return null;
 
-          // Derive eventId from fresh state
-          const sequenceKey = `deadline-${freshGame.turnDeadlineAt}`;
-          const eventId = generateEventId("timeout", freshPlayer.odv, freshGame.id, sequenceKey);
+          const sequenceKey = `deadline-${fresh.turnDeadlineAt.toISOString()}`;
+          const eventId = generateEventId("timeout", freshPlayer.odv, freshState.id, sequenceKey);
 
-          // Check idempotency
-          if (freshGame.processedEventIds.includes(eventId)) return null;
+          if (freshState.processedEventIds.includes(eventId)) return null;
 
           return { eventId, odv: freshPlayer.odv };
         });
@@ -827,31 +877,31 @@ export async function processTimeouts(): Promise<void> {
     }
 
     // Find paused games that exceeded reconnection window
-    const pausedGamesQuery = await firestore
-      .collection(collections.gameSessions)
-      .where("status", "==", "paused")
-      .get();
+    const pausedGames = await db
+      .select()
+      .from(gameSessions)
+      .where(eq(gameSessions.status, "paused"));
 
-    for (const doc of pausedGamesQuery.docs) {
-      const game = doc.data() as GameState;
+    for (const game of pausedGames) {
+      const state = rowToGameState(game);
 
-      // Check each disconnected player
-      for (const player of game.players) {
+      for (const player of state.players) {
         if (!player.connected && player.disconnectedAt) {
           const disconnectedTime = new Date(player.disconnectedAt).getTime();
           const elapsed = now.getTime() - disconnectedTime;
 
           if (elapsed > RECONNECT_WINDOW_MS) {
-            // Verify fresh state before forfeiting
-            const result = await firestore.runTransaction(async (transaction) => {
-              const gameRef = getGameDocRef(game.id);
-              const freshDoc = await transaction.get(gameRef);
-              if (!freshDoc.exists) return null;
+            const result = await db.transaction(async (tx) => {
+              const [fresh] = await tx
+                .select()
+                .from(gameSessions)
+                .where(eq(gameSessions.id, game.id))
+                .for("update");
 
-              const freshGame = freshDoc.data() as GameState;
+              if (!fresh) return null;
+              const freshState = rowToGameState(fresh);
 
-              // Verify player is still disconnected with same disconnectedAt timestamp
-              const freshPlayer = freshGame.players.find((p) => p.odv === player.odv);
+              const freshPlayer = freshState.players.find((p) => p.odv === player.odv);
               if (
                 !freshPlayer ||
                 freshPlayer.connected ||
@@ -860,17 +910,15 @@ export async function processTimeouts(): Promise<void> {
                 return null;
               }
 
-              // Derive eventId from fresh state
               const sequenceKey = `disconnected-${freshPlayer.disconnectedAt}`;
               const eventId = generateEventId(
                 "disconnect_timeout",
                 freshPlayer.odv,
-                freshGame.id,
+                freshState.id,
                 sequenceKey
               );
 
-              // Check idempotency (forfeitGame will also check, but this avoids unnecessary call)
-              if (freshGame.processedEventIds.includes(eventId)) return null;
+              if (freshState.processedEventIds.includes(eventId)) return null;
 
               return { eventId, odv: freshPlayer.odv };
             });
@@ -882,7 +930,7 @@ export async function processTimeouts(): Promise<void> {
                 odv: result.odv,
                 reason: "disconnect_timeout",
               });
-              break; // Only process one forfeit per game
+              break;
             }
           }
         }
@@ -898,7 +946,8 @@ export async function processTimeouts(): Promise<void> {
  */
 export async function deleteGame(gameId: string): Promise<boolean> {
   try {
-    await getGameDocRef(gameId).delete();
+    const db = getDb();
+    await db.delete(gameSessions).where(eq(gameSessions.id, gameId));
     logger.info("[GameState] Game deleted", { gameId });
     return true;
   } catch (error) {

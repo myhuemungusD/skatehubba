@@ -1,18 +1,20 @@
 /**
  * Battle State Service
  *
- * Handles battle voting with:
+ * Handles battle voting using PostgreSQL with row-level locking.
+ *
+ * Features:
  * - Vote timeouts (60 seconds, defender wins on timeout)
  * - Tie handling (creator wins on tie as the challenger)
  * - Idempotency keys to prevent duplicate votes
  * - Double-vote protection
+ * - SELECT FOR UPDATE for distributed locking
  */
 
+import { getDb } from "../db";
+import { battles, battleVotes, battleVoteState } from "@shared/schema";
+import { eq, and, lt } from "drizzle-orm";
 import crypto from "node:crypto";
-import { db } from "../db";
-import { db as firestore } from "../firestore";
-import { battles, battleVotes } from "../../packages/shared/schema";
-import { eq } from "drizzle-orm";
 import logger from "../logger";
 import { logServerEvent } from "./analyticsService";
 
@@ -20,7 +22,7 @@ import { logServerEvent } from "./analyticsService";
 // Types
 // ============================================================================
 
-export interface BattleVoteState {
+export interface BattleVoteStateData {
   battleId: string;
   creatorId: string;
   opponentId: string | null;
@@ -56,34 +58,16 @@ const MAX_PROCESSED_EVENTS = 50;
 // Helper Functions
 // ============================================================================
 
-/**
- * Generate a deterministic event ID for idempotency.
- *
- * IMPORTANT: For client-initiated actions, generate the eventId ONCE before
- * the first request attempt and reuse it on all retries. This ensures that
- * duplicate requests (due to network timeouts) are properly deduplicated.
- *
- * @param type - Event type (e.g., 'vote', 'timeout')
- * @param odv - User ID
- * @param battleId - Battle ID
- * @param sequenceKey - Optional deterministic key for server-side events
- */
 function generateEventId(
   type: string,
   odv: string,
   battleId: string,
   sequenceKey?: string
 ): string {
-  // If a sequence key is provided, use it for deterministic ID generation
   if (sequenceKey) {
     return `${type}-${battleId}-${odv}-${sequenceKey}`;
   }
-  // For backward compatibility, generate a unique ID (caller should cache and reuse on retries)
   return `${type}-${battleId}-${odv}-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
-}
-
-function getBattleStateRef(battleId: string) {
-  return firestore.collection("battle_state").doc(battleId);
 }
 
 // ============================================================================
@@ -102,56 +86,51 @@ export async function initializeVoting(input: {
   const { eventId, battleId, creatorId, opponentId } = input;
 
   try {
+    const db = getDb();
     const now = new Date();
-    const stateRef = getBattleStateRef(battleId);
 
-    // Use transaction to prevent overwriting existing voting state
-    const result = await firestore.runTransaction(async (transaction) => {
-      const existingDoc = await transaction.get(stateRef);
+    const result = await db.transaction(async (tx) => {
+      // Check if voting state already exists (with lock)
+      const [existing] = await tx
+        .select()
+        .from(battleVoteState)
+        .where(eq(battleVoteState.battleId, battleId))
+        .for("update");
 
-      // If voting state already exists, don't overwrite (idempotent behavior)
-      if (existingDoc.exists) {
-        const existingState = existingDoc.data() as BattleVoteState;
-
-        // Check if this exact event was already processed
-        if (existingState.processedEventIds.includes(eventId)) {
+      if (existing) {
+        const processedIds = existing.processedEventIds as string[];
+        if (processedIds.includes(eventId)) {
           return { alreadyInitialized: true };
         }
-
-        // Voting state exists but with different eventId - still don't overwrite
-        // This protects against erasing existing votes
         logger.warn("[BattleState] Voting already initialized, skipping", {
           battleId,
-          existingStatus: existingState.status,
-          existingVotesCount: existingState.votes.length,
+          existingStatus: existing.status,
         });
         return { alreadyInitialized: true };
       }
 
       // Create new voting state
-      const state: BattleVoteState = {
+      await tx.insert(battleVoteState).values({
         battleId,
         creatorId,
         opponentId,
         status: "voting",
         votes: [],
-        votingStartedAt: now.toISOString(),
-        voteDeadlineAt: new Date(now.getTime() + VOTE_TIMEOUT_MS).toISOString(),
+        votingStartedAt: now,
+        voteDeadlineAt: new Date(now.getTime() + VOTE_TIMEOUT_MS),
         processedEventIds: [eventId],
-      };
+        createdAt: now,
+        updatedAt: now,
+      });
 
-      transaction.set(stateRef, state);
       return { alreadyInitialized: false };
     });
 
-    // Update database status idempotently (even if state already exists)
-    // This ensures DB is reconciled even if previous calls failed at DB update step
-    if (db) {
-      await db
-        .update(battles)
-        .set({ status: "voting", updatedAt: now })
-        .where(eq(battles.id, battleId));
-    }
+    // Update battle status
+    await db
+      .update(battles)
+      .set({ status: "voting", updatedAt: now })
+      .where(eq(battles.id, battleId));
 
     if (result.alreadyInitialized) {
       logger.info("[BattleState] Voting already initialized (idempotent)", { battleId });
@@ -178,81 +157,83 @@ export async function castVote(input: {
   const { eventId, battleId, odv, vote } = input;
 
   try {
-    const result = await firestore.runTransaction(async (transaction) => {
-      const stateRef = getBattleStateRef(battleId);
-      const stateDoc = await transaction.get(stateRef);
+    const db = getDb();
 
-      // If no state exists, try to get from database and create state
-      if (!stateDoc.exists) {
-        // Fallback: vote directly to DB without Firestore state
-        // This maintains backwards compatibility
+    const result = await db.transaction(async (tx) => {
+      // Lock the vote state row
+      const [state] = await tx
+        .select()
+        .from(battleVoteState)
+        .where(eq(battleVoteState.battleId, battleId))
+        .for("update");
+
+      if (!state) {
+        // Fallback: vote directly to DB without vote state
         return await castVoteLegacy(input);
       }
 
-      const state = stateDoc.data() as BattleVoteState;
+      const processedIds = state.processedEventIds as string[];
+      const currentVotes = state.votes as BattleVoteStateData["votes"];
 
       // Check idempotency
-      if (state.processedEventIds.includes(eventId)) {
+      if (processedIds.includes(eventId)) {
         return {
           success: true,
           alreadyProcessed: true,
           battleComplete: state.status === "completed",
-          winnerId: state.winnerId,
+          winnerId: state.winnerId ?? undefined,
         };
       }
 
-      // Check if voting is still open
       if (state.status !== "voting") {
         return { success: false, error: "Voting is not active" };
       }
 
-      // Check vote deadline
-      if (state.voteDeadlineAt && new Date() > new Date(state.voteDeadlineAt)) {
+      if (state.voteDeadlineAt && new Date() > state.voteDeadlineAt) {
         return { success: false, error: "Voting deadline has passed" };
       }
 
-      // Check if player is a participant
       if (odv !== state.creatorId && odv !== state.opponentId) {
         return { success: false, error: "Not a participant in this battle" };
       }
 
-      // Check for double vote (update existing vote instead)
-      const existingVoteIndex = state.votes.findIndex((v) => v.odv === odv);
+      // Handle double vote (update existing)
+      const existingVoteIndex = currentVotes.findIndex((v) => v.odv === odv);
       const now = new Date().toISOString();
 
-      let updatedVotes: BattleVoteState["votes"];
+      let updatedVotes: BattleVoteStateData["votes"];
       if (existingVoteIndex !== -1) {
-        // Update existing vote (allowed - user changed their mind)
-        updatedVotes = state.votes.map((v, i) =>
+        updatedVotes = currentVotes.map((v, i) =>
           i === existingVoteIndex ? { odv, vote, votedAt: now } : v
         );
         logger.info("[BattleState] Vote updated", { battleId, odv, vote });
       } else {
-        // New vote
-        updatedVotes = [...state.votes, { odv, vote, votedAt: now }];
+        updatedVotes = [...currentVotes, { odv, vote, votedAt: now }];
       }
 
-      const processedEventIds = [...state.processedEventIds, eventId].slice(-MAX_PROCESSED_EVENTS);
+      const updatedProcessedIds = [...processedIds, eventId].slice(-MAX_PROCESSED_EVENTS);
 
-      // Check if both players have voted
       const creatorVoted = updatedVotes.some((v) => v.odv === state.creatorId);
       const opponentVoted = updatedVotes.some((v) => v.odv === state.opponentId);
       const bothVoted = creatorVoted && opponentVoted;
 
       if (bothVoted) {
-        // Calculate winner with tie handling
         const { winnerId, scores } = calculateWinner(
           updatedVotes,
           state.creatorId,
           state.opponentId!
         );
 
-        transaction.update(stateRef, {
-          votes: updatedVotes,
-          status: "completed",
-          winnerId,
-          processedEventIds,
-        });
+        await tx
+          .update(battleVoteState)
+          .set({
+            votes: updatedVotes,
+            status: "completed",
+            winnerId,
+            processedEventIds: updatedProcessedIds,
+            updatedAt: new Date(),
+          })
+          .where(eq(battleVoteState.battleId, battleId));
 
         return {
           success: true,
@@ -261,17 +242,21 @@ export async function castVote(input: {
           finalScore: scores,
         };
       } else {
-        transaction.update(stateRef, {
-          votes: updatedVotes,
-          processedEventIds,
-        });
+        await tx
+          .update(battleVoteState)
+          .set({
+            votes: updatedVotes,
+            processedEventIds: updatedProcessedIds,
+            updatedAt: new Date(),
+          })
+          .where(eq(battleVoteState.battleId, battleId));
 
         return { success: true, battleComplete: false };
       }
     });
 
-    // Persist vote to database
-    if (result.success && !result.alreadyProcessed && db) {
+    // Persist vote to battleVotes table
+    if (result.success && !result.alreadyProcessed) {
       await db
         .insert(battleVotes)
         .values({ battleId, odv, vote })
@@ -282,7 +267,6 @@ export async function castVote(input: {
 
       await logServerEvent(odv, "battle_voted", { battle_id: battleId, vote });
 
-      // If battle complete, update database
       if (result.battleComplete && result.winnerId) {
         await db
           .update(battles)
@@ -309,7 +293,7 @@ export async function castVote(input: {
 }
 
 /**
- * Legacy vote casting for backwards compatibility
+ * Legacy vote casting for backwards compatibility (no vote state row)
  */
 async function castVoteLegacy(input: {
   eventId: string;
@@ -319,22 +303,17 @@ async function castVoteLegacy(input: {
 }): Promise<VoteResult> {
   const { battleId, odv, vote } = input;
 
-  if (!db) {
-    return { success: false, error: "Database not available" };
-  }
+  const db = getDb();
 
-  // Get battle
   const [battle] = await db.select().from(battles).where(eq(battles.id, battleId));
   if (!battle) {
     return { success: false, error: "Battle not found" };
   }
 
-  // Verify participant
   if (odv !== battle.creatorId && odv !== battle.opponentId) {
     return { success: false, error: "Not a participant" };
   }
 
-  // Insert/update vote
   await db
     .insert(battleVotes)
     .values({ battleId, odv, vote })
@@ -345,7 +324,6 @@ async function castVoteLegacy(input: {
 
   await logServerEvent(odv, "battle_voted", { battle_id: battleId, vote });
 
-  // Check if both voted
   const votes = await db.select().from(battleVotes).where(eq(battleVotes.battleId, battleId));
 
   const creatorVoted = votes.some((v) => v.odv === battle.creatorId);
@@ -388,7 +366,6 @@ async function castVoteLegacy(input: {
 
 /**
  * Calculate winner with proper tie handling
- * Tie-breaker: Creator (challenger) wins on tie, as they initiated the challenge
  */
 function calculateWinner(
   votes: { odv: string; vote: "clean" | "sketch" | "redo" }[],
@@ -400,18 +377,13 @@ function calculateWinner(
     [opponentId]: 0,
   };
 
-  // Each player votes on the OTHER player's trick
-  // "clean" = the other player's trick was clean (point for them)
   for (const v of votes) {
     if (v.vote === "clean") {
-      // Voter says other player's trick was clean
       const otherPlayer = v.odv === creatorId ? opponentId : creatorId;
       scores[otherPlayer] = (scores[otherPlayer] || 0) + 1;
     }
-    // "sketch" and "redo" don't give points
   }
 
-  // Determine winner
   const creatorScore = scores[creatorId];
   const opponentScore = scores[opponentId];
 
@@ -421,7 +393,6 @@ function calculateWinner(
   } else if (opponentScore > creatorScore) {
     winnerId = opponentId;
   } else {
-    // Tie - creator wins as the challenger
     winnerId = creatorId;
     logger.info("[BattleState] Tie resolved - creator wins", {
       creatorId,
@@ -435,105 +406,85 @@ function calculateWinner(
 
 /**
  * Process vote timeouts
- * Called periodically to check for expired voting deadlines
  */
 export async function processVoteTimeouts(): Promise<void> {
   try {
+    const db = getDb();
     const now = new Date();
-    const nowISO = now.toISOString();
 
-    // Find battles in voting state with expired deadlines
-    const votingBattlesQuery = await firestore
-      .collection("battle_state")
-      .where("status", "==", "voting")
-      .where("voteDeadlineAt", "<", nowISO)
-      .get();
+    // Find voting states with expired deadlines
+    const expiredStates = await db
+      .select()
+      .from(battleVoteState)
+      .where(and(eq(battleVoteState.status, "voting"), lt(battleVoteState.voteDeadlineAt, now)));
 
-    for (const doc of votingBattlesQuery.docs) {
-      const state = doc.data() as BattleVoteState;
-
-      // Use voteDeadlineAt as sequence key for deterministic timeout event IDs
-      // Make eventId independent of winner computation (use battleId as the odv parameter)
-      const sequenceKey = `deadline-${state.voteDeadlineAt}`;
+    for (const state of expiredStates) {
+      const sequenceKey = `deadline-${state.voteDeadlineAt?.toISOString()}`;
       const eventId = generateEventId("timeout", state.battleId, state.battleId, sequenceKey);
 
-      // Use transaction to prevent race conditions when multiple timeout processors run
-      const updated = await firestore.runTransaction(async (transaction) => {
-        const stateRef = getBattleStateRef(state.battleId);
-        const freshDoc = await transaction.get(stateRef);
+      const updated = await db.transaction(async (tx) => {
+        const [fresh] = await tx
+          .select()
+          .from(battleVoteState)
+          .where(eq(battleVoteState.battleId, state.battleId))
+          .for("update");
 
-        if (!freshDoc.exists) {
-          return false;
-        }
+        if (!fresh) return false;
 
-        const freshState = freshDoc.data() as BattleVoteState;
+        const processedIds = fresh.processedEventIds as string[];
+        if (processedIds.includes(eventId)) return false;
+        if (fresh.status !== "voting") return false;
 
-        // Check idempotency inside transaction
-        if (freshState.processedEventIds.includes(eventId)) {
-          return false;
-        }
-
-        // Check if still in voting status (may have been resolved by another process)
-        if (freshState.status !== "voting") {
-          return false;
-        }
-
-        // Determine winner from fresh state to avoid race conditions
-        // Rule: The player who DID vote wins. If neither voted, creator wins.
-        const creatorVoted = freshState.votes.some((v) => v.odv === freshState.creatorId);
+        const currentVotes = fresh.votes as BattleVoteStateData["votes"];
+        const creatorVoted = currentVotes.some((v) => v.odv === fresh.creatorId);
         const opponentVoted =
-          freshState.opponentId && freshState.votes.some((v) => v.odv === freshState.opponentId);
+          fresh.opponentId && currentVotes.some((v) => v.odv === fresh.opponentId);
 
         let winnerId: string;
         let reason: string;
 
         if (creatorVoted && !opponentVoted) {
-          // Opponent timed out - creator wins
-          winnerId = freshState.creatorId;
+          winnerId = fresh.creatorId;
           reason = "opponent_timeout";
-        } else if (!creatorVoted && opponentVoted && freshState.opponentId) {
-          // Creator timed out - opponent wins
-          winnerId = freshState.opponentId;
+        } else if (!creatorVoted && opponentVoted && fresh.opponentId) {
+          winnerId = fresh.opponentId;
           reason = "creator_timeout";
         } else {
-          // Neither voted or both voted (shouldn't happen) - creator wins
-          winnerId = freshState.creatorId;
+          winnerId = fresh.creatorId;
           reason = "both_timeout";
         }
 
-        transaction.update(stateRef, {
-          status: "completed",
-          winnerId,
-          processedEventIds: [...freshState.processedEventIds, eventId].slice(
-            -MAX_PROCESSED_EVENTS
-          ),
-        });
+        await tx
+          .update(battleVoteState)
+          .set({
+            status: "completed",
+            winnerId,
+            processedEventIds: [...processedIds, eventId].slice(-MAX_PROCESSED_EVENTS),
+            updatedAt: now,
+          })
+          .where(eq(battleVoteState.battleId, state.battleId));
 
         return { winnerId, reason };
       });
 
-      if (!updated) {
-        continue;
-      }
+      if (!updated) continue;
 
-      // Update database outside transaction (already committed to Firestore)
-      if (db) {
-        await db
-          .update(battles)
-          .set({
-            status: "completed",
-            winnerId: updated.winnerId,
-            completedAt: now,
-            updatedAt: now,
-          })
-          .where(eq(battles.id, state.battleId));
+      // Update battles table
+      await db
+        .update(battles)
+        .set({
+          status: "completed",
+          winnerId: updated.winnerId,
+          completedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(battles.id, state.battleId));
 
-        await logServerEvent(updated.winnerId, "battle_completed", {
-          battle_id: state.battleId,
-          winner_id: updated.winnerId,
-          completion_reason: updated.reason,
-        });
-      }
+      await logServerEvent(updated.winnerId, "battle_completed", {
+        battle_id: state.battleId,
+        winner_id: updated.winnerId,
+        completion_reason: updated.reason,
+      });
 
       logger.info("[BattleState] Vote timeout processed", {
         battleId: state.battleId,
@@ -549,13 +500,27 @@ export async function processVoteTimeouts(): Promise<void> {
 /**
  * Get battle vote state
  */
-export async function getBattleVoteState(battleId: string): Promise<BattleVoteState | null> {
+export async function getBattleVoteState(battleId: string): Promise<BattleVoteStateData | null> {
   try {
-    const doc = await getBattleStateRef(battleId).get();
-    if (!doc.exists) {
-      return null;
-    }
-    return doc.data() as BattleVoteState;
+    const db = getDb();
+    const [row] = await db
+      .select()
+      .from(battleVoteState)
+      .where(eq(battleVoteState.battleId, battleId));
+
+    if (!row) return null;
+
+    return {
+      battleId: row.battleId,
+      creatorId: row.creatorId,
+      opponentId: row.opponentId,
+      status: row.status as BattleVoteStateData["status"],
+      votes: row.votes as BattleVoteStateData["votes"],
+      votingStartedAt: row.votingStartedAt?.toISOString(),
+      voteDeadlineAt: row.voteDeadlineAt?.toISOString(),
+      winnerId: row.winnerId ?? undefined,
+      processedEventIds: row.processedEventIds as string[],
+    };
   } catch (error) {
     logger.error("[BattleState] Failed to get vote state", { error, battleId });
     return null;
