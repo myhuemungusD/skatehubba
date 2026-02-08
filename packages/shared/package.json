@@ -8,8 +8,8 @@
     "test": "vitest run --config ../vitest.config.mts --dir ."
   },
   "dependencies": {
-    "zod": "3.23.8",
-    "drizzle-orm": "^0.44.7",
-    "drizzle-zod": "0.7.0"
+    "zod": "3.25.76",
+    "drizzle-orm": "^0.45.1",
+    "drizzle-zod": "0.8.3"
   }
 }

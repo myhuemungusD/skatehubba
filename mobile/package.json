@@ -12,7 +12,7 @@
     "e2e:smoke": "detox test --configuration ios.sim.debug --testNamePattern \"Smoke\""
   },
   "devDependencies": {
-    "detox": "^20.30.0",
+    "detox": "^20.47.0",
     "jest": "^29.7.0"
   }
 }
