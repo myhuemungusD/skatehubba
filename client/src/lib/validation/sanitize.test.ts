@@ -192,8 +192,8 @@ describe("sanitize utilities", () => {
     it("should escape XSS attempts", () => {
       const xss = '<img src=x onerror="alert(1)">';
       const sanitized = sanitizeText(xss);
-      expect(sanitized).not.toContain("<img");
-      expect(sanitized).not.toContain("onerror");
+      expect(sanitized).not.toContain("<");
+      expect(sanitized).not.toContain(">");
     });
   });
 
