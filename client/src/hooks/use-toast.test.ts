@@ -4,19 +4,22 @@
 
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { useToast, toast, reducer } from "./use-toast";
+
+// Don't import at top level - use dynamic imports in tests to get fresh state
+let useToast: any;
+let toast: any;
+let reducer: any;
 
 describe("use-toast", () => {
   beforeEach(async () => {
     vi.useFakeTimers();
-    // Reset module state between tests to prevent pollution
-    // Use dynamic import to access fresh module and reset internal state
+    // Reset modules to get fresh state
+    vi.resetModules();
+    // Import fresh module
     const mod = await import("./use-toast");
-    // Access and reset internal state through module
-    // @ts-ignore - accessing private module state for test cleanup
-    if (mod.memoryState) mod.memoryState = { toasts: [] };
-    // @ts-ignore - accessing private module state for test cleanup
-    if (mod.listeners) mod.listeners.length = 0;
+    useToast = mod.useToast;
+    toast = mod.toast;
+    reducer = mod.reducer;
   });
 
   afterEach(() => {

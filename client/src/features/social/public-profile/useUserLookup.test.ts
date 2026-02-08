@@ -19,7 +19,7 @@ describe("useUserLookup", () => {
           retry: false,
           gcTime: 0,
           staleTime: Infinity, // Prevent refetching, use cached data
-          queryFn: async () => undefined,
+          // No default queryFn - let queries use their own or fail gracefully
         },
       },
     });
