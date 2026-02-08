@@ -86,27 +86,22 @@ describe("useUserLookup", () => {
         message: "User not found",
       };
 
-      queryClient.setQueryData(["/api/profiles", "nonexistent"], undefined);
-
-      const { result } = renderHook(() => useUserLookup("nonexistent"), { wrapper });
-
-      // Simulate error
+      // Set up error-throwing queryFn before rendering the hook
       queryClient.setQueryDefaults(["/api/profiles", "nonexistent"], {
         queryFn: () => {
           throw error404;
         },
       });
 
-      // Force refetch to trigger error
+      const { result } = renderHook(() => useUserLookup("nonexistent"), { wrapper });
+
+      // Wait for error state to be set
       await waitFor(() => {
-        if (result.current.error === "notFound") {
-          expect(result.current.error).toBe("notFound");
-          expect(result.current.userId).toBe(null);
-          expect(result.current.profile).toBe(null);
-        }
-      }, { timeout: 100 }).catch(() => {
-        // Expected to timeout if error state isn't set
+        expect(result.current.error).toBe("notFound");
       });
+
+      expect(result.current.userId).toBe(null);
+      expect(result.current.profile).toBe(null);
     });
 
     it("should return 'unknown' error for non-404 errors", async () => {
@@ -174,13 +169,10 @@ describe("useUserLookup", () => {
       queryClient.setQueryData(["/api/profiles", "user1"], mockProfile1);
       queryClient.setQueryData(["/api/profiles", "user2"], mockProfile2);
 
-      const { result, rerender } = renderHook(
-        ({ handle }) => useUserLookup(handle),
-        {
-          wrapper,
-          initialProps: { handle: "user1" },
-        }
-      );
+      const { result, rerender } = renderHook(({ handle }) => useUserLookup(handle), {
+        wrapper,
+        initialProps: { handle: "user1" },
+      });
 
       await waitFor(() => {
         expect(result.current.userId).toBe("user1");
@@ -190,9 +182,12 @@ describe("useUserLookup", () => {
       rerender({ handle: "user2" });
 
       // Wait for the query to pick up the new data
-      await waitFor(() => {
-        expect(result.current.userId).toBe("user2");
-      }, { timeout: 1000 });
+      await waitFor(
+        () => {
+          expect(result.current.userId).toBe("user2");
+        },
+        { timeout: 1000 }
+      );
     });
   });
 
