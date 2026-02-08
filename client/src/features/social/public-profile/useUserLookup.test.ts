@@ -19,7 +19,17 @@ describe("useUserLookup", () => {
           retry: false,
           gcTime: 0,
           staleTime: Infinity, // Prevent refetching, use cached data
-          // No default queryFn - let queries use their own or fail gracefully
+          // Mock queryFn that returns cached data or throws appropriate errors
+          queryFn: async ({ queryKey }) => {
+            const cachedData = queryClient.getQueryData(queryKey);
+            if (cachedData !== undefined) {
+              return cachedData;
+            }
+            // Simulate 404 for uncached queries
+            const error: any = new Error("Not found");
+            error.status = 404;
+            throw error;
+          },
         },
       },
     });
