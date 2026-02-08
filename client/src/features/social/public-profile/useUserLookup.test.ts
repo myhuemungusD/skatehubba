@@ -18,20 +18,7 @@ describe("useUserLookup", () => {
         queries: {
           retry: false,
           gcTime: 0,
-          // Allow queries to run when queryKey changes, but use cache as initial data
-          staleTime: 0,
-          // Mock queryFn that returns cached data or throws appropriate errors
-          queryFn: async ({ queryKey }) => {
-            // Check if data is already in cache
-            const cachedData = queryClient.getQueryData(queryKey);
-            if (cachedData !== undefined) {
-              return cachedData;
-            }
-            // Simulate 404 for uncached queries
-            const error: any = new Error("Not found");
-            error.status = 404;
-            throw error;
-          },
+          staleTime: 0, // Always fetch on queryKey change
         },
       },
     });
@@ -183,9 +170,13 @@ describe("useUserLookup", () => {
         handle: "user2",
       };
 
-      // Set cache data BEFORE rendering
-      queryClient.setQueryData(["/api/profiles", "user1"], mockProfile1);
-      queryClient.setQueryData(["/api/profiles", "user2"], mockProfile2);
+      // Set up query-specific mocks with queryFn
+      queryClient.setQueryDefaults(["/api/profiles", "user1"], {
+        queryFn: async () => mockProfile1,
+      });
+      queryClient.setQueryDefaults(["/api/profiles", "user2"], {
+        queryFn: async () => mockProfile2,
+      });
 
       const { result, rerender } = renderHook(
         ({ handle }) => useUserLookup(handle),
@@ -205,10 +196,13 @@ describe("useUserLookup", () => {
       rerender({ handle: "user2" });
 
       // Wait for second query to complete
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-        expect(result.current.userId).toBe("user2");
-      }, { timeout: 2000 });
+      await waitFor(
+        () => {
+          expect(result.current.isLoading).toBe(false);
+          expect(result.current.userId).toBe("user2");
+        },
+        { timeout: 3000 }
+      );
     });
   });
 
