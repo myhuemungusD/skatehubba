@@ -107,18 +107,25 @@ const PublicProfileView = lazy(() => import("./features/social/public-profile/Pu
  * - Legacy routes (/old, /new) removed - zero duplication architecture
  */
 function RootRedirect() {
-  const { user, loading, isInitialized } = useAuth();
+  const { user, loading, isInitialized, profileStatus } = useAuth();
   const [, setLocation] = useLocation();
 
   useEffect(() => {
     if (loading || !isInitialized) return;
 
     if (user) {
-      setLocation("/hub", { replace: true });
+      // Wait for profile status to resolve before redirecting
+      if (profileStatus === "unknown") return;
+
+      if (profileStatus === "missing") {
+        setLocation("/profile/setup", { replace: true });
+      } else {
+        setLocation("/hub", { replace: true });
+      }
     } else {
       setLocation("/landing", { replace: true });
     }
-  }, [user, loading, isInitialized, setLocation]);
+  }, [user, loading, isInitialized, profileStatus, setLocation]);
 
   return <LoadingScreen />;
 }
