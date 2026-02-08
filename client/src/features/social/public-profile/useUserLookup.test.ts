@@ -18,9 +18,11 @@ describe("useUserLookup", () => {
         queries: {
           retry: false,
           gcTime: 0,
-          staleTime: Infinity, // Prevent refetching, use cached data
+          // Allow queries to run when queryKey changes, but use cache as initial data
+          staleTime: 0,
           // Mock queryFn that returns cached data or throws appropriate errors
           queryFn: async ({ queryKey }) => {
+            // Check if data is already in cache
             const cachedData = queryClient.getQueryData(queryKey);
             if (cachedData !== undefined) {
               return cachedData;
