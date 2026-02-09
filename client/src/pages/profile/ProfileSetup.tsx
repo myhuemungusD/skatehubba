@@ -6,6 +6,7 @@ import { useLocation, useSearch } from "wouter";
 import { AlertTriangle, CheckCircle, Loader2, XCircle, Mail } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
 import { useEmailVerification } from "../../hooks/useEmailVerification";
+import { useToast } from "../../hooks/use-toast";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Progress } from "../../components/ui/progress";
@@ -78,6 +79,7 @@ export default function ProfileSetup() {
   const auth = useAuth();
   const { requiresVerification, resendVerificationEmail, isResending, canResend, userEmail } =
     useEmailVerification();
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const searchString = useSearch();
 
@@ -406,7 +408,20 @@ export default function ProfileSetup() {
                 <button
                   type="button"
                   onClick={() => {
-                    resendVerificationEmail().catch(() => {});
+                    resendVerificationEmail()
+                      .then(() => {
+                        toast({
+                          title: "Verification email sent!",
+                          description: "Check your inbox and spam folder.",
+                        });
+                      })
+                      .catch((err: Error) => {
+                        toast({
+                          title: "Could not send email",
+                          description: err.message,
+                          variant: "destructive",
+                        });
+                      });
                   }}
                   disabled={isResending || !canResend}
                   className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 disabled:opacity-50 disabled:no-underline"
