@@ -6,13 +6,20 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { Request, Response } from "express";
 import { getDb } from "../../db";
 
+// Extend Request type for test purposes
+interface TestRequest extends Request {
+  user?: {
+    uid: string;
+  };
+}
+
 vi.mock("../../db");
 vi.mock("../../auth/middleware");
 vi.mock("../../logger");
 
 describe("Notifications Routes", () => {
   let mockDb: any;
-  let mockReq: Partial<Request>;
+  let mockReq: Partial<TestRequest>;
   let mockRes: Partial<Response>;
 
   beforeEach(() => {
@@ -97,7 +104,7 @@ describe("Notifications Routes", () => {
       });
 
       const result = await mockDb.select().from().where().orderBy().limit();
-      expect(result.every((n) => n.read === false)).toBe(true);
+      expect(result.every((n: any) => n.read === false)).toBe(true);
     });
 
     it("should order by creation date", () => {
@@ -239,7 +246,7 @@ describe("Notifications Routes", () => {
       });
 
       const result = await mockDb.select().from().where();
-      const unreadCount = result.filter((n) => !n.read).length;
+      const unreadCount = result.filter((n: any) => !n.read).length;
 
       expect(unreadCount).toBe(3);
     });
@@ -255,7 +262,7 @@ describe("Notifications Routes", () => {
       });
 
       const result = await mockDb.select().from().where();
-      const unreadCount = result.filter((n) => !n.read).length;
+      const unreadCount = result.filter((n: any) => !n.read).length;
 
       expect(unreadCount).toBe(0);
     });

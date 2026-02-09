@@ -6,6 +6,13 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { Request, Response } from "express";
 import { getDb } from "../../db";
 
+// Extend Request type for test purposes
+interface TestRequest extends Request {
+  user?: {
+    uid: string;
+  };
+}
+
 // Mock dependencies
 vi.mock("../../db");
 vi.mock("../../auth/middleware");
@@ -14,7 +21,7 @@ vi.mock("../../logger");
 
 describe("Games Routes", () => {
   let mockDb: any;
-  let mockReq: Partial<Request>;
+  let mockReq: Partial<TestRequest>;
   let mockRes: Partial<Response>;
 
   beforeEach(() => {
@@ -418,7 +425,7 @@ describe("Games Routes", () => {
 
       const result = await mockDb.select().from().where().limit();
       expect(result).toHaveLength(2);
-      expect(result.every((g) => g.status === "active")).toBe(true);
+      expect(result.every((g: any) => g.status === "active")).toBe(true);
     });
 
     it("should list completed games", async () => {
