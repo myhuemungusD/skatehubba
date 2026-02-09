@@ -21,7 +21,7 @@ export default {
 
     ios: {
       supportsTablet: true,
-      bundleIdentifier: "com.skathubba.app",
+      bundleIdentifier: "com.skatehubba.app",
       googleServicesFile: "./GoogleService-Info.plist",
       infoPlist: {
         NSCameraUsageDescription: "SkateHubba needs camera access to record trick videos for challenges.",
@@ -35,7 +35,7 @@ export default {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#0a0a0a"
       },
-      package: "com.skathubba.app",
+      package: "com.skatehubba.app",
       googleServicesFile: "./google-services.json",
 
       permissions: [
