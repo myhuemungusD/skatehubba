@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, MapPin, Trophy, User, LogOut } from "lucide-react";
+import { Home, MapPin, Trophy, User, LogOut, Shield } from "lucide-react";
 import { useIsMobile } from "../../hooks/use-mobile";
 import { useAuth } from "../../hooks/useAuth";
 import { EmailVerificationBanner } from "../EmailVerificationBanner";
@@ -70,8 +70,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </ul>
           </nav>
 
-          {/* Logout at bottom of sidebar */}
-          <div className="px-4 py-4 border-t border-neutral-800">
+          {/* Admin + Logout at bottom of sidebar */}
+          <div className="px-4 py-4 border-t border-neutral-800 space-y-1">
+            {auth.isAdmin && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-orange-400 hover:bg-orange-500/10 transition-colors w-full"
+              >
+                <Shield className="h-5 w-5" aria-hidden="true" />
+                <span>Admin</span>
+              </Link>
+            )}
             <button
               onClick={handleLogout}
               className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors w-full"
