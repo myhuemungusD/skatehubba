@@ -58,6 +58,13 @@ const envSchema = z.object({
       }
       return trimmed;
     }),
+  STRIPE_WEBHOOK_SECRET: z
+    .string()
+    .optional()
+    .transform((val) => {
+      if (!val || val.trim() === "") return undefined;
+      return val.trim();
+    }),
   // Testing key used by test framework - allow empty string or valid sk_ key
   TESTING_STRIPE_SECRET_KEY: z
     .string()

@@ -44,6 +44,7 @@ export default function MapPage() {
   // State
   // ---------------------------------------------------------------------------
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { isPaidOrPro } = useAccountTier();
   const [selectedSpotId, setSelectedSpotId] = useState<number | null>(null);
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
@@ -51,6 +52,34 @@ export default function MapPage() {
   const [upgradeFeature, setUpgradeFeature] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
+
+  // Handle return from Stripe Checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const upgrade = params.get("upgrade");
+    if (upgrade === "success") {
+      toast({
+        title: "Welcome to Premium!",
+        description: "All features are now unlocked. Go skate.",
+        duration: 6000,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/tier"] });
+      // Clean up URL params
+      const url = new URL(window.location.href);
+      url.searchParams.delete("upgrade");
+      url.searchParams.delete("session_id");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    } else if (upgrade === "cancelled") {
+      toast({
+        title: "Payment cancelled",
+        description: "No worries — you can upgrade anytime.",
+        duration: 5000,
+      });
+      const url = new URL(window.location.href);
+      url.searchParams.delete("upgrade");
+      window.history.replaceState({}, "", url.pathname + url.search);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------------------------------------------------------------------------
   // Geolocation
@@ -79,7 +108,6 @@ export default function MapPage() {
   // ---------------------------------------------------------------------------
   // Data Fetching
   // ---------------------------------------------------------------------------
-  const queryClient = useQueryClient();
   const hasDiscoveredRef = useRef(false);
 
   const {

@@ -102,6 +102,94 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, async (req, res) =
 });
 
 /**
+ * POST /api/tier/create-checkout-session - Create Stripe Checkout Session for Premium upgrade
+ *
+ * Returns a Stripe Checkout URL that the client redirects to.
+ * Uses idempotency keys to prevent duplicate sessions.
+ */
+const createCheckoutSchema = z.object({
+  idempotencyKey: z.string().min(1).max(255),
+});
+
+router.post("/create-checkout-session", authenticateUser, async (req, res) => {
+  const parsed = createCheckoutSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+  }
+
+  const user = req.currentUser!;
+  const { idempotencyKey } = parsed.data;
+
+  if (user.accountTier === "premium") {
+    return res.status(409).json({ error: "You already have Premium", currentTier: "premium" });
+  }
+
+  try {
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeSecretKey) {
+      logger.error("STRIPE_SECRET_KEY not configured");
+      return res.status(500).json({ error: "Payment service not available" });
+    }
+
+    const Stripe = await import("stripe").then((m) => m.default);
+    const stripe = new Stripe(stripeSecretKey);
+
+    let origin = req.headers.origin;
+    if (!origin && req.headers.referer) {
+      try {
+        const refUrl = new URL(req.headers.referer);
+        origin = refUrl.origin;
+      } catch {
+        // malformed referer — ignore
+      }
+    }
+    if (!origin) origin = "http://localhost:5173";
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        line_items: [
+          {
+            price_data: {
+              currency: "usd",
+              product_data: {
+                name: "SkateHubba Premium",
+                description:
+                  "All features unlocked for life — S.K.A.T.E. games, spots, clips, and more",
+              },
+              unit_amount: 999,
+            },
+            quantity: 1,
+          },
+        ],
+        metadata: {
+          userId: user.id,
+          type: "premium_upgrade",
+        },
+        success_url: `${origin}?upgrade=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}?upgrade=cancelled`,
+        customer_email: user.email,
+      },
+      {
+        idempotencyKey: `checkout_${user.id}_${idempotencyKey}`,
+      }
+    );
+
+    logger.info("Stripe Checkout session created", {
+      userId: user.id,
+      sessionId: session.id,
+    });
+
+    return res.json({ url: session.url });
+  } catch (error) {
+    logger.error("Failed to create checkout session", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return res.status(500).json({ error: "Failed to create checkout session" });
+  }
+});
+
+/**
  * POST /api/tier/purchase-premium - Purchase Premium for $9.99 (one-time)
  *
  * Verifies the Stripe payment intent before granting premium status.
