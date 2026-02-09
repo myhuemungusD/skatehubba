@@ -3,9 +3,7 @@
  */
 
 import { z } from "zod";
-import { getDb } from "../db";
-import { customUsers, usernames } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { getDb, getUserDisplayName as getUserDisplayNameFromDb } from "../db";
 
 // ============================================================================
 // Constants
@@ -56,25 +54,8 @@ export const resolveDisputeSchema = z.object({
 // Helpers
 // ============================================================================
 
-export async function getUserDisplayName(db: ReturnType<typeof getDb>, odv: string): Promise<string> {
-  const usernameResult = await db
-    .select({ username: usernames.username })
-    .from(usernames)
-    .where(eq(usernames.uid, odv))
-    .limit(1);
-
-  if (usernameResult[0]?.username) {
-    return usernameResult[0].username;
-  }
-
-  const userResult = await db
-    .select({ firstName: customUsers.firstName })
-    .from(customUsers)
-    .where(eq(customUsers.id, odv))
-    .limit(1);
-
-  return userResult[0]?.firstName || "Skater";
-}
+// Re-export centralized database helpers
+export { getUserDisplayNameFromDb as getUserDisplayName };
 
 export function isGameOver(
   player1Letters: string,
