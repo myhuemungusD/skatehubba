@@ -20,7 +20,6 @@ type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
 const PRESENCE_HASH = "presence:users";
-const PRESENCE_TTL = 300; // 5-minute TTL per user entry (heartbeat refreshes)
 
 // Fallback in-memory store when Redis is unavailable
 const onlineUsersFallback = new Map<string, { status: "online" | "away"; lastSeen: Date }>();

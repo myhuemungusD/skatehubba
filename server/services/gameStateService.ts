@@ -134,7 +134,6 @@ export async function createGame(input: {
   maxPlayers?: number;
 }): Promise<TransitionResult> {
   const { eventId, spotId, creatorId, maxPlayers = 4 } = input;
-  const gameId = `game-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 
   try {
     const db = getDb();

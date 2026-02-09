@@ -49,6 +49,32 @@ export default function NewChallengeScreen() {
 
   const hasAllPermissions = hasCameraPermission && hasMicPermission;
 
+  const challengeMutation = useMutation({
+    mutationFn: async ({ clipUrl, thumbnailUrl }: { clipUrl: string; thumbnailUrl?: string }) => {
+      const result = await createChallenge({
+        opponentUid: params.opponentUid as string,
+        clipUrl,
+        clipDurationSec: 15,
+        thumbnailUrl,
+      });
+      return result.data;
+    },
+    onSuccess: () => {
+      showMessage({
+        message: "Challenge sent!",
+        type: "success",
+      });
+      queryClient.invalidateQueries({ queryKey: ["challenges"] });
+      router.back();
+    },
+    onError: (error: Error) => {
+      showMessage({
+        message: error?.message || "Failed to send challenge",
+        type: "danger",
+      });
+    },
+  });
+
   // Request permissions on mount
   useEffect(() => {
     (async () => {
@@ -78,32 +104,6 @@ export default function NewChallengeScreen() {
       </View>
     );
   }
-
-  const challengeMutation = useMutation({
-    mutationFn: async ({ clipUrl, thumbnailUrl }: { clipUrl: string; thumbnailUrl?: string }) => {
-      const result = await createChallenge({
-        opponentUid: params.opponentUid as string,
-        clipUrl,
-        clipDurationSec: 15,
-        thumbnailUrl,
-      });
-      return result.data;
-    },
-    onSuccess: () => {
-      showMessage({
-        message: "Challenge sent!",
-        type: "success",
-      });
-      queryClient.invalidateQueries({ queryKey: ["challenges"] });
-      router.back();
-    },
-    onError: (error: Error) => {
-      showMessage({
-        message: error?.message || "Failed to send challenge",
-        type: "danger",
-      });
-    },
-  });
 
   const startRecording = async () => {
     if (!cameraRef.current) return;
