@@ -1,6 +1,7 @@
 import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import { getRedisClient } from "../redis.ts";
+import { RATE_LIMIT_CONFIG } from "../config/rateLimits.ts";
 
 /**
  * Build a RedisStore for express-rate-limit if Redis is available.
@@ -11,32 +12,31 @@ function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined
   if (!redis) return undefined;
 
   return new RedisStore({
-    sendCommand: (...args: string[]) => redis.call(...(args as [string, ...string[]])) as Promise<any>,
+    sendCommand: (...args: string[]) =>
+      redis.call(...(args as [string, ...string[]])) as Promise<any>,
     prefix,
   });
 }
 
+const RL = RATE_LIMIT_CONFIG;
+
 export const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  limit: 5,
+  windowMs: RL.authLogin.windowMs,
+  max: RL.authLogin.max,
+  limit: RL.authLogin.max,
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
-  store: buildStore("rl:auth:"),
-  message: {
-    error: "Too many login attempts, please try again later.",
-  },
+  store: buildStore(RL.authLogin.prefix),
+  message: { error: RL.authLogin.message },
 });
 
 export const aiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  limit: 10,
+  windowMs: RL.ai.windowMs,
+  max: RL.ai.max,
+  limit: RL.ai.max,
   standardHeaders: true,
   legacyHeaders: false,
-  store: buildStore("rl:ai:"),
-  message: {
-    error: "Too many AI requests, please try again later.",
-  },
+  store: buildStore(RL.ai.prefix),
+  message: { error: RL.ai.message },
 });
