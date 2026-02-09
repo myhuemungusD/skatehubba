@@ -35,10 +35,22 @@ export function getEnvNamespace(): AppEnv {
 
 /**
  * Get the API base URL for the current environment
+ *
+ * On web the Express server serves both the SPA and the API on the same
+ * origin, so we return "" (relative URLs).  In dev Vite proxies /api to
+ * the backend; in prod Express handles /api directly.
+ *
+ * Mobile clients need an absolute URL because there is no same-origin
+ * server, so they fall back to the environment-based defaults below.
+ *
+ * Set EXPO_PUBLIC_API_BASE_URL to override on any platform.
  */
 export function getApiBaseUrl(): string {
   const override = getPublicEnvOptional("EXPO_PUBLIC_API_BASE_URL");
   if (override) return override;
+
+  // Web: same-origin — works in both Vite dev (proxy) and Express prod
+  if (isWeb()) return "";
 
   const env = getAppEnv();
   switch (env) {

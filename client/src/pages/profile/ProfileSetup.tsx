@@ -337,6 +337,8 @@ export default function ProfileSetup() {
           } else {
             setSubmitError(getUserFriendlyMessage(error));
           }
+        } else if (error instanceof TypeError) {
+          setSubmitError("Network error — check your connection and try again.");
         } else {
           setSubmitError("We couldn't create your profile. Try again.");
         }
