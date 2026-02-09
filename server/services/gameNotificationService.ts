@@ -48,7 +48,7 @@ const NOTIFICATION_CONFIG: Record<
     title: "Opponent forfeited.",
     body: "You win by forfeit.",
   }),
-  game_forfeited_timeout: (data) => ({
+  game_forfeited_timeout: () => ({
     title: "Game over. Timeout.",
     body: "Deadline missed. Game forfeited.",
   }),

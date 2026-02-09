@@ -21,7 +21,7 @@ export default tseslint.config(
       "**/*.test.tsx",
       "**/e2e/**",
       "**/tailwind.config.ts",
-      "mobile/**",
+      "**/.detoxrc.js",
       "**/.next/**",
     ],
   },
