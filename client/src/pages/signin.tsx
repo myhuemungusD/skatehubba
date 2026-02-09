@@ -147,7 +147,14 @@ export default function SigninPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-between">
+                <Link
+                  href="/verify"
+                  className="text-sm text-gray-400 hover:text-gray-300"
+                  data-testid="link-verify-email"
+                >
+                  Verify your email
+                </Link>
                 <Link
                   href="/forgot-password"
                   className="text-sm text-orange-400 hover:text-orange-300"
