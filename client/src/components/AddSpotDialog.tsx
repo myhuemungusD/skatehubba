@@ -79,7 +79,12 @@ export function AddSpotDialog({ isOpen, onClose, lat, lng }: AddSpotDialogProps)
       createdAt: new Date().toISOString(),
     };
 
-    const existingDrafts = JSON.parse(localStorage.getItem('spotDrafts') || '[]');
+    let existingDrafts: SpotDraft[] = [];
+    try {
+      existingDrafts = JSON.parse(localStorage.getItem('spotDrafts') || '[]');
+    } catch {
+      logger.warn('[SpotDraft] Failed to parse existing drafts, starting fresh');
+    }
     existingDrafts.push(draft);
     localStorage.setItem('spotDrafts', JSON.stringify(existingDrafts));
 
