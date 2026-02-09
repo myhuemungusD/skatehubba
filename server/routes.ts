@@ -29,6 +29,7 @@ import { SpotCheckInSchema, type SpotCheckInRequest } from "@shared/validation/s
 import { logAuditEvent } from "./services/auditLog";
 import { verifyReplayProtection } from "./services/replayProtection";
 import { moderationRouter } from "./routes/moderation";
+import { adminRouter } from "./routes/admin";
 import { createPost } from "./services/moderationStore";
 import { sendQuickMatchNotification } from "./services/notificationService";
 import { profileRouter } from "./routes/profile";
@@ -52,6 +53,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 3b. Moderation Routes
   app.use("/api", moderationRouter);
+
+  // 3b2. Admin Dashboard Routes
+  app.use("/api/admin", adminRouter);
 
   // 3c. Profile Routes
   app.use("/api/profile", profileRouter);

@@ -47,6 +47,7 @@ import UnifiedLanding from "./pages/unified-landing";
 import AppShell from "./components/layout/AppShell";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import ProtectedRoute, { type Params } from "./lib/protected-route";
+import AdminRoute from "./lib/admin-route";
 
 // Lazy load non-critical pages for better performance
 // Consolidated pages (new architecture)
@@ -62,6 +63,13 @@ const MapPage = lazy(() => import("./pages/map"));
 const SpotDetailPage = lazy(() => import("./pages/spots/SpotDetailPage"));
 const TrickMintPage = lazy(() => import("./pages/trickmint"));
 // Shop, Cart, Checkout, OrderConfirmation removed for MVP - features coming soon
+
+// Admin pages
+const AdminLayout = lazy(() => import("./pages/admin/AdminLayout"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const AdminReports = lazy(() => import("./pages/admin/AdminReports"));
+const AdminUsers = lazy(() => import("./pages/admin/AdminUsers"));
+const AdminAuditLog = lazy(() => import("./pages/admin/AdminAuditLog"));
 
 // Auth pages
 const LoginPage = lazy(() => import("./pages/login"));
@@ -223,6 +231,42 @@ function DashboardLeaderboardRoute() {
 
 // DashboardShopRoute, DashboardCartRoute, DashboardCheckoutRoute removed for MVP
 
+// ============================================================================
+// ADMIN LAYOUT ROUTES (Role-gated)
+// ============================================================================
+
+function AdminDashboardRoute() {
+  return (
+    <AdminLayout>
+      <AdminDashboard />
+    </AdminLayout>
+  );
+}
+
+function AdminReportsRoute() {
+  return (
+    <AdminLayout>
+      <AdminReports />
+    </AdminLayout>
+  );
+}
+
+function AdminUsersRoute() {
+  return (
+    <AdminLayout>
+      <AdminUsers />
+    </AdminLayout>
+  );
+}
+
+function AdminAuditLogRoute() {
+  return (
+    <AdminLayout>
+      <AdminAuditLog />
+    </AdminLayout>
+  );
+}
+
 function isE2EBypass(): boolean {
   if (typeof window === "undefined") return false;
   if (window.location.hostname !== "localhost") return false;
@@ -287,6 +331,14 @@ function AppRoutes() {
         <Route path="/specs" component={SpecsPage} />
         <Route path="/skater/:handle" component={AppShellSkaterProfileRoute} />
         <Route path="/p/:username" component={AppShellPublicProfileRoute} />
+
+        {/* ============================================================== */}
+        {/* ADMIN ROUTES (Role-gated: admin only) */}
+        {/* ============================================================== */}
+        <AdminRoute path="/admin" component={AdminDashboardRoute} />
+        <AdminRoute path="/admin/reports" component={AdminReportsRoute} />
+        <AdminRoute path="/admin/users" component={AdminUsersRoute} />
+        <AdminRoute path="/admin/audit-log" component={AdminAuditLogRoute} />
 
         {/* ============================================================== */}
         {/* NEW CONSOLIDATED ROUTES (DashboardLayout) */}
