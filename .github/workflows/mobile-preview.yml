@@ -1,0 +1,91 @@
+name: Mobile Preview Build
+
+on:
+  pull_request:
+    paths:
+      - "mobile/**"
+      - "packages/types/**"
+      - "packages/shared/**"
+
+jobs:
+  eas_preview:
+    name: "EAS Preview Build"
+    runs-on: ubuntu-latest
+    # Only run for same-repo PRs (not forks)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    defaults:
+      run:
+        working-directory: mobile
+    permissions:
+      pull-requests: write
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+
+      - name: Check EXPO_TOKEN
+        if: env.EXPO_TOKEN == ''
+        working-directory: .
+        run: |
+          echo "::notice::EXPO_TOKEN secret is not configured — skipping EAS preview build."
+          echo "See https://docs.expo.dev/accounts/programmatic-access/ to generate a token."
+          echo "Add it as EXPO_TOKEN in Settings > Secrets > Actions."
+
+      - name: Setup EAS
+        if: env.EXPO_TOKEN != ''
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build Preview
+        if: env.EXPO_TOKEN != ''
+        run: eas build --profile preview --platform all --non-interactive --no-wait
+        env:
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}
+
+      - name: Comment PR with Build Link
+        if: env.EXPO_TOKEN != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const marker = '<!-- eas-preview-build -->';
+            const existing = comments.find(c => c.body.includes(marker));
+            const body = [
+              marker,
+              '## Mobile Preview Build',
+              '',
+              'EAS preview build has been queued for this PR.',
+              `View build status at [expo.dev](https://expo.dev/accounts/${context.repo.owner}/projects/skatehubba/builds)`,
+              '',
+              `Triggered by commit \`${context.sha.slice(0, 7)}\``,
+            ].join('\n');
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
