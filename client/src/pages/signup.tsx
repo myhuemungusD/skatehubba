@@ -52,7 +52,7 @@ export default function SignupPage() {
       await auth?.signUpWithEmail(email, password, name.trim());
       toast({
         title: "Account Created!",
-        description: "We sent a verification email. Now pick a username!",
+        description: "We sent a verification link to your email. Let's set up your profile!",
       });
       setLocation("/profile/setup");
     } catch (err: unknown) {
@@ -102,7 +102,7 @@ export default function SignupPage() {
           <CardHeader>
             <CardTitle className="text-2xl text-white">Create Account</CardTitle>
             <CardDescription className="text-gray-400">
-              Sign up, verify your email, then pick a username
+              Create your account and set up your skater profile
             </CardDescription>
           </CardHeader>
           <CardContent>

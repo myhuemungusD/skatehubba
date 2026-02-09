@@ -5,6 +5,8 @@ import { z } from "zod";
 import { useLocation, useSearch } from "wouter";
 import { AlertTriangle, CheckCircle, Loader2, XCircle, Mail } from "lucide-react";
 import { useAuth } from "../../hooks/useAuth";
+import { useEmailVerification } from "../../hooks/useEmailVerification";
+import { useToast } from "../../hooks/use-toast";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Progress } from "../../components/ui/progress";
@@ -75,6 +77,9 @@ type ProfileCreateResponse = {
 
 export default function ProfileSetup() {
   const auth = useAuth();
+  const { requiresVerification, resendVerificationEmail, isResending, canResend, userEmail } =
+    useEmailVerification();
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const searchString = useSearch();
 
@@ -389,15 +394,51 @@ export default function ProfileSetup() {
           </p>
         </header>
 
-        {!auth.isEmailVerified && (
-          <div className="mt-4 flex items-start gap-3 rounded-xl border border-orange-500/20 bg-orange-500/10 px-4 py-3">
-            <Mail className="h-5 w-5 text-orange-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-orange-300">Verify your email</p>
-              <p className="text-xs text-neutral-400">
-                Check your inbox for a verification link. Some features (like adding spots) require
-                a verified email.
+        {requiresVerification && (
+          <div className="mt-4 flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
+            <Mail className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-blue-300">Email verification (optional)</p>
+              <p className="text-xs text-neutral-400 mt-1">
+                We sent a verification link to <span className="text-neutral-200">{userEmail}</span>
+                . Some features require a verified email, but you can set up your profile now and
+                verify later.
               </p>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    resendVerificationEmail()
+                      .then(() => {
+                        toast({
+                          title: "Verification email sent!",
+                          description: "Check your inbox and spam folder.",
+                        });
+                      })
+                      .catch((err: Error) => {
+                        toast({
+                          title: "Could not send email",
+                          description: err.message,
+                          variant: "destructive",
+                        });
+                      });
+                  }}
+                  disabled={isResending || !canResend}
+                  className="text-xs text-blue-400 hover:text-blue-300 underline underline-offset-2 disabled:opacity-50 disabled:no-underline"
+                >
+                  {isResending ? "Sending..." : "Resend verification email"}
+                </button>
+                <a
+                  href="/verify"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setLocation("/verify");
+                  }}
+                  className="text-xs text-neutral-400 hover:text-neutral-200 underline underline-offset-2"
+                >
+                  Go to verification page
+                </a>
+              </div>
             </div>
           </div>
         )}
