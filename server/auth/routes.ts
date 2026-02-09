@@ -8,6 +8,8 @@ import { AuditLogger, AUDIT_EVENTS, getClientIP } from "./audit.ts";
 import { LockoutService } from "./lockout.ts";
 import { MfaService } from "./mfa.ts";
 import logger from "../logger.ts";
+import { sendWelcomeEmail } from "../services/emailService.ts";
+import { notifyUser } from "../services/notificationService.ts";
 
 /**
  * Setup authentication routes for Firebase-based authentication
@@ -491,6 +493,20 @@ export function setupAuthRoutes(app: Express) {
         ipAddress,
         success: true,
       });
+
+      // Send welcome email + in-app notification (non-blocking)
+      const name = user.firstName || "Skater";
+      sendWelcomeEmail(user.email, name).catch((err) =>
+        logger.error("Failed to send welcome email", { error: String(err) })
+      );
+      notifyUser({
+        userId: user.id,
+        type: "welcome",
+        title: "Welcome to SkateHubba",
+        body: "Your account is verified. Start exploring spots and challenging skaters.",
+      }).catch((err) =>
+        logger.error("Failed to send welcome notification", { error: String(err) })
+      );
 
       res.json({
         success: true,

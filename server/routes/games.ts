@@ -27,7 +27,7 @@ import {
 } from "@shared/schema";
 import { eq, or, desc, and, lt, sql } from "drizzle-orm";
 import logger from "../logger";
-import { sendGameNotification } from "../services/gameNotificationService";
+import { sendGameNotificationToUser } from "../services/gameNotificationService";
 
 const router = Router();
 
@@ -109,18 +109,6 @@ function isGameOver(
   return { over: false, loserId: null };
 }
 
-async function getUserPushToken(
-  db: ReturnType<typeof getDb>,
-  userId: string
-): Promise<string | null> {
-  const result = await db
-    .select({ pushToken: customUsers.pushToken })
-    .from(customUsers)
-    .where(eq(customUsers.id, userId))
-    .limit(1);
-  return result[0]?.pushToken ?? null;
-}
-
 // ============================================================================
 // POST /api/games/create — Challenge an opponent
 // ============================================================================
@@ -175,14 +163,11 @@ router.post("/create", authenticateUser, async (req, res) => {
       })
       .returning();
 
-    // Notify opponent
-    const pushToken = await getUserPushToken(db, opponentId);
-    if (pushToken) {
-      await sendGameNotification(pushToken, "challenge_received", {
-        gameId: newGame.id,
-        challengerName: player1Name,
-      });
-    }
+    // Notify opponent (push + email + in-app)
+    await sendGameNotificationToUser(opponentId, "challenge_received", {
+      gameId: newGame.id,
+      challengerName: player1Name,
+    });
 
     logger.info("[Games] Challenge created", {
       gameId: newGame.id,
@@ -249,13 +234,10 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
         .returning();
 
       // Notify challenger: game accepted, your turn to set a trick
-      const pushToken = await getUserPushToken(db, game.player1Id);
-      if (pushToken) {
-        await sendGameNotification(pushToken, "your_turn", {
-          gameId,
-          opponentName: game.player2Name || "Opponent",
-        });
-      }
+      await sendGameNotificationToUser(game.player1Id, "your_turn", {
+        gameId,
+        opponentName: game.player2Name || "Opponent",
+      });
 
       logger.info("[Games] Challenge accepted", {
         gameId,
@@ -453,15 +435,12 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
       return res.status(txResult.status).json({ error: txResult.error });
     }
 
-    // Send notifications after transaction commits
+    // Send notifications after transaction commits (push + email + in-app)
     if (txResult.notify) {
-      const pushToken = await getUserPushToken(db, txResult.notify.playerId);
-      if (pushToken) {
-        await sendGameNotification(pushToken, "your_turn", {
-          gameId,
-          opponentName: txResult.notify.opponentName,
-        });
-      }
+      await sendGameNotificationToUser(txResult.notify.playerId, "your_turn", {
+        gameId,
+        opponentName: txResult.notify.opponentName,
+      });
     }
 
     logger.info("[Games] Turn submitted", {
@@ -693,12 +672,9 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
       return res.status(txResult.status).json({ error: txResult.error });
     }
 
-    // Send notifications after transaction commits (fire-and-forget)
+    // Send notifications after transaction commits (push + email + in-app)
     for (const n of txResult.notifications) {
-      const pushToken = await getUserPushToken(db, n.playerId);
-      if (pushToken) {
-        await sendGameNotification(pushToken, n.type, n.data);
-      }
+      await sendGameNotificationToUser(n.playerId, n.type, n.data);
     }
 
     logger.info("[Games] Turn judged", {
@@ -833,15 +809,12 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
       disputedBy: currentUserId,
     });
 
-    // Notify opponent after transaction commits
+    // Notify opponent after transaction commits (push + email + in-app)
     if (txResult.opponentId) {
-      const pushToken = await getUserPushToken(db, txResult.opponentId);
-      if (pushToken) {
-        await sendGameNotification(pushToken, "dispute_filed", {
-          gameId,
-          disputeId: txResult.dispute.id,
-        });
-      }
+      await sendGameNotificationToUser(txResult.opponentId, "dispute_filed", {
+        gameId,
+        disputeId: txResult.dispute.id,
+      });
     }
 
     res.status(201).json({
@@ -1074,14 +1047,11 @@ router.post("/:id/forfeit", authenticateUser, async (req, res) => {
       .where(eq(games.id, gameId))
       .returning();
 
-    // Notify opponent
+    // Notify opponent (push + email + in-app)
     if (winnerId) {
-      const pushToken = await getUserPushToken(db, winnerId);
-      if (pushToken) {
-        await sendGameNotification(pushToken, "opponent_forfeited", {
-          gameId,
-        });
-      }
+      await sendGameNotificationToUser(winnerId, "opponent_forfeited", {
+        gameId,
+      });
     }
 
     logger.info("[Games] Game forfeited", {
@@ -1248,17 +1218,14 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
         })
         .where(eq(games.id, game.id));
 
-      // Notify both players
+      // Notify both players (push + email + in-app)
       for (const playerId of [game.player1Id, game.player2Id]) {
         if (!playerId) continue;
-        const pushToken = await getUserPushToken(db, playerId);
-        if (pushToken) {
-          await sendGameNotification(pushToken, "game_forfeited_timeout", {
-            gameId: game.id,
-            loserId: loserId || undefined,
-            winnerId: winnerId || undefined,
-          });
-        }
+        await sendGameNotificationToUser(playerId, "game_forfeited_timeout", {
+          gameId: game.id,
+          loserId: loserId || undefined,
+          winnerId: winnerId || undefined,
+        });
       }
 
       logger.info("[Games] Game forfeited due to timeout", {
@@ -1312,17 +1279,12 @@ export async function notifyDeadlineWarnings(): Promise<{
         continue;
       }
 
-      const pushToken = await getUserPushToken(db, game.currentTurn);
-      if (pushToken) {
-        await sendGameNotification(pushToken, "deadline_warning", {
-          gameId: game.id,
-          minutesRemaining: Math.round(
-            (new Date(game.deadlineAt).getTime() - now.getTime()) / 60000
-          ),
-        });
-        deadlineWarningsSent.set(game.id, now.getTime());
-        notifiedCount++;
-      }
+      await sendGameNotificationToUser(game.currentTurn, "deadline_warning", {
+        gameId: game.id,
+        minutesRemaining: Math.round((new Date(game.deadlineAt).getTime() - now.getTime()) / 60000),
+      });
+      deadlineWarningsSent.set(game.id, now.getTime());
+      notifiedCount++;
     }
 
     // Clean up old entries from the dedup map
