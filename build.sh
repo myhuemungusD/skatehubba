@@ -1,5 +1,7 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+
+export NODE_ENV=production
 
 echo "Building SkateHubba for production..."
 
@@ -12,6 +14,6 @@ echo "Building application..."
 pnpm run build
 
 echo "Build completed successfully!"
-echo "Client assets: dist/public/"
-echo "Server bundle: dist/server/"
+echo "Client assets: client/dist/"
+echo "Server bundle: dist/server/index.js"
 echo "Ready to start with: NODE_ENV=production node dist/server/index.js"
