@@ -134,10 +134,16 @@ router.post("/create-checkout-session", authenticateUser, async (req, res) => {
     const Stripe = await import("stripe").then((m) => m.default);
     const stripe = new Stripe(stripeSecretKey);
 
-    const origin =
-      req.headers.origin ||
-      req.headers.referer?.replace(/\/+$/, "") ||
-      "http://localhost:5173";
+    let origin = req.headers.origin;
+    if (!origin && req.headers.referer) {
+      try {
+        const refUrl = new URL(req.headers.referer);
+        origin = refUrl.origin;
+      } catch {
+        // malformed referer — ignore
+      }
+    }
+    if (!origin) origin = "http://localhost:5173";
 
     const session = await stripe.checkout.sessions.create(
       {
