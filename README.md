@@ -1,78 +1,40 @@
-# SkateHubba™
+# SkateHubba
 
-SkateHubba is a skateboarding platform built around remote games of S.K.A.T.E.  
-Everything else exists to support that core.
-
-This is not a highlight reel app.  
-It is not pay-to-verify.  
-It is not hype-driven.
-
-**SkateHubba is about proof, history, and reputation.**
+SkateHubba is a spot map for skateboarders. Find spots, check in, and climb the leaderboard.
 
 ---
 
-## Core Product Loop
+## Features
 
-1. **Watch** clips (feed)
-2. **Battle** (remote S.K.A.T.E.)
-3. **Judge / vote** (community validation)
-4. **Check in** at spots (streaks + rep)
-5. **Share/export** clips (growth engine)
-6. Repeat
+### Spot Map
 
----
+Browse skate spots on an interactive map. Filter by type (ledge, rail, stair set, park, etc.) and tier. Spots are sourced from OpenStreetMap and can be discovered via geolocation.
 
-## Key Features
+### Check-ins
 
-- **Remote Game of S.K.A.T.E.**
-  - 1v1 battles, play-by-play, reply windows
-  - vote/judging mechanics
+Check in at a spot when you're within 30 meters. Each check-in is geo-verified and counts toward your streak, XP, and leaderboard rank. Daily limits prevent abuse.
 
-- **Spot Map + Check-ins**
-  - location-based check-in validation
-  - streaks, leaderboards, city rankings
+### Leaderboard
 
-- **AR / Trick “Ghosts”**
-  - an aspirational reward layer (not required for onboarding)
-  - designed to be vendor-agnostic
-
-- **AI Skate Buddy (“Hesher”)**
-  - skate-specific Q&A and coaching direction (evolves over time)
-
-- **Identity + Profile**
-  - skater profile, credibility, future “verified” paths
-
-- **E-commerce (planned)**
-  - culture-aligned drops/collabs and shop discovery
+Real-time rankings across XP, spot count, and streaks. See who's putting in work city-wide.
 
 ---
 
 ## Tech Stack
 
-- **Web:** React + Vite + TypeScript
-- **Backend:** Node / Express (plus real-time infra where applicable)
+- **Frontend:** React + Vite + TypeScript, TailwindCSS, React Leaflet
+- **Backend:** Express + TypeScript, PostgreSQL + Drizzle ORM
 - **Auth:** Firebase Auth
-- **Profiles / realtime:** Firestore
-- **Structured data:** PostgreSQL + Drizzle
-- **Storage:** Firebase Storage (media uploads)
-- **CI/Security:** GitHub Actions + CodeQL
+- **Realtime:** Socket.io
+- **CI:** GitHub Actions + CodeQL
 
 ---
 
 ## Repo Structure
 
-> Exact folders may evolve, but the intent is consistent:
-
 - `client/` — web app (Vite/React)
 - `server/` — API + services
 - `packages/` — shared code (types, config, utilities)
-  - `@skatehubba/config` — universal env loader + guardrails
-
-### Entrypoints
-
-- Local run: pnpm dev from repo root
-- Deploy: see docs/DEPLOYMENT_RUNBOOK.md`r
-- Production vs experimental: see docs/roadmap.md`r
 
 ---
 
@@ -85,87 +47,24 @@ It is not hype-driven.
 
 ### Install
 
-From repo root:
-
 ```bash
 pnpm install
 ```
 
----
+### Run
 
-## Filmer Workflow Spec
-
-### Endpoints
-
-- `POST /api/filmer/request`
-- `POST /api/filmer/respond`
-- `GET /api/filmer/requests`
-
-### State Machine
-
-- `pending → accepted`
-- `pending → rejected`
-- Terminal states cannot change.
-
-### Data Fields
-
-- `check_ins.filmerUid`
-- `check_ins.filmerStatus`
-- `check_ins.filmerRequestedAt`
-- `check_ins.filmerRespondedAt`
-- `check_ins.filmerRequestId`
-- `filmer_requests` table as the system of record
-
-### Abuse Controls
-
-- Daily quota counters with expiry for request/respond actions.
-- IP + session rate limits on request/respond endpoints.
-- Duplicate protection per `(checkInId, filmerUid)`.
-
-### Failure Modes
-
-- Requests are rejected if the check-in is not owned by the requester.
-- Responses are rejected if the filmer is not eligible or the request is not pending.
-- Check-in updates and filmer request updates are transactional in PostgreSQL.
-
-### Idempotency
-
-- Creating a request that is already pending returns the existing request ID.
-- Creating a request when a prior request is accepted/rejected returns `409`.
-
-### Enterprise Next Steps
-
-- Add Prometheus metrics for request volume and accept rate.
-- Add alerts on quota breaches and suspicious rejection spikes.
-- Extend filmer eligibility with custom claims for cross-service enforcement.
-
----
-
-## Environment Separation
-
-- Firestore is reserved for realtime/presence/feed data.
-- PostgreSQL is the system of record for server-authoritative workflows.
-
-## Public Environment Variables (Web vs Expo)
-
-- **Web (Vite)**: use `VITE_*` as the canonical prefix in Vercel/CI.
-- **Expo (Mobile)**: use `EXPO_PUBLIC_*` as the canonical prefix.
-- The runtime adapter can read both, but builds will fail if required `VITE_*` vars are missing.
+```bash
+pnpm dev
+```
 
 ---
 
 ## Testing
 
-### Proof Commands
-
 ```bash
 pnpm test
 pnpm -w run verify
 ```
-
-### Lint Policy
-
-`pnpm -w run lint` fails on errors only; warnings are non-blocking until the codebase is fully cleaned.
 
 ### Cypress E2E
 
@@ -174,55 +73,15 @@ pnpm --filter skatehubba-client dev -- --host 0.0.0.0 --port 3000
 pnpm --filter skatehubba-client exec cypress run
 ```
 
-> Note: Cypress specs assume the web app is running on `http://localhost:3000` and Firebase emulators are configured when needed.
-
 ---
 
 ## Deployment
 
-- `pnpm -w run verify` is the pre-flight check for CI.
-
----
-
-## Security
-
-- All write endpoints require auth + validation.
-- Rate limits are enforced on public write paths.
-
----
-
-## Contributing
-
-- Follow existing lint and formatting rules.
-- Keep changes minimal and production-ready.
-
----
-
-## License
-
-MIT
-
----
-
-### Run (Web)
-
-```bash
-pnpm dev
-```
-
-## Testing
-
-```bash
-pnpm test
-```
-
-## Deployment
+`pnpm -w run verify` is the pre-flight check for CI.
 
 See [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md).
 
-## Trust & Safety
-
-See [docs/TRUST_AND_SAFETY.md](docs/TRUST_AND_SAFETY.md) for the MVP plan covering verification, reporting, moderation queues, trust levels, and content policy enforcement.
+---
 
 ## Security
 

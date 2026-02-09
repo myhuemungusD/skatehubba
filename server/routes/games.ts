@@ -1,18 +1,53 @@
+/**
+ * Async S.K.A.T.E. Game Routes
+ *
+ * Turn-based, asynchronous game inspired by domino/chess-by-mail mechanics.
+ * No live play, no retries, no previews. Ruthless, simple, final.
+ *
+ * Core loop:
+ *   1. Offensive player sets a trick (records video, auto-sends)
+ *   2. Defensive player watches, records response (one take, auto-sends)
+ *   3. Defensive player judges offensive trick: LAND or BAIL
+ *   4. If BAIL → defender gets next letter; roles stay
+ *   5. If LAND → roles swap
+ *   6. First to spell S.K.A.T.E. loses
+ */
+
 import { Router } from "express";
 import { z } from "zod";
 import { getDb, isDatabaseAvailable } from "../db";
 import { authenticateUser } from "../auth/middleware";
-import { games, gameTurns, customUsers, usernames } from "@shared/schema";
+import {
+  games,
+  gameTurns,
+  gameDisputes,
+  customUsers,
+  usernames,
+  userProfiles,
+} from "@shared/schema";
 import { eq, or, desc, and, lt, sql } from "drizzle-orm";
 import logger from "../logger";
+import { sendGameNotification } from "../services/gameNotificationService";
 
 const router = Router();
 
-// 24 hours in milliseconds
-const TURN_DEADLINE_MS = 24 * 60 * 60 * 1000;
+// ============================================================================
+// Constants
+// ============================================================================
+
+const TURN_DEADLINE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_VIDEO_DURATION_MS = 15_000; // 15 seconds hard cap
 const SKATE_LETTERS = "SKATE";
 
-// Validation schemas
+// Dedup deadline warnings: track gameId → last warning timestamp
+// Prevents spamming the same player every cron cycle
+const deadlineWarningsSent = new Map<string, number>();
+const DEADLINE_WARNING_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes between warnings
+
+// ============================================================================
+// Validation Schemas
+// ============================================================================
+
 const createGameSchema = z.object({
   opponentId: z.string().min(1, "Opponent ID is required"),
 });
@@ -22,17 +57,32 @@ const respondGameSchema = z.object({
 });
 
 const submitTurnSchema = z.object({
-  trickDescription: z.string().min(1, "Trick description is required").max(500),
-  videoUrl: z.string().url("Valid video URL required").max(500),
+  trickDescription: z.string().min(1).max(500),
+  videoUrl: z.string().url().max(500),
+  videoDurationMs: z.number().int().min(1).max(MAX_VIDEO_DURATION_MS),
 });
 
 const judgeTurnSchema = z.object({
   result: z.enum(["landed", "missed"]),
 });
 
-// Helper to get user display name
-async function getUserDisplayName(db: ReturnType<typeof getDb>, odv: string): Promise<string> {
-  // First try to get username from usernames table
+const disputeSchema = z.object({
+  turnId: z.number().int().positive(),
+});
+
+const resolveDisputeSchema = z.object({
+  disputeId: z.number().int().positive(),
+  finalResult: z.enum(["landed", "missed"]),
+});
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+async function getUserDisplayName(
+  db: ReturnType<typeof getDb>,
+  odv: string
+): Promise<string> {
   const usernameResult = await db
     .select({ username: usernames.username })
     .from(usernames)
@@ -43,7 +93,6 @@ async function getUserDisplayName(db: ReturnType<typeof getDb>, odv: string): Pr
     return usernameResult[0].username;
   }
 
-  // Fallback to customUsers firstName
   const userResult = await db
     .select({ firstName: customUsers.firstName })
     .from(customUsers)
@@ -53,21 +102,31 @@ async function getUserDisplayName(db: ReturnType<typeof getDb>, odv: string): Pr
   return userResult[0]?.firstName || "Skater";
 }
 
-// Helper to check if game is over (someone has SKATE)
 function isGameOver(
   player1Letters: string,
   player2Letters: string
-): { over: boolean; loserId: string | null } {
-  if (player1Letters.length >= 5) {
-    return { over: true, loserId: "player1" };
-  }
-  if (player2Letters.length >= 5) {
-    return { over: true, loserId: "player2" };
-  }
+): { over: boolean; loserId: "player1" | "player2" | null } {
+  if (player1Letters.length >= 5) return { over: true, loserId: "player1" };
+  if (player2Letters.length >= 5) return { over: true, loserId: "player2" };
   return { over: false, loserId: null };
 }
 
-// POST /api/games/create - Create a new challenge
+async function getUserPushToken(
+  db: ReturnType<typeof getDb>,
+  userId: string
+): Promise<string | null> {
+  const result = await db
+    .select({ pushToken: customUsers.pushToken })
+    .from(customUsers)
+    .where(eq(customUsers.id, userId))
+    .limit(1);
+  return result[0]?.pushToken ?? null;
+}
+
+// ============================================================================
+// POST /api/games/create — Challenge an opponent
+// ============================================================================
+
 router.post("/create", authenticateUser, async (req, res) => {
   if (!isDatabaseAvailable()) {
     return res.status(503).json({ error: "Database unavailable" });
@@ -75,7 +134,9 @@ router.post("/create", authenticateUser, async (req, res) => {
 
   const parsed = createGameSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return res
+      .status(400)
+      .json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
 
   const currentUserId = req.currentUser!.id;
@@ -88,7 +149,6 @@ router.post("/create", authenticateUser, async (req, res) => {
   try {
     const db = getDb();
 
-    // Verify opponent exists
     const opponent = await db
       .select({ id: customUsers.id })
       .from(customUsers)
@@ -99,13 +159,11 @@ router.post("/create", authenticateUser, async (req, res) => {
       return res.status(404).json({ error: "Opponent not found" });
     }
 
-    // Get display names
     const [player1Name, player2Name] = await Promise.all([
       getUserDisplayName(db, currentUserId),
       getUserDisplayName(db, opponentId),
     ]);
 
-    // Create the game in pending status
     const [newGame] = await db
       .insert(games)
       .values({
@@ -114,9 +172,21 @@ router.post("/create", authenticateUser, async (req, res) => {
         player2Id: opponentId,
         player2Name,
         status: "pending",
-        currentTurn: currentUserId, // Challenger sets first trick if accepted
+        currentTurn: currentUserId,
+        turnPhase: "set_trick",
+        offensivePlayerId: currentUserId,
+        defensivePlayerId: opponentId,
       })
       .returning();
+
+    // Notify opponent
+    const pushToken = await getUserPushToken(db, opponentId);
+    if (pushToken) {
+      await sendGameNotification(pushToken, "challenge_received", {
+        gameId: newGame.id,
+        challengerName: player1Name,
+      });
+    }
 
     logger.info("[Games] Challenge created", {
       gameId: newGame.id,
@@ -126,15 +196,21 @@ router.post("/create", authenticateUser, async (req, res) => {
 
     res.status(201).json({
       game: newGame,
-      message: "Challenge sent! Waiting for opponent to accept.",
+      message: "Challenge sent.",
     });
   } catch (error) {
-    logger.error("[Games] Failed to create game", { error, userId: currentUserId });
+    logger.error("[Games] Failed to create game", {
+      error,
+      userId: currentUserId,
+    });
     res.status(500).json({ error: "Failed to create game" });
   }
 });
 
-// POST /api/games/:id/respond - Accept or decline challenge
+// ============================================================================
+// POST /api/games/:id/respond — Accept or decline challenge
+// ============================================================================
+
 router.post("/:id/respond", authenticateUser, async (req, res) => {
   if (!isDatabaseAvailable()) {
     return res.status(503).json({ error: "Database unavailable" });
@@ -142,7 +218,9 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
 
   const parsed = respondGameSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return res
+      .status(400)
+      .json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
 
   const currentUserId = req.currentUser!.id;
@@ -151,29 +229,27 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
 
   try {
     const db = getDb();
+    const [game] = await db
+      .select()
+      .from(games)
+      .where(eq(games.id, gameId))
+      .limit(1);
 
-    // Get the game
-    const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
-
-    if (!game) {
-      return res.status(404).json({ error: "Game not found" });
-    }
-
-    // Only player2 (challenged player) can respond
+    if (!game) return res.status(404).json({ error: "Game not found" });
     if (game.player2Id !== currentUserId) {
-      return res.status(403).json({ error: "Only the challenged player can respond" });
+      return res
+        .status(403)
+        .json({ error: "Only the challenged player can respond" });
     }
-
-    // Can only respond to pending games
     if (game.status !== "pending") {
       return res.status(400).json({ error: "Game is not pending" });
     }
 
     const now = new Date();
-    const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
 
     if (accept) {
-      // Accept challenge - game becomes active
+      const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
+
       const [updatedGame] = await db
         .update(games)
         .set({
@@ -184,38 +260,50 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
         .where(eq(games.id, gameId))
         .returning();
 
-      logger.info("[Games] Challenge accepted", { gameId, acceptedBy: currentUserId });
+      // Notify challenger: game accepted, your turn to set a trick
+      const pushToken = await getUserPushToken(db, game.player1Id);
+      if (pushToken) {
+        await sendGameNotification(pushToken, "your_turn", {
+          gameId,
+          opponentName: game.player2Name || "Opponent",
+        });
+      }
 
-      res.json({
-        game: updatedGame,
-        message: "Challenge accepted! Game is now active.",
+      logger.info("[Games] Challenge accepted", {
+        gameId,
+        acceptedBy: currentUserId,
       });
+
+      res.json({ game: updatedGame, message: "Game on." });
     } else {
-      // Decline challenge
       const [updatedGame] = await db
         .update(games)
-        .set({
-          status: "declined",
-          updatedAt: now,
-          completedAt: now,
-        })
+        .set({ status: "declined", updatedAt: now, completedAt: now })
         .where(eq(games.id, gameId))
         .returning();
 
-      logger.info("[Games] Challenge declined", { gameId, declinedBy: currentUserId });
-
-      res.json({
-        game: updatedGame,
-        message: "Challenge declined.",
+      logger.info("[Games] Challenge declined", {
+        gameId,
+        declinedBy: currentUserId,
       });
+
+      res.json({ game: updatedGame, message: "Challenge declined." });
     }
   } catch (error) {
-    logger.error("[Games] Failed to respond to game", { error, gameId, userId: currentUserId });
+    logger.error("[Games] Failed to respond to game", {
+      error,
+      gameId,
+      userId: currentUserId,
+    });
     res.status(500).json({ error: "Failed to respond to game" });
   }
 });
 
-// POST /api/games/:id/turns - Submit a video turn
+// ============================================================================
+// POST /api/games/:id/turns — Submit a video (set trick or response)
+// One take. No retries. No previews. Auto-sent.
+// ============================================================================
+
 router.post("/:id/turns", authenticateUser, async (req, res) => {
   if (!isDatabaseAvailable()) {
     return res.status(503).json({ error: "Database unavailable" });
@@ -223,97 +311,204 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
 
   const parsed = submitTurnSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return res
+      .status(400)
+      .json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
 
   const currentUserId = req.currentUser!.id;
   const gameId = req.params.id;
-  const { trickDescription, videoUrl } = parsed.data;
+  const { trickDescription, videoUrl, videoDurationMs } = parsed.data;
+
+  // Hard constraint: max 15 seconds
+  if (videoDurationMs > MAX_VIDEO_DURATION_MS) {
+    return res.status(400).json({ error: "Video exceeds 15 second limit" });
+  }
 
   try {
     const db = getDb();
 
-    // Get the game
-    const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
+    // All validation + mutations in a transaction with row-level locking
+    const txResult = await db.transaction(async (tx) => {
+      // Lock game row to prevent concurrent turn submissions
+      await tx.execute(
+        sql`SELECT id FROM games WHERE id = ${gameId} FOR UPDATE`
+      );
 
-    if (!game) {
-      return res.status(404).json({ error: "Game not found" });
+      const [game] = await tx
+        .select()
+        .from(games)
+        .where(eq(games.id, gameId))
+        .limit(1);
+
+      if (!game)
+        return { ok: false as const, status: 404, error: "Game not found" };
+
+      const isPlayer1 = game.player1Id === currentUserId;
+      const isPlayer2 = game.player2Id === currentUserId;
+      if (!isPlayer1 && !isPlayer2)
+        return {
+          ok: false as const,
+          status: 403,
+          error: "You are not a player in this game",
+        };
+      if (game.status !== "active")
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Game is not active",
+        };
+      if (game.currentTurn !== currentUserId)
+        return { ok: false as const, status: 400, error: "Not your turn" };
+
+      // Check deadline
+      if (game.deadlineAt && new Date(game.deadlineAt) < new Date())
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Turn deadline has passed. Game forfeited.",
+        };
+
+      // Determine turn type based on phase
+      const turnPhase = game.turnPhase || "set_trick";
+      let turnType: "set" | "response";
+
+      if (turnPhase === "set_trick") {
+        if (currentUserId !== game.offensivePlayerId)
+          return {
+            ok: false as const,
+            status: 400,
+            error: "Only the offensive player can set a trick",
+          };
+        turnType = "set";
+      } else if (turnPhase === "respond_trick") {
+        if (currentUserId !== game.defensivePlayerId)
+          return {
+            ok: false as const,
+            status: 400,
+            error: "Only the defensive player can respond",
+          };
+        turnType = "response";
+      } else {
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Current phase does not accept video submissions",
+        };
+      }
+
+      // Get turn count
+      const turnCountResult = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(gameTurns)
+        .where(eq(gameTurns.gameId, gameId));
+
+      const turnNumber = (turnCountResult[0]?.count || 0) + 1;
+      const playerName = isPlayer1 ? game.player1Name : game.player2Name;
+
+      // Create the turn record
+      const [newTurn] = await tx
+        .insert(gameTurns)
+        .values({
+          gameId,
+          playerId: currentUserId,
+          playerName: playerName || "Skater",
+          turnNumber,
+          turnType,
+          trickDescription,
+          videoUrl,
+          videoDurationMs,
+          result: "pending",
+        })
+        .returning();
+
+      const now = new Date();
+      const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
+
+      if (turnType === "set") {
+        await tx
+          .update(games)
+          .set({
+            currentTurn: game.defensivePlayerId,
+            turnPhase: "respond_trick",
+            lastTrickDescription: trickDescription,
+            lastTrickBy: currentUserId,
+            deadlineAt: deadline,
+            updatedAt: now,
+          })
+          .where(eq(games.id, gameId));
+
+        return {
+          ok: true as const,
+          turn: newTurn,
+          message: "Trick set. Sent.",
+          notify: game.defensivePlayerId
+            ? {
+                playerId: game.defensivePlayerId,
+                opponentName: playerName || "Opponent",
+              }
+            : null,
+        };
+      } else {
+        await tx
+          .update(games)
+          .set({
+            currentTurn: game.defensivePlayerId,
+            turnPhase: "judge",
+            deadlineAt: deadline,
+            updatedAt: now,
+          })
+          .where(eq(games.id, gameId));
+
+        return {
+          ok: true as const,
+          turn: newTurn,
+          message: "Response sent. Now judge the trick.",
+          notify: null,
+        };
+      }
+    });
+
+    if (!txResult.ok) {
+      return res.status(txResult.status).json({ error: txResult.error });
     }
 
-    // Verify user is a player in this game
-    const isPlayer1 = game.player1Id === currentUserId;
-    const isPlayer2 = game.player2Id === currentUserId;
-    if (!isPlayer1 && !isPlayer2) {
-      return res.status(403).json({ error: "You are not a player in this game" });
+    // Send notifications after transaction commits
+    if (txResult.notify) {
+      const pushToken = await getUserPushToken(db, txResult.notify.playerId);
+      if (pushToken) {
+        await sendGameNotification(pushToken, "your_turn", {
+          gameId,
+          opponentName: txResult.notify.opponentName,
+        });
+      }
     }
-
-    // Game must be active
-    if (game.status !== "active") {
-      return res.status(400).json({ error: "Game is not active" });
-    }
-
-    // Must be this player's turn
-    if (game.currentTurn !== currentUserId) {
-      return res.status(400).json({ error: "Not your turn" });
-    }
-
-    // Get current turn count
-    const turnCountResult = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(gameTurns)
-      .where(eq(gameTurns.gameId, gameId));
-
-    const turnNumber = (turnCountResult[0]?.count || 0) + 1;
-    const playerName = isPlayer1 ? game.player1Name : game.player2Name;
-
-    // Create the turn
-    const [newTurn] = await db
-      .insert(gameTurns)
-      .values({
-        gameId,
-        playerId: currentUserId,
-        playerName: playerName || "Skater",
-        turnNumber,
-        trickDescription,
-        videoUrl,
-        result: "pending", // Waiting for opponent to judge
-      })
-      .returning();
-
-    // Switch turn to opponent for judging
-    const opponentId = isPlayer1 ? game.player2Id : game.player1Id;
-    const now = new Date();
-    const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
-
-    await db
-      .update(games)
-      .set({
-        currentTurn: opponentId,
-        lastTrickDescription: trickDescription,
-        lastTrickBy: currentUserId,
-        deadlineAt: deadline,
-        updatedAt: now,
-      })
-      .where(eq(games.id, gameId));
 
     logger.info("[Games] Turn submitted", {
       gameId,
-      turnId: newTurn.id,
+      turnId: txResult.turn.id,
       playerId: currentUserId,
-      turnNumber,
     });
 
     res.status(201).json({
-      turn: newTurn,
-      message: "Turn submitted! Waiting for opponent to judge.",
+      turn: txResult.turn,
+      message: txResult.message,
     });
   } catch (error) {
-    logger.error("[Games] Failed to submit turn", { error, gameId, userId: currentUserId });
+    logger.error("[Games] Failed to submit turn", {
+      error,
+      gameId,
+      userId: currentUserId,
+    });
     res.status(500).json({ error: "Failed to submit turn" });
   }
 });
 
-// POST /api/games/turns/:turnId/judge - Judge opponent's trick
+// ============================================================================
+// POST /api/games/turns/:turnId/judge — Defensive player judges LAND or BAIL
+// Must happen after defender uploads response video
+// ============================================================================
+
 router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
   if (!isDatabaseAvailable()) {
     return res.status(503).json({ error: "Database unavailable" });
@@ -321,7 +516,9 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
 
   const parsed = judgeTurnSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return res
+      .status(400)
+      .json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
 
   const currentUserId = req.currentUser!.id;
@@ -335,152 +532,668 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
   try {
     const db = getDb();
 
-    // Get the turn
-    const [turn] = await db.select().from(gameTurns).where(eq(gameTurns.id, turnId)).limit(1);
+    // Read turn outside transaction (immutable after creation)
+    const [turn] = await db
+      .select()
+      .from(gameTurns)
+      .where(eq(gameTurns.id, turnId))
+      .limit(1);
 
-    if (!turn) {
-      return res.status(404).json({ error: "Turn not found" });
-    }
+    if (!turn) return res.status(404).json({ error: "Turn not found" });
 
-    // Get the game
-    const [game] = await db.select().from(games).where(eq(games.id, turn.gameId)).limit(1);
+    // All game state mutations in a transaction with row-level locking
+    const txResult = await db.transaction(async (tx) => {
+      // Lock game row to prevent concurrent judge/forfeit/dispute
+      await tx.execute(
+        sql`SELECT id FROM games WHERE id = ${turn.gameId} FOR UPDATE`
+      );
 
-    if (!game) {
-      return res.status(404).json({ error: "Game not found" });
-    }
+      const [game] = await tx
+        .select()
+        .from(games)
+        .where(eq(games.id, turn.gameId))
+        .limit(1);
 
-    // Verify user is a player in this game
-    const isPlayer1 = game.player1Id === currentUserId;
-    const isPlayer2 = game.player2Id === currentUserId;
-    if (!isPlayer1 && !isPlayer2) {
-      return res.status(403).json({ error: "You are not a player in this game" });
-    }
+      if (!game)
+        return { ok: false as const, status: 404, error: "Game not found" };
+      if (currentUserId !== game.defensivePlayerId)
+        return {
+          ok: false as const,
+          status: 403,
+          error: "Only the defending player can judge",
+        };
+      if (game.turnPhase !== "judge")
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Game is not in judging phase",
+        };
+      if (game.currentTurn !== currentUserId)
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Not your turn to judge",
+        };
 
-    // Cannot judge your own turn
-    if (turn.playerId === currentUserId) {
-      return res.status(403).json({ error: "Cannot judge your own turn" });
-    }
+      // Re-check turn result inside transaction (prevents double-judge race)
+      const [currentTurn] = await tx
+        .select()
+        .from(gameTurns)
+        .where(eq(gameTurns.id, turnId))
+        .limit(1);
 
-    // Turn must be pending
-    if (turn.result !== "pending") {
-      return res.status(400).json({ error: "Turn has already been judged" });
-    }
+      if (!currentTurn || currentTurn.result !== "pending")
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Turn has already been judged",
+        };
 
-    // Must be your turn (to judge)
-    if (game.currentTurn !== currentUserId) {
-      return res.status(400).json({ error: "Not your turn to judge" });
-    }
+      // Verify defender has submitted their response video
+      const responseVideos = await tx
+        .select()
+        .from(gameTurns)
+        .where(
+          and(
+            eq(gameTurns.gameId, game.id),
+            eq(gameTurns.playerId, currentUserId),
+            eq(gameTurns.turnType, "response")
+          )
+        );
 
-    const now = new Date();
+      const hasResponseForThisRound = responseVideos.some(
+        (rv) => rv.turnNumber > turn.turnNumber
+      );
 
-    // Update the turn with judgment
-    await db
-      .update(gameTurns)
-      .set({
-        result,
-        judgedBy: currentUserId,
-        judgedAt: now,
-      })
-      .where(eq(gameTurns.id, turnId));
+      if (!hasResponseForThisRound)
+        return {
+          ok: false as const,
+          status: 400,
+          error: "You must submit your response video before judging",
+        };
 
-    // Determine next state
-    let newPlayer1Letters = game.player1Letters || "";
-    let newPlayer2Letters = game.player2Letters || "";
-    let newCurrentTurn = turn.playerId; // Default: trick setter goes again
+      const now = new Date();
 
-    if (result === "missed") {
-      // The player who set the trick gets to go again
-      // The judging player (who missed matching the trick) gets a letter
-      if (isPlayer1) {
-        // Current user is player1, they missed, they get a letter
-        newPlayer1Letters = newPlayer1Letters + SKATE_LETTERS[newPlayer1Letters.length];
+      // Update the turn with judgment
+      await tx
+        .update(gameTurns)
+        .set({ result, judgedBy: currentUserId, judgedAt: now })
+        .where(eq(gameTurns.id, turnId));
+
+      // Determine game state changes
+      const isPlayer1 = game.player1Id === currentUserId;
+      let newPlayer1Letters = game.player1Letters || "";
+      let newPlayer2Letters = game.player2Letters || "";
+      let newOffensiveId: string;
+      let newDefensiveId: string;
+
+      if (result === "missed") {
+        // BAIL: defensive player gets a letter, roles STAY the same
+        if (isPlayer1) {
+          newPlayer1Letters += SKATE_LETTERS[newPlayer1Letters.length] || "";
+        } else {
+          newPlayer2Letters += SKATE_LETTERS[newPlayer2Letters.length] || "";
+        }
+        newOffensiveId = game.offensivePlayerId!;
+        newDefensiveId = game.defensivePlayerId!;
       } else {
-        // Current user is player2, they missed, they get a letter
-        newPlayer2Letters = newPlayer2Letters + SKATE_LETTERS[newPlayer2Letters.length];
+        // LAND: roles swap
+        newOffensiveId = game.defensivePlayerId!;
+        newDefensiveId = game.offensivePlayerId!;
       }
-      // The trick setter (turn.playerId) goes again
-      newCurrentTurn = turn.playerId;
-    } else {
-      // Landed - the judging player (who matched) now sets the next trick
-      newCurrentTurn = currentUserId;
+
+      const gameOverCheck = isGameOver(newPlayer1Letters, newPlayer2Letters);
+      const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
+
+      if (gameOverCheck.over) {
+        const winnerId =
+          gameOverCheck.loserId === "player1"
+            ? game.player2Id
+            : game.player1Id;
+
+        const [updatedGame] = await tx
+          .update(games)
+          .set({
+            player1Letters: newPlayer1Letters,
+            player2Letters: newPlayer2Letters,
+            status: "completed",
+            winnerId,
+            completedAt: now,
+            updatedAt: now,
+            turnPhase: null,
+            currentTurn: null,
+            deadlineAt: null,
+          })
+          .where(eq(games.id, game.id))
+          .returning();
+
+        return {
+          ok: true as const,
+          response: {
+            game: updatedGame,
+            turn: { ...turn, result, judgedBy: currentUserId, judgedAt: now },
+            gameOver: true,
+            winnerId,
+            message: "Game over.",
+          },
+          notifications: [game.player1Id, game.player2Id]
+            .filter(Boolean)
+            .map((pid) => ({
+              playerId: pid as string,
+              type: "game_over" as const,
+              data: {
+                gameId: game.id,
+                winnerId: winnerId || undefined,
+                youWon: pid === winnerId,
+              },
+            })),
+        };
+      } else {
+        const [updatedGame] = await tx
+          .update(games)
+          .set({
+            player1Letters: newPlayer1Letters,
+            player2Letters: newPlayer2Letters,
+            currentTurn: newOffensiveId,
+            turnPhase: "set_trick",
+            offensivePlayerId: newOffensiveId,
+            defensivePlayerId: newDefensiveId,
+            deadlineAt: deadline,
+            updatedAt: now,
+          })
+          .where(eq(games.id, game.id))
+          .returning();
+
+        const letterMessage =
+          result === "missed" ? "BAIL. Letter earned." : "LAND. Roles swap.";
+
+        return {
+          ok: true as const,
+          response: {
+            game: updatedGame,
+            turn: { ...turn, result, judgedBy: currentUserId, judgedAt: now },
+            gameOver: false,
+            message: letterMessage,
+          },
+          notifications: [
+            {
+              playerId: newOffensiveId,
+              type: "your_turn" as const,
+              data: {
+                gameId: game.id,
+                opponentName:
+                  (isPlayer1 ? game.player2Name : game.player1Name) ||
+                  "Opponent",
+              },
+            },
+          ],
+        };
+      }
+    });
+
+    // Handle validation errors from transaction
+    if (!txResult.ok) {
+      return res.status(txResult.status).json({ error: txResult.error });
     }
 
-    // Check for game over
-    const gameOver = isGameOver(newPlayer1Letters, newPlayer2Letters);
-    const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
-
-    if (gameOver.over) {
-      // Game is over - the player with SKATE loses
-      const winnerId = gameOver.loserId === "player1" ? game.player2Id : game.player1Id;
-
-      const [updatedGame] = await db
-        .update(games)
-        .set({
-          player1Letters: newPlayer1Letters,
-          player2Letters: newPlayer2Letters,
-          status: "completed",
-          winnerId,
-          completedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(games.id, game.id))
-        .returning();
-
-      logger.info("[Games] Game completed", {
-        gameId: game.id,
-        winnerId,
-        player1Letters: newPlayer1Letters,
-        player2Letters: newPlayer2Letters,
-      });
-
-      res.json({
-        game: updatedGame,
-        turn: { ...turn, result, judgedBy: currentUserId, judgedAt: now },
-        gameOver: true,
-        winnerId,
-        message: `Game over! ${winnerId === game.player1Id ? game.player1Name : game.player2Name} wins!`,
-      });
-    } else {
-      // Game continues
-      const [updatedGame] = await db
-        .update(games)
-        .set({
-          player1Letters: newPlayer1Letters,
-          player2Letters: newPlayer2Letters,
-          currentTurn: newCurrentTurn,
-          deadlineAt: deadline,
-          updatedAt: now,
-        })
-        .where(eq(games.id, game.id))
-        .returning();
-
-      const judgerName = isPlayer1 ? game.player1Name : game.player2Name;
-      const letterMessage =
-        result === "missed"
-          ? `${judgerName} missed and gets a letter!`
-          : `${judgerName} landed it!`;
-
-      logger.info("[Games] Turn judged", {
-        gameId: game.id,
-        turnId,
-        result,
-        judgedBy: currentUserId,
-      });
-
-      res.json({
-        game: updatedGame,
-        turn: { ...turn, result, judgedBy: currentUserId, judgedAt: now },
-        gameOver: false,
-        message: letterMessage,
-      });
+    // Send notifications after transaction commits (fire-and-forget)
+    for (const n of txResult.notifications) {
+      const pushToken = await getUserPushToken(db, n.playerId);
+      if (pushToken) {
+        await sendGameNotification(pushToken, n.type, n.data);
+      }
     }
+
+    logger.info("[Games] Turn judged", {
+      gameId: txResult.response.game.id,
+      turnId,
+      result,
+      judgedBy: currentUserId,
+    });
+
+    res.json(txResult.response);
   } catch (error) {
-    logger.error("[Games] Failed to judge turn", { error, turnId, userId: currentUserId });
+    logger.error("[Games] Failed to judge turn", {
+      error,
+      turnId,
+      userId: currentUserId,
+    });
     res.status(500).json({ error: "Failed to judge turn" });
   }
 });
 
-// GET /api/games/my-games - List my games
+// ============================================================================
+// POST /api/games/:id/dispute — File a dispute (max 1 per player per game)
+// Only after a BAIL judgment. Finite. Final. Has cost.
+// ============================================================================
+
+router.post("/:id/dispute", authenticateUser, async (req, res) => {
+  if (!isDatabaseAvailable()) {
+    return res.status(503).json({ error: "Database unavailable" });
+  }
+
+  const parsed = disputeSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: "Invalid request", issues: parsed.error.flatten() });
+  }
+
+  const currentUserId = req.currentUser!.id;
+  const gameId = req.params.id;
+  const { turnId } = parsed.data;
+
+  try {
+    const db = getDb();
+
+    // Transaction prevents concurrent dispute filings bypassing the 1-per-player limit
+    const txResult = await db.transaction(async (tx) => {
+      // Lock game row
+      await tx.execute(
+        sql`SELECT id FROM games WHERE id = ${gameId} FOR UPDATE`
+      );
+
+      const [game] = await tx
+        .select()
+        .from(games)
+        .where(eq(games.id, gameId))
+        .limit(1);
+
+      if (!game)
+        return { ok: false as const, status: 404, error: "Game not found" };
+
+      const isPlayer1 = game.player1Id === currentUserId;
+      const isPlayer2 = game.player2Id === currentUserId;
+      if (!isPlayer1 && !isPlayer2)
+        return {
+          ok: false as const,
+          status: 403,
+          error: "You are not a player in this game",
+        };
+      if (game.status !== "active")
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Game is not active",
+        };
+
+      const disputeUsed = isPlayer1
+        ? game.player1DisputeUsed
+        : game.player2DisputeUsed;
+      if (disputeUsed)
+        return {
+          ok: false as const,
+          status: 400,
+          error: "You have already used your dispute for this game",
+        };
+
+      // Get the turn being disputed
+      const [turn] = await tx
+        .select()
+        .from(gameTurns)
+        .where(eq(gameTurns.id, turnId))
+        .limit(1);
+
+      if (!turn)
+        return { ok: false as const, status: 404, error: "Turn not found" };
+      if (turn.gameId !== gameId)
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Turn does not belong to this game",
+        };
+      if (turn.result !== "missed")
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Can only dispute a BAIL judgment",
+        };
+      if (turn.playerId !== currentUserId)
+        return {
+          ok: false as const,
+          status: 400,
+          error: "You can only dispute judgments on your own tricks",
+        };
+      if (!turn.judgedBy)
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Turn has not been judged yet",
+        };
+
+      // Mark dispute as used + create dispute record atomically
+      const disputeField = isPlayer1
+        ? { player1DisputeUsed: true }
+        : { player2DisputeUsed: true };
+
+      await tx.update(games).set(disputeField).where(eq(games.id, gameId));
+
+      const [dispute] = await tx
+        .insert(gameDisputes)
+        .values({
+          gameId,
+          turnId,
+          disputedBy: currentUserId,
+          againstPlayerId: turn.judgedBy,
+          originalResult: "missed",
+        })
+        .returning();
+
+      const opponentId = isPlayer1 ? game.player2Id : game.player1Id;
+      return { ok: true as const, dispute, opponentId };
+    });
+
+    if (!txResult.ok) {
+      return res.status(txResult.status).json({ error: txResult.error });
+    }
+
+    logger.info("[Games] Dispute filed", {
+      gameId,
+      turnId,
+      disputeId: txResult.dispute.id,
+      disputedBy: currentUserId,
+    });
+
+    // Notify opponent after transaction commits
+    if (txResult.opponentId) {
+      const pushToken = await getUserPushToken(db, txResult.opponentId);
+      if (pushToken) {
+        await sendGameNotification(pushToken, "dispute_filed", {
+          gameId,
+          disputeId: txResult.dispute.id,
+        });
+      }
+    }
+
+    res.status(201).json({
+      dispute: txResult.dispute,
+      message: "Dispute filed. Awaiting resolution.",
+    });
+  } catch (error) {
+    logger.error("[Games] Failed to file dispute", {
+      error,
+      gameId,
+      userId: currentUserId,
+    });
+    res.status(500).json({ error: "Failed to file dispute" });
+  }
+});
+
+// ============================================================================
+// POST /api/games/disputes/:disputeId/resolve — Resolve a dispute
+// Opponent resolves. Final. Loser gets permanent reputation penalty.
+// ============================================================================
+
+router.post(
+  "/disputes/:disputeId/resolve",
+  authenticateUser,
+  async (req, res) => {
+    if (!isDatabaseAvailable()) {
+      return res.status(503).json({ error: "Database unavailable" });
+    }
+
+    const parsed = resolveDisputeSchema.safeParse({
+      ...req.body,
+      disputeId: parseInt(req.params.disputeId, 10),
+    });
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: "Invalid request", issues: parsed.error.flatten() });
+    }
+
+    const currentUserId = req.currentUser!.id;
+    const { disputeId, finalResult } = parsed.data;
+
+    try {
+      const db = getDb();
+
+      // Transaction for atomicity: resolve dispute + apply penalty + swap roles
+      const txResult = await db.transaction(async (tx) => {
+        // Lock dispute row to prevent double-resolution
+        await tx.execute(
+          sql`SELECT id FROM game_disputes WHERE id = ${disputeId} FOR UPDATE`
+        );
+
+        const [dispute] = await tx
+          .select()
+          .from(gameDisputes)
+          .where(eq(gameDisputes.id, disputeId))
+          .limit(1);
+
+        if (!dispute)
+          return {
+            ok: false as const,
+            status: 404,
+            error: "Dispute not found",
+          };
+        if (dispute.finalResult)
+          return {
+            ok: false as const,
+            status: 400,
+            error: "Dispute already resolved",
+          };
+        if (dispute.againstPlayerId !== currentUserId)
+          return {
+            ok: false as const,
+            status: 403,
+            error: "Only the judging player can resolve the dispute",
+          };
+
+        // Lock game row too
+        await tx.execute(
+          sql`SELECT id FROM games WHERE id = ${dispute.gameId} FOR UPDATE`
+        );
+
+        const [game] = await tx
+          .select()
+          .from(games)
+          .where(eq(games.id, dispute.gameId))
+          .limit(1);
+
+        if (!game)
+          return { ok: false as const, status: 404, error: "Game not found" };
+        if (game.status !== "active")
+          return {
+            ok: false as const,
+            status: 400,
+            error: "Game is no longer active",
+          };
+
+        const now = new Date();
+
+        // Determine who gets penalized
+        let penaltyTarget: string;
+        if (finalResult === "landed") {
+          penaltyTarget = dispute.againstPlayerId;
+        } else {
+          penaltyTarget = dispute.disputedBy;
+        }
+
+        // Resolve the dispute
+        await tx
+          .update(gameDisputes)
+          .set({
+            finalResult,
+            resolvedBy: currentUserId,
+            resolvedAt: now,
+            penaltyAppliedTo: penaltyTarget,
+          })
+          .where(eq(gameDisputes.id, disputeId));
+
+        // Apply permanent reputation penalty
+        await tx
+          .update(userProfiles)
+          .set({
+            disputePenalties: sql`${userProfiles.disputePenalties} + 1`,
+          })
+          .where(eq(userProfiles.id, penaltyTarget));
+
+        // If overturned to LAND, reverse the letter and swap roles
+        if (finalResult === "landed") {
+          const defenderIsPlayer1 =
+            game.player1Id === dispute.againstPlayerId;
+          const currentLetters = defenderIsPlayer1
+            ? game.player1Letters || ""
+            : game.player2Letters || "";
+
+          const letterUpdate = defenderIsPlayer1
+            ? {
+                player1Letters:
+                  currentLetters.length > 0
+                    ? currentLetters.slice(0, -1)
+                    : "",
+              }
+            : {
+                player2Letters:
+                  currentLetters.length > 0
+                    ? currentLetters.slice(0, -1)
+                    : "",
+              };
+
+          const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
+
+          // Remove letter + swap roles (LAND = roles swap)
+          await tx
+            .update(games)
+            .set({
+              ...letterUpdate,
+              offensivePlayerId: dispute.againstPlayerId,
+              defensivePlayerId: dispute.disputedBy,
+              currentTurn: dispute.againstPlayerId,
+              turnPhase: "set_trick",
+              deadlineAt: deadline,
+              updatedAt: now,
+            })
+            .where(eq(games.id, game.id));
+
+          // Update the turn result to landed
+          await tx
+            .update(gameTurns)
+            .set({ result: "landed" })
+            .where(eq(gameTurns.id, dispute.turnId));
+        }
+
+        return {
+          ok: true as const,
+          dispute: {
+            ...dispute,
+            finalResult,
+            resolvedBy: currentUserId,
+            resolvedAt: now,
+            penaltyAppliedTo: penaltyTarget,
+          },
+          penaltyTarget,
+        };
+      });
+
+      if (!txResult.ok) {
+        return res.status(txResult.status).json({ error: txResult.error });
+      }
+
+      logger.info("[Games] Dispute resolved", {
+        disputeId,
+        finalResult,
+        penaltyTarget: txResult.penaltyTarget,
+      });
+
+      res.json({
+        dispute: txResult.dispute,
+        message:
+          finalResult === "landed"
+            ? "Dispute upheld. BAIL overturned to LAND. Letter removed."
+            : "Dispute denied. BAIL stands.",
+      });
+    } catch (error) {
+      logger.error("[Games] Failed to resolve dispute", {
+        error,
+        disputeId,
+        userId: currentUserId,
+      });
+      res.status(500).json({ error: "Failed to resolve dispute" });
+    }
+  }
+);
+
+// ============================================================================
+// POST /api/games/:id/forfeit — Voluntary forfeit
+// ============================================================================
+
+router.post("/:id/forfeit", authenticateUser, async (req, res) => {
+  if (!isDatabaseAvailable()) {
+    return res.status(503).json({ error: "Database unavailable" });
+  }
+
+  const currentUserId = req.currentUser!.id;
+  const gameId = req.params.id;
+
+  try {
+    const db = getDb();
+
+    const [game] = await db
+      .select()
+      .from(games)
+      .where(eq(games.id, gameId))
+      .limit(1);
+
+    if (!game) return res.status(404).json({ error: "Game not found" });
+
+    const isPlayer1 = game.player1Id === currentUserId;
+    const isPlayer2 = game.player2Id === currentUserId;
+    if (!isPlayer1 && !isPlayer2) {
+      return res
+        .status(403)
+        .json({ error: "You are not a player in this game" });
+    }
+    if (game.status !== "active") {
+      return res.status(400).json({ error: "Game is not active" });
+    }
+
+    const now = new Date();
+    const winnerId = isPlayer1 ? game.player2Id : game.player1Id;
+
+    const [updatedGame] = await db
+      .update(games)
+      .set({
+        status: "forfeited",
+        winnerId,
+        completedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(games.id, gameId))
+      .returning();
+
+    // Notify opponent
+    if (winnerId) {
+      const pushToken = await getUserPushToken(db, winnerId);
+      if (pushToken) {
+        await sendGameNotification(pushToken, "opponent_forfeited", {
+          gameId,
+        });
+      }
+    }
+
+    logger.info("[Games] Game forfeited", {
+      gameId,
+      forfeitedBy: currentUserId,
+      winnerId,
+    });
+
+    res.json({ game: updatedGame, message: "You forfeited." });
+  } catch (error) {
+    logger.error("[Games] Failed to forfeit game", {
+      error,
+      gameId,
+      userId: currentUserId,
+    });
+    res.status(500).json({ error: "Failed to forfeit game" });
+  }
+});
+
+// ============================================================================
+// GET /api/games/my-games — List my games
+// ============================================================================
+
 router.get("/my-games", authenticateUser, async (req, res) => {
   if (!isDatabaseAvailable()) {
     return res.status(503).json({ error: "Database unavailable" });
@@ -491,15 +1204,18 @@ router.get("/my-games", authenticateUser, async (req, res) => {
   try {
     const db = getDb();
 
-    // Get all games where user is player1 or player2
     const userGames = await db
       .select()
       .from(games)
-      .where(or(eq(games.player1Id, currentUserId), eq(games.player2Id, currentUserId)))
+      .where(
+        or(
+          eq(games.player1Id, currentUserId),
+          eq(games.player2Id, currentUserId)
+        )
+      )
       .orderBy(desc(games.updatedAt))
       .limit(50);
 
-    // Categorize games
     const pendingChallenges = userGames.filter(
       (g) => g.status === "pending" && g.player2Id === currentUserId
     );
@@ -508,23 +1224,32 @@ router.get("/my-games", authenticateUser, async (req, res) => {
     );
     const activeGames = userGames.filter((g) => g.status === "active");
     const completedGames = userGames.filter(
-      (g) => g.status === "completed" || g.status === "declined" || g.status === "forfeited"
+      (g) =>
+        g.status === "completed" ||
+        g.status === "declined" ||
+        g.status === "forfeited"
     );
 
     res.json({
-      pendingChallenges, // Challenges waiting for me to accept/decline
-      sentChallenges, // Challenges I sent waiting for response
-      activeGames, // Games in progress
-      completedGames, // Finished games
+      pendingChallenges,
+      sentChallenges,
+      activeGames,
+      completedGames,
       total: userGames.length,
     });
   } catch (error) {
-    logger.error("[Games] Failed to fetch my games", { error, userId: currentUserId });
+    logger.error("[Games] Failed to fetch my games", {
+      error,
+      userId: currentUserId,
+    });
     res.status(500).json({ error: "Failed to fetch games" });
   }
 });
 
-// GET /api/games/:id - Game details with turns
+// ============================================================================
+// GET /api/games/:id — Game details with turns and disputes
+// ============================================================================
+
 router.get("/:id", authenticateUser, async (req, res) => {
   if (!isDatabaseAvailable()) {
     return res.status(503).json({ error: "Database unavailable" });
@@ -536,46 +1261,74 @@ router.get("/:id", authenticateUser, async (req, res) => {
   try {
     const db = getDb();
 
-    // Get the game
-    const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
+    const [game] = await db
+      .select()
+      .from(games)
+      .where(eq(games.id, gameId))
+      .limit(1);
 
-    if (!game) {
-      return res.status(404).json({ error: "Game not found" });
-    }
+    if (!game) return res.status(404).json({ error: "Game not found" });
 
-    // Verify user is a player in this game
     if (game.player1Id !== currentUserId && game.player2Id !== currentUserId) {
-      return res.status(403).json({ error: "You are not a player in this game" });
+      return res
+        .status(403)
+        .json({ error: "You are not a player in this game" });
     }
 
-    // Get all turns for this game
     const turns = await db
       .select()
       .from(gameTurns)
       .where(eq(gameTurns.gameId, gameId))
       .orderBy(gameTurns.turnNumber);
 
-    // Determine if it's the current user's turn
-    const isMyTurn = game.currentTurn === currentUserId;
+    const disputes = await db
+      .select()
+      .from(gameDisputes)
+      .where(eq(gameDisputes.gameId, gameId))
+      .orderBy(gameDisputes.createdAt);
 
-    // Find the pending turn that needs judging (if any)
-    const pendingTurn = turns.find((t) => t.result === "pending");
-    const needsToJudge = pendingTurn && pendingTurn.playerId !== currentUserId && isMyTurn;
+    const isMyTurn = game.currentTurn === currentUserId;
+    const pendingSetTurn = turns.find(
+      (t) =>
+        t.result === "pending" &&
+        t.turnType === "set" &&
+        t.playerId !== currentUserId
+    );
+    const needsToJudge =
+      game.turnPhase === "judge" && game.currentTurn === currentUserId;
+    const needsToRespond =
+      game.turnPhase === "respond_trick" &&
+      game.currentTurn === currentUserId;
+
+    const isPlayer1 = game.player1Id === currentUserId;
+    const canDispute = isPlayer1
+      ? !game.player1DisputeUsed
+      : !game.player2DisputeUsed;
 
     res.json({
       game,
       turns,
+      disputes,
       isMyTurn,
       needsToJudge,
-      pendingTurnId: needsToJudge ? pendingTurn?.id : null,
+      needsToRespond,
+      pendingTurnId: needsToJudge && pendingSetTurn ? pendingSetTurn.id : null,
+      canDispute,
     });
   } catch (error) {
-    logger.error("[Games] Failed to fetch game details", { error, gameId, userId: currentUserId });
+    logger.error("[Games] Failed to fetch game details", {
+      error,
+      gameId,
+      userId: currentUserId,
+    });
     res.status(500).json({ error: "Failed to fetch game" });
   }
 });
 
-// Internal function to forfeit expired games (called by cron)
+// ============================================================================
+// Auto-forfeit expired games (called by cron)
+// ============================================================================
+
 export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
   if (!isDatabaseAvailable()) {
     return { forfeited: 0 };
@@ -585,7 +1338,6 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
     const db = getDb();
     const now = new Date();
 
-    // Find active games past their deadline
     const expiredGames = await db
       .select()
       .from(games)
@@ -594,9 +1346,9 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
     let forfeitedCount = 0;
 
     for (const game of expiredGames) {
-      // The player whose turn it was forfeits (they lose)
       const loserId = game.currentTurn;
-      const winnerId = loserId === game.player1Id ? game.player2Id : game.player1Id;
+      const winnerId =
+        loserId === game.player1Id ? game.player2Id : game.player1Id;
 
       await db
         .update(games)
@@ -607,6 +1359,19 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
           updatedAt: now,
         })
         .where(eq(games.id, game.id));
+
+      // Notify both players
+      for (const playerId of [game.player1Id, game.player2Id]) {
+        if (!playerId) continue;
+        const pushToken = await getUserPushToken(db, playerId);
+        if (pushToken) {
+          await sendGameNotification(pushToken, "game_forfeited_timeout", {
+            gameId: game.id,
+            loserId: loserId || undefined,
+            winnerId: winnerId || undefined,
+          });
+        }
+      }
 
       logger.info("[Games] Game forfeited due to timeout", {
         gameId: game.id,
@@ -621,6 +1386,73 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
   } catch (error) {
     logger.error("[Games] Failed to forfeit expired games", { error });
     return { forfeited: 0 };
+  }
+}
+
+// ============================================================================
+// Deadline warning check (called by cron — notifies players with ≤1 hour left)
+// ============================================================================
+
+export async function notifyDeadlineWarnings(): Promise<{
+  notified: number;
+}> {
+  if (!isDatabaseAvailable()) {
+    return { notified: 0 };
+  }
+
+  try {
+    const db = getDb();
+    const now = new Date();
+    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+    // Find active games where deadline is within 1 hour
+    const urgentGames = await db
+      .select()
+      .from(games)
+      .where(
+        and(
+          eq(games.status, "active"),
+          lt(games.deadlineAt!, oneHourFromNow)
+        )
+      );
+
+    let notifiedCount = 0;
+
+    for (const game of urgentGames) {
+      if (!game.currentTurn || !game.deadlineAt) continue;
+      // Only notify if deadline is in the future (not already expired)
+      if (new Date(game.deadlineAt) <= now) continue;
+
+      // Dedup: skip if we already warned this game within the cooldown period
+      const lastWarning = deadlineWarningsSent.get(game.id);
+      if (lastWarning && now.getTime() - lastWarning < DEADLINE_WARNING_COOLDOWN_MS) {
+        continue;
+      }
+
+      const pushToken = await getUserPushToken(db, game.currentTurn);
+      if (pushToken) {
+        await sendGameNotification(pushToken, "deadline_warning", {
+          gameId: game.id,
+          minutesRemaining: Math.round(
+            (new Date(game.deadlineAt).getTime() - now.getTime()) / 60000
+          ),
+        });
+        deadlineWarningsSent.set(game.id, now.getTime());
+        notifiedCount++;
+      }
+    }
+
+    // Clean up old entries from the dedup map
+    for (const [gameId, timestamp] of deadlineWarningsSent) {
+      if (now.getTime() - timestamp > TURN_DEADLINE_MS) {
+        deadlineWarningsSent.delete(gameId);
+      }
+    }
+
+    return { notified: notifiedCount };
+  } catch (error) {
+    logger.error("[Games] Failed to send deadline warnings", { error });
+    return { notified: 0 };
   }
 }
 

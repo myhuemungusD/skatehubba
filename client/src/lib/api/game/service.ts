@@ -1,7 +1,7 @@
 /**
  * S.K.A.T.E. Game API Service
  *
- * API client for turn-based 1v1 S.K.A.T.E. games
+ * Async turn-based game. No retries. No previews. Final.
  */
 
 import { apiRequest } from '../client';
@@ -16,12 +16,13 @@ import type {
   SubmitTurnResponse,
   JudgeTurnRequest,
   JudgeTurnResponse,
+  DisputeRequest,
+  DisputeResponse,
+  ResolveDisputeRequest,
+  ResolveDisputeResponse,
 } from './types';
 
 export const gameApi = {
-  /**
-   * Create a new game challenge
-   */
   async createGame(opponentId: string): Promise<CreateGameResponse> {
     return apiRequest<CreateGameResponse, CreateGameRequest>({
       method: 'POST',
@@ -30,9 +31,6 @@ export const gameApi = {
     });
   },
 
-  /**
-   * Accept or decline a game challenge
-   */
   async respondToGame(gameId: string, accept: boolean): Promise<RespondToGameResponse> {
     return apiRequest<RespondToGameResponse, RespondToGameRequest>({
       method: 'POST',
@@ -41,24 +39,19 @@ export const gameApi = {
     });
   },
 
-  /**
-   * Submit a turn (video trick)
-   */
   async submitTurn(
     gameId: string,
     trickDescription: string,
-    videoUrl: string
+    videoUrl: string,
+    videoDurationMs: number
   ): Promise<SubmitTurnResponse> {
     return apiRequest<SubmitTurnResponse, SubmitTurnRequest>({
       method: 'POST',
       path: `/api/games/${gameId}/turns`,
-      body: { trickDescription, videoUrl },
+      body: { trickDescription, videoUrl, videoDurationMs },
     });
   },
 
-  /**
-   * Judge a turn (mark as landed or missed)
-   */
   async judgeTurn(turnId: number, result: 'landed' | 'missed'): Promise<JudgeTurnResponse> {
     return apiRequest<JudgeTurnResponse, JudgeTurnRequest>({
       method: 'POST',
@@ -67,9 +60,32 @@ export const gameApi = {
     });
   },
 
-  /**
-   * Get all my games (pending, active, completed)
-   */
+  async fileDispute(gameId: string, turnId: number): Promise<DisputeResponse> {
+    return apiRequest<DisputeResponse, DisputeRequest>({
+      method: 'POST',
+      path: `/api/games/${gameId}/dispute`,
+      body: { turnId },
+    });
+  },
+
+  async resolveDispute(
+    disputeId: number,
+    finalResult: 'landed' | 'missed'
+  ): Promise<ResolveDisputeResponse> {
+    return apiRequest<ResolveDisputeResponse, ResolveDisputeRequest>({
+      method: 'POST',
+      path: `/api/games/disputes/${disputeId}/resolve`,
+      body: { finalResult },
+    });
+  },
+
+  async forfeitGame(gameId: string): Promise<{ game: any; message: string }> {
+    return apiRequest({
+      method: 'POST',
+      path: `/api/games/${gameId}/forfeit`,
+    });
+  },
+
   async getMyGames(): Promise<MyGames> {
     return apiRequest<MyGames>({
       method: 'GET',
@@ -77,9 +93,6 @@ export const gameApi = {
     });
   },
 
-  /**
-   * Get game details with turns
-   */
   async getGameDetails(gameId: string): Promise<GameWithDetails> {
     return apiRequest<GameWithDetails>({
       method: 'GET',

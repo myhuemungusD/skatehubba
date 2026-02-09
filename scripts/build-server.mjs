@@ -77,7 +77,7 @@ try {
   if (!fs.existsSync(clientDir)) {
     console.warn('⚠️  Client build not found at', path.relative(rootDir, clientDir));
     console.warn('   Run the client build first, or server will have no static assets.');
-    console.warn('   Example: npm run build:client');
+    console.warn('   Example: pnpm run build:client');
   } else {
     // Validate client directory is readable
     try {
@@ -183,7 +183,7 @@ try {
   console.error('');
   console.error('💡 Recovery suggestions:');
   console.error('   1. Check for TypeScript compilation errors');
-  console.error('   2. Ensure all dependencies are installed (npm install)');
+  console.error('   2. Ensure all dependencies are installed (pnpm install)');
   console.error('   3. Verify all imported modules exist');
   console.error('   4. Check for syntax errors in server code');
   console.error('');

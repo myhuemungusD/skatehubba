@@ -1,8 +1,10 @@
 /**
  * S.K.A.T.E. Game API Types
  *
- * Type definitions for the turn-based 1v1 S.K.A.T.E. game API
+ * Async, turn-based 1v1 game. No live play. No retries.
  */
+
+export type TurnPhase = 'set_trick' | 'respond_trick' | 'judge';
 
 export interface Game {
   id: string;
@@ -11,9 +13,14 @@ export interface Game {
   player2Id: string;
   player2Name: string;
   status: 'pending' | 'active' | 'completed' | 'declined' | 'forfeited';
-  currentTurn: string;
+  currentTurn: string | null;
+  turnPhase: TurnPhase | null;
+  offensivePlayerId: string | null;
+  defensivePlayerId: string | null;
   player1Letters: string;
   player2Letters: string;
+  player1DisputeUsed: boolean;
+  player2DisputeUsed: boolean;
   lastTrickDescription?: string;
   lastTrickBy?: string;
   winnerId?: string;
@@ -29,20 +36,39 @@ export interface GameTurn {
   playerId: string;
   playerName: string;
   turnNumber: number;
+  turnType: 'set' | 'response';
   trickDescription: string;
   videoUrl: string;
+  videoDurationMs?: number;
   result: 'pending' | 'landed' | 'missed';
   judgedBy?: string;
   judgedAt?: string;
   createdAt: string;
 }
 
+export interface GameDispute {
+  id: number;
+  gameId: string;
+  turnId: number;
+  disputedBy: string;
+  againstPlayerId: string;
+  originalResult: string;
+  finalResult?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  penaltyAppliedTo?: string;
+  createdAt: string;
+}
+
 export interface GameWithDetails {
   game: Game;
   turns: GameTurn[];
+  disputes: GameDispute[];
   isMyTurn: boolean;
   needsToJudge: boolean;
+  needsToRespond: boolean;
   pendingTurnId: number | null;
+  canDispute: boolean;
 }
 
 export interface MyGames {
@@ -74,6 +100,7 @@ export interface RespondToGameResponse {
 export interface SubmitTurnRequest {
   trickDescription: string;
   videoUrl: string;
+  videoDurationMs: number;
 }
 
 export interface SubmitTurnResponse {
@@ -90,6 +117,24 @@ export interface JudgeTurnResponse {
   turn: GameTurn;
   gameOver: boolean;
   winnerId?: string;
+  message: string;
+}
+
+export interface DisputeRequest {
+  turnId: number;
+}
+
+export interface DisputeResponse {
+  dispute: GameDispute;
+  message: string;
+}
+
+export interface ResolveDisputeRequest {
+  finalResult: 'landed' | 'missed';
+}
+
+export interface ResolveDisputeResponse {
+  dispute: GameDispute;
   message: string;
 }
 

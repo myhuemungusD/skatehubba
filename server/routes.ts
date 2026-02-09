@@ -32,7 +32,7 @@ import { moderationRouter } from "./routes/moderation";
 import { createPost } from "./services/moderationStore";
 import { sendQuickMatchNotification } from "./services/notificationService";
 import { profileRouter } from "./routes/profile";
-import { gamesRouter, forfeitExpiredGames } from "./routes/games";
+import { gamesRouter, forfeitExpiredGames, notifyDeadlineWarnings } from "./routes/games";
 import { tierRouter } from "./routes/tier";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
 import logger from "./logger";
@@ -578,19 +578,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Cron endpoint for auto-forfeit expired games
-  // This should be called by an external scheduler (Vercel Cron, Cloud Scheduler, etc.)
-  // Secured with a simple secret key check
-  app.post("/api/cron/forfeit-expired-games", async (req, res) => {
-    // Require CRON_SECRET to be configured — reject if missing
+  // Timing-safe cron secret verification to prevent timing attacks
+  const verifyCronSecret = (authHeader: string | undefined): boolean => {
     const cronSecret = process.env.CRON_SECRET;
     if (!cronSecret) {
       logger.warn("[Cron] CRON_SECRET not configured — rejecting request");
-      return res.status(401).json({ error: "Unauthorized" });
+      return false;
     }
+    const expected = `Bearer ${cronSecret}`;
+    if (!authHeader || authHeader.length !== expected.length) return false;
+    try {
+      return crypto.timingSafeEqual(
+        Buffer.from(authHeader),
+        Buffer.from(expected)
+      );
+    } catch {
+      return false;
+    }
+  };
 
-    const authHeader = req.headers.authorization;
-    if (authHeader !== `Bearer ${cronSecret}`) {
+  // Cron endpoint for auto-forfeit expired games
+  app.post("/api/cron/forfeit-expired-games", async (req, res) => {
+    if (!verifyCronSecret(req.headers.authorization)) {
       return res.status(401).json({ error: "Unauthorized" });
     }
 
@@ -601,6 +610,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("[Cron] Forfeit expired games failed", { error });
       res.status(500).json({ error: "Failed to process forfeit" });
+    }
+  });
+
+  // Cron endpoint for deadline warnings (≤1 hour remaining)
+  app.post("/api/cron/deadline-warnings", async (req, res) => {
+    if (!verifyCronSecret(req.headers.authorization)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const result = await notifyDeadlineWarnings();
+      logger.info("[Cron] Deadline warnings sent", result);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      logger.error("[Cron] Deadline warnings failed", { error });
+      res.status(500).json({ error: "Failed to send deadline warnings" });
     }
   });
 

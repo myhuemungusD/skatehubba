@@ -1,17 +1,19 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-echo "🔄 Building SkateHubba for production..."
+export NODE_ENV=production
 
-# Install dependencies
-echo "📦 Installing dependencies..."
-npm ci
+echo "Building SkateHubba for production..."
 
-# Build both client and server
-echo "🏗️ Building application..."
-npm run build
+# Install dependencies using pnpm with frozen lockfile for reproducible builds
+echo "Installing dependencies..."
+pnpm install --frozen-lockfile
 
-echo "✅ Build completed successfully!"
-echo "📂 Client assets: dist/public/"
-echo "📂 Server bundle: dist/server/"
-echo "🚀 Ready to start with: NODE_ENV=production node dist/server/index.js"
+# Build both client and server via turbo
+echo "Building application..."
+pnpm run build
+
+echo "Build completed successfully!"
+echo "Client assets: client/dist/"
+echo "Server bundle: dist/server/index.js"
+echo "Ready to start with: NODE_ENV=production node dist/server/index.js"
