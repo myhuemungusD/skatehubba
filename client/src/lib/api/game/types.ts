@@ -4,7 +4,7 @@
  * Async, turn-based 1v1 game. No live play. No retries.
  */
 
-export type TurnPhase = 'set_trick' | 'respond_trick' | 'judge';
+export type TurnPhase = "set_trick" | "respond_trick" | "judge";
 
 export interface Game {
   id: string;
@@ -12,7 +12,7 @@ export interface Game {
   player1Name: string;
   player2Id: string;
   player2Name: string;
-  status: 'pending' | 'active' | 'completed' | 'declined' | 'forfeited';
+  status: "pending" | "active" | "completed" | "declined" | "forfeited";
   currentTurn: string | null;
   turnPhase: TurnPhase | null;
   offensivePlayerId: string | null;
@@ -36,11 +36,12 @@ export interface GameTurn {
   playerId: string;
   playerName: string;
   turnNumber: number;
-  turnType: 'set' | 'response';
+  turnType: "set" | "response";
   trickDescription: string;
   videoUrl: string;
   videoDurationMs?: number;
-  result: 'pending' | 'landed' | 'missed';
+  thumbnailUrl?: string;
+  result: "pending" | "landed" | "missed";
   judgedBy?: string;
   judgedAt?: string;
   createdAt: string;
@@ -101,6 +102,7 @@ export interface SubmitTurnRequest {
   trickDescription: string;
   videoUrl: string;
   videoDurationMs: number;
+  thumbnailUrl?: string;
 }
 
 export interface SubmitTurnResponse {
@@ -109,7 +111,7 @@ export interface SubmitTurnResponse {
 }
 
 export interface JudgeTurnRequest {
-  result: 'landed' | 'missed';
+  result: "landed" | "missed";
 }
 
 export interface JudgeTurnResponse {
@@ -130,7 +132,7 @@ export interface DisputeResponse {
 }
 
 export interface ResolveDisputeRequest {
-  finalResult: 'landed' | 'missed';
+  finalResult: "landed" | "missed";
 }
 
 export interface ResolveDisputeResponse {

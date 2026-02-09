@@ -5,13 +5,13 @@
  * No soft language. Direct feedback.
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useToast } from './use-toast';
-import { gameApi } from '@/lib/api/game';
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "./use-toast";
+import { gameApi } from "@/lib/api/game";
 
 const QUERY_KEYS = {
-  myGames: ['games', 'my-games'] as const,
-  gameDetails: (id: string) => ['games', id] as const,
+  myGames: ["games", "my-games"] as const,
+  gameDetails: (id: string) => ["games", id] as const,
 };
 
 export function useMyGames() {
@@ -25,7 +25,7 @@ export function useMyGames() {
 
 export function useGameDetails(gameId: string | null) {
   return useQuery({
-    queryKey: gameId ? QUERY_KEYS.gameDetails(gameId) : ['games', 'null'],
+    queryKey: gameId ? QUERY_KEYS.gameDetails(gameId) : ["games", "null"],
     queryFn: () => (gameId ? gameApi.getGameDetails(gameId) : null),
     enabled: !!gameId,
     refetchInterval: 10000,
@@ -41,10 +41,10 @@ export function useCreateGame() {
     mutationFn: (opponentId: string) => gameApi.createGame(opponentId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
-      toast({ title: 'Challenge sent.' });
+      toast({ title: "Challenge sent." });
     },
     onError: (error: Error) => {
-      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
     },
   });
 }
@@ -59,10 +59,10 @@ export function useRespondToGame() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
-      toast({ title: variables.accept ? 'Game on.' : 'Declined.' });
+      toast({ title: variables.accept ? "Game on." : "Declined." });
     },
     onError: (error: Error) => {
-      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
     },
   });
 }
@@ -77,19 +77,21 @@ export function useSubmitTurn() {
       trickDescription,
       videoUrl,
       videoDurationMs,
+      thumbnailUrl,
     }: {
       gameId: string;
       trickDescription: string;
       videoUrl: string;
       videoDurationMs: number;
-    }) => gameApi.submitTurn(gameId, trickDescription, videoUrl, videoDurationMs),
+      thumbnailUrl?: string;
+    }) => gameApi.submitTurn(gameId, trickDescription, videoUrl, videoDurationMs, thumbnailUrl),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
-      toast({ title: 'Sent.' });
+      toast({ title: "Sent." });
     },
     onError: (error: Error) => {
-      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
     },
   });
 }
@@ -99,7 +101,7 @@ export function useJudgeTurn() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (variables: { turnId: number; result: 'landed' | 'missed'; gameId: string }) =>
+    mutationFn: (variables: { turnId: number; result: "landed" | "missed"; gameId: string }) =>
       gameApi.judgeTurn(variables.turnId, variables.result),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
@@ -107,7 +109,7 @@ export function useJudgeTurn() {
       toast({ title: data.message });
     },
     onError: (error: Error) => {
-      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
     },
   });
 }
@@ -121,10 +123,10 @@ export function useFileDispute() {
       gameApi.fileDispute(gameId, turnId),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
-      toast({ title: 'Dispute filed.' });
+      toast({ title: "Dispute filed." });
     },
     onError: (error: Error) => {
-      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
     },
   });
 }
@@ -139,7 +141,7 @@ export function useResolveDispute() {
       finalResult,
     }: {
       disputeId: number;
-      finalResult: 'landed' | 'missed';
+      finalResult: "landed" | "missed";
       gameId: string;
     }) => gameApi.resolveDispute(disputeId, finalResult),
     onSuccess: (data, variables) => {
@@ -148,7 +150,7 @@ export function useResolveDispute() {
       toast({ title: data.message });
     },
     onError: (error: Error) => {
-      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
     },
   });
 }
@@ -162,10 +164,10 @@ export function useForfeitGame() {
     onSuccess: (_data, gameId) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
-      toast({ title: 'You forfeited.' });
+      toast({ title: "You forfeited." });
     },
     onError: (error: Error) => {
-      toast({ title: 'Failed', description: error.message, variant: 'destructive' });
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
     },
   });
 }
@@ -185,9 +187,9 @@ export function useGameState(gameId: string | null, userId: string | undefined) 
       needsToRespond: false,
       pendingTurnId: null as number | null,
       canDispute: false,
-      myLetters: '',
-      oppLetters: '',
-      opponentName: '',
+      myLetters: "",
+      oppLetters: "",
+      opponentName: "",
       isGameOver: false,
       iWon: false,
       turnPhase: null as string | null,
@@ -196,12 +198,21 @@ export function useGameState(gameId: string | null, userId: string | undefined) 
     };
   }
 
-  const { game, turns, disputes, isMyTurn, needsToJudge, needsToRespond, pendingTurnId, canDispute } = data;
+  const {
+    game,
+    turns,
+    disputes,
+    isMyTurn,
+    needsToJudge,
+    needsToRespond,
+    pendingTurnId,
+    canDispute,
+  } = data;
   const isPlayer1 = game.player1Id === userId;
   const myLetters = isPlayer1 ? game.player1Letters : game.player2Letters;
   const oppLetters = isPlayer1 ? game.player2Letters : game.player1Letters;
   const opponentName = isPlayer1 ? game.player2Name : game.player1Name;
-  const isGameOver = game.status === 'completed' || game.status === 'forfeited';
+  const isGameOver = game.status === "completed" || game.status === "forfeited";
   const iWon = game.winnerId === userId;
   const isOffensive = game.offensivePlayerId === userId;
   const isDefensive = game.defensivePlayerId === userId;

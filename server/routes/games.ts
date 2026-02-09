@@ -60,6 +60,7 @@ const submitTurnSchema = z.object({
   trickDescription: z.string().min(1).max(500),
   videoUrl: z.string().url().max(500),
   videoDurationMs: z.number().int().min(1).max(MAX_VIDEO_DURATION_MS),
+  thumbnailUrl: z.string().url().max(500).optional(),
 });
 
 const judgeTurnSchema = z.object({
@@ -285,7 +286,7 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
 
   const currentUserId = req.currentUser!.id;
   const gameId = req.params.id;
-  const { trickDescription, videoUrl, videoDurationMs } = parsed.data;
+  const { trickDescription, videoUrl, videoDurationMs, thumbnailUrl } = parsed.data;
 
   // Hard constraint: max 15 seconds
   if (videoDurationMs > MAX_VIDEO_DURATION_MS) {
@@ -378,6 +379,7 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
           trickDescription,
           videoUrl,
           videoDurationMs,
+          thumbnailUrl: thumbnailUrl ?? null,
           result: "pending",
         })
         .returning();
