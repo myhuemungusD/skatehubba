@@ -3,6 +3,7 @@ import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import type { FirebaseAuthedRequest } from "./firebaseUid";
 import { getRedisClient } from "../redis";
+import { RATE_LIMIT_CONFIG } from "../config/rateLimits";
 
 /**
  * Build a RedisStore for express-rate-limit if Redis is available.
@@ -13,7 +14,8 @@ function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined
   if (!redis) return undefined;
 
   return new RedisStore({
-    sendCommand: (...args: string[]) => redis.call(...(args as [string, ...string[]])) as Promise<any>,
+    sendCommand: (...args: string[]) =>
+      redis.call(...(args as [string, ...string[]])) as Promise<any>,
     prefix,
   });
 }
@@ -27,32 +29,7 @@ export function securityMiddleware(_req: Request, _res: Response, next: NextFunc
   next();
 }
 
-const RATE_LIMITS = {
-  // CodeQL: Missing rate limiting (auth endpoints)
-  auth: {
-    windowMs: 15 * 60 * 1000,
-    max: 10,
-    message: "Too many authentication attempts, please try again later.",
-  },
-  // CodeQL: Missing rate limiting (public write endpoints)
-  publicWrite: {
-    windowMs: 10 * 60 * 1000,
-    max: 30,
-    message: "Too many write requests, please slow down.",
-  },
-  // CodeQL: Missing rate limiting (password reset endpoints)
-  passwordReset: {
-    windowMs: 60 * 60 * 1000,
-    max: 3,
-    message: "Too many password reset attempts, please try again later.",
-  },
-  // CodeQL: Missing rate limiting (general API)
-  api: {
-    windowMs: 1 * 60 * 1000,
-    max: 100,
-    message: "Too many requests, please slow down.",
-  },
-} as const;
+const RL = RATE_LIMIT_CONFIG;
 
 /**
  * Rate limiter for email signup attempts
@@ -60,14 +37,12 @@ const RATE_LIMITS = {
  * Helps prevent automated account creation and spam
  */
 export const emailSignupLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 signup attempts per windowMs
-  message: {
-    error: "Too many signup attempts from this IP, please try again later.",
-  },
+  windowMs: RL.emailSignup.windowMs,
+  max: RL.emailSignup.max,
+  message: { error: RL.emailSignup.message },
   standardHeaders: true,
   legacyHeaders: false,
-  store: buildStore("rl:signup:"),
+  store: buildStore(RL.emailSignup.prefix),
 });
 
 /**
@@ -77,15 +52,13 @@ export const emailSignupLimiter = rateLimit({
  * Helps prevent brute force attacks
  */
 export const authLimiter = rateLimit({
-  windowMs: RATE_LIMITS.auth.windowMs, // 15 minutes
-  max: RATE_LIMITS.auth.max, // Limit each IP to 10 login attempts per window
-  message: {
-    error: RATE_LIMITS.auth.message,
-  },
+  windowMs: RL.auth.windowMs,
+  max: RL.auth.max,
+  message: { error: RL.auth.message },
   standardHeaders: true,
   legacyHeaders: false,
-  skipSuccessfulRequests: true, // Don't count successful logins
-  store: buildStore("rl:secauth:"),
+  skipSuccessfulRequests: true,
+  store: buildStore(RL.auth.prefix),
 });
 
 /**
@@ -94,14 +67,12 @@ export const authLimiter = rateLimit({
  * Conservative to deter abuse while remaining non-blocking for real users
  */
 export const publicWriteLimiter = rateLimit({
-  windowMs: RATE_LIMITS.publicWrite.windowMs, // 10 minutes
-  max: RATE_LIMITS.publicWrite.max, // 30 writes per 10 minutes
-  message: {
-    error: RATE_LIMITS.publicWrite.message,
-  },
+  windowMs: RL.publicWrite.windowMs,
+  max: RL.publicWrite.max,
+  message: { error: RL.publicWrite.message },
   standardHeaders: true,
   legacyHeaders: false,
-  store: buildStore("rl:pubwrite:"),
+  store: buildStore(RL.publicWrite.prefix),
 });
 
 const getDeviceFingerprint = (req: Request): string | null => {
@@ -136,38 +107,32 @@ const userKeyGenerator = (req: Request): string => {
 };
 
 export const checkInIpLimiter = rateLimit({
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 60, // 60 check-ins per 10 minutes per IP
-  message: {
-    error: "Check-in rate limit exceeded.",
-  },
+  windowMs: RL.checkInIp.windowMs,
+  max: RL.checkInIp.max,
+  message: { error: RL.checkInIp.message },
   standardHeaders: true,
   legacyHeaders: false,
-  store: buildStore("rl:checkinip:"),
+  store: buildStore(RL.checkInIp.prefix),
 });
 
 export const perUserSpotWriteLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000, // 24 hours
-  max: 3, // 3 spot creations per day per user (MVP requirement)
-  message: {
-    error: "You've reached the daily limit for adding spots (3 per day). Try again tomorrow!",
-  },
+  windowMs: RL.perUserSpotWrite.windowMs,
+  max: RL.perUserSpotWrite.max,
+  message: { error: RL.perUserSpotWrite.message },
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userKeyGenerator,
-  store: buildStore("rl:spotwrite:"),
+  store: buildStore(RL.perUserSpotWrite.prefix),
 });
 
 export const perUserCheckInLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 20, // 20 check-ins per hour per user
-  message: {
-    error: "Check-in rate limit exceeded.",
-  },
+  windowMs: RL.perUserCheckIn.windowMs,
+  max: RL.perUserCheckIn.max,
+  message: { error: RL.perUserCheckIn.message },
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: userKeyGenerator,
-  store: buildStore("rl:checkinuser:"),
+  store: buildStore(RL.perUserCheckIn.prefix),
 });
 
 /**
@@ -176,14 +141,12 @@ export const perUserCheckInLimiter = rateLimit({
  * Prevents abuse of password reset functionality
  */
 export const passwordResetLimiter = rateLimit({
-  windowMs: RATE_LIMITS.passwordReset.windowMs, // 1 hour
-  max: RATE_LIMITS.passwordReset.max, // Only 3 password reset requests per hour
-  message: {
-    error: RATE_LIMITS.passwordReset.message,
-  },
+  windowMs: RL.passwordReset.windowMs,
+  max: RL.passwordReset.max,
+  message: { error: RL.passwordReset.message },
   standardHeaders: true,
   legacyHeaders: false,
-  store: buildStore("rl:pwreset:"),
+  store: buildStore(RL.passwordReset.prefix),
 });
 
 /**
@@ -192,40 +155,34 @@ export const passwordResetLimiter = rateLimit({
  * Prevents API abuse and DDoS attacks
  */
 export const apiLimiter = rateLimit({
-  windowMs: RATE_LIMITS.api.windowMs, // 1 minute
-  max: RATE_LIMITS.api.max, // 100 requests per minute
-  message: {
-    error: RATE_LIMITS.api.message,
-  },
+  windowMs: RL.api.windowMs,
+  max: RL.api.max,
+  message: { error: RL.api.message },
   standardHeaders: true,
   legacyHeaders: false,
-  store: buildStore("rl:api:"),
+  store: buildStore(RL.api.prefix),
 });
 
 export const usernameCheckLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 30,
-  message: {
-    error: "Too many username checks, please slow down.",
-  },
+  windowMs: RL.usernameCheck.windowMs,
+  max: RL.usernameCheck.max,
+  message: { error: RL.usernameCheck.message },
   standardHeaders: true,
   legacyHeaders: false,
-  store: buildStore("rl:username:"),
+  store: buildStore(RL.usernameCheck.prefix),
 });
 
 export const profileCreateLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  message: {
-    error: "Too many profile creation attempts, please try again later.",
-  },
+  windowMs: RL.profileCreate.windowMs,
+  max: RL.profileCreate.max,
+  message: { error: RL.profileCreate.message },
   keyGenerator: (req: Request) => {
     const firebaseUid = (req as FirebaseAuthedRequest).firebaseUid;
     return firebaseUid || req.ip || "unknown";
   },
   standardHeaders: true,
   legacyHeaders: false,
-  store: buildStore("rl:profile:"),
+  store: buildStore(RL.profileCreate.prefix),
 });
 
 /**
@@ -235,14 +192,12 @@ export const profileCreateLimiter = rateLimit({
  * CodeQL: Missing rate limiting - addresses file system access routes
  */
 export const staticFileLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 60, // 60 requests per minute (1 per second average)
-  message: {
-    error: "Too many requests, please slow down.",
-  },
+  windowMs: RL.staticFile.windowMs,
+  max: RL.staticFile.max,
+  message: { error: RL.staticFile.message },
   standardHeaders: true,
   legacyHeaders: false,
-  store: buildStore("rl:static:"),
+  store: buildStore(RL.staticFile.prefix),
   skip: (req) => {
     // Skip rate limiting for static assets (CSS, JS, images)
     const staticExtensions = /\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i;
