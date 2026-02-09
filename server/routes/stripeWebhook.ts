@@ -4,6 +4,8 @@ import { getDb, isDatabaseAvailable } from "../db";
 import { customUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
+import { sendPaymentReceiptEmail } from "../services/emailService";
+import { notifyUser } from "../services/notificationService";
 
 const router = Router();
 
@@ -152,12 +154,14 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     return;
   }
 
+  const now = new Date();
+
   await db
     .update(customUsers)
     .set({
       accountTier: "premium",
-      premiumPurchasedAt: new Date(),
-      updatedAt: new Date(),
+      premiumPurchasedAt: now,
+      updatedAt: now,
     })
     .where(eq(customUsers.id, userId));
 
@@ -165,6 +169,40 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     userId,
     sessionId: session.id,
   });
+
+  // Send payment receipt email and in-app notification (non-blocking)
+  const [userInfo] = await db
+    .select({ email: customUsers.email, firstName: customUsers.firstName })
+    .from(customUsers)
+    .where(eq(customUsers.id, userId))
+    .limit(1);
+
+  if (userInfo?.email) {
+    const name = userInfo.firstName || "Skater";
+
+    sendPaymentReceiptEmail(userInfo.email, name, {
+      amount: "$9.99",
+      tier: "Premium",
+      date: now.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+      transactionId: session.id,
+    }).catch((err) =>
+      logger.error("Failed to send payment receipt email", { error: String(err) })
+    );
+
+    notifyUser({
+      userId,
+      type: "payment_receipt",
+      title: "Premium Activated",
+      body: "Your Premium upgrade is confirmed. All features unlocked.",
+      data: { sessionId: session.id },
+    }).catch((err) =>
+      logger.error("Failed to send premium notification", { error: String(err) })
+    );
+  }
 }
 
 export const stripeWebhookRouter = router;

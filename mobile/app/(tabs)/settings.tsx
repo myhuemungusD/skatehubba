@@ -5,7 +5,8 @@ import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase.config";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { apiRequest } from "@/lib/queryClient";
 
 type SettingItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -50,8 +51,31 @@ function SettingItem({
 export default function SettingsScreen() {
   const { user, isAuthenticated } = useRequireAuth();
   const router = useRouter();
-  const [notifications, setNotifications] = useState(true);
+  const [pushEnabled, setPushEnabled] = useState(true);
+  const [emailEnabled, setEmailEnabled] = useState(true);
   const [locationEnabled, setLocationEnabled] = useState(true);
+
+  // Load notification preferences from server
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    apiRequest("/api/notifications/preferences")
+      .then((prefs: any) => {
+        if (prefs.pushEnabled !== undefined) setPushEnabled(prefs.pushEnabled);
+        if (prefs.emailEnabled !== undefined) setEmailEnabled(prefs.emailEnabled);
+      })
+      .catch(() => { /* use defaults */ });
+  }, [isAuthenticated]);
+
+  const updatePref = useCallback(async (key: string, value: boolean) => {
+    try {
+      await apiRequest("/api/notifications/preferences", {
+        method: "PUT",
+        body: JSON.stringify({ [key]: value }),
+      });
+    } catch {
+      // Revert on failure will be handled by the toggle
+    }
+  }, []);
 
   const handleSignOut = async () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
@@ -136,8 +160,28 @@ export default function SettingsScreen() {
             showChevron={false}
             rightElement={
               <Switch
-                value={notifications}
-                onValueChange={setNotifications}
+                value={pushEnabled}
+                onValueChange={(val) => {
+                  setPushEnabled(val);
+                  updatePref("pushEnabled", val);
+                }}
+                trackColor={{ false: SKATE.colors.darkGray, true: SKATE.colors.orange }}
+                thumbColor={SKATE.colors.white}
+              />
+            }
+          />
+          <SettingItem
+            icon="mail"
+            title="Email Notifications"
+            subtitle="Receive emails for game events"
+            showChevron={false}
+            rightElement={
+              <Switch
+                value={emailEnabled}
+                onValueChange={(val) => {
+                  setEmailEnabled(val);
+                  updatePref("emailEnabled", val);
+                }}
                 trackColor={{ false: SKATE.colors.darkGray, true: SKATE.colors.orange }}
                 thumbColor={SKATE.colors.white}
               />
