@@ -26,13 +26,12 @@ export default defineConfig({
         'mobile/**',
       ],
       thresholds: {
-        // TECH DEBT: Coverage is currently 3%. Target is 60% by Q2 2026.
-        // Thresholds disabled to unblock CI while we add tests incrementally.
+        // Coverage gate enabled at 30%. Target is 60% by Q2 2026.
         // Track progress: pnpm vitest run --coverage
-        statements: 0,
-        branches: 0,
-        functions: 0,
-        lines: 0,
+        statements: 30,
+        branches: 20,
+        functions: 30,
+        lines: 30,
       },
     },
     testTimeout: 10000,
