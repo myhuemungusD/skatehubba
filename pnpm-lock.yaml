@@ -160,6 +160,9 @@ importers:
       '@skatehubba/config':
         specifier: workspace:*
         version: link:../packages/config
+      '@skatehubba/types':
+        specifier: workspace:*
+        version: link:../packages/types
       '@stripe/react-stripe-js':
         specifier: ^2.8.0
         version: 2.9.0(@stripe/stripe-js@4.10.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -329,6 +332,10 @@ importers:
         version: 5.9.3
 
   mobile:
+    dependencies:
+      '@skatehubba/types':
+        specifier: workspace:*
+        version: link:../packages/types
     devDependencies:
       detox:
         specifier: ^20.30.0
