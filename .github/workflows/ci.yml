@@ -79,6 +79,32 @@ jobs:
           path: dist
           retention-days: 5
 
+  # Mobile app quality gates - typecheck + lint (runs in parallel with web QC)
+  mobile_quality:
+    name: "Mobile Quality Control"
+    needs: lockfile_check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+
+      - name: Typecheck Mobile
+        run: pnpm run typecheck
+
+      - name: Lint Mobile
+        run: pnpm run lint
+
   rules_scan:
     name: "Security Guardrail"
     runs-on: ubuntu-latest

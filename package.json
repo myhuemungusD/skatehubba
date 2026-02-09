@@ -17,6 +17,8 @@
     "lint": "turbo lint",
     "typecheck": "pnpm -r run typecheck",
     "e2e:client": "pnpm -C client cypress:run",
+    "mobile:typecheck": "pnpm -C mobile run typecheck",
+    "mobile:lint": "pnpm -C mobile run lint",
     "verify:public-env": "node scripts/verify-public-env.mjs",
     "verify": "pnpm -w run typecheck && pnpm -w run lint && pnpm -w run test && pnpm -w run build",
     "test": "turbo test",
