@@ -333,12 +333,14 @@ function AppRoutes() {
         <Route path="/p/:username" component={AppShellPublicProfileRoute} />
 
         {/* ============================================================== */}
-        {/* ADMIN ROUTES (Role-gated: admin only) */}
+        {/* ADMIN ROUTES (Role-gated: admin only)                         */}
+        {/* Sub-routes MUST come before /admin — wouter Switch uses        */}
+        {/* first-match and /admin would greedily match /admin/reports     */}
         {/* ============================================================== */}
-        <AdminRoute path="/admin" component={AdminDashboardRoute} />
         <AdminRoute path="/admin/reports" component={AdminReportsRoute} />
         <AdminRoute path="/admin/users" component={AdminUsersRoute} />
         <AdminRoute path="/admin/audit-log" component={AdminAuditLogRoute} />
+        <AdminRoute path="/admin" component={AdminDashboardRoute} />
 
         {/* ============================================================== */}
         {/* NEW CONSOLIDATED ROUTES (DashboardLayout) */}

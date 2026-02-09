@@ -57,8 +57,10 @@ moderationRouter.get(
   enforceNotBanned(),
   async (req, res) => {
     const status = typeof req.query.status === "string" ? req.query.status : undefined;
-    const reports = await listReports(status);
-    return res.status(200).json({ reports });
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+    const { reports, total } = await listReports(status, page, limit);
+    return res.status(200).json({ reports, total, page, limit });
   }
 );
 

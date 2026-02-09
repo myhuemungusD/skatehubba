@@ -23,7 +23,7 @@ import {
 } from "../../components/ui/dialog";
 import { Textarea } from "../../components/ui/textarea";
 import { useToast } from "../../hooks/use-toast";
-import { Search, ChevronLeft, ChevronRight, Shield, Ban, CheckCircle } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, Shield, Ban, CheckCircle, Loader2 } from "lucide-react";
 
 interface UserModeration {
   userId: string;
@@ -107,6 +107,16 @@ export default function AdminUsers() {
     type: "temp_ban" | "perm_ban";
   } | null>(null);
   const [banNotes, setBanNotes] = useState("");
+  const [trustLevelConfirm, setTrustLevelConfirm] = useState<{
+    userId: string;
+    currentLevel: number;
+    newLevel: number;
+  } | null>(null);
+  const [tierConfirm, setTierConfirm] = useState<{
+    userId: string;
+    currentTier: string;
+    newTier: string;
+  } | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -131,10 +141,30 @@ export default function AdminUsers() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      setTrustLevelConfirm(null);
       toast({ title: "Trust level updated" });
     },
     onError: () => {
+      setTrustLevelConfirm(null);
       toast({ title: "Failed to update trust level", variant: "destructive" });
+    },
+  });
+
+  const tierOverrideMutation = useMutation({
+    mutationFn: ({ userId, accountTier }: { userId: string; accountTier: string }) =>
+      apiRequest({
+        method: "PATCH",
+        path: `/api/admin/users/${userId}/tier`,
+        body: { accountTier },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
+      setTierConfirm(null);
+      toast({ title: "Account tier updated" });
+    },
+    onError: () => {
+      setTierConfirm(null);
+      toast({ title: "Failed to update tier", variant: "destructive" });
     },
   });
 
@@ -186,6 +216,12 @@ export default function AdminUsers() {
   const users = data?.users ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / 20);
+
+  const trustLevelLabels: Record<number, string> = {
+    0: "TL0 - New User",
+    1: "TL1 - Trusted",
+    2: "TL2 - Veteran",
+  };
 
   return (
     <div>
@@ -347,11 +383,14 @@ export default function AdminUsers() {
                 <Select
                   value={String(selectedUser.trustLevel)}
                   onValueChange={(val) => {
-                    trustLevelMutation.mutate({
-                      userId: selectedUser.id,
-                      trustLevel: Number(val),
-                    });
-                    setSelectedUser({ ...selectedUser, trustLevel: Number(val) });
+                    const newLevel = Number(val);
+                    if (newLevel !== selectedUser.trustLevel) {
+                      setTrustLevelConfirm({
+                        userId: selectedUser.id,
+                        currentLevel: selectedUser.trustLevel,
+                        newLevel,
+                      });
+                    }
                   }}
                 >
                   <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white">
@@ -365,15 +404,30 @@ export default function AdminUsers() {
                 </Select>
               </div>
 
-              {/* Account Tier */}
+              {/* Account Tier Override */}
               <div>
                 <label className="text-sm text-neutral-400 block mb-1.5">Account Tier</label>
-                <div className="flex items-center gap-2">
-                  <TierBadge tier={selectedUser.accountTier} />
-                  <span className="text-xs text-neutral-500">
-                    (Manage via Stripe or award-pro endpoint)
-                  </span>
-                </div>
+                <Select
+                  value={selectedUser.accountTier}
+                  onValueChange={(val) => {
+                    if (val !== selectedUser.accountTier) {
+                      setTierConfirm({
+                        userId: selectedUser.id,
+                        currentTier: selectedUser.accountTier,
+                        newTier: val,
+                      });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-neutral-800 border-neutral-700">
+                    <SelectItem value="free">Free</SelectItem>
+                    <SelectItem value="pro">Pro (Sponsored)</SelectItem>
+                    <SelectItem value="premium">Premium ($9.99)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Pro Verification */}
@@ -393,7 +447,11 @@ export default function AdminUsers() {
                     }
                     disabled={proVerifyMutation.isPending}
                   >
-                    <CheckCircle className="h-3 w-3 mr-1" />
+                    {proVerifyMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    ) : (
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                    )}
                     Verify
                   </Button>
                   <Button
@@ -441,7 +499,11 @@ export default function AdminUsers() {
                         }
                         disabled={modActionMutation.isPending}
                       >
-                        <Shield className="h-3 w-3 mr-1" />
+                        {modActionMutation.isPending ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <Shield className="h-3 w-3 mr-1" />
+                        )}
                         Warn
                       </Button>
                       <Button
@@ -475,6 +537,110 @@ export default function AdminUsers() {
               onClick={() => setSelectedUser(null)}
             >
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Trust Level Confirmation Dialog */}
+      <Dialog open={trustLevelConfirm !== null} onOpenChange={() => setTrustLevelConfirm(null)}>
+        <DialogContent className="bg-neutral-900 border-neutral-700 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirm Trust Level Change</DialogTitle>
+            <DialogDescription className="text-neutral-400">
+              Change trust level from{" "}
+              <span className="font-medium text-white">
+                {trustLevelLabels[trustLevelConfirm?.currentLevel ?? 0]}
+              </span>{" "}
+              to{" "}
+              <span className="font-medium text-white">
+                {trustLevelLabels[trustLevelConfirm?.newLevel ?? 0]}
+              </span>
+              ? This affects the user's rate limits and permissions.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="border-neutral-600 text-neutral-300"
+              onClick={() => setTrustLevelConfirm(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              disabled={trustLevelMutation.isPending}
+              onClick={() => {
+                if (!trustLevelConfirm) return;
+                trustLevelMutation.mutate({
+                  userId: trustLevelConfirm.userId,
+                  trustLevel: trustLevelConfirm.newLevel,
+                });
+                if (selectedUser && selectedUser.id === trustLevelConfirm.userId) {
+                  setSelectedUser({ ...selectedUser, trustLevel: trustLevelConfirm.newLevel });
+                }
+              }}
+            >
+              {trustLevelMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Confirm"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tier Override Confirmation Dialog */}
+      <Dialog open={tierConfirm !== null} onOpenChange={() => setTierConfirm(null)}>
+        <DialogContent className="bg-neutral-900 border-neutral-700 text-white max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirm Tier Override</DialogTitle>
+            <DialogDescription className="text-neutral-400">
+              Change account tier from{" "}
+              <span className="font-medium text-white">{tierConfirm?.currentTier}</span> to{" "}
+              <span className="font-medium text-white">{tierConfirm?.newTier}</span>?
+              {tierConfirm?.newTier === "free" && tierConfirm?.currentTier === "premium" && (
+                <span className="block mt-1 text-yellow-400">
+                  Downgrading from Premium will revoke paid features. Consider issuing a Stripe
+                  refund separately if applicable.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="border-neutral-600 text-neutral-300"
+              onClick={() => setTierConfirm(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="bg-orange-600 hover:bg-orange-700 text-white"
+              disabled={tierOverrideMutation.isPending}
+              onClick={() => {
+                if (!tierConfirm) return;
+                tierOverrideMutation.mutate({
+                  userId: tierConfirm.userId,
+                  accountTier: tierConfirm.newTier,
+                });
+                if (selectedUser && selectedUser.id === tierConfirm.userId) {
+                  setSelectedUser({ ...selectedUser, accountTier: tierConfirm.newTier });
+                }
+              }}
+            >
+              {tierOverrideMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                  Updating...
+                </>
+              ) : (
+                "Confirm"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -534,7 +700,14 @@ export default function AdminUsers() {
               }}
               disabled={modActionMutation.isPending}
             >
-              {modActionMutation.isPending ? "Applying..." : "Confirm Ban"}
+              {modActionMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                  Applying...
+                </>
+              ) : (
+                "Confirm Ban"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

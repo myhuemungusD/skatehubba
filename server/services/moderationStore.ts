@@ -1,4 +1,4 @@
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, count } from "drizzle-orm";
 import { getDb } from "../db";
 import {
   moderationProfiles,
@@ -157,19 +157,25 @@ export const createReport = async (input: ModerationReportInput) => {
   return report;
 };
 
-export const listReports = async (status?: string) => {
+export const listReports = async (status?: string, page = 1, limit = 20) => {
   const db = getDb();
+  const offset = (page - 1) * limit;
 
   const conditions = status ? [eq(moderationReports.status, status)] : [];
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-  const reports = await db
-    .select()
-    .from(moderationReports)
-    .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(moderationReports.createdAt))
-    .limit(100);
+  const [reports, [totalRow]] = await Promise.all([
+    db
+      .select()
+      .from(moderationReports)
+      .where(whereClause)
+      .orderBy(desc(moderationReports.createdAt))
+      .limit(limit)
+      .offset(offset),
+    db.select({ value: count() }).from(moderationReports).where(whereClause),
+  ]);
 
-  return reports;
+  return { reports, total: totalRow?.value ?? 0 };
 };
 
 export const logModAction = async (input: ModActionInput) => {

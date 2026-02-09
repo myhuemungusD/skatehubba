@@ -22,7 +22,16 @@ import {
 } from "../../components/ui/dialog";
 import { Textarea } from "../../components/ui/textarea";
 import { useToast } from "../../hooks/use-toast";
-import { Clock, CheckCircle, XCircle, AlertTriangle, ArrowUpCircle } from "lucide-react";
+import {
+  Clock,
+  CheckCircle,
+  XCircle,
+  AlertTriangle,
+  ArrowUpCircle,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+} from "lucide-react";
 
 interface ModerationReport {
   id: string;
@@ -33,6 +42,13 @@ interface ModerationReport {
   notes: string | null;
   status: string;
   createdAt: string;
+}
+
+interface ReportsResponse {
+  reports: ModerationReport[];
+  total: number;
+  page: number;
+  limit: number;
 }
 
 type ReportStatus = "queued" | "reviewing" | "resolved" | "dismissed" | "escalated";
@@ -93,21 +109,24 @@ function ReportSkeleton() {
 
 export default function AdminReports() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
   const [modActionDialog, setModActionDialog] = useState<{
     report: ModerationReport;
     actionType: string;
   } | null>(null);
   const [modNotes, setModNotes] = useState("");
+  const [pendingStatusUpdate, setPendingStatusUpdate] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data, isLoading } = useQuery<{ reports: ModerationReport[] }>({
-    queryKey: ["admin", "reports", statusFilter],
+  const { data, isLoading } = useQuery<ReportsResponse>({
+    queryKey: ["admin", "reports", statusFilter, page],
     queryFn: () => {
-      const params = statusFilter !== "all" ? `?status=${statusFilter}` : "";
+      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      if (statusFilter !== "all") params.set("status", statusFilter);
       return apiRequest({
         method: "GET",
-        path: `/api/admin/reports${params}`,
+        path: `/api/admin/reports?${params}`,
       });
     },
   });
@@ -122,9 +141,11 @@ export default function AdminReports() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "reports"] });
       queryClient.invalidateQueries({ queryKey: ["admin", "stats"] });
+      setPendingStatusUpdate(null);
       toast({ title: "Report updated" });
     },
     onError: () => {
+      setPendingStatusUpdate(null);
       toast({ title: "Failed to update report", variant: "destructive" });
     },
   });
@@ -154,14 +175,16 @@ export default function AdminReports() {
   });
 
   const handleStatusUpdate = (reportId: string, status: ReportStatus) => {
+    setPendingStatusUpdate(`${reportId}:${status}`);
     updateStatusMutation.mutate({ reportId, status });
   };
+
+  const isButtonPending = (reportId: string, status: string) =>
+    pendingStatusUpdate === `${reportId}:${status}`;
 
   const handleModAction = () => {
     if (!modActionDialog) return;
     const { report, actionType } = modActionDialog;
-    // For user reports, target is the targetId; for content reports, we need the content author
-    // Since we may not know the author, use targetId as the target user
     modActionMutation.mutate({
       targetUserId: report.targetType === "user" ? report.targetId : report.targetId,
       actionType,
@@ -172,6 +195,8 @@ export default function AdminReports() {
   };
 
   const reports = data?.reports ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / 20);
 
   return (
     <div>
@@ -180,7 +205,13 @@ export default function AdminReports() {
           <h1 className="text-2xl font-bold text-white">Reports</h1>
           <p className="text-sm text-neutral-400 mt-1">Review and act on user-submitted reports</p>
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => {
+            setStatusFilter(v);
+            setPage(1);
+          }}
+        >
           <SelectTrigger className="w-36 bg-neutral-900 border-neutral-700 text-white">
             <SelectValue placeholder="Filter" />
           </SelectTrigger>
@@ -245,8 +276,13 @@ export default function AdminReports() {
                         variant="outline"
                         className="h-8 text-xs bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20"
                         onClick={() => handleStatusUpdate(report.id, "resolved")}
+                        disabled={updateStatusMutation.isPending}
                       >
-                        <CheckCircle className="h-3 w-3 mr-1" />
+                        {isButtonPending(report.id, "resolved") ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                        )}
                         Resolve
                       </Button>
                       <Button
@@ -254,8 +290,13 @@ export default function AdminReports() {
                         variant="outline"
                         className="h-8 text-xs bg-neutral-800 text-neutral-300 border-neutral-600 hover:bg-neutral-700"
                         onClick={() => handleStatusUpdate(report.id, "dismissed")}
+                        disabled={updateStatusMutation.isPending}
                       >
-                        <XCircle className="h-3 w-3 mr-1" />
+                        {isButtonPending(report.id, "dismissed") ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <XCircle className="h-3 w-3 mr-1" />
+                        )}
                         Dismiss
                       </Button>
                       <Button
@@ -263,8 +304,13 @@ export default function AdminReports() {
                         variant="outline"
                         className="h-8 text-xs bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20"
                         onClick={() => handleStatusUpdate(report.id, "escalated")}
+                        disabled={updateStatusMutation.isPending}
                       >
-                        <ArrowUpCircle className="h-3 w-3 mr-1" />
+                        {isButtonPending(report.id, "escalated") ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <ArrowUpCircle className="h-3 w-3 mr-1" />
+                        )}
                         Escalate
                       </Button>
                     </div>
@@ -313,6 +359,35 @@ export default function AdminReports() {
           ))
         )}
       </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <p className="text-xs text-neutral-500">
+            Page {page} of {totalPages} ({total} reports)
+          </p>
+          <div className="flex gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 border-neutral-700 text-neutral-400"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => p - 1)}
+            >
+              <ChevronLeft className="h-3 w-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 border-neutral-700 text-neutral-400"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              <ChevronRight className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Mod Action Dialog */}
       <Dialog
@@ -364,7 +439,14 @@ export default function AdminReports() {
               onClick={handleModAction}
               disabled={modActionMutation.isPending}
             >
-              {modActionMutation.isPending ? "Applying..." : "Apply Action"}
+              {modActionMutation.isPending ? (
+                <>
+                  <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                  Applying...
+                </>
+              ) : (
+                "Apply Action"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

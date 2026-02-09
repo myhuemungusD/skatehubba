@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { eq, desc, and, sql, count, ilike, or } from "drizzle-orm";
+import { eq, desc, and, sql, count, ilike, or, inArray, gte, lte } from "drizzle-orm";
 import { authenticateUser, requireAdmin } from "../auth/middleware";
 import { enforceAdminRateLimit, enforceNotBanned } from "../middleware/trustSafety";
 import { getDb, isDatabaseAvailable } from "../db";
@@ -83,11 +83,13 @@ adminRouter.get("/users", ...adminMiddleware, async (req, res) => {
     const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
-    const searchCondition = search
+    // Escape SQL LIKE wildcards to prevent wildcard injection
+    const sanitizedSearch = search?.replace(/[%_\\]/g, (c) => `\\${c}`);
+    const searchCondition = sanitizedSearch
       ? or(
-          ilike(customUsers.email, `%${search}%`),
-          ilike(customUsers.firstName, `%${search}%`),
-          ilike(customUsers.lastName, `%${search}%`)
+          ilike(customUsers.email, `%${sanitizedSearch}%`),
+          ilike(customUsers.firstName, `%${sanitizedSearch}%`),
+          ilike(customUsers.lastName, `%${sanitizedSearch}%`)
         )
       : undefined;
 
@@ -135,12 +137,7 @@ adminRouter.get("/users", ...adminMiddleware, async (req, res) => {
           isProVerified: moderationProfiles.isProVerified,
         })
         .from(moderationProfiles)
-        .where(
-          sql`${moderationProfiles.userId} IN (${sql.join(
-            userIds.map((id) => sql`${id}`),
-            sql`, `
-          )})`
-        );
+        .where(inArray(moderationProfiles.userId, userIds));
     }
 
     const modProfileMap = new Map(modProfiles.map((p) => [p.userId, p]));
@@ -285,6 +282,9 @@ adminRouter.get("/audit-logs", ...adminMiddleware, async (req, res) => {
     const success =
       typeof req.query.success === "string" ? req.query.success === "true" : undefined;
 
+    const from = typeof req.query.from === "string" ? req.query.from : undefined;
+    const to = typeof req.query.to === "string" ? req.query.to : undefined;
+
     const conditions = [];
     if (eventType) {
       conditions.push(eq(auditLogs.eventType, eventType));
@@ -294,6 +294,18 @@ adminRouter.get("/audit-logs", ...adminMiddleware, async (req, res) => {
     }
     if (success !== undefined) {
       conditions.push(eq(auditLogs.success, success));
+    }
+    if (from) {
+      const fromDate = new Date(from);
+      if (!isNaN(fromDate.getTime())) {
+        conditions.push(gte(auditLogs.createdAt, fromDate));
+      }
+    }
+    if (to) {
+      const toDate = new Date(to);
+      if (!isNaN(toDate.getTime())) {
+        conditions.push(lte(auditLogs.createdAt, toDate));
+      }
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
@@ -348,5 +360,56 @@ adminRouter.get("/mod-actions", ...adminMiddleware, async (req, res) => {
   } catch (error) {
     logger.error("[Admin] Mod actions query failed", { error });
     return res.status(500).json({ error: "query_failed" });
+  }
+});
+
+// ─── Admin Tier Override ─────────────────────────────────────────────────────
+
+const tierOverrideSchema = z.object({
+  accountTier: z.enum(["free", "pro", "premium"]),
+});
+
+adminRouter.patch("/users/:userId/tier", ...adminMiddleware, async (req, res) => {
+  const parsed = tierOverrideSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "INVALID_TIER", issues: parsed.error.flatten() });
+  }
+
+  const { userId } = req.params;
+  const { accountTier } = parsed.data;
+
+  if (!isDatabaseAvailable()) {
+    return res.status(503).json({ error: "database_not_available" });
+  }
+
+  try {
+    const db = getDb();
+    const now = new Date();
+
+    const [updated] = await db
+      .update(customUsers)
+      .set({
+        accountTier,
+        updatedAt: now,
+        ...(accountTier === "premium" ? { premiumPurchasedAt: now } : {}),
+        ...(accountTier === "free" ? { proAwardedBy: null, premiumPurchasedAt: null } : {}),
+      })
+      .where(eq(customUsers.id, userId))
+      .returning({ id: customUsers.id });
+
+    if (!updated) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    logger.info("[Admin] Tier override applied", {
+      userId,
+      accountTier,
+      adminId: req.currentUser?.id,
+    });
+
+    return res.json({ success: true, userId, accountTier });
+  } catch (error) {
+    logger.error("[Admin] Tier override failed", { error });
+    return res.status(500).json({ error: "update_failed" });
   }
 });

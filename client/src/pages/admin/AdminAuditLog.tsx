@@ -4,6 +4,7 @@ import { apiRequest } from "../../lib/api/client";
 import { Card, CardContent } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
 import { Skeleton } from "../../components/ui/skeleton";
 import {
   Select,
@@ -96,13 +97,22 @@ export default function AdminAuditLog() {
   const [page, setPage] = useState(1);
   const [eventFilter, setEventFilter] = useState("all");
   const [successFilter, setSuccessFilter] = useState("all");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const { data, isLoading } = useQuery<AuditLogResponse>({
-    queryKey: ["admin", "audit-logs", page, eventFilter, successFilter],
+    queryKey: ["admin", "audit-logs", page, eventFilter, successFilter, dateFrom, dateTo],
     queryFn: () => {
       const params = new URLSearchParams({ page: String(page), limit: "50" });
       if (eventFilter !== "all") params.set("eventType", eventFilter);
       if (successFilter !== "all") params.set("success", successFilter);
+      if (dateFrom) params.set("from", new Date(dateFrom).toISOString());
+      if (dateTo) {
+        // Set to end of day
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999);
+        params.set("to", toDate.toISOString());
+      }
       return apiRequest({
         method: "GET",
         path: `/api/admin/audit-logs?${params}`,
@@ -117,6 +127,12 @@ export default function AdminAuditLog() {
   // Flatten all event types for the filter dropdown
   const allEventTypes = Object.values(EVENT_CATEGORIES).flat();
 
+  const clearDateFilters = () => {
+    setDateFrom("");
+    setDateTo("");
+    setPage(1);
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -125,7 +141,7 @@ export default function AdminAuditLog() {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4">
         <Select
           value={eventFilter}
           onValueChange={(v) => {
@@ -162,6 +178,40 @@ export default function AdminAuditLog() {
             <SelectItem value="false">Failure</SelectItem>
           </SelectContent>
         </Select>
+
+        <div className="flex items-center gap-1.5">
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => {
+              setDateFrom(e.target.value);
+              setPage(1);
+            }}
+            className="w-36 bg-neutral-900 border-neutral-700 text-white text-sm h-9"
+            placeholder="From"
+          />
+          <span className="text-neutral-500 text-xs">to</span>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => {
+              setDateTo(e.target.value);
+              setPage(1);
+            }}
+            className="w-36 bg-neutral-900 border-neutral-700 text-white text-sm h-9"
+            placeholder="To"
+          />
+          {(dateFrom || dateTo) && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs text-neutral-400 hover:text-white"
+              onClick={clearDateFilters}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Log Entries */}
