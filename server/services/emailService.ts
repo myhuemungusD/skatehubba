@@ -142,12 +142,16 @@ export async function sendPaymentReceiptEmail(
         <td style="color: #888; padding: 8px 0; border-bottom: 1px solid #333;">Date</td>
         <td style="color: #fafafa; padding: 8px 0; border-bottom: 1px solid #333; text-align: right;">${details.date}</td>
       </tr>
-      ${details.transactionId ? `
+      ${
+        details.transactionId
+          ? `
       <tr>
         <td style="color: #888; padding: 8px 0;">Transaction ID</td>
         <td style="color: #fafafa; padding: 8px 0; text-align: right; font-family: monospace; font-size: 12px;">${details.transactionId}</td>
       </tr>
-      ` : ""}
+      `
+          : ""
+      }
     </table>
     <p style="color: #fafafa; line-height: 1.6;">
       You now have full access to all ${details.tier} features. Game on.
@@ -195,12 +199,16 @@ export async function sendWeeklyDigestEmail(
         <td style="color: #888; padding: 8px 0; border-bottom: 1px solid #333;">Spots Visited</td>
         <td style="color: #fafafa; padding: 8px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold;">${stats.spotsVisited}</td>
       </tr>
-      ${stats.pendingChallenges > 0 ? `
+      ${
+        stats.pendingChallenges > 0
+          ? `
       <tr>
         <td style="color: #f97316; padding: 8px 0; font-weight: bold;">Pending Challenges</td>
         <td style="color: #f97316; padding: 8px 0; text-align: right; font-weight: bold;">${stats.pendingChallenges}</td>
       </tr>
-      ` : ""}
+      `
+          : ""
+      }
     </table>
     `
     : `
@@ -209,9 +217,7 @@ export async function sendWeeklyDigestEmail(
     </p>
     `;
 
-  const ctaText = stats.pendingChallenges > 0
-    ? "Answer Challenges"
-    : "Find a Game";
+  const ctaText = stats.pendingChallenges > 0 ? "Answer Challenges" : "Find a Game";
 
   const html = wrapEmail(`
     <h2 style="color: #fafafa; margin-top: 0;">Your Week on SkateHubba</h2>
@@ -255,7 +261,7 @@ export async function sendGameEventEmail(
       content = `
         <h2 style="color: #fafafa; margin-top: 0;">New Challenge</h2>
         <p style="color: #fafafa; line-height: 1.6;">
-          ${event.opponentName || "A skater"} challenged you to a game of S.K.A.T.E.
+          Hey ${name}, ${event.opponentName || "a skater"} challenged you to a game of S.K.A.T.E.
         </p>
         <p style="color: #888; line-height: 1.6;">
           Accept or decline from the app.
@@ -272,7 +278,7 @@ export async function sendGameEventEmail(
     case "your_turn":
       subject = "Your turn in S.K.A.T.E.";
       content = `
-        <h2 style="color: #fafafa; margin-top: 0;">Your Turn</h2>
+        <h2 style="color: #fafafa; margin-top: 0;">Your Turn, ${name}</h2>
         <p style="color: #fafafa; line-height: 1.6;">
           ${event.opponentName || "Your opponent"} is waiting. It's your move.
         </p>
@@ -293,9 +299,10 @@ export async function sendGameEventEmail(
       content = `
         <h2 style="color: #fafafa; margin-top: 0;">${event.won ? "You Won" : "Game Over"}</h2>
         <p style="color: #fafafa; line-height: 1.6;">
-          ${event.won
-            ? "Nice work. You won the S.K.A.T.E. game."
-            : "You spelled S.K.A.T.E. Better luck next time."
+          ${
+            event.won
+              ? "Nice work. You won the S.K.A.T.E. game."
+              : "You spelled S.K.A.T.E. Better luck next time."
           }
         </p>
         <div style="text-align: center; margin: 30px 0;">
