@@ -449,7 +449,12 @@ describe("Presence Socket Handlers Integration", () => {
       registerPresenceHandlers(mockIo, mockSocket);
 
       const setCall = mockRedis.hset.mock.calls[0];
-      const presenceData = JSON.parse(setCall[2]);
+      let presenceData;
+      try {
+        presenceData = JSON.parse(setCall[2]);
+      } catch (error) {
+        throw new Error(`Failed to parse presence data: ${error}`);
+      }
 
       expect(presenceData).toHaveProperty("lastSeen");
       expect(new Date(presenceData.lastSeen).getTime()).toBeGreaterThan(0);
@@ -463,7 +468,12 @@ describe("Presence Socket Handlers Integration", () => {
       await updateHandler!("away");
 
       const lastCall = mockRedis.hset.mock.calls[mockRedis.hset.mock.calls.length - 1];
-      const presenceData = JSON.parse(lastCall[2]);
+      let presenceData;
+      try {
+        presenceData = JSON.parse(lastCall[2]);
+      } catch (error) {
+        throw new Error(`Failed to parse presence data: ${error}`);
+      }
 
       expect(presenceData.lastSeen).toBeDefined();
     });
