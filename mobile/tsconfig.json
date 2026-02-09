@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@skatehubba/types": ["../packages/types/index"],
+      "@skatehubba/config": ["../packages/config/src/index"],
+      "shared/*": ["../packages/shared/*"]
+    },
+    "allowJs": true,
+    "esModuleInterop": true,
+    "jsx": "react-native",
+    "lib": ["DOM", "ESNext"],
+    "moduleResolution": "node",
+    "noEmit": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "target": "ESNext"
+  },
+  "include": ["**/*.ts", "**/*.tsx", "app.config.js", ".detoxrc.js"],
+  "exclude": ["node_modules", "ios", "android", "dist", "e2e"]
+}

@@ -100,7 +100,7 @@ export default function GameScreen() {
   useEffect(() => {
     if (reconnectExpired && gameSession?.status === "active") {
       // Log the disconnection event
-      logEvent("battle_disconnected", {
+      logEvent("game_forfeited", {
         battle_id: gameId,
         reason: "reconnect_timeout",
       });
@@ -163,7 +163,7 @@ export default function GameScreen() {
         letter: null,
         autoDismissMs: null,
       };
-    } else if (turnPhase === "attacker_uploaded" && !isMe) {
+    } else if ((turnPhase as string) === "attacker_uploaded" && !isMe) {
       overlay = {
         type: "waiting_opponent",
         title: "WAITING",
@@ -357,7 +357,7 @@ export default function GameScreen() {
     return (
       (gameSession.turnPhase === "attacker_recording" && !isAttacker) ||
       (gameSession.turnPhase === "defender_recording" && !isDefender) ||
-      (gameSession.turnPhase === "attacker_uploaded" && isAttacker)
+      ((gameSession.turnPhase as string) === "attacker_uploaded" && isAttacker)
     );
   }, [gameSession, isAttacker, isDefender]);
 
