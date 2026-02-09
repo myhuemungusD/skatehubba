@@ -36,6 +36,7 @@ import { gamesRouter, forfeitExpiredGames, notifyDeadlineWarnings } from "./rout
 import { tierRouter } from "./routes/tier";
 import { stripeWebhookRouter } from "./routes/stripeWebhook";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
+import { notificationsRouter } from "./routes/notifications";
 import logger from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -62,6 +63,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 3f. Stripe Webhook (outside /api to bypass CSRF + auth — verified via Stripe signature)
   app.use("/webhooks/stripe", stripeWebhookRouter);
+
+  // 3g. Notification Routes (push token, preferences, feed)
+  app.use("/api/notifications", notificationsRouter);
 
   // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
