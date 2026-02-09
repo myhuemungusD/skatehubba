@@ -137,7 +137,6 @@ export function useResolveDispute() {
     mutationFn: ({
       disputeId,
       finalResult,
-      gameId,
     }: {
       disputeId: number;
       finalResult: 'landed' | 'missed';
