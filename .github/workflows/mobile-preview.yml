@@ -23,6 +23,7 @@ jobs:
     steps:
       - name: Check EXPO_TOKEN
         if: env.EXPO_TOKEN == ''
+        working-directory: .
         run: |
           echo "::notice::EXPO_TOKEN secret is not configured — skipping EAS preview build."
           echo "See https://docs.expo.dev/accounts/programmatic-access/ to generate a token."
