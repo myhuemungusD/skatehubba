@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
 import { useAccountTier } from "../hooks/useAccountTier";
 import { useToast } from "../hooks/use-toast";
+import { apiRequest } from "../lib/api/client";
 
 interface UpgradePromptProps {
   isOpen: boolean;
@@ -24,13 +25,18 @@ export function UpgradePrompt({ isOpen, onClose, feature }: UpgradePromptProps) 
   const handlePurchase = async () => {
     setIsPurchasing(true);
     try {
-      // TODO: Integrate Stripe payment flow here
-      // For now, show a coming-soon message
-      toast({
-        title: "Coming Soon",
-        description: "Payment processing will be available at launch. Stay tuned!",
-        duration: 5000,
+      const idempotencyKey = `${Date.now()}-${crypto.randomUUID()}`;
+      const { url } = await apiRequest<{ url: string }>({
+        method: "POST",
+        path: "/api/tier/create-checkout-session",
+        body: { idempotencyKey },
       });
+
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
     } catch {
       toast({
         title: "Error",

@@ -29,12 +29,16 @@ import { SpotCheckInSchema, type SpotCheckInRequest } from "@shared/validation/s
 import { logAuditEvent } from "./services/auditLog";
 import { verifyReplayProtection } from "./services/replayProtection";
 import { moderationRouter } from "./routes/moderation";
+import { adminRouter } from "./routes/admin";
 import { createPost } from "./services/moderationStore";
 import { sendQuickMatchNotification } from "./services/notificationService";
 import { profileRouter } from "./routes/profile";
 import { gamesRouter, forfeitExpiredGames, notifyDeadlineWarnings } from "./routes/games";
+import { trickmintRouter } from "./routes/trickmint";
 import { tierRouter } from "./routes/tier";
+import { stripeWebhookRouter } from "./routes/stripeWebhook";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
+import { notificationsRouter } from "./routes/notifications";
 import logger from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -50,14 +54,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 3b. Moderation Routes
   app.use("/api", moderationRouter);
 
+  // 3b2. Admin Dashboard Routes
+  app.use("/api/admin", adminRouter);
+
   // 3c. Profile Routes
   app.use("/api/profile", profileRouter);
 
   // 3d. Games Routes (S.K.A.T.E. game endpoints) - Pro/Premium only
   app.use("/api/games", authenticateUser, requirePaidOrPro, gamesRouter);
 
-  // 3e. Tier/Monetization Routes
+  // 3e. TrickMint Routes (Video upload pipeline) - Pro/Premium only
+  app.use("/api/trickmint", authenticateUser, requirePaidOrPro, trickmintRouter);
+
+  // 3f. Tier/Monetization Routes
   app.use("/api/tier", tierRouter);
+
+  // 3f. Stripe Webhook (outside /api to bypass CSRF + auth — verified via Stripe signature)
+  app.use("/webhooks/stripe", stripeWebhookRouter);
+
+  // 3g. Notification Routes (push token, preferences, feed)
+  app.use("/api/notifications", notificationsRouter);
 
   // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
@@ -588,10 +604,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const expected = `Bearer ${cronSecret}`;
     if (!authHeader || authHeader.length !== expected.length) return false;
     try {
-      return crypto.timingSafeEqual(
-        Buffer.from(authHeader),
-        Buffer.from(expected)
-      );
+      return crypto.timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected));
     } catch {
       return false;
     }

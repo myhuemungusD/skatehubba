@@ -1,0 +1,75 @@
+name: Mobile E2E Tests
+
+on:
+  pull_request:
+    paths:
+      - "mobile/**"
+      - "packages/types/**"
+      - "packages/shared/**"
+  workflow_dispatch:
+
+jobs:
+  detox_ios:
+    name: "Detox E2E (iOS)"
+    runs-on: macos-latest
+    # Gate behind a secret so this only runs when the team opts in
+    # (macos runners are 10x cost vs ubuntu)
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    defaults:
+      run:
+        working-directory: mobile
+    timeout-minutes: 60
+    env:
+      DETOX_CONFIGURATION: ios.sim.debug
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+
+      - name: Setup Ruby (for CocoaPods)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.2"
+          bundler-cache: true
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: mobile/ios/Pods
+          key: ${{ runner.os }}-pods-${{ hashFiles('mobile/ios/Podfile.lock') }}
+          restore-keys: ${{ runner.os }}-pods-
+
+      - name: Install CocoaPods
+        run: |
+          if [ -d "ios" ]; then
+            cd ios && pod install
+          else
+            echo "No ios directory — run 'npx expo prebuild' first"
+            npx expo prebuild --platform ios --no-install
+            cd ios && pod install
+          fi
+
+      - name: Boot iOS Simulator
+        run: |
+          DEVICE=$(xcrun simctl list devices available -j | \
+            python3 -c "import sys,json; devs=json.load(sys.stdin)['devices']; print([d['udid'] for r in devs.values() for d in r if 'iPhone 15' in d['name']][0])")
+          xcrun simctl boot "$DEVICE" || true
+
+      - name: Build Detox
+        run: pnpm run e2e:build:ios
+
+      - name: Run Detox Tests
+        run: pnpm run e2e:test:ios -- --headless
+
+      - name: Upload Detox Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: detox-artifacts
+          path: mobile/artifacts/
+          retention-days: 7

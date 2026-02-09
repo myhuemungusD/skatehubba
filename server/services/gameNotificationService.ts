@@ -2,11 +2,13 @@
  * Game Notification Service
  *
  * Sends push notifications for S.K.A.T.E. game events.
+ * Uses the unified notifyUser to deliver across push, email, and in-app.
  * No soft language. Direct. Final.
  */
 
-import { sendPushNotification } from "./notificationService";
+import { sendPushNotification, notifyUser } from "./notificationService";
 import logger from "../logger";
+import type { NotificationType } from "@shared/schema";
 
 type GameNotificationType =
   | "challenge_received"
@@ -62,6 +64,10 @@ const NOTIFICATION_CONFIG: Record<
   }),
 };
 
+/**
+ * Send game notification via push only (legacy — used when userId is unknown).
+ * Prefer sendGameNotificationToUser when you have the userId.
+ */
 export async function sendGameNotification(
   pushToken: string,
   type: GameNotificationType,
@@ -85,5 +91,36 @@ export async function sendGameNotification(
     });
   } catch (error) {
     logger.error("[GameNotification] Failed to send", { error, type, data });
+  }
+}
+
+/**
+ * Send game notification via unified notifyUser (push + email + in-app).
+ * This is the preferred method when you have the userId.
+ */
+export async function sendGameNotificationToUser(
+  userId: string,
+  type: GameNotificationType,
+  data: NotificationData
+): Promise<void> {
+  try {
+    const config = NOTIFICATION_CONFIG[type];
+    const { title, body } = config(data);
+
+    await notifyUser({
+      userId,
+      type: type as NotificationType,
+      title,
+      body,
+      data: {
+        gameId: data.gameId,
+        opponentName: data.opponentName,
+        challengerName: data.challengerName,
+        youWon: data.youWon,
+        ...(data.disputeId ? { disputeId: data.disputeId } : {}),
+      },
+    });
+  } catch (error) {
+    logger.error("[GameNotification] Failed to send to user", { error, type, userId });
   }
 }

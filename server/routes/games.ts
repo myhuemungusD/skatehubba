@@ -27,7 +27,7 @@ import {
 } from "@shared/schema";
 import { eq, or, desc, and, lt, sql } from "drizzle-orm";
 import logger from "../logger";
-import { sendGameNotification } from "../services/gameNotificationService";
+import { sendGameNotificationToUser } from "../services/gameNotificationService";
 
 const router = Router();
 
@@ -60,6 +60,7 @@ const submitTurnSchema = z.object({
   trickDescription: z.string().min(1).max(500),
   videoUrl: z.string().url().max(500),
   videoDurationMs: z.number().int().min(1).max(MAX_VIDEO_DURATION_MS),
+  thumbnailUrl: z.string().url().max(500).optional(),
 });
 
 const judgeTurnSchema = z.object({
@@ -79,10 +80,7 @@ const resolveDisputeSchema = z.object({
 // Helpers
 // ============================================================================
 
-async function getUserDisplayName(
-  db: ReturnType<typeof getDb>,
-  odv: string
-): Promise<string> {
+async function getUserDisplayName(db: ReturnType<typeof getDb>, odv: string): Promise<string> {
   const usernameResult = await db
     .select({ username: usernames.username })
     .from(usernames)
@@ -111,18 +109,6 @@ function isGameOver(
   return { over: false, loserId: null };
 }
 
-async function getUserPushToken(
-  db: ReturnType<typeof getDb>,
-  userId: string
-): Promise<string | null> {
-  const result = await db
-    .select({ pushToken: customUsers.pushToken })
-    .from(customUsers)
-    .where(eq(customUsers.id, userId))
-    .limit(1);
-  return result[0]?.pushToken ?? null;
-}
-
 // ============================================================================
 // POST /api/games/create — Challenge an opponent
 // ============================================================================
@@ -134,9 +120,7 @@ router.post("/create", authenticateUser, async (req, res) => {
 
   const parsed = createGameSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
 
   const currentUserId = req.currentUser!.id;
@@ -179,14 +163,11 @@ router.post("/create", authenticateUser, async (req, res) => {
       })
       .returning();
 
-    // Notify opponent
-    const pushToken = await getUserPushToken(db, opponentId);
-    if (pushToken) {
-      await sendGameNotification(pushToken, "challenge_received", {
-        gameId: newGame.id,
-        challengerName: player1Name,
-      });
-    }
+    // Notify opponent (push + email + in-app)
+    await sendGameNotificationToUser(opponentId, "challenge_received", {
+      gameId: newGame.id,
+      challengerName: player1Name,
+    });
 
     logger.info("[Games] Challenge created", {
       gameId: newGame.id,
@@ -218,9 +199,7 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
 
   const parsed = respondGameSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
 
   const currentUserId = req.currentUser!.id;
@@ -229,17 +208,11 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
 
   try {
     const db = getDb();
-    const [game] = await db
-      .select()
-      .from(games)
-      .where(eq(games.id, gameId))
-      .limit(1);
+    const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
 
     if (!game) return res.status(404).json({ error: "Game not found" });
     if (game.player2Id !== currentUserId) {
-      return res
-        .status(403)
-        .json({ error: "Only the challenged player can respond" });
+      return res.status(403).json({ error: "Only the challenged player can respond" });
     }
     if (game.status !== "pending") {
       return res.status(400).json({ error: "Game is not pending" });
@@ -261,13 +234,10 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
         .returning();
 
       // Notify challenger: game accepted, your turn to set a trick
-      const pushToken = await getUserPushToken(db, game.player1Id);
-      if (pushToken) {
-        await sendGameNotification(pushToken, "your_turn", {
-          gameId,
-          opponentName: game.player2Name || "Opponent",
-        });
-      }
+      await sendGameNotificationToUser(game.player1Id, "your_turn", {
+        gameId,
+        opponentName: game.player2Name || "Opponent",
+      });
 
       logger.info("[Games] Challenge accepted", {
         gameId,
@@ -311,14 +281,12 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
 
   const parsed = submitTurnSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
 
   const currentUserId = req.currentUser!.id;
   const gameId = req.params.id;
-  const { trickDescription, videoUrl, videoDurationMs } = parsed.data;
+  const { trickDescription, videoUrl, videoDurationMs, thumbnailUrl } = parsed.data;
 
   // Hard constraint: max 15 seconds
   if (videoDurationMs > MAX_VIDEO_DURATION_MS) {
@@ -331,18 +299,11 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
     // All validation + mutations in a transaction with row-level locking
     const txResult = await db.transaction(async (tx) => {
       // Lock game row to prevent concurrent turn submissions
-      await tx.execute(
-        sql`SELECT id FROM games WHERE id = ${gameId} FOR UPDATE`
-      );
+      await tx.execute(sql`SELECT id FROM games WHERE id = ${gameId} FOR UPDATE`);
 
-      const [game] = await tx
-        .select()
-        .from(games)
-        .where(eq(games.id, gameId))
-        .limit(1);
+      const [game] = await tx.select().from(games).where(eq(games.id, gameId)).limit(1);
 
-      if (!game)
-        return { ok: false as const, status: 404, error: "Game not found" };
+      if (!game) return { ok: false as const, status: 404, error: "Game not found" };
 
       const isPlayer1 = game.player1Id === currentUserId;
       const isPlayer2 = game.player2Id === currentUserId;
@@ -418,6 +379,7 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
           trickDescription,
           videoUrl,
           videoDurationMs,
+          thumbnailUrl: thumbnailUrl ?? null,
           result: "pending",
         })
         .returning();
@@ -473,15 +435,12 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
       return res.status(txResult.status).json({ error: txResult.error });
     }
 
-    // Send notifications after transaction commits
+    // Send notifications after transaction commits (push + email + in-app)
     if (txResult.notify) {
-      const pushToken = await getUserPushToken(db, txResult.notify.playerId);
-      if (pushToken) {
-        await sendGameNotification(pushToken, "your_turn", {
-          gameId,
-          opponentName: txResult.notify.opponentName,
-        });
-      }
+      await sendGameNotificationToUser(txResult.notify.playerId, "your_turn", {
+        gameId,
+        opponentName: txResult.notify.opponentName,
+      });
     }
 
     logger.info("[Games] Turn submitted", {
@@ -516,9 +475,7 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
 
   const parsed = judgeTurnSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
 
   const currentUserId = req.currentUser!.id;
@@ -533,29 +490,18 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
     const db = getDb();
 
     // Read turn outside transaction (immutable after creation)
-    const [turn] = await db
-      .select()
-      .from(gameTurns)
-      .where(eq(gameTurns.id, turnId))
-      .limit(1);
+    const [turn] = await db.select().from(gameTurns).where(eq(gameTurns.id, turnId)).limit(1);
 
     if (!turn) return res.status(404).json({ error: "Turn not found" });
 
     // All game state mutations in a transaction with row-level locking
     const txResult = await db.transaction(async (tx) => {
       // Lock game row to prevent concurrent judge/forfeit/dispute
-      await tx.execute(
-        sql`SELECT id FROM games WHERE id = ${turn.gameId} FOR UPDATE`
-      );
+      await tx.execute(sql`SELECT id FROM games WHERE id = ${turn.gameId} FOR UPDATE`);
 
-      const [game] = await tx
-        .select()
-        .from(games)
-        .where(eq(games.id, turn.gameId))
-        .limit(1);
+      const [game] = await tx.select().from(games).where(eq(games.id, turn.gameId)).limit(1);
 
-      if (!game)
-        return { ok: false as const, status: 404, error: "Game not found" };
+      if (!game) return { ok: false as const, status: 404, error: "Game not found" };
       if (currentUserId !== game.defensivePlayerId)
         return {
           ok: false as const,
@@ -601,9 +547,7 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
           )
         );
 
-      const hasResponseForThisRound = responseVideos.some(
-        (rv) => rv.turnNumber > turn.turnNumber
-      );
+      const hasResponseForThisRound = responseVideos.some((rv) => rv.turnNumber > turn.turnNumber);
 
       if (!hasResponseForThisRound)
         return {
@@ -646,10 +590,7 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
       const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
 
       if (gameOverCheck.over) {
-        const winnerId =
-          gameOverCheck.loserId === "player1"
-            ? game.player2Id
-            : game.player1Id;
+        const winnerId = gameOverCheck.loserId === "player1" ? game.player2Id : game.player1Id;
 
         const [updatedGame] = await tx
           .update(games)
@@ -676,17 +617,15 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
             winnerId,
             message: "Game over.",
           },
-          notifications: [game.player1Id, game.player2Id]
-            .filter(Boolean)
-            .map((pid) => ({
-              playerId: pid as string,
-              type: "game_over" as const,
-              data: {
-                gameId: game.id,
-                winnerId: winnerId || undefined,
-                youWon: pid === winnerId,
-              },
-            })),
+          notifications: [game.player1Id, game.player2Id].filter(Boolean).map((pid) => ({
+            playerId: pid as string,
+            type: "game_over" as const,
+            data: {
+              gameId: game.id,
+              winnerId: winnerId || undefined,
+              youWon: pid === winnerId,
+            },
+          })),
         };
       } else {
         const [updatedGame] = await tx
@@ -704,8 +643,7 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
           .where(eq(games.id, game.id))
           .returning();
 
-        const letterMessage =
-          result === "missed" ? "BAIL. Letter earned." : "LAND. Roles swap.";
+        const letterMessage = result === "missed" ? "BAIL. Letter earned." : "LAND. Roles swap.";
 
         return {
           ok: true as const,
@@ -721,9 +659,7 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
               type: "your_turn" as const,
               data: {
                 gameId: game.id,
-                opponentName:
-                  (isPlayer1 ? game.player2Name : game.player1Name) ||
-                  "Opponent",
+                opponentName: (isPlayer1 ? game.player2Name : game.player1Name) || "Opponent",
               },
             },
           ],
@@ -736,12 +672,9 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
       return res.status(txResult.status).json({ error: txResult.error });
     }
 
-    // Send notifications after transaction commits (fire-and-forget)
+    // Send notifications after transaction commits (push + email + in-app)
     for (const n of txResult.notifications) {
-      const pushToken = await getUserPushToken(db, n.playerId);
-      if (pushToken) {
-        await sendGameNotification(pushToken, n.type, n.data);
-      }
+      await sendGameNotificationToUser(n.playerId, n.type, n.data);
     }
 
     logger.info("[Games] Turn judged", {
@@ -774,9 +707,7 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
 
   const parsed = disputeSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
 
   const currentUserId = req.currentUser!.id;
@@ -789,18 +720,11 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
     // Transaction prevents concurrent dispute filings bypassing the 1-per-player limit
     const txResult = await db.transaction(async (tx) => {
       // Lock game row
-      await tx.execute(
-        sql`SELECT id FROM games WHERE id = ${gameId} FOR UPDATE`
-      );
+      await tx.execute(sql`SELECT id FROM games WHERE id = ${gameId} FOR UPDATE`);
 
-      const [game] = await tx
-        .select()
-        .from(games)
-        .where(eq(games.id, gameId))
-        .limit(1);
+      const [game] = await tx.select().from(games).where(eq(games.id, gameId)).limit(1);
 
-      if (!game)
-        return { ok: false as const, status: 404, error: "Game not found" };
+      if (!game) return { ok: false as const, status: 404, error: "Game not found" };
 
       const isPlayer1 = game.player1Id === currentUserId;
       const isPlayer2 = game.player2Id === currentUserId;
@@ -817,9 +741,7 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
           error: "Game is not active",
         };
 
-      const disputeUsed = isPlayer1
-        ? game.player1DisputeUsed
-        : game.player2DisputeUsed;
+      const disputeUsed = isPlayer1 ? game.player1DisputeUsed : game.player2DisputeUsed;
       if (disputeUsed)
         return {
           ok: false as const,
@@ -828,14 +750,9 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
         };
 
       // Get the turn being disputed
-      const [turn] = await tx
-        .select()
-        .from(gameTurns)
-        .where(eq(gameTurns.id, turnId))
-        .limit(1);
+      const [turn] = await tx.select().from(gameTurns).where(eq(gameTurns.id, turnId)).limit(1);
 
-      if (!turn)
-        return { ok: false as const, status: 404, error: "Turn not found" };
+      if (!turn) return { ok: false as const, status: 404, error: "Turn not found" };
       if (turn.gameId !== gameId)
         return {
           ok: false as const,
@@ -862,9 +779,7 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
         };
 
       // Mark dispute as used + create dispute record atomically
-      const disputeField = isPlayer1
-        ? { player1DisputeUsed: true }
-        : { player2DisputeUsed: true };
+      const disputeField = isPlayer1 ? { player1DisputeUsed: true } : { player2DisputeUsed: true };
 
       await tx.update(games).set(disputeField).where(eq(games.id, gameId));
 
@@ -894,15 +809,12 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
       disputedBy: currentUserId,
     });
 
-    // Notify opponent after transaction commits
+    // Notify opponent after transaction commits (push + email + in-app)
     if (txResult.opponentId) {
-      const pushToken = await getUserPushToken(db, txResult.opponentId);
-      if (pushToken) {
-        await sendGameNotification(pushToken, "dispute_filed", {
-          gameId,
-          disputeId: txResult.dispute.id,
-        });
-      }
+      await sendGameNotificationToUser(txResult.opponentId, "dispute_filed", {
+        gameId,
+        disputeId: txResult.dispute.id,
+      });
     }
 
     res.status(201).json({
@@ -924,196 +836,174 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
 // Opponent resolves. Final. Loser gets permanent reputation penalty.
 // ============================================================================
 
-router.post(
-  "/disputes/:disputeId/resolve",
-  authenticateUser,
-  async (req, res) => {
-    if (!isDatabaseAvailable()) {
-      return res.status(503).json({ error: "Database unavailable" });
-    }
+router.post("/disputes/:disputeId/resolve", authenticateUser, async (req, res) => {
+  if (!isDatabaseAvailable()) {
+    return res.status(503).json({ error: "Database unavailable" });
+  }
 
-    const parsed = resolveDisputeSchema.safeParse({
-      ...req.body,
-      disputeId: parseInt(req.params.disputeId, 10),
-    });
-    if (!parsed.success) {
-      return res
-        .status(400)
-        .json({ error: "Invalid request", issues: parsed.error.flatten() });
-    }
+  const parsed = resolveDisputeSchema.safeParse({
+    ...req.body,
+    disputeId: parseInt(req.params.disputeId, 10),
+  });
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+  }
 
-    const currentUserId = req.currentUser!.id;
-    const { disputeId, finalResult } = parsed.data;
+  const currentUserId = req.currentUser!.id;
+  const { disputeId, finalResult } = parsed.data;
 
-    try {
-      const db = getDb();
+  try {
+    const db = getDb();
 
-      // Transaction for atomicity: resolve dispute + apply penalty + swap roles
-      const txResult = await db.transaction(async (tx) => {
-        // Lock dispute row to prevent double-resolution
-        await tx.execute(
-          sql`SELECT id FROM game_disputes WHERE id = ${disputeId} FOR UPDATE`
-        );
+    // Transaction for atomicity: resolve dispute + apply penalty + swap roles
+    const txResult = await db.transaction(async (tx) => {
+      // Lock dispute row to prevent double-resolution
+      await tx.execute(sql`SELECT id FROM game_disputes WHERE id = ${disputeId} FOR UPDATE`);
 
-        const [dispute] = await tx
-          .select()
-          .from(gameDisputes)
-          .where(eq(gameDisputes.id, disputeId))
-          .limit(1);
+      const [dispute] = await tx
+        .select()
+        .from(gameDisputes)
+        .where(eq(gameDisputes.id, disputeId))
+        .limit(1);
 
-        if (!dispute)
-          return {
-            ok: false as const,
-            status: 404,
-            error: "Dispute not found",
-          };
-        if (dispute.finalResult)
-          return {
-            ok: false as const,
-            status: 400,
-            error: "Dispute already resolved",
-          };
-        if (dispute.againstPlayerId !== currentUserId)
-          return {
-            ok: false as const,
-            status: 403,
-            error: "Only the judging player can resolve the dispute",
-          };
-
-        // Lock game row too
-        await tx.execute(
-          sql`SELECT id FROM games WHERE id = ${dispute.gameId} FOR UPDATE`
-        );
-
-        const [game] = await tx
-          .select()
-          .from(games)
-          .where(eq(games.id, dispute.gameId))
-          .limit(1);
-
-        if (!game)
-          return { ok: false as const, status: 404, error: "Game not found" };
-        if (game.status !== "active")
-          return {
-            ok: false as const,
-            status: 400,
-            error: "Game is no longer active",
-          };
-
-        const now = new Date();
-
-        // Determine who gets penalized
-        let penaltyTarget: string;
-        if (finalResult === "landed") {
-          penaltyTarget = dispute.againstPlayerId;
-        } else {
-          penaltyTarget = dispute.disputedBy;
-        }
-
-        // Resolve the dispute
-        await tx
-          .update(gameDisputes)
-          .set({
-            finalResult,
-            resolvedBy: currentUserId,
-            resolvedAt: now,
-            penaltyAppliedTo: penaltyTarget,
-          })
-          .where(eq(gameDisputes.id, disputeId));
-
-        // Apply permanent reputation penalty
-        await tx
-          .update(userProfiles)
-          .set({
-            disputePenalties: sql`${userProfiles.disputePenalties} + 1`,
-          })
-          .where(eq(userProfiles.id, penaltyTarget));
-
-        // If overturned to LAND, reverse the letter and swap roles
-        if (finalResult === "landed") {
-          const defenderIsPlayer1 =
-            game.player1Id === dispute.againstPlayerId;
-          const currentLetters = defenderIsPlayer1
-            ? game.player1Letters || ""
-            : game.player2Letters || "";
-
-          const letterUpdate = defenderIsPlayer1
-            ? {
-                player1Letters:
-                  currentLetters.length > 0
-                    ? currentLetters.slice(0, -1)
-                    : "",
-              }
-            : {
-                player2Letters:
-                  currentLetters.length > 0
-                    ? currentLetters.slice(0, -1)
-                    : "",
-              };
-
-          const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
-
-          // Remove letter + swap roles (LAND = roles swap)
-          await tx
-            .update(games)
-            .set({
-              ...letterUpdate,
-              offensivePlayerId: dispute.againstPlayerId,
-              defensivePlayerId: dispute.disputedBy,
-              currentTurn: dispute.againstPlayerId,
-              turnPhase: "set_trick",
-              deadlineAt: deadline,
-              updatedAt: now,
-            })
-            .where(eq(games.id, game.id));
-
-          // Update the turn result to landed
-          await tx
-            .update(gameTurns)
-            .set({ result: "landed" })
-            .where(eq(gameTurns.id, dispute.turnId));
-        }
-
+      if (!dispute)
         return {
-          ok: true as const,
-          dispute: {
-            ...dispute,
-            finalResult,
-            resolvedBy: currentUserId,
-            resolvedAt: now,
-            penaltyAppliedTo: penaltyTarget,
-          },
-          penaltyTarget,
+          ok: false as const,
+          status: 404,
+          error: "Dispute not found",
         };
-      });
+      if (dispute.finalResult)
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Dispute already resolved",
+        };
+      if (dispute.againstPlayerId !== currentUserId)
+        return {
+          ok: false as const,
+          status: 403,
+          error: "Only the judging player can resolve the dispute",
+        };
 
-      if (!txResult.ok) {
-        return res.status(txResult.status).json({ error: txResult.error });
+      // Lock game row too
+      await tx.execute(sql`SELECT id FROM games WHERE id = ${dispute.gameId} FOR UPDATE`);
+
+      const [game] = await tx.select().from(games).where(eq(games.id, dispute.gameId)).limit(1);
+
+      if (!game) return { ok: false as const, status: 404, error: "Game not found" };
+      if (game.status !== "active")
+        return {
+          ok: false as const,
+          status: 400,
+          error: "Game is no longer active",
+        };
+
+      const now = new Date();
+
+      // Determine who gets penalized
+      let penaltyTarget: string;
+      if (finalResult === "landed") {
+        penaltyTarget = dispute.againstPlayerId;
+      } else {
+        penaltyTarget = dispute.disputedBy;
       }
 
-      logger.info("[Games] Dispute resolved", {
-        disputeId,
-        finalResult,
-        penaltyTarget: txResult.penaltyTarget,
-      });
+      // Resolve the dispute
+      await tx
+        .update(gameDisputes)
+        .set({
+          finalResult,
+          resolvedBy: currentUserId,
+          resolvedAt: now,
+          penaltyAppliedTo: penaltyTarget,
+        })
+        .where(eq(gameDisputes.id, disputeId));
 
-      res.json({
-        dispute: txResult.dispute,
-        message:
-          finalResult === "landed"
-            ? "Dispute upheld. BAIL overturned to LAND. Letter removed."
-            : "Dispute denied. BAIL stands.",
-      });
-    } catch (error) {
-      logger.error("[Games] Failed to resolve dispute", {
-        error,
-        disputeId,
-        userId: currentUserId,
-      });
-      res.status(500).json({ error: "Failed to resolve dispute" });
+      // Apply permanent reputation penalty
+      await tx
+        .update(userProfiles)
+        .set({
+          disputePenalties: sql`${userProfiles.disputePenalties} + 1`,
+        })
+        .where(eq(userProfiles.id, penaltyTarget));
+
+      // If overturned to LAND, reverse the letter and swap roles
+      if (finalResult === "landed") {
+        const defenderIsPlayer1 = game.player1Id === dispute.againstPlayerId;
+        const currentLetters = defenderIsPlayer1
+          ? game.player1Letters || ""
+          : game.player2Letters || "";
+
+        const letterUpdate = defenderIsPlayer1
+          ? {
+              player1Letters: currentLetters.length > 0 ? currentLetters.slice(0, -1) : "",
+            }
+          : {
+              player2Letters: currentLetters.length > 0 ? currentLetters.slice(0, -1) : "",
+            };
+
+        const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
+
+        // Remove letter + swap roles (LAND = roles swap)
+        await tx
+          .update(games)
+          .set({
+            ...letterUpdate,
+            offensivePlayerId: dispute.againstPlayerId,
+            defensivePlayerId: dispute.disputedBy,
+            currentTurn: dispute.againstPlayerId,
+            turnPhase: "set_trick",
+            deadlineAt: deadline,
+            updatedAt: now,
+          })
+          .where(eq(games.id, game.id));
+
+        // Update the turn result to landed
+        await tx
+          .update(gameTurns)
+          .set({ result: "landed" })
+          .where(eq(gameTurns.id, dispute.turnId));
+      }
+
+      return {
+        ok: true as const,
+        dispute: {
+          ...dispute,
+          finalResult,
+          resolvedBy: currentUserId,
+          resolvedAt: now,
+          penaltyAppliedTo: penaltyTarget,
+        },
+        penaltyTarget,
+      };
+    });
+
+    if (!txResult.ok) {
+      return res.status(txResult.status).json({ error: txResult.error });
     }
+
+    logger.info("[Games] Dispute resolved", {
+      disputeId,
+      finalResult,
+      penaltyTarget: txResult.penaltyTarget,
+    });
+
+    res.json({
+      dispute: txResult.dispute,
+      message:
+        finalResult === "landed"
+          ? "Dispute upheld. BAIL overturned to LAND. Letter removed."
+          : "Dispute denied. BAIL stands.",
+    });
+  } catch (error) {
+    logger.error("[Games] Failed to resolve dispute", {
+      error,
+      disputeId,
+      userId: currentUserId,
+    });
+    res.status(500).json({ error: "Failed to resolve dispute" });
   }
-);
+});
 
 // ============================================================================
 // POST /api/games/:id/forfeit — Voluntary forfeit
@@ -1130,20 +1020,14 @@ router.post("/:id/forfeit", authenticateUser, async (req, res) => {
   try {
     const db = getDb();
 
-    const [game] = await db
-      .select()
-      .from(games)
-      .where(eq(games.id, gameId))
-      .limit(1);
+    const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
 
     if (!game) return res.status(404).json({ error: "Game not found" });
 
     const isPlayer1 = game.player1Id === currentUserId;
     const isPlayer2 = game.player2Id === currentUserId;
     if (!isPlayer1 && !isPlayer2) {
-      return res
-        .status(403)
-        .json({ error: "You are not a player in this game" });
+      return res.status(403).json({ error: "You are not a player in this game" });
     }
     if (game.status !== "active") {
       return res.status(400).json({ error: "Game is not active" });
@@ -1163,14 +1047,11 @@ router.post("/:id/forfeit", authenticateUser, async (req, res) => {
       .where(eq(games.id, gameId))
       .returning();
 
-    // Notify opponent
+    // Notify opponent (push + email + in-app)
     if (winnerId) {
-      const pushToken = await getUserPushToken(db, winnerId);
-      if (pushToken) {
-        await sendGameNotification(pushToken, "opponent_forfeited", {
-          gameId,
-        });
-      }
+      await sendGameNotificationToUser(winnerId, "opponent_forfeited", {
+        gameId,
+      });
     }
 
     logger.info("[Games] Game forfeited", {
@@ -1207,12 +1088,7 @@ router.get("/my-games", authenticateUser, async (req, res) => {
     const userGames = await db
       .select()
       .from(games)
-      .where(
-        or(
-          eq(games.player1Id, currentUserId),
-          eq(games.player2Id, currentUserId)
-        )
-      )
+      .where(or(eq(games.player1Id, currentUserId), eq(games.player2Id, currentUserId)))
       .orderBy(desc(games.updatedAt))
       .limit(50);
 
@@ -1224,10 +1100,7 @@ router.get("/my-games", authenticateUser, async (req, res) => {
     );
     const activeGames = userGames.filter((g) => g.status === "active");
     const completedGames = userGames.filter(
-      (g) =>
-        g.status === "completed" ||
-        g.status === "declined" ||
-        g.status === "forfeited"
+      (g) => g.status === "completed" || g.status === "declined" || g.status === "forfeited"
     );
 
     res.json({
@@ -1261,18 +1134,12 @@ router.get("/:id", authenticateUser, async (req, res) => {
   try {
     const db = getDb();
 
-    const [game] = await db
-      .select()
-      .from(games)
-      .where(eq(games.id, gameId))
-      .limit(1);
+    const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
 
     if (!game) return res.status(404).json({ error: "Game not found" });
 
     if (game.player1Id !== currentUserId && game.player2Id !== currentUserId) {
-      return res
-        .status(403)
-        .json({ error: "You are not a player in this game" });
+      return res.status(403).json({ error: "You are not a player in this game" });
     }
 
     const turns = await db
@@ -1289,21 +1156,13 @@ router.get("/:id", authenticateUser, async (req, res) => {
 
     const isMyTurn = game.currentTurn === currentUserId;
     const pendingSetTurn = turns.find(
-      (t) =>
-        t.result === "pending" &&
-        t.turnType === "set" &&
-        t.playerId !== currentUserId
+      (t) => t.result === "pending" && t.turnType === "set" && t.playerId !== currentUserId
     );
-    const needsToJudge =
-      game.turnPhase === "judge" && game.currentTurn === currentUserId;
-    const needsToRespond =
-      game.turnPhase === "respond_trick" &&
-      game.currentTurn === currentUserId;
+    const needsToJudge = game.turnPhase === "judge" && game.currentTurn === currentUserId;
+    const needsToRespond = game.turnPhase === "respond_trick" && game.currentTurn === currentUserId;
 
     const isPlayer1 = game.player1Id === currentUserId;
-    const canDispute = isPlayer1
-      ? !game.player1DisputeUsed
-      : !game.player2DisputeUsed;
+    const canDispute = isPlayer1 ? !game.player1DisputeUsed : !game.player2DisputeUsed;
 
     res.json({
       game,
@@ -1347,8 +1206,7 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
 
     for (const game of expiredGames) {
       const loserId = game.currentTurn;
-      const winnerId =
-        loserId === game.player1Id ? game.player2Id : game.player1Id;
+      const winnerId = loserId === game.player1Id ? game.player2Id : game.player1Id;
 
       await db
         .update(games)
@@ -1360,17 +1218,14 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
         })
         .where(eq(games.id, game.id));
 
-      // Notify both players
+      // Notify both players (push + email + in-app)
       for (const playerId of [game.player1Id, game.player2Id]) {
         if (!playerId) continue;
-        const pushToken = await getUserPushToken(db, playerId);
-        if (pushToken) {
-          await sendGameNotification(pushToken, "game_forfeited_timeout", {
-            gameId: game.id,
-            loserId: loserId || undefined,
-            winnerId: winnerId || undefined,
-          });
-        }
+        await sendGameNotificationToUser(playerId, "game_forfeited_timeout", {
+          gameId: game.id,
+          loserId: loserId || undefined,
+          winnerId: winnerId || undefined,
+        });
       }
 
       logger.info("[Games] Game forfeited due to timeout", {
@@ -1409,12 +1264,7 @@ export async function notifyDeadlineWarnings(): Promise<{
     const urgentGames = await db
       .select()
       .from(games)
-      .where(
-        and(
-          eq(games.status, "active"),
-          lt(games.deadlineAt!, oneHourFromNow)
-        )
-      );
+      .where(and(eq(games.status, "active"), lt(games.deadlineAt!, oneHourFromNow)));
 
     let notifiedCount = 0;
 
@@ -1429,17 +1279,12 @@ export async function notifyDeadlineWarnings(): Promise<{
         continue;
       }
 
-      const pushToken = await getUserPushToken(db, game.currentTurn);
-      if (pushToken) {
-        await sendGameNotification(pushToken, "deadline_warning", {
-          gameId: game.id,
-          minutesRemaining: Math.round(
-            (new Date(game.deadlineAt).getTime() - now.getTime()) / 60000
-          ),
-        });
-        deadlineWarningsSent.set(game.id, now.getTime());
-        notifiedCount++;
-      }
+      await sendGameNotificationToUser(game.currentTurn, "deadline_warning", {
+        gameId: game.id,
+        minutesRemaining: Math.round((new Date(game.deadlineAt).getTime() - now.getTime()) / 60000),
+      });
+      deadlineWarningsSent.set(game.id, now.getTime());
+      notifiedCount++;
     }
 
     // Clean up old entries from the dedup map

@@ -1,9 +1,10 @@
 import { type ReactNode, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, MapPin, Trophy, User, LogOut } from "lucide-react";
+import { Home, MapPin, Trophy, User, LogOut, Shield } from "lucide-react";
 import { useIsMobile } from "../../hooks/use-mobile";
 import { useAuth } from "../../hooks/useAuth";
 import { EmailVerificationBanner } from "../EmailVerificationBanner";
+import NotificationBell from "../NotificationBell";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -37,10 +38,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="min-h-screen bg-neutral-950 text-white flex">
         {/* Desktop Sidebar */}
         <aside className="fixed left-0 top-0 h-full w-64 border-r border-neutral-800 bg-neutral-900/50 backdrop-blur-sm z-40 flex flex-col">
-          <div className="p-6">
+          <div className="p-6 flex items-center justify-between">
             <Link href="/hub" className="flex items-center gap-2">
               <span className="text-2xl font-bold text-yellow-400">SkateHubba</span>
             </Link>
+            <NotificationBell />
           </div>
           <nav className="px-4 py-2 flex-1" role="navigation" aria-label="Main navigation">
             <ul className="space-y-1">
@@ -68,8 +70,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </ul>
           </nav>
 
-          {/* Logout at bottom of sidebar */}
-          <div className="px-4 py-4 border-t border-neutral-800">
+          {/* Admin + Logout at bottom of sidebar */}
+          <div className="px-4 py-4 border-t border-neutral-800 space-y-1">
+            {auth.isAdmin && (
+              <Link
+                href="/admin"
+                className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-orange-400 hover:bg-orange-500/10 transition-colors w-full"
+              >
+                <Shield className="h-5 w-5" aria-hidden="true" />
+                <span>Admin</span>
+              </Link>
+            )}
             <button
               onClick={handleLogout}
               className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors w-full"
@@ -95,6 +106,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-neutral-950 text-white flex flex-col">
       <EmailVerificationBanner />
+      {/* Mobile top bar with notification bell */}
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/95 px-4 py-2 backdrop-blur-sm">
+        <span className="text-lg font-bold text-yellow-400">SkateHubba</span>
+        <NotificationBell />
+      </div>
       <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="mx-auto w-full max-w-md px-4 pt-4">{children}</div>
       </main>

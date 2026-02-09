@@ -594,6 +594,7 @@ export const gameTurns = pgTable("game_turns", {
   trickDescription: text("trick_description").notNull(),
   videoUrl: varchar("video_url", { length: 500 }), // Firebase Storage URL
   videoDurationMs: integer("video_duration_ms"), // Max 15000ms enforced client-side
+  thumbnailUrl: varchar("thumbnail_url", { length: 500 }), // First-frame thumbnail for feed/history
   result: varchar("result", { length: 50 }).notNull().default("pending"), // 'landed', 'missed', 'pending'
   judgedBy: varchar("judged_by", { length: 255 }),
   judgedAt: timestamp("judged_at"),
@@ -615,6 +616,61 @@ export const gameDisputes = pgTable("game_disputes", {
   penaltyAppliedTo: varchar("penalty_applied_to", { length: 255 }), // who got penalized
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// ============================================================================
+// TrickMint — video upload pipeline for standalone trick clips
+// ============================================================================
+
+export const CLIP_STATUSES = ["processing", "ready", "failed", "flagged"] as const;
+export type ClipStatus = (typeof CLIP_STATUSES)[number];
+
+export const trickClips = pgTable(
+  "trick_clips",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    userName: varchar("user_name", { length: 255 }).notNull(),
+    trickName: varchar("trick_name", { length: 200 }).notNull(),
+    description: text("description"),
+    videoUrl: varchar("video_url", { length: 500 }).notNull(),
+    videoDurationMs: integer("video_duration_ms"),
+    thumbnailUrl: varchar("thumbnail_url", { length: 500 }),
+    fileSizeBytes: integer("file_size_bytes"),
+    mimeType: varchar("mime_type", { length: 100 }),
+    status: varchar("status", { length: 50 }).notNull().default("processing"),
+    // Optional links to game/spot context
+    spotId: integer("spot_id"),
+    gameId: varchar("game_id", { length: 255 }),
+    gameTurnId: integer("game_turn_id"),
+    // Engagement
+    views: integer("views").default(0).notNull(),
+    likes: integer("likes").default(0).notNull(),
+    isPublic: boolean("is_public").default(true).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("IDX_trick_clips_user").on(table.userId),
+    statusIdx: index("IDX_trick_clips_status").on(table.status),
+    publicFeedIdx: index("IDX_trick_clips_public_feed").on(
+      table.isPublic,
+      table.status,
+      table.createdAt
+    ),
+    gameIdx: index("IDX_trick_clips_game").on(table.gameId),
+  })
+);
+
+export const insertTrickClipSchema = createInsertSchema(trickClips).omit({
+  id: true,
+  views: true,
+  likes: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type TrickClip = typeof trickClips.$inferSelect;
+export type InsertTrickClip = z.infer<typeof insertTrickClipSchema>;
 
 export const insertGameSchema = createInsertSchema(games).omit({
   id: true,
@@ -1096,3 +1152,90 @@ export const onboardingProfiles = pgTable("onboarding_profiles", {
 });
 
 export type OnboardingProfile = typeof onboardingProfiles.$inferSelect;
+
+// ============================================================================
+// Notification types enum
+// ============================================================================
+
+export const NOTIFICATION_TYPES = [
+  "challenge_received",
+  "your_turn",
+  "game_over",
+  "opponent_forfeited",
+  "game_forfeited_timeout",
+  "deadline_warning",
+  "dispute_filed",
+  "welcome",
+  "payment_receipt",
+  "weekly_digest",
+  "quick_match",
+  "system",
+] as const;
+export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
+
+export const NOTIFICATION_CHANNELS = ["push", "email", "in_app"] as const;
+export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
+
+// ============================================================================
+// Notifications table — in-app notification feed
+// ============================================================================
+
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    type: varchar("type", { length: 50 }).notNull(),
+    title: varchar("title", { length: 255 }).notNull(),
+    body: text("body").notNull(),
+    data: json("data").$type<Record<string, unknown>>(),
+    channel: varchar("channel", { length: 20 }).notNull().default("in_app"),
+    isRead: boolean("is_read").default(false).notNull(),
+    readAt: timestamp("read_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("IDX_notifications_user").on(table.userId),
+    userUnreadIdx: index("IDX_notifications_user_unread").on(
+      table.userId,
+      table.isRead
+    ),
+    createdAtIdx: index("IDX_notifications_created_at").on(table.createdAt),
+  })
+);
+
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;
+
+// ============================================================================
+// Notification preferences — per-user opt-in/out per type+channel
+// ============================================================================
+
+export const notificationPreferences = pgTable(
+  "notification_preferences",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    // Push notification channels
+    pushEnabled: boolean("push_enabled").default(true).notNull(),
+    emailEnabled: boolean("email_enabled").default(true).notNull(),
+    inAppEnabled: boolean("in_app_enabled").default(true).notNull(),
+    // Per-category toggles
+    gameNotifications: boolean("game_notifications").default(true).notNull(),
+    challengeNotifications: boolean("challenge_notifications").default(true).notNull(),
+    turnNotifications: boolean("turn_notifications").default(true).notNull(),
+    resultNotifications: boolean("result_notifications").default(true).notNull(),
+    marketingEmails: boolean("marketing_emails").default(true).notNull(),
+    weeklyDigest: boolean("weekly_digest").default(true).notNull(),
+    // Quiet hours (stored as HH:MM in user's local time)
+    quietHoursStart: varchar("quiet_hours_start", { length: 5 }),
+    quietHoursEnd: varchar("quiet_hours_end", { length: 5 }),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: uniqueIndex("unique_notification_prefs_user").on(table.userId),
+  })
+);
+
+export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;

@@ -71,6 +71,9 @@ app.use(cors(corsOptions));
 // Compression
 app.use(compression());
 
+// Raw body for Stripe webhook signature verification (MUST precede express.json())
+app.use("/webhooks/stripe", express.raw({ type: "application/json" }));
+
 // Body parsing (before CSRF to enable JSON/form requests)
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
