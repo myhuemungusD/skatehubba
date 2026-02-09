@@ -108,7 +108,6 @@ export default function MapPage() {
   // ---------------------------------------------------------------------------
   // Data Fetching
   // ---------------------------------------------------------------------------
-  const queryClient = useQueryClient();
   const hasDiscoveredRef = useRef(false);
 
   const {
