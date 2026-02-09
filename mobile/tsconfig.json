@@ -4,7 +4,9 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@skatehubba/types": ["../packages/types/index"]
+      "@skatehubba/types": ["../packages/types/index"],
+      "@skatehubba/config": ["../packages/config/src/index"],
+      "shared/*": ["../packages/shared/*"]
     },
     "allowJs": true,
     "esModuleInterop": true,

@@ -1,8 +1,10 @@
 // Shared domain types — re-exported from @skatehubba/types
 export type { Spot, CheckIn } from "@skatehubba/types";
 
+import type { SkateLetter as _SkateLetter } from "@skatehubba/types";
+export type { _SkateLetter as SkateLetter };
+
 export type {
-  SkateLetter,
   GameSessionStatus,
   TurnPhase,
   JudgmentVotes,
@@ -49,6 +51,6 @@ export interface GameOverlay {
   title: string;
   subtitle: string | null;
   playerId: string | null; // Player this overlay relates to
-  letter: SkateLetter | null; // Letter gained (if applicable)
+  letter: _SkateLetter | null; // Letter gained (if applicable)
   autoDismissMs: number | null; // Auto-dismiss timeout (null = manual)
 }
