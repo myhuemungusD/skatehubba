@@ -4,7 +4,7 @@
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { authLimiter, aiLimiter } from "../rateLimit";
-import type { Request, Response } from "express";
+import type { Request, Response, NextFunction } from "express";
 
 // Mock Redis client
 vi.mock("../../redis", () => ({
@@ -14,15 +14,21 @@ vi.mock("../../redis", () => ({
 describe("Rate Limit Middleware Integration", () => {
   let mockReq: Partial<Request>;
   let mockRes: Partial<Response>;
-  let nextFn: ReturnType<typeof vi.fn>;
+  let nextFn: NextFunction;
 
   beforeEach(() => {
     mockReq = {
-      ip: "127.0.0.1",
       method: "POST",
       path: "/api/auth/login",
       headers: {},
     };
+
+    // Set ip using Object.defineProperty to avoid readonly error
+    Object.defineProperty(mockReq, "ip", {
+      value: "127.0.0.1",
+      writable: true,
+      configurable: true,
+    });
 
     mockRes = {
       status: vi.fn().mockReturnThis(),
@@ -31,7 +37,7 @@ describe("Rate Limit Middleware Integration", () => {
       getHeader: vi.fn(),
     };
 
-    nextFn = vi.fn();
+    nextFn = vi.fn() as NextFunction;
   });
 
   describe("authLimiter", () => {
@@ -137,7 +143,11 @@ describe("Rate Limit Middleware Integration", () => {
     });
 
     it("should handle IPv6 addresses", () => {
-      mockReq.ip = "::1";
+      Object.defineProperty(mockReq, "ip", {
+        value: "::1",
+        writable: true,
+        configurable: true,
+      });
       expect(mockReq.ip).toBe("::1");
     });
 
