@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator } from "react-native";
 import MapView, { Marker } from "react-native-maps";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -14,7 +14,7 @@ export default function MapScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [showAddSpotModal, setShowAddSpotModal] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
-  const { user, isAuthenticated, checkAuth } = useRequireAuth();
+  const { isAuthenticated, checkAuth } = useRequireAuth();
 
   useEffect(() => {
     (async () => {
