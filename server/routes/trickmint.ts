@@ -22,7 +22,7 @@ import { authenticateUser } from "../auth/middleware";
 import { trickClips, usernames, customUsers } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import logger from "../logger";
-import { generateUploadUrls, UPLOAD_LIMITS, isOwnStorageUrl } from "../services/storageService";
+import { generateUploadUrls, UPLOAD_LIMITS } from "../services/storageService";
 import {
   processUpload,
   confirmDirectUpload,

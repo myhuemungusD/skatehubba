@@ -11,7 +11,7 @@
 
 import { getDb } from "../db";
 import { trickClips } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { validateUploadedFile, getPublicUrl } from "./storageService";
 import logger from "../logger";
 
