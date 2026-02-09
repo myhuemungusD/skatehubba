@@ -1,11 +1,11 @@
 /**
  * GameCard Component
  *
- * Displays a game summary card
+ * Compact game summary card with turn phase indicator.
  */
 
 import { formatDistanceToNow } from 'date-fns';
-import { Clock, Trophy, User } from 'lucide-react';
+import { Clock, Trophy, User, Target, Shield, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Game } from '@/lib/api/game';
 
@@ -23,21 +23,32 @@ export function GameCard({ game, currentUserId, onClick, className }: GameCardPr
   const oppLetters = isPlayer1 ? game.player2Letters : game.player1Letters;
   const isMyTurn = game.currentTurn === currentUserId;
   const isWinner = game.winnerId === currentUserId;
+  const isOffensive = game.offensivePlayerId === currentUserId;
+  const isDefensive = game.defensivePlayerId === currentUserId;
 
-  const statusColors = {
+  const statusColors: Record<string, string> = {
     pending: 'border-yellow-500/30 bg-yellow-500/5',
-    active: 'border-green-500/30 bg-green-500/5',
+    active: isMyTurn ? 'border-orange-500/30 bg-orange-500/5' : 'border-neutral-700 bg-neutral-800/50',
     completed: 'border-neutral-700 bg-neutral-800/50',
     declined: 'border-neutral-700 bg-neutral-800/50',
     forfeited: 'border-neutral-700 bg-neutral-800/50',
   };
 
-  const statusLabels = {
+  const getPhaseLabel = () => {
+    if (game.status !== 'active') return null;
+    if (!isMyTurn) return 'Waiting';
+    if (game.turnPhase === 'set_trick' && isOffensive) return 'Set trick';
+    if (game.turnPhase === 'respond_trick' && isDefensive) return 'Respond';
+    if (game.turnPhase === 'judge' && isDefensive) return 'Judge';
+    return 'Your turn';
+  };
+
+  const statusLabels: Record<string, string> = {
     pending: 'Pending',
-    active: isMyTurn ? 'Your Turn' : "Opponent's Turn",
-    completed: isWinner ? 'You Won!' : 'You Lost',
+    active: isMyTurn ? (getPhaseLabel() || 'Your Turn') : 'Waiting',
+    completed: isWinner ? 'Won' : 'Lost',
     declined: 'Declined',
-    forfeited: 'Forfeited',
+    forfeited: 'Forfeit',
   };
 
   return (
@@ -45,7 +56,7 @@ export function GameCard({ game, currentUserId, onClick, className }: GameCardPr
       onClick={onClick}
       className={cn(
         'w-full text-left p-4 rounded-lg border-2 transition-all hover:border-yellow-400/50',
-        statusColors[game.status],
+        statusColors[game.status] || 'border-neutral-700 bg-neutral-800/50',
         onClick && 'cursor-pointer',
         className
       )}
@@ -74,11 +85,20 @@ export function GameCard({ game, currentUserId, onClick, className }: GameCardPr
             </div>
           </div>
 
+          {game.status === 'active' && isMyTurn && game.turnPhase && (
+            <div className="flex items-center gap-1 text-xs">
+              {game.turnPhase === 'set_trick' && <Target className="w-3 h-3 text-orange-400" />}
+              {game.turnPhase === 'respond_trick' && <Shield className="w-3 h-3 text-blue-400" />}
+              {game.turnPhase === 'judge' && <AlertTriangle className="w-3 h-3 text-yellow-400" />}
+              <span className="text-neutral-400">{getPhaseLabel()}</span>
+            </div>
+          )}
+
           {game.deadlineAt && game.status === 'active' && (
-            <div className="flex items-center gap-1 text-xs text-neutral-400">
+            <div className="flex items-center gap-1 text-xs text-neutral-500">
               <Clock className="w-3 h-3" />
               <span>
-                Deadline: {formatDistanceToNow(new Date(game.deadlineAt), { addSuffix: true })}
+                {formatDistanceToNow(new Date(game.deadlineAt), { addSuffix: true })}
               </span>
             </div>
           )}
@@ -88,19 +108,16 @@ export function GameCard({ game, currentUserId, onClick, className }: GameCardPr
           <span
             className={cn(
               'px-2 py-1 rounded text-xs font-medium',
-              game.status === 'active' && isMyTurn && 'bg-yellow-500/20 text-yellow-400',
+              game.status === 'active' && isMyTurn && 'bg-orange-500/20 text-orange-400',
               game.status === 'active' && !isMyTurn && 'bg-neutral-700 text-neutral-300',
               game.status === 'pending' && 'bg-yellow-500/20 text-yellow-400',
-              game.status === 'completed' &&
-                isWinner &&
-                'bg-green-500/20 text-green-400 flex items-center gap-1',
+              game.status === 'completed' && isWinner && 'bg-green-500/20 text-green-400 flex items-center gap-1',
               game.status === 'completed' && !isWinner && 'bg-red-500/20 text-red-400',
-              (game.status === 'declined' || game.status === 'forfeited') &&
-                'bg-neutral-700 text-neutral-400'
+              (game.status === 'declined' || game.status === 'forfeited') && 'bg-neutral-700 text-neutral-400'
             )}
           >
             {game.status === 'completed' && isWinner && <Trophy className="w-3 h-3" />}
-            {statusLabels[game.status]}
+            {statusLabels[game.status] || game.status}
           </span>
 
           <span className="text-xs text-neutral-500">
