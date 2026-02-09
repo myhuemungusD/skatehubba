@@ -33,6 +33,7 @@ import { createPost } from "./services/moderationStore";
 import { sendQuickMatchNotification } from "./services/notificationService";
 import { profileRouter } from "./routes/profile";
 import { gamesRouter, forfeitExpiredGames, notifyDeadlineWarnings } from "./routes/games";
+import { trickmintRouter } from "./routes/trickmint";
 import { tierRouter } from "./routes/tier";
 import { stripeWebhookRouter } from "./routes/stripeWebhook";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
@@ -57,7 +58,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // 3d. Games Routes (S.K.A.T.E. game endpoints) - Pro/Premium only
   app.use("/api/games", authenticateUser, requirePaidOrPro, gamesRouter);
 
-  // 3e. Tier/Monetization Routes
+  // 3e. TrickMint Routes (Video upload pipeline) - Pro/Premium only
+  app.use("/api/trickmint", authenticateUser, requirePaidOrPro, trickmintRouter);
+
+  // 3f. Tier/Monetization Routes
   app.use("/api/tier", tierRouter);
 
   // 3f. Stripe Webhook (outside /api to bypass CSRF + auth — verified via Stripe signature)
@@ -592,10 +596,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const expected = `Bearer ${cronSecret}`;
     if (!authHeader || authHeader.length !== expected.length) return false;
     try {
-      return crypto.timingSafeEqual(
-        Buffer.from(authHeader),
-        Buffer.from(expected)
-      );
+      return crypto.timingSafeEqual(Buffer.from(authHeader), Buffer.from(expected));
     } catch {
       return false;
     }

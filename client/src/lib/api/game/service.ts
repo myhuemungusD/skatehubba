@@ -4,7 +4,7 @@
  * Async turn-based game. No retries. No previews. Final.
  */
 
-import { apiRequest } from '../client';
+import { apiRequest } from "../client";
 import type {
   GameWithDetails,
   MyGames,
@@ -20,20 +20,20 @@ import type {
   DisputeResponse,
   ResolveDisputeRequest,
   ResolveDisputeResponse,
-} from './types';
+} from "./types";
 
 export const gameApi = {
   async createGame(opponentId: string): Promise<CreateGameResponse> {
     return apiRequest<CreateGameResponse, CreateGameRequest>({
-      method: 'POST',
-      path: '/api/games/create',
+      method: "POST",
+      path: "/api/games/create",
       body: { opponentId },
     });
   },
 
   async respondToGame(gameId: string, accept: boolean): Promise<RespondToGameResponse> {
     return apiRequest<RespondToGameResponse, RespondToGameRequest>({
-      method: 'POST',
+      method: "POST",
       path: `/api/games/${gameId}/respond`,
       body: { accept },
     });
@@ -43,18 +43,19 @@ export const gameApi = {
     gameId: string,
     trickDescription: string,
     videoUrl: string,
-    videoDurationMs: number
+    videoDurationMs: number,
+    thumbnailUrl?: string
   ): Promise<SubmitTurnResponse> {
     return apiRequest<SubmitTurnResponse, SubmitTurnRequest>({
-      method: 'POST',
+      method: "POST",
       path: `/api/games/${gameId}/turns`,
-      body: { trickDescription, videoUrl, videoDurationMs },
+      body: { trickDescription, videoUrl, videoDurationMs, thumbnailUrl },
     });
   },
 
-  async judgeTurn(turnId: number, result: 'landed' | 'missed'): Promise<JudgeTurnResponse> {
+  async judgeTurn(turnId: number, result: "landed" | "missed"): Promise<JudgeTurnResponse> {
     return apiRequest<JudgeTurnResponse, JudgeTurnRequest>({
-      method: 'POST',
+      method: "POST",
       path: `/api/games/turns/${turnId}/judge`,
       body: { result },
     });
@@ -62,7 +63,7 @@ export const gameApi = {
 
   async fileDispute(gameId: string, turnId: number): Promise<DisputeResponse> {
     return apiRequest<DisputeResponse, DisputeRequest>({
-      method: 'POST',
+      method: "POST",
       path: `/api/games/${gameId}/dispute`,
       body: { turnId },
     });
@@ -70,10 +71,10 @@ export const gameApi = {
 
   async resolveDispute(
     disputeId: number,
-    finalResult: 'landed' | 'missed'
+    finalResult: "landed" | "missed"
   ): Promise<ResolveDisputeResponse> {
     return apiRequest<ResolveDisputeResponse, ResolveDisputeRequest>({
-      method: 'POST',
+      method: "POST",
       path: `/api/games/disputes/${disputeId}/resolve`,
       body: { finalResult },
     });
@@ -81,21 +82,21 @@ export const gameApi = {
 
   async forfeitGame(gameId: string): Promise<{ game: any; message: string }> {
     return apiRequest({
-      method: 'POST',
+      method: "POST",
       path: `/api/games/${gameId}/forfeit`,
     });
   },
 
   async getMyGames(): Promise<MyGames> {
     return apiRequest<MyGames>({
-      method: 'GET',
-      path: '/api/games/my-games',
+      method: "GET",
+      path: "/api/games/my-games",
     });
   },
 
   async getGameDetails(gameId: string): Promise<GameWithDetails> {
     return apiRequest<GameWithDetails>({
-      method: 'GET',
+      method: "GET",
       path: `/api/games/${gameId}`,
     });
   },
