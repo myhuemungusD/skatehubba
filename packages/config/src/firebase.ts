@@ -44,24 +44,45 @@ const REQUIRED_FIREBASE_VARS = [
   "EXPO_PUBLIC_FIREBASE_APP_ID",
 ] as const;
 
+function normalizeEnvValue(value: string | undefined | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.toLowerCase() === "undefined" || trimmed.toLowerCase() === "null") {
+    return undefined;
+  }
+  return value;
+}
+
 function buildConfigFromEnv(): FirebaseConfig | null {
-  const apiKey = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_API_KEY");
-  const projectId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_PROJECT_ID");
-  const appId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID");
+  const apiKey = normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_API_KEY"));
+  const projectId = normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_PROJECT_ID"));
+  const appId = normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID"));
 
   if (!apiKey || !projectId || !appId) return null;
 
+  const authDomain =
+    normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN")) ||
+    `${projectId}.firebaseapp.com`;
+
+  const storageBucket =
+    normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET")) ||
+    `${projectId}.firebasestorage.app`;
+
+  const messagingSenderId =
+    normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID")) || "";
+
+  const measurementId = normalizeEnvValue(
+    getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"),
+  );
+
   return {
     apiKey,
-    authDomain:
-      getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN") || `${projectId}.firebaseapp.com`,
+    authDomain,
     projectId,
-    storageBucket:
-      getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET") ||
-      `${projectId}.firebasestorage.app`,
-    messagingSenderId: getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID") || "",
+    storageBucket,
+    messagingSenderId,
     appId,
-    measurementId: getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"),
+    measurementId,
   };
 }
 
