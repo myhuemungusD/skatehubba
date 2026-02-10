@@ -10,6 +10,12 @@ import { MfaService } from "./mfa.ts";
 import logger from "../logger.ts";
 import { sendWelcomeEmail } from "../services/emailService.ts";
 import { notifyUser } from "../services/notificationService.ts";
+import {
+  SESSION_COOKIE_MAX_AGE_MS,
+  EMAIL_VERIFICATION_TOKEN_TTL_MS,
+  REAUTH_FRESHNESS_MS,
+} from "../config/constants.ts";
+import { Errors } from "../utils/apiError.ts";
 
 /**
  * Setup authentication routes for Firebase-based authentication
@@ -32,7 +38,7 @@ export function setupAuthRoutes(app: Express) {
 
       if (!authHeader.startsWith("Bearer ")) {
         await AuditLogger.logLoginFailure(null, ipAddress, userAgent, "Missing Firebase ID token");
-        return res.status(401).json({ error: "Authentication failed" });
+        return Errors.unauthorized(res, "AUTH_FAILED", "Authentication failed.");
       }
 
       const idToken = authHeader.slice("Bearer ".length).trim();
@@ -62,7 +68,7 @@ export function setupAuthRoutes(app: Express) {
             userAgent,
             "Mock token rejected in production"
           );
-          return res.status(401).json({ error: "Authentication failed" });
+          return Errors.unauthorized(res, "AUTH_FAILED", "Authentication failed.");
         } else {
           // Verify Firebase ID token (without revocation check for better reliability)
           decoded = await admin.auth().verifyIdToken(idToken);
@@ -74,8 +80,7 @@ export function setupAuthRoutes(app: Express) {
           const lockoutStatus = await LockoutService.checkLockout(email);
           if (lockoutStatus.isLocked && lockoutStatus.unlockAt) {
             await AuditLogger.logLoginFailure(email, ipAddress, userAgent, "Account locked");
-            return res.status(429).json({
-              error: LockoutService.getLockoutMessage(lockoutStatus.unlockAt),
+            return Errors.rateLimited(res, LockoutService.getLockoutMessage(lockoutStatus.unlockAt), {
               code: "ACCOUNT_LOCKED",
               unlockAt: lockoutStatus.unlockAt.toISOString(),
             });
@@ -126,7 +131,7 @@ export function setupAuthRoutes(app: Express) {
           httpOnly: true, // JavaScript can't access (XSS protection)
           secure: process.env.NODE_ENV === "production", // HTTPS only in production
           sameSite: "lax", // CSRF protection
-          maxAge: 24 * 60 * 60 * 1000, // 24 hours
+          maxAge: SESSION_COOKIE_MAX_AGE_MS,
           path: "/",
         });
 
@@ -146,12 +151,12 @@ export function setupAuthRoutes(app: Express) {
       } catch (firebaseError) {
         logger.error("Firebase ID token verification failed", { error: String(firebaseError) });
         await AuditLogger.logLoginFailure(null, ipAddress, userAgent, "Invalid Firebase token");
-        return res.status(401).json({ error: "Authentication failed" });
+        return Errors.unauthorized(res, "AUTH_FAILED", "Authentication failed.");
       }
     } catch (error) {
       logger.error("Login error", { error: String(error) });
       await AuditLogger.logLoginFailure(null, ipAddress, userAgent, "Internal server error");
-      return res.status(500).json({ error: "Authentication failed" });
+      return Errors.internal(res, "AUTH_ERROR", "Authentication failed.");
     }
   });
 
@@ -173,9 +178,7 @@ export function setupAuthRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Get user error", { error: String(error) });
-      res.status(500).json({
-        error: "Failed to get user information",
-      });
+      Errors.internal(res, "USER_FETCH_FAILED", "Failed to get user information.");
     }
   });
 
@@ -214,9 +217,7 @@ export function setupAuthRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Logout error", { error: String(error) });
-      res.status(500).json({
-        error: "Logout failed",
-      });
+      Errors.internal(res, "LOGOUT_FAILED", "Logout failed.");
     }
   });
 
@@ -238,7 +239,7 @@ export function setupAuthRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("MFA status error", { error: String(error) });
-      res.status(500).json({ error: "Failed to check MFA status" });
+      Errors.internal(res, "MFA_STATUS_FAILED", "Failed to check MFA status.");
     }
   });
 
@@ -252,10 +253,7 @@ export function setupAuthRoutes(app: Express) {
       // Check if MFA is already enabled
       const isEnabled = await MfaService.isEnabled(user.id);
       if (isEnabled) {
-        return res.status(400).json({
-          error: "MFA is already enabled. Disable it first to set up again.",
-          code: "MFA_ALREADY_ENABLED",
-        });
+        return Errors.badRequest(res, "MFA_ALREADY_ENABLED", "MFA is already enabled. Disable it first to set up again.");
       }
 
       const setup = await MfaService.initiateSetup(user.id, user.email);
@@ -268,7 +266,7 @@ export function setupAuthRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("MFA setup error", { error: String(error) });
-      res.status(500).json({ error: "Failed to initiate MFA setup" });
+      Errors.internal(res, "MFA_SETUP_FAILED", "Failed to initiate MFA setup.");
     }
   });
 
@@ -284,10 +282,7 @@ export function setupAuthRoutes(app: Express) {
       const { code } = req.body;
 
       if (!code || typeof code !== "string" || code.length !== 6) {
-        return res.status(400).json({
-          error: "Valid 6-digit code required",
-          code: "INVALID_CODE_FORMAT",
-        });
+        return Errors.badRequest(res, "INVALID_CODE_FORMAT", "Valid 6-digit code required.");
       }
 
       const success = await MfaService.verifySetup(user.id, user.email, code, ipAddress, userAgent);
@@ -298,14 +293,11 @@ export function setupAuthRoutes(app: Express) {
           message: "MFA has been enabled successfully.",
         });
       } else {
-        res.status(400).json({
-          error: "Invalid verification code. Please try again.",
-          code: "INVALID_CODE",
-        });
+        Errors.badRequest(res, "INVALID_CODE", "Invalid verification code. Please try again.");
       }
     } catch (error) {
       logger.error("MFA verify setup error", { error: String(error) });
-      res.status(500).json({ error: "Failed to verify MFA setup" });
+      Errors.internal(res, "MFA_VERIFY_SETUP_FAILED", "Failed to verify MFA setup.");
     }
   });
 
@@ -321,10 +313,7 @@ export function setupAuthRoutes(app: Express) {
       const { code, isBackupCode } = req.body;
 
       if (!code || typeof code !== "string") {
-        return res.status(400).json({
-          error: "Code is required",
-          code: "MISSING_CODE",
-        });
+        return Errors.badRequest(res, "MISSING_CODE", "Code is required.");
       }
 
       let success: boolean;
@@ -347,14 +336,11 @@ export function setupAuthRoutes(app: Express) {
           message: "MFA verification successful.",
         });
       } else {
-        res.status(401).json({
-          error: "Invalid code. Please try again.",
-          code: "INVALID_CODE",
-        });
+        Errors.unauthorized(res, "INVALID_CODE", "Invalid code. Please try again.");
       }
     } catch (error) {
       logger.error("MFA verify error", { error: String(error) });
-      res.status(500).json({ error: "MFA verification failed" });
+      Errors.internal(res, "MFA_VERIFY_FAILED", "MFA verification failed.");
     }
   });
 
@@ -371,19 +357,13 @@ export function setupAuthRoutes(app: Express) {
 
       // Require current MFA code to disable
       if (!code || typeof code !== "string") {
-        return res.status(400).json({
-          error: "Current MFA code required to disable",
-          code: "MISSING_CODE",
-        });
+        return Errors.badRequest(res, "MISSING_CODE", "Current MFA code required to disable.");
       }
 
       const isValid = await MfaService.verifyCode(user.id, user.email, code, ipAddress, userAgent);
 
       if (!isValid) {
-        return res.status(401).json({
-          error: "Invalid MFA code",
-          code: "INVALID_CODE",
-        });
+        return Errors.unauthorized(res, "INVALID_CODE", "Invalid MFA code.");
       }
 
       await MfaService.disable(user.id, user.email, ipAddress, userAgent);
@@ -394,7 +374,7 @@ export function setupAuthRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("MFA disable error", { error: String(error) });
-      res.status(500).json({ error: "Failed to disable MFA" });
+      Errors.internal(res, "MFA_DISABLE_FAILED", "Failed to disable MFA.");
     }
   });
 
@@ -411,19 +391,13 @@ export function setupAuthRoutes(app: Express) {
 
       // Require current MFA code to regenerate backup codes
       if (!code || typeof code !== "string") {
-        return res.status(400).json({
-          error: "Current MFA code required",
-          code: "MISSING_CODE",
-        });
+        return Errors.badRequest(res, "MISSING_CODE", "Current MFA code required.");
       }
 
       const isValid = await MfaService.verifyCode(user.id, user.email, code, ipAddress, userAgent);
 
       if (!isValid) {
-        return res.status(401).json({
-          error: "Invalid MFA code",
-          code: "INVALID_CODE",
-        });
+        return Errors.unauthorized(res, "INVALID_CODE", "Invalid MFA code.");
       }
 
       const backupCodes = await MfaService.regenerateBackupCodes(
@@ -434,10 +408,7 @@ export function setupAuthRoutes(app: Express) {
       );
 
       if (!backupCodes) {
-        return res.status(400).json({
-          error: "MFA is not enabled",
-          code: "MFA_NOT_ENABLED",
-        });
+        return Errors.badRequest(res, "MFA_NOT_ENABLED", "MFA is not enabled.");
       }
 
       res.json({
@@ -447,7 +418,7 @@ export function setupAuthRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("MFA backup codes error", { error: String(error) });
-      res.status(500).json({ error: "Failed to regenerate backup codes" });
+      Errors.internal(res, "BACKUP_CODES_FAILED", "Failed to regenerate backup codes.");
     }
   });
 
@@ -466,24 +437,18 @@ export function setupAuthRoutes(app: Express) {
       const { token } = req.body;
 
       if (!token || typeof token !== "string") {
-        return res.status(400).json({ error: "Verification token is required" });
+        return Errors.badRequest(res, "TOKEN_REQUIRED", "Verification token is required.");
       }
 
       // Validate token format: must be 64-char hex (from generateSecureToken)
       if (token.length > 128 || !/^[a-f0-9]+$/i.test(token)) {
-        return res.status(400).json({
-          error: "Invalid verification token format.",
-          code: "INVALID_TOKEN",
-        });
+        return Errors.badRequest(res, "INVALID_TOKEN", "Invalid verification token format.");
       }
 
       const user = await AuthService.verifyEmail(token);
 
       if (!user) {
-        return res.status(400).json({
-          error: "Invalid or expired verification link. Please request a new one.",
-          code: "INVALID_TOKEN",
-        });
+        return Errors.badRequest(res, "INVALID_TOKEN", "Invalid or expired verification link. Please request a new one.");
       }
 
       await AuditLogger.log({
@@ -514,7 +479,7 @@ export function setupAuthRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Email verification error", { error: String(error) });
-      res.status(500).json({ error: "Email verification failed" });
+      Errors.internal(res, "EMAIL_VERIFY_FAILED", "Email verification failed.");
     }
   });
 
@@ -533,15 +498,12 @@ export function setupAuthRoutes(app: Express) {
         const user = req.currentUser!;
 
         if (user.isEmailVerified) {
-          return res.status(400).json({
-            error: "Email is already verified",
-            code: "ALREADY_VERIFIED",
-          });
+          return Errors.badRequest(res, "ALREADY_VERIFIED", "Email is already verified.");
         }
 
         // Generate new verification token
         const token = AuthService.generateSecureToken();
-        const expiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        const expiry = new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_TTL_MS);
 
         await AuthService.updateUser(user.id, {
           emailVerificationToken: token,
@@ -565,7 +527,7 @@ export function setupAuthRoutes(app: Express) {
         });
       } catch (error) {
         logger.error("Resend verification error", { error: String(error) });
-        res.status(500).json({ error: "Failed to resend verification email" });
+        Errors.internal(res, "RESEND_VERIFY_FAILED", "Failed to resend verification email.");
       }
     }
   );
@@ -589,18 +551,12 @@ export function setupAuthRoutes(app: Express) {
 
       // Validate input
       if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
-        return res.status(400).json({
-          error: "Password must be at least 8 characters",
-          code: "INVALID_PASSWORD",
-        });
+        return Errors.badRequest(res, "INVALID_PASSWORD", "Password must be at least 8 characters.");
       }
 
       // Check password requirements
       if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
-        return res.status(400).json({
-          error: "Password must contain uppercase, lowercase, and number",
-          code: "WEAK_PASSWORD",
-        });
+        return Errors.badRequest(res, "WEAK_PASSWORD", "Password must contain uppercase, lowercase, and number.");
       }
 
       const result = await AuthService.changePassword(
@@ -611,10 +567,7 @@ export function setupAuthRoutes(app: Express) {
       );
 
       if (!result.success) {
-        return res.status(400).json({
-          error: result.message,
-          code: "PASSWORD_CHANGE_FAILED",
-        });
+        return Errors.badRequest(res, "PASSWORD_CHANGE_FAILED", result.message);
       }
 
       // Log the password change
@@ -626,7 +579,7 @@ export function setupAuthRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Password change error", { error: String(error) });
-      res.status(500).json({ error: "Password change failed" });
+      Errors.internal(res, "PASSWORD_CHANGE_FAILED", "Password change failed.");
     }
   });
 
@@ -640,7 +593,7 @@ export function setupAuthRoutes(app: Express) {
       const { email } = req.body;
 
       if (!email || typeof email !== "string") {
-        return res.status(400).json({ error: "Email is required" });
+        return Errors.badRequest(res, "EMAIL_REQUIRED", "Email is required.");
       }
 
       // Generate reset token (returns null if user not found, but we don't reveal this)
@@ -658,7 +611,7 @@ export function setupAuthRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Forgot password error", { error: String(error) });
-      res.status(500).json({ error: "Failed to process request" });
+      Errors.internal(res, "FORGOT_PASSWORD_FAILED", "Failed to process request.");
     }
   });
 
@@ -672,32 +625,23 @@ export function setupAuthRoutes(app: Express) {
       const { token, newPassword } = req.body;
 
       if (!token || typeof token !== "string") {
-        return res.status(400).json({ error: "Reset token is required" });
+        return Errors.badRequest(res, "RESET_TOKEN_REQUIRED", "Reset token is required.");
       }
 
       if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
-        return res.status(400).json({
-          error: "Password must be at least 8 characters",
-          code: "INVALID_PASSWORD",
-        });
+        return Errors.badRequest(res, "INVALID_PASSWORD", "Password must be at least 8 characters.");
       }
 
       // Check password requirements
       if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
-        return res.status(400).json({
-          error: "Password must contain uppercase, lowercase, and number",
-          code: "WEAK_PASSWORD",
-        });
+        return Errors.badRequest(res, "WEAK_PASSWORD", "Password must contain uppercase, lowercase, and number.");
       }
 
       const user = await AuthService.resetPassword(token, newPassword);
 
       if (!user) {
         // Generic error to prevent token enumeration
-        return res.status(400).json({
-          error: "Invalid or expired reset link. Please request a new one.",
-          code: "INVALID_TOKEN",
-        });
+        return Errors.badRequest(res, "INVALID_TOKEN", "Invalid or expired reset link. Please request a new one.");
       }
 
       // Log the password reset
@@ -710,7 +654,7 @@ export function setupAuthRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Reset password error", { error: String(error) });
-      res.status(500).json({ error: "Password reset failed" });
+      Errors.internal(res, "PASSWORD_RESET_FAILED", "Password reset failed.");
     }
   });
 
@@ -737,11 +681,7 @@ export function setupAuthRoutes(app: Express) {
       if (mfaEnabled) {
         // If MFA is enabled, require MFA code
         if (!mfaCode || typeof mfaCode !== "string") {
-          return res.status(400).json({
-            error: "MFA code required for identity verification",
-            code: "MFA_REQUIRED",
-            mfaEnabled: true,
-          });
+          return Errors.badRequest(res, "MFA_REQUIRED", "MFA code required for identity verification.", { mfaEnabled: true });
         }
 
         const mfaValid = await MfaService.verifyCode(
@@ -753,10 +693,7 @@ export function setupAuthRoutes(app: Express) {
         );
 
         if (!mfaValid) {
-          return res.status(401).json({
-            error: "Invalid MFA code",
-            code: "INVALID_MFA",
-          });
+          return Errors.unauthorized(res, "INVALID_MFA", "Invalid MFA code.");
         }
       } else {
         // If no MFA, require password (for non-Firebase users)
@@ -769,21 +706,15 @@ export function setupAuthRoutes(app: Express) {
             const token = authHeader.substring(7);
             const decoded = await admin.auth().verifyIdToken(token);
 
-            // Check if token was issued recently (within 5 minutes)
+            // Check if token was issued recently
             const authTime = decoded.auth_time ? decoded.auth_time * 1000 : 0;
-            const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+            const reauthCutoff = Date.now() - REAUTH_FRESHNESS_MS;
 
-            if (authTime < fiveMinutesAgo) {
-              return res.status(401).json({
-                error: "Please sign in again to continue",
-                code: "STALE_TOKEN",
-              });
+            if (authTime < reauthCutoff) {
+              return Errors.unauthorized(res, "STALE_TOKEN", "Please sign in again to continue.");
             }
           } catch (err) {
-            return res.status(401).json({
-              error: "Identity verification failed",
-              code: "INVALID_TOKEN",
-            });
+            return Errors.unauthorized(res, "INVALID_TOKEN", "Identity verification failed.");
           }
         } else if (password) {
           // Traditional password verification
@@ -793,17 +724,11 @@ export function setupAuthRoutes(app: Express) {
             const isValid = await AuthService.verifyPassword(password, dbUser.passwordHash);
 
             if (!isValid) {
-              return res.status(401).json({
-                error: "Invalid password",
-                code: "INVALID_PASSWORD",
-              });
+              return Errors.unauthorized(res, "INVALID_PASSWORD", "Invalid password.");
             }
           }
         } else {
-          return res.status(400).json({
-            error: "Password required for identity verification",
-            code: "PASSWORD_REQUIRED",
-          });
+          return Errors.badRequest(res, "PASSWORD_REQUIRED", "Password required for identity verification.");
         }
       }
 
@@ -822,11 +747,11 @@ export function setupAuthRoutes(app: Express) {
       res.json({
         success: true,
         message: "Identity verified. You can proceed with sensitive operations.",
-        expiresIn: 5 * 60, // 5 minutes in seconds
+        expiresIn: REAUTH_FRESHNESS_MS / 1000,
       });
     } catch (error) {
       logger.error("Identity verification error", { error: String(error) });
-      res.status(500).json({ error: "Identity verification failed" });
+      Errors.internal(res, "IDENTITY_VERIFY_FAILED", "Identity verification failed.");
     }
   });
 }
