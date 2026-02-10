@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
 import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
 import { createProfileWithRollback, createUsernameStore } from "../services/profileService";
+import logger from "../logger";
 
 const router = Router();
 
@@ -95,7 +96,8 @@ router.get("/username-check", usernameCheckLimiter, async (req, res) => {
     const available = await usernameStore.isAvailable(parsed.data);
 
     return res.json({ available });
-  } catch {
+  } catch (error) {
+    logger.error("Username availability check failed", { error });
     return res.status(503).json({
       error: "database_unavailable",
       message: "Could not check username availability. Please try again shortly.",

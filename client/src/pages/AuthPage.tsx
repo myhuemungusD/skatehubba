@@ -26,7 +26,12 @@ export default function AuthPage() {
   const { toast } = useToast();
   const auth = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signup");
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">(() => {
+    if (typeof window === "undefined") return "signup";
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    return tab === "signin" ? "signin" : "signup";
+  });
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [inEmbeddedBrowser, setInEmbeddedBrowser] = useState(false);
@@ -158,7 +163,7 @@ export default function AuthPage() {
 
         {/* Back to Home */}
         <div className="text-center mt-6">
-          <Link href="/" className="text-gray-400 hover:text-white text-sm">
+          <Link href="/landing" className="text-gray-400 hover:text-white text-sm">
             Back to Home
           </Link>
         </div>
