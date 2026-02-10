@@ -6,12 +6,7 @@
  * @param lon2 Longitude of second point
  * @returns Distance in meters
  */
-export function calculateDistance(
-  lat1: number,
-  lon1: number,
-  lat2: number,
-  lon2: number
-): number {
+export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // Earth's radius in meters
   const φ1 = (lat1 * Math.PI) / 180;
   const φ2 = (lat2 * Math.PI) / 180;
@@ -42,10 +37,10 @@ export function formatDistance(meters: number): string {
 /**
  * Get proximity category based on distance
  * @param meters Distance in meters
- * @returns Category: 'here' (<30m), 'nearby' (30-200m), 'far' (>200m)
+ * @returns Category: 'here' (<50m), 'nearby' (50-200m), 'far' (>200m)
  */
-export function getProximity(meters: number): 'here' | 'nearby' | 'far' {
-  if (meters < 30) return 'here';
-  if (meters < 200) return 'nearby';
-  return 'far';
+export function getProximity(meters: number): "here" | "nearby" | "far" {
+  if (meters < 50) return "here";
+  if (meters < 200) return "nearby";
+  return "far";
 }

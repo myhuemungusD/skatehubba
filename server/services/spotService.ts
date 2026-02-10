@@ -4,12 +4,14 @@ import { checkIns, spots } from "@shared/schema";
 import { logServerEvent } from "./analyticsService";
 
 const EARTH_RADIUS_KM = 6371;
-// Default check-in radius in meters. 30m is chosen as a balance between typical GPS accuracy
-// on mobile devices and preventing check-ins that are too far from the actual spot.
-const DEFAULT_CHECK_IN_RADIUS_METERS = 30;
+// Base check-in radius in meters. 50m accounts for typical GPS accuracy (5-50m)
+// while still preventing check-ins that are too far from the actual spot.
+const DEFAULT_CHECK_IN_RADIUS_METERS = 50;
+// Hard cap on effective radius to prevent abuse via inflated accuracy values.
+const MAX_CHECK_IN_RADIUS_METERS = 150;
 
-// Allow overriding the check-in radius via an environment variable for different deployments
-// (e.g., urban vs rural, testing vs production). If not set or invalid, fall back to the default.
+// Allow overriding the base check-in radius via an environment variable for different
+// deployments (e.g., urban vs rural, testing vs production).
 const CHECK_IN_RADIUS_METERS = (() => {
   const envValue = process.env.CHECK_IN_RADIUS_METERS;
   if (!envValue) return DEFAULT_CHECK_IN_RADIUS_METERS;
@@ -25,6 +27,9 @@ type CheckInSuccess = {
 type CheckInFailure = {
   success: false;
   message: string;
+  code?: string;
+  distance?: number;
+  radius?: number;
 };
 
 type CheckInResult = CheckInSuccess | CheckInFailure;
@@ -82,7 +87,8 @@ export async function verifyAndCheckIn(
   userId: string,
   spotId: number,
   userLat: number,
-  userLng: number
+  userLng: number,
+  accuracy?: number
 ): Promise<CheckInResult> {
   if (!db) {
     throw new Error("Database not available");
@@ -100,9 +106,23 @@ export async function verifyAndCheckIn(
     throw new Error("Spot not found");
   }
 
+  // Effective radius accounts for GPS inaccuracy: base radius + reported accuracy,
+  // capped at MAX to prevent abuse via inflated accuracy values.
+  const accuracyBonus = accuracy && accuracy > 0 ? Math.min(accuracy, 100) : 0;
+  const effectiveRadius = Math.min(
+    CHECK_IN_RADIUS_METERS + accuracyBonus,
+    MAX_CHECK_IN_RADIUS_METERS
+  );
+
   const distanceMeters = haversineMeters(userLat, userLng, spot.lat, spot.lng);
-  if (distanceMeters > CHECK_IN_RADIUS_METERS) {
-    return { success: false, message: "Too far from spot" };
+  if (distanceMeters > effectiveRadius) {
+    return {
+      success: false,
+      message: "Too far from spot",
+      code: "TOO_FAR",
+      distance: Math.round(distanceMeters),
+      radius: Math.round(effectiveRadius),
+    };
   }
 
   try {

@@ -37,8 +37,12 @@ export default function SpotDetailPage({ params }: SpotDetailPageProps) {
     if (geolocation.latitude === null || geolocation.longitude === null) {
       return null;
     }
-    return { lat: geolocation.latitude, lng: geolocation.longitude };
-  }, [geolocation.latitude, geolocation.longitude]);
+    return {
+      lat: geolocation.latitude,
+      lng: geolocation.longitude,
+      accuracy: geolocation.accuracy ?? undefined,
+    };
+  }, [geolocation.latitude, geolocation.longitude, geolocation.accuracy]);
 
   if (isLoading) {
     return (

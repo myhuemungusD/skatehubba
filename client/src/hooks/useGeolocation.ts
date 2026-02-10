@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 export type GeolocationStatus = "idle" | "locating" | "ready" | "browse";
 
@@ -11,6 +11,9 @@ export interface GeolocationState {
   errorCode: "denied" | "timeout" | "unavailable" | "unsupported" | null;
 }
 
+const MAX_AUTO_RETRIES = 2;
+const GEO_TIMEOUT_MS = 30_000;
+
 export function useGeolocation(watch = true) {
   const [state, setState] = useState<GeolocationState>({
     latitude: null,
@@ -21,7 +24,10 @@ export function useGeolocation(watch = true) {
     errorCode: null,
   });
 
+  const retryCountRef = useRef(0);
+
   const enterBrowseMode = useCallback(() => {
+    retryCountRef.current = 0;
     setState((prev) => ({
       ...prev,
       status: "browse",
@@ -44,6 +50,7 @@ export function useGeolocation(watch = true) {
     setState((prev) => ({ ...prev, status: "locating", error: null, errorCode: null }));
 
     const onSuccess: PositionCallback = (position) => {
+      retryCountRef.current = 0;
       setState({
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
@@ -55,9 +62,6 @@ export function useGeolocation(watch = true) {
     };
 
     const onError: PositionErrorCallback = (error) => {
-      // On any geolocation failure, auto-enter browse mode so the user sees a
-      // working map instead of a red error banner. The map is fully usable
-      // without user location — check-ins are the only thing that requires it.
       let errorCode: GeolocationState["errorCode"] = null;
 
       switch (error.code) {
@@ -72,17 +76,36 @@ export function useGeolocation(watch = true) {
           break;
       }
 
+      // Auto-retry on timeout or unavailable (not on permission denied).
+      // After exhausting retries, fall back to browse mode.
+      const isRetryable = errorCode === "timeout" || errorCode === "unavailable";
+      if (isRetryable && retryCountRef.current < MAX_AUTO_RETRIES) {
+        retryCountRef.current += 1;
+        navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+          enableHighAccuracy: retryCountRef.current <= 1,
+          timeout: GEO_TIMEOUT_MS,
+          maximumAge: 30_000,
+        });
+        return;
+      }
+
+      retryCountRef.current = 0;
       setState((prev) => ({
         ...prev,
         status: "browse",
-        error: null,
+        error:
+          errorCode === "timeout"
+            ? "Location timed out. Tap retry or browse without location."
+            : errorCode === "unavailable"
+              ? "Location unavailable. Move to an open area and retry."
+              : null,
         errorCode,
       }));
     };
 
     const options: PositionOptions = {
       enableHighAccuracy: true,
-      timeout: 10000,
+      timeout: GEO_TIMEOUT_MS,
       maximumAge: 0,
     };
 

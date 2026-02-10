@@ -32,6 +32,7 @@ export function ARCheckInButton({
   const { toast } = useToast();
   const { grantAccess, hasValidAccess, cleanupExpiredAccess } = useSpotAccess();
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [locationRetries, setLocationRetries] = useState(0);
   const { checkIn, isSubmitting } = useCheckIn();
 
   const hasAccess = hasValidAccess(spotId);
@@ -82,66 +83,83 @@ export function ARCheckInButton({
     }
 
     setIsGettingLocation(true);
+    setLocationRetries(0);
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        setIsGettingLocation(false);
-        if (!user) {
+    const attemptLocation = (retryCount: number) => {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          setIsGettingLocation(false);
+          setLocationRetries(0);
+          if (!user) {
+            toast({
+              title: "Login Required",
+              description: "Please log in to check in at spots.",
+              variant: "destructive",
+            });
+            return;
+          }
+          const { latitude, longitude, accuracy } = position.coords;
+          try {
+            await checkIn({
+              spotId: Number(spotId),
+              lat: latitude,
+              lng: longitude,
+              accuracy: accuracy ?? undefined,
+              userId: user.uid,
+            });
+            handleCheckInSuccess();
+          } catch (err) {
+            const apiError = err instanceof ApiError ? err : null;
+            toast({
+              title: "Check-In Error",
+              description: apiError
+                ? getUserFriendlyMessage(apiError)
+                : "Failed to verify your location.",
+              variant: "destructive",
+            });
+          }
+        },
+        (error) => {
+          const isRetryable =
+            error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE;
+          if (isRetryable && retryCount < 2) {
+            setLocationRetries(retryCount + 1);
+            attemptLocation(retryCount + 1);
+            return;
+          }
+
+          setIsGettingLocation(false);
+          setLocationRetries(0);
+          let errorMessage = "Unable to get your location.";
+
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              errorMessage = "Location permission denied. Please enable location access.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              errorMessage = "Location unavailable. Move to an open area and try again.";
+              break;
+            case error.TIMEOUT:
+              errorMessage =
+                "Location timed out after multiple attempts. Check GPS settings and try again.";
+              break;
+          }
+
           toast({
-            title: "Login Required",
-            description: "Please log in to check in at spots.",
+            title: "Location Error",
+            description: errorMessage,
             variant: "destructive",
           });
-          return;
+        },
+        {
+          enableHighAccuracy: retryCount === 0,
+          timeout: 30_000,
+          maximumAge: retryCount > 0 ? 30_000 : 0,
         }
-        const { latitude, longitude } = position.coords;
-        try {
-          await checkIn({
-            spotId: Number(spotId),
-            lat: latitude,
-            lng: longitude,
-            userId: user.uid,
-          });
-          handleCheckInSuccess();
-        } catch (err) {
-          const apiError = err instanceof ApiError ? err : null;
-          toast({
-            title: " Check-In Error",
-            description: apiError
-              ? getUserFriendlyMessage(apiError)
-              : "Failed to verify your location.",
-            variant: "destructive",
-          });
-        }
-      },
-      (error) => {
-        setIsGettingLocation(false);
-        let errorMessage = "Unable to get your location.";
+      );
+    };
 
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage = "Location permission denied. Please enable location access.";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "Location information unavailable.";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "Location request timed out.";
-            break;
-        }
-
-        toast({
-          title: "Location Error",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 0,
-      }
-    );
+    attemptLocation(0);
   };
 
   const isLoading = isGettingLocation || isSubmitting;
@@ -184,7 +202,11 @@ export function ARCheckInButton({
       {isLoading ? (
         <>
           <Loader2 className="w-4 h-4 animate-spin" />
-          {isGettingLocation ? "Getting Location..." : "Verifying..."}
+          {isGettingLocation
+            ? locationRetries > 0
+              ? `Retrying location (${locationRetries}/2)...`
+              : "Getting Location..."
+            : "Verifying..."}
         </>
       ) : (
         <>

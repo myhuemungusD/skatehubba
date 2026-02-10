@@ -9,7 +9,7 @@ import { ApiError, getUserFriendlyMessage } from "@/lib/api/errors";
 interface CheckInButtonProps {
   spotId: number;
   spotName: string;
-  userLocation?: { lat: number; lng: number } | null;
+  userLocation?: { lat: number; lng: number; accuracy?: number } | null;
   className?: string;
   onSuccess?: (checkInId: number) => void;
 }
@@ -60,6 +60,7 @@ export function CheckInButton({
         spotId,
         lat: userLocation.lat,
         lng: userLocation.lng,
+        accuracy: userLocation.accuracy,
         userId: user.uid,
       });
 

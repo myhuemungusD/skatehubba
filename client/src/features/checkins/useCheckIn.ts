@@ -6,6 +6,7 @@ export interface CheckInInput {
   spotId: number;
   lat: number;
   lng: number;
+  accuracy?: number;
   userId: string;
 }
 
@@ -47,6 +48,7 @@ export const useCheckIn = () => {
           spotId: input.spotId,
           lat: input.lat,
           lng: input.lng,
+          ...(input.accuracy != null && { accuracy: input.accuracy }),
           nonce,
         },
       });
