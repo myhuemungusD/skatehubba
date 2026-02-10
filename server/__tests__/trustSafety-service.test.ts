@@ -10,6 +10,7 @@ import {
   type ModerationAction,
   type ModerationProfile,
 } from "../services/trustSafety";
+import type Redis from "ioredis";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -26,8 +27,15 @@ const makeProfile = (overrides: Partial<ModerationProfile> = {}): ModerationProf
   ...overrides,
 });
 
+/** Redis mock with test-only helpers for manipulating internal state. */
+interface RedisMock extends Redis {
+  _setCounter: (n: number) => void;
+  _setTtl: (n: number) => void;
+  _resetCounter: () => void;
+}
+
 /** Create a minimal mock that quacks like an ioredis instance. */
-const createRedisMock = (overrides: Record<string, unknown> = {}) => {
+const createRedisMock = (overrides: Record<string, unknown> = {}): RedisMock => {
   let counter = 0;
   let ttlValue = 60;
 
@@ -50,7 +58,7 @@ const createRedisMock = (overrides: Record<string, unknown> = {}) => {
       counter = 0;
     },
     ...overrides,
-  } as unknown as import("ioredis").default;
+  } as unknown as RedisMock;
 };
 
 // ---------------------------------------------------------------------------
