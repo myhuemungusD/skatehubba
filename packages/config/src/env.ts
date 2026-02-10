@@ -259,10 +259,9 @@ export function validateEnv(): void {
   const missing = required.filter((name) => !readEnv(name));
 
   if (missing.length > 0) {
-    // In production we still allow fallback to hardcoded config to avoid total outage.
-    // Log loudly so ops can fix env, but do not crash the app.
     console.warn(
-      `Missing required environment variables (using fallback Firebase config):\n${missing.join("\n")}`
+      `Missing required environment variables:\n${missing.join("\n")}\n` +
+        `Firebase will fail to initialize. Set these in your .env file or deployment environment.`
     );
   }
 }

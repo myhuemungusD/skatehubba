@@ -33,7 +33,11 @@ export async function getOnlineUsers(): Promise<string[]> {
     try {
       const all = await redis.hkeys(PRESENCE_HASH);
       return all;
-    } catch { /* fall through */ }
+    } catch (error) {
+      logger.warn("[Presence] Redis hkeys failed, falling back to memory", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
   return Array.from(onlineUsersFallback.keys());
 }
@@ -47,7 +51,11 @@ export async function isUserOnline(odv: string): Promise<boolean> {
     try {
       const val = await redis.hget(PRESENCE_HASH, odv);
       return val !== null;
-    } catch { /* fall through */ }
+    } catch (error) {
+      logger.warn("[Presence] Redis hget failed in isUserOnline, falling back to memory", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
   return onlineUsersFallback.has(odv);
 }
@@ -63,7 +71,12 @@ export async function getUserPresence(odv: string): Promise<PresencePayload | nu
       if (!val) return null;
       const parsed = JSON.parse(val) as { status: "online" | "away"; lastSeen: string };
       return { odv, status: parsed.status, lastSeen: parsed.lastSeen };
-    } catch { /* fall through */ }
+    } catch (error) {
+      logger.warn("[Presence] Redis hget/parse failed in getUserPresence, falling back to memory", {
+        odv,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   const presence = onlineUsersFallback.get(odv);
@@ -85,7 +98,12 @@ function setPresence(odv: string, status: "online" | "away"): void {
 
   if (redis) {
     const val = JSON.stringify({ status, lastSeen: now.toISOString() });
-    redis.hset(PRESENCE_HASH, odv, val).catch(() => {});
+    redis.hset(PRESENCE_HASH, odv, val).catch((error: unknown) => {
+      logger.warn("[Presence] Redis hset failed for presence update", {
+        odv,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
   } else {
     onlineUsersFallback.set(odv, { status, lastSeen: now });
   }
@@ -97,7 +115,12 @@ function setPresence(odv: string, status: "online" | "away"): void {
 function removePresence(odv: string): void {
   const redis = getRedisClient();
   if (redis) {
-    redis.hdel(PRESENCE_HASH, odv).catch(() => {});
+    redis.hdel(PRESENCE_HASH, odv).catch((error: unknown) => {
+      logger.warn("[Presence] Redis hdel failed for presence removal", {
+        odv,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
   } else {
     onlineUsersFallback.delete(odv);
   }
@@ -175,10 +198,18 @@ export async function getPresenceStats(): Promise<{
           const parsed = JSON.parse(val) as { status: string };
           if (parsed.status === "online") online++;
           else away++;
-        } catch { /* skip malformed entries */ }
+        } catch (error) {
+          logger.warn("[Presence] Malformed presence entry in Redis", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
       return { online, away };
-    } catch { /* fall through */ }
+    } catch (error) {
+      logger.warn("[Presence] Redis hvals failed in getPresenceStats, falling back to memory", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   let online = 0;

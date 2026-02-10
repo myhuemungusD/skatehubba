@@ -124,12 +124,15 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
             // If connect_error triggered a force-refresh, await it so
             // getIdToken() below returns the new token, not the stale one.
             if (pendingRefresh) {
-              await pendingRefresh.catch(() => {});
+              await pendingRefresh.catch((error: unknown) => {
+                logger.warn("[Socket] Token force-refresh failed", error);
+              });
               pendingRefresh = null;
             }
             const freshToken = await currentUser.getIdToken();
             cb({ token: freshToken });
-          } catch {
+          } catch (error) {
+            logger.warn("[Socket] Failed to retrieve auth token", error);
             cb({});
           }
         },
