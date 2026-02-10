@@ -79,11 +79,6 @@ function makeDocRef(path: string) {
   };
 }
 
-const mockQueryResult = {
-  empty: true,
-  docs: [] as any[],
-};
-
 vi.mock("../../firebaseAdmin", () => ({
   getAdminDb: () => ({
     collection: vi.fn().mockImplementation((collName: string) => ({
@@ -147,6 +142,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
     mockDocs.clear();
 
     // Save original env
@@ -183,6 +179,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "test" },
         body: Buffer.from("test"),
       } as any;
@@ -202,6 +200,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: {},
         body: Buffer.from("test"),
       } as any;
@@ -225,6 +225,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "invalid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -265,6 +267,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -315,6 +319,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -349,6 +355,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -383,6 +391,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -426,6 +436,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -469,6 +481,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -512,6 +526,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -555,6 +571,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -598,6 +616,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -646,6 +666,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -678,6 +700,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -719,6 +743,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -769,6 +795,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -801,6 +829,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -842,6 +872,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -883,6 +915,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -932,6 +966,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -976,6 +1012,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -1018,6 +1056,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -1060,6 +1100,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -1093,6 +1135,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;
@@ -1128,6 +1172,8 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
+        method: "POST",
+        url: "/stripe",
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
       } as any;

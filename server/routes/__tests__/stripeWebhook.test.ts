@@ -74,21 +74,31 @@ const mockDbReturns = {
 
 let mockIsDatabaseAvailable = true;
 
-vi.mock("../../db", () => ({
-  getDb: () => ({
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
-        }),
-      }),
-    }),
-    update: vi.fn().mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
+// Create mock functions that can be re-mocked in tests
+const mockSelect = vi.fn();
+const mockFrom = vi.fn();
+const mockWhere = vi.fn();
+const mockLimit = vi.fn();
+const mockUpdate = vi.fn();
+const mockSet = vi.fn();
+
+const mockGetDb = vi.fn(() => ({
+  select: mockSelect.mockReturnValue({
+    from: mockFrom.mockReturnValue({
+      where: mockWhere.mockReturnValue({
+        limit: mockLimit.mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
       }),
     }),
   }),
+  update: mockUpdate.mockReturnValue({
+    set: mockSet.mockReturnValue({
+      where: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
+    }),
+  }),
+}));
+
+vi.mock("../../db", () => ({
+  getDb: mockGetDb,
   isDatabaseAvailable: () => mockIsDatabaseAvailable,
 }));
 
@@ -545,9 +555,6 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
 
       await callWebhook(req, res);
 
-      // Give time for async email/notification calls
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       expect(mockSendPaymentReceiptEmail).toHaveBeenCalledWith(
         "user@test.com",
         "John",
@@ -594,9 +601,6 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       const res = mockResponse();
 
       await callWebhook(req, res);
-
-      // Give time for async email/notification calls
-      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockNotifyUser).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -647,9 +651,6 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
 
       await callWebhook(req, res);
 
-      // Give time for async email/notification calls
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       // Should still return 200 (email failure is non-critical)
       expect(res.status).toHaveBeenCalledWith(200);
     });
@@ -690,9 +691,6 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
 
       await callWebhook(req, res);
 
-      // Give time for async email/notification calls
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       // Should still return 200 (notification failure is non-critical)
       expect(res.status).toHaveBeenCalledWith(200);
     });
@@ -730,9 +728,6 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       const res = mockResponse();
 
       await callWebhook(req, res);
-
-      // Give time for async email/notification calls
-      await new Promise((resolve) => setTimeout(resolve, 10));
 
       expect(mockSendPaymentReceiptEmail).toHaveBeenCalledWith(
         "user@test.com",
@@ -835,11 +830,9 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       mockDbReturns.selectResult = [{ accountTier: "free" }];
 
       // Mock a DB error by making select throw
-      vi.mocked(require("../../db").getDb).mockImplementation(() => ({
-        select: vi.fn().mockImplementation(() => {
-          throw new Error("Database error");
-        }),
-      }));
+      mockSelect.mockImplementationOnce(() => {
+        throw new Error("Database error");
+      });
 
       const session: Stripe.Checkout.Session = {
         id: "cs_test_123",
