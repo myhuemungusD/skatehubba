@@ -41,6 +41,49 @@ const VALID_ROLES = ["admin", "moderator", "verified_pro"] as const;
 type ValidRole = (typeof VALID_ROLES)[number];
 
 // ============================================================================
+// Transaction Monitoring
+// ============================================================================
+
+/**
+ * Wraps a Firestore transaction with structured logging for monitoring
+ * retry rates, latency, and contention in production.
+ *
+ * Firestore automatically retries transactions up to 25 times on contention.
+ * This wrapper tracks attempt count and total duration for observability.
+ */
+async function monitoredTransaction<T>(
+  db: admin.firestore.Firestore,
+  label: string,
+  gameId: string,
+  updateFn: (transaction: admin.firestore.Transaction) => Promise<T>
+): Promise<T> {
+  let attempts = 0;
+  const startMs = Date.now();
+
+  const result = await db.runTransaction(async (transaction) => {
+    attempts++;
+    return updateFn(transaction);
+  });
+
+  const durationMs = Date.now() - startMs;
+  const logData = {
+    transaction: label,
+    gameId,
+    attempts,
+    durationMs,
+    retried: attempts > 1,
+  };
+
+  if (attempts > 1) {
+    console.warn("[TransactionMonitor] Contention detected:", JSON.stringify(logData));
+  } else {
+    console.log("[TransactionMonitor]", JSON.stringify(logData));
+  }
+
+  return result;
+}
+
+// ============================================================================
 // Rate Limiting (In-Memory for single instance, use Redis for multi-instance)
 // ============================================================================
 
@@ -384,8 +427,9 @@ export const submitTrick = functions.https.onCall(
     const db = admin.firestore();
     const gameRef = db.doc(`game_sessions/${gameId}`);
 
-    // Use transaction to ensure atomic read-modify-write
-    const result = await db.runTransaction(async (transaction) => {
+    // Use monitored transaction to ensure atomic read-modify-write
+    // and track retry rates for production observability
+    const result = await monitoredTransaction(db, "submitTrick", gameId, async (transaction) => {
       const gameSnap = await transaction.get(gameRef);
 
       if (!gameSnap.exists) {
@@ -551,8 +595,9 @@ export const judgeTrick = functions.https.onCall(
     const db = admin.firestore();
     const gameRef = db.doc(`game_sessions/${gameId}`);
 
-    // Use transaction to ensure atomic read-modify-write
-    const result = await db.runTransaction(async (transaction) => {
+    // Use monitored transaction to ensure atomic read-modify-write
+    // and track retry rates for production observability
+    const result = await monitoredTransaction(db, "judgeTrick", gameId, async (transaction) => {
       const gameSnap = await transaction.get(gameRef);
 
       if (!gameSnap.exists) {
@@ -857,7 +902,7 @@ async function autoResolveVoteTimeout(
   const db = admin.firestore();
   const gameRef = db.doc(`game_sessions/${gameId}`);
 
-  await db.runTransaction(async (transaction) => {
+  await monitoredTransaction(db, "autoResolveVoteTimeout", gameId, async (transaction) => {
     // Re-read the game state to ensure we have latest data
     const freshSnap = await transaction.get(gameRef);
     if (!freshSnap.exists) return;
