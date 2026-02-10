@@ -58,9 +58,9 @@ export default function LeaderboardPage() {
                   <CardTitle className="text-base text-white">
                     #{rank} {entry.displayName}
                   </CardTitle>
-                  {entry.points !== undefined ? (
+                  {entry.xp !== undefined ? (
                     <Badge className="bg-yellow-500/20 text-yellow-300">
-                      {entry.points.toLocaleString()} XP
+                      {entry.xp.toLocaleString()} XP
                     </Badge>
                   ) : null}
                 </div>

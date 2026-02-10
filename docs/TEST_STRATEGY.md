@@ -44,6 +44,7 @@ This document outlines the comprehensive testing strategy for the SkateHubba pla
 ```
 
 **Distribution Goals**:
+
 - **60% Unit Tests**: Fast, isolated, test single functions/components
 - **30% Integration Tests**: Test interactions between modules
 - **10% E2E Tests**: Test complete user workflows
@@ -61,27 +62,29 @@ Test individual functions, classes, or React components in isolation.
 **Location**: Co-located with source files or in `__tests__/` directory
 
 **Examples**:
+
 - `userService.test.ts` - Tests `userService.ts` functions
 - `GameService.test.ts` - Tests game state machine logic
 - `useGeolocation.test.ts` - Tests custom hooks
 
 **What to Test**:
+
 ```typescript
-describe('calculateGameScore', () => {
-  it('should return 0 for new game', () => {
+describe("calculateGameScore", () => {
+  it("should return 0 for new game", () => {
     expect(calculateGameScore([])).toBe(0);
   });
 
-  it('should count correctly landed tricks', () => {
+  it("should count correctly landed tricks", () => {
     const turns = [
-      { result: 'land', points: 10 },
-      { result: 'land', points: 15 },
+      { result: "land", points: 10 },
+      { result: "land", points: 15 },
     ];
     expect(calculateGameScore(turns)).toBe(25);
   });
 
-  it('should handle bail with no points', () => {
-    const turns = [{ result: 'bail', points: 0 }];
+  it("should handle bail with no points", () => {
+    const turns = [{ result: "bail", points: 0 }];
     expect(calculateGameScore(turns)).toBe(0);
   });
 });
@@ -94,22 +97,24 @@ Test interactions between multiple modules, typically involving database or exte
 **File Naming**: `*.integration.test.ts`
 
 **Examples**:
+
 - `auth-routes-integration.test.ts` - Test authentication endpoints with real database
 - `spot-checkin-integration.test.ts` - Test check-in workflow with geolocation validation
 - `battleStateService.test.ts` - Test battle voting with PostgreSQL locking
 
 **What to Test**:
+
 ```typescript
-describe('Spot Check-in Integration', () => {
+describe("Spot Check-in Integration", () => {
   beforeEach(async () => {
     await cleanDatabase();
     await seedTestSpots();
   });
 
-  it('should verify check-in within 100m of spot', async () => {
+  it("should verify check-in within 100m of spot", async () => {
     const spot = await getSpot(1);
     const checkin = await createCheckin({
-      userId: 'user_123',
+      userId: "user_123",
       spotId: spot.id,
       latitude: spot.latitude + 0.0005, // ~50m away
       longitude: spot.longitude,
@@ -118,16 +123,16 @@ describe('Spot Check-in Integration', () => {
     expect(checkin.verified).toBe(true);
   });
 
-  it('should reject check-in beyond 100m', async () => {
+  it("should reject check-in beyond 100m", async () => {
     const spot = await getSpot(1);
     await expect(
       createCheckin({
-        userId: 'user_123',
+        userId: "user_123",
         spotId: spot.id,
         latitude: spot.latitude + 0.01, // ~1km away
         longitude: spot.longitude,
       })
-    ).rejects.toThrow('TOO_FAR_FROM_SPOT');
+    ).rejects.toThrow("TOO_FAR_FROM_SPOT");
   });
 });
 ```
@@ -141,25 +146,27 @@ Test complete user workflows from browser to database.
 **Location**: `/client/cypress/` (web), `/mobile/e2e/` (mobile)
 
 **Examples**:
+
 - User registration → profile creation → spot check-in
 - S.K.A.T.E. game creation → trick upload → opponent response → voting
 
 **What to Test**:
+
 ```typescript
 // cypress/e2e/game-flow.cy.ts
-describe('S.K.A.T.E. Game Flow', () => {
-  it('should complete full game workflow', () => {
-    cy.login('player1@test.com');
-    cy.visit('/games/create');
-    cy.get('[data-testid="opponent-select"]').select('player2');
+describe("S.K.A.T.E. Game Flow", () => {
+  it("should complete full game workflow", () => {
+    cy.login("player1@test.com");
+    cy.visit("/games/create");
+    cy.get('[data-testid="opponent-select"]').select("player2");
     cy.get('[data-testid="create-game"]').click();
 
-    cy.uploadTrickVideo('kickflip.mp4');
+    cy.uploadTrickVideo("kickflip.mp4");
     cy.get('[data-testid="submit-trick"]').click();
 
     cy.logout();
-    cy.login('player2@test.com');
-    cy.visit('/games');
+    cy.login("player2@test.com");
+    cy.visit("/games");
     cy.get('[data-testid="pending-game"]').first().click();
     cy.get('[data-testid="vote-land"]').click();
   });
@@ -173,6 +180,7 @@ describe('S.K.A.T.E. Game Flow', () => {
 ### Primary Framework: Vitest
 
 **Why Vitest?**
+
 - Fast (native ESM support)
 - Compatible with Vite ecosystem
 - Built-in TypeScript support
@@ -184,17 +192,13 @@ describe('S.K.A.T.E. Game Flow', () => {
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'node',
-    include: ['**/*.test.ts', '**/*.test.tsx'],
-    exclude: ['node_modules', 'dist', 'e2e', 'mobile'],
+    environment: "node",
+    include: ["**/*.test.ts", "**/*.test.tsx"],
+    exclude: ["node_modules", "dist", "e2e", "mobile"],
     coverage: {
-      provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        '**/*.test.ts',
-        '**/*.config.ts',
-      ],
+      provider: "v8",
+      reporter: ["text", "json", "html"],
+      exclude: ["node_modules/", "**/*.test.ts", "**/*.config.ts"],
     },
   },
 });
@@ -202,12 +206,12 @@ export default defineConfig({
 
 ### Additional Tools
 
-| Tool | Purpose | Usage |
-|------|---------|-------|
-| **Cypress** | Web E2E tests | `pnpm --filter skatehubba-client exec cypress run` |
-| **Detox** | Mobile E2E tests | Not yet integrated |
-| **@testing-library/react** | React component testing | Included in Vitest setup |
-| **Supertest** | HTTP endpoint testing | API integration tests |
+| Tool                       | Purpose                 | Usage                                              |
+| -------------------------- | ----------------------- | -------------------------------------------------- |
+| **Cypress**                | Web E2E tests           | `pnpm --filter skatehubba-client exec cypress run` |
+| **Detox**                  | Mobile E2E tests        | Not yet integrated                                 |
+| **@testing-library/react** | React component testing | Included in Vitest setup                           |
+| **Supertest**              | HTTP endpoint testing   | API integration tests                              |
 
 ---
 
@@ -215,12 +219,12 @@ export default defineConfig({
 
 ### Current Status (as of Q1 2026)
 
-| Metric | Current | Target (Q2 2026) |
-|--------|---------|------------------|
-| Statements | 50% | 60% |
-| Branches | 43% | 60% |
-| Functions | 55% | 60% |
-| Lines | 50% | 60% |
+| Metric     | Current | Target (Q2 2026) |
+| ---------- | ------- | ---------------- |
+| Statements | 50%     | 60%              |
+| Branches   | 43%     | 60%              |
+| Functions  | 55%     | 60%              |
+| Lines      | 50%     | 60%              |
 
 ### Critical Paths: 100% Coverage Required
 
@@ -264,6 +268,7 @@ pnpm test:coverage
 ### What Are Critical Paths?
 
 Critical paths are user workflows that are:
+
 1. Essential to core functionality
 2. Involve financial transactions or sensitive data
 3. Have high usage frequency
@@ -275,20 +280,20 @@ Critical paths are user workflows that are:
 
 ```typescript
 // auth-critical-paths.test.ts
-describe('Authentication Critical Paths', () => {
-  it('should complete full registration flow', async () => {
+describe("Authentication Critical Paths", () => {
+  it("should complete full registration flow", async () => {
     // Email signup
-    const { uid } = await createFirebaseUser('test@example.com', 'password123');
+    const { uid } = await createFirebaseUser("test@example.com", "password123");
 
     // Profile creation
     const profile = await createProfile({
       uid,
-      username: 'skater42',
-      stance: 'regular',
+      username: "skater42",
+      stance: "regular",
     });
 
     // Login
-    const token = await signInWithEmailAndPassword('test@example.com', 'password123');
+    const token = await signInWithEmailAndPassword("test@example.com", "password123");
     expect(token).toBeDefined();
 
     // Verify token
@@ -296,9 +301,9 @@ describe('Authentication Critical Paths', () => {
     expect(decoded.uid).toBe(uid);
   });
 
-  it('should handle password reset flow', async () => {
-    await createFirebaseUser('test@example.com', 'oldpassword');
-    await sendPasswordResetEmail('test@example.com');
+  it("should handle password reset flow", async () => {
+    await createFirebaseUser("test@example.com", "oldpassword");
+    await sendPasswordResetEmail("test@example.com");
     // Verify email sent (mock check)
   });
 });
@@ -308,24 +313,24 @@ describe('Authentication Critical Paths', () => {
 
 ```typescript
 // game-critical-paths.test.ts
-describe('S.K.A.T.E. Game Critical Paths', () => {
-  it('should complete full game from creation to completion', async () => {
+describe("S.K.A.T.E. Game Critical Paths", () => {
+  it("should complete full game from creation to completion", async () => {
     // Create game
-    const game = await createGame({ player1: 'user_1', player2: 'user_2' });
-    expect(game.status).toBe('active');
+    const game = await createGame({ player1: "user_1", player2: "user_2" });
+    expect(game.status).toBe("active");
 
     // Player 1 sets trick
-    await submitTrick(game.id, 'user_1', { videoUrl: '...', trickName: 'kickflip' });
+    await submitTrick(game.id, "user_1", { videoUrl: "...", trickName: "kickflip" });
 
     // Player 2 responds
-    await submitResponse(game.id, 'user_2', { videoUrl: '...', result: 'land' });
+    await submitResponse(game.id, "user_2", { videoUrl: "...", result: "land" });
 
     // Player 2 votes on Player 1's trick
-    await castVote(game.id, 'user_2', { targetPlayerId: 'user_1', vote: 'land' });
+    await castVote(game.id, "user_2", { targetPlayerId: "user_1", vote: "land" });
 
     // Check game state
     const updated = await getGame(game.id);
-    expect(updated.currentTurn).toBe('user_2'); // Roles swapped
+    expect(updated.currentTurn).toBe("user_2"); // Roles swapped
   });
 });
 ```
@@ -365,12 +370,12 @@ describe('S.K.A.T.E. Game Critical Paths', () => {
 
 ### Naming Conventions
 
-| Test Type | Suffix | Example |
-|-----------|--------|---------|
-| Unit | `.test.ts` | `userService.test.ts` |
-| Integration | `.integration.test.ts` | `auth-routes-integration.test.ts` |
-| E2E (Cypress) | `.cy.ts` | `game-flow.cy.ts` |
-| Critical Path | `-critical-paths.test.ts` | `auth-critical-paths.test.ts` |
+| Test Type     | Suffix                    | Example                           |
+| ------------- | ------------------------- | --------------------------------- |
+| Unit          | `.test.ts`                | `userService.test.ts`             |
+| Integration   | `.integration.test.ts`    | `auth-routes-integration.test.ts` |
+| E2E (Cypress) | `.cy.ts`                  | `game-flow.cy.ts`                 |
+| Critical Path | `-critical-paths.test.ts` | `auth-critical-paths.test.ts`     |
 
 ---
 
@@ -379,20 +384,20 @@ describe('S.K.A.T.E. Game Critical Paths', () => {
 ### Test Structure: AAA Pattern
 
 ```typescript
-describe('createUser', () => {
-  it('should create user with valid data', async () => {
+describe("createUser", () => {
+  it("should create user with valid data", async () => {
     // Arrange: Set up test data and dependencies
     const userData = {
-      username: 'skater42',
-      email: 'test@example.com',
+      username: "skater42",
+      email: "test@example.com",
     };
 
     // Act: Execute the function being tested
     const user = await createUser(userData);
 
     // Assert: Verify the outcome
-    expect(user.username).toBe('skater42');
-    expect(user.email).toBe('test@example.com');
+    expect(user.username).toBe("skater42");
+    expect(user.email).toBe("test@example.com");
     expect(user.id).toBeDefined();
   });
 });
@@ -402,14 +407,14 @@ describe('createUser', () => {
 
 ```typescript
 // ✅ GOOD: Descriptive, behavior-focused
-it('should reject duplicate username during registration', () => {});
-it('should return 404 when spot does not exist', () => {});
-it('should calculate correct distance between coordinates', () => {});
+it("should reject duplicate username during registration", () => {});
+it("should return 404 when spot does not exist", () => {});
+it("should calculate correct distance between coordinates", () => {});
 
 // ❌ BAD: Implementation-focused, vague
-it('should work', () => {});
-it('tests the function', () => {});
-it('checks database', () => {});
+it("should work", () => {});
+it("tests the function", () => {});
+it("checks database", () => {});
 ```
 
 ### Test Data Factories
@@ -427,7 +432,7 @@ export const UserFactory = {
 };
 
 // Usage in tests
-const user = UserFactory.build({ username: 'skater42' });
+const user = UserFactory.build({ username: "skater42" });
 ```
 
 ### Avoid Test Interdependence
@@ -436,31 +441,31 @@ const user = UserFactory.build({ username: 'skater42' });
 // ❌ BAD: Tests depend on each other
 let createdUserId: string;
 
-it('should create user', () => {
+it("should create user", () => {
   const user = await createUser(data);
   createdUserId = user.id; // Global state!
 });
 
-it('should update user', () => {
-  await updateUser(createdUserId, { bio: 'New bio' }); // Depends on previous test!
+it("should update user", () => {
+  await updateUser(createdUserId, { bio: "New bio" }); // Depends on previous test!
 });
 
 // ✅ GOOD: Independent tests
-describe('User CRUD', () => {
+describe("User CRUD", () => {
   let testUser: User;
 
   beforeEach(async () => {
     testUser = await createUser(testData); // Fresh user for each test
   });
 
-  it('should create user', () => {
+  it("should create user", () => {
     expect(testUser.id).toBeDefined();
   });
 
-  it('should update user', () => {
-    await updateUser(testUser.id, { bio: 'New bio' });
+  it("should update user", () => {
+    await updateUser(testUser.id, { bio: "New bio" });
     const updated = await getUser(testUser.id);
-    expect(updated.bio).toBe('New bio');
+    expect(updated.bio).toBe("New bio");
   });
 });
 ```
@@ -485,9 +490,9 @@ describe('User CRUD', () => {
 
 ```typescript
 // Mock Firebase Admin SDK
-vi.mock('firebase-admin', () => ({
+vi.mock("firebase-admin", () => ({
   auth: () => ({
-    verifyIdToken: vi.fn().mockResolvedValue({ uid: 'test_uid' }),
+    verifyIdToken: vi.fn().mockResolvedValue({ uid: "test_uid" }),
     createUser: vi.fn(),
   }),
   storage: () => ({
@@ -547,15 +552,13 @@ describe('Idempotency and Race Conditions', () => {
 
 ```typescript
 // battleStateService.test.ts
-describe('Vote Counting with Row Locking', () => {
-  it('should prevent race conditions in concurrent voting', async () => {
-    const battleId = 'battle_123';
+describe("Vote Counting with Row Locking", () => {
+  it("should prevent race conditions in concurrent voting", async () => {
+    const battleId = "battle_123";
 
     // Simulate 10 concurrent votes
     await Promise.all(
-      Array.from({ length: 10 }, (_, i) =>
-        castVote(battleId, `user_${i}`, { vote: 'land' })
-      )
+      Array.from({ length: 10 }, (_, i) => castVote(battleId, `user_${i}`, { vote: "land" }))
     );
 
     const battle = await getBattle(battleId);
@@ -586,8 +589,8 @@ jobs:
           version: 10
       - uses: actions/setup-node@v3
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: "20"
+          cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install
@@ -602,6 +605,7 @@ jobs:
 ### Quality Gates
 
 Tests must pass before:
+
 - ✅ Merging pull requests
 - ✅ Deploying to staging
 - ✅ Deploying to production
@@ -633,8 +637,8 @@ scenarios:
 ### Database Query Performance
 
 ```typescript
-describe('Spot Query Performance', () => {
-  it('should return spots within 100ms', async () => {
+describe("Spot Query Performance", () => {
+  it("should return spots within 100ms", async () => {
     const start = Date.now();
     const spots = await getSpots({ limit: 100 });
     const duration = Date.now() - start;
@@ -651,9 +655,10 @@ describe('Spot Query Performance', () => {
 
 ### Current Status
 
-- **Detox**: Scaffold configured but not integrated to CI
+- **Detox**: Configured and integrated into CI (`.github/workflows/mobile-e2e.yml`)
 - **Smoke Test**: Basic test exists in `/mobile/e2e/`
-- **TODO**: Integrate mobile E2E tests into CI pipeline
+- **Android E2E**: Runs automatically on PRs and pushes to main (ubuntu runner)
+- **iOS E2E**: Gated behind `e2e` label or manual dispatch (macOS runner cost optimization)
 
 ### Future Mobile Testing Strategy
 
@@ -694,6 +699,7 @@ pnpm --filter @skatehubba/mobile test:e2e
 ### Pre-commit Checklist
 
 Before committing:
+
 - [ ] All tests pass: `pnpm test`
 - [ ] Coverage meets threshold
 - [ ] No TypeScript errors: `pnpm typecheck`

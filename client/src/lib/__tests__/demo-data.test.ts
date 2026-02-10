@@ -202,10 +202,10 @@ describe("demo-data", () => {
       }
     });
 
-    it("every entry has positive points", () => {
+    it("every entry has positive xp", () => {
       for (const entry of DEMO_LEADERBOARD) {
-        expect(entry.points).toBeTypeOf("number");
-        expect(entry.points!).toBeGreaterThan(0);
+        expect(entry.xp).toBeTypeOf("number");
+        expect(entry.xp!).toBeGreaterThan(0);
       }
     });
 
@@ -228,9 +228,9 @@ describe("demo-data", () => {
       expect(ranks).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     });
 
-    it("points are in descending order (higher ranked = more points)", () => {
+    it("xp values are in descending order (higher ranked = more xp)", () => {
       for (let i = 1; i < DEMO_LEADERBOARD.length; i++) {
-        expect(DEMO_LEADERBOARD[i].points!).toBeLessThan(DEMO_LEADERBOARD[i - 1].points!);
+        expect(DEMO_LEADERBOARD[i].xp!).toBeLessThan(DEMO_LEADERBOARD[i - 1].xp!);
       }
     });
 
