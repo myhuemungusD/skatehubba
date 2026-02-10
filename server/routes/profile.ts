@@ -89,11 +89,18 @@ router.get("/username-check", usernameCheckLimiter, async (req, res) => {
     });
   }
 
-  const db = getDb();
-  const usernameStore = createUsernameStore(db);
-  const available = await usernameStore.isAvailable(parsed.data);
+  try {
+    const db = getDb();
+    const usernameStore = createUsernameStore(db);
+    const available = await usernameStore.isAvailable(parsed.data);
 
-  return res.json({ available });
+    return res.json({ available });
+  } catch {
+    return res.status(503).json({
+      error: "database_unavailable",
+      message: "Could not check username availability. Please try again shortly.",
+    });
+  }
 });
 
 router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res) => {
