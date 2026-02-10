@@ -60,6 +60,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                           : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
                       }`}
                       aria-current={isActive ? "page" : undefined}
+                      data-testid={`nav-${item.label.toLowerCase()}`}
                     >
                       <Icon className="h-5 w-5" aria-hidden="true" />
                       <span>{item.label}</span>
@@ -76,6 +77,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <Link
                 href="/admin"
                 className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-orange-400 hover:bg-orange-500/10 transition-colors w-full"
+                data-testid="nav-admin"
               >
                 <Shield className="h-5 w-5" aria-hidden="true" />
                 <span>Admin</span>
@@ -84,6 +86,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <button
               onClick={handleLogout}
               className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors w-full"
+              data-testid="nav-signout"
             >
               <LogOut className="h-5 w-5" aria-hidden="true" />
               <span>Sign Out</span>
@@ -132,6 +135,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   isActive ? "text-yellow-400" : "text-neutral-400 hover:text-white"
                 }`}
                 aria-current={isActive ? "page" : undefined}
+                data-testid={`nav-${item.label.toLowerCase()}`}
               >
                 <Icon className="h-5 w-5" aria-hidden="true" />
                 <span>{item.label}</span>
