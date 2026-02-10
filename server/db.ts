@@ -1,6 +1,7 @@
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "../packages/shared/schema.ts";
+import { eq } from "drizzle-orm";
 import { env } from "./config/env";
 import logger from "./logger";
 import { defaultSpots } from "./seeds/defaultSpots";
@@ -46,6 +47,30 @@ export function getDb(): Database {
  */
 export function isDatabaseAvailable(): boolean {
   return db !== null;
+}
+
+/**
+ * Get user display name from database.
+ * First tries to get username, then firstName, fallback to "Skater".
+ */
+export async function getUserDisplayName(db: Database, userId: string): Promise<string> {
+  const usernameResult = await db
+    .select({ username: schema.usernames.username })
+    .from(schema.usernames)
+    .where(eq(schema.usernames.uid, userId))
+    .limit(1);
+
+  if (usernameResult[0]?.username) {
+    return usernameResult[0].username;
+  }
+
+  const userResult = await db
+    .select({ firstName: schema.customUsers.firstName })
+    .from(schema.customUsers)
+    .where(eq(schema.customUsers.id, userId))
+    .limit(1);
+
+  return userResult[0]?.firstName || "Skater";
 }
 
 export { db, pool };

@@ -8,84 +8,33 @@
  */
 
 import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Link, useLocation } from "wouter";
-import { Eye, EyeOff, Mail, User, Lock, Loader2, Copy, Check } from "lucide-react";
-import { SiGoogle } from "react-icons/si";
 
-import { Button } from "../components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
+import { Card } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { Checkbox } from "../components/ui/checkbox";
 import { useToast } from "../hooks/use-toast";
 import { useAuth } from "../hooks/useAuth";
 import { logger } from "../lib/logger";
 import { setAuthPersistence } from "../lib/firebase";
-
-/**
- * Detect if running in an embedded browser (Instagram, Facebook, etc.)
- * Google blocks OAuth in these webviews for security reasons
- */
-function isEmbeddedBrowser(): boolean {
-  const ua = navigator.userAgent || navigator.vendor || "";
-  return (
-    ua.includes("FBAN") || // Facebook App
-    ua.includes("FBAV") || // Facebook App
-    ua.includes("Instagram") ||
-    ua.includes("Twitter") ||
-    ua.includes("Line/") ||
-    ua.includes("KAKAOTALK") ||
-    ua.includes("Snapchat") ||
-    ua.includes("TikTok") ||
-    (ua.includes("wv") && ua.includes("Android")) // Android WebView
-  );
-}
-
-// ============================================================================
-// Form Schemas
-// ============================================================================
-
-const signInSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
-});
-
-const signUpSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  email: z.string().email("Please enter a valid email address"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Password must contain an uppercase letter")
-    .regex(/[a-z]/, "Password must contain a lowercase letter")
-    .regex(/[0-9]/, "Password must contain a number"),
-});
-
-type SignInForm = z.infer<typeof signInSchema>;
-type SignUpForm = z.infer<typeof signUpSchema>;
-
-// ============================================================================
-// Component
-// ============================================================================
+import { isEmbeddedBrowser } from "./auth/authSchemas";
+import { SignInTab } from "./auth/SignInTab";
+import { SignUpTab } from "./auth/SignUpTab";
+import { ForgotPasswordModal } from "./auth/ForgotPasswordModal";
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const auth = useAuth();
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">(() => {
+    if (typeof window === "undefined") return "signup";
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    return tab === "signin" ? "signin" : "signup";
+  });
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [forgotPasswordEmail, setForgotPasswordEmail] = useState("");
-  const [isResettingPassword, setIsResettingPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(true); // Default to staying signed in
   const [inEmbeddedBrowser, setInEmbeddedBrowser] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // Parse ?next= param for redirect after login
   const getNextUrl = (): string => {
@@ -130,93 +79,8 @@ export default function AuthPage() {
     logger.log("[AuthPage] Is embedded browser:", isEmbedded);
   }, []);
 
-  // Handle case where auth context is not available yet
-  const signIn = auth?.signInWithEmail;
-  const signUp = auth?.signUpWithEmail;
-  const signInWithGoogle = auth?.signInWithGoogle;
-  const resetPassword = auth?.resetPassword;
-  const isLoading = auth?.loading ?? false;
-
-  // Sign In Form
-  const signInForm = useForm<SignInForm>({
-    resolver: zodResolver(signInSchema),
-    defaultValues: { email: "", password: "" },
-  });
-
-  // Sign Up Form
-  const signUpForm = useForm<SignUpForm>({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: { name: "", email: "", password: "" },
-  });
-
-  // Handle Sign In
-  const handleSignIn = async (data: SignInForm) => {
-    if (!signIn) {
-      toast({
-        title: "Error",
-        description: "Authentication not ready. Please refresh.",
-        variant: "destructive",
-      });
-      return;
-    }
-    try {
-      logger.log("[AuthPage] Attempting sign in...");
-      // Set persistence before signing in
-      await setAuthPersistence(rememberMe);
-      await signIn(data.email, data.password);
-      logger.log("[AuthPage] Sign in successful");
-      toast({
-        title: "Welcome back! ",
-        description: "You have successfully signed in.",
-      });
-    } catch (error) {
-      logger.error("[AuthPage] Sign in error:", error);
-      // Get the actual error message from AuthError
-      const authError = error as { message?: string; code?: string };
-      const message = authError.message || "Sign in failed. Please check your credentials.";
-      toast({
-        title: "Sign In Failed",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Handle Sign Up
-  const handleSignUp = async (data: SignUpForm) => {
-    if (!signUp) {
-      toast({
-        title: "Error",
-        description: "Authentication not ready. Please refresh.",
-        variant: "destructive",
-      });
-      return;
-    }
-    logger.log("[AuthPage] handleSignUp called:", { email: data.email });
-    try {
-      await signUp(data.email, data.password, data.name);
-      logger.log("[AuthPage] Sign up successful!");
-      toast({
-        title: "Account Created!",
-        description: "We sent a verification email. Now pick a username!",
-      });
-      setLocation("/profile/setup");
-    } catch (error) {
-      logger.error("[AuthPage] Sign up error:", error);
-      const authError = error as { message?: string; code?: string };
-      const message = authError.message || "Sign up failed. Please try again.";
-      logger.error("[AuthPage] Displaying error:", message);
-      toast({
-        title: "Registration Failed",
-        description: message,
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Handle Google Sign In
   const handleGoogleSignIn = async () => {
-    if (!signInWithGoogle) {
+    if (!auth?.signInWithGoogle) {
       toast({
         title: "Error",
         description: "Authentication not ready. Please refresh.",
@@ -226,11 +90,10 @@ export default function AuthPage() {
     }
     setIsGoogleLoading(true);
     try {
-      // Set persistence before signing in
-      await setAuthPersistence(rememberMe);
-      await signInWithGoogle();
+      await setAuthPersistence(true);
+      await auth.signInWithGoogle();
       toast({
-        title: "Welcome! ",
+        title: "Welcome!",
         description: "You have successfully signed in with Google.",
       });
     } catch (error) {
@@ -244,50 +107,6 @@ export default function AuthPage() {
       setIsGoogleLoading(false);
     }
   };
-
-  // Handle Forgot Password
-  const handleForgotPassword = async () => {
-    if (!resetPassword) {
-      toast({
-        title: "Error",
-        description: "Authentication not ready. Please refresh.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!forgotPasswordEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotPasswordEmail)) {
-      toast({
-        title: "Invalid Email",
-        description: "Please enter a valid email address.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsResettingPassword(true);
-    try {
-      await resetPassword(forgotPasswordEmail);
-      toast({
-        title: "Reset Email Sent ",
-        description: "Check your inbox for password reset instructions.",
-      });
-      setShowForgotPassword(false);
-      setForgotPasswordEmail("");
-    } catch (error) {
-      const authError = error as { message?: string };
-      toast({
-        title: "Reset Failed",
-        description: authError.message || "Could not send reset email. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsResettingPassword(false);
-    }
-  };
-
-  const isFormLoading =
-    isLoading || signInForm.formState.isSubmitting || signUpForm.formState.isSubmitting;
 
   return (
     <div className="min-h-screen bg-[#181818] flex flex-col items-center justify-center p-4">
@@ -319,430 +138,42 @@ export default function AuthPage() {
               </TabsTrigger>
             </TabsList>
 
-            {/* Sign In Tab */}
             <TabsContent value="signin">
-              <CardHeader>
-                <CardTitle className="text-xl text-white">Welcome Back</CardTitle>
-                <CardDescription className="text-gray-400">
-                  Sign in to your account to continue
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
-                  {/* Email */}
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email" className="text-gray-300">
-                      Email
-                    </Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="signin-email"
-                        type="email"
-                        placeholder="you@example.com"
-                        {...signInForm.register("email")}
-                        className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
-                      />
-                    </div>
-                    {signInForm.formState.errors.email && (
-                      <p className="text-sm text-red-400">
-                        {signInForm.formState.errors.email.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Password */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label htmlFor="signin-password" className="text-gray-300">
-                        Password
-                      </Label>
-                      <button
-                        type="button"
-                        onClick={() => setShowForgotPassword(true)}
-                        className="text-sm text-orange-500 hover:text-orange-400"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="signin-password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder=""
-                        {...signInForm.register("password")}
-                        className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                    {signInForm.formState.errors.password && (
-                      <p className="text-sm text-red-400">
-                        {signInForm.formState.errors.password.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Remember Me */}
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="rememberMe"
-                      checked={rememberMe}
-                      onCheckedChange={(checked) => setRememberMe(checked === true)}
-                      className="border-gray-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
-                    />
-                    <Label htmlFor="rememberMe" className="text-sm text-gray-300 cursor-pointer">
-                      Keep me signed in
-                    </Label>
-                  </div>
-
-                  {/* Submit */}
-                  <Button
-                    type="submit"
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                    disabled={isFormLoading}
-                  >
-                    {isFormLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Signing In...
-                      </>
-                    ) : (
-                      "Sign In"
-                    )}
-                  </Button>
-                </form>
-
-                {/* Divider */}
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-gray-600" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-[#232323] px-2 text-gray-400">Or continue with</span>
-                  </div>
-                </div>
-
-                {/* Embedded Browser Warning */}
-                {inEmbeddedBrowser && (
-                  <div className="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-3 mb-4">
-                    <p className="text-yellow-200 text-sm text-center">
-                      <strong>Google Sign-In not available</strong> in this browser.
-                      <br />
-                      <span className="text-yellow-300/80">
-                        Copy the link below and paste in Safari/Chrome, or use email sign-in above.
-                      </span>
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-2 border-yellow-600 text-yellow-200 hover:bg-yellow-900/50"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(window.location.href);
-                          setCopied(true);
-                          toast({
-                            title: "Link copied!",
-                            description: "Paste it in Safari or Chrome.",
-                          });
-                          setTimeout(() => setCopied(false), 2000);
-                        } catch {
-                          toast({ title: "Copy this link", description: window.location.href });
-                        }
-                      }}
-                    >
-                      {copied ? (
-                        <Check className="w-4 h-4 mr-2" />
-                      ) : (
-                        <Copy className="w-4 h-4 mr-2" />
-                      )}
-                      {copied ? "Copied!" : "Copy Link"}
-                    </Button>
-                  </div>
-                )}
-
-                {/* Google Sign In */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={`w-full border-gray-600 text-white hover:bg-gray-700 ${
-                    inEmbeddedBrowser ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                  onClick={handleGoogleSignIn}
-                  disabled={isGoogleLoading || inEmbeddedBrowser}
-                >
-                  {isGoogleLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <SiGoogle className="mr-2 h-4 w-4" />
-                  )}
-                  Continue with Google
-                </Button>
-              </CardContent>
+              <SignInTab
+                signIn={auth?.signInWithEmail}
+                onGoogleSignIn={handleGoogleSignIn}
+                isGoogleLoading={isGoogleLoading}
+                isExternalLoading={auth?.loading ?? false}
+                inEmbeddedBrowser={inEmbeddedBrowser}
+                onForgotPassword={() => setShowForgotPassword(true)}
+              />
             </TabsContent>
 
-            {/* Sign Up Tab */}
             <TabsContent value="signup">
-              <CardHeader>
-                <CardTitle className="text-xl text-white">Create Account</CardTitle>
-                <CardDescription className="text-gray-400">
-                  Join the community and start sharing spots
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4">
-                  {/* Name */}
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name" className="text-gray-300">
-                      Name
-                    </Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="signup-name"
-                        placeholder="Your name"
-                        {...signUpForm.register("name")}
-                        className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
-                      />
-                    </div>
-                    {signUpForm.formState.errors.name && (
-                      <p className="text-sm text-red-400">
-                        {signUpForm.formState.errors.name.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Email */}
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email" className="text-gray-300">
-                      Email
-                    </Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="you@example.com"
-                        {...signUpForm.register("email")}
-                        className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
-                      />
-                    </div>
-                    {signUpForm.formState.errors.email && (
-                      <p className="text-sm text-red-400">
-                        {signUpForm.formState.errors.email.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Password */}
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password" className="text-gray-300">
-                      Password
-                    </Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="signup-password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder=""
-                        {...signUpForm.register("password")}
-                        className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Must contain at least 8 characters with uppercase, lowercase, and numbers
-                    </p>
-                    {signUpForm.formState.errors.password && (
-                      <p className="text-sm text-red-400">
-                        {signUpForm.formState.errors.password.message}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Submit */}
-                  <Button
-                    type="submit"
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                    disabled={isFormLoading}
-                  >
-                    {isFormLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating Account...
-                      </>
-                    ) : (
-                      "Create Account"
-                    )}
-                  </Button>
-
-                  {/* Terms */}
-                  <p className="text-xs text-center text-gray-500">
-                    By creating an account, you agree to our{" "}
-                    <Link href="/terms" className="text-orange-500 hover:underline">
-                      Terms of Service
-                    </Link>{" "}
-                    and{" "}
-                    <Link href="/privacy" className="text-orange-500 hover:underline">
-                      Privacy Policy
-                    </Link>
-                  </p>
-                </form>
-
-                {/* Divider */}
-                <div className="relative my-6">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-gray-600" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-[#232323] px-2 text-gray-400">Or continue with</span>
-                  </div>
-                </div>
-
-                {/* Embedded Browser Warning */}
-                {inEmbeddedBrowser && (
-                  <div className="bg-yellow-900/30 border border-yellow-600/50 rounded-lg p-3 mb-4">
-                    <p className="text-yellow-200 text-sm text-center">
-                      <strong>Google Sign-In not available</strong> in this browser.
-                      <br />
-                      <span className="text-yellow-300/80">
-                        Copy the link below and paste in Safari/Chrome, or use email sign-up above.
-                      </span>
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full mt-2 border-yellow-600 text-yellow-200 hover:bg-yellow-900/50"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(window.location.href);
-                          setCopied(true);
-                          toast({
-                            title: "Link copied!",
-                            description: "Paste it in Safari or Chrome.",
-                          });
-                          setTimeout(() => setCopied(false), 2000);
-                        } catch {
-                          toast({ title: "Copy this link", description: window.location.href });
-                        }
-                      }}
-                    >
-                      {copied ? (
-                        <Check className="w-4 h-4 mr-2" />
-                      ) : (
-                        <Copy className="w-4 h-4 mr-2" />
-                      )}
-                      {copied ? "Copied!" : "Copy Link"}
-                    </Button>
-                  </div>
-                )}
-
-                {/* Google Sign Up */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={`w-full border-gray-600 text-white hover:bg-gray-700 ${
-                    inEmbeddedBrowser ? "opacity-50 cursor-not-allowed" : ""
-                  }`}
-                  onClick={handleGoogleSignIn}
-                  disabled={isGoogleLoading || inEmbeddedBrowser}
-                >
-                  {isGoogleLoading ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : (
-                    <SiGoogle className="mr-2 h-4 w-4" />
-                  )}
-                  Continue with Google
-                </Button>
-              </CardContent>
+              <SignUpTab
+                signUp={auth?.signUpWithEmail}
+                onGoogleSignIn={handleGoogleSignIn}
+                isGoogleLoading={isGoogleLoading}
+                isExternalLoading={auth?.loading ?? false}
+                inEmbeddedBrowser={inEmbeddedBrowser}
+              />
             </TabsContent>
           </Tabs>
         </Card>
 
         {/* Back to Home */}
         <div className="text-center mt-6">
-          <Link href="/" className="text-gray-400 hover:text-white text-sm">
+          <Link href="/landing" className="text-gray-400 hover:text-white text-sm">
             Back to Home
           </Link>
         </div>
       </div>
 
-      {/* Forgot Password Modal */}
       {showForgotPassword && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-md bg-[#232323] border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-xl text-white">Reset Password</CardTitle>
-              <CardDescription className="text-gray-400">
-                Enter your email and we'll send you a link to reset your password
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="reset-email" className="text-gray-300">
-                  Email
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    id="reset-email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={forgotPasswordEmail}
-                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                    className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  className="flex-1 border-gray-600 text-white hover:bg-gray-700"
-                  onClick={() => {
-                    setShowForgotPassword(false);
-                    setForgotPasswordEmail("");
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
-                  onClick={handleForgotPassword}
-                  disabled={isResettingPassword}
-                >
-                  {isResettingPassword ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    "Send Reset Link"
-                  )}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        <ForgotPasswordModal
+          onClose={() => setShowForgotPassword(false)}
+          resetPassword={auth?.resetPassword}
+        />
       )}
     </div>
   );

@@ -4,7 +4,14 @@ import logger from "./logger";
 
 if (!admin.apps.length) {
   try {
-    const serviceAccount = env.FIREBASE_ADMIN_KEY ? JSON.parse(env.FIREBASE_ADMIN_KEY) : null;
+    let serviceAccount = null;
+    if (env.FIREBASE_ADMIN_KEY) {
+      try {
+        serviceAccount = JSON.parse(env.FIREBASE_ADMIN_KEY);
+      } catch (error) {
+        logger.warn("Failed to parse FIREBASE_ADMIN_KEY:", { error });
+      }
+    }
     const projectId = env.FIREBASE_PROJECT_ID ?? env.VITE_FIREBASE_PROJECT_ID;
     const clientEmail = env.FIREBASE_CLIENT_EMAIL;
     const privateKey = env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");

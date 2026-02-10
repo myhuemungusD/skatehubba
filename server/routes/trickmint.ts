@@ -17,7 +17,7 @@
 
 import { Router } from "express";
 import { z } from "zod";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb, isDatabaseAvailable, getUserDisplayName } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { trickClips, usernames, customUsers } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -65,30 +65,6 @@ const paginationSchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(20),
   offset: z.coerce.number().int().min(0).default(0),
 });
-
-// ============================================================================
-// Helpers
-// ============================================================================
-
-async function getUserDisplayName(db: ReturnType<typeof getDb>, userId: string): Promise<string> {
-  const usernameResult = await db
-    .select({ username: usernames.username })
-    .from(usernames)
-    .where(eq(usernames.uid, userId))
-    .limit(1);
-
-  if (usernameResult[0]?.username) {
-    return usernameResult[0].username;
-  }
-
-  const userResult = await db
-    .select({ firstName: customUsers.firstName })
-    .from(customUsers)
-    .where(eq(customUsers.id, userId))
-    .limit(1);
-
-  return userResult[0]?.firstName || "Skater";
-}
 
 // ============================================================================
 // POST /api/trickmint/request-upload — Get signed upload URLs

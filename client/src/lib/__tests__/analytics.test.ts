@@ -1,397 +1,284 @@
 /**
- * Tests for Analytics Service
+ * Tests for client/src/lib/analytics.ts
+ *
+ * Covers: trackEvent, trackPageView, trackButtonClick, trackDonation,
+ *         trackSignup, trackAppDemo, and the legacy `analytics` object.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../firebase");
-vi.mock("../logger");
+// ── Mocks ──────────────────────────────────────────────────────────────────
 
-describe("Analytics", () => {
-  describe("Event Logging", () => {
-    it("should log custom event", () => {
-      const event = {
-        name: "trick_landed",
-        params: {
-          trickName: "kickflip",
-          difficulty: "hard",
-        },
-      };
+vi.mock("firebase/analytics", () => ({
+  logEvent: vi.fn(),
+}));
 
-      expect(event.name).toBe("trick_landed");
-      expect(event.params.trickName).toBe("kickflip");
+vi.mock("../firebase", () => ({
+  analytics: { _type: "mock-analytics-instance" },
+}));
+
+vi.mock("../../config/env", () => ({
+  env: { DEV: false },
+}));
+
+vi.mock("../logger", () => ({
+  logger: {
+    debug: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    log: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
+// Stub window.location for browser-dependent helpers
+vi.stubGlobal("window", {
+  location: {
+    href: "https://skatehubba.com/spots",
+    pathname: "/spots",
+  },
+});
+
+// ── Imports (resolved AFTER mocks are hoisted) ─────────────────────────────
+
+import { logEvent } from "firebase/analytics";
+import { env } from "../../config/env";
+import { logger } from "../logger";
+
+import {
+  trackEvent,
+  trackPageView,
+  trackButtonClick,
+  trackDonation,
+  trackSignup,
+  trackAppDemo,
+  analytics,
+} from "../analytics";
+
+// ── Tests ──────────────────────────────────────────────────────────────────
+
+describe("analytics", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (env as any).DEV = false;
+  });
+
+  // ────────────────────────────────────────────────────────────────────────
+  // trackEvent
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe("trackEvent", () => {
+    it("calls logEvent in production mode", () => {
+      trackEvent("test_event", { key: "value" });
+
+      expect(logEvent).toHaveBeenCalledWith({ _type: "mock-analytics-instance" }, "test_event", {
+        key: "value",
+      });
     });
 
-    it("should log page view", () => {
-      const event = {
-        name: "page_view",
-        params: {
-          page_path: "/games",
-          page_title: "Games",
-        },
-      };
+    it("calls logEvent without parameters when none provided", () => {
+      trackEvent("simple_event");
 
-      expect(event.name).toBe("page_view");
-      expect(event.params.page_path).toBe("/games");
+      expect(logEvent).toHaveBeenCalledWith(
+        { _type: "mock-analytics-instance" },
+        "simple_event",
+        undefined
+      );
     });
 
-    it("should log user action", () => {
-      const event = {
-        name: "button_click",
-        params: {
-          button_name: "start_game",
-          screen_name: "home",
-        },
-      };
+    it("logs to debug instead of logEvent in development mode", () => {
+      (env as any).DEV = true;
 
-      expect(event.name).toBe("button_click");
+      trackEvent("dev_event", { foo: "bar" });
+
+      expect(logger.debug).toHaveBeenCalledWith("[Analytics] dev_event", { foo: "bar" });
+      expect(logEvent).not.toHaveBeenCalled();
+    });
+
+    it("returns early in dev mode without calling logEvent", () => {
+      (env as any).DEV = true;
+
+      trackEvent("dev_only");
+
+      expect(logEvent).not.toHaveBeenCalled();
+    });
+
+    it("catches and warns when logEvent throws", () => {
+      vi.mocked(logEvent).mockImplementationOnce(() => {
+        throw new Error("Firebase Analytics unavailable");
+      });
+
+      trackEvent("failing_event");
+
+      expect(logger.warn).toHaveBeenCalledWith("Analytics tracking failed:", expect.any(Error));
     });
   });
 
-  describe("User Properties", () => {
-    it("should set user ID", () => {
-      const userId = "user-123";
-      expect(userId).toBeTruthy();
-    });
+  // ────────────────────────────────────────────────────────────────────────
+  // trackPageView
+  // ────────────────────────────────────────────────────────────────────────
 
-    it("should set user properties", () => {
-      const properties = {
-        stance: "regular",
-        skill_level: "intermediate",
-        account_age_days: 30,
-      };
+  describe("trackPageView", () => {
+    it("sends page_view event with page title and location", () => {
+      trackPageView("Spots Page");
 
-      expect(properties.stance).toBe("regular");
-      expect(properties.account_age_days).toBe(30);
-    });
-
-    it("should update user property", () => {
-      let skill = "beginner";
-      skill = "intermediate";
-
-      expect(skill).toBe("intermediate");
+      expect(logEvent).toHaveBeenCalledWith({ _type: "mock-analytics-instance" }, "page_view", {
+        page_title: "Spots Page",
+        page_location: "https://skatehubba.com/spots",
+      });
     });
   });
 
-  describe("Game Events", () => {
-    it("should log game started", () => {
-      const event = {
-        name: "game_started",
-        params: {
-          game_id: "game-123",
-          opponent_id: "user-456",
-        },
-      };
+  // ────────────────────────────────────────────────────────────────────────
+  // trackButtonClick
+  // ────────────────────────────────────────────────────────────────────────
 
-      expect(event.name).toBe("game_started");
+  describe("trackButtonClick", () => {
+    it("sends button_click event with explicit location", () => {
+      trackButtonClick("download_app", "hero_section");
+
+      expect(logEvent).toHaveBeenCalledWith({ _type: "mock-analytics-instance" }, "button_click", {
+        button_name: "download_app",
+        location: "hero_section",
+      });
     });
 
-    it("should log trick attempted", () => {
-      const event = {
-        name: "trick_attempted",
-        params: {
-          trick_name: "kickflip",
-          game_id: "game-123",
-        },
-      };
+    it("defaults location to window.location.pathname", () => {
+      trackButtonClick("nav_item");
 
-      expect(event.name).toBe("trick_attempted");
-    });
-
-    it("should log game completed", () => {
-      const event = {
-        name: "game_completed",
-        params: {
-          game_id: "game-123",
-          winner_id: "user-123",
-          duration_seconds: 300,
-        },
-      };
-
-      expect(event.name).toBe("game_completed");
-      expect(event.params.duration_seconds).toBeGreaterThan(0);
+      expect(logEvent).toHaveBeenCalledWith({ _type: "mock-analytics-instance" }, "button_click", {
+        button_name: "nav_item",
+        location: "/spots",
+      });
     });
   });
 
-  describe("Conversion Events", () => {
-    it("should log sign up", () => {
-      const event = {
-        name: "sign_up",
-        params: {
-          method: "email",
-        },
-      };
+  // ────────────────────────────────────────────────────────────────────────
+  // trackDonation
+  // ────────────────────────────────────────────────────────────────────────
 
-      expect(event.name).toBe("sign_up");
+  describe("trackDonation", () => {
+    it("sends donation_initiated event with amount, currency, and method", () => {
+      trackDonation(25, "stripe");
+
+      expect(logEvent).toHaveBeenCalledWith(
+        { _type: "mock-analytics-instance" },
+        "donation_initiated",
+        {
+          value: 25,
+          currency: "USD",
+          payment_method: "stripe",
+        }
+      );
     });
 
-    it("should log purchase", () => {
-      const event = {
-        name: "purchase",
-        params: {
+    it("handles decimal amounts", () => {
+      trackDonation(9.99, "paypal");
+
+      expect(logEvent).toHaveBeenCalledWith(
+        { _type: "mock-analytics-instance" },
+        "donation_initiated",
+        {
           value: 9.99,
           currency: "USD",
-          items: ["pro_subscription"],
-        },
-      };
-
-      expect(event.name).toBe("purchase");
-      expect(event.params.value).toBeGreaterThan(0);
-    });
-
-    it("should log subscription", () => {
-      const event = {
-        name: "subscribe",
-        params: {
-          tier: "pro",
-          value: 9.99,
-        },
-      };
-
-      expect(event.name).toBe("subscribe");
+          payment_method: "paypal",
+        }
+      );
     });
   });
 
-  describe("Engagement Events", () => {
-    it("should log session start", () => {
-      const event = {
-        name: "session_start",
-        params: {
-          timestamp: Date.now(),
-        },
-      };
+  // ────────────────────────────────────────────────────────────────────────
+  // trackSignup
+  // ────────────────────────────────────────────────────────────────────────
 
-      expect(event.name).toBe("session_start");
+  describe("trackSignup", () => {
+    it("defaults to email method", () => {
+      trackSignup();
+
+      expect(logEvent).toHaveBeenCalledWith({ _type: "mock-analytics-instance" }, "sign_up", {
+        method: "email",
+      });
     });
 
-    it("should track session duration", () => {
-      const startTime = Date.now();
-      const endTime = startTime + 300000; // 5 minutes
-      const duration = (endTime - startTime) / 1000;
+    it("accepts a custom method", () => {
+      trackSignup("google");
 
-      expect(duration).toBe(300);
-    });
-
-    it("should log user engagement", () => {
-      const event = {
-        name: "user_engagement",
-        params: {
-          engagement_time_msec: 180000,
-        },
-      };
-
-      expect(event.params.engagement_time_msec).toBeGreaterThan(0);
+      expect(logEvent).toHaveBeenCalledWith({ _type: "mock-analytics-instance" }, "sign_up", {
+        method: "google",
+      });
     });
   });
 
-  describe("Error Tracking", () => {
-    it("should log error event", () => {
-      const event = {
-        name: "error",
-        params: {
-          error_message: "Failed to load game",
-          error_code: "GAME_LOAD_FAILED",
-        },
-      };
+  // ────────────────────────────────────────────────────────────────────────
+  // trackAppDemo
+  // ────────────────────────────────────────────────────────────────────────
 
-      expect(event.name).toBe("error");
-      expect(event.params.error_code).toBeDefined();
-    });
+  describe("trackAppDemo", () => {
+    it("sends app_demo_click event with source", () => {
+      trackAppDemo("hero_banner");
 
-    it("should log exception", () => {
-      const exception = {
-        description: "Network timeout",
-        fatal: false,
-      };
-
-      expect(exception.description).toBe("Network timeout");
-      expect(exception.fatal).toBe(false);
+      expect(logEvent).toHaveBeenCalledWith(
+        { _type: "mock-analytics-instance" },
+        "app_demo_click",
+        { source: "hero_banner" }
+      );
     });
   });
 
-  describe("Event Parameters", () => {
-    it("should validate parameter types", () => {
-      const params = {
-        string_param: "value",
-        number_param: 123,
-        boolean_param: true,
-      };
+  // ────────────────────────────────────────────────────────────────────────
+  // Legacy analytics object
+  // ────────────────────────────────────────────────────────────────────────
 
-      expect(typeof params.string_param).toBe("string");
-      expect(typeof params.number_param).toBe("number");
-      expect(typeof params.boolean_param).toBe("boolean");
+  describe("analytics (legacy)", () => {
+    describe("subscribeSubmitted", () => {
+      it("tracks sign_up and subscribe_submitted with email domain", () => {
+        analytics.subscribeSubmitted("user@gmail.com");
+
+        expect(logEvent).toHaveBeenCalledWith(expect.anything(), "sign_up", { method: "email" });
+        expect(logEvent).toHaveBeenCalledWith(expect.anything(), "subscribe_submitted", {
+          email_domain: "gmail.com",
+        });
+      });
+
+      it("uses 'unknown' domain for email without @ symbol", () => {
+        analytics.subscribeSubmitted("bad-email");
+
+        expect(logEvent).toHaveBeenCalledWith(expect.anything(), "subscribe_submitted", {
+          email_domain: "unknown",
+        });
+      });
     });
 
-    it("should limit parameter count", () => {
-      const MAX_PARAMS = 25;
-      const params = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [`param${i}`, i]));
+    describe("subscribeSuccess", () => {
+      it("tracks subscribe_success event", () => {
+        analytics.subscribeSuccess();
 
-      expect(Object.keys(params).length).toBeLessThanOrEqual(MAX_PARAMS);
+        expect(logEvent).toHaveBeenCalledWith(expect.anything(), "subscribe_success", undefined);
+      });
     });
 
-    it("should limit parameter value length", () => {
-      const MAX_LENGTH = 100;
-      const value = "a".repeat(50);
+    describe("ctaClickHero", () => {
+      it("tracks button_click and cta_click_hero events", () => {
+        analytics.ctaClickHero("Get the App");
 
-      expect(value.length).toBeLessThanOrEqual(MAX_LENGTH);
-    });
-  });
-
-  describe("Screen Tracking", () => {
-    it("should log screen view", () => {
-      const event = {
-        name: "screen_view",
-        params: {
-          screen_name: "GamePlay",
-          screen_class: "GameScreen",
-        },
-      };
-
-      expect(event.name).toBe("screen_view");
+        expect(logEvent).toHaveBeenCalledWith(expect.anything(), "button_click", {
+          button_name: "hero_cta",
+          location: "hero_section",
+        });
+        expect(logEvent).toHaveBeenCalledWith(expect.anything(), "cta_click_hero", {
+          cta_text: "Get the App",
+        });
+      });
     });
 
-    it("should track screen time", () => {
-      const screenTime = 45000; // 45 seconds
-      expect(screenTime).toBeGreaterThan(0);
-    });
-  });
+    describe("videoPlay", () => {
+      it("tracks video_play event with section", () => {
+        analytics.videoPlay("intro");
 
-  describe("Custom Dimensions", () => {
-    it("should set custom dimension", () => {
-      const dimensions = {
-        user_tier: "pro",
-        platform: "web",
-        feature_flags: ["new_game_mode"],
-      };
-
-      expect(dimensions.user_tier).toBe("pro");
-      expect(dimensions.feature_flags).toContain("new_game_mode");
-    });
-
-    it("should support numeric dimensions", () => {
-      const dimensions = {
-        games_played: 25,
-        win_rate: 0.67,
-      };
-
-      expect(dimensions.games_played).toBe(25);
-      expect(dimensions.win_rate).toBeCloseTo(0.67);
-    });
-  });
-
-  describe("Batch Events", () => {
-    it("should queue events for batch sending", () => {
-      const queue = [
-        { name: "event1", timestamp: Date.now() },
-        { name: "event2", timestamp: Date.now() },
-        { name: "event3", timestamp: Date.now() },
-      ];
-
-      expect(queue).toHaveLength(3);
-    });
-
-    it("should flush queue at threshold", () => {
-      const BATCH_SIZE = 10;
-      const queueSize = 15;
-
-      const shouldFlush = queueSize >= BATCH_SIZE;
-      expect(shouldFlush).toBe(true);
-    });
-  });
-
-  describe("Privacy & Consent", () => {
-    it("should respect analytics consent", () => {
-      const consent = {
-        analytics: true,
-        advertising: false,
-      };
-
-      expect(consent.analytics).toBe(true);
-    });
-
-    it("should anonymize user data", () => {
-      const settings = {
-        anonymizeIp: true,
-      };
-
-      expect(settings.anonymizeIp).toBe(true);
-    });
-
-    it("should disable analytics when opted out", () => {
-      const optedOut = true;
-      const shouldTrack = !optedOut;
-
-      expect(shouldTrack).toBe(false);
-    });
-  });
-
-  describe("Debugging", () => {
-    it("should enable debug mode", () => {
-      const debug = true;
-      expect(debug).toBe(true);
-    });
-
-    it("should log events to console in debug", () => {
-      const debugMode = true;
-      const event = { name: "test_event" };
-
-      if (debugMode) {
-        // Would console.log in real implementation
-        expect(event).toBeDefined();
-      }
-    });
-  });
-
-  describe("Performance", () => {
-    it("should throttle event sending", () => {
-      const RATE_LIMIT = 100; // events per minute
-      const eventCount = 150;
-
-      const shouldThrottle = eventCount > RATE_LIMIT;
-      expect(shouldThrottle).toBe(true);
-    });
-
-    it("should debounce rapid events", () => {
-      const DEBOUNCE_MS = 1000;
-      const lastEventTime = Date.now() - 500;
-
-      const shouldDebounce = Date.now() - lastEventTime < DEBOUNCE_MS;
-      expect(shouldDebounce).toBe(true);
-    });
-  });
-
-  describe("Integration", () => {
-    it("should integrate with Firebase Analytics", () => {
-      const provider = "firebase";
-      expect(provider).toBe("firebase");
-    });
-
-    it("should support multiple analytics providers", () => {
-      const providers = ["firebase", "mixpanel", "amplitude"];
-      expect(providers.length).toBeGreaterThan(1);
-    });
-  });
-
-  describe("Error Handling", () => {
-    it("should handle missing parameters gracefully", () => {
-      const event = {
-        name: "test_event",
-        params: undefined,
-      };
-
-      const params = event.params || {};
-      expect(params).toEqual({});
-    });
-
-    it("should handle initialization errors", () => {
-      const error = new Error("Analytics not initialized");
-      expect(error.message).toContain("not initialized");
-    });
-
-    it("should continue on send failure", () => {
-      const sendFailed = true;
-      // Should not throw or crash app
-      expect(sendFailed).toBe(true);
+        expect(logEvent).toHaveBeenCalledWith(expect.anything(), "video_play", {
+          video_section: "intro",
+        });
+      });
     });
   });
 });
