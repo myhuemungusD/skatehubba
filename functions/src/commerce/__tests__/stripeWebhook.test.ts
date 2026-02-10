@@ -173,6 +173,9 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
     vi.clearAllMocks();
     mockDocs.clear();
 
+    // Clear route handlers
+    Object.keys(_routeHandlers).forEach(key => delete _routeHandlers[key]);
+
     // Save original env
     originalEnv = process.env;
 
@@ -189,12 +192,28 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
     mockReleaseHoldAtomic.mockResolvedValue(true);
     mockRestockFromConsumedHold.mockResolvedValue(true);
 
-    // Import to register routes
+    // Set up default mock event - tests can override this
+    mockConstructEvent.mockReturnValue({
+      id: "evt_default",
+      type: "payment_intent.succeeded",
+      data: {
+        object: {
+          id: "pi_default",
+          metadata: { orderId: "order-default" },
+          amount_received: 5000,
+          currency: "usd",
+        },
+      },
+    });
+
+    // Reset modules and import to register routes
+    vi.resetModules();
     await import("../stripeWebhook");
   });
 
   afterEach(() => {
     process.env = originalEnv;
+    vi.resetModules();
   });
 
   // Helper to call the webhook handler

@@ -129,6 +129,9 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
 
+    // Clear route handlers
+    Object.keys(_routeHandlers).forEach(key => delete _routeHandlers[key]);
+
     // Save original env
     originalEnv = process.env;
 
@@ -148,12 +151,28 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
     mockSendPaymentReceiptEmail.mockResolvedValue(undefined);
     mockNotifyUser.mockResolvedValue(undefined);
 
-    // Import after setting up mocks
+    // Set up default mock event - tests can override this
+    mockConstructEvent.mockReturnValue({
+      id: "evt_default",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: "cs_default",
+          metadata: { userId: "test-user", type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 999,
+        },
+      },
+    });
+
+    // Reset modules and import to register routes
+    vi.resetModules();
     await import("../stripeWebhook");
   });
 
   afterEach(() => {
     process.env = originalEnv;
+    vi.resetModules();
   });
 
   // ==========================================================================
