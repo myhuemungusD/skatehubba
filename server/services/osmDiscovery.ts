@@ -61,7 +61,11 @@ export async function isAreaCached(lat: number, lng: number): Promise<boolean> {
     try {
       const exists = await redis.exists(`${DISCOVERY_KEY_PREFIX}${key}`);
       return exists === 1;
-    } catch { /* fall through */ }
+    } catch (error) {
+      logger.warn("[OSM] Redis cache check failed, falling back to memory", {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   const cachedAt = discoveryCacheFallback.get(key);
@@ -161,7 +165,13 @@ export async function discoverSkateparks(
     const cacheKey = getCacheKey(lat, lng);
     const redis = getRedisClient();
     if (redis) {
-      redis.set(`${DISCOVERY_KEY_PREFIX}${cacheKey}`, String(Date.now()), "EX", CACHE_TTL_SECONDS).catch(() => {});
+      redis
+        .set(`${DISCOVERY_KEY_PREFIX}${cacheKey}`, String(Date.now()), "EX", CACHE_TTL_SECONDS)
+        .catch((error: unknown) => {
+          logger.warn("[OSM] Redis cache write failed", {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
     } else {
       discoveryCacheFallback.set(cacheKey, Date.now());
     }

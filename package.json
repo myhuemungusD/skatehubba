@@ -27,6 +27,8 @@
     "validate:packages": "node scripts/validate-packages.mjs",
     "validate:env": "node scripts/validate-env.mjs",
     "validate:env:prod": "node scripts/validate-env.mjs --production",
+    "audit:deps": "node scripts/audit-dependencies.mjs",
+    "audit:deps:ci": "node scripts/audit-dependencies.mjs --ci",
     "precommit": "lint-staged",
     "prepare": "husky",
     "db:generate": "drizzle-kit generate",
