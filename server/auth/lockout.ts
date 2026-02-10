@@ -17,6 +17,7 @@ import { getDb } from "../db.ts";
 import { loginAttempts, accountLockouts } from "../../packages/shared/schema.ts";
 import { eq, and, gt, sql, count } from "drizzle-orm";
 import { SECURITY_CONFIG } from "../security.ts";
+import { LOGIN_ATTEMPT_WINDOW_MS } from "../config/constants.ts";
 import { AuditLogger } from "./audit.ts";
 import logger from "../logger.ts";
 
@@ -35,7 +36,7 @@ export interface LockoutStatus {
 export class LockoutService {
   private static readonly MAX_ATTEMPTS = SECURITY_CONFIG.MAX_LOGIN_ATTEMPTS;
   private static readonly LOCKOUT_DURATION = SECURITY_CONFIG.LOCKOUT_DURATION;
-  private static readonly ATTEMPT_WINDOW = 60 * 60 * 1000; // 1 hour window for counting attempts
+  private static readonly ATTEMPT_WINDOW = LOGIN_ATTEMPT_WINDOW_MS;
 
   /**
    * Check if an account is currently locked

@@ -12,6 +12,8 @@ import {
   listReports,
   setProVerificationStatus,
 } from "../services/moderationStore";
+import { Errors } from "../utils/apiError";
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "../config/constants";
 
 export const moderationRouter = Router();
 
@@ -29,12 +31,12 @@ moderationRouter.post(
   async (req, res) => {
     const parsed = reportSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "INVALID_REPORT", issues: parsed.error.flatten() });
+      return Errors.validation(res, parsed.error.flatten(), "INVALID_REPORT", "Invalid report data.");
     }
 
     const reporterId = req.currentUser?.id;
     if (!reporterId) {
-      return res.status(401).json({ error: "Authentication required" });
+      return Errors.unauthorized(res);
     }
 
     const report = await createReport({
@@ -58,7 +60,7 @@ moderationRouter.get(
   async (req, res) => {
     const status = typeof req.query.status === "string" ? req.query.status : undefined;
     const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 20));
+    const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(req.query.limit) || DEFAULT_PAGE_SIZE));
     const { reports, total } = await listReports(status, page, limit);
     return res.status(200).json({ reports, total, page, limit });
   }
@@ -90,12 +92,12 @@ moderationRouter.post(
   async (req, res) => {
     const parsed = modActionSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "INVALID_MOD_ACTION", issues: parsed.error.flatten() });
+      return Errors.validation(res, parsed.error.flatten(), "INVALID_MOD_ACTION", "Invalid moderation action.");
     }
 
     const adminId = req.currentUser?.id;
     if (!adminId) {
-      return res.status(401).json({ error: "Authentication required" });
+      return Errors.unauthorized(res);
     }
 
     const result = await applyModerationAction({
@@ -129,14 +131,12 @@ moderationRouter.post(
   async (req, res) => {
     const parsed = proVerificationSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res
-        .status(400)
-        .json({ error: "INVALID_PRO_VERIFICATION", issues: parsed.error.flatten() });
+      return Errors.validation(res, parsed.error.flatten(), "INVALID_PRO_VERIFICATION", "Invalid pro verification data.");
     }
 
     const adminId = req.currentUser?.id;
     if (!adminId) {
-      return res.status(401).json({ error: "Authentication required" });
+      return Errors.unauthorized(res);
     }
 
     const log = await setProVerificationStatus({

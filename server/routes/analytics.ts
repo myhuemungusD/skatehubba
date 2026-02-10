@@ -12,6 +12,7 @@ import { db } from "../db";
 import { analyticsEvents } from "../../packages/shared/schema-analytics";
 import logger from "../logger";
 import { validateBody } from "../middleware/validation";
+import { Errors } from "../utils/apiError";
 
 export const analyticsRouter = Router();
 
@@ -46,7 +47,7 @@ analyticsRouter.post(
         event_name: ev.event_name,
         error: validationError,
       });
-      return res.status(400).json({ error: "invalid_properties" });
+      return Errors.badRequest(res, "INVALID_PROPERTIES", "Event properties failed validation.");
     }
 
     // Check if DB is available
@@ -81,7 +82,7 @@ analyticsRouter.post(
         event_id: ev.event_id,
         error: dbError,
       });
-      return res.status(500).json({ error: "event_insert_failed" });
+      return Errors.internal(res, "EVENT_INSERT_FAILED", "Failed to store analytics event.");
     }
   }
 );
@@ -106,7 +107,7 @@ analyticsRouter.post(
         uid,
         payloadType: typeof body,
       });
-      return res.status(400).json({ error: "invalid_event" });
+      return Errors.badRequest(res, "INVALID_EVENT", "Invalid batch payload type.");
     }
 
     const batch = body as AnalyticsBatch;
@@ -163,7 +164,7 @@ analyticsRouter.post(
           count: validEvents.length,
           error: dbError,
         });
-        return res.status(500).json({ error: "batch_insert_failed" });
+        return Errors.internal(res, "BATCH_INSERT_FAILED", "Failed to store analytics batch.");
       }
     }
 

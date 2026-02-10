@@ -256,7 +256,7 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "You can't award Pro to yourself" })
+        expect.objectContaining({ error: "SELF_AWARD", message: "You can't award Pro to yourself." })
       );
     });
 
@@ -271,7 +271,7 @@ describe("Tier Routes", () => {
       await callRoute("POST", "/award-pro", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "User not found" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "USER_NOT_FOUND", message: "User not found." }));
     });
 
     it("returns 409 when user already has pro or premium", async () => {
@@ -285,8 +285,9 @@ describe("Tier Routes", () => {
       expect(res.status).toHaveBeenCalledWith(409);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: "User already has Pro or Premium status",
-          currentTier: "pro",
+          error: "ALREADY_UPGRADED",
+          message: "User already has Pro or Premium status.",
+          details: { currentTier: "pro" },
         })
       );
     });
@@ -301,7 +302,7 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Service unavailable" })
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE", message: "Database unavailable. Please try again shortly." })
       );
     });
 
@@ -312,7 +313,7 @@ describe("Tier Routes", () => {
       await callRoute("POST", "/award-pro", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
   });
 
@@ -332,7 +333,7 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(409);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "You already have Premium" })
+        expect.objectContaining({ error: "ALREADY_PREMIUM", message: "You already have Premium." })
       );
     });
 
@@ -348,7 +349,7 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Payment service not available" })
+        expect.objectContaining({ error: "PAYMENT_NOT_CONFIGURED", message: "Payment service not available." })
       );
     });
 
@@ -359,7 +360,7 @@ describe("Tier Routes", () => {
       await callRoute("POST", "/create-checkout-session", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
     it("returns 500 on stripe error", async () => {
@@ -374,7 +375,7 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to create checkout session" })
+        expect.objectContaining({ error: "CHECKOUT_FAILED", message: "Failed to create checkout session." })
       );
     });
   });
@@ -395,7 +396,7 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(409);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "You already have Premium" })
+        expect.objectContaining({ error: "ALREADY_PREMIUM", message: "You already have Premium." })
       );
     });
 
@@ -411,7 +412,7 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Payment verification not available" })
+        expect.objectContaining({ error: "PAYMENT_NOT_CONFIGURED", message: "Payment verification not available." })
       );
     });
 
@@ -427,7 +428,7 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Service unavailable" })
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE", message: "Database unavailable. Please try again shortly." })
       );
     });
 
@@ -438,7 +439,7 @@ describe("Tier Routes", () => {
       await callRoute("POST", "/purchase-premium", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
   });
 });
