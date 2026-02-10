@@ -90,12 +90,46 @@ function buildConfigFromEnv(): FirebaseConfig | null {
 }
 
 /**
+ * Detect CI / build environments where Firebase is never actually called.
+ *
+ * Vercel sets CI=1 during builds; GitHub Actions sets CI=true.
+ * Vitest sets VITEST=true. We also check NODE_ENV=test.
+ *
+ * At *runtime* on Vercel (serverless / edge) CI is NOT set, so a missing
+ * config will still hard-fail there.
+ */
+function isBuildOrTest(): boolean {
+  try {
+    const env = (globalThis as any).process?.env;
+    if (!env) return false;
+    return env.CI === "true" || env.CI === "1" || env.VITEST === "true" || env.NODE_ENV === "test";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Placeholder config returned during CI / build when env vars are missing.
+ * Firebase SDK will never be called during builds, so these values are inert.
+ */
+const CI_PLACEHOLDER_CONFIG: FirebaseConfig = {
+  apiKey: "CI_PLACEHOLDER",
+  authDomain: "placeholder.firebaseapp.com",
+  projectId: "ci-placeholder",
+  storageBucket: "ci-placeholder.firebasestorage.app",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:placeholder",
+};
+
+/**
  * Get Firebase config for the current environment.
  *
  * All values are read from environment variables. If the required variables
- * (API key, project ID, app ID) are missing the function throws so that
- * misconfigurations are caught immediately rather than silently falling back
- * to stale hardcoded credentials.
+ * (API key, project ID, app ID) are missing:
+ * - During CI / build / test: returns a placeholder config with a warning
+ *   so builds and tests don't crash on modules that transitively import this.
+ * - At runtime: throws so misconfigurations are caught immediately rather
+ *   than silently falling back to stale hardcoded credentials.
  */
 export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): FirebaseConfig {
   const env = getAppEnv();
@@ -107,10 +141,18 @@ export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): Fire
   }
 
   const missing = REQUIRED_FIREBASE_VARS.filter((v) => !getPublicEnvOptional(v));
-  throw new Error(
+  const message =
     `[Firebase] Missing required environment variables: ${missing.join(", ")}. ` +
-      `Set these in your .env file or deployment environment. See .env.example for reference.`
-  );
+    `Set these in your .env file or deployment environment. See .env.example for reference.`;
+
+  // During CI / build / test, warn but don't crash — Firebase is never
+  // actually initialised during these steps.
+  if (isBuildOrTest()) {
+    console.warn(message + " (using CI placeholder config)");
+    return CI_PLACEHOLDER_CONFIG;
+  }
+
+  throw new Error(message);
 }
 
 /**
