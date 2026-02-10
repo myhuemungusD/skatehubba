@@ -9,7 +9,7 @@
  * @module @skatehubba/config/guardrails
  */
 
-import { getPublicEnvOptional, getAppEnv } from "./publicEnv";
+import { getEnvOptional, getAppEnv } from "./env";
 
 /**
  * Environment wiring error - thrown when environment is misconfigured
@@ -32,8 +32,8 @@ export class EnvMismatchError extends Error {
  */
 export function assertEnvWiring(): void {
   const env = getAppEnv();
-  const apiBase = getPublicEnvOptional("EXPO_PUBLIC_API_BASE_URL") ?? "";
-  const firebaseAppId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID") ?? "";
+  const apiBase = getEnvOptional("EXPO_PUBLIC_API_BASE_URL") ?? "";
+  const firebaseAppId = getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID") ?? "";
 
   // Check API base URL consistency
   let apiLooksProd = false;
@@ -77,8 +77,8 @@ export function assertEnvWiring(): void {
   }
 
   // Check Firebase appId consistency (if using single-project app separation)
-  const prodAppId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_PROD");
-  const stagingAppId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_STAGING");
+  const prodAppId = getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_PROD");
+  const stagingAppId = getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_STAGING");
 
   if (prodAppId && stagingAppId && firebaseAppId) {
     if (env === "prod" && firebaseAppId !== prodAppId) {

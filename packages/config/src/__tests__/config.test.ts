@@ -11,26 +11,26 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
-// Mock the publicEnv module to control environment
-vi.mock("../publicEnv", () => ({
+// Mock the env module to control environment
+vi.mock("../env", () => ({
   getAppEnv: vi.fn(),
-  getPublicEnvOptional: vi.fn(),
+  getEnvOptional: vi.fn(),
 }));
 
 // Import after mock
-import { getAppEnv, getPublicEnvOptional } from "../publicEnv";
+import { getAppEnv, getEnvOptional } from "../env";
 import { assertEnvWiring, validateWritePath, EnvMismatchError, getEnvBanner } from "../guardrails";
 import { getEnvPath, getStoragePath } from "../runtime";
 
 const mockGetAppEnv = getAppEnv as ReturnType<typeof vi.fn>;
-const mockGetPublicEnvOptional = getPublicEnvOptional as ReturnType<typeof vi.fn>;
+const mockGetEnvOptional = getEnvOptional as ReturnType<typeof vi.fn>;
 
 describe("@skatehubba/config", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Default mock: local environment
     mockGetAppEnv.mockReturnValue("local");
-    mockGetPublicEnvOptional.mockImplementation((key: string) => {
+    mockGetEnvOptional.mockImplementation((key: string) => {
       const mockEnv: Record<string, string> = {
         EXPO_PUBLIC_API_BASE_URL: "http://localhost:3001",
         EXPO_PUBLIC_APP_ENV: "local",
@@ -54,7 +54,7 @@ describe("@skatehubba/config", () => {
 
     it("should throw EnvMismatchError when prod build points at staging API", () => {
       mockGetAppEnv.mockReturnValue("prod");
-      mockGetPublicEnvOptional.mockImplementation((key: string) => {
+      mockGetEnvOptional.mockImplementation((key: string) => {
         if (key === "EXPO_PUBLIC_API_BASE_URL") return "https://staging-api.skatehubba.com";
         if (key === "EXPO_PUBLIC_FIREBASE_APP_ID")
           return "1:665573979824:web:731aaae46daea5efee2d75";
@@ -69,7 +69,7 @@ describe("@skatehubba/config", () => {
 
     it("should throw EnvMismatchError when prod build points at localhost API", () => {
       mockGetAppEnv.mockReturnValue("prod");
-      mockGetPublicEnvOptional.mockImplementation((key: string) => {
+      mockGetEnvOptional.mockImplementation((key: string) => {
         if (key === "EXPO_PUBLIC_API_BASE_URL") return "http://localhost:3001";
         return "";
       });
@@ -80,7 +80,7 @@ describe("@skatehubba/config", () => {
 
     it("should throw EnvMismatchError when staging build points at prod API", () => {
       mockGetAppEnv.mockReturnValue("staging");
-      mockGetPublicEnvOptional.mockImplementation((key: string) => {
+      mockGetEnvOptional.mockImplementation((key: string) => {
         if (key === "EXPO_PUBLIC_API_BASE_URL") return "https://api.skatehubba.com";
         return "";
       });
@@ -91,7 +91,7 @@ describe("@skatehubba/config", () => {
 
     it("should throw EnvMismatchError when prod build uses wrong Firebase appId", () => {
       mockGetAppEnv.mockReturnValue("prod");
-      mockGetPublicEnvOptional.mockImplementation((key: string) => {
+      mockGetEnvOptional.mockImplementation((key: string) => {
         if (key === "EXPO_PUBLIC_API_BASE_URL") return "https://api.skatehubba.com";
         if (key === "EXPO_PUBLIC_FIREBASE_APP_ID") return "1:665573979824:web:WRONG_APP_ID";
         if (key === "EXPO_PUBLIC_FIREBASE_APP_ID_PROD") return "1:665573979824:web:CORRECT_PROD_ID";
@@ -105,7 +105,7 @@ describe("@skatehubba/config", () => {
 
     it("should throw EnvMismatchError when staging build uses prod Firebase appId", () => {
       mockGetAppEnv.mockReturnValue("staging");
-      mockGetPublicEnvOptional.mockImplementation((key: string) => {
+      mockGetEnvOptional.mockImplementation((key: string) => {
         if (key === "EXPO_PUBLIC_API_BASE_URL") return "https://staging-api.skatehubba.com";
         if (key === "EXPO_PUBLIC_FIREBASE_APP_ID") return "1:665573979824:web:PROD_APP_ID";
         if (key === "EXPO_PUBLIC_FIREBASE_APP_ID_PROD") return "1:665573979824:web:PROD_APP_ID";
@@ -119,7 +119,7 @@ describe("@skatehubba/config", () => {
 
     it("should pass for correctly configured staging environment", () => {
       mockGetAppEnv.mockReturnValue("staging");
-      mockGetPublicEnvOptional.mockImplementation((key: string) => {
+      mockGetEnvOptional.mockImplementation((key: string) => {
         if (key === "EXPO_PUBLIC_API_BASE_URL") return "https://staging-api.skatehubba.com";
         if (key === "EXPO_PUBLIC_FIREBASE_APP_ID") return "1:665573979824:web:STAGING_ID";
         if (key === "EXPO_PUBLIC_FIREBASE_APP_ID_PROD") return "1:665573979824:web:PROD_ID";

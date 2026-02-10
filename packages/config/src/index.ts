@@ -34,7 +34,7 @@
  * @module @skatehubba/config
  */
 
-// Universal environment adapter (NEW - USE THIS!)
+// Universal environment adapter
 export {
   getEnv,
   getEnvOptional,
@@ -52,9 +52,6 @@ export {
   isDebugMode,
   type AppEnv,
 } from "./env";
-
-// Legacy environment utilities (deprecated - use env.ts instead)
-export { getPublicEnv, getPublicEnvOptional, getMissingPublicEnvVars } from "./publicEnv";
 
 // Runtime utilities
 export {

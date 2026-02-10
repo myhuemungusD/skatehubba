@@ -7,7 +7,7 @@
  * @module @skatehubba/config/firebase
  */
 
-import { getPublicEnvOptional, getAppEnv, type AppEnv } from "./publicEnv";
+import { getEnvOptional, getAppEnv, type AppEnv } from "./env";
 import { globals } from "./globals";
 
 /**
@@ -58,25 +58,25 @@ function normalizeEnvValue(value: string | undefined | null): string | undefined
 }
 
 function buildConfigFromEnv(): FirebaseConfig | null {
-  const apiKey = normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_API_KEY"));
-  const projectId = normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_PROJECT_ID"));
-  const appId = normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID"));
+  const apiKey = normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_API_KEY"));
+  const projectId = normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_PROJECT_ID"));
+  const appId = normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID"));
 
   if (!apiKey || !projectId || !appId) return null;
 
   const authDomain =
-    normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN")) ||
+    normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN")) ||
     `${projectId}.firebaseapp.com`;
 
   const storageBucket =
-    normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET")) ||
+    normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET")) ||
     `${projectId}.firebasestorage.app`;
 
   const messagingSenderId =
-    normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID")) || "";
+    normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID")) || "";
 
   const measurementId = normalizeEnvValue(
-    getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID")
+    getEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID")
   );
 
   return {
@@ -141,7 +141,7 @@ export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): Fire
     return config;
   }
 
-  const missing = REQUIRED_FIREBASE_VARS.filter((v) => !getPublicEnvOptional(v));
+  const missing = REQUIRED_FIREBASE_VARS.filter((v) => !getEnvOptional(v));
   const message =
     `[Firebase] Missing required environment variables: ${missing.join(", ")}. ` +
     `Set these in your .env file or deployment environment. See .env.example for reference.`;
@@ -165,11 +165,11 @@ export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): Fire
 export function getExpectedAppId(env: AppEnv): string {
   switch (env) {
     case "prod":
-      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_PROD") || "";
+      return getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_PROD") || "";
     case "staging":
-      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_STAGING") || "";
+      return getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_STAGING") || "";
     default:
-      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID") || "";
+      return getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID") || "";
   }
 }
 

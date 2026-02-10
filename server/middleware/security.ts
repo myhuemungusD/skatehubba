@@ -20,15 +20,6 @@ function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined
   });
 }
 
-/**
- * Security middleware: bypass static/public assets, apply to everything else.
- * Keep heavy checks (auth/rate limit) on /api paths in the server bootstrap.
- */
-export function securityMiddleware(_req: Request, _res: Response, next: NextFunction) {
-  // Currently a pass-through middleware; add security checks for non-public paths if needed.
-  next();
-}
-
 const RL = RATE_LIMIT_CONFIG;
 
 /**
@@ -43,22 +34,6 @@ export const emailSignupLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: buildStore(RL.emailSignup.prefix),
-});
-
-/**
- * Rate limiter for authentication endpoints (login/register)
- * Limits to 10 authentication attempts per 15 minutes per IP address
- * Does not count successful logins, only failed attempts
- * Helps prevent brute force attacks
- */
-export const authLimiter = rateLimit({
-  windowMs: RL.auth.windowMs,
-  max: RL.auth.max,
-  message: { error: RL.auth.message },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  store: buildStore(RL.auth.prefix),
 });
 
 /**

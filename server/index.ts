@@ -11,7 +11,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import logger from "./logger.ts";
 import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
-import { apiLimiter, staticFileLimiter, securityMiddleware } from "./middleware/security.ts";
+import { apiLimiter, staticFileLimiter } from "./middleware/security.ts";
 import { requestTracing } from "./middleware/requestTracing.ts";
 import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
 import { initializeDatabase } from "./db.ts";
@@ -91,7 +91,6 @@ app.use(cookieParser());
 app.use(ensureCsrfToken);
 
 // Global rate limiting for all API routes (before CSRF validation for better error handling)
-app.use("/api", securityMiddleware);
 app.use("/api", apiLimiter);
 
 // Global CSRF validation for all state-changing API requests
