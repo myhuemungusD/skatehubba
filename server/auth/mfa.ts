@@ -21,7 +21,7 @@
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { getDb } from "../db.ts";
-import { mfaSecrets } from "../../packages/shared/schema.ts";
+import { mfaSecrets } from "../../packages/shared/schema/index";
 import { eq } from "drizzle-orm";
 import { env } from "../config/env.ts";
 import { AuditLogger, AUDIT_EVENTS } from "./audit.ts";

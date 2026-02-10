@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { AuthService } from "./service.ts";
-import type { CustomUser as _CustomUser } from "../../packages/shared/schema.ts";
+import type { CustomUser as _CustomUser } from "../../packages/shared/schema/index";
 import type { AuthenticatedUser as _AuthenticatedUser } from "../types/express.d.ts";
 import { admin } from "../admin.ts";
 import "../types/express.d.ts";
