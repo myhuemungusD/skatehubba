@@ -1,4 +1,12 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
@@ -60,7 +68,7 @@ export default function ClosetScreen() {
         <View style={styles.actionsGrid}>
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push(`/profile/${user?.uid}` as any)}
+            onPress={() => router.push(`/profile/${user?.uid}`)}
           >
             <Ionicons name="person" size={28} color={SKATE.colors.orange} />
             <Text style={styles.actionText}>My Profile</Text>

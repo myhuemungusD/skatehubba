@@ -8,7 +8,7 @@ import { SKATE } from "@/theme";
 export default function LeaderboardScreen() {
   const { data: leaderboard, isLoading } = useQuery({
     queryKey: ["/api/leaderboard"],
-    queryFn: () => apiRequest("/api/leaderboard"),
+    queryFn: () => apiRequest<LeaderboardEntry[]>("/api/leaderboard"),
   });
 
   const renderItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => {

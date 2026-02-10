@@ -64,9 +64,10 @@ export default function SignIn() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-    } catch (error: any) {
+    } catch (error: unknown) {
       let msg = "Something went wrong.";
-      if (error.code === "auth/invalid-credential") msg = "Invalid email or password.";
+      const firebaseError = error as { code?: string };
+      if (firebaseError.code === "auth/invalid-credential") msg = "Invalid email or password.";
       Alert.alert("Sign In Failed", msg);
       setLoading(false);
     }
@@ -79,7 +80,7 @@ export default function SignIn() {
       try {
         const provider = new GoogleAuthProvider();
         await signInWithPopup(auth, provider);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error(error);
         setLoading(false);
       }

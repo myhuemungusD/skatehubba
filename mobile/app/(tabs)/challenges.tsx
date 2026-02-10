@@ -1,4 +1,11 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase.config";
@@ -53,7 +60,7 @@ export default function ChallengesScreen() {
         accessibilityRole="button"
         accessibilityLabel={`${isCreator ? "Your challenge" : "Challenge from opponent"} versus ${opponentId}, deadline ${format(item.deadline, "MMM d, h:mm a")}, status ${item.status}`}
         style={styles.card}
-        onPress={() => router.push(`/challenge/${item.id}` as any)}
+        onPress={() => router.push(`/challenge/${item.id}`)}
       >
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>
@@ -86,7 +93,7 @@ export default function ChallengesScreen() {
         accessibilityRole="button"
         accessibilityLabel="Create new S.K.A.T.E. challenge"
         style={styles.createButton}
-        onPress={() => router.push("/challenge/new" as any)}
+        onPress={() => router.push("/challenge/new")}
       >
         <Ionicons name="add-circle" size={24} color={SKATE.colors.white} />
         <Text style={styles.createButtonText}>New Challenge</Text>

@@ -1,4 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { Ionicons } from "@expo/vector-icons";
@@ -77,7 +84,7 @@ export default function HomeScreen() {
         <View style={styles.activityList}>
           <TouchableOpacity
             style={styles.activityItem}
-            onPress={() => router.push(`/profile/${user.uid}` as any)}
+            onPress={() => router.push(`/profile/${user.uid}`)}
           >
             <View style={styles.activityIcon}>
               <Ionicons name="person" size={20} color={SKATE.colors.orange} />

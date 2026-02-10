@@ -22,7 +22,10 @@ export const queryClient = new QueryClient({
 });
 
 // API request helper for Express backend
-export async function apiRequest(endpoint: string, options: RequestInit = {}): Promise<unknown> {
+export async function apiRequest<T = unknown>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
   const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
 
   const response = await fetch(`${baseUrl}${endpoint}`, {
