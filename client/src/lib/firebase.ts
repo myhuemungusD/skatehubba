@@ -14,6 +14,7 @@ import {
   app as firebaseApp,
   auth,
   db,
+  storage,
   functions,
   isFirebaseInitialized,
   setAuthPersistence,
@@ -22,4 +23,13 @@ import {
 // Analytics placeholder - can be implemented with Firebase Analytics if needed
 const analytics = null;
 
-export { firebaseApp as app, auth, db, functions, analytics, isFirebaseInitialized, setAuthPersistence };
+export {
+  firebaseApp as app,
+  auth,
+  db,
+  storage,
+  functions,
+  analytics,
+  isFirebaseInitialized,
+  setAuthPersistence,
+};
