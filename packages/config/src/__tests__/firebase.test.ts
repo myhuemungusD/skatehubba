@@ -68,8 +68,6 @@ describe("Firebase Configuration", () => {
     });
 
     it("should use provided optional env vars when available", () => {
-      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
       mockGetPublicEnvOptional.mockImplementation((key: string) => {
         const mockEnv: Record<string, string> = {
           EXPO_PUBLIC_FIREBASE_API_KEY: "test-api-key",
@@ -94,8 +92,6 @@ describe("Firebase Configuration", () => {
         appId: "1:123456789:web:abcdef",
         measurementId: "G-MEASUREMENT",
       });
-
-      consoleSpy.mockRestore();
     });
 
     it("should throw when EXPO_PUBLIC_FIREBASE_API_KEY is missing", () => {
