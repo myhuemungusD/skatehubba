@@ -11,8 +11,15 @@
  */
 
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, setPersistence, browserLocalPersistence, browserSessionPersistence, type Auth } from "firebase/auth";
+import {
+  getAuth,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
+  type Auth,
+} from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getFunctions, type Functions } from "firebase/functions";
 
 // Import from enterprise config package
@@ -24,7 +31,7 @@ import {
   isProd,
   isStaging,
 } from "@skatehubba/config";
-import { logger } from '../logger';
+import { logger } from "../logger";
 
 // ============================================================================
 // Types
@@ -55,6 +62,7 @@ function getFirebaseConfig(): FirebaseConfig {
 let app: FirebaseApp;
 let auth: Auth;
 let db: Firestore;
+let storage: FirebaseStorage;
 let functions: Functions;
 let isFirebaseInitialized = false;
 
@@ -86,6 +94,7 @@ function initFirebase() {
   app = getApps().length ? getApp() : initializeApp(config);
   auth = getAuth(app);
   db = getFirestore(app);
+  storage = getStorage(app);
   functions = getFunctions(app);
 
   isFirebaseInitialized = true;
@@ -104,13 +113,21 @@ initFirebase();
  */
 async function setAuthPersistence(rememberMe: boolean): Promise<void> {
   try {
-    await setPersistence(
-      auth,
-      rememberMe ? browserLocalPersistence : browserSessionPersistence
-    );
+    await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
   } catch (error) {
-    logger.error('[Firebase] Failed to set persistence:', error);
+    logger.error("[Firebase] Failed to set persistence:", error);
   }
 }
 
-export { app, auth, db, functions, isFirebaseInitialized, getAppEnv, isProd, isStaging, setAuthPersistence };
+export {
+  app,
+  auth,
+  db,
+  storage,
+  functions,
+  isFirebaseInitialized,
+  getAppEnv,
+  isProd,
+  isStaging,
+  setAuthPersistence,
+};
