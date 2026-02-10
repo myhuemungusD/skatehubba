@@ -1,3 +1,19 @@
+/**
+ * Filmer Request Service
+ *
+ * Manages the workflow for users requesting professional filmers to capture their tricks.
+ * Implements quota limits, trust requirements, and state management for the filmer request lifecycle.
+ *
+ * Features:
+ * - Request creation with quota enforcement (10 requests per day per requester)
+ * - Response handling with quota limits (50 responses per day per filmer)
+ * - Trust level verification to prevent abuse
+ * - TOCTOU-safe quota checks using SELECT FOR UPDATE row locking
+ * - Audit trail for all operations
+ *
+ * @module services/filmerRequests
+ */
+
 import crypto from "node:crypto";
 import { and, desc, eq, lt, or, sql } from "drizzle-orm";
 import { AuditLogger, AUDIT_EVENTS } from "../auth/audit";
@@ -11,24 +27,43 @@ import {
   userProfiles,
 } from "@shared/schema";
 
+/** Status of a filmer request */
 export type FilmerRequestStatus = "pending" | "accepted" | "rejected";
+
+/** Action types for responding to filmer requests */
 export type FilmerRequestAction = "accept" | "reject";
 
+/** Serialized summary of a filmer request for API responses */
 export type FilmerRequestSummary = {
+  /** Unique request identifier */
   id: string;
+  /** Associated check-in ID */
   checkInId: string;
+  /** User ID who requested the filmer */
   requesterUid: string;
+  /** User ID of the filmer */
   filmerUid: string;
+  /** Current status of the request */
   status: FilmerRequestStatus;
+  /** ISO 8601 timestamp when request was created */
   createdAt: string;
+  /** ISO 8601 timestamp when request was last updated */
   updatedAt: string;
+  /** Optional rejection reason provided by filmer */
   reason?: string;
 };
 
+/** Internal context for request operations */
 type RequestContext = { checkInId: number; requesterId: string };
 
+/**
+ * Custom error class for filmer request operations
+ * Includes HTTP status code and machine-readable error code
+ */
 export class FilmerRequestError extends Error {
+  /** HTTP status code for the error */
   status: number;
+  /** Machine-readable error code */
   code: string;
 
   constructor(code: string, message: string, status: number) {
@@ -131,6 +166,41 @@ const ensureQuota = async (
   });
 };
 
+/**
+ * Create a filmer request for a check-in
+ *
+ * Validates requester eligibility, enforces daily quota limits, and creates a pending
+ * filmer request. If a pending request already exists for the same check-in and filmer,
+ * returns the existing request (idempotent).
+ *
+ * Validations:
+ * - Requester account must be active
+ * - Requester and filmer must be different users
+ * - Requester must have sufficient trust level (≥1)
+ * - Filmer must be eligible (active, verified, or has filmer role)
+ * - Check-in must exist and belong to requester
+ * - No resolved request exists for this check-in + filmer pair
+ * - Requester has not exceeded daily request quota (10/day)
+ *
+ * @param input - Request parameters
+ * @returns Request ID, status, and whether request already existed
+ * @throws {FilmerRequestError} If validation fails or quota exceeded
+ *
+ * @example
+ * ```typescript
+ * const result = await createFilmerRequest({
+ *   requesterId: 'user_123',
+ *   requesterTrustLevel: 2,
+ *   requesterIsActive: true,
+ *   checkInId: 456,
+ *   filmerUid: 'filmer_789',
+ *   ipAddress: '192.168.1.1',
+ *   userAgent: 'Mozilla/5.0...',
+ *   deviceId: 'device_abc'
+ * });
+ * // => { requestId: 'req_xyz', status: 'pending', alreadyExists: false }
+ * ```
+ */
 export const createFilmerRequest = async (input: {
   requesterId: string;
   requesterTrustLevel: number;
@@ -251,6 +321,48 @@ export const createFilmerRequest = async (input: {
   return { requestId, status: "pending" as FilmerRequestStatus, alreadyExists: false };
 };
 
+/**
+ * Respond to a filmer request (accept or reject)
+ *
+ * Allows filmers to accept or reject pending requests. Updates both the filmer request
+ * and associated check-in records atomically within a transaction.
+ *
+ * Validations:
+ * - Request must exist and be in pending status
+ * - Only the designated filmer can respond
+ * - Filmer must be eligible (verified or has filmer role)
+ * - Reject action requires a reason
+ * - Filmer has not exceeded daily response quota (50/day)
+ *
+ * @param input - Response parameters
+ * @returns Request ID and new status
+ * @throws {FilmerRequestError} If validation fails, request not found, or quota exceeded
+ *
+ * @example
+ * ```typescript
+ * // Accept a request
+ * const result = await respondToFilmerRequest({
+ *   requestId: 'req_xyz',
+ *   filmerId: 'filmer_789',
+ *   action: 'accept',
+ *   ipAddress: '192.168.1.1'
+ * });
+ * // => { requestId: 'req_xyz', status: 'accepted' }
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Reject a request with reason
+ * const result = await respondToFilmerRequest({
+ *   requestId: 'req_xyz',
+ *   filmerId: 'filmer_789',
+ *   action: 'reject',
+ *   reason: 'Not available at this location',
+ *   ipAddress: '192.168.1.1'
+ * });
+ * // => { requestId: 'req_xyz', status: 'rejected' }
+ * ```
+ */
 export const respondToFilmerRequest = async (input: {
   requestId: string;
   filmerId: string;
@@ -355,6 +467,39 @@ export const respondToFilmerRequest = async (input: {
   return { requestId: input.requestId, status: nextStatus };
 };
 
+/**
+ * List filmer requests for a user
+ *
+ * Returns requests where the user is either the filmer or requester, with optional
+ * filtering by status and role. Results are ordered by most recently updated first.
+ *
+ * @param input - Query parameters
+ * @param input.userId - User ID to query requests for
+ * @param input.status - Optional status filter ('pending', 'accepted', 'rejected')
+ * @param input.role - Optional role filter ('filmer', 'requester', 'all'). Default: 'filmer'
+ * @param input.limit - Maximum number of requests to return. Default: 50
+ * @returns Array of filmer request summaries
+ *
+ * @example
+ * ```typescript
+ * // Get all pending requests where user is the filmer
+ * const requests = await listFilmerRequests({
+ *   userId: 'filmer_789',
+ *   status: 'pending',
+ *   role: 'filmer'
+ * });
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Get all requests (any status, any role) for a user
+ * const allRequests = await listFilmerRequests({
+ *   userId: 'user_123',
+ *   role: 'all',
+ *   limit: 100
+ * });
+ * ```
+ */
 export const listFilmerRequests = async (input: {
   userId: string;
   status?: FilmerRequestStatus;
