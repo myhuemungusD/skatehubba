@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react";
 import { createElement } from "react";
-import { buildApiUrl } from "../../../lib/api/client";
+import { apiRequestRaw } from "../../../lib/api/client";
 import { logger } from "../../../lib/logger";
 import {
   usernameSchema,
@@ -44,12 +44,11 @@ export function useUsernameCheck(username: string | undefined) {
         setUsernameStatus("checking");
         setUsernameMessage("");
 
-        const res = await fetch(
-          buildApiUrl(`/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`),
-          { signal: controller.signal }
-        );
-
-        if (!res.ok) throw new Error("username_check_failed");
+        const res = await apiRequestRaw({
+          method: "GET",
+          path: `/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`,
+          signal: controller.signal,
+        });
 
         const data = UsernameCheckResponseSchema.parse(await res.json());
 
@@ -123,21 +122,16 @@ export function useUsernameCheck(username: string | undefined) {
       const parsed = usernameSchema.safeParse(value);
       if (!parsed.success) return "unknown";
 
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
-
       try {
-        const res = await fetch(
-          buildApiUrl(`/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`),
-          { signal: controller.signal }
-        );
-        if (!res.ok) return "unknown";
+        const res = await apiRequestRaw({
+          method: "GET",
+          path: `/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`,
+          timeout: timeoutMs,
+        });
         const data = UsernameCheckResponseSchema.parse(await res.json());
         return data.available ? "available" : "taken";
       } catch {
         return "unknown";
-      } finally {
-        window.clearTimeout(timeout);
       }
     },
     []

@@ -15,7 +15,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs"
 import { useToast } from "../hooks/use-toast";
 import { useAuth } from "../hooks/useAuth";
 import { logger } from "../lib/logger";
-import { setAuthPersistence } from "../lib/firebase";
 import { isEmbeddedBrowser } from "./auth/authSchemas";
 import { SignInTab } from "./auth/SignInTab";
 import { SignUpTab } from "./auth/SignUpTab";
@@ -90,7 +89,10 @@ export default function AuthPage() {
     }
     setIsGoogleLoading(true);
     try {
-      await setAuthPersistence(true);
+      // NOTE: Do NOT await async operations before signInWithPopup.
+      // Any async gap between the user's click and the popup causes
+      // browsers to block the popup. setAuthPersistence is redundant
+      // here — Firebase v11 defaults to browserLocalPersistence.
       await auth.signInWithGoogle();
       toast({
         title: "Welcome!",
