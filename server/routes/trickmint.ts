@@ -347,7 +347,12 @@ router.get("/:id", authenticateUser, async (req, res) => {
       .set({ views: sql`${trickClips.views} + 1` })
       .where(eq(trickClips.id, clipId))
       .then(() => {})
-      .catch(() => {});
+      .catch((error: unknown) => {
+        logger.warn("[TrickMint] Failed to increment view count", {
+          clipId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
 
     res.json({ clip });
   } catch (error) {
