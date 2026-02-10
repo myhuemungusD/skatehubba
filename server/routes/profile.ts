@@ -39,7 +39,10 @@ router.get("/me", requireFirebaseUid, async (req, res) => {
   const { firebaseUid } = req as FirebaseAuthedRequest;
 
   if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
+    return res.status(503).json({
+      code: "database_unavailable",
+      message: "Database is temporarily unavailable. Please try again.",
+    });
   }
 
   try {
