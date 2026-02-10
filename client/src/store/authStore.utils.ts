@@ -91,7 +91,7 @@ export const transformProfile = (uid: string, data: Record<string, unknown>): Us
 
 /**
  * Resolve a profile fetch result: update cache on success, fall back to cache on failure.
- * Returns { profile, profileStatus } for the caller to apply via set().
+ * Returns { profile, profileStatus, degraded } for the caller to apply via set().
  */
 export function resolveProfileResult(
   uid: string,
