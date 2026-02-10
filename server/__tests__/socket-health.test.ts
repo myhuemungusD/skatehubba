@@ -179,10 +179,8 @@ describe("Socket Health Monitor", () => {
 
       updateLatency("lat-update", 250);
 
-      // With only this socket, avgLatency should be 250
-      // (there may be other sockets from parallel tests, so we check >= 0)
       const stats = getHealthStats();
-      expect(stats.avgLatency).toBeGreaterThanOrEqual(0);
+      expect(stats.avgLatency).toBe(250);
     });
 
     it("triggers logger.warn when latency exceeds 500ms", () => {
@@ -306,15 +304,9 @@ describe("Socket Health Monitor", () => {
       const stats = getHealthStats();
       expect(stats.totalSockets).toBe(baseline.totalSockets + 3);
 
-      // Total latency from our sockets = 600; total sockets includes baseline
-      // avgLatency = round((baselineLatency + 600) / totalSockets)
-      // For an isolated run: (100+200+300)/3 = 200
-      // We verify it is a reasonable number >= 0
-      expect(stats.avgLatency).toBeGreaterThanOrEqual(0);
-      // If baseline is 0 sockets, then avg should be exactly 200
-      if (baseline.totalSockets === 0) {
-        expect(stats.avgLatency).toBe(200);
-      }
+      // afterEach cleans up sockets, so baseline should be 0
+      // avgLatency = (100+200+300)/3 = 200
+      expect(stats.avgLatency).toBe(200);
     });
 
     it("counts high latency sockets (latency > 500ms)", () => {
