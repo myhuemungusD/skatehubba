@@ -42,7 +42,7 @@ vi.mock("express", () => ({
   Router: () => _mockRouter,
 }));
 
-vi.mock("../logger", () => ({
+vi.mock("../../logger", () => ({
   default: {
     info: vi.fn(),
     warn: vi.fn(),
@@ -74,7 +74,7 @@ const mockDbReturns = {
 
 let mockIsDatabaseAvailable = true;
 
-vi.mock("../db", () => ({
+vi.mock("../../db", () => ({
   getDb: () => ({
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
@@ -109,13 +109,13 @@ vi.mock("stripe", () => ({
 
 // Mock email service
 const mockSendPaymentReceiptEmail = vi.fn();
-vi.mock("../services/emailService", () => ({
+vi.mock("../../services/emailService", () => ({
   sendPaymentReceiptEmail: mockSendPaymentReceiptEmail,
 }));
 
 // Mock notification service
 const mockNotifyUser = vi.fn();
-vi.mock("../services/notificationService", () => ({
+vi.mock("../../services/notificationService", () => ({
   notifyUser: mockNotifyUser,
 }));
 
@@ -835,7 +835,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       mockDbReturns.selectResult = [{ accountTier: "free" }];
 
       // Mock a DB error by making select throw
-      vi.mocked(require("../db").getDb).mockImplementation(() => ({
+      vi.mocked(require("../../db").getDb).mockImplementation(() => ({
         select: vi.fn().mockImplementation(() => {
           throw new Error("Database error");
         }),
