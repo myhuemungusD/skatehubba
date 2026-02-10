@@ -5,20 +5,7 @@ import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../lib/queryClient";
-
-interface NotificationPreferences {
-  pushEnabled: boolean;
-  emailEnabled: boolean;
-  inAppEnabled: boolean;
-  gameNotifications: boolean;
-  challengeNotifications: boolean;
-  turnNotifications: boolean;
-  resultNotifications: boolean;
-  marketingEmails: boolean;
-  weeklyDigest: boolean;
-  quietHoursStart: string | null;
-  quietHoursEnd: string | null;
-}
+import { type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@shared/schema";
 
 function ToggleRow({
   icon,
@@ -41,9 +28,7 @@ function ToggleRow({
         <div className="text-neutral-400">{icon}</div>
         <div>
           <p className="text-sm font-medium text-white">{label}</p>
-          {description && (
-            <p className="text-xs text-neutral-500 mt-0.5">{description}</p>
-          )}
+          {description && <p className="text-xs text-neutral-500 mt-0.5">{description}</p>}
         </div>
       </div>
       <button
@@ -81,27 +66,27 @@ export default function SettingsPage() {
   }, [auth, setLocation]);
 
   // Fetch notification preferences
-  const { data: prefs, isLoading } = useQuery<NotificationPreferences>({
+  const { data: prefs, isLoading } = useQuery<NotificationPrefs>({
     queryKey: ["/api/notifications/preferences"],
     enabled: auth.isAuthenticated,
   });
 
   // Update preferences mutation
   const updatePrefsMutation = useMutation({
-    mutationFn: async (updates: Partial<NotificationPreferences>) => {
+    mutationFn: async (updates: Partial<NotificationPrefs>) => {
       await apiRequest("PUT", "/api/notifications/preferences", updates);
     },
     onMutate: async (updates) => {
       // Optimistic update
       await queryClient.cancelQueries({ queryKey: ["/api/notifications/preferences"] });
-      const previous = queryClient.getQueryData<NotificationPreferences>([
+      const previous = queryClient.getQueryData<NotificationPrefs>([
         "/api/notifications/preferences",
       ]);
       if (previous) {
-        queryClient.setQueryData<NotificationPreferences>(
-          ["/api/notifications/preferences"],
-          { ...previous, ...updates }
-        );
+        queryClient.setQueryData<NotificationPrefs>(["/api/notifications/preferences"], {
+          ...previous,
+          ...updates,
+        });
       }
       return { previous };
     },
@@ -115,32 +100,20 @@ export default function SettingsPage() {
     },
   });
 
-  const togglePref = (key: keyof NotificationPreferences, value: boolean) => {
+  const togglePref = (key: keyof NotificationPrefs, value: boolean) => {
     updatePrefsMutation.mutate({ [key]: value });
   };
 
-  const defaults: NotificationPreferences = {
-    pushEnabled: true,
-    emailEnabled: true,
-    inAppEnabled: true,
-    gameNotifications: true,
-    challengeNotifications: true,
-    turnNotifications: true,
-    resultNotifications: true,
-    marketingEmails: true,
-    weeklyDigest: true,
-    quietHoursStart: null,
-    quietHoursEnd: null,
-  };
-
-  const p = prefs ?? defaults;
+  const p = prefs ?? DEFAULT_NOTIFICATION_PREFS;
 
   return (
     <section className="py-8 text-white">
       <div className="max-w-3xl mx-auto space-y-8">
         <div>
           <h1 className="text-3xl font-bold mb-2">Settings</h1>
-          <p className="text-neutral-400 text-sm">Manage your account and notification preferences.</p>
+          <p className="text-neutral-400 text-sm">
+            Manage your account and notification preferences.
+          </p>
         </div>
 
         {/* Notification Channels */}

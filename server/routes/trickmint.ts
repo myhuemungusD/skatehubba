@@ -32,6 +32,39 @@ import {
 const router = Router();
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+const VIEW_INCREMENT_MAX_RETRIES = 3;
+const VIEW_INCREMENT_BASE_DELAY_MS = 100;
+
+async function incrementViewsWithRetry(
+  db: ReturnType<typeof getDb>,
+  clipId: number,
+): Promise<void> {
+  for (let attempt = 1; attempt <= VIEW_INCREMENT_MAX_RETRIES; attempt++) {
+    try {
+      await db
+        .update(trickClips)
+        .set({ views: sql`${trickClips.views} + 1` })
+        .where(eq(trickClips.id, clipId));
+      return;
+    } catch (error) {
+      if (attempt === VIEW_INCREMENT_MAX_RETRIES) {
+        logger.error("[TrickMint] View increment failed after retries", {
+          clipId,
+          attempts: attempt,
+          error,
+        });
+        return;
+      }
+      const delay = VIEW_INCREMENT_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
+// ============================================================================
 // Validation Schemas
 // ============================================================================
 
@@ -342,17 +375,8 @@ router.get("/:id", authenticateUser, async (req, res) => {
       return res.status(404).json({ error: "Clip not found" });
     }
 
-    // Increment views (fire-and-forget)
-    db.update(trickClips)
-      .set({ views: sql`${trickClips.views} + 1` })
-      .where(eq(trickClips.id, clipId))
-      .then(() => {})
-      .catch((error: unknown) => {
-        logger.warn("[TrickMint] Failed to increment view count", {
-          clipId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
+    // Increment views (fire-and-forget with retry)
+    incrementViewsWithRetry(db, clipId);
 
     res.json({ clip });
   } catch (error) {
