@@ -5,7 +5,7 @@
  * Grouped by feature area for discoverability.
  *
  * NOTE: Rate limit config lives in ./rateLimits.ts
- * NOTE: Security config (session TTL, lockout, etc.) lives in ../security.ts
+ * NOTE: Auth/session constants live here; additional security config lives in ../security.ts
  */
 
 // ============================================================================
