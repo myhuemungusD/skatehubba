@@ -1,116 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useLocation, useSearch } from "wouter";
-import { AlertTriangle, CheckCircle, Loader2, XCircle, Mail } from "lucide-react";
-import { useAuth } from "../../hooks/useAuth";
+import { Mail } from "lucide-react";
+import { useLocation } from "wouter";
 import { useEmailVerification } from "../../hooks/useEmailVerification";
 import { useToast } from "../../hooks/use-toast";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Progress } from "../../components/ui/progress";
-import { usernameSchema } from "@shared/validation/profile";
-import { apiRequest, buildApiUrl } from "../../lib/api/client";
-import { getUserFriendlyMessage, isApiError } from "../../lib/api/errors";
-import { logger } from "../../lib/logger";
-
-/**
- * Enterprise rules applied:
- * - Deterministic navigation (single redirect).
- * - Runtime validation of API responses (Zod).
- * - Username availability check is cancelable (AbortController) + debounced.
- * - No undefined variables / no implicit contracts.
- * - Upload path remains JSON-based for now (base64) but guarded and isolated.
- *   NOTE: Avatar upload currently uses base64 JSON. Migrate to Firebase Storage when scaling.
- * - Supports ?next= param to preserve user's intended destination.
- */
-
-const stanceSchema = z.enum(["regular", "goofy"]);
-const experienceLevelSchema = z.enum(["beginner", "intermediate", "advanced"]);
-
-const formSchema = z.object({
-  username: usernameSchema.optional().or(z.literal("")),
-  stance: stanceSchema.optional().or(z.literal("")),
-  experienceLevel: experienceLevelSchema.optional().or(z.literal("")),
-  sponsorFlow: z.string().max(100).optional(),
-  sponsorTeam: z.string().max(100).optional(),
-  hometownShop: z.string().max(100).optional(),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-type UsernameStatus = "idle" | "checking" | "available" | "taken" | "invalid" | "unverified";
-
-type ProfileCreatePayload = {
-  username?: string;
-  stance?: "regular" | "goofy";
-  experienceLevel?: "beginner" | "intermediate" | "advanced";
-  sponsorFlow?: string;
-  sponsorTeam?: string;
-  hometownShop?: string;
-  skip?: boolean;
-};
-
-const UsernameCheckResponseSchema = z.object({
-  available: z.boolean(),
-});
-
-type ProfileCreateResponse = {
-  profile: {
-    uid: string;
-    username: string;
-    stance: "regular" | "goofy" | null;
-    experienceLevel: "beginner" | "intermediate" | "advanced" | "pro" | null;
-    favoriteTricks: string[];
-    bio: string | null;
-    spotsVisited: number;
-    crewName: string | null;
-    credibilityScore: number;
-    avatarUrl: string | null;
-    sponsorFlow?: string | null;
-    sponsorTeam?: string | null;
-    hometownShop?: string | null;
-    createdAt: string;
-    updatedAt: string;
-  };
-};
+import { formSchema, type FormValues } from "./schemas/profileSchemas";
+import { useUsernameCheck } from "./hooks/useUsernameCheck";
+import { useProfileSubmit } from "./hooks/useProfileSubmit";
 
 export default function ProfileSetup() {
-  const auth = useAuth();
   const { requiresVerification, resendVerificationEmail, isResending, canResend, userEmail } =
     useEmailVerification();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const searchString = useSearch();
-
-  // Parse ?next= param for redirect after profile creation
-  const getNextUrl = useCallback((): string => {
-    const params = new URLSearchParams(searchString);
-    const next = params.get("next");
-    if (next) {
-      try {
-        const decoded = decodeURIComponent(next);
-        // Security: only allow relative paths, no external redirects
-        if (decoded.startsWith("/") && !decoded.startsWith("//")) {
-          return decoded;
-        }
-      } catch {
-        // Invalid encoding, fall back to default
-      }
-    }
-    return "/hub";
-  }, [searchString]);
-
-  const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>("idle");
-  const [usernameMessage, setUsernameMessage] = useState<string>("");
-
-  const [submitting, setSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-
-  const usernameCheckAbortRef = useRef<AbortController | null>(null);
-  const usernameCheckSeqRef = useRef(0);
-  const usernameWarnedRef = useRef(false);
 
   const {
     register,
@@ -133,251 +38,21 @@ export default function ProfileSetup() {
 
   const username = watch("username");
 
-  // Username availability: debounced + cancelable + race-safe
-  useEffect(() => {
-    // Cancel any in-flight request when username changes
-    usernameCheckAbortRef.current?.abort();
-    usernameCheckAbortRef.current = null;
+  const {
+    usernameStatus,
+    setUsernameStatus,
+    usernameMessage,
+    setUsernameMessage,
+    availabilityBadge,
+    checkUsernameAvailability,
+  } = useUsernameCheck(username);
 
-    if (!username) {
-      setUsernameStatus("idle");
-      setUsernameMessage("");
-      return;
-    }
-
-    const parsed = usernameSchema.safeParse(username);
-    if (!parsed.success) {
-      setUsernameStatus("invalid");
-      setUsernameMessage("3-20 characters, letters and numbers only.");
-      return;
-    }
-
-    const seq = ++usernameCheckSeqRef.current;
-    const controller = new AbortController();
-    usernameCheckAbortRef.current = controller;
-
-    const handle = window.setTimeout(async () => {
-      try {
-        setUsernameStatus("checking");
-        setUsernameMessage("");
-
-        const res = await fetch(
-          buildApiUrl(`/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`),
-          { signal: controller.signal }
-        );
-
-        if (!res.ok) throw new Error("username_check_failed");
-
-        const data = UsernameCheckResponseSchema.parse(await res.json());
-
-        // Ignore stale responses
-        if (seq !== usernameCheckSeqRef.current) return;
-
-        if (data.available) {
-          setUsernameStatus("available");
-          setUsernameMessage("Username is available.");
-        } else {
-          setUsernameStatus("taken");
-          setUsernameMessage("That username is already taken.");
-        }
-      } catch (error) {
-        // If request was aborted, do nothing
-        if (controller.signal.aborted) return;
-
-        // Ignore stale responses
-        if (seq !== usernameCheckSeqRef.current) return;
-
-        // Network or server issue - allow submit, but show warning
-        if (!usernameWarnedRef.current) {
-          logger.warn("[ProfileSetup] Username check failed", error);
-          usernameWarnedRef.current = true;
-        }
-        setUsernameStatus("unverified");
-        setUsernameMessage("Couldn't check availability right now. We'll verify when you submit.");
-      }
-    }, 500);
-
-    return () => {
-      window.clearTimeout(handle);
-      controller.abort();
-    };
-  }, [username]);
-
-  const availabilityBadge = useMemo(() => {
-    if (usernameStatus === "available") {
-      return (
-        <span className="inline-flex items-center gap-1 text-sm text-emerald-400">
-          <CheckCircle className="h-4 w-4" />
-          Available
-        </span>
-      );
-    }
-    if (usernameStatus === "taken") {
-      return (
-        <span className="inline-flex items-center gap-1 text-sm text-red-400">
-          <XCircle className="h-4 w-4" />
-          Taken
-        </span>
-      );
-    }
-    if (usernameStatus === "checking") {
-      return (
-        <span className="inline-flex items-center gap-1 text-sm text-yellow-300">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Checking
-        </span>
-      );
-    }
-    if (usernameStatus === "unverified") {
-      return (
-        <span className="inline-flex items-center gap-1 text-sm text-neutral-400">
-          <AlertTriangle className="h-4 w-4" />
-          Check failed
-        </span>
-      );
-    }
-    return null;
-  }, [usernameStatus]);
-
-  const checkUsernameAvailability = useCallback(
-    async (value: string, timeoutMs: number): Promise<"available" | "taken" | "unknown"> => {
-      if (typeof window === "undefined") return "unknown";
-      const parsed = usernameSchema.safeParse(value);
-      if (!parsed.success) return "unknown";
-
-      const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        const res = await fetch(
-          buildApiUrl(`/api/profile/username-check?username=${encodeURIComponent(parsed.data)}`),
-          { signal: controller.signal }
-        );
-        if (!res.ok) return "unknown";
-        const data = UsernameCheckResponseSchema.parse(await res.json());
-        return data.available ? "available" : "taken";
-      } catch {
-        return "unknown";
-      } finally {
-        window.clearTimeout(timeout);
-      }
-    },
-    []
+  const { submitting, uploadProgress, submitError, onSubmit, handleSkip } = useProfileSubmit(
+    usernameStatus,
+    setUsernameStatus,
+    setUsernameMessage,
+    checkUsernameAvailability
   );
-
-  const submitProfile = useCallback(
-    async (values: FormValues, skip?: boolean) => {
-      if (!auth.user) {
-        setSubmitError("You need to be signed in.");
-        return;
-      }
-
-      if (!skip && !values.username?.trim()) {
-        setSubmitError("Username is required unless you skip.");
-        return;
-      }
-
-      setSubmitting(true);
-      setUploadProgress(0);
-      setSubmitError(null);
-
-      try {
-        if (!skip && usernameStatus === "unverified" && values.username?.trim()) {
-          const result = await checkUsernameAvailability(values.username, 2500);
-          if (result === "taken") {
-            setUsernameStatus("taken");
-            setUsernameMessage("That username is already taken.");
-            setSubmitError("That username is already taken.");
-            setSubmitting(false);
-            return;
-          }
-          if (result === "available") {
-            setUsernameStatus("available");
-            setUsernameMessage("Username is available.");
-          }
-        }
-
-        const payload: ProfileCreatePayload = {
-          username: skip ? undefined : values.username,
-          stance: values.stance || undefined,
-          experienceLevel: values.experienceLevel || undefined,
-          sponsorFlow: values.sponsorFlow?.trim() ? values.sponsorFlow.trim() : undefined,
-          sponsorTeam: values.sponsorTeam?.trim() ? values.sponsorTeam.trim() : undefined,
-          hometownShop: values.hometownShop?.trim() ? values.hometownShop.trim() : undefined,
-          skip,
-        };
-
-        const response = await apiRequest<ProfileCreateResponse, ProfileCreatePayload>({
-          method: "POST",
-          path: "/api/profile/create",
-          body: payload,
-        });
-
-        auth.setProfile({
-          ...response.profile,
-          createdAt: new Date(response.profile.createdAt),
-          updatedAt: new Date(response.profile.updatedAt),
-        });
-
-        // Profile created successfully - redirect to intended destination or home
-        const nextUrl = getNextUrl();
-        setLocation(nextUrl, { replace: true });
-      } catch (error) {
-        logger.error("[ProfileSetup] Failed to create profile", error);
-        if (isApiError(error)) {
-          const details = error.details as Record<string, unknown> | undefined;
-          const errorCode = typeof details?.error === "string" ? details.error : undefined;
-          if (errorCode === "username_taken") {
-            setUsernameStatus("taken");
-            setUsernameMessage("That username is already taken.");
-            setSubmitError("That username is already taken.");
-          } else if (errorCode === "invalid_username") {
-            setUsernameStatus("invalid");
-            setUsernameMessage("Invalid username format.");
-            setSubmitError("Invalid username format.");
-          } else if (errorCode === "auth_required" || error.code === "UNAUTHORIZED") {
-            setSubmitError("Please sign in again to continue.");
-          } else if (errorCode === "rate_limited" || error.code === "RATE_LIMIT") {
-            setSubmitError("You're moving fast. Take a breather and try again.");
-          } else if (errorCode === "database_unavailable") {
-            setSubmitError("Our servers are temporarily unavailable. Please try again shortly.");
-          } else if (errorCode === "profile_create_failed") {
-            setSubmitError("Could not create your profile. Please try again.");
-          } else {
-            setSubmitError(getUserFriendlyMessage(error));
-          }
-        } else if (error instanceof TypeError) {
-          setSubmitError("Network error — check your connection and try again.");
-        } else {
-          setSubmitError("We couldn't create your profile. Try again.");
-        }
-      } finally {
-        setSubmitting(false);
-      }
-    },
-    [auth, setLocation, getNextUrl, checkUsernameAvailability, usernameStatus]
-  );
-
-  const onSubmit = useCallback(
-    (values: FormValues) => {
-      void submitProfile(values, false);
-    },
-    [submitProfile]
-  );
-
-  const handleSkip = useCallback(() => {
-    void submitProfile(
-      {
-        username: "",
-        stance: undefined,
-        experienceLevel: undefined,
-        sponsorFlow: "",
-        sponsorTeam: "",
-        hometownShop: "",
-      },
-      true
-    );
-  }, [submitProfile]);
 
   const submitDisabled = Boolean(
     submitting ||
