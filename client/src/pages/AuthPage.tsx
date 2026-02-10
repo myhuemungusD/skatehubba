@@ -26,7 +26,7 @@ export default function AuthPage() {
   const { toast } = useToast();
   const auth = useAuth();
 
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
+  const [activeTab, setActiveTab] = useState<"signin" | "signup">("signup");
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [inEmbeddedBrowser, setInEmbeddedBrowser] = useState(false);

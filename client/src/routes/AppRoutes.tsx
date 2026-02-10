@@ -46,8 +46,8 @@ import {
  * Routing Policy (Zero-Duplication Architecture)
  *
  * PUBLIC ROUTES:
- * - / (unauthenticated) -> /landing (conversion-focused landing page)
- * - /landing -> Public landing page with CTA to enter platform
+ * - / (unauthenticated) -> /auth (sign-up first, industry-standard auth flow)
+ * - /landing -> Public landing page (SEO/marketing, accessible but not default)
  * - /home -> Member hub (authenticated users only, action dashboard)
  *
  * AUTHENTICATED ROUTES:
@@ -58,12 +58,12 @@ import {
  * - /leaderboard -> Rankings
  *
  * ROUTING STRATEGY:
- * - Root (/) redirects unauthenticated users to /landing
- * - Root (/) redirects authenticated users to /home
- * - Landing page: minimal, conversion-focused ("Get Started" CTA -> /signin)
+ * - Root (/) redirects unauthenticated users to /auth (sign-up default)
+ * - Root (/) redirects authenticated users to /hub
+ * - Auth page: sign-up tab is default for new users, sign-in one click away
  * - Sign in/Sign up: checks for profile, redirects to /profile/setup if missing
- * - Profile setup: redirects to /home after completion
- * - Home page: member hub with quick actions (Feed/Map/Battle/Profile)
+ * - Profile setup: redirects to /hub after completion
+ * - Landing page: still accessible at /landing for marketing/SEO
  * - Legacy routes (/old, /new) removed - zero duplication architecture
  */
 
@@ -84,7 +84,7 @@ function RootRedirect() {
         setLocation("/hub", { replace: true });
       }
     } else {
-      setLocation("/landing", { replace: true });
+      setLocation("/auth", { replace: true });
     }
   }, [user, loading, isInitialized, profileStatus, setLocation]);
 
