@@ -23,9 +23,9 @@ export type { UserProfile, UserRole, ProfileStatus } from "./authStore.types";
 import {
   isEmbeddedBrowser,
   isPopupSafe,
-  readProfileCache,
   writeProfileCache,
   clearProfileCache,
+  resolveProfileResult,
   withTimeout,
 } from "./authStore.utils";
 
@@ -87,23 +87,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         >;
 
         // Handle Profile Result
-        if (profileRes.status === "fulfilled" && profileRes.value.status === "ok") {
-          const userProfile = profileRes.value.data;
-          if (userProfile) {
-            set({ profile: userProfile, profileStatus: "exists" });
-            writeProfileCache(currentUser.uid, { status: "exists", profile: userProfile });
-          } else {
-            set({ profile: null, profileStatus: "missing" });
-            writeProfileCache(currentUser.uid, { status: "missing", profile: null });
-          }
-        } else {
-          // Fallback to cache if fetch failed
-          const cached = readProfileCache(currentUser.uid);
-          if (cached) {
-            set({ profile: cached.profile, profileStatus: cached.status });
-          } else {
-            finalStatus = "degraded";
-          }
+        {
+          const profileValue =
+            profileRes.status === "fulfilled"
+              ? profileRes.value
+              : { status: "error" as const, error: "fetch rejected" };
+          const resolved = resolveProfileResult(currentUser.uid, profileValue);
+          set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
+          if (resolved.degraded) finalStatus = "degraded";
         }
 
         // Handle Roles Result
@@ -143,17 +134,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               withTimeout(extractRolesFromToken(user), 4000, "fetchRoles"),
             ]);
 
-            if (profileResult.status === "ok" && profileResult.data) {
-              set({ profile: profileResult.data, profileStatus: "exists" });
-              writeProfileCache(user.uid, { status: "exists", profile: profileResult.data });
-            } else if (profileResult.status === "ok" && !profileResult.data) {
-              set({ profile: null, profileStatus: "missing" });
-              writeProfileCache(user.uid, { status: "missing", profile: null });
-            } else {
-              const cached = readProfileCache(user.uid);
-              if (cached) {
-                set({ profile: cached.profile, profileStatus: cached.status });
-              }
+            {
+              const resolved = resolveProfileResult(user.uid, profileResult);
+              set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
             }
 
             if (rolesResult.status === "ok") {

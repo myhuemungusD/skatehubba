@@ -1196,10 +1196,7 @@ export const notifications = pgTable(
   },
   (table) => ({
     userIdx: index("IDX_notifications_user").on(table.userId),
-    userUnreadIdx: index("IDX_notifications_user_unread").on(
-      table.userId,
-      table.isRead
-    ),
+    userUnreadIdx: index("IDX_notifications_user_unread").on(table.userId, table.isRead),
     createdAtIdx: index("IDX_notifications_created_at").on(table.createdAt),
   })
 );
@@ -1239,3 +1236,72 @@ export const notificationPreferences = pgTable(
 
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;
+
+/** Public-facing notification preferences (no internal DB fields). */
+export interface NotificationPrefs {
+  pushEnabled: boolean;
+  emailEnabled: boolean;
+  inAppEnabled: boolean;
+  gameNotifications: boolean;
+  challengeNotifications: boolean;
+  turnNotifications: boolean;
+  resultNotifications: boolean;
+  marketingEmails: boolean;
+  weeklyDigest: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  pushEnabled: true,
+  emailEnabled: true,
+  inAppEnabled: true,
+  gameNotifications: true,
+  challengeNotifications: true,
+  turnNotifications: true,
+  resultNotifications: true,
+  marketingEmails: true,
+  weeklyDigest: true,
+  quietHoursStart: null,
+  quietHoursEnd: null,
+};
+
+/** Notification type classification helpers */
+const GAME_TYPES: ReadonlySet<NotificationType> = new Set([
+  "challenge_received",
+  "your_turn",
+  "game_over",
+  "opponent_forfeited",
+  "game_forfeited_timeout",
+  "deadline_warning",
+  "dispute_filed",
+  "quick_match",
+]);
+
+const CHALLENGE_TYPES: ReadonlySet<NotificationType> = new Set([
+  "challenge_received",
+  "quick_match",
+]);
+
+const TURN_TYPES: ReadonlySet<NotificationType> = new Set(["your_turn", "deadline_warning"]);
+
+const RESULT_TYPES: ReadonlySet<NotificationType> = new Set([
+  "game_over",
+  "opponent_forfeited",
+  "game_forfeited_timeout",
+]);
+
+/** Check whether a notification should be sent based on user preferences. */
+export function shouldSendForType(
+  prefs: Pick<
+    NotificationPrefs,
+    "gameNotifications" | "challengeNotifications" | "turnNotifications" | "resultNotifications"
+  >,
+  type: NotificationType
+): boolean {
+  if (GAME_TYPES.has(type) && !prefs.gameNotifications) return false;
+  if (CHALLENGE_TYPES.has(type) && !prefs.challengeNotifications) return false;
+  if (TURN_TYPES.has(type) && !prefs.turnNotifications) return false;
+  if (RESULT_TYPES.has(type) && !prefs.resultNotifications) return false;
+  return true;
+}

@@ -5,10 +5,11 @@
  * Handles reading and updating user profile documents.
  */
 
-import { doc, getDoc, updateDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./config";
 import { UserProfile } from "./auth.types";
 import { logger } from "../logger";
+import { transformProfile } from "../../store/authStore.utils";
 
 const PROFILES_COLLECTION = "profiles";
 
@@ -55,34 +56,4 @@ export async function updateProfile(
     logger.error("[ProfileService] Failed to update profile:", error);
     throw new Error("Failed to update user profile.");
   }
-}
-
-function transformProfile(uid: string, data: Record<string, unknown>): UserProfile {
-  return {
-    uid,
-    username: String(data.username ?? ""),
-    stance: (data.stance as UserProfile["stance"]) ?? null,
-    experienceLevel: (data.experienceLevel as UserProfile["experienceLevel"]) ?? null,
-    favoriteTricks: Array.isArray(data.favoriteTricks) ? (data.favoriteTricks as string[]) : [],
-    bio: (data.bio as string | null) ?? null,
-    sponsorFlow: (data.sponsorFlow as string | null) ?? null,
-    sponsorTeam: (data.sponsorTeam as string | null) ?? null,
-    hometownShop: (data.hometownShop as string | null) ?? null,
-    spotsVisited: typeof data.spotsVisited === "number" ? data.spotsVisited : 0,
-    crewName: (data.crewName as string | null) ?? null,
-    credibilityScore: typeof data.credibilityScore === "number" ? data.credibilityScore : 0,
-    avatarUrl: (data.avatarUrl as string | null) ?? null,
-    createdAt: toDate(data.createdAt),
-    updatedAt: toDate(data.updatedAt),
-  };
-}
-
-function toDate(value: unknown): Date {
-  if (value instanceof Date) {
-    return value;
-  }
-  if (value && typeof value === "object" && "toDate" in value) {
-    return (value as Timestamp).toDate();
-  }
-  return new Date();
 }
