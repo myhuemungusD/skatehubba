@@ -79,11 +79,6 @@ function makeDocRef(path: string) {
   };
 }
 
-const mockQueryResult = {
-  empty: true,
-  docs: [] as any[],
-};
-
 vi.mock("../../firebaseAdmin", () => ({
   getAdminDb: () => ({
     collection: vi.fn().mockImplementation((collName: string) => ({
