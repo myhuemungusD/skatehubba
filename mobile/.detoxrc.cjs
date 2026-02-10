@@ -1,4 +1,4 @@
-/* eslint-env node */
+// eslint-disable-next-line no-undef
 module.exports = {
   testRunner: "jest",
   runnerConfig: "e2e/jest.config.js",
