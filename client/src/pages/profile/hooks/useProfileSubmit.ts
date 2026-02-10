@@ -103,7 +103,8 @@ export function useProfileSubmit(
         logger.error("[ProfileSetup] Failed to create profile", error);
         if (isApiError(error)) {
           const details = error.details as Record<string, unknown> | undefined;
-          const errorCode = typeof details?.error === "string" ? details.error : undefined;
+          const errorCode =
+            typeof details?.error === "string" ? details.error.toLowerCase() : undefined;
           if (errorCode === "username_taken") {
             setUsernameStatus("taken");
             setUsernameMessage("That username is already taken.");
@@ -121,7 +122,7 @@ export function useProfileSubmit(
           } else if (errorCode === "profile_create_failed") {
             setSubmitError("Could not create your profile. Please try again.");
           } else {
-            setSubmitError(getUserFriendlyMessage(error));
+            setSubmitError(error.message || getUserFriendlyMessage(error));
           }
         } else if (error instanceof TypeError) {
           setSubmitError("Network error — check your connection and try again.");
