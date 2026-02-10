@@ -2,7 +2,7 @@
   "name": "skatehubba-mobile",
   "version": "0.1.0",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
   "description": "SkateHubba mobile app — Expo + React Native with S.K.A.T.E. battle, spot mapping, and leaderboard.",
   "scripts": {
     "start": "expo start",
