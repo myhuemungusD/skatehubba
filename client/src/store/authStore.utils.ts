@@ -58,7 +58,12 @@ export const clearProfileCache = (uid: string) => {
 function toDate(value: unknown): Date {
   if (value instanceof Date) return value;
   if (typeof value === "string") return new Date(value);
-  if (value && typeof value === "object" && "toDate" in value) {
+  if (
+    value &&
+    typeof value === "object" &&
+    "toDate" in value &&
+    typeof (value as { toDate?: unknown }).toDate === "function"
+  ) {
     return (value as { toDate: () => Date }).toDate();
   }
   return new Date();
