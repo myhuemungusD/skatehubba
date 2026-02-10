@@ -24,10 +24,9 @@ vi.mock("../env", async () => {
 });
 
 // Import after mock
-import { validateEnv } from "../env";
+import { validateEnv, readEnv, isProd, isStaging } from "../env";
 
 // Get the mocked functions
-const { readEnv, isProd, isStaging } = await import("../env");
 const mockReadEnv = readEnv as unknown as ReturnType<typeof vi.fn>;
 const mockIsProd = isProd as unknown as ReturnType<typeof vi.fn>;
 const mockIsStaging = isStaging as unknown as ReturnType<typeof vi.fn>;
