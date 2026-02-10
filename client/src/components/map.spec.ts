@@ -250,7 +250,10 @@ mapTest.describe("Accessibility", () => {
 
     await mapPage.goto();
 
-    const hasAriaBusy = await mapPage.loadingIndicator.isVisible().catch(() => false);
+    const hasAriaBusy = await mapPage.loadingIndicator.isVisible().catch((error: unknown) => {
+      console.warn("[Test] loadingIndicator.isVisible() threw unexpectedly", error);
+      return false;
+    });
     console.log(`[A11y] Loading indicator visible during slow load: ${hasAriaBusy}`);
 
     await mapPage.waitForReady();
@@ -362,8 +365,8 @@ mapTest.describe("Loading States", () => {
 
     await expect(mapPage.loadingIndicator)
       .not.toBeVisible({ timeout: 1000 })
-      .catch(() => {
-        // Loading indicator might not exist in DOM - that's OK
+      .catch((error: unknown) => {
+        console.warn("[Test] Loading indicator still visible or absent after load", error);
       });
   });
 });
