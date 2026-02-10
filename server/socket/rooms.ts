@@ -19,6 +19,10 @@ import type {
 } from "./types";
 import { getRedisClient } from "../redis";
 
+type BroadcastEmitter = {
+  emit(event: string, ...args: unknown[]): void;
+};
+
 const ROOM_KEY_PREFIX = "room:";
 
 // Fallback active rooms registry
@@ -92,7 +96,9 @@ async function getRoomMemberCount(roomId: string): Promise<number> {
   if (redis) {
     try {
       return await redis.scard(`${ROOM_KEY_PREFIX}${roomId}`);
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
   const room = roomsFallback.get(roomId);
   return room?.members.size ?? 0;
@@ -125,7 +131,9 @@ export async function joinRoom(
   if (redis) {
     try {
       await redis.sadd(`${ROOM_KEY_PREFIX}${roomId}`, data.odv);
-    } catch { /* fall through to fallback */ }
+    } catch {
+      /* fall through to fallback */
+    }
   }
 
   // Always track in fallback for local stats
@@ -161,7 +169,9 @@ export async function leaveRoom(
   if (redis) {
     try {
       await redis.srem(`${ROOM_KEY_PREFIX}${roomId}`, data.odv);
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
 
   // Update fallback tracking
@@ -210,9 +220,9 @@ export function broadcastToRoom<E extends keyof ServerToClientEvents>(
   if (excludeSocket) {
     // Type assertion needed due to Socket.io generic constraints
 
-    (excludeSocket.to(roomId) as any).emit(event, data);
+    (excludeSocket.to(roomId) as unknown as BroadcastEmitter).emit(event as string, data);
   } else {
-    (io.to(roomId) as any).emit(event, data);
+    (io.to(roomId) as unknown as BroadcastEmitter).emit(event as string, data);
   }
 }
 
@@ -227,7 +237,7 @@ export function sendToUser<E extends keyof ServerToClientEvents>(
 ): void {
   // User's personal room is their ID
 
-  (io.to(`user:${odv}`) as any).emit(event, data);
+  (io.to(`user:${odv}`) as unknown as BroadcastEmitter).emit(event as string, data);
 }
 
 /**

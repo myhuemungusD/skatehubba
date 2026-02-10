@@ -22,11 +22,11 @@ export function useRequireAuth() {
    * Wraps an action to require authentication.
    * If user is not logged in, shows a message and optionally redirects to sign-in.
    */
-  const requireAuth = <T extends (...args: any[]) => any>(
-    callback: T,
+  const requireAuth = <A extends unknown[], R>(
+    callback: (...args: A) => R,
     options?: RequireAuthOptions
-  ): ((...args: Parameters<T>) => ReturnType<T> | void) => {
-    return (...args: Parameters<T>) => {
+  ): ((...args: A) => R | void) => {
+    return (...args: A) => {
       if (!isAuthenticated) {
         showMessage({
           message: options?.message || "Sign in required",

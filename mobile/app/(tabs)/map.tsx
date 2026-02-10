@@ -28,7 +28,7 @@ export default function MapScreen() {
 
   const { data: spots, isLoading } = useQuery({
     queryKey: ["/api/spots"],
-    queryFn: () => apiRequest("/api/spots"),
+    queryFn: () => apiRequest<Spot[]>("/api/spots"),
     enabled: isAuthenticated,
   });
 

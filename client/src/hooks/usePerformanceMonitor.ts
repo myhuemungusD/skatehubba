@@ -40,11 +40,17 @@ export function usePerformanceMonitor() {
           logPerformance("FID", metrics.fid);
         }
 
-        if (entry.entryType === "layout-shift" && !(entry as any).hadRecentInput) {
-          const currentCls = metrics.cls ?? 0;
-          const newCls = currentCls + ((entry as any).value || 0);
-          metrics.cls = newCls;
-          logPerformance("CLS", newCls, "");
+        if (entry.entryType === "layout-shift") {
+          const layoutShift = entry as PerformanceEntry & {
+            hadRecentInput: boolean;
+            value: number;
+          };
+          if (!layoutShift.hadRecentInput) {
+            const currentCls = metrics.cls ?? 0;
+            const newCls = currentCls + (layoutShift.value || 0);
+            metrics.cls = newCls;
+            logPerformance("CLS", newCls, "");
+          }
         }
       }
     });

@@ -13,6 +13,8 @@
  * @module @skatehubba/config/publicEnv
  */
 
+import { globals } from "./globals";
+
 type AnyEnv = Record<string, string | undefined>;
 
 const EXPO_PREFIX = "EXPO_PUBLIC_";
@@ -55,7 +57,7 @@ function readCandidate(env: AnyEnv | undefined, name: string): string | undefine
 function readFromVite(name: string): string | undefined {
   // Safe access: Metro doesn't have import.meta, so we check via globalThis
 
-  const meta = (globalThis as any).import?.meta;
+  const meta = globals.import?.meta;
   const env: AnyEnv | undefined = meta?.env;
   return readCandidate(env, name);
 }
@@ -64,7 +66,7 @@ function readFromVite(name: string): string | undefined {
  * Read from process.env (Node.js, Expo)
  */
 function readFromProcess(name: string): string | undefined {
-  const env: AnyEnv | undefined = (globalThis as any).process?.env;
+  const env: AnyEnv | undefined = globals.process?.env;
   return readCandidate(env, name);
 }
 

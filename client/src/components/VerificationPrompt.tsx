@@ -8,7 +8,10 @@ interface VerificationPromptProps {
   className?: string;
 }
 
-export function VerificationPrompt({ action = "this feature", className = "" }: VerificationPromptProps) {
+export function VerificationPrompt({
+  action = "this feature",
+  className = "",
+}: VerificationPromptProps) {
   const { resendVerificationEmail, isResending, canResend, userEmail } = useEmailVerification();
   const { toast } = useToast();
 
@@ -19,10 +22,10 @@ export function VerificationPrompt({ action = "this feature", className = "" }: 
         title: "Verification email sent!",
         description: "Check your inbox and spam folder.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Could not send email",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     }
@@ -56,12 +59,12 @@ export function VerificationPrompt({ action = "this feature", className = "" }: 
   );
 }
 
-export function VerificationGate({ 
-  children, 
+export function VerificationGate({
+  children,
   action,
-  fallback 
-}: { 
-  children: React.ReactNode; 
+  fallback,
+}: {
+  children: React.ReactNode;
   action?: string;
   fallback?: React.ReactNode;
 }) {

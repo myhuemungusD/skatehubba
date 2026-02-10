@@ -12,7 +12,7 @@ import markerIcon from "leaflet/dist/images/marker-icon.png";
 import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 if (typeof window !== "undefined") {
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
+  delete (L.Icon.Default.prototype as unknown as Record<string, unknown>)._getIconUrl;
   L.Icon.Default.mergeOptions({
     iconUrl: markerIcon,
     iconRetinaUrl: markerIcon2x,

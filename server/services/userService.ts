@@ -131,7 +131,7 @@ export async function getOrCreateUser(input: CreateUserInput): Promise<User> {
   } catch (err) {
     // If another request inserted the same user concurrently, the database
     // should raise a unique-constraint violation. In that case, re-read.
-    const code = (err as any)?.code;
+    const code = (err as { code?: string })?.code;
     if (code === "23505") {
       const user = await getUserById(input.id);
       if (user) return user;

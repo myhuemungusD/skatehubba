@@ -27,8 +27,13 @@ interface UserManageDialogProps {
   onTempBan: (user: AdminUser) => void;
   onPermBan: (user: AdminUser) => void;
   onProVerify: (userId: string, status: string) => void;
-  proVerifyMutation: UseMutationResult<any, any, any, any>;
-  modActionMutation: UseMutationResult<any, any, any, any>;
+  proVerifyMutation: UseMutationResult<unknown, Error, { userId: string; status: string }, unknown>;
+  modActionMutation: UseMutationResult<
+    unknown,
+    Error,
+    { targetUserId: string; actionType: string; reasonCode: string; notes: string },
+    unknown
+  >;
 }
 
 export function UserManageDialog({

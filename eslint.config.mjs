@@ -61,12 +61,12 @@ export default tseslint.config(
         { allowConstantExport: true },
       ],
 
-      // TypeScript - relaxed for rapid development
+      // TypeScript
       "@typescript-eslint/no-unused-vars": [
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
       ],
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-empty-object-type": "off",
 
       // React hooks - relaxed for complex effects

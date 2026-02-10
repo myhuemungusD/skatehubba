@@ -12,6 +12,8 @@
  * @module @skatehubba/config/env
  */
 
+import { globals } from "./globals";
+
 type EnvRecord = Record<string, string | undefined>;
 
 const EXPO_PREFIX = "EXPO_PUBLIC_";
@@ -40,7 +42,7 @@ function normalizeNameCandidates(name: string): string[] {
  */
 function detectPlatform(): "vite" | "node" | "metro" {
   // Check if we're in a Vite environment
-  if (typeof globalThis !== "undefined" && (globalThis as any).import?.meta?.env) {
+  if (typeof globalThis !== "undefined" && globals.import?.meta?.env) {
     return "vite";
   }
 
@@ -95,7 +97,7 @@ function readEnv(name: string): string | undefined {
   switch (platform) {
     case "vite": {
       // Web: Read from Vite's import.meta.env
-      const meta = (globalThis as any).import?.meta;
+      const meta = globals.import?.meta;
       const env: EnvRecord = meta?.env || {};
       for (const candidate of candidates) {
         if (env[candidate] !== undefined) return env[candidate];
@@ -106,7 +108,7 @@ function readEnv(name: string): string | undefined {
     case "metro":
     case "node": {
       // Mobile/Server: Read from process.env
-      const env: EnvRecord = (globalThis as any).process?.env || {};
+      const env: EnvRecord = globals.process?.env || {};
       for (const candidate of candidates) {
         if (env[candidate] !== undefined) return env[candidate];
       }
@@ -277,9 +279,7 @@ export function getAllEnv(): Record<string, string> {
 
   const platform = detectPlatform();
   const env: EnvRecord =
-    platform === "vite"
-      ? (globalThis as any).import?.meta?.env || {}
-      : (globalThis as any).process?.env || {};
+    platform === "vite" ? globals.import?.meta?.env || {} : globals.process?.env || {};
 
   return Object.fromEntries(
     Object.entries(env).filter(([_, v]) => v !== undefined) as [string, string][]

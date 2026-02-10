@@ -1,5 +1,5 @@
-import { QueryClient } from '@tanstack/react-query';
-import { showMessage } from 'react-native-flash-message';
+import { QueryClient } from "@tanstack/react-query";
+import { showMessage } from "react-native-flash-message";
 
 // Create Query Client with default configuration
 export const queryClient = new QueryClient({
@@ -10,10 +10,10 @@ export const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
     mutations: {
-      onError: (error: any) => {
+      onError: (error: Error) => {
         showMessage({
-          message: error?.message || 'Something went wrong',
-          type: 'danger',
+          message: error?.message || "Something went wrong",
+          type: "danger",
           duration: 4000,
         });
       },
@@ -22,23 +22,23 @@ export const queryClient = new QueryClient({
 });
 
 // API request helper for Express backend
-export async function apiRequest(
+export async function apiRequest<T = unknown>(
   endpoint: string,
   options: RequestInit = {}
-): Promise<any> {
-  const baseUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5000';
-  
+): Promise<T> {
+  const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+
   const response = await fetch(`${baseUrl}${endpoint}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
       ...options.headers,
     },
-    credentials: 'include',
+    credentials: "include",
   });
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
+    const error = await response.json().catch(() => ({ error: "Request failed" }));
     throw new Error(error.error || error.message || `HTTP ${response.status}`);
   }
 

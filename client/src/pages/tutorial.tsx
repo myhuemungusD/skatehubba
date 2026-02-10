@@ -42,7 +42,13 @@ export default function Tutorial({ userId }: TutorialProps) {
 
   // Update user progress mutation
   const updateProgressMutation = useMutation({
-    mutationFn: async ({ stepId, updates }: { stepId: number; updates: any }) => {
+    mutationFn: async ({
+      stepId,
+      updates,
+    }: {
+      stepId: number;
+      updates: Record<string, unknown>;
+    }) => {
       const response = await fetch(`/api/users/${userId}/progress/${stepId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },

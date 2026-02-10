@@ -13,7 +13,7 @@ function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined
 
   return new RedisStore({
     sendCommand: (...args: string[]) =>
-      redis.call(...(args as [string, ...string[]])) as Promise<any>,
+      redis.call(...(args as [string, ...string[]])) as Promise<number>,
     prefix,
   });
 }

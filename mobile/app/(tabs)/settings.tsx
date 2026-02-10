@@ -1,4 +1,13 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Switch,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
@@ -58,12 +67,14 @@ export default function SettingsScreen() {
   // Load notification preferences from server
   useEffect(() => {
     if (!isAuthenticated) return;
-    apiRequest("/api/notifications/preferences")
-      .then((prefs: any) => {
+    apiRequest<{ pushEnabled?: boolean; emailEnabled?: boolean }>("/api/notifications/preferences")
+      .then((prefs) => {
         if (prefs.pushEnabled !== undefined) setPushEnabled(prefs.pushEnabled);
         if (prefs.emailEnabled !== undefined) setEmailEnabled(prefs.emailEnabled);
       })
-      .catch(() => { /* use defaults */ });
+      .catch(() => {
+        /* use defaults */
+      });
   }, [isAuthenticated]);
 
   const updatePref = useCallback(async (key: string, value: boolean) => {
@@ -133,7 +144,7 @@ export default function SettingsScreen() {
             icon="person"
             title="Edit Profile"
             subtitle="Update your name, photo, and bio"
-            onPress={() => router.push(`/profile/${user?.uid}` as any)}
+            onPress={() => router.push(`/profile/${user?.uid}`)}
           />
           <SettingItem
             icon="mail"
