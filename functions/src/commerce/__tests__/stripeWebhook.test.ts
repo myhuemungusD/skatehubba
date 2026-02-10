@@ -95,8 +95,13 @@ const mockTransaction = {
 };
 
 function makeDocRef(path: string) {
+  // Extract document ID from path (e.g., "orders/order-123" -> "order-123")
+  const pathParts = path.split("/");
+  const docId = pathParts[pathParts.length - 1];
+
   return {
     _path: path,
+    id: docId,
     get: vi.fn().mockImplementation(async () => {
       const data = mockDocs.get(path);
       return { exists: !!data, data: () => data };
