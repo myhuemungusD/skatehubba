@@ -41,20 +41,64 @@ vi.mock("../db", () => ({
   isDatabaseAvailable: () => mockIsDatabaseAvailable(),
 }));
 
-vi.mock("@shared/schema", () => ({
-  notifications: { _table: "notifications" },
-  notificationPreferences: {
-    _table: "notificationPreferences",
-    userId: { name: "userId" },
-  },
-  customUsers: {
-    _table: "customUsers",
-    id: { name: "id" },
-    pushToken: { name: "pushToken" },
-    email: { name: "email" },
-    firstName: { name: "firstName" },
-  },
-}));
+vi.mock("@shared/schema", () => {
+  const GAME_TYPES = new Set([
+    "challenge_received",
+    "your_turn",
+    "game_over",
+    "opponent_forfeited",
+    "game_forfeited_timeout",
+    "deadline_warning",
+    "dispute_filed",
+    "quick_match",
+  ]);
+  const CHALLENGE_TYPES = new Set(["challenge_received", "quick_match"]);
+  const TURN_TYPES = new Set(["your_turn", "deadline_warning"]);
+  const RESULT_TYPES = new Set(["game_over", "opponent_forfeited", "game_forfeited_timeout"]);
+
+  return {
+    notifications: { _table: "notifications" },
+    notificationPreferences: {
+      _table: "notificationPreferences",
+      userId: { name: "userId" },
+    },
+    customUsers: {
+      _table: "customUsers",
+      id: { name: "id" },
+      pushToken: { name: "pushToken" },
+      email: { name: "email" },
+      firstName: { name: "firstName" },
+    },
+    DEFAULT_NOTIFICATION_PREFS: {
+      pushEnabled: true,
+      emailEnabled: true,
+      inAppEnabled: true,
+      gameNotifications: true,
+      challengeNotifications: true,
+      turnNotifications: true,
+      resultNotifications: true,
+      marketingEmails: true,
+      weeklyDigest: true,
+      quietHoursStart: null,
+      quietHoursEnd: null,
+    },
+    shouldSendForType: (
+      prefs: {
+        gameNotifications: boolean;
+        challengeNotifications: boolean;
+        turnNotifications: boolean;
+        resultNotifications: boolean;
+      },
+      type: string
+    ) => {
+      if (GAME_TYPES.has(type) && !prefs.gameNotifications) return false;
+      if (CHALLENGE_TYPES.has(type) && !prefs.challengeNotifications) return false;
+      if (TURN_TYPES.has(type) && !prefs.turnNotifications) return false;
+      if (RESULT_TYPES.has(type) && !prefs.resultNotifications) return false;
+      return true;
+    },
+  };
+});
 
 vi.mock("drizzle-orm", () => ({
   eq: (col: any, val: any) => ({ _op: "eq", col, val }),
