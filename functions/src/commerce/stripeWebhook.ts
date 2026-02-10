@@ -194,6 +194,8 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent): Promise
   const db = getAdminDb();
   const orderRef = db.collection("orders").doc(orderId);
 
+  let shouldReleaseHold = false;
+
   try {
     await db.runTransaction(async (transaction) => {
       const orderSnap = await transaction.get(orderRef);
@@ -218,6 +220,8 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent): Promise
         canceledAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
+
+      shouldReleaseHold = true;
     });
   } catch (error) {
     logger.error("Failed to update order status to canceled", {
@@ -228,23 +232,25 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent): Promise
     throw error;
   }
 
-  // Release the held inventory back to stock
-  try {
-    await releaseHoldAtomic(orderId, orderId);
-  } catch (error) {
-    logger.error("Failed to release hold after payment failed", {
+  // Release the held inventory back to stock only if we actually canceled the order
+  if (shouldReleaseHold) {
+    try {
+      await releaseHoldAtomic(orderId, orderId);
+    } catch (error) {
+      logger.error("Failed to release hold after payment failed", {
+        orderId,
+        paymentIntentId: paymentIntent.id,
+        error,
+      });
+      throw error;
+    }
+
+    logger.info("Payment failed, order canceled and stock released", {
       orderId,
       paymentIntentId: paymentIntent.id,
-      error,
+      failureMessage: paymentIntent.last_payment_error?.message,
     });
-    throw error;
   }
-
-  logger.info("Payment failed, order canceled and stock released", {
-    orderId,
-    paymentIntentId: paymentIntent.id,
-    failureMessage: paymentIntent.last_payment_error?.message,
-  });
 }
 
 /**
