@@ -1,4 +1,4 @@
-import type { ProfileCache, Result, UserProfile } from "./authStore.types";
+import type { ProfileCache, ProfileStatus, Result, UserProfile } from "./authStore.types";
 
 export const isEmbeddedBrowser = () => {
   if (typeof navigator === "undefined") return false;
@@ -55,6 +55,20 @@ export const clearProfileCache = (uid: string) => {
   sessionStorage.removeItem(profileCacheKey(uid));
 };
 
+function toDate(value: unknown): Date {
+  if (value instanceof Date) return value;
+  if (typeof value === "string") return new Date(value);
+  if (
+    value &&
+    typeof value === "object" &&
+    "toDate" in value &&
+    typeof (value as { toDate?: unknown }).toDate === "function"
+  ) {
+    return (value as { toDate: () => Date }).toDate();
+  }
+  return new Date();
+}
+
 export const transformProfile = (uid: string, data: Record<string, unknown>): UserProfile => {
   return {
     uid,
@@ -70,10 +84,36 @@ export const transformProfile = (uid: string, data: Record<string, unknown>): Us
     crewName: (data.crewName as string | null) ?? null,
     credibilityScore: typeof data.credibilityScore === "number" ? data.credibilityScore : 0,
     avatarUrl: (data.avatarUrl as string | null) ?? null,
-    createdAt: typeof data.createdAt === "string" ? new Date(data.createdAt) : new Date(),
-    updatedAt: typeof data.updatedAt === "string" ? new Date(data.updatedAt) : new Date(),
+    createdAt: toDate(data.createdAt),
+    updatedAt: toDate(data.updatedAt),
   };
 };
+
+/**
+ * Resolve a profile fetch result: update cache on success, fall back to cache on failure.
+ * Returns { profile, profileStatus, degraded } for the caller to apply via set().
+ */
+export function resolveProfileResult(
+  uid: string,
+  result: Result<UserProfile | null>
+): { profile: UserProfile | null; profileStatus: ProfileStatus; degraded: boolean } {
+  if (result.status === "ok") {
+    const profile = result.data;
+    if (profile) {
+      writeProfileCache(uid, { status: "exists", profile });
+      return { profile, profileStatus: "exists", degraded: false };
+    }
+    writeProfileCache(uid, { status: "missing", profile: null });
+    return { profile: null, profileStatus: "missing", degraded: false };
+  }
+
+  // Fetch failed — try cache fallback
+  const cached = readProfileCache(uid);
+  if (cached) {
+    return { profile: cached.profile, profileStatus: cached.status, degraded: false };
+  }
+  return { profile: null, profileStatus: "unknown", degraded: true };
+}
 
 export async function withTimeout<T>(
   promise: Promise<T>,
