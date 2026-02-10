@@ -32,7 +32,6 @@ const envSchema = z.object({
   REPL_OWNER: z.string().optional(),
 
   // Firebase (required for auth to work, but optional for basic mode)
-  VITE_FIREBASE_PROJECT_ID: z.string().optional(),
   FIREBASE_ADMIN_KEY: z.string().optional(),
   FIREBASE_PROJECT_ID: z.string().optional(),
   FIREBASE_CLIENT_EMAIL: z.string().optional(),
