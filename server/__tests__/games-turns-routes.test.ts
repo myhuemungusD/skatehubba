@@ -15,26 +15,28 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const mockIsDatabaseAvailable = vi.fn().mockReturnValue(true);
 const mockTransaction = vi.fn();
+const mockOuterSelect = vi.fn();
+const mockSendGameNotification = vi.fn().mockResolvedValue(undefined);
 
-function createDbChain() {
-  const chain: any = {};
-  chain.select = vi.fn().mockReturnValue(chain);
-  chain.from = vi.fn().mockReturnValue(chain);
-  chain.where = vi.fn().mockReturnValue(chain);
-  chain.limit = vi.fn().mockReturnValue(chain);
-  chain.insert = vi.fn().mockReturnValue(chain);
-  chain.values = vi.fn().mockReturnValue(chain);
-  chain.returning = vi.fn().mockReturnValue(chain);
-  chain.update = vi.fn().mockReturnValue(chain);
-  chain.set = vi.fn().mockReturnValue(chain);
-  chain.execute = vi.fn().mockResolvedValue(undefined);
-  chain.then = (resolve: any) => Promise.resolve([]).then(resolve);
-  return chain;
-}
+// Capture route registrations via the Router mock
+const capturedRoutes: any[] = [];
+
+vi.mock("express", () => ({
+  Router: () => {
+    const mockRouter: any = {};
+    for (const method of ["get", "post", "put", "patch", "delete", "use"]) {
+      mockRouter[method] = vi.fn((...args: any[]) => {
+        capturedRoutes.push({ method, args });
+        return mockRouter;
+      });
+    }
+    return mockRouter;
+  },
+}));
 
 vi.mock("../db", () => ({
   getDb: () => ({
-    ...createDbChain(),
+    select: mockOuterSelect,
     transaction: mockTransaction,
   }),
   isDatabaseAvailable: () => mockIsDatabaseAvailable(),
@@ -55,8 +57,6 @@ vi.mock("../logger", () => ({
     debug: vi.fn(),
   },
 }));
-
-const mockSendGameNotification = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("../services/gameNotificationService", () => ({
   sendGameNotificationToUser: mockSendGameNotification,
@@ -82,7 +82,7 @@ vi.mock("drizzle-orm", () => ({
   ),
 }));
 
-vi.mock("./games-shared", () => ({
+vi.mock("../routes/games-shared", () => ({
   submitTurnSchema: {
     safeParse: (body: any) => {
       if (
@@ -123,28 +123,7 @@ vi.mock("./games-shared", () => ({
 }));
 
 // ============================================================================
-// Capture route handlers
-// ============================================================================
-
-const routeHandlers: Record<string, any> = {};
-
-vi.mock("express", () => {
-  const mockRouter = {
-    post: vi.fn((path: string, ...handlers: any[]) => {
-      routeHandlers[`POST ${path}`] = handlers;
-    }),
-    get: vi.fn(),
-    put: vi.fn(),
-    delete: vi.fn(),
-    use: vi.fn(),
-  };
-  return {
-    Router: () => mockRouter,
-  };
-});
-
-// ============================================================================
-// Import the module (triggers route registration)
+// Import the module (triggers route registration into capturedRoutes)
 // ============================================================================
 
 await import("../routes/games-turns");
@@ -169,19 +148,142 @@ function createRes() {
   return res;
 }
 
-async function callHandler(routeKey: string, req: any, res: any) {
-  const handlers = routeHandlers[routeKey];
-  if (!handlers) throw new Error(`Route ${routeKey} not registered`);
-
+async function callHandler(method: string, path: string, req: any, res: any) {
+  const route = capturedRoutes.find((r) => r.method === method && r.args[0] === path);
+  if (!route) {
+    throw new Error(
+      `Route ${method.toUpperCase()} ${path} not found. Available: ${capturedRoutes
+        .map((r) => `${r.method.toUpperCase()} ${r.args[0]}`)
+        .join(", ")}`
+    );
+  }
+  const handlers = route.args.slice(1);
   for (const handler of handlers) {
     await handler(req, res, vi.fn());
   }
 }
 
+/**
+ * Creates a mock transaction tx object.
+ *
+ * selectResults: array of arrays — each tx.select() call consumes the next entry.
+ * insertResult: array returned by insert().values().returning().
+ * updateResults: array of arrays — each tx.update() call consumes the next entry.
+ */
+function createTx(
+  config: {
+    selectResults?: any[][];
+    insertResult?: any[];
+    updateResults?: any[][];
+  } = {}
+) {
+  const tx: any = {};
+  let selectIdx = 0;
+  let updateIdx = 0;
+
+  tx.execute = vi.fn().mockResolvedValue(undefined);
+
+  tx.select = vi.fn().mockImplementation(() => ({
+    from: vi.fn().mockImplementation(() => {
+      const idx = selectIdx++;
+      const result = config.selectResults?.[idx] || [];
+      return {
+        where: vi.fn().mockImplementation(() => ({
+          limit: vi.fn().mockResolvedValue(result),
+          then: (resolve: any, reject?: any) => Promise.resolve(result).then(resolve, reject),
+        })),
+        then: (resolve: any, reject?: any) => Promise.resolve(result).then(resolve, reject),
+      };
+    }),
+  }));
+
+  tx.insert = vi.fn().mockImplementation(() => ({
+    values: vi.fn().mockImplementation(() => ({
+      returning: vi.fn().mockResolvedValue(config.insertResult || []),
+    })),
+  }));
+
+  tx.update = vi.fn().mockImplementation(() => ({
+    set: vi.fn().mockImplementation(() => {
+      const idx = updateIdx++;
+      const result = config.updateResults?.[idx] || [];
+      return {
+        where: vi.fn().mockImplementation(() => ({
+          returning: vi.fn().mockResolvedValue(result),
+          then: (resolve: any, reject?: any) => Promise.resolve(result).then(resolve, reject),
+        })),
+      };
+    }),
+  }));
+
+  return tx;
+}
+
+/**
+ * Configures the outer db.select() chain (used by the judge route to look up
+ * the turn outside its transaction).
+ */
+function setupOuterSelect(result: any[]) {
+  mockOuterSelect.mockReturnValue({
+    from: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        limit: vi.fn().mockResolvedValue(result),
+        then: (resolve: any, reject?: any) => Promise.resolve(result).then(resolve, reject),
+      }),
+    }),
+  });
+}
+
+// ============================================================================
+// Shared test fixtures
+// ============================================================================
+
 const validTurnBody = {
   trickDescription: "Kickflip",
   videoUrl: "https://example.com/video.mp4",
   videoDurationMs: 5000,
+};
+
+const baseActiveGame = {
+  id: "game-1",
+  player1Id: "user-1",
+  player2Id: "user-2",
+  player1Name: "Alice",
+  player2Name: "Bob",
+  status: "active",
+  currentTurn: "user-1",
+  deadlineAt: new Date(Date.now() + 100000),
+  turnPhase: "set_trick",
+  offensivePlayerId: "user-1",
+  defensivePlayerId: "user-2",
+  player1Letters: "",
+  player2Letters: "",
+};
+
+const baseTurn = {
+  id: 1,
+  gameId: "game-1",
+  playerId: "user-2",
+  turnNumber: 1,
+  turnType: "set",
+  trickDescription: "Kickflip",
+  videoUrl: "https://example.com/video.mp4",
+  result: "pending",
+};
+
+const judgeGameBase = {
+  id: "game-1",
+  player1Id: "user-1",
+  player2Id: "user-2",
+  player1Name: "Alice",
+  player2Name: "Bob",
+  status: "active",
+  offensivePlayerId: "user-2",
+  defensivePlayerId: "user-1",
+  turnPhase: "judge",
+  currentTurn: "user-1",
+  player1Letters: "",
+  player2Letters: "",
 };
 
 // ============================================================================
@@ -192,6 +294,7 @@ describe("Game Turn Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsDatabaseAvailable.mockReturnValue(true);
+    setupOuterSelect([]);
   });
 
   // ==========================================================================
@@ -205,7 +308,7 @@ describe("Game Turn Routes", () => {
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith({ error: "Database unavailable" });
@@ -215,7 +318,7 @@ describe("Game Turn Routes", () => {
       const req = createReq({ params: { id: "game-1" }, body: {} });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
@@ -228,26 +331,24 @@ describe("Game Turn Routes", () => {
       });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith({
+        error: "Video exceeds 15 second limit",
+      });
     });
 
     it("returns 404 when game is not found", async () => {
       mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) => Promise.resolve([]).then(r),
-        });
+        const tx = createTx({ selectResults: [[]] });
         return callback(tx);
       });
 
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({ error: "Game not found" });
@@ -255,19 +356,16 @@ describe("Game Turn Routes", () => {
 
     it("returns 403 when user is not a player", async () => {
       mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
+        const tx = createTx({
+          selectResults: [
+            [
               {
-                id: "game-1",
+                ...baseActiveGame,
                 player1Id: "other-1",
                 player2Id: "other-2",
-                status: "active",
-                currentTurn: "other-1",
               },
-            ]).then(r),
+            ],
+          ],
         });
         return callback(tx);
       });
@@ -275,7 +373,7 @@ describe("Game Turn Routes", () => {
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith({
@@ -285,19 +383,8 @@ describe("Game Turn Routes", () => {
 
     it("returns 400 when game is not active", async () => {
       mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
-              {
-                id: "game-1",
-                player1Id: "user-1",
-                player2Id: "user-2",
-                status: "completed",
-                currentTurn: "user-1",
-              },
-            ]).then(r),
+        const tx = createTx({
+          selectResults: [[{ ...baseActiveGame, status: "completed" }]],
         });
         return callback(tx);
       });
@@ -305,7 +392,7 @@ describe("Game Turn Routes", () => {
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ error: "Game is not active" });
@@ -313,19 +400,8 @@ describe("Game Turn Routes", () => {
 
     it("returns 400 when it is not the user's turn", async () => {
       mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
-              {
-                id: "game-1",
-                player1Id: "user-1",
-                player2Id: "user-2",
-                status: "active",
-                currentTurn: "user-2", // not user-1
-              },
-            ]).then(r),
+        const tx = createTx({
+          selectResults: [[{ ...baseActiveGame, currentTurn: "user-2" }]],
         });
         return callback(tx);
       });
@@ -333,7 +409,7 @@ describe("Game Turn Routes", () => {
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ error: "Not your turn" });
@@ -341,22 +417,15 @@ describe("Game Turn Routes", () => {
 
     it("returns 400 when turn deadline has passed", async () => {
       mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
+        const tx = createTx({
+          selectResults: [
+            [
               {
-                id: "game-1",
-                player1Id: "user-1",
-                player2Id: "user-2",
-                status: "active",
-                currentTurn: "user-1",
-                deadlineAt: new Date(Date.now() - 1000), // already passed
-                turnPhase: "set_trick",
-                offensivePlayerId: "user-1",
+                ...baseActiveGame,
+                deadlineAt: new Date(Date.now() - 1000),
               },
-            ]).then(r),
+            ],
+          ],
         });
         return callback(tx);
       });
@@ -364,7 +433,7 @@ describe("Game Turn Routes", () => {
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
@@ -372,25 +441,17 @@ describe("Game Turn Routes", () => {
       });
     });
 
-    it("returns 400 when non-offensive player tries to set trick", async () => {
+    it("returns 400 when phase does not accept video submissions", async () => {
       mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
+        const tx = createTx({
+          selectResults: [
+            [
               {
-                id: "game-1",
-                player1Id: "user-1",
-                player2Id: "user-2",
-                status: "active",
-                currentTurn: "user-1",
-                deadlineAt: new Date(Date.now() + 100000),
-                turnPhase: "set_trick",
-                offensivePlayerId: "user-2", // user-1 is NOT offensive
-                defensivePlayerId: "user-1",
+                ...baseActiveGame,
+                turnPhase: "judge",
               },
-            ]).then(r),
+            ],
+          ],
         });
         return callback(tx);
       });
@@ -398,90 +459,31 @@ describe("Game Turn Routes", () => {
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
-        error: "Only the offensive player can set a trick",
+        error: "Current phase does not accept video submissions",
       });
     });
 
-    it("returns 400 when non-defensive player tries to respond", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
-              {
-                id: "game-1",
-                player1Id: "user-1",
-                player2Id: "user-2",
-                status: "active",
-                currentTurn: "user-1",
-                deadlineAt: new Date(Date.now() + 100000),
-                turnPhase: "respond_trick",
-                offensivePlayerId: "user-1", // user-1 is offensive, not defensive
-                defensivePlayerId: "user-2",
-              },
-            ]).then(r),
-        });
-        return callback(tx);
-      });
-
-      const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
-      const res = createRes();
-
-      await callHandler("POST /:id/turns", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        error: "Only the defensive player can respond",
-      });
-    });
-
-    it("succeeds with set trick submission (201)", async () => {
+    it("creates turn and sends notification on set trick success", async () => {
       const newTurn = {
-        id: 1,
+        id: 10,
         gameId: "game-1",
         playerId: "user-1",
         turnType: "set",
         trickDescription: "Kickflip",
         videoUrl: "https://example.com/video.mp4",
+        turnNumber: 1,
       };
 
       mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let selectCallIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          selectCallIdx++;
-          if (selectCallIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: "game-1",
-                    player1Id: "user-1",
-                    player2Id: "user-2",
-                    player1Name: "Alice",
-                    player2Name: "Bob",
-                    status: "active",
-                    currentTurn: "user-1",
-                    deadlineAt: new Date(Date.now() + 100000),
-                    turnPhase: "set_trick",
-                    offensivePlayerId: "user-1",
-                    defensivePlayerId: "user-2",
-                  },
-                ]).then(r),
-            };
-          }
-          return { then: (r: any) => Promise.resolve([]).then(r) };
-        });
-        // Turn count query (no limit — uses where then resolve)
-        tx.then = (resolve: any) => Promise.resolve([{ count: 0 }]).then(resolve);
-        tx.returning = vi.fn().mockReturnValue({
-          then: (r: any) => Promise.resolve([newTurn]).then(r),
+        const tx = createTx({
+          // [0] game lookup, [1] turn count
+          selectResults: [[{ ...baseActiveGame }], [{ count: 0 }]],
+          insertResult: [newTurn],
+          updateResults: [[]],
         });
         return callback(tx);
       });
@@ -489,7 +491,7 @@ describe("Game Turn Routes", () => {
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(
@@ -505,45 +507,37 @@ describe("Game Turn Routes", () => {
       });
     });
 
-    it("succeeds with response submission (201)", async () => {
+    it("creates turn and updates to judge phase on response success", async () => {
       const newTurn = {
-        id: 2,
+        id: 11,
         gameId: "game-1",
         playerId: "user-1",
         turnType: "response",
+        trickDescription: "Kickflip",
+        turnNumber: 2,
       };
 
       mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let selectCallIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          selectCallIdx++;
-          if (selectCallIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: "game-1",
-                    player1Id: "user-2",
-                    player2Id: "user-1",
-                    player1Name: "Alice",
-                    player2Name: "Bob",
-                    status: "active",
-                    currentTurn: "user-1",
-                    deadlineAt: new Date(Date.now() + 100000),
-                    turnPhase: "respond_trick",
-                    offensivePlayerId: "user-2",
-                    defensivePlayerId: "user-1",
-                  },
-                ]).then(r),
-            };
-          }
-          return { then: (r: any) => Promise.resolve([]).then(r) };
-        });
-        tx.then = (resolve: any) => Promise.resolve([{ count: 1 }]).then(resolve);
-        tx.returning = vi.fn().mockReturnValue({
-          then: (r: any) => Promise.resolve([newTurn]).then(r),
+        const tx = createTx({
+          // [0] game lookup, [1] turn count
+          selectResults: [
+            [
+              {
+                ...baseActiveGame,
+                player1Id: "user-2",
+                player2Id: "user-1",
+                player1Name: "Bob",
+                player2Name: "Alice",
+                turnPhase: "respond_trick",
+                offensivePlayerId: "user-2",
+                defensivePlayerId: "user-1",
+                currentTurn: "user-1",
+              },
+            ],
+            [{ count: 1 }],
+          ],
+          insertResult: [newTurn],
+          updateResults: [[]],
         });
         return callback(tx);
       });
@@ -551,7 +545,7 @@ describe("Game Turn Routes", () => {
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(201);
       expect(res.json).toHaveBeenCalledWith(
@@ -560,7 +554,7 @@ describe("Game Turn Routes", () => {
           message: "Response sent. Now judge the trick.",
         })
       );
-      // Response submissions don't notify (notify is null)
+      // Response submissions do not send notifications (notify is null)
       expect(mockSendGameNotification).not.toHaveBeenCalled();
     });
 
@@ -570,10 +564,12 @@ describe("Game Turn Routes", () => {
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
-      await callHandler("POST /:id/turns", req, res);
+      await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "Failed to submit turn" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "Failed to submit turn",
+      });
     });
   });
 
@@ -591,7 +587,7 @@ describe("Game Turn Routes", () => {
       });
       const res = createRes();
 
-      await callHandler("POST /turns/:turnId/judge", req, res);
+      await callHandler("post", "/turns/:turnId/judge", req, res);
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith({ error: "Database unavailable" });
@@ -604,50 +600,27 @@ describe("Game Turn Routes", () => {
       });
       const res = createRes();
 
-      await callHandler("POST /turns/:turnId/judge", req, res);
+      await callHandler("post", "/turns/:turnId/judge", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
     });
 
-    it("returns 400 for invalid turnId (NaN)", async () => {
+    it("returns 400 for invalid turn ID (NaN)", async () => {
       const req = createReq({
         params: { turnId: "abc" },
         body: { result: "landed" },
       });
       const res = createRes();
 
-      await callHandler("POST /turns/:turnId/judge", req, res);
+      await callHandler("post", "/turns/:turnId/judge", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ error: "Invalid turn ID" });
     });
 
     it("returns 404 when turn is not found", async () => {
-      // The turn lookup happens outside the transaction via db.select()
-      // Mock the getDb chain to return no turn
-      const dbChain = createDbChain();
-      dbChain.limit = vi.fn().mockReturnValue({
-        then: (r: any) => Promise.resolve([]).then(r),
-      });
-
-      // We need to re-mock getDb for this test case
-      // Since we can't re-mock, we use the transaction mock's outer behavior
-      // The turn query is done outside transaction
-      // Actually, the route imports getDb at the top and calls db.select() for the turn
-      // Let's handle this by making the transaction not be called if turn not found
-
-      // The route code does: const [turn] = await db.select()...where()...limit(1)
-      // Then: if (!turn) return res.status(404)
-      // The db.transaction is called only after turn is found
-
-      // Since our mock getDb returns a chain, we need the chain's limit to resolve empty
-      // But our global mock is already set up. The issue is that the route gets db from getDb()
-      // Let's just verify the behavior if we get there
-
-      // For this test, we'll rely on the fact that db.select returns []
-      // The getDb mock returns createDbChain() which has .then resolving []
-      // So the select().from().where().limit(1) chain resolves to []
+      setupOuterSelect([]);
 
       const req = createReq({
         params: { turnId: "999" },
@@ -655,63 +628,20 @@ describe("Game Turn Routes", () => {
       });
       const res = createRes();
 
-      await callHandler("POST /turns/:turnId/judge", req, res);
+      await callHandler("post", "/turns/:turnId/judge", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith({ error: "Turn not found" });
     });
 
-    it("returns 403 when user is not the defending player", async () => {
-      // Mock the outer turn query to return a turn
-      // Then mock the transaction
-      const outerDb = createDbChain();
-      outerDb.limit = vi.fn().mockReturnValue({
-        then: (r: any) =>
-          Promise.resolve([
-            { id: 1, gameId: "game-1", playerId: "user-2", result: "pending", turnNumber: 1 },
-          ]).then(r),
-      });
-
-      // Override getDb temporarily - since we can't re-mock, we need a different approach.
-      // The route does `const db = getDb()` then `await db.select()...` for turn,
-      // and also `await db.transaction(...)` for game validation.
-      // Both use the same db object from our mock.
-
-      // The chain's limit() for the initial turn lookup needs to return a turn.
-      // Then the transaction callback needs to return errors.
-
-      // Let's use mockTransaction to simulate the game validation part.
+    it("returns 404 when game is not found", async () => {
+      setupOuterSelect([baseTurn]);
       mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
-              {
-                id: "game-1",
-                player1Id: "user-2",
-                player2Id: "user-3",
-                status: "active",
-                defensivePlayerId: "user-3", // not user-1
-                offensivePlayerId: "user-2",
-                turnPhase: "judge",
-                currentTurn: "user-3",
-              },
-            ]).then(r),
+        const tx = createTx({
+          selectResults: [[]], // game lookup returns empty
         });
         return callback(tx);
       });
-
-      // For the outer turn query, we need to mock getDb to return something that
-      // has limit() returning a turn. But since getDb is already mocked globally,
-      // we need to work within that constraint.
-      // Actually, the global mock creates a new chain each time. The .then on the chain
-      // resolves to []. We can't easily change that per-test without re-structuring.
-      //
-      // Skip this test scenario with a note or work around it:
-      // The global mock's chain.then resolves to [] which means turn not found (404).
-      // To test past that point, we'd need a more sophisticated mock.
-      // Let's create a test that documents the expected behavior instead.
 
       const req = createReq({
         params: { turnId: "1" },
@@ -719,15 +649,338 @@ describe("Game Turn Routes", () => {
       });
       const res = createRes();
 
-      await callHandler("POST /turns/:turnId/judge", req, res);
+      await callHandler("post", "/turns/:turnId/judge", req, res);
 
-      // With our global mock, the outer select resolves to [] so we get 404
-      // This is expected behavior — turn not found
       expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ error: "Game not found" });
     });
 
-    it("returns 500 on unexpected error in transaction", async () => {
-      // Even if the turn lookup fails with an exception, it's caught
+    it("returns 403 when user is not the defending player", async () => {
+      setupOuterSelect([baseTurn]);
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [
+            [
+              {
+                ...judgeGameBase,
+                defensivePlayerId: "user-2", // not user-1
+                offensivePlayerId: "user-1",
+              },
+            ],
+          ],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({
+        params: { turnId: "1" },
+        body: { result: "landed" },
+      });
+      const res = createRes();
+
+      await callHandler("post", "/turns/:turnId/judge", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "Only the defending player can judge",
+      });
+    });
+
+    it("returns 400 when game is not in judging phase", async () => {
+      setupOuterSelect([baseTurn]);
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [
+            [
+              {
+                ...judgeGameBase,
+                turnPhase: "set_trick", // not "judge"
+              },
+            ],
+          ],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({
+        params: { turnId: "1" },
+        body: { result: "landed" },
+      });
+      const res = createRes();
+
+      await callHandler("post", "/turns/:turnId/judge", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "Game is not in judging phase",
+      });
+    });
+
+    it("returns 400 when it is not the user's turn to judge", async () => {
+      setupOuterSelect([baseTurn]);
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [
+            [
+              {
+                ...judgeGameBase,
+                currentTurn: "user-2", // not user-1
+              },
+            ],
+          ],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({
+        params: { turnId: "1" },
+        body: { result: "landed" },
+      });
+      const res = createRes();
+
+      await callHandler("post", "/turns/:turnId/judge", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "Not your turn to judge",
+      });
+    });
+
+    it("returns 400 when turn has already been judged", async () => {
+      setupOuterSelect([baseTurn]);
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [
+            [judgeGameBase], // [0] game lookup
+            [{ ...baseTurn, result: "landed" }], // [1] turn re-check (already judged)
+          ],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({
+        params: { turnId: "1" },
+        body: { result: "missed" },
+      });
+      const res = createRes();
+
+      await callHandler("post", "/turns/:turnId/judge", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "Turn has already been judged",
+      });
+    });
+
+    it("returns 400 when no response video has been submitted", async () => {
+      setupOuterSelect([baseTurn]);
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [
+            [judgeGameBase], // [0] game lookup
+            [baseTurn], // [1] turn re-check (pending)
+            [], // [2] response videos (none found)
+          ],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({
+        params: { turnId: "1" },
+        body: { result: "missed" },
+      });
+      const res = createRes();
+
+      await callHandler("post", "/turns/:turnId/judge", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "You must submit your response video before judging",
+      });
+    });
+
+    it("handles missed judgment with letter earned and game continues", async () => {
+      const updatedGame = {
+        ...judgeGameBase,
+        player1Letters: "S",
+        player2Letters: "",
+        currentTurn: "user-2",
+        turnPhase: "set_trick",
+        offensivePlayerId: "user-2",
+        defensivePlayerId: "user-1",
+      };
+
+      setupOuterSelect([baseTurn]);
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [
+            [judgeGameBase], // [0] game lookup
+            [baseTurn], // [1] turn re-check (pending)
+            [
+              // [2] response videos
+              { turnNumber: 2, playerId: "user-1", turnType: "response" },
+            ],
+          ],
+          updateResults: [
+            [], // [0] turn result update (no returning)
+            [updatedGame], // [1] game update (with returning)
+          ],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({
+        params: { turnId: "1" },
+        body: { result: "missed" },
+      });
+      const res = createRes();
+
+      await callHandler("post", "/turns/:turnId/judge", req, res);
+
+      // Should return the response with game and turn data
+      const responseBody = res.json.mock.calls[0][0];
+      expect(responseBody.game).toEqual(updatedGame);
+      expect(responseBody.gameOver).toBe(false);
+      expect(responseBody.message).toBe("BAIL. Letter earned.");
+      expect(responseBody.turn.result).toBe("missed");
+      expect(responseBody.turn.judgedBy).toBe("user-1");
+
+      // Notification sent to the offensive player
+      expect(mockSendGameNotification).toHaveBeenCalledWith(
+        "user-2",
+        "your_turn",
+        expect.objectContaining({ gameId: "game-1" })
+      );
+    });
+
+    it("handles landed judgment with roles swap", async () => {
+      const updatedGame = {
+        ...judgeGameBase,
+        player1Letters: "",
+        player2Letters: "",
+        currentTurn: "user-1",
+        turnPhase: "set_trick",
+        offensivePlayerId: "user-1",
+        defensivePlayerId: "user-2",
+      };
+
+      setupOuterSelect([baseTurn]);
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [
+            [judgeGameBase], // [0] game lookup
+            [baseTurn], // [1] turn re-check (pending)
+            [
+              // [2] response videos
+              { turnNumber: 2, playerId: "user-1", turnType: "response" },
+            ],
+          ],
+          updateResults: [
+            [], // [0] turn result update (no returning)
+            [updatedGame], // [1] game update (with returning)
+          ],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({
+        params: { turnId: "1" },
+        body: { result: "landed" },
+      });
+      const res = createRes();
+
+      await callHandler("post", "/turns/:turnId/judge", req, res);
+
+      const responseBody = res.json.mock.calls[0][0];
+      expect(responseBody.game).toEqual(updatedGame);
+      expect(responseBody.gameOver).toBe(false);
+      expect(responseBody.message).toBe("LAND. Roles swap.");
+      expect(responseBody.turn.result).toBe("landed");
+      expect(responseBody.turn.judgedBy).toBe("user-1");
+
+      // Notification sent to the new offensive player (previously defensive)
+      expect(mockSendGameNotification).toHaveBeenCalledWith(
+        "user-1",
+        "your_turn",
+        expect.objectContaining({ gameId: "game-1" })
+      );
+    });
+
+    it("returns game over response and sends notifications when game ends", async () => {
+      const gameWithLetters = {
+        ...judgeGameBase,
+        player1Letters: "SKAT", // one letter away from losing
+        player2Letters: "",
+      };
+
+      const completedGame = {
+        ...gameWithLetters,
+        player1Letters: "SKATE",
+        status: "completed",
+        winnerId: "user-2",
+        turnPhase: null,
+        currentTurn: null,
+        deadlineAt: null,
+      };
+
+      setupOuterSelect([baseTurn]);
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [
+            [gameWithLetters], // [0] game lookup
+            [baseTurn], // [1] turn re-check (pending)
+            [
+              // [2] response videos
+              { turnNumber: 2, playerId: "user-1", turnType: "response" },
+            ],
+          ],
+          updateResults: [
+            [], // [0] turn result update (no returning)
+            [completedGame], // [1] game update (with returning)
+          ],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({
+        params: { turnId: "1" },
+        body: { result: "missed" },
+      });
+      const res = createRes();
+
+      await callHandler("post", "/turns/:turnId/judge", req, res);
+
+      const responseBody = res.json.mock.calls[0][0];
+      expect(responseBody.game).toEqual(completedGame);
+      expect(responseBody.gameOver).toBe(true);
+      expect(responseBody.winnerId).toBe("user-2");
+      expect(responseBody.message).toBe("Game over.");
+      expect(responseBody.turn.result).toBe("missed");
+
+      // Both players receive game_over notifications
+      expect(mockSendGameNotification).toHaveBeenCalledTimes(2);
+      expect(mockSendGameNotification).toHaveBeenCalledWith(
+        "user-1",
+        "game_over",
+        expect.objectContaining({
+          gameId: "game-1",
+          winnerId: "user-2",
+          youWon: false,
+        })
+      );
+      expect(mockSendGameNotification).toHaveBeenCalledWith(
+        "user-2",
+        "game_over",
+        expect.objectContaining({
+          gameId: "game-1",
+          winnerId: "user-2",
+          youWon: true,
+        })
+      );
+    });
+
+    it("returns 500 on unexpected error", async () => {
+      setupOuterSelect([baseTurn]);
       mockTransaction.mockRejectedValue(new Error("DB crash"));
 
       const req = createReq({
@@ -736,104 +989,12 @@ describe("Game Turn Routes", () => {
       });
       const res = createRes();
 
-      await callHandler("POST /turns/:turnId/judge", req, res);
+      await callHandler("post", "/turns/:turnId/judge", req, res);
 
-      // With our mock, turn lookup resolves to [] so we get 404 before transaction
-      expect(res.status).toHaveBeenCalledWith(404);
-    });
-  });
-
-  // ==========================================================================
-  // Judge route with custom db mock (more detailed scenarios)
-  // ==========================================================================
-
-  describe("POST /turns/:turnId/judge — detailed scenarios via custom mock", () => {
-    // These tests manually override the getDb return for the judge endpoint
-    // by using a module-level variable approach
-
-    it("validates that the route is registered", () => {
-      expect(routeHandlers["POST /turns/:turnId/judge"]).toBeDefined();
-      expect(routeHandlers["POST /turns/:turnId/judge"].length).toBeGreaterThanOrEqual(1);
-    });
-
-    it("rejects invalid result values", async () => {
-      const req = createReq({
-        params: { turnId: "1" },
-        body: { result: "draw" }, // not valid
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "Failed to judge turn",
       });
-      const res = createRes();
-
-      await callHandler("POST /turns/:turnId/judge", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
-    });
-
-    it("handles NaN turnId gracefully", async () => {
-      const req = createReq({
-        params: { turnId: "not-a-number" },
-        body: { result: "landed" },
-      });
-      const res = createRes();
-
-      await callHandler("POST /turns/:turnId/judge", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: "Invalid turn ID" });
-    });
-
-    it("parses turnId from string param", async () => {
-      // turnId "42" should be parsed to 42 (number)
-      const req = createReq({
-        params: { turnId: "42" },
-        body: { result: "landed" },
-      });
-      const res = createRes();
-
-      await callHandler("POST /turns/:turnId/judge", req, res);
-
-      // Will reach the turn lookup (which returns []) -> 404
-      expect(res.status).toHaveBeenCalledWith(404);
-    });
-  });
-
-  // ==========================================================================
-  // Integration-style tests for the full judge flow
-  // ==========================================================================
-
-  describe("judge flow — game continues (missed)", () => {
-    it("documents expected behavior for BAIL judgment that adds a letter", () => {
-      // When a defender judges BAIL (missed):
-      // 1. The defending player gets a letter
-      // 2. Roles STAY the same (offensive player keeps setting)
-      // 3. turnPhase goes back to "set_trick"
-      // 4. The offensive player is notified it's their turn
-      //
-      // This is tested at the integration level; the unit test above
-      // covers the route validation paths.
-      expect(true).toBe(true);
-    });
-  });
-
-  describe("judge flow — game continues (landed)", () => {
-    it("documents expected behavior for LAND judgment with role swap", () => {
-      // When a defender judges LAND (landed):
-      // 1. No letter is given
-      // 2. Roles swap: defender becomes the new offensive player
-      // 3. turnPhase goes back to "set_trick"
-      // 4. The new offensive player (previously defensive) is notified
-      expect(true).toBe(true);
-    });
-  });
-
-  describe("judge flow — game over", () => {
-    it("documents expected behavior when game ends after judgment", () => {
-      // When a BAIL judgment causes a player to spell SKATE:
-      // 1. Game status becomes "completed"
-      // 2. winnerId is set to the other player
-      // 3. Both players are notified of "game_over"
-      // 4. turnPhase, currentTurn, deadlineAt are all nulled
-      expect(true).toBe(true);
     });
   });
 });
