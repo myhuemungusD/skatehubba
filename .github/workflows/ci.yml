@@ -156,11 +156,10 @@ jobs:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: node scripts/verify-firebase-rules.mjs
 
-  # Secret scanning with gitleaks (main branch only)
+  # Secret scanning with gitleaks (all branches and PRs)
   secret_scan:
     name: "No Secrets in Repo"
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -176,4 +175,5 @@ jobs:
       - name: Gitleaks scan
         uses: gitleaks/gitleaks-action@v2
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
