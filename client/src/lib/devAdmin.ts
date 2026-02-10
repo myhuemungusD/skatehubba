@@ -20,11 +20,11 @@ export function isDevAdmin(): boolean {
 
 // Expose global helpers for quick toggling from the browser console
 if (typeof window !== "undefined" && window.location.hostname === "localhost") {
-  (window as any).__enableDevAdmin = () => {
+  window.__enableDevAdmin = () => {
     window.sessionStorage.setItem("devAdmin", "true");
     window.location.reload();
   };
-  (window as any).__disableDevAdmin = () => {
+  window.__disableDevAdmin = () => {
     window.sessionStorage.removeItem("devAdmin");
     window.location.reload();
   };

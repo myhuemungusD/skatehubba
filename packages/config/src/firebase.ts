@@ -8,6 +8,7 @@
  */
 
 import { getPublicEnvOptional, getAppEnv, type AppEnv } from "./publicEnv";
+import { globals } from "./globals";
 
 /**
  * Firebase configuration interface
@@ -75,7 +76,7 @@ function buildConfigFromEnv(): FirebaseConfig | null {
     normalizeEnvValue(getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID")) || "";
 
   const measurementId = normalizeEnvValue(
-    getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"),
+    getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID")
   );
 
   return {
@@ -100,7 +101,7 @@ function buildConfigFromEnv(): FirebaseConfig | null {
  */
 function isBuildOrTest(): boolean {
   try {
-    const env = (globalThis as any).process?.env;
+    const env = globals.process?.env;
     if (!env) return false;
     return env.CI === "true" || env.CI === "1" || env.VITEST === "true" || env.NODE_ENV === "test";
   } catch {

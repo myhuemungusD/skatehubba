@@ -8,6 +8,7 @@
  */
 
 import { getPublicEnv, getPublicEnvOptional, getAppEnv, type AppEnv } from "./publicEnv";
+import { globals } from "./globals";
 
 /**
  * Get the canonical origin for the current platform
@@ -18,7 +19,7 @@ import { getPublicEnv, getPublicEnvOptional, getAppEnv, type AppEnv } from "./pu
  * @returns The canonical origin (e.g., "https://skatehubba.com")
  */
 export function getCanonicalOrigin(): string {
-  const loc = (globalThis as any).location;
+  const loc = globals.location;
   if (loc?.origin) return loc.origin; // web
   return getPublicEnv("EXPO_PUBLIC_CANONICAL_ORIGIN"); // mobile
 }
@@ -67,20 +68,14 @@ export function getApiBaseUrl(): string {
  * Check if running on web platform
  */
 export function isWeb(): boolean {
-  return (
-    typeof (globalThis as any).window !== "undefined" &&
-    typeof (globalThis as any).document !== "undefined"
-  );
+  return typeof globals.window !== "undefined" && typeof globals.document !== "undefined";
 }
 
 /**
  * Check if running on mobile (React Native)
  */
 export function isMobile(): boolean {
-  return (
-    typeof (globalThis as any).navigator !== "undefined" &&
-    (globalThis as any).navigator?.product === "ReactNative"
-  );
+  return typeof globals.navigator !== "undefined" && globals.navigator?.product === "ReactNative";
 }
 
 /**

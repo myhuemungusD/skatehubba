@@ -98,10 +98,10 @@ export default function App() {
     if (!isInitialized) return;
     const exposeUid =
       import.meta.env.DEV ||
-      (typeof window !== "undefined" && (window as any).Cypress) ||
+      (typeof window !== "undefined" && window.Cypress) ||
       import.meta.env.VITE_E2E === "true";
     if (exposeUid && typeof window !== "undefined") {
-      (window as any).__SKATEHUBBA_UID__ = user?.uid ?? null;
+      window.__SKATEHUBBA_UID__ = user?.uid ?? null;
     }
   }, [isInitialized, user]);
 

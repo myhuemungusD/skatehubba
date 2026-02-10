@@ -1,13 +1,13 @@
 const isDevelopment = import.meta.env.DEV;
 
-export type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
+export type LogLevel = "log" | "info" | "warn" | "error" | "debug";
 
 interface Logger {
-  log(...args: any[]): void;
-  info(...args: any[]): void;
-  warn(...args: any[]): void;
-  error(...args: any[]): void;
-  debug(...args: any[]): void;
+  log(...args: unknown[]): void;
+  info(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  error(...args: unknown[]): void;
+  debug(...args: unknown[]): void;
 }
 
 function createLogger(): Logger {
@@ -32,14 +32,14 @@ function createLogger(): Logger {
 
 export const logger = createLogger();
 
-export function logError(error: Error, context?: Record<string, any>) {
-  logger.error('[SkateHubba Error]', {
+export function logError(error: Error, context?: Record<string, unknown>) {
+  logger.error("[SkateHubba Error]", {
     message: error.message,
     stack: error.stack,
     ...context,
   });
 }
 
-export function logPerformance(metric: string, value: number, unit: string = 'ms') {
+export function logPerformance(metric: string, value: number, unit: string = "ms") {
   logger.log(`[Performance] ${metric}: ${value}${unit}`);
 }

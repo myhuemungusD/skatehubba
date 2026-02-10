@@ -41,9 +41,7 @@ export function setupAuthRoutes(app: Express) {
         let decoded;
         // Handle mock tokens ONLY in development mode (no Firebase configured)
         // SECURITY: Mock tokens are blocked in production
-        const isMockToken =
-          idToken === "mock-google-token" ||
-          idToken === "mock-token";
+        const isMockToken = idToken === "mock-google-token" || idToken === "mock-token";
         const isDevelopment = process.env.NODE_ENV !== "production";
 
         if (isMockToken && isDevelopment) {
@@ -811,7 +809,7 @@ export function setupAuthRoutes(app: Express) {
       recordRecentAuth(user.id);
 
       await AuditLogger.log({
-        eventType: "AUTH_REAUTH_SUCCESS" as any,
+        eventType: AUDIT_EVENTS.REAUTH_SUCCESS,
         userId: user.id,
         email: user.email,
         ipAddress,

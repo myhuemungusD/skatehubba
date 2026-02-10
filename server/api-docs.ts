@@ -14,18 +14,18 @@ export interface APIEndpoint {
   parameters?: Array<{
     name: string;
     type: string;
-    location: 'path' | 'query' | 'body' | 'header';
+    location: "path" | "query" | "body" | "header";
     required: boolean;
     description: string;
   }>;
   requestBody?: {
     type: string;
-    example: any;
+    example: unknown;
   };
   responses: Array<{
     status: number;
     description: string;
-    example: any;
+    example: unknown;
   }>;
   notes?: string[];
 }
@@ -45,890 +45,890 @@ export interface APICategory {
  */
 export const apiDocumentation: APICategory[] = [
   {
-    name: 'Health & Status',
-    description: 'System health and status endpoints',
+    name: "Health & Status",
+    description: "System health and status endpoints",
     endpoints: [
       {
-        method: 'GET',
-        path: '/api/health',
-        description: 'Check API health status',
+        method: "GET",
+        path: "/api/health",
+        description: "Check API health status",
         responses: [
           {
             status: 200,
-            description: 'API is healthy',
+            description: "API is healthy",
             example: {
-              status: 'ok',
-              env: 'development',
-              time: '2025-11-03T07:00:00.000Z'
-            }
-          }
-        ]
-      }
-    ]
+              status: "ok",
+              env: "development",
+              time: "2025-11-03T07:00:00.000Z",
+            },
+          },
+        ],
+      },
+    ],
   },
   {
-    name: 'Authentication',
-    description: 'Firebase-based authentication endpoints',
+    name: "Authentication",
+    description: "Firebase-based authentication endpoints",
     endpoints: [
       {
-        method: 'POST',
-        path: '/api/auth/login',
-        description: 'Login or register with Firebase ID token',
-        authentication: 'Firebase ID Token (Bearer)',
+        method: "POST",
+        path: "/api/auth/login",
+        description: "Login or register with Firebase ID token",
+        authentication: "Firebase ID Token (Bearer)",
         parameters: [
           {
-            name: 'Authorization',
-            type: 'string',
-            location: 'header',
+            name: "Authorization",
+            type: "string",
+            location: "header",
             required: true,
-            description: 'Bearer token with Firebase ID token'
-          }
+            description: "Bearer token with Firebase ID token",
+          },
         ],
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
-            firstName: 'John',
-            lastName: 'Doe',
-            isRegistration: true
-          }
+            firstName: "John",
+            lastName: "Doe",
+            isRegistration: true,
+          },
         },
         responses: [
           {
             status: 200,
-            description: 'Login successful, session cookie set',
+            description: "Login successful, session cookie set",
             example: {
               user: {
-                id: 'user_123',
-                email: 'user@example.com',
-                displayName: 'John Doe',
-                photoUrl: 'https://example.com/photo.jpg',
+                id: "user_123",
+                email: "user@example.com",
+                displayName: "John Doe",
+                photoUrl: "https://example.com/photo.jpg",
                 roles: [],
-                createdAt: '2025-11-03T07:00:00.000Z',
-                provider: 'firebase'
+                createdAt: "2025-11-03T07:00:00.000Z",
+                provider: "firebase",
               },
-              strategy: 'firebase'
-            }
+              strategy: "firebase",
+            },
           },
           {
             status: 401,
-            description: 'Invalid Firebase token',
-            example: { error: 'Invalid Firebase token' }
-          }
+            description: "Invalid Firebase token",
+            example: { error: "Invalid Firebase token" },
+          },
         ],
         notes: [
-          'Rate limited to prevent brute force attacks',
-          'Creates HttpOnly session cookie for subsequent requests',
-          'Auto-creates user record if first login'
-        ]
+          "Rate limited to prevent brute force attacks",
+          "Creates HttpOnly session cookie for subsequent requests",
+          "Auto-creates user record if first login",
+        ],
       },
       {
-        method: 'GET',
-        path: '/api/auth/me',
-        description: 'Get current authenticated user information',
-        authentication: 'Session Cookie or Bearer Token',
+        method: "GET",
+        path: "/api/auth/me",
+        description: "Get current authenticated user information",
+        authentication: "Session Cookie or Bearer Token",
         responses: [
           {
             status: 200,
-            description: 'User information retrieved',
+            description: "User information retrieved",
             example: {
               user: {
-                id: 'user_123',
-                email: 'user@example.com',
-                firstName: 'John',
-                lastName: 'Doe',
+                id: "user_123",
+                email: "user@example.com",
+                firstName: "John",
+                lastName: "Doe",
                 isEmailVerified: true,
-                lastLoginAt: '2025-11-03T07:00:00.000Z',
-                createdAt: '2025-11-03T06:00:00.000Z'
-              }
-            }
+                lastLoginAt: "2025-11-03T07:00:00.000Z",
+                createdAt: "2025-11-03T06:00:00.000Z",
+              },
+            },
           },
           {
             status: 401,
-            description: 'Not authenticated',
-            example: { error: 'Authentication required' }
-          }
-        ]
+            description: "Not authenticated",
+            example: { error: "Authentication required" },
+          },
+        ],
       },
       {
-        method: 'POST',
-        path: '/api/auth/logout',
-        description: 'Logout and clear session',
-        authentication: 'Session Cookie or Bearer Token',
+        method: "POST",
+        path: "/api/auth/logout",
+        description: "Logout and clear session",
+        authentication: "Session Cookie or Bearer Token",
         responses: [
           {
             status: 200,
-            description: 'Logout successful',
+            description: "Logout successful",
             example: {
               success: true,
-              message: 'Logged out successfully'
-            }
-          }
+              message: "Logged out successfully",
+            },
+          },
         ],
-        notes: ['Clears HttpOnly session cookie', 'Deletes session from database']
-      }
-    ]
+        notes: ["Clears HttpOnly session cookie", "Deletes session from database"],
+      },
+    ],
   },
   {
-    name: 'Tutorial Steps',
-    description: 'Onboarding tutorial step management',
+    name: "Tutorial Steps",
+    description: "Onboarding tutorial step management",
     endpoints: [
       {
-        method: 'GET',
-        path: '/api/tutorial/steps',
-        description: 'Get all tutorial steps',
+        method: "GET",
+        path: "/api/tutorial/steps",
+        description: "Get all tutorial steps",
         responses: [
           {
             status: 200,
-            description: 'List of tutorial steps',
+            description: "List of tutorial steps",
             example: [
               {
                 id: 1,
-                title: 'Welcome',
-                description: 'Welcome to SkateHubba',
-                order: 1
-              }
-            ]
-          }
-        ]
+                title: "Welcome",
+                description: "Welcome to SkateHubba",
+                order: 1,
+              },
+            ],
+          },
+        ],
       },
       {
-        method: 'GET',
-        path: '/api/tutorial/steps/:id',
-        description: 'Get a specific tutorial step by ID',
+        method: "GET",
+        path: "/api/tutorial/steps/:id",
+        description: "Get a specific tutorial step by ID",
         parameters: [
           {
-            name: 'id',
-            type: 'integer',
-            location: 'path',
+            name: "id",
+            type: "integer",
+            location: "path",
             required: true,
-            description: 'Tutorial step ID'
-          }
+            description: "Tutorial step ID",
+          },
         ],
         responses: [
           {
             status: 200,
-            description: 'Tutorial step details',
+            description: "Tutorial step details",
             example: {
               id: 1,
-              title: 'Welcome',
-              description: 'Welcome to SkateHubba',
-              order: 1
-            }
+              title: "Welcome",
+              description: "Welcome to SkateHubba",
+              order: 1,
+            },
           },
           {
             status: 404,
-            description: 'Tutorial step not found',
-            example: { error: 'Tutorial step not found' }
-          }
-        ]
-      }
-    ]
+            description: "Tutorial step not found",
+            example: { error: "Tutorial step not found" },
+          },
+        ],
+      },
+    ],
   },
   {
-    name: 'User Progress',
-    description: 'User tutorial and onboarding progress tracking',
+    name: "User Progress",
+    description: "User tutorial and onboarding progress tracking",
     endpoints: [
       {
-        method: 'GET',
-        path: '/api/users/:userId/progress',
-        description: 'Get all progress records for a user',
+        method: "GET",
+        path: "/api/users/:userId/progress",
+        description: "Get all progress records for a user",
         parameters: [
           {
-            name: 'userId',
-            type: 'string',
-            location: 'path',
+            name: "userId",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'User ID'
-          }
+            description: "User ID",
+          },
         ],
         responses: [
           {
             status: 200,
-            description: 'List of user progress records',
+            description: "List of user progress records",
             example: [
               {
-                userId: 'user_123',
+                userId: "user_123",
                 stepId: 1,
                 completed: true,
-                completedAt: '2025-11-03T07:00:00.000Z'
-              }
-            ]
-          }
-        ]
+                completedAt: "2025-11-03T07:00:00.000Z",
+              },
+            ],
+          },
+        ],
       },
       {
-        method: 'GET',
-        path: '/api/users/:userId/progress/:stepId',
-        description: 'Get progress for a specific step',
+        method: "GET",
+        path: "/api/users/:userId/progress/:stepId",
+        description: "Get progress for a specific step",
         parameters: [
           {
-            name: 'userId',
-            type: 'string',
-            location: 'path',
+            name: "userId",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'User ID'
+            description: "User ID",
           },
           {
-            name: 'stepId',
-            type: 'integer',
-            location: 'path',
+            name: "stepId",
+            type: "integer",
+            location: "path",
             required: true,
-            description: 'Tutorial step ID'
-          }
+            description: "Tutorial step ID",
+          },
         ],
         responses: [
           {
             status: 200,
-            description: 'Progress details for the step',
+            description: "Progress details for the step",
             example: {
-              userId: 'user_123',
+              userId: "user_123",
               stepId: 1,
               completed: true,
-              completedAt: '2025-11-03T07:00:00.000Z'
-            }
+              completedAt: "2025-11-03T07:00:00.000Z",
+            },
           },
           {
             status: 404,
-            description: 'Progress not found',
-            example: { error: 'Progress not found' }
-          }
-        ]
+            description: "Progress not found",
+            example: { error: "Progress not found" },
+          },
+        ],
       },
       {
-        method: 'POST',
-        path: '/api/users/:userId/progress',
-        description: 'Create a new progress record',
+        method: "POST",
+        path: "/api/users/:userId/progress",
+        description: "Create a new progress record",
         parameters: [
           {
-            name: 'userId',
-            type: 'string',
-            location: 'path',
+            name: "userId",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'User ID'
-          }
+            description: "User ID",
+          },
         ],
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
             stepId: 1,
-            completed: false
-          }
+            completed: false,
+          },
         },
         responses: [
           {
             status: 201,
-            description: 'Progress record created',
+            description: "Progress record created",
             example: {
-              userId: 'user_123',
+              userId: "user_123",
               stepId: 1,
               completed: false,
-              createdAt: '2025-11-03T07:00:00.000Z'
-            }
+              createdAt: "2025-11-03T07:00:00.000Z",
+            },
           },
           {
             status: 400,
-            description: 'Invalid progress data',
-            example: { error: 'Invalid progress data' }
-          }
-        ]
+            description: "Invalid progress data",
+            example: { error: "Invalid progress data" },
+          },
+        ],
       },
       {
-        method: 'PATCH',
-        path: '/api/users/:userId/progress/:stepId',
-        description: 'Update progress for a step',
+        method: "PATCH",
+        path: "/api/users/:userId/progress/:stepId",
+        description: "Update progress for a step",
         parameters: [
           {
-            name: 'userId',
-            type: 'string',
-            location: 'path',
+            name: "userId",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'User ID'
+            description: "User ID",
           },
           {
-            name: 'stepId',
-            type: 'integer',
-            location: 'path',
+            name: "stepId",
+            type: "integer",
+            location: "path",
             required: true,
-            description: 'Tutorial step ID'
-          }
+            description: "Tutorial step ID",
+          },
         ],
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
-            completed: true
-          }
+            completed: true,
+          },
         },
         responses: [
           {
             status: 200,
-            description: 'Progress updated',
+            description: "Progress updated",
             example: {
-              userId: 'user_123',
+              userId: "user_123",
               stepId: 1,
               completed: true,
-              completedAt: '2025-11-03T07:00:00.000Z'
-            }
-          }
-        ]
-      }
-    ]
+              completedAt: "2025-11-03T07:00:00.000Z",
+            },
+          },
+        ],
+      },
+    ],
   },
   {
-    name: 'Users',
-    description: 'User profile and onboarding management',
+    name: "Users",
+    description: "User profile and onboarding management",
     endpoints: [
       {
-        method: 'GET',
-        path: '/api/users/:id',
-        description: 'Get user profile by ID',
+        method: "GET",
+        path: "/api/users/:id",
+        description: "Get user profile by ID",
         parameters: [
           {
-            name: 'id',
-            type: 'string',
-            location: 'path',
+            name: "id",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'User ID'
-          }
+            description: "User ID",
+          },
         ],
         responses: [
           {
             status: 200,
-            description: 'User profile',
+            description: "User profile",
             example: {
-              id: 'user_123',
-              email: 'user@example.com',
-              firstName: 'John',
-              lastName: 'Doe',
+              id: "user_123",
+              email: "user@example.com",
+              firstName: "John",
+              lastName: "Doe",
               onboardingCompleted: false,
-              onboardingStep: 1
-            }
+              onboardingStep: 1,
+            },
           },
           {
             status: 404,
-            description: 'User not found',
-            example: { error: 'User not found' }
-          }
-        ]
+            description: "User not found",
+            example: { error: "User not found" },
+          },
+        ],
       },
       {
-        method: 'PATCH',
-        path: '/api/users/:id/onboarding',
-        description: 'Update user onboarding status',
+        method: "PATCH",
+        path: "/api/users/:id/onboarding",
+        description: "Update user onboarding status",
         parameters: [
           {
-            name: 'id',
-            type: 'string',
-            location: 'path',
+            name: "id",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'User ID'
-          }
+            description: "User ID",
+          },
         ],
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
             completed: true,
-            currentStep: 5
-          }
+            currentStep: 5,
+          },
         },
         responses: [
           {
             status: 200,
-            description: 'Onboarding status updated',
+            description: "Onboarding status updated",
             example: {
-              id: 'user_123',
+              id: "user_123",
               onboardingCompleted: true,
-              onboardingStep: 5
-            }
-          }
-        ]
+              onboardingStep: 5,
+            },
+          },
+        ],
       },
       {
-        method: 'POST',
-        path: '/api/demo-user',
-        description: 'Create a demo user for testing',
+        method: "POST",
+        path: "/api/demo-user",
+        description: "Create a demo user for testing",
         responses: [
           {
             status: 201,
-            description: 'Demo user created',
+            description: "Demo user created",
             example: {
-              id: 'demo_skater_1730620800000',
-              firstName: 'Demo',
-              lastName: 'User'
-            }
-          }
+              id: "demo_skater_1730620800000",
+              firstName: "Demo",
+              lastName: "User",
+            },
+          },
         ],
-        notes: ['For development and testing purposes only']
-      }
-    ]
+        notes: ["For development and testing purposes only"],
+      },
+    ],
   },
   {
-    name: 'Spots',
-    description: 'Skate spot discovery and check-in',
+    name: "Spots",
+    description: "Skate spot discovery and check-in",
     endpoints: [
       {
-        method: 'GET',
-        path: '/api/spots',
-        description: 'Get all skate spots',
+        method: "GET",
+        path: "/api/spots",
+        description: "Get all skate spots",
         responses: [
           {
             status: 200,
-            description: 'List of all spots',
+            description: "List of all spots",
             example: [
               {
-                spotId: 'spot_001',
-                name: 'Love Park',
+                spotId: "spot_001",
+                name: "Love Park",
                 lat: 39.9526,
                 lng: -75.1652,
-                description: 'Legendary Philadelphia skate spot'
-              }
-            ]
-          }
-        ]
+                description: "Legendary Philadelphia skate spot",
+              },
+            ],
+          },
+        ],
       },
       {
-        method: 'GET',
-        path: '/api/spots/:spotId',
-        description: 'Get specific spot details',
+        method: "GET",
+        path: "/api/spots/:spotId",
+        description: "Get specific spot details",
         parameters: [
           {
-            name: 'spotId',
-            type: 'string',
-            location: 'path',
+            name: "spotId",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'Spot ID'
-          }
+            description: "Spot ID",
+          },
         ],
         responses: [
           {
             status: 200,
-            description: 'Spot details',
+            description: "Spot details",
             example: {
-              spotId: 'spot_001',
-              name: 'Love Park',
+              spotId: "spot_001",
+              name: "Love Park",
               lat: 39.9526,
               lng: -75.1652,
-              description: 'Legendary Philadelphia skate spot'
-            }
+              description: "Legendary Philadelphia skate spot",
+            },
           },
           {
             status: 404,
-            description: 'Spot not found',
-            example: { error: 'Spot not found' }
-          }
-        ]
+            description: "Spot not found",
+            example: { error: "Spot not found" },
+          },
+        ],
       },
       {
-        method: 'POST',
-        path: '/api/spots/check-in',
-        description: 'Check in at a spot with geo-verification',
+        method: "POST",
+        path: "/api/spots/check-in",
+        description: "Check in at a spot with geo-verification",
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
-            spotId: 'spot_001',
-            userId: 'user_123',
+            spotId: "spot_001",
+            userId: "user_123",
             latitude: 39.9526,
-            longitude: -75.1652
-          }
+            longitude: -75.1652,
+          },
         },
         responses: [
           {
             status: 200,
-            description: 'Check-in successful',
+            description: "Check-in successful",
             example: {
               success: true,
-              message: 'Successfully checked in at Love Park!',
+              message: "Successfully checked in at Love Park!",
               access: {
-                spotId: 'spot_001',
+                spotId: "spot_001",
                 accessGrantedAt: 1730620800000,
                 expiresAt: 1730707200000,
-                trickId: 'trick_spot_001_1730620800000'
+                trickId: "trick_spot_001_1730620800000",
               },
-              distance: 15
-            }
+              distance: 15,
+            },
           },
           {
             status: 403,
-            description: 'Too far from spot',
+            description: "Too far from spot",
             example: {
               success: false,
-              message: 'You must be within 30m of Love Park to check in. You are 150m away.',
-              distance: 150
-            }
-          }
+              message: "You must be within 30m of Love Park to check in. You are 150m away.",
+              distance: 150,
+            },
+          },
         ],
         notes: [
-          'Uses Haversine formula to calculate distance',
-          'Requires user to be within 30 meters of spot'
-        ]
-      }
-    ]
+          "Uses Haversine formula to calculate distance",
+          "Requires user to be within 30 meters of spot",
+        ],
+      },
+    ],
   },
   // Products category removed for MVP
   {
-    name: 'Payments',
-    description: 'Stripe payment processing',
+    name: "Payments",
+    description: "Stripe payment processing",
     endpoints: [
       {
-        method: 'POST',
-        path: '/api/create-payment-intent',
-        description: 'Create payment intent for donations',
+        method: "POST",
+        path: "/api/create-payment-intent",
+        description: "Create payment intent for donations",
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
-            amount: 25.00,
-            currency: 'usd',
-            description: 'SkateHubba Donation'
-          }
+            amount: 25.0,
+            currency: "usd",
+            description: "SkateHubba Donation",
+          },
         },
         responses: [
           {
             status: 200,
-            description: 'Payment intent created',
+            description: "Payment intent created",
             example: {
-              clientSecret: 'pi_xxx_secret_xxx',
-              paymentIntentId: 'pi_xxx'
-            }
+              clientSecret: "pi_xxx_secret_xxx",
+              paymentIntentId: "pi_xxx",
+            },
           },
           {
             status: 400,
-            description: 'Invalid amount',
-            example: { error: 'Amount must be between $0.50 and $10,000' }
-          }
+            description: "Invalid amount",
+            example: { error: "Amount must be between $0.50 and $10,000" },
+          },
         ],
         notes: [
-          'Amount must be between $0.50 and $10,000',
-          'Supports card, Apple Pay, Google Pay, and Link'
-        ]
+          "Amount must be between $0.50 and $10,000",
+          "Supports card, Apple Pay, Google Pay, and Link",
+        ],
       },
       {
-        method: 'GET',
-        path: '/api/payment-intent/:id',
-        description: 'Get payment intent status',
+        method: "GET",
+        path: "/api/payment-intent/:id",
+        description: "Get payment intent status",
         parameters: [
           {
-            name: 'id',
-            type: 'string',
-            location: 'path',
+            name: "id",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'Payment Intent ID'
-          }
+            description: "Payment Intent ID",
+          },
         ],
         responses: [
           {
             status: 200,
-            description: 'Payment intent status',
+            description: "Payment intent status",
             example: {
-              status: 'succeeded',
-              amount: 25.00,
-              currency: 'usd',
-              description: 'SkateHubba Donation'
-            }
-          }
-        ]
+              status: "succeeded",
+              amount: 25.0,
+              currency: "usd",
+              description: "SkateHubba Donation",
+            },
+          },
+        ],
       },
       // create-shop-payment-intent removed for MVP
       {
-        method: 'POST',
-        path: '/api/record-donation',
-        description: 'Record successful donation',
+        method: "POST",
+        path: "/api/record-donation",
+        description: "Record successful donation",
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
-            paymentIntentId: 'pi_xxx',
-            firstName: 'John'
-          }
+            paymentIntentId: "pi_xxx",
+            firstName: "John",
+          },
         },
         responses: [
           {
             status: 200,
-            description: 'Donation recorded',
+            description: "Donation recorded",
             example: {
-              message: 'Donation recorded successfully',
-              donationId: 1
-            }
-          }
-        ]
+              message: "Donation recorded successfully",
+              donationId: 1,
+            },
+          },
+        ],
       },
       {
-        method: 'GET',
-        path: '/api/recent-donors',
-        description: 'Get recent donors (first names only)',
+        method: "GET",
+        path: "/api/recent-donors",
+        description: "Get recent donors (first names only)",
         parameters: [
           {
-            name: 'limit',
-            type: 'integer',
-            location: 'query',
+            name: "limit",
+            type: "integer",
+            location: "query",
             required: false,
-            description: 'Number of donors to return (max 50, default 10)'
-          }
+            description: "Number of donors to return (max 50, default 10)",
+          },
         ],
         responses: [
           {
             status: 200,
-            description: 'List of recent donors',
+            description: "List of recent donors",
             example: [
               {
-                firstName: 'John',
-                createdAt: '2025-11-03T07:00:00.000Z'
-              }
-            ]
-          }
-        ]
-      }
-    ]
+                firstName: "John",
+                createdAt: "2025-11-03T07:00:00.000Z",
+              },
+            ],
+          },
+        ],
+      },
+    ],
   },
   {
-    name: 'Subscribers',
-    description: 'Beta subscriber management',
+    name: "Subscribers",
+    description: "Beta subscriber management",
     endpoints: [
       {
-        method: 'POST',
-        path: '/api/subscribe',
-        description: 'Subscribe to beta list',
+        method: "POST",
+        path: "/api/subscribe",
+        description: "Subscribe to beta list",
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
-            email: 'user@example.com',
-            firstName: 'John'
-          }
+            email: "user@example.com",
+            firstName: "John",
+          },
         },
         responses: [
           {
             status: 201,
-            description: 'Subscription created',
+            description: "Subscription created",
             example: {
               ok: true,
-              status: 'created',
+              status: "created",
               id: 1,
-              msg: 'Welcome to the beta list! Check your email for confirmation.'
-            }
+              msg: "Welcome to the beta list! Check your email for confirmation.",
+            },
           },
           {
             status: 200,
-            description: 'Already subscribed',
+            description: "Already subscribed",
             example: {
               ok: true,
-              status: 'exists',
-              msg: "You're already on the beta list! We'll notify you when it's ready."
-            }
-          }
+              status: "exists",
+              msg: "You're already on the beta list! We'll notify you when it's ready.",
+            },
+          },
         ],
-        notes: ['Sends welcome email via Resend', 'Idempotent - safe to call multiple times']
+        notes: ["Sends welcome email via Resend", "Idempotent - safe to call multiple times"],
       },
       {
-        method: 'GET',
-        path: '/api/subscribers',
-        description: 'Get all subscribers (admin only)',
-        authentication: 'API Key required',
+        method: "GET",
+        path: "/api/subscribers",
+        description: "Get all subscribers (admin only)",
+        authentication: "API Key required",
         parameters: [
           {
-            name: 'x-api-key',
-            type: 'string',
-            location: 'header',
+            name: "x-api-key",
+            type: "string",
+            location: "header",
             required: true,
-            description: 'Admin API key'
-          }
+            description: "Admin API key",
+          },
         ],
         responses: [
           {
             status: 200,
-            description: 'List of subscribers',
+            description: "List of subscribers",
             example: [
               {
                 id: 1,
-                email: 'user@example.com',
-                firstName: 'John',
+                email: "user@example.com",
+                firstName: "John",
                 isActive: true,
-                createdAt: '2025-11-03T07:00:00.000Z'
-              }
-            ]
+                createdAt: "2025-11-03T07:00:00.000Z",
+              },
+            ],
           },
           {
             status: 401,
-            description: 'Unauthorized',
-            example: { error: 'Invalid or missing API key' }
-          }
-        ]
-      }
-    ]
+            description: "Unauthorized",
+            example: { error: "Invalid or missing API key" },
+          },
+        ],
+      },
+    ],
   },
   // AI Chat category removed for MVP
   {
-    name: 'S.K.A.T.E. Game',
-    description: 'Remote S.K.A.T.E. game functionality',
+    name: "S.K.A.T.E. Game",
+    description: "Remote S.K.A.T.E. game functionality",
     endpoints: [
       {
-        method: 'GET',
-        path: '/api/games',
-        description: 'Get all games for a user',
+        method: "GET",
+        path: "/api/games",
+        description: "Get all games for a user",
         parameters: [
           {
-            name: 'userId',
-            type: 'string',
-            location: 'query',
+            name: "userId",
+            type: "string",
+            location: "query",
             required: true,
-            description: 'User ID'
-          }
+            description: "User ID",
+          },
         ],
         responses: [
           {
             status: 200,
-            description: 'List of games',
+            description: "List of games",
             example: [
               {
-                gameId: 'game_001',
-                player1Id: 'user_123',
-                player1Name: 'John',
-                player2Id: 'user_456',
-                player2Name: 'Jane',
-                status: 'active',
-                currentTurn: 'user_123',
-                player1Letters: 'SK',
-                player2Letters: 'S'
-              }
-            ]
-          }
-        ]
+                gameId: "game_001",
+                player1Id: "user_123",
+                player1Name: "John",
+                player2Id: "user_456",
+                player2Name: "Jane",
+                status: "active",
+                currentTurn: "user_123",
+                player1Letters: "SK",
+                player2Letters: "S",
+              },
+            ],
+          },
+        ],
       },
       {
-        method: 'POST',
-        path: '/api/games/create',
-        description: 'Create a new game',
+        method: "POST",
+        path: "/api/games/create",
+        description: "Create a new game",
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
-            userId: 'user_123'
-          }
+            userId: "user_123",
+          },
         },
         responses: [
           {
             status: 201,
-            description: 'Game created',
+            description: "Game created",
             example: {
-              gameId: 'game_001',
-              player1Id: 'user_123',
-              player1Name: 'John',
-              status: 'waiting'
-            }
-          }
-        ]
+              gameId: "game_001",
+              player1Id: "user_123",
+              player1Name: "John",
+              status: "waiting",
+            },
+          },
+        ],
       },
       {
-        method: 'POST',
-        path: '/api/games/:gameId/join',
-        description: 'Join an existing game',
+        method: "POST",
+        path: "/api/games/:gameId/join",
+        description: "Join an existing game",
         parameters: [
           {
-            name: 'gameId',
-            type: 'string',
-            location: 'path',
+            name: "gameId",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'Game ID'
-          }
+            description: "Game ID",
+          },
         ],
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
-            userId: 'user_456'
-          }
+            userId: "user_456",
+          },
         },
         responses: [
           {
             status: 200,
-            description: 'Joined game',
+            description: "Joined game",
             example: {
-              gameId: 'game_001',
-              player1Id: 'user_123',
-              player2Id: 'user_456',
-              status: 'active'
-            }
+              gameId: "game_001",
+              player1Id: "user_123",
+              player2Id: "user_456",
+              status: "active",
+            },
           },
           {
             status: 400,
-            description: 'Cannot join game',
-            example: { error: 'Game is not available to join' }
-          }
-        ]
+            description: "Cannot join game",
+            example: { error: "Game is not available to join" },
+          },
+        ],
       },
       {
-        method: 'POST',
-        path: '/api/games/:gameId/trick',
-        description: 'Submit a trick in a game',
+        method: "POST",
+        path: "/api/games/:gameId/trick",
+        description: "Submit a trick in a game",
         parameters: [
           {
-            name: 'gameId',
-            type: 'string',
-            location: 'path',
+            name: "gameId",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'Game ID'
-          }
+            description: "Game ID",
+          },
         ],
         requestBody: {
-          type: 'application/json',
+          type: "application/json",
           example: {
-            userId: 'user_123',
-            trick: 'Kickflip'
-          }
+            userId: "user_123",
+            trick: "Kickflip",
+          },
         },
         responses: [
           {
             status: 200,
-            description: 'Trick submitted',
+            description: "Trick submitted",
             example: {
-              gameId: 'game_001',
-              currentTurn: 'user_456',
-              lastTrick: 'Kickflip'
-            }
+              gameId: "game_001",
+              currentTurn: "user_456",
+              lastTrick: "Kickflip",
+            },
           },
           {
             status: 403,
-            description: 'Not your turn',
-            example: { error: "It's not your turn" }
-          }
-        ]
+            description: "Not your turn",
+            example: { error: "It's not your turn" },
+          },
+        ],
       },
       {
-        method: 'GET',
-        path: '/api/games/:gameId',
-        description: 'Get game details including turn history',
+        method: "GET",
+        path: "/api/games/:gameId",
+        description: "Get game details including turn history",
         parameters: [
           {
-            name: 'gameId',
-            type: 'string',
-            location: 'path',
+            name: "gameId",
+            type: "string",
+            location: "path",
             required: true,
-            description: 'Game ID'
-          }
+            description: "Game ID",
+          },
         ],
         responses: [
           {
             status: 200,
-            description: 'Game details with turn history',
+            description: "Game details with turn history",
             example: {
-              gameId: 'game_001',
-              player1Id: 'user_123',
-              player2Id: 'user_456',
-              status: 'active',
+              gameId: "game_001",
+              player1Id: "user_123",
+              player2Id: "user_456",
+              status: "active",
               turns: [
                 {
                   turnId: 1,
-                  gameId: 'game_001',
-                  playerId: 'user_123',
-                  trick: 'Kickflip',
-                  createdAt: '2025-11-03T07:00:00.000Z'
-                }
-              ]
-            }
-          }
-        ]
-      }
-    ]
-  }
+                  gameId: "game_001",
+                  playerId: "user_123",
+                  trick: "Kickflip",
+                  createdAt: "2025-11-03T07:00:00.000Z",
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 /**
  * Generate a comprehensive HTML documentation page for the API
- * 
+ *
  * Creates a fully-styled, responsive HTML page documenting all API endpoints.
  * The page includes:
  * - Visual categorization of endpoints by function
@@ -938,7 +938,7 @@ export const apiDocumentation: APICategory[] = [
  * - Authentication requirements
  * - Implementation notes and security considerations
  * - Mobile-responsive design
- * 
+ *
  * @returns HTML string containing the complete documentation page
  */
 export function generateHTMLDocs(): string {
@@ -1134,77 +1134,109 @@ export function generateHTMLDocs(): string {
   </header>
 
   <div class="container">
-    ${apiDocumentation.map(category => `
+    ${apiDocumentation
+      .map(
+        (category) => `
       <div class="category">
         <h2>${category.name}</h2>
         <p>${category.description}</p>
         
-        ${category.endpoints.map(endpoint => `
+        ${category.endpoints
+          .map(
+            (endpoint) => `
           <div class="endpoint">
             <div class="endpoint-header">
               <span class="method ${endpoint.method}">${endpoint.method}</span>
               <span class="path">${endpoint.path}</span>
-              ${endpoint.authentication ? `<span class="auth-badge">🔒 ${endpoint.authentication}</span>` : ''}
+              ${endpoint.authentication ? `<span class="auth-badge">🔒 ${endpoint.authentication}</span>` : ""}
             </div>
             
             <div class="description">${endpoint.description}</div>
             
-            ${endpoint.parameters && endpoint.parameters.length > 0 ? `
+            ${
+              endpoint.parameters && endpoint.parameters.length > 0
+                ? `
               <div class="section">
                 <div class="section-title">Parameters</div>
-                ${endpoint.parameters.map(param => `
+                ${endpoint.parameters
+                  .map(
+                    (param) => `
                   <div class="parameter">
                     <div>
                       <span class="param-name">${param.name}</span>
                       <span class="param-type">${param.type}</span>
-                      <span class="${param.required ? 'param-required' : 'param-optional'}">
-                        ${param.required ? 'REQUIRED' : 'OPTIONAL'}
+                      <span class="${param.required ? "param-required" : "param-optional"}">
+                        ${param.required ? "REQUIRED" : "OPTIONAL"}
                       </span>
                     </div>
                     <div style="margin-top: 5px; color: #666; font-size: 0.95em;">
                       ${param.description} <em>(${param.location})</em>
                     </div>
                   </div>
-                `).join('')}
+                `
+                  )
+                  .join("")}
               </div>
-            ` : ''}
+            `
+                : ""
+            }
             
-            ${endpoint.requestBody ? `
+            ${
+              endpoint.requestBody
+                ? `
               <div class="section">
                 <div class="section-title">Request Body</div>
                 <pre><code>${JSON.stringify(endpoint.requestBody.example, null, 2)}</code></pre>
               </div>
-            ` : ''}
+            `
+                : ""
+            }
             
             <div class="section">
               <div class="section-title">Responses</div>
-              ${endpoint.responses.map(response => `
+              ${endpoint.responses
+                .map(
+                  (response) => `
                 <div class="response">
                   <div>
-                    <span class="status-code ${response.status < 300 ? 'success' : 'error'}">
+                    <span class="status-code ${response.status < 300 ? "success" : "error"}">
                       ${response.status}
                     </span>
                     <span>${response.description}</span>
                   </div>
-                  ${response.example ? `
+                  ${
+                    response.example
+                      ? `
                     <pre style="margin-top: 10px;"><code>${JSON.stringify(response.example, null, 2)}</code></pre>
-                  ` : ''}
+                  `
+                      : ""
+                  }
                 </div>
-              `).join('')}
+              `
+                )
+                .join("")}
             </div>
             
-            ${endpoint.notes && endpoint.notes.length > 0 ? `
+            ${
+              endpoint.notes && endpoint.notes.length > 0
+                ? `
               <div class="notes">
                 <strong>📌 Notes:</strong>
                 <ul>
-                  ${endpoint.notes.map(note => `<li>${note}</li>`).join('')}
+                  ${endpoint.notes.map((note) => `<li>${note}</li>`).join("")}
                 </ul>
               </div>
-            ` : ''}
+            `
+                : ""
+            }
           </div>
-        `).join('')}
+        `
+          )
+          .join("")}
       </div>
-    `).join('')}
+    `
+      )
+      .join("")}
   </div>
 
   <footer>
