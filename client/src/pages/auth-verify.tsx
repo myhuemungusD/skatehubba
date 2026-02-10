@@ -68,15 +68,18 @@ export default function AuthVerifyPage() {
           setStatus("error");
           setMessage("Invalid or expired verification link.");
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         logger.error("Action error:", error);
+        const firebaseError = error as { code?: string; message?: string };
         setStatus("error");
-        if (error.code === "auth/expired-action-code") {
+        if (firebaseError.code === "auth/expired-action-code") {
           setMessage("This link has expired. Please request a new one.");
-        } else if (error.code === "auth/invalid-action-code") {
+        } else if (firebaseError.code === "auth/invalid-action-code") {
           setMessage("This link is invalid or has already been used.");
         } else {
-          setMessage(error.message || "Verification failed. The link may be invalid or expired.");
+          setMessage(
+            firebaseError.message || "Verification failed. The link may be invalid or expired."
+          );
         }
       }
     };
@@ -124,14 +127,15 @@ export default function AuthVerifyPage() {
       setTimeout(() => {
         setLocation("/auth");
       }, 3000);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error("Password reset error:", error);
-      if (error.code === "auth/expired-action-code") {
+      const firebaseError = error as { code?: string; message?: string };
+      if (firebaseError.code === "auth/expired-action-code") {
         setPasswordError("This reset link has expired. Please request a new one.");
-      } else if (error.code === "auth/weak-password") {
+      } else if (firebaseError.code === "auth/weak-password") {
         setPasswordError("Password is too weak. Please choose a stronger password.");
       } else {
-        setPasswordError(error.message || "Failed to reset password. Please try again.");
+        setPasswordError(firebaseError.message || "Failed to reset password. Please try again.");
       }
     } finally {
       setIsResetting(false);

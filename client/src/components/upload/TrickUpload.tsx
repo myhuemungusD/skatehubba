@@ -107,11 +107,12 @@ export default function TrickUpload() {
       setTimeout(() => {
         setLocation("/");
       }, 1500);
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error("Error uploading trick:", error);
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to upload trick. Please try again.",
+        description:
+          error instanceof Error ? error.message : "Failed to upload trick. Please try again.",
         variant: "destructive",
       });
     } finally {

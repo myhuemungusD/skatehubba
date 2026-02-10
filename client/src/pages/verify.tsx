@@ -32,8 +32,9 @@ export default function VerifyPage() {
         title: "Verification email sent! ",
         description: "Check your inbox and spam folder.",
       });
-    } catch (error: any) {
-      if (error.code === "auth/too-many-requests") {
+    } catch (error: unknown) {
+      const firebaseError = error as { code?: string; message?: string };
+      if (firebaseError.code === "auth/too-many-requests") {
         toast({
           title: "Too many requests",
           description: "Please wait a few minutes before trying again.",
@@ -42,7 +43,7 @@ export default function VerifyPage() {
       } else {
         toast({
           title: "Failed to send email",
-          description: error.message,
+          description: firebaseError.message,
           variant: "destructive",
         });
       }

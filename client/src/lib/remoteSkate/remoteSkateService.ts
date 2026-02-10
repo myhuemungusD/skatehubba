@@ -21,6 +21,8 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  Timestamp,
+  FieldValue,
   type Unsubscribe,
 } from "firebase/firestore";
 import { db, auth } from "../firebase";
@@ -37,18 +39,18 @@ export type VideoRole = "set" | "reply";
 export type VideoStatus = "uploading" | "ready" | "failed";
 
 export interface GameDoc {
-  createdAt: any;
+  createdAt: Timestamp | FieldValue | null;
   createdByUid: string;
   playerAUid: string;
   playerBUid: string | null;
-  letters: Record<string, string>; // { [uid]: "SK" }
+  letters: Record<string, string>;
   status: GameStatus;
   currentTurnUid: string;
-  lastMoveAt: any;
+  lastMoveAt: Timestamp | FieldValue | null;
 }
 
 export interface RoundDoc {
-  createdAt: any;
+  createdAt: Timestamp | FieldValue | null;
   offenseUid: string;
   defenseUid: string;
   status: RoundStatus;
@@ -58,7 +60,7 @@ export interface RoundDoc {
 }
 
 export interface VideoDoc {
-  createdAt: any;
+  createdAt: Timestamp | FieldValue | null;
   uid: string;
   gameId: string;
   roundId: string;

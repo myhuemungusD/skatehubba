@@ -41,9 +41,10 @@ import { Input } from "@/components/ui/input";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import type { FirebaseStorage } from "firebase/storage";
 
 // Lazy-loaded Firebase Storage
-let storageInstance: any = null;
+let storageInstance: FirebaseStorage | null = null;
 async function getFirebaseStorage() {
   if (!storageInstance) {
     const { getStorage } = await import("firebase/storage");

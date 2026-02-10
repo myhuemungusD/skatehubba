@@ -26,7 +26,7 @@ interface ChatState {
   messages: ChatMessage[];
   isLoading: boolean;
   error: string | null;
-  
+
   // Actions
   sendMessage: (userId: string, userName: string, message: string) => Promise<void>;
   sendAIMessage: (message: string) => Promise<void>;
@@ -42,7 +42,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
   sendMessage: async (userId: string, userName: string, message: string) => {
     try {
       set({ isLoading: true, error: null });
-      
+
       await addDoc(collection(db, "chat_messages"), {
         userId,
         userName,
@@ -50,11 +50,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
         timestamp: Timestamp.now(),
         isAI: false,
       });
-      
+
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error("Error sending message:", error);
-      set({ error: error.message, isLoading: false });
+      set({ error: error instanceof Error ? error.message : "Unknown error", isLoading: false });
     }
   },
 
@@ -67,17 +67,13 @@ export const useChatStore = create<ChatState>((set, get) => ({
         timestamp: Timestamp.now(),
         isAI: true,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error("Error sending AI message:", error);
     }
   },
 
   listenToMessages: () => {
-    const q = query(
-      collection(db, "chat_messages"),
-      orderBy("timestamp", "desc"),
-      limit(100)
-    );
+    const q = query(collection(db, "chat_messages"), orderBy("timestamp", "desc"), limit(100));
 
     const unsubscribe = onSnapshot(
       q,
@@ -110,14 +106,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   clearMessages: async () => {
     try {
       const messages = get().messages;
-      const deletePromises = messages.map((msg) =>
-        deleteDoc(doc(db, "chat_messages", msg.id))
-      );
+      const deletePromises = messages.map((msg) => deleteDoc(doc(db, "chat_messages", msg.id)));
       await Promise.all(deletePromises);
       set({ messages: [] });
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error("Error clearing messages:", error);
-      set({ error: error.message });
+      set({ error: error instanceof Error ? error.message : "Unknown error" });
     }
   },
 }));

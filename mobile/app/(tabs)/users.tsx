@@ -19,9 +19,9 @@ export default function UsersScreen() {
   const { user: currentUser } = useAuth();
   const [search, setSearch] = useState("");
 
-  const { data: users, isLoading } = useQuery<User[]>({
+  const { data: users, isLoading } = useQuery({
     queryKey: ["/api/users"],
-    queryFn: () => apiRequest("/api/users"),
+    queryFn: () => apiRequest<User[]>("/api/users"),
   });
 
   const filteredUsers = users?.filter(
@@ -32,10 +32,7 @@ export default function UsersScreen() {
   );
 
   const renderUser = ({ item }: { item: User }) => (
-    <TouchableOpacity
-      style={styles.userCard}
-      onPress={() => router.push(`/profile/${item.uid}` as any)}
-    >
+    <TouchableOpacity style={styles.userCard} onPress={() => router.push(`/profile/${item.uid}`)}>
       {item.photoURL ? (
         <Image source={{ uri: item.photoURL }} style={styles.avatar} />
       ) : (
@@ -56,7 +53,7 @@ export default function UsersScreen() {
           router.push({
             pathname: "/challenge/new",
             params: { opponentUid: item.uid },
-          } as any);
+          });
         }}
       >
         <Ionicons name="videocam" size={20} color={SKATE.colors.white} />
@@ -67,7 +64,12 @@ export default function UsersScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={SKATE.colors.lightGray} style={styles.searchIcon} />
+        <Ionicons
+          name="search"
+          size={20}
+          color={SKATE.colors.lightGray}
+          style={styles.searchIcon}
+        />
         <TextInput
           style={styles.searchInput}
           placeholder="Search skaters..."

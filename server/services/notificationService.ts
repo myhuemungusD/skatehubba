@@ -27,7 +27,7 @@ export interface PushNotificationPayload {
   to: string; // Expo push token
   title: string;
   body: string;
-  data?: Record<string, any>;
+  data?: Record<string, unknown>;
   sound?: "default" | null;
   badge?: number;
   channelId?: string;
@@ -251,7 +251,7 @@ async function sendPushToUser(
         to: user.pushToken,
         title,
         body,
-        data: data as Record<string, any>,
+        data: data as Record<string, unknown>,
         sound: "default",
       });
     }

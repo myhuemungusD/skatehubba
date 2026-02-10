@@ -24,7 +24,7 @@ import { getDb } from "../db.ts";
 import { mfaSecrets } from "../../packages/shared/schema.ts";
 import { eq } from "drizzle-orm";
 import { env } from "../config/env.ts";
-import { AuditLogger } from "./audit.ts";
+import { AuditLogger, AUDIT_EVENTS } from "./audit.ts";
 import logger from "../logger.ts";
 
 // TOTP Configuration (RFC 6238 compliant)
@@ -452,7 +452,7 @@ export class MfaService {
       .where(eq(mfaSecrets.userId, userId));
 
     await AuditLogger.log({
-      eventType: "MFA_BACKUP_CODES_REGENERATED" as any,
+      eventType: AUDIT_EVENTS.MFA_BACKUP_CODES_REGENERATED,
       userId,
       email,
       ipAddress,

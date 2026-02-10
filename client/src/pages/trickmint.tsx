@@ -29,9 +29,10 @@ import { cn } from "../lib/utils";
 import { trickmintApi } from "../lib/api/trickmint";
 import type { TrickClip } from "../lib/api/trickmint";
 import { extractThumbnail } from "../lib/video/thumbnailExtractor";
+import type { FirebaseStorage } from "firebase/storage";
 
 // Lazy-loaded Firebase Storage
-let storageInstance: any = null;
+let storageInstance: FirebaseStorage | null = null;
 async function getFirebaseStorage() {
   if (!storageInstance) {
     const { getStorage } = await import("firebase/storage");

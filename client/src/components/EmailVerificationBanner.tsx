@@ -43,10 +43,10 @@ export function EmailVerificationBanner() {
         title: "Verification email sent!",
         description: "Check your inbox and spam folder.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Could not send email",
-        description: error.message,
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     }

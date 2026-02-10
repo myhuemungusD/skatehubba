@@ -40,10 +40,10 @@ export function ChallengeButton({ challengedId, challengedHandle }: ChallengeBut
         title: "Challenge sent",
         description: `@${challengedHandle} has been challenged. Respect the game.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Could not challenge",
-        description: error.message ?? "Unknown error",
+        description: error instanceof Error ? error.message : "Unknown error",
         variant: "destructive",
       });
     } finally {

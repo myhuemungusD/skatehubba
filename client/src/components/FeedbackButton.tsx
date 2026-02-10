@@ -34,7 +34,7 @@ export function FeedbackButton() {
       setFeedbackType("general");
       setIsOpen(false);
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({
         title: "Failed to Send",
         description: error.message || "Please try again later.",
