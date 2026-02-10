@@ -61,14 +61,17 @@ function detectPlatform(): "vite" | "node" | "metro" {
  */
 function prioritizeCandidates(candidates: string[], platform: "vite" | "node" | "metro"): string[] {
   if (platform === "vite") {
+    // EXPO_PUBLIC_ is the canonical prefix after standardization.
+    // VITE_ is kept as a legacy fallback but must NOT shadow EXPO_PUBLIC_ values,
+    // otherwise stale VITE_* vars on Vercel would override correct EXPO_PUBLIC_* vars.
     return [...candidates].sort((a, b) => {
-      const aIsVite = a.startsWith(VITE_PREFIX);
-      const bIsVite = b.startsWith(VITE_PREFIX);
       const aIsExpo = a.startsWith(EXPO_PREFIX);
       const bIsExpo = b.startsWith(EXPO_PREFIX);
+      const aIsVite = a.startsWith(VITE_PREFIX);
+      const bIsVite = b.startsWith(VITE_PREFIX);
 
-      if (aIsVite !== bIsVite) return aIsVite ? -1 : 1;
       if (aIsExpo !== bIsExpo) return aIsExpo ? -1 : 1;
+      if (aIsVite !== bIsVite) return aIsVite ? -1 : 1;
       return 0;
     });
   }
