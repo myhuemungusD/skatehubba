@@ -1,3 +1,4 @@
+/* eslint-env node */
 module.exports = {
   testRunner: "jest",
   runnerConfig: "e2e/jest.config.js",
