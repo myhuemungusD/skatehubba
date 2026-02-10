@@ -1,3 +1,4 @@
+import "./env-bridge"; // MUST be first — bridges import.meta.env to globalThis for @skatehubba/config
 import { createRoot } from "react-dom/client";
 import { getMissingRequiredEnv } from "./env";
 import EnvErrorScreen from "./components/EnvErrorScreen";

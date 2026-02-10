@@ -54,7 +54,7 @@ function normalizeEnvValue(value: string | undefined | null): string | undefined
   if (!trimmed || trimmed.toLowerCase() === "undefined" || trimmed.toLowerCase() === "null") {
     return undefined;
   }
-  return value;
+  return trimmed;
 }
 
 function buildConfigFromEnv(): FirebaseConfig | null {
@@ -75,9 +75,7 @@ function buildConfigFromEnv(): FirebaseConfig | null {
   const messagingSenderId =
     normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID")) || "";
 
-  const measurementId = normalizeEnvValue(
-    getEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID")
-  );
+  const measurementId = normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"));
 
   return {
     apiKey,

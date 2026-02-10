@@ -2,6 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
+/* shadcn/ui CSS Variables — dark theme (SkateHubba default) */
+@layer base {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #fafafa;
+    --card: #0a0a0a;
+    --card-foreground: #fafafa;
+    --popover: #0a0a0a;
+    --popover-foreground: #fafafa;
+    --primary: #f97316;
+    --primary-foreground: #ffffff;
+    --secondary: #262626;
+    --secondary-foreground: #fafafa;
+    --muted: #262626;
+    --muted-foreground: #a3a3a3;
+    --accent: #f97316;
+    --accent-foreground: #ffffff;
+    --destructive: #dc2626;
+    --destructive-foreground: #fafafa;
+    --border: #262626;
+    --input: #262626;
+    --ring: #f97316;
+    --radius: 0.5rem;
+    --chart-1: #f97316;
+    --chart-2: #22c55e;
+    --chart-3: #3b82f6;
+    --chart-4: #a855f7;
+    --chart-5: #ef4444;
+    --sidebar-background: #0a0a0a;
+    --sidebar-foreground: #fafafa;
+    --sidebar-primary: #f97316;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #262626;
+    --sidebar-accent-foreground: #fafafa;
+    --sidebar-border: #262626;
+    --sidebar-ring: #f97316;
+    --skatehubba-dark-bg: #181818;
+    --skatehubba-light-text: #fafafa;
+  }
+}
+
 /* Font Loading */
 @font-face {
   font-family: 'Bebas Neue';
