@@ -14,7 +14,7 @@ export const userProfiles = pgTable("user_profiles", {
   homeSpot: varchar("home_spot", { length: 255 }),
   wins: integer("wins").default(0),
   losses: integer("losses").default(0),
-  points: integer("points").default(0),
+  xp: integer("xp").default(0),
   // Dispute reputation: permanent, visible penalty count
   disputePenalties: integer("dispute_penalties").default(0).notNull(),
   roles: json("roles").$type<{ filmer?: boolean }>(),
