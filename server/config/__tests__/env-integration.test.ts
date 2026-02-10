@@ -158,7 +158,6 @@ describe("Environment Configuration", () => {
   describe("Firebase Configuration", () => {
     it("should allow optional Firebase keys", () => {
       const firebaseKeys = [
-        "VITE_FIREBASE_PROJECT_ID",
         "FIREBASE_ADMIN_KEY",
         "FIREBASE_PROJECT_ID",
         "FIREBASE_CLIENT_EMAIL",

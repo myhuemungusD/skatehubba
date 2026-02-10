@@ -222,9 +222,9 @@ export function getApiEnv() {
  */
 export function getAppConfig() {
   return {
-    version: getEnvOptional("VITE_APP_VERSION", "dev"),
+    version: getEnvOptional("EXPO_PUBLIC_APP_VERSION", "dev"),
     canonicalOrigin: getEnvOptional("EXPO_PUBLIC_CANONICAL_ORIGIN", "http://localhost:5173"),
-    stripePublicKey: getEnvOptional("VITE_STRIPE_PUBLIC_KEY", ""),
+    stripePublicKey: getEnvOptional("EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY", ""),
   };
 }
 

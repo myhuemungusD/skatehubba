@@ -12,7 +12,7 @@ if (!admin.apps.length) {
         logger.warn("Failed to parse FIREBASE_ADMIN_KEY:", { error });
       }
     }
-    const projectId = env.FIREBASE_PROJECT_ID ?? env.VITE_FIREBASE_PROJECT_ID;
+    const projectId = env.FIREBASE_PROJECT_ID;
     const clientEmail = env.FIREBASE_CLIENT_EMAIL;
     const privateKey = env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, "\n");
     const hasExplicitCredentials = projectId && clientEmail && privateKey;
