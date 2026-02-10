@@ -100,7 +100,13 @@ describe("verifyAndCheckIn", () => {
     (dbModule as any).db = { select: selectFn };
 
     const result = await verifyAndCheckIn("u1", 1, 1, 1);
-    expect(result).toEqual({ success: false, message: "Too far from spot" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.message).toBe("Too far from spot");
+      expect(result.code).toBe("TOO_FAR");
+      expect(typeof result.distance).toBe("number");
+      expect(typeof result.radius).toBe("number");
+    }
   });
 
   it("succeeds when user is within radius", async () => {

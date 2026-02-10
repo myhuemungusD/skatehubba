@@ -33,6 +33,7 @@ type UserLocation = {
 type UserLocationSimple = {
   lat: number;
   lng: number;
+  accuracy?: number;
 };
 
 // ============================================================================
@@ -99,10 +100,14 @@ export default function MapPage() {
     };
   }, [geolocation.latitude, geolocation.longitude, geolocation.accuracy]);
 
-  // Simplified location for modals (don't need accuracy)
+  // Simplified location for modals (includes accuracy for check-in proximity)
   const userLocationSimple = useMemo<UserLocationSimple | null>(() => {
     if (!userLocation) return null;
-    return { lat: userLocation.lat, lng: userLocation.lng };
+    return {
+      lat: userLocation.lat,
+      lng: userLocation.lng,
+      accuracy: userLocation.accuracy ?? undefined,
+    };
   }, [userLocation]);
 
   // ---------------------------------------------------------------------------

@@ -145,7 +145,7 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 30_000,
         maximumAge: 0,
       }
     );

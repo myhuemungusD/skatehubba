@@ -148,17 +148,51 @@ describe("Check-in Geo-Verification - Integration", () => {
 
       // ~1km north
       const result = await verifyAndCheckIn("user-1", 1, 40.7218, -74.006);
-      expect(result).toEqual({ success: false, message: "Too far from spot" });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.message).toBe("Too far from spot");
+        expect(result.code).toBe("TOO_FAR");
+        expect(result.distance).toBeGreaterThan(500);
+        expect(typeof result.radius).toBe("number");
+      }
     });
 
-    it("rejects check-in at exactly 100m away", async () => {
+    it("rejects check-in at exactly 100m away (no accuracy)", async () => {
       const spot = { id: 1, lat: 0, lng: 0 };
       const { db } = createMockDb(spot);
       setDb(db);
 
       // ~100m offset in latitude (0.0009 degrees at equator)
       const result = await verifyAndCheckIn("user-1", 1, 0.0009, 0);
-      expect(result).toEqual({ success: false, message: "Too far from spot" });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.code).toBe("TOO_FAR");
+        expect(result.distance).toBeGreaterThan(50);
+        expect(typeof result.radius).toBe("number");
+      }
+    });
+
+    it("accepts check-in at 60m when accuracy is 20m", async () => {
+      const spot = { id: 1, lat: 0, lng: 0 };
+      const { db } = createMockDb(spot);
+      setDb(db);
+
+      // ~55m offset (0.0005 degrees at equator ≈ 55m)
+      const result = await verifyAndCheckIn("user-1", 1, 0.0005, 0, 20);
+      // effective radius = 50 + 20 = 70m, distance ≈ 55m → should accept
+      expect(result).toEqual({ success: true, checkInId: 100 });
+    });
+
+    it("caps accuracy bonus at MAX_CHECK_IN_RADIUS", async () => {
+      const spot = { id: 1, lat: 0, lng: 0 };
+      const { db } = createMockDb(spot);
+      setDb(db);
+
+      // ~160m offset (0.00144 degrees at equator ≈ 160m)
+      const result = await verifyAndCheckIn("user-1", 1, 0.00144, 0, 500);
+      // accuracy bonus capped at 100, effective radius = 50 + 100 = 150, but capped at 150
+      // distance ≈ 160m > 150m → should reject
+      expect(result.success).toBe(false);
     });
 
     it("handles negative latitude/longitude correctly (Sydney)", async () => {

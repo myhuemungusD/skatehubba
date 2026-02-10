@@ -63,7 +63,7 @@ interface SpotDetailModalProps {
   initialSpot?: Spot | null;
   isOpen: boolean;
   onClose: () => void;
-  userLocation?: { lat: number; lng: number } | null;
+  userLocation?: { lat: number; lng: number; accuracy?: number } | null;
   /** When true, disables mutations (rating, check-in, share link). Used for demo spots. */
   readOnly?: boolean;
 }
