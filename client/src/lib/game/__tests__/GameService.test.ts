@@ -1,468 +1,805 @@
 /**
- * Tests for GameService - S.K.A.T.E. Game Engine
+ * Tests for client/src/lib/game/GameService.ts
+ *
+ * Covers: helper functions (getLettersString, isGameOver, getOpponentData),
+ * auth guards, and Firestore-transaction-based game actions (submitAction,
+ * setterMissed, cancelMatchmaking, findQuickMatch, getActiveGames,
+ * subscribeToGame, subscribeToQueue).
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock Firebase
-vi.mock("../../firebase", () => ({
-  db: {},
-  auth: { currentUser: { uid: "test-user-123" } },
+// ── Mocks ──────────────────────────────────────────────────────────────────
+
+// mockAuth must be hoisted so the vi.mock factory can reference it
+const mockAuth = vi.hoisted(() => ({
+  currentUser: {
+    uid: "user-1",
+    displayName: "TestSkater",
+    photoURL: "https://example.com/photo.jpg",
+  } as any,
 }));
 
-vi.mock("../../logger");
+vi.mock("firebase/firestore", () => ({
+  collection: vi.fn((_db: any, name: string) => ({ _path: name })),
+  doc: vi.fn((...args: any[]) => {
+    // doc(db, collectionName, docId) => specific ref
+    if (args.length >= 3 && typeof args[2] === "string") {
+      return { id: args[2], _col: args[1] };
+    }
+    // doc(collectionRef) => auto-generated ref
+    return { id: "auto-generated-id", _col: "auto" };
+  }),
+  runTransaction: vi.fn(),
+  query: vi.fn((...args: any[]) => ({ _query: true, args })),
+  where: vi.fn((...args: any[]) => ({ _where: true, args })),
+  limit: vi.fn((n: number) => ({ _limit: n })),
+  getDocs: vi.fn(),
+  onSnapshot: vi.fn(),
+  serverTimestamp: vi.fn(() => ({ _serverTimestamp: true })),
+  increment: vi.fn((n: number) => ({ _increment: n })),
+  Timestamp: { now: vi.fn(() => ({ seconds: 1000, nanoseconds: 0 })) },
+}));
+
+vi.mock("../../firebase", () => ({
+  db: { _mockDb: true },
+  auth: mockAuth,
+}));
+
+vi.mock("../../logger", () => ({
+  logger: {
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+    log: vi.fn(),
+    info: vi.fn(),
+  },
+}));
+
+// ── Imports ────────────────────────────────────────────────────────────────
+
+import { runTransaction, getDocs, onSnapshot, doc } from "firebase/firestore";
+import { GameService } from "../GameService";
+import type { GameState, GameDocument, PlayerData } from "../GameService";
+
+// ── Test helpers ───────────────────────────────────────────────────────────
+
+function makeGameState(overrides: Partial<GameState> = {}): GameState {
+  return {
+    status: "ACTIVE",
+    turnPlayerId: "user-1",
+    phase: "SETTER_RECORDING",
+    p1Letters: 0,
+    p2Letters: 0,
+    currentTrick: null,
+    roundNumber: 1,
+    ...overrides,
+  };
+}
+
+function makeGameDoc(overrides: Partial<GameDocument> = {}): GameDocument {
+  return {
+    id: "game-123",
+    players: ["user-1", "user-2"],
+    playerData: {
+      "user-1": { username: "TestSkater", stance: "regular" },
+      "user-2": { username: "Opponent", stance: "goofy" },
+    },
+    state: makeGameState(),
+    createdAt: { seconds: 1000, nanoseconds: 0 } as any,
+    updatedAt: { seconds: 1000, nanoseconds: 0 } as any,
+    ...overrides,
+  };
+}
+
+/** Set up runTransaction to call the callback with a mock transaction object */
+function setupTransaction(gameDoc: GameDocument | null) {
+  const mockTx = {
+    get: vi.fn().mockResolvedValue({
+      exists: () => gameDoc !== null,
+      id: gameDoc?.id ?? "missing",
+      data: () => (gameDoc ? { ...gameDoc, id: undefined } : undefined),
+    }),
+    set: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+
+  vi.mocked(runTransaction).mockImplementation(async (_db: any, callback: any) => {
+    return callback(mockTx);
+  });
+
+  return mockTx;
+}
+
+// ── Tests ──────────────────────────────────────────────────────────────────
 
 describe("GameService", () => {
-  describe("Game Status", () => {
-    it("should define valid game statuses", () => {
-      const validStatuses = ["MATCHMAKING", "PENDING_ACCEPT", "ACTIVE", "COMPLETED", "CANCELLED"];
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuth.currentUser = {
+      uid: "user-1",
+      displayName: "TestSkater",
+      photoURL: "https://example.com/photo.jpg",
+    };
+  });
 
-      expect(validStatuses).toContain("MATCHMAKING");
-      expect(validStatuses).toContain("ACTIVE");
-      expect(validStatuses).toContain("COMPLETED");
+  // ──────────────────── Helper: getLettersString ─────────────────────────
+
+  describe("getLettersString", () => {
+    it("returns empty string for 0 letters", () => {
+      expect(GameService.getLettersString(0)).toBe("");
     });
 
-    it("should transition from MATCHMAKING to ACTIVE", () => {
-      let status = "MATCHMAKING";
-      status = "ACTIVE";
-
-      expect(status).toBe("ACTIVE");
+    it("returns 'S' for 1 letter", () => {
+      expect(GameService.getLettersString(1)).toBe("S");
     });
 
-    it("should transition from ACTIVE to COMPLETED", () => {
-      let status = "ACTIVE";
-      status = "COMPLETED";
-
-      expect(status).toBe("COMPLETED");
+    it("returns 'SK' for 2 letters", () => {
+      expect(GameService.getLettersString(2)).toBe("SK");
     });
 
-    it("should allow cancellation", () => {
-      let status = "PENDING_ACCEPT";
-      status = "CANCELLED";
+    it("returns 'SKA' for 3 letters", () => {
+      expect(GameService.getLettersString(3)).toBe("SKA");
+    });
 
-      expect(status).toBe("CANCELLED");
+    it("returns 'SKAT' for 4 letters", () => {
+      expect(GameService.getLettersString(4)).toBe("SKAT");
+    });
+
+    it("returns 'SKATE' for 5 letters", () => {
+      expect(GameService.getLettersString(5)).toBe("SKATE");
+    });
+
+    it("caps at 'SKATE' for values > 5", () => {
+      expect(GameService.getLettersString(6)).toBe("SKATE");
+      expect(GameService.getLettersString(100)).toBe("SKATE");
+    });
+
+    it("with negative count, slice(0, -N) trims from end (JS semantics)", () => {
+      // Math.min(-1, 5) = -1, LETTERS.slice(0, -1) = ["S","K","A","T"]
+      expect(GameService.getLettersString(-1)).toBe("SKAT");
+      // Math.min(-2, 5) = -2, LETTERS.slice(0, -2) = ["S","K","A"]
+      expect(GameService.getLettersString(-2)).toBe("SKA");
     });
   });
 
-  describe("Turn Phase", () => {
-    it("should define valid turn phases", () => {
-      const validPhases = ["SETTER_RECORDING", "DEFENDER_ATTEMPTING", "VERIFICATION"];
+  // ──────────────────── Helper: isGameOver ───────────────────────────────
 
-      expect(validPhases).toContain("SETTER_RECORDING");
-      expect(validPhases).toContain("DEFENDER_ATTEMPTING");
-      expect(validPhases).toContain("VERIFICATION");
+  describe("isGameOver", () => {
+    it("returns true when status is COMPLETED", () => {
+      expect(GameService.isGameOver(makeGameState({ status: "COMPLETED" }))).toBe(true);
     });
 
-    it("should transition from SETTER to DEFENDER", () => {
-      let phase = "SETTER_RECORDING";
-      phase = "DEFENDER_ATTEMPTING";
-
-      expect(phase).toBe("DEFENDER_ATTEMPTING");
+    it("returns true when p1Letters >= 5", () => {
+      expect(GameService.isGameOver(makeGameState({ p1Letters: 5 }))).toBe(true);
+      expect(GameService.isGameOver(makeGameState({ p1Letters: 6 }))).toBe(true);
     });
 
-    it("should allow verification phase", () => {
-      let phase = "DEFENDER_ATTEMPTING";
-      phase = "VERIFICATION";
-
-      expect(phase).toBe("VERIFICATION");
-    });
-  });
-
-  describe("Player Data", () => {
-    it("should store player information", () => {
-      const playerData = {
-        username: "skater123",
-        photoUrl: "https://example.com/photo.jpg",
-        stance: "regular" as const,
-      };
-
-      expect(playerData.username).toBe("skater123");
-      expect(playerData.stance).toBe("regular");
+    it("returns true when p2Letters >= 5", () => {
+      expect(GameService.isGameOver(makeGameState({ p2Letters: 5 }))).toBe(true);
     });
 
-    it("should validate stance values", () => {
-      const validStances = ["regular", "goofy"];
-      const invalidStance = "switch";
-
-      expect(validStances).toContain("regular");
-      expect(validStances).toContain("goofy");
-      expect(validStances).not.toContain(invalidStance);
+    it("returns false when game is active with < 5 letters each", () => {
+      expect(GameService.isGameOver(makeGameState({ p1Letters: 4, p2Letters: 3 }))).toBe(false);
     });
 
-    it("should handle optional photo URL", () => {
-      const playerWithPhoto = {
-        username: "skater1",
-        photoUrl: "https://example.com/photo.jpg",
-        stance: "regular" as const,
-      };
+    it("returns false when game is active with 0 letters", () => {
+      expect(GameService.isGameOver(makeGameState())).toBe(false);
+    });
 
-      const playerWithoutPhoto = {
-        username: "skater2",
-        photoUrl: null,
-        stance: "goofy" as const,
-      };
-
-      expect(playerWithPhoto.photoUrl).toBeTruthy();
-      expect(playerWithoutPhoto.photoUrl).toBeNull();
+    it("returns true for COMPLETED even with 0 letters", () => {
+      expect(
+        GameService.isGameOver(makeGameState({ status: "COMPLETED", p1Letters: 0, p2Letters: 0 }))
+      ).toBe(true);
     });
   });
 
-  describe("Game State", () => {
-    it("should initialize game state", () => {
-      const initialState = {
-        status: "ACTIVE",
-        turnPlayerId: "player-1",
-        phase: "SETTER_RECORDING",
-        p1Letters: 0,
-        p2Letters: 0,
-        currentTrick: null,
-        roundNumber: 1,
-      };
+  // ──────────────────── Helper: getOpponentData ─────────────────────────
 
-      expect(initialState.status).toBe("ACTIVE");
-      expect(initialState.p1Letters).toBe(0);
-      expect(initialState.p2Letters).toBe(0);
-      expect(initialState.roundNumber).toBe(1);
+  describe("getOpponentData", () => {
+    it("returns opponent data for player 1", () => {
+      const game = makeGameDoc();
+      const opponent = GameService.getOpponentData(game, "user-1");
+
+      expect(opponent).toEqual({ username: "Opponent", stance: "goofy" });
     });
 
-    it("should track letter progression", () => {
-      const state = {
-        p1Letters: 0,
-        p2Letters: 0,
-      };
+    it("returns opponent data for player 2", () => {
+      const game = makeGameDoc();
+      const opponent = GameService.getOpponentData(game, "user-2");
 
-      state.p1Letters = 1; // S
-      expect(state.p1Letters).toBe(1);
-
-      state.p1Letters = 2; // SK
-      expect(state.p1Letters).toBe(2);
-
-      state.p1Letters = 5; // SKATE (game over)
-      expect(state.p1Letters).toBe(5);
+      expect(opponent).toEqual({ username: "TestSkater", stance: "regular" });
     });
 
-    it("should determine winner", () => {
-      const p1Letters = 5; // SKATE
-      const p2Letters = 3; // SKA
+    it("returns first non-matching player's data for unknown userId (find semantics)", () => {
+      // players.find(p => p !== "user-99") returns "user-1" (first element that isn't "user-99")
+      const game = makeGameDoc();
+      const opponent = GameService.getOpponentData(game, "user-99");
 
-      const p1Lost = p1Letters === 5;
-      const p2Lost = p2Letters === 5;
-
-      expect(p1Lost).toBe(true);
-      expect(p2Lost).toBe(false);
+      expect(opponent).toEqual({ username: "TestSkater", stance: "regular" });
     });
 
-    it("should track current trick", () => {
-      const trick = {
-        name: "kickflip",
-        description: "Clean kickflip over the box",
-        setterId: "player-1",
-        setAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-      };
+    it("returns null when game has a single-player array matching userId", () => {
+      const game = makeGameDoc({ players: ["user-1"] });
+      const opponent = GameService.getOpponentData(game, "user-1");
 
-      expect(trick.name).toBe("kickflip");
-      expect(trick.setterId).toBe("player-1");
+      expect(opponent).toBeNull();
     });
   });
 
-  describe("Game Document", () => {
-    it("should structure game document correctly", () => {
-      const gameDoc = {
-        id: "game-123",
-        players: ["player-1", "player-2"] as [string, string],
-        playerData: {
-          "player-1": {
-            username: "skater1",
-            photoUrl: "https://example.com/1.jpg",
-            stance: "regular" as const,
+  // ──────────────────── submitAction — auth & validation ─────────────────
+
+  describe("submitAction", () => {
+    it("throws when user is not logged in", async () => {
+      mockAuth.currentUser = null;
+
+      await expect(
+        GameService.submitAction("game-1", "SET", { trickName: "kickflip" })
+      ).rejects.toThrow("Unauthorized");
+    });
+
+    it("throws when game is not found", async () => {
+      setupTransaction(null);
+
+      await expect(
+        GameService.submitAction("missing-game", "SET", { trickName: "kickflip" })
+      ).rejects.toThrow("Game not found");
+    });
+
+    it("throws when game is not active", async () => {
+      setupTransaction(makeGameDoc({ state: makeGameState({ status: "COMPLETED" }) }));
+
+      await expect(
+        GameService.submitAction("game-123", "SET", { trickName: "kickflip" })
+      ).rejects.toThrow("Game is not active");
+    });
+
+    it("throws when player is not in the game", async () => {
+      setupTransaction(makeGameDoc({ players: ["other-1", "other-2"] }));
+
+      await expect(
+        GameService.submitAction("game-123", "SET", { trickName: "kickflip" })
+      ).rejects.toThrow("You are not in this game");
+    });
+
+    // ── SET action ──────────────────────────────────────────────────────
+
+    describe("SET action", () => {
+      it("transitions from SETTER_RECORDING to DEFENDER_ATTEMPTING", async () => {
+        const mockTx = setupTransaction(makeGameDoc());
+
+        await GameService.submitAction("game-123", "SET", { trickName: "kickflip" });
+
+        expect(mockTx.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            "state.phase": "DEFENDER_ATTEMPTING",
+            "state.currentTrick": expect.objectContaining({
+              name: "kickflip",
+              setterId: "user-1",
+            }),
+          })
+        );
+      });
+
+      it("throws when not in SETTER_RECORDING phase", async () => {
+        setupTransaction(makeGameDoc({ state: makeGameState({ phase: "DEFENDER_ATTEMPTING" }) }));
+
+        await expect(
+          GameService.submitAction("game-123", "SET", { trickName: "kickflip" })
+        ).rejects.toThrow("Not in setting phase");
+      });
+
+      it("throws when it is not the setter's turn", async () => {
+        setupTransaction(makeGameDoc({ state: makeGameState({ turnPlayerId: "user-2" }) }));
+
+        await expect(
+          GameService.submitAction("game-123", "SET", { trickName: "kickflip" })
+        ).rejects.toThrow("Not your turn to set");
+      });
+
+      it("throws when trick name is missing", async () => {
+        setupTransaction(makeGameDoc());
+
+        await expect(GameService.submitAction("game-123", "SET", {})).rejects.toThrow(
+          "Trick name required"
+        );
+      });
+
+      it("throws when payload is undefined", async () => {
+        setupTransaction(makeGameDoc());
+
+        await expect(GameService.submitAction("game-123", "SET")).rejects.toThrow(
+          "Trick name required"
+        );
+      });
+
+      it("includes optional trick description", async () => {
+        const mockTx = setupTransaction(makeGameDoc());
+
+        await GameService.submitAction("game-123", "SET", {
+          trickName: "heelflip",
+          trickDescription: "Clean catch",
+        });
+
+        expect(mockTx.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            "state.currentTrick": expect.objectContaining({
+              name: "heelflip",
+              description: "Clean catch",
+            }),
+          })
+        );
+      });
+    });
+
+    // ── LAND action ─────────────────────────────────────────────────────
+
+    describe("LAND action", () => {
+      it("transitions back to SETTER_RECORDING and clears trick", async () => {
+        const mockTx = setupTransaction(
+          makeGameDoc({
+            state: makeGameState({
+              phase: "DEFENDER_ATTEMPTING",
+              turnPlayerId: "user-1",
+              currentTrick: {
+                name: "kickflip",
+                setterId: "user-1",
+                setAt: { seconds: 1000, nanoseconds: 0 } as any,
+              },
+            }),
+          })
+        );
+
+        // user-2 is the defender (not the turnPlayer / setter)
+        mockAuth.currentUser = { uid: "user-2", displayName: "Opponent", photoURL: null };
+
+        await GameService.submitAction("game-123", "LAND");
+
+        expect(mockTx.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            "state.phase": "SETTER_RECORDING",
+            "state.currentTrick": null,
+          })
+        );
+      });
+
+      it("throws when not in DEFENDER_ATTEMPTING phase", async () => {
+        setupTransaction(makeGameDoc());
+
+        await expect(GameService.submitAction("game-123", "LAND")).rejects.toThrow(
+          "Not in defending phase"
+        );
+      });
+
+      it("throws when the setter tries to LAND (only defender can)", async () => {
+        setupTransaction(
+          makeGameDoc({
+            state: makeGameState({
+              phase: "DEFENDER_ATTEMPTING",
+              turnPlayerId: "user-1", // user-1 is setter
+            }),
+          })
+        );
+
+        // user-1 is both current user and setter -- should fail
+        await expect(GameService.submitAction("game-123", "LAND")).rejects.toThrow(
+          "Defender must attempt, not setter"
+        );
+      });
+    });
+
+    // ── BAIL action ─────────────────────────────────────────────────────
+
+    describe("BAIL action", () => {
+      it("assigns a letter to the defender (non-game-ending)", async () => {
+        const mockTx = setupTransaction(
+          makeGameDoc({
+            state: makeGameState({
+              phase: "DEFENDER_ATTEMPTING",
+              turnPlayerId: "user-1",
+              p2Letters: 2, // defender (user-2) has 2 letters
+            }),
+          })
+        );
+
+        mockAuth.currentUser = { uid: "user-2", displayName: "Opponent", photoURL: null };
+
+        await GameService.submitAction("game-123", "BAIL");
+
+        expect(mockTx.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            "state.phase": "SETTER_RECORDING",
+            "state.currentTrick": null,
+          })
+        );
+      });
+
+      it("ends the game when defender reaches 5 letters (SKATE)", async () => {
+        const mockTx = setupTransaction(
+          makeGameDoc({
+            state: makeGameState({
+              phase: "DEFENDER_ATTEMPTING",
+              turnPlayerId: "user-1",
+              p2Letters: 4, // defender (user-2) has 4 letters, bail = game over
+            }),
+          })
+        );
+
+        mockAuth.currentUser = { uid: "user-2", displayName: "Opponent", photoURL: null };
+
+        await GameService.submitAction("game-123", "BAIL");
+
+        expect(mockTx.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            "state.status": "COMPLETED",
+            "state.phase": "VERIFICATION",
+            winnerId: "user-1", // setter wins
+          })
+        );
+      });
+
+      it("throws when not in DEFENDER_ATTEMPTING phase", async () => {
+        setupTransaction(makeGameDoc());
+
+        await expect(GameService.submitAction("game-123", "BAIL")).rejects.toThrow(
+          "Not in defending phase"
+        );
+      });
+
+      it("throws when the setter tries to BAIL", async () => {
+        setupTransaction(
+          makeGameDoc({
+            state: makeGameState({
+              phase: "DEFENDER_ATTEMPTING",
+              turnPlayerId: "user-1",
+            }),
+          })
+        );
+
+        await expect(GameService.submitAction("game-123", "BAIL")).rejects.toThrow(
+          "Defender must bail, not setter"
+        );
+      });
+    });
+
+    // ── FORFEIT action ──────────────────────────────────────────────────
+
+    describe("FORFEIT action", () => {
+      it("cancels the game and awards win to the opponent", async () => {
+        const mockTx = setupTransaction(makeGameDoc());
+
+        await GameService.submitAction("game-123", "FORFEIT");
+
+        expect(mockTx.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            "state.status": "CANCELLED",
+            "state.currentTrick": null,
+            winnerId: "user-2", // opponent wins
+          })
+        );
+      });
+
+      it("works for player 2 forfeiting (player 1 wins)", async () => {
+        const mockTx = setupTransaction(makeGameDoc());
+        mockAuth.currentUser = { uid: "user-2", displayName: "Opponent", photoURL: null };
+
+        await GameService.submitAction("game-123", "FORFEIT");
+
+        expect(mockTx.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            winnerId: "user-1",
+          })
+        );
+      });
+    });
+  });
+
+  // ──────────────────── setterMissed ─────────────────────────────────────
+
+  describe("setterMissed", () => {
+    it("throws when user is not logged in", async () => {
+      mockAuth.currentUser = null;
+
+      await expect(GameService.setterMissed("game-123")).rejects.toThrow("Unauthorized");
+    });
+
+    it("throws when game is not found", async () => {
+      setupTransaction(null);
+
+      await expect(GameService.setterMissed("missing")).rejects.toThrow("Game not found");
+    });
+
+    it("throws when game is not active", async () => {
+      setupTransaction(makeGameDoc({ state: makeGameState({ status: "COMPLETED" }) }));
+
+      await expect(GameService.setterMissed("game-123")).rejects.toThrow("Game is not active");
+    });
+
+    it("throws when called by non-setter", async () => {
+      setupTransaction(makeGameDoc({ state: makeGameState({ turnPlayerId: "user-2" }) }));
+
+      await expect(GameService.setterMissed("game-123")).rejects.toThrow(
+        "Only setter can declare a miss"
+      );
+    });
+
+    it("throws when not in DEFENDER_ATTEMPTING phase", async () => {
+      setupTransaction(
+        makeGameDoc({
+          state: makeGameState({
+            turnPlayerId: "user-1",
+            phase: "SETTER_RECORDING",
+          }),
+        })
+      );
+
+      await expect(GameService.setterMissed("game-123")).rejects.toThrow(
+        "Can only miss during defend phase"
+      );
+    });
+
+    it("swaps turn to opponent and resets to SETTER_RECORDING", async () => {
+      const mockTx = setupTransaction(
+        makeGameDoc({
+          state: makeGameState({
+            turnPlayerId: "user-1",
+            phase: "DEFENDER_ATTEMPTING",
+          }),
+        })
+      );
+
+      await GameService.setterMissed("game-123");
+
+      expect(mockTx.update).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          "state.turnPlayerId": "user-2",
+          "state.phase": "SETTER_RECORDING",
+          "state.currentTrick": null,
+        })
+      );
+    });
+  });
+
+  // ──────────────────── cancelMatchmaking ────────────────────────────────
+
+  describe("cancelMatchmaking", () => {
+    it("throws when user is not logged in", async () => {
+      mockAuth.currentUser = null;
+
+      await expect(GameService.cancelMatchmaking("q-1")).rejects.toThrow("Must be logged in");
+    });
+
+    it("does nothing if queue entry does not exist", async () => {
+      const mockTx = {
+        get: vi.fn().mockResolvedValue({ exists: () => false }),
+        delete: vi.fn(),
+      };
+      vi.mocked(runTransaction).mockImplementation(async (_db: any, cb: any) => cb(mockTx));
+
+      await GameService.cancelMatchmaking("q-1");
+
+      expect(mockTx.delete).not.toHaveBeenCalled();
+    });
+
+    it("throws when trying to cancel another player's queue entry", async () => {
+      const mockTx = {
+        get: vi.fn().mockResolvedValue({
+          exists: () => true,
+          data: () => ({ createdBy: "other-user", status: "WAITING" }),
+        }),
+        delete: vi.fn(),
+      };
+      vi.mocked(runTransaction).mockImplementation(async (_db: any, cb: any) => cb(mockTx));
+
+      await expect(GameService.cancelMatchmaking("q-1")).rejects.toThrow(
+        "Cannot cancel another player's queue"
+      );
+    });
+
+    it("deletes the queue entry for the owning player", async () => {
+      const mockTx = {
+        get: vi.fn().mockResolvedValue({
+          exists: () => true,
+          data: () => ({ createdBy: "user-1", status: "WAITING" }),
+        }),
+        delete: vi.fn(),
+      };
+      vi.mocked(runTransaction).mockImplementation(async (_db: any, cb: any) => cb(mockTx));
+
+      await GameService.cancelMatchmaking("q-1");
+
+      expect(mockTx.delete).toHaveBeenCalled();
+    });
+  });
+
+  // ──────────────────── findQuickMatch ────────────────────────────────────
+
+  describe("findQuickMatch", () => {
+    it("throws when user is not logged in", async () => {
+      mockAuth.currentUser = null;
+
+      await expect(GameService.findQuickMatch()).rejects.toThrow("Must be logged in to play");
+    });
+
+    it("creates a queue entry when no match is found", async () => {
+      vi.mocked(getDocs).mockResolvedValue({ docs: [] } as any);
+
+      const mockTx = {
+        set: vi.fn(),
+      };
+      vi.mocked(runTransaction).mockImplementation(async (_db: any, cb: any) => cb(mockTx));
+
+      const result = await GameService.findQuickMatch("goofy");
+
+      expect(result.isWaiting).toBe(true);
+      expect(result.gameId).toBeDefined();
+      expect(mockTx.set).toHaveBeenCalledTimes(1);
+    });
+
+    it("joins existing match when a valid queue entry exists", async () => {
+      vi.mocked(getDocs).mockResolvedValue({
+        docs: [
+          {
+            data: () => ({
+              createdBy: "other-player",
+              creatorName: "OtherSkater",
+              creatorPhoto: null,
+              stance: "regular",
+              status: "WAITING",
+            }),
+            ref: { id: "queue-entry-1" },
           },
-          "player-2": {
-            username: "skater2",
-            photoUrl: null,
-            stance: "goofy" as const,
+        ],
+      } as any);
+
+      const mockTx = {
+        set: vi.fn(),
+        delete: vi.fn(),
+      };
+      vi.mocked(runTransaction).mockImplementation(async (_db: any, cb: any) => cb(mockTx));
+
+      const result = await GameService.findQuickMatch("goofy");
+
+      expect(result.isWaiting).toBe(false);
+      expect(result.gameId).toBeDefined();
+      // Should create a game and delete the queue entry
+      expect(mockTx.set).toHaveBeenCalledTimes(1);
+      expect(mockTx.delete).toHaveBeenCalledTimes(1);
+    });
+
+    it("skips queue entries created by the current user", async () => {
+      vi.mocked(getDocs).mockResolvedValue({
+        docs: [
+          {
+            data: () => ({ createdBy: "user-1" }), // same user
+            ref: { id: "queue-1" },
           },
-        },
-        state: {
-          status: "ACTIVE",
-          turnPlayerId: "player-1",
-          phase: "SETTER_RECORDING",
-          p1Letters: 0,
-          p2Letters: 0,
-          currentTrick: null,
-          roundNumber: 1,
-        },
-        createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-        updatedAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
+        ],
+      } as any);
+
+      const mockTx = { set: vi.fn() };
+      vi.mocked(runTransaction).mockImplementation(async (_db: any, cb: any) => cb(mockTx));
+
+      const result = await GameService.findQuickMatch();
+
+      // Should create a new queue entry since no valid match was found
+      expect(result.isWaiting).toBe(true);
+    });
+  });
+
+  // ──────────────────── getActiveGames ────────────────────────────────────
+
+  describe("getActiveGames", () => {
+    it("returns empty array when user is not logged in", async () => {
+      mockAuth.currentUser = null;
+
+      const games = await GameService.getActiveGames();
+
+      expect(games).toEqual([]);
+    });
+
+    it("returns active games for logged-in user", async () => {
+      const mockGameData = {
+        players: ["user-1", "user-2"],
+        state: makeGameState(),
       };
 
-      expect(gameDoc.players).toHaveLength(2);
-      expect(gameDoc.playerData["player-1"].username).toBe("skater1");
-      expect(gameDoc.playerData["player-2"].stance).toBe("goofy");
-    });
+      vi.mocked(getDocs).mockResolvedValue({
+        docs: [
+          { id: "game-1", data: () => mockGameData },
+          { id: "game-2", data: () => mockGameData },
+        ],
+      } as any);
 
-    it("should include timestamps", () => {
-      const now = Date.now();
-      const timestamp = {
-        seconds: Math.floor(now / 1000),
-        nanoseconds: 0,
-      };
+      const games = await GameService.getActiveGames();
 
-      expect(timestamp.seconds).toBeGreaterThan(0);
-      expect(timestamp.nanoseconds).toBe(0);
-    });
-
-    it("should track winner", () => {
-      const completedGame = {
-        id: "game-123",
-        status: "COMPLETED",
-        winnerId: "player-2",
-      };
-
-      expect(completedGame.status).toBe("COMPLETED");
-      expect(completedGame.winnerId).toBe("player-2");
+      expect(games).toHaveLength(2);
+      expect(games[0].id).toBe("game-1");
+      expect(games[1].id).toBe("game-2");
     });
   });
 
-  describe("Matchmaking Queue", () => {
-    it("should create queue entry", () => {
-      const queueEntry = {
-        createdBy: "player-1",
-        creatorName: "skater1",
-        creatorPhoto: "https://example.com/photo.jpg",
-        stance: "regular" as const,
-        status: "WAITING",
-        createdAt: { seconds: Date.now() / 1000, nanoseconds: 0 },
-      };
+  // ──────────────────── subscribeToGame ───────────────────────────────────
 
-      expect(queueEntry.status).toBe("WAITING");
-      expect(queueEntry.stance).toBe("regular");
+  describe("subscribeToGame", () => {
+    it("calls onSnapshot and returns an unsubscribe function", () => {
+      const mockUnsubscribe = vi.fn();
+      vi.mocked(onSnapshot).mockReturnValue(mockUnsubscribe);
+
+      const callback = vi.fn();
+      const unsub = GameService.subscribeToGame("game-123", callback);
+
+      expect(onSnapshot).toHaveBeenCalled();
+      expect(unsub).toBe(mockUnsubscribe);
     });
 
-    it("should transition to MATCHED", () => {
-      let status = "WAITING";
-      status = "MATCHED";
+    it("passes game data to callback when snapshot exists", () => {
+      vi.mocked(onSnapshot).mockImplementation((_ref: any, onNext: any) => {
+        onNext({
+          exists: () => true,
+          id: "game-123",
+          data: () => ({ players: ["user-1", "user-2"], state: makeGameState() }),
+        });
+        return vi.fn();
+      });
 
-      expect(status).toBe("MATCHED");
+      const callback = vi.fn();
+      GameService.subscribeToGame("game-123", callback);
+
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "game-123",
+          players: ["user-1", "user-2"],
+        })
+      );
     });
 
-    it("should store creator information", () => {
-      const entry = {
-        createdBy: "player-1",
-        creatorName: "skater1",
-        creatorPhoto: null,
-      };
+    it("passes null to callback when snapshot does not exist", () => {
+      vi.mocked(onSnapshot).mockImplementation((_ref: any, onNext: any) => {
+        onNext({ exists: () => false });
+        return vi.fn();
+      });
 
-      expect(entry.createdBy).toBe("player-1");
-      expect(entry.creatorName).toBe("skater1");
-    });
-  });
+      const callback = vi.fn();
+      GameService.subscribeToGame("game-123", callback);
 
-  describe("Game Actions", () => {
-    it("should define valid actions", () => {
-      const validActions = ["SET", "LAND", "BAIL", "FORFEIT"];
-
-      expect(validActions).toContain("SET");
-      expect(validActions).toContain("LAND");
-      expect(validActions).toContain("BAIL");
-      expect(validActions).toContain("FORFEIT");
+      expect(callback).toHaveBeenCalledWith(null);
     });
 
-    it("should handle SET action", () => {
-      const action = "SET";
-      let phase = "SETTER_RECORDING";
+    it("passes null to callback on error", () => {
+      vi.mocked(onSnapshot).mockImplementation((_ref: any, _onNext: any, onError: any) => {
+        onError(new Error("Firestore error"));
+        return vi.fn();
+      });
 
-      if (action === "SET") {
-        phase = "DEFENDER_ATTEMPTING";
-      }
+      const callback = vi.fn();
+      GameService.subscribeToGame("game-123", callback);
 
-      expect(phase).toBe("DEFENDER_ATTEMPTING");
-    });
-
-    it("should handle LAND action", () => {
-      const action = "LAND";
-      let turnPlayerId = "player-1";
-
-      if (action === "LAND") {
-        turnPlayerId = "player-2"; // Switch turns
-      }
-
-      expect(turnPlayerId).toBe("player-2");
-    });
-
-    it("should handle BAIL action", () => {
-      const action = "BAIL";
-      let letters = 0;
-
-      if (action === "BAIL") {
-        letters += 1; // Add letter
-      }
-
-      expect(letters).toBe(1);
-    });
-
-    it("should handle FORFEIT action", () => {
-      const action = "FORFEIT";
-      let status = "ACTIVE";
-
-      if (action === "FORFEIT") {
-        status = "COMPLETED";
-      }
-
-      expect(status).toBe("COMPLETED");
+      expect(callback).toHaveBeenCalledWith(null);
     });
   });
 
-  describe("Round Management", () => {
-    it("should increment round number", () => {
-      let roundNumber = 1;
-      roundNumber += 1;
+  // ──────────────────── subscribeToQueue ──────────────────────────────────
 
-      expect(roundNumber).toBe(2);
-    });
+  describe("subscribeToQueue", () => {
+    it("calls onSnapshot and returns an unsubscribe function", () => {
+      const mockUnsubscribe = vi.fn();
+      vi.mocked(onSnapshot).mockReturnValue(mockUnsubscribe);
 
-    it("should track rounds throughout game", () => {
-      const rounds = [1, 2, 3, 4, 5];
-      expect(rounds).toHaveLength(5);
-      expect(rounds[0]).toBe(1);
-      expect(rounds[4]).toBe(5);
-    });
-  });
+      const onMatch = vi.fn();
+      const unsub = GameService.subscribeToQueue("q-1", onMatch);
 
-  describe("Turn Management", () => {
-    it("should switch turns between players", () => {
-      const players = ["player-1", "player-2"];
-      let currentTurnIndex = 0;
-
-      currentTurnIndex = (currentTurnIndex + 1) % players.length;
-      expect(currentTurnIndex).toBe(1);
-
-      currentTurnIndex = (currentTurnIndex + 1) % players.length;
-      expect(currentTurnIndex).toBe(0);
-    });
-
-    it("should maintain turn order", () => {
-      let turnPlayerId = "player-1";
-
-      if (turnPlayerId === "player-1") {
-        turnPlayerId = "player-2";
-      } else {
-        turnPlayerId = "player-1";
-      }
-
-      expect(turnPlayerId).toBe("player-2");
-    });
-  });
-
-  describe("Letter Assignment", () => {
-    it("should assign SKATE letters in order", () => {
-      const letters = "SKATE";
-      const currentIndex = 0;
-
-      expect(letters[0]).toBe("S");
-      expect(letters[1]).toBe("K");
-      expect(letters[2]).toBe("A");
-      expect(letters[3]).toBe("T");
-      expect(letters[4]).toBe("E");
-    });
-
-    it("should track letters per player", () => {
-      const p1Letters = "SK";
-      const p2Letters = "SKAT";
-
-      expect(p1Letters.length).toBe(2);
-      expect(p2Letters.length).toBe(4);
-    });
-
-    it("should determine game over at 5 letters", () => {
-      const letters = "SKATE";
-      const gameOver = letters.length === 5;
-
-      expect(gameOver).toBe(true);
-    });
-  });
-
-  describe("Transaction Safety", () => {
-    it("should use optimistic concurrency control", () => {
-      const versionedUpdate = {
-        expectedVersion: 1,
-        newVersion: 2,
-      };
-
-      expect(versionedUpdate.newVersion).toBeGreaterThan(versionedUpdate.expectedVersion);
-    });
-
-    it("should handle concurrent updates", () => {
-      const update1 = { timestamp: 1000 };
-      const update2 = { timestamp: 1001 };
-
-      expect(update2.timestamp).toBeGreaterThan(update1.timestamp);
-    });
-  });
-
-  describe("Real-time Sync", () => {
-    it("should setup listener subscription", () => {
-      const unsubscribe = vi.fn();
-      expect(unsubscribe).toBeDefined();
-    });
-
-    it("should cleanup subscriptions", () => {
-      const unsubscribe = vi.fn();
-      unsubscribe();
-
-      expect(unsubscribe).toHaveBeenCalled();
-    });
-  });
-
-  describe("Error Handling", () => {
-    it("should handle missing game", () => {
-      const game = null;
-      expect(game).toBeNull();
-    });
-
-    it("should handle invalid player", () => {
-      const playerId = "";
-      expect(playerId).toBeFalsy();
-    });
-
-    it("should handle invalid action", () => {
-      const validActions = ["SET", "LAND", "BAIL", "FORFEIT"];
-      const invalidAction = "INVALID";
-
-      expect(validActions).not.toContain(invalidAction);
-    });
-
-    it("should handle network errors", () => {
-      const error = new Error("Network error");
-      expect(error.message).toBe("Network error");
-    });
-  });
-
-  describe("State Validation", () => {
-    it("should validate turn player", () => {
-      const state = {
-        turnPlayerId: "player-1",
-        players: ["player-1", "player-2"],
-      };
-
-      const isValidTurn = state.players.includes(state.turnPlayerId);
-      expect(isValidTurn).toBe(true);
-    });
-
-    it("should validate letter count", () => {
-      const letters = 3;
-      const isValid = letters >= 0 && letters <= 5;
-
-      expect(isValid).toBe(true);
-    });
-
-    it("should validate phase transition", () => {
-      const validTransitions = {
-        SETTER_RECORDING: ["DEFENDER_ATTEMPTING"],
-        DEFENDER_ATTEMPTING: ["VERIFICATION", "SETTER_RECORDING"],
-        VERIFICATION: ["SETTER_RECORDING"],
-      };
-
-      expect(validTransitions.SETTER_RECORDING).toContain("DEFENDER_ATTEMPTING");
+      expect(onSnapshot).toHaveBeenCalled();
+      expect(unsub).toBe(mockUnsubscribe);
     });
   });
 });

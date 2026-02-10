@@ -26,12 +26,12 @@ export default defineConfig({
         'mobile/**',
       ],
       thresholds: {
-        // Coverage gate enabled at 30%. Target is 60% by Q2 2026.
+        // Coverage gate raised to ~50%. Target is 60% by Q2 2026.
         // Track progress: pnpm vitest run --coverage
-        statements: 30,
-        branches: 20,
-        functions: 30,
-        lines: 30,
+        statements: 50,
+        branches: 43,
+        functions: 55,
+        lines: 50,
       },
     },
     testTimeout: 10000,
