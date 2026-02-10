@@ -2,9 +2,9 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { getDb } from "../db.ts";
-import { customUsers, authSessions } from "../../packages/shared/schema.ts";
+import { customUsers, authSessions } from "../../packages/shared/schema/index";
 import { eq, and, gt } from "drizzle-orm";
-import type { CustomUser, InsertCustomUser, AuthSession } from "../../packages/shared/schema.ts";
+import type { CustomUser, InsertCustomUser, AuthSession } from "../../packages/shared/schema/index";
 import { env } from "../config/env";
 
 /**
