@@ -16,6 +16,11 @@ import { spotsEndpoints } from "./endpoints/spots";
 import { paymentsEndpoints } from "./endpoints/payments";
 import { subscribersEndpoints } from "./endpoints/subscribers";
 import { gameEndpoints } from "./endpoints/game";
+import { profileEndpoints } from "./endpoints/profile";
+import { analyticsEndpoints } from "./endpoints/analytics";
+import { moderationEndpoints } from "./endpoints/moderation";
+import { trickmintEndpoints } from "./endpoints/trickmint";
+import { metricsEndpoints } from "./endpoints/metrics";
 
 /**
  * Complete API documentation structure
@@ -24,6 +29,7 @@ import { gameEndpoints } from "./endpoints/game";
 export const apiDocumentation: APICategory[] = [
   healthEndpoints,
   authEndpoints,
+  profileEndpoints,
   tutorialEndpoints,
   progressEndpoints,
   usersEndpoints,
@@ -33,6 +39,10 @@ export const apiDocumentation: APICategory[] = [
   subscribersEndpoints,
   // AI Chat category removed for MVP
   gameEndpoints,
+  trickmintEndpoints,
+  analyticsEndpoints,
+  moderationEndpoints,
+  metricsEndpoints,
 ];
 
 export { generateHTMLDocs } from "./htmlGenerator";
