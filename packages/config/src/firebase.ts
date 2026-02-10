@@ -91,10 +91,9 @@ export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): Fire
 
 /**
  * Get the expected Firebase App ID for an environment.
- * Used for guardrail validation.
  *
- * Returns the env-var value, or empty string when unset (guardrails that
- * depend on this will skip the check when no expected ID is configured).
+ * Returns the env-var value, or empty string when unset. Callers can use
+ * this helper to implement environment-specific validation or guardrails.
  */
 export function getExpectedAppId(env: AppEnv): string {
   switch (env) {
