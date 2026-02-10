@@ -79,6 +79,18 @@ service firebase.storage {
                    && isValidUploadSize();
     }
 
+    // ---------- Remote S.K.A.T.E. trick videos ----------
+    // Authenticated reads for all logged-in users (MVP: no signed URL infra).
+    // Writes: only to videos/{request.auth.uid}/...
+    // 100MB max, video content types only.
+    // Path: /videos/{uid}/{gameId}/{roundId}/{videoId}.{ext}
+    match /videos/{userId}/{gameId}/{roundId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId)
+                   && isVideo()
+                   && request.resource.size < 100 * 1024 * 1024;
+    }
+
     // ---------- Public assets ----------
     // Static public assets (no writes).
     match /public/{path=**} {
