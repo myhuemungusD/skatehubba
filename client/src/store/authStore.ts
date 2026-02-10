@@ -11,236 +11,28 @@ import {
   sendEmailVerification,
   getIdTokenResult,
   GoogleAuthProvider,
-  type User as FirebaseUser,
 } from "firebase/auth";
 import { auth, db } from "../lib/firebase/config";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { apiRequest } from "../lib/api/client";
-import { isApiError } from "../lib/api/errors";
 import { logger } from "../lib/logger";
 
-export type UserRole = "admin" | "moderator" | "verified_pro";
-export type ProfileStatus = "unknown" | "exists" | "missing";
+import type { AuthState, BootStatus, UserRole } from "./authStore.types";
+export type { UserProfile, UserRole, ProfileStatus } from "./authStore.types";
 
-export type BootStatus = "ok" | "degraded";
-export type BootPhase = "starting" | "auth_ready" | "hydrating" | "finalized";
+import {
+  isEmbeddedBrowser,
+  isPopupSafe,
+  readProfileCache,
+  writeProfileCache,
+  clearProfileCache,
+  withTimeout,
+} from "./authStore.utils";
 
-type Result<T> =
-  | { status: "ok"; data: T }
-  | { status: "error"; error: string }
-  | { status: "timeout"; error: string };
-
-export interface UserProfile {
-  uid: string;
-  username: string;
-  stance: "regular" | "goofy" | null;
-  experienceLevel: "beginner" | "intermediate" | "advanced" | "pro" | null;
-  favoriteTricks: string[];
-  bio: string | null;
-  sponsorFlow?: string | null;
-  sponsorTeam?: string | null;
-  hometownShop?: string | null;
-  spotsVisited: number;
-  crewName: string | null;
-  credibilityScore: number;
-  avatarUrl: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface ProfileCache {
-  status: ProfileStatus;
-  profile: UserProfile | null;
-}
-
-interface AuthState {
-  user: FirebaseUser | null;
-  profile: UserProfile | null;
-  profileStatus: ProfileStatus;
-  roles: UserRole[];
-  loading: boolean;
-  bootStatus: BootStatus;
-  bootPhase: BootPhase;
-  bootDurationMs: number;
-  isInitialized: boolean;
-  error: Error | null;
-
-  initialize: () => Promise<void>;
-  handleRedirectResult: () => Promise<void>;
-
-  signInWithGoogle: () => Promise<void>;
-  signInGoogle: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>;
-  signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  refreshRoles: () => Promise<UserRole[]>;
-  hasRole: (role: UserRole) => boolean;
-  clearError: () => void;
-  setProfile: (profile: UserProfile) => void;
-}
+import { fetchProfile, extractRolesFromToken, authenticateWithBackend } from "./authStore.api";
 
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
-
-const isEmbeddedBrowser = () => {
-  if (typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || navigator.vendor || "";
-  return (
-    ua.includes("FBAN") ||
-    ua.includes("FBAV") ||
-    ua.includes("Instagram") ||
-    ua.includes("Twitter") ||
-    ua.includes("Line/") ||
-    ua.includes("KAKAOTALK") ||
-    ua.includes("Snapchat") ||
-    ua.includes("TikTok") ||
-    (ua.includes("wv") && ua.includes("Android"))
-  );
-};
-
-const isPopupSafe = () => {
-  if (typeof window === "undefined") return false;
-  return !isEmbeddedBrowser();
-};
-
-const profileCacheKey = (uid: string) => `skatehubba.profile.${uid}`;
-
-const readProfileCache = (uid: string): ProfileCache | null => {
-  if (typeof window === "undefined") return null;
-  const raw = sessionStorage.getItem(profileCacheKey(uid));
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as ProfileCache;
-    if (parsed.profile) {
-      return {
-        status: parsed.status,
-        profile: {
-          ...parsed.profile,
-          createdAt: new Date(parsed.profile.createdAt),
-          updatedAt: new Date(parsed.profile.updatedAt),
-        },
-      };
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-};
-
-const writeProfileCache = (uid: string, cache: ProfileCache) => {
-  if (typeof window === "undefined") return;
-  sessionStorage.setItem(profileCacheKey(uid), JSON.stringify(cache));
-};
-
-const clearProfileCache = (uid: string) => {
-  if (typeof window === "undefined") return;
-  sessionStorage.removeItem(profileCacheKey(uid));
-};
-
-const transformProfile = (uid: string, data: Record<string, unknown>): UserProfile => {
-  return {
-    uid,
-    username: String(data.username ?? ""),
-    stance: (data.stance as UserProfile["stance"]) ?? null,
-    experienceLevel: (data.experienceLevel as UserProfile["experienceLevel"]) ?? null,
-    favoriteTricks: Array.isArray(data.favoriteTricks) ? (data.favoriteTricks as string[]) : [],
-    bio: (data.bio as string | null) ?? null,
-    sponsorFlow: (data.sponsorFlow as string | null) ?? null,
-    sponsorTeam: (data.sponsorTeam as string | null) ?? null,
-    hometownShop: (data.hometownShop as string | null) ?? null,
-    spotsVisited: typeof data.spotsVisited === "number" ? data.spotsVisited : 0,
-    crewName: (data.crewName as string | null) ?? null,
-    credibilityScore: typeof data.credibilityScore === "number" ? data.credibilityScore : 0,
-    avatarUrl: (data.avatarUrl as string | null) ?? null,
-    createdAt: typeof data.createdAt === "string" ? new Date(data.createdAt) : new Date(),
-    updatedAt: typeof data.updatedAt === "string" ? new Date(data.updatedAt) : new Date(),
-  };
-};
-
-const fetchProfile = async (uid: string): Promise<UserProfile | null> => {
-  try {
-    const res = await apiRequest<{ profile: Record<string, unknown> }>({
-      method: "GET",
-      path: "/api/profile/me",
-    });
-    return transformProfile(uid, res.profile);
-  } catch (err) {
-    // 404 = no profile yet (new user), not an error worth logging
-    if (isApiError(err) && err.status === 404) {
-      return null;
-    }
-    logger.error("[AuthStore] Failed to fetch profile:", err);
-    return null;
-  }
-};
-
-const extractRolesFromToken = async (firebaseUser: FirebaseUser): Promise<UserRole[]> => {
-  try {
-    const tokenResult = await getIdTokenResult(firebaseUser);
-    return (tokenResult.claims.roles as UserRole[]) || [];
-  } catch (err) {
-    logger.error("[AuthStore] Failed to extract roles:", err);
-    return [];
-  }
-};
-
-async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<Result<T>> {
-  let timeoutId: ReturnType<typeof setTimeout>;
-
-  const timeoutPromise = new Promise<Result<T>>((resolve) => {
-    timeoutId = setTimeout(() => {
-      resolve({ status: "timeout", error: `${label} exceeded ${ms}ms` });
-    }, ms);
-  });
-
-  try {
-    const data = await Promise.race([
-      promise.then((res): Result<T> => ({ status: "ok", data: res })),
-      timeoutPromise,
-    ]);
-    return data;
-  } catch (e) {
-    return { status: "error", error: e instanceof Error ? e.message : String(e) };
-  } finally {
-    clearTimeout(timeoutId!);
-  }
-}
-
-/**
- * Authenticate a Firebase user with the backend server.
- * Creates a database user record (custom_users) and sets up the session cookie.
- * This is essential for all authenticated API calls that use the authenticateUser middleware.
- *
- * Must be called after every successful Firebase auth (login, signup, Google OAuth).
- */
-async function authenticateWithBackend(
-  firebaseUser: FirebaseUser,
-  options?: { firstName?: string; lastName?: string; isRegistration?: boolean }
-): Promise<void> {
-  try {
-    const idToken = await firebaseUser.getIdToken();
-    const displayName = firebaseUser.displayName || "";
-    const [defaultFirst, ...lastParts] = displayName.split(" ");
-
-    await apiRequest({
-      method: "POST",
-      path: "/api/auth/login",
-      body: {
-        firstName: options?.firstName || defaultFirst || "Skater",
-        lastName: options?.lastName || lastParts.join(" ") || "",
-        isRegistration: options?.isRegistration || false,
-      },
-      headers: {
-        Authorization: `Bearer ${idToken}`,
-      },
-    });
-    logger.log("[AuthStore] Backend session created successfully");
-  } catch (error) {
-    logger.error("[AuthStore] Backend authentication failed:", error);
-    // Don't throw - allow degraded mode where Firebase token auth fallback works
-  }
-}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -265,7 +57,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // PHASE 1: Auth (10s Cap)
       set({ bootPhase: "auth_ready" });
 
-      const authPromise = new Promise<FirebaseUser | null>((resolve) => {
+      const authPromise = new Promise<import("firebase/auth").User | null>((resolve) => {
         const unsubscribe = onAuthStateChanged(auth, (user) => {
           unsubscribe();
           resolve(user);
@@ -274,8 +66,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       const authResult = await withTimeout(authPromise, BOOT_TIMEOUT_MS, "auth_check");
       const currentUser = authResult.status === "ok" ? authResult.data : null;
-
-      // No user = not authenticated. Unauthenticated users must sign in.
 
       // PHASE 2: Data (Parallel, 4s Cap)
       if (currentUser) {
@@ -289,8 +79,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           withTimeout(extractRolesFromToken(currentUser), 4000, "fetchRoles"),
         ]);
 
-        const profileRes = results[0] as PromiseSettledResult<Result<UserProfile | null>>;
-        const rolesRes = results[1] as PromiseSettledResult<Result<UserRole[]>>;
+        const profileRes = results[0] as PromiseSettledResult<
+          Awaited<ReturnType<typeof withTimeout<import("./authStore.types").UserProfile | null>>>
+        >;
+        const rolesRes = results[1] as PromiseSettledResult<
+          Awaited<ReturnType<typeof withTimeout<UserRole[]>>>
+        >;
 
         // Handle Profile Result
         if (profileRes.status === "fulfilled" && profileRes.value.status === "ok") {
@@ -316,7 +110,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (rolesRes.status === "fulfilled" && rolesRes.value.status === "ok") {
           set({ roles: rolesRes.value.data, error: null });
         } else {
-          // If roles fetch failed, set error and mark as degraded
           let rolesError = "Failed to fetch roles";
           if (rolesRes.status === "fulfilled" && rolesRes.value.status !== "ok") {
             rolesError = rolesRes.value.error;
@@ -337,17 +130,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
 
       // PHASE 3: Persistent Auth Listener
-      // Subscribe to auth state changes to handle external logout/session expiration
       onAuthStateChanged(auth, async (user) => {
         if (user) {
-          // User signed in or session valid
           set({ user, loading: false });
 
-          // Ensure backend session exists (creates DB user if needed, sets session cookie)
-          // This handles cases like returning users with saved Firebase session
           await withTimeout(authenticateWithBackend(user), 5000, "backend_sync");
 
-          // Fetch profile and roles if not already set
           const currentState = get();
           if (!currentState.profile || currentState.profileStatus === "unknown") {
             const [profileResult, rolesResult] = await Promise.all([
@@ -359,11 +147,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               set({ profile: profileResult.data, profileStatus: "exists" });
               writeProfileCache(user.uid, { status: "exists", profile: profileResult.data });
             } else if (profileResult.status === "ok" && !profileResult.data) {
-              // Profile fetch succeeded but no profile exists (new user)
               set({ profile: null, profileStatus: "missing" });
               writeProfileCache(user.uid, { status: "missing", profile: null });
             } else {
-              // Profile fetch failed — fall back to cache
               const cached = readProfileCache(user.uid);
               if (cached) {
                 set({ profile: cached.profile, profileStatus: cached.status });
@@ -375,7 +161,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
           }
         } else {
-          // User signed out or session expired
           const currentUid = get().user?.uid;
           set({
             user: null,
@@ -411,7 +196,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const result = await getRedirectResult(auth);
       if (result?.user) {
         sessionStorage.removeItem("googleRedirectPending");
-        // Create backend session for Google redirect auth
         await authenticateWithBackend(result.user);
       }
     } catch (err: unknown) {
@@ -476,7 +260,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
-      // Create backend session + DB user record
       await authenticateWithBackend(result.user);
     } catch (err: unknown) {
       logger.error("[AuthStore] Email sign-in error:", err);
@@ -491,13 +274,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
-      // Parse name into first/last for backend
       const parts = (name ?? "").trim().split(/\s+/);
       const firstName = parts[0] || undefined;
       const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
-      // Create backend session + DB user record for new account
       await authenticateWithBackend(result.user, { firstName, lastName, isRegistration: true });
-      // Create Firestore users/{uid} document (non-blocking - backend is source of truth)
       try {
         await setDoc(doc(db, "users", result.user.uid), {
           uid: result.user.uid,
@@ -509,7 +289,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch (firestoreErr) {
         logger.error("[AuthStore] Failed to create Firestore user doc:", firestoreErr);
       }
-      // Send Firebase verification email (non-blocking - don't fail signup if this errors)
       try {
         await sendEmailVerification(result.user);
         logger.log("[AuthStore] Verification email sent to", email);
@@ -529,14 +308,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
     try {
       const currentUid = get().user?.uid;
-      // Clear backend session cookie
       try {
         await apiRequest({
           method: "POST",
           path: "/api/auth/logout",
         });
       } catch {
-        // Ignore backend logout errors - still proceed with client-side sign out
+        // Ignore backend logout errors
       }
       await firebaseSignOut(auth);
       set({
@@ -596,7 +374,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  setProfile: (profile: UserProfile) => {
+  setProfile: (profile) => {
     set({
       profile,
       profileStatus: "exists",
