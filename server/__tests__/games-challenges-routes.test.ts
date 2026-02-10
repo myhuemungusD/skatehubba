@@ -228,7 +228,7 @@ describe("Game Challenge Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Cannot challenge yourself" })
+        expect.objectContaining({ error: "SELF_CHALLENGE", message: "Cannot challenge yourself." })
       );
     });
 
@@ -242,7 +242,7 @@ describe("Game Challenge Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Opponent not found" })
+        expect.objectContaining({ error: "OPPONENT_NOT_FOUND", message: "Opponent not found." })
       );
     });
 
@@ -253,7 +253,7 @@ describe("Game Challenge Routes", () => {
       await callRoute("POST", "/create", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
     it("returns 503 when database is unavailable", async () => {
@@ -265,7 +265,7 @@ describe("Game Challenge Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Database unavailable" })
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE", message: "Database unavailable. Please try again shortly." })
       );
     });
   });
@@ -365,7 +365,7 @@ describe("Game Challenge Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Only the challenged player can respond" })
+        expect.objectContaining({ error: "NOT_CHALLENGED_PLAYER", message: "Only the challenged player can respond." })
       );
     });
 
@@ -390,7 +390,7 @@ describe("Game Challenge Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Game is not pending" })
+        expect.objectContaining({ error: "GAME_NOT_PENDING", message: "Game is not pending." })
       );
     });
 
@@ -406,7 +406,7 @@ describe("Game Challenge Routes", () => {
       await callRoute("POST", "/:id/respond", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Game not found" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "GAME_NOT_FOUND", message: "Game not found." }));
     });
 
     it("returns 503 when database is unavailable", async () => {
@@ -432,7 +432,7 @@ describe("Game Challenge Routes", () => {
       await callRoute("POST", "/:id/respond", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
   });
 });

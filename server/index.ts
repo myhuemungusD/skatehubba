@@ -16,6 +16,7 @@ import { requestTracing } from "./middleware/requestTracing.ts";
 import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
 import { initializeDatabase } from "./db.ts";
 import { getRedisClient, shutdownRedis } from "./redis.ts";
+import { DEV_ORIGINS, BODY_PARSE_LIMIT, SERVER_PORT } from "./config/server.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,9 +55,8 @@ const corsOptions = {
     callback: (err: Error | null, allow?: boolean) => void
   ) {
     const allowed = process.env.ALLOWED_ORIGINS?.split(",") || [];
-    const devOrigins = ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
     const allAllowed =
-      process.env.NODE_ENV === "production" ? allowed : [...allowed, ...devOrigins];
+      process.env.NODE_ENV === "production" ? allowed : [...allowed, ...DEV_ORIGINS];
     // Allow requests with no origin (mobile apps, server-to-server) or matching allowed domains
     if (!origin || allAllowed.indexOf(origin) !== -1) {
       callback(null, true);
@@ -75,8 +75,8 @@ app.use(compression());
 app.use("/webhooks/stripe", express.raw({ type: "application/json" }));
 
 // Body parsing (before CSRF to enable JSON/form requests)
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: BODY_PARSE_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: BODY_PARSE_LIMIT }));
 
 // Cookie parsing - MUST come before CSRF token creation
 // lgtm[js/missing-token-validation] - CSRF protection is implemented via ensureCsrfToken/requireCsrfToken below
@@ -174,7 +174,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Start server
-const port = parseInt(process.env.PORT || "3001", 10);
+const port = SERVER_PORT;
 server.listen(port, "0.0.0.0", () => {
   const mode = process.env.NODE_ENV || "development";
   if (mode === "development") {

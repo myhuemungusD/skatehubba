@@ -10,6 +10,7 @@ import { games, customUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
+import { Errors } from "../utils/apiError";
 import {
   createGameSchema,
   respondGameSchema,
@@ -25,19 +26,19 @@ const router = Router();
 
 router.post("/create", authenticateUser, async (req, res) => {
   if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
+    return Errors.dbUnavailable(res);
   }
 
   const parsed = createGameSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return Errors.validation(res, parsed.error.flatten());
   }
 
   const currentUserId = req.currentUser!.id;
   const { opponentId } = parsed.data;
 
   if (currentUserId === opponentId) {
-    return res.status(400).json({ error: "Cannot challenge yourself" });
+    return Errors.badRequest(res, "SELF_CHALLENGE", "Cannot challenge yourself.");
   }
 
   try {
@@ -50,7 +51,7 @@ router.post("/create", authenticateUser, async (req, res) => {
       .limit(1);
 
     if (opponent.length === 0) {
-      return res.status(404).json({ error: "Opponent not found" });
+      return Errors.notFound(res, "OPPONENT_NOT_FOUND", "Opponent not found.");
     }
 
     const [player1Name, player2Name] = await Promise.all([
@@ -94,7 +95,7 @@ router.post("/create", authenticateUser, async (req, res) => {
       error,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to create game" });
+    Errors.internal(res, "GAME_CREATE_FAILED", "Failed to create game.");
   }
 });
 
@@ -104,12 +105,12 @@ router.post("/create", authenticateUser, async (req, res) => {
 
 router.post("/:id/respond", authenticateUser, async (req, res) => {
   if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
+    return Errors.dbUnavailable(res);
   }
 
   const parsed = respondGameSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return Errors.validation(res, parsed.error.flatten());
   }
 
   const currentUserId = req.currentUser!.id;
@@ -120,12 +121,12 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
     const db = getDb();
     const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
 
-    if (!game) return res.status(404).json({ error: "Game not found" });
+    if (!game) return Errors.notFound(res, "GAME_NOT_FOUND", "Game not found.");
     if (game.player2Id !== currentUserId) {
-      return res.status(403).json({ error: "Only the challenged player can respond" });
+      return Errors.forbidden(res, "NOT_CHALLENGED_PLAYER", "Only the challenged player can respond.");
     }
     if (game.status !== "pending") {
-      return res.status(400).json({ error: "Game is not pending" });
+      return Errors.badRequest(res, "GAME_NOT_PENDING", "Game is not pending.");
     }
 
     const now = new Date();
@@ -175,7 +176,7 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to respond to game" });
+    Errors.internal(res, "GAME_RESPOND_FAILED", "Failed to respond to game.");
   }
 });
 

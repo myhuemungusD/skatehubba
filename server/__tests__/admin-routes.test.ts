@@ -234,7 +234,7 @@ describe("Admin Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "database_not_available" })
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE", message: "Database unavailable. Please try again shortly." })
       );
     });
   });
@@ -319,7 +319,7 @@ describe("Admin Routes", () => {
       await callRoute("PATCH", "/users/:userId/trust-level", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "User not found" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "USER_NOT_FOUND", message: "User not found." }));
     });
 
     it("returns 503 when database is unavailable", async () => {
@@ -386,7 +386,7 @@ describe("Admin Routes", () => {
       await callRoute("PATCH", "/reports/:reportId/status", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Report not found" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "REPORT_NOT_FOUND", message: "Report not found." }));
     });
 
     it("returns 503 when database is unavailable", async () => {
@@ -519,7 +519,7 @@ describe("Admin Routes", () => {
       await callRoute("PATCH", "/users/:userId/tier", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "User not found" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "USER_NOT_FOUND", message: "User not found." }));
     });
 
     it("returns 503 when database is unavailable", async () => {

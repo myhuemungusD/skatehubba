@@ -10,11 +10,12 @@ import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/fi
 import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
 import { createProfileWithRollback, createUsernameStore } from "../services/profileService";
 import logger from "../logger";
+import { MAX_AVATAR_BYTES, MAX_USERNAME_GENERATION_ATTEMPTS } from "../config/constants";
+import { Errors } from "../utils/apiError";
 
 const router = Router();
 
 const avatarAlphabet = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 8);
-const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 const allowedMimeTypes = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
 interface StorageFile {
@@ -39,8 +40,8 @@ router.get("/me", requireFirebaseUid, async (req, res) => {
 
   if (!isDatabaseAvailable()) {
     return res.status(503).json({
-      error: "database_unavailable",
-      message: "Database unavailable. Please try again shortly.",
+      code: "database_unavailable",
+      message: "Database is temporarily unavailable. Please try again.",
     });
   }
 
@@ -53,7 +54,7 @@ router.get("/me", requireFirebaseUid, async (req, res) => {
       .limit(1);
 
     if (!profile) {
-      return res.status(404).json({ error: "profile_not_found" });
+      return Errors.notFound(res, "PROFILE_NOT_FOUND", "Profile not found.");
     }
 
     return res.json({
@@ -64,30 +65,20 @@ router.get("/me", requireFirebaseUid, async (req, res) => {
       },
     });
   } catch {
-    return res.status(500).json({
-      error: "profile_fetch_failed",
-      message: "Failed to load profile. Please try again.",
-    });
+    return Errors.internal(res, "PROFILE_FETCH_FAILED", "Failed to load profile. Please try again.");
   }
 });
 
 router.get("/username-check", usernameCheckLimiter, async (req, res) => {
   if (!isDatabaseAvailable()) {
-    return res.status(503).json({
-      error: "database_unavailable",
-      message: "Database unavailable. Please try again shortly.",
-    });
+    return Errors.dbUnavailable(res);
   }
 
   const raw = Array.isArray(req.query.username) ? req.query.username[0] : req.query.username;
   const parsed = usernameSchema.safeParse(raw);
 
   if (!parsed.success) {
-    return res.status(400).json({
-      error: "invalid_username",
-      message: "Username format is invalid.",
-      field: "username",
-    });
+    return Errors.badRequest(res, "invalid_username", "Username format is invalid.", { field: "username" });
   }
 
   try {
@@ -98,29 +89,19 @@ router.get("/username-check", usernameCheckLimiter, async (req, res) => {
     return res.json({ available });
   } catch (error) {
     logger.error("Username availability check failed", { error });
-    return res.status(503).json({
-      error: "database_unavailable",
-      message: "Could not check username availability. Please try again shortly.",
-    });
+    return Errors.unavailable(res, "DATABASE_UNAVAILABLE", "Could not check username availability. Please try again shortly.");
   }
 });
 
 router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res) => {
   const { firebaseUid } = req as FirebaseAuthedRequest;
   if (!isDatabaseAvailable()) {
-    return res.status(503).json({
-      error: "database_unavailable",
-      message: "Database unavailable. Please try again shortly.",
-    });
+    return Errors.dbUnavailable(res);
   }
 
   const parsed = profileCreateSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({
-      error: "invalid_payload",
-      message: "Invalid profile data.",
-      issues: parsed.error.flatten(),
-    });
+    return Errors.validation(res, parsed.error.flatten(), "INVALID_PAYLOAD", "Invalid profile data.");
   }
 
   const uid = firebaseUid;
@@ -138,11 +119,7 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
     if (existingProfile.username) {
       const ensured = await usernameStore.ensure(uid, existingProfile.username);
       if (!ensured) {
-        return res.status(409).json({
-          error: "username_taken",
-          message: "That username is already taken.",
-          field: "username",
-        });
+        return Errors.conflict(res, "username_taken", "That username is already taken.", { field: "username" });
       }
     }
     return res.status(200).json({
@@ -157,18 +134,14 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
   const shouldSkip = parsed.data.skip === true;
   const requestedUsername = parsed.data.username;
   if (!requestedUsername && !shouldSkip) {
-    return res.status(400).json({
-      error: "username_required",
-      message: "Username is required unless you skip.",
-      field: "username",
-    });
+    return Errors.badRequest(res, "USERNAME_REQUIRED", "Username is required unless you skip.", { field: "username" });
   }
 
   let reservedUsername = requestedUsername ?? "";
   let reserved = false;
 
   if (shouldSkip) {
-    for (let attempt = 0; attempt < 5; attempt += 1) {
+    for (let attempt = 0; attempt < MAX_USERNAME_GENERATION_ATTEMPTS; attempt += 1) {
       const candidate = generateUsername();
       const ok = await usernameStore.reserve(uid, candidate);
       if (ok) {
@@ -183,11 +156,7 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
   }
 
   if (!reserved) {
-    return res.status(409).json({
-      error: "username_taken",
-      message: "That username is already taken.",
-      field: "username",
-    });
+    return Errors.conflict(res, "USERNAME_TAKEN", "That username is already taken.", { field: "username" });
   }
 
   let avatarUrl: string | null = null;
@@ -198,29 +167,17 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
       const parsedAvatar = parseAvatarDataUrl(req.body.avatarBase64);
       if (!parsedAvatar) {
         await usernameStore.release(uid);
-        return res.status(400).json({
-          error: "invalid_avatar_format",
-          message: "Avatar format is invalid.",
-          field: "avatarBase64",
-        });
+        return Errors.badRequest(res, "INVALID_AVATAR_FORMAT", "Avatar format is invalid.", { field: "avatarBase64" });
       }
 
       if (!allowedMimeTypes.has(parsedAvatar.contentType)) {
         await usernameStore.release(uid);
-        return res.status(400).json({
-          error: "invalid_avatar_type",
-          message: "Avatar type is not supported.",
-          field: "avatarBase64",
-        });
+        return Errors.badRequest(res, "INVALID_AVATAR_TYPE", "Avatar type is not supported.", { field: "avatarBase64" });
       }
 
       if (parsedAvatar.buffer.byteLength > MAX_AVATAR_BYTES) {
         await usernameStore.release(uid);
-        return res.status(413).json({
-          error: "avatar_too_large",
-          message: "Avatar file is too large.",
-          field: "avatarBase64",
-        });
+        return Errors.tooLarge(res, "AVATAR_TOO_LARGE", "Avatar file is too large.");
       }
 
       // Firebase Storage for file uploads (not a database — kept intentionally)
@@ -282,10 +239,7 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
       await uploadedFile.delete({ ignoreNotFound: true });
     }
     await usernameStore.release(uid);
-    return res.status(500).json({
-      error: "profile_create_failed",
-      message: "Failed to create profile. Please try again.",
-    });
+    return Errors.internal(res, "PROFILE_CREATE_FAILED", "Failed to create profile. Please try again.");
   }
 });
 

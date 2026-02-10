@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { getDb, getUserDisplayName as getUserDisplayNameFromDb } from "../db";
+import { SKATE_LETTERS_TO_LOSE } from "../config/constants";
 
 // ============================================================================
 // Constants
@@ -61,7 +62,7 @@ export function isGameOver(
   player1Letters: string,
   player2Letters: string
 ): { over: boolean; loserId: "player1" | "player2" | null } {
-  if (player1Letters.length >= 5) return { over: true, loserId: "player1" };
-  if (player2Letters.length >= 5) return { over: true, loserId: "player2" };
+  if (player1Letters.length >= SKATE_LETTERS_TO_LOSE) return { over: true, loserId: "player1" };
+  if (player2Letters.length >= SKATE_LETTERS_TO_LOSE) return { over: true, loserId: "player2" };
   return { over: false, loserId: null };
 }

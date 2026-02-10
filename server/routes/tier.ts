@@ -6,6 +6,8 @@ import { requirePaidOrPro } from "../middleware/requirePaidOrPro";
 import { customUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
+import { DEV_DEFAULT_ORIGIN } from "../config/server";
+import { Errors, sendError } from "../utils/apiError";
 
 const router = Router();
 
@@ -33,18 +35,18 @@ const awardProSchema = z.object({
 router.post("/award-pro", authenticateUser, requirePaidOrPro, async (req, res) => {
   const parsed = awardProSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return Errors.validation(res, parsed.error.flatten());
   }
 
   const { userId } = parsed.data;
   const awarder = req.currentUser!;
 
   if (userId === awarder.id) {
-    return res.status(400).json({ error: "You can't award Pro to yourself" });
+    return Errors.badRequest(res, "SELF_AWARD", "You can't award Pro to yourself.");
   }
 
   if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Service unavailable" });
+    return Errors.dbUnavailable(res);
   }
 
   try {
@@ -62,14 +64,11 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, async (req, res) =
       .limit(1);
 
     if (!targetUser) {
-      return res.status(404).json({ error: "User not found" });
+      return Errors.notFound(res, "USER_NOT_FOUND", "User not found.");
     }
 
     if (targetUser.accountTier !== "free") {
-      return res.status(409).json({
-        error: "User already has Pro or Premium status",
-        currentTier: targetUser.accountTier,
-      });
+      return Errors.conflict(res, "ALREADY_UPGRADED", "User already has Pro or Premium status.", { currentTier: targetUser.accountTier });
     }
 
     // Award Pro status
@@ -97,7 +96,7 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, async (req, res) =
     logger.error("Failed to award Pro status", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return res.status(500).json({ error: "Failed to award Pro status" });
+    return Errors.internal(res, "PRO_AWARD_FAILED", "Failed to award Pro status.");
   }
 });
 
@@ -114,21 +113,21 @@ const createCheckoutSchema = z.object({
 router.post("/create-checkout-session", authenticateUser, async (req, res) => {
   const parsed = createCheckoutSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return Errors.validation(res, parsed.error.flatten());
   }
 
   const user = req.currentUser!;
   const { idempotencyKey } = parsed.data;
 
   if (user.accountTier === "premium") {
-    return res.status(409).json({ error: "You already have Premium", currentTier: "premium" });
+    return Errors.conflict(res, "ALREADY_PREMIUM", "You already have Premium.", { currentTier: "premium" });
   }
 
   try {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeSecretKey) {
       logger.error("STRIPE_SECRET_KEY not configured");
-      return res.status(500).json({ error: "Payment service not available" });
+      return Errors.internal(res, "PAYMENT_NOT_CONFIGURED", "Payment service not available.");
     }
 
     const Stripe = await import("stripe").then((m) => m.default);
@@ -143,7 +142,7 @@ router.post("/create-checkout-session", authenticateUser, async (req, res) => {
         // malformed referer — ignore
       }
     }
-    if (!origin) origin = "http://localhost:5173";
+    if (!origin) origin = DEV_DEFAULT_ORIGIN;
 
     const session = await stripe.checkout.sessions.create(
       {
@@ -185,7 +184,7 @@ router.post("/create-checkout-session", authenticateUser, async (req, res) => {
     logger.error("Failed to create checkout session", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return res.status(500).json({ error: "Failed to create checkout session" });
+    return Errors.internal(res, "CHECKOUT_FAILED", "Failed to create checkout session.");
   }
 });
 
@@ -202,21 +201,18 @@ const purchasePremiumSchema = z.object({
 router.post("/purchase-premium", authenticateUser, async (req, res) => {
   const parsed = purchasePremiumSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return Errors.validation(res, parsed.error.flatten());
   }
 
   const user = req.currentUser!;
   const { paymentIntentId } = parsed.data;
 
   if (user.accountTier === "premium") {
-    return res.status(409).json({
-      error: "You already have Premium",
-      currentTier: "premium",
-    });
+    return Errors.conflict(res, "ALREADY_PREMIUM", "You already have Premium.", { currentTier: "premium" });
   }
 
   if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Service unavailable" });
+    return Errors.dbUnavailable(res);
   }
 
   try {
@@ -224,7 +220,7 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeSecretKey) {
       logger.error("STRIPE_SECRET_KEY not configured");
-      return res.status(500).json({ error: "Payment verification not available" });
+      return Errors.internal(res, "PAYMENT_NOT_CONFIGURED", "Payment verification not available.");
     }
 
     // Dynamic import for stripe to avoid hard dependency
@@ -236,10 +232,7 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
 
       // Verify payment succeeded and amount is correct ($9.99 = 999 cents)
       if (intent.status !== "succeeded") {
-        return res.status(402).json({
-          error: "Payment not completed",
-          status: intent.status,
-        });
+        return sendError(res, 402, "PAYMENT_NOT_COMPLETED", "Payment not completed.", { status: intent.status });
       }
 
       if (intent.amount !== 999) {
@@ -249,7 +242,7 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
           received: intent.amount,
           paymentIntentId,
         });
-        return res.status(402).json({ error: "Payment amount invalid" });
+        return sendError(res, 402, "PAYMENT_AMOUNT_INVALID", "Payment amount invalid.");
       }
 
       // Optional: Verify this payment hasn't been used before
@@ -260,7 +253,7 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
         paymentIntentId,
         error: stripeError instanceof Error ? stripeError.message : String(stripeError),
       });
-      return res.status(402).json({ error: "Payment verification failed" });
+      return sendError(res, 402, "PAYMENT_VERIFICATION_FAILED", "Payment verification failed.");
     }
 
     const db = getDb();
@@ -288,7 +281,7 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
     logger.error("Failed to process premium purchase", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return res.status(500).json({ error: "Failed to process purchase" });
+    return Errors.internal(res, "PURCHASE_FAILED", "Failed to process purchase.");
   }
 });
 

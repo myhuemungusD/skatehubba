@@ -37,6 +37,13 @@ import type {
   InterServerEvents,
   SocketData,
 } from "./types";
+import {
+  SOCKET_PING_TIMEOUT_MS,
+  SOCKET_PING_INTERVAL_MS,
+  SOCKET_UPGRADE_TIMEOUT_MS,
+  SOCKET_MAX_HTTP_BUFFER_SIZE,
+  SOCKET_MAX_DISCONNECTION_DURATION_MS,
+} from "../config/constants";
 
 // Re-export types for convenience
 export type { ClientToServerEvents, ServerToClientEvents, SocketData } from "./types";
@@ -61,15 +68,15 @@ export function initializeSocketServer(
       // Transport options
       transports: ["websocket", "polling"],
       // Ping settings for connection health
-      pingTimeout: 20000,
-      pingInterval: 25000,
+      pingTimeout: SOCKET_PING_TIMEOUT_MS,
+      pingInterval: SOCKET_PING_INTERVAL_MS,
       // Upgrade timeout
-      upgradeTimeout: 10000,
-      // Max HTTP buffer size (1MB)
-      maxHttpBufferSize: 1e6,
+      upgradeTimeout: SOCKET_UPGRADE_TIMEOUT_MS,
+      // Max HTTP buffer size
+      maxHttpBufferSize: SOCKET_MAX_HTTP_BUFFER_SIZE,
       // Connection state recovery (for reconnections)
       connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
+        maxDisconnectionDuration: SOCKET_MAX_DISCONNECTION_DURATION_MS,
         skipMiddlewares: false,
       },
     }
