@@ -39,6 +39,7 @@ import { tierRouter } from "./routes/tier";
 import { stripeWebhookRouter } from "./routes/stripeWebhook";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
 import { notificationsRouter } from "./routes/notifications";
+import { remoteSkateRouter } from "./routes/remoteSkate";
 import logger from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -74,6 +75,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 3g. Notification Routes (push token, preferences, feed)
   app.use("/api/notifications", notificationsRouter);
+
+  // 3h. Remote S.K.A.T.E. Routes (Firestore-based video battles)
+  app.use("/api/remote-skate", remoteSkateRouter);
 
   // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
