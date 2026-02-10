@@ -119,7 +119,7 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
     if (existingProfile.username) {
       const ensured = await usernameStore.ensure(uid, existingProfile.username);
       if (!ensured) {
-        return Errors.conflict(res, "USERNAME_TAKEN", "That username is already taken.", { field: "username" });
+        return Errors.conflict(res, "username_taken", "That username is already taken.", { field: "username" });
       }
     }
     return res.status(200).json({
