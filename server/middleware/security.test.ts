@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
 import {
-  securityMiddleware,
   validateHoneypot,
   validateEmail,
   validateUserAgent,
@@ -30,14 +29,6 @@ function createMockReqRes(
   const next = vi.fn();
   return { req, res, next, statusFn, jsonFn };
 }
-
-describe("securityMiddleware", () => {
-  it("passes through for all requests", () => {
-    const { req, res, next } = createMockReqRes();
-    securityMiddleware(req, res, next);
-    expect(next).toHaveBeenCalled();
-  });
-});
 
 describe("validateHoneypot", () => {
   it("allows requests without honeypot field", () => {

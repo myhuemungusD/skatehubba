@@ -2,7 +2,7 @@
  * Firebase Cloud Functions
  *
  * Secure serverless functions for SkateHubba.
- * Handles role management, profile creation, and S.K.A.T.E. game logic.
+ * Handles role management and S.K.A.T.E. game logic.
  *
  * Security Features:
  * - App Check enforcement for abuse prevention
@@ -21,7 +21,6 @@ import * as os from "os";
 import * as fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
-// Bounties feature archived - see archive/functions-src/bounties/
 
 const SKATE_LETTERS = ["S", "K", "A", "T", "E"] as const;
 
@@ -40,24 +39,6 @@ ffmpeg.setFfprobePath(ffprobeInstaller.path);
 // Valid roles that can be assigned
 const VALID_ROLES = ["admin", "moderator", "verified_pro"] as const;
 type ValidRole = (typeof VALID_ROLES)[number];
-
-// ============================================================================
-// Profile Creation Schema
-// ============================================================================
-
-const VALID_STANCES = ["regular", "goofy"] as const;
-const VALID_EXPERIENCE_LEVELS = ["beginner", "intermediate", "advanced", "pro"] as const;
-
-interface ProfileCreatePayload {
-  username?: string;
-  stance?: (typeof VALID_STANCES)[number] | null;
-  experienceLevel?: (typeof VALID_EXPERIENCE_LEVELS)[number] | null;
-  favoriteTricks?: string[];
-  bio?: string | null;
-  crewName?: string | null;
-  avatarBase64?: string;
-  skip?: boolean;
-}
 
 // ============================================================================
 // Rate Limiting (In-Memory for single instance, use Redis for multi-instance)
@@ -299,25 +280,6 @@ export const getUserRoles = functions.https.onCall(
     } catch (error: unknown) {
       throw new functions.https.HttpsError("not-found", "User not found.");
     }
-  }
-);
-
-// ============================================================================
-// Profile Creation (Deprecated - handled by REST API)
-// ============================================================================
-
-/**
- * createProfile
- *
- * @deprecated Profile creation is now handled by the REST API.
- * This callable function exists only to provide a helpful error message.
- */
-export const createProfile = functions.https.onCall(
-  async (_data: ProfileCreatePayload, _context: functions.https.CallableContext) => {
-    throw new functions.https.HttpsError(
-      "failed-precondition",
-      "Profile creation is handled by the REST API. Use POST /api/profile/create."
-    );
   }
 );
 
