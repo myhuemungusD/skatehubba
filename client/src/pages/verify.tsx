@@ -43,7 +43,7 @@ export default function VerifyPage() {
       } else {
         toast({
           title: "Failed to send email",
-          description: firebaseError.message,
+          description: firebaseError.message || "An unexpected error occurred. Please try again.",
           variant: "destructive",
         });
       }

@@ -52,6 +52,10 @@ export async function setupVite(app: Express, server: Server) {
     throw new Error("Vite module not loaded");
   }
 
+  if (!reactPlugin) {
+    throw new Error("React plugin not loaded");
+  }
+
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
@@ -60,7 +64,7 @@ export async function setupVite(app: Express, server: Server) {
 
   const vite = await viteModule.createServer({
     ...viteConfig,
-    plugins: [reactPlugin!()],
+    plugins: [reactPlugin()],
     configFile: false,
     customLogger: viteLogger
       ? {
