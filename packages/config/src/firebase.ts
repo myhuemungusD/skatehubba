@@ -27,105 +27,83 @@ export interface GetFirebaseConfigOptions {
 }
 
 /**
- * Production config
+ * Required Firebase environment variables.
  *
- * Note on security model:
+ * Security model:
  * - Firebase Web API keys are not traditional secrets; security is enforced via
  *   Firebase Security Rules and authorized domains (see AUTHORIZED_DOMAINS below).
- * - We still avoid committing real project keys to source control and instead read
- *   them from environment variables, so keys can be rotated without code changes.
+ * - We still read all values from environment variables so credentials can be
+ *   rotated without code changes and are never committed to source control.
  *
- * EXPO_PUBLIC_FIREBASE_API_KEY_PROD must be configured in the deployment
- * environment. A non-sensitive placeholder is used as a last-resort fallback
- * for misconfigured local environments only.
+ * All EXPO_PUBLIC_FIREBASE_* vars must be configured in the deployment
+ * environment. The app will throw at startup if they are missing.
  */
-const PRODUCTION_CONFIG: FirebaseConfig = {
-  apiKey: "AIzaSyD6kLt4GKV4adX-oQ3m_aXIpL6GXBP0xZw",
-  authDomain: "sk8hub-d7806.firebaseapp.com",
-  projectId: "sk8hub-d7806",
-  storageBucket: "sk8hub-d7806.firebasestorage.app",
-  messagingSenderId: "665573979824",
-  appId: "1:665573979824:web:731aaae46daea5efee2d75", // prod web app
-  measurementId: "G-7XVNF1LHZW",
-};
+const REQUIRED_FIREBASE_VARS = [
+  "EXPO_PUBLIC_FIREBASE_API_KEY",
+  "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
+  "EXPO_PUBLIC_FIREBASE_APP_ID",
+] as const;
 
-/**
- * Staging config (create a separate Firebase Web App in the same project)
- *
- * To set this up:
- * 1. Go to Firebase Console > Project Settings > Your Apps
- * 2. Click "Add app" > Web
- * 3. Name it "skatehubba-web-staging"
- * 4. Copy the appId here
- */
-const STAGING_CONFIG: FirebaseConfig = {
-  ...PRODUCTION_CONFIG,
-  // Override with staging-specific appId when created in Firebase Console
-  // appId: '1:665573979824:web:STAGING_APP_ID_HERE',
-};
+function buildConfigFromEnv(): FirebaseConfig | null {
+  const apiKey = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_API_KEY");
+  const projectId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_PROJECT_ID");
+  const appId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID");
 
-/**
- * Get Firebase config for the current environment
- *
- * Uses env vars if available, falls back to hardcoded config
- */
-export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): FirebaseConfig {
-  const env = getAppEnv();
+  if (!apiKey || !projectId || !appId) return null;
 
-  // Try to read from env vars first (allows override)
-  const envConfig: FirebaseConfig | null = (() => {
-    const apiKey = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_API_KEY");
-    const projectId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_PROJECT_ID");
-
-    if (!apiKey || !projectId) return null;
-
-    return {
-      apiKey,
-      authDomain:
-        getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN") || `${projectId}.firebaseapp.com`,
-      projectId,
-      storageBucket:
-        getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET") ||
-        `${projectId}.firebasestorage.app`,
-      messagingSenderId:
-        getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID") ||
-        PRODUCTION_CONFIG.messagingSenderId,
-      appId: getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID") || PRODUCTION_CONFIG.appId,
-      measurementId: getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"),
-    };
-  })();
-
-  if (envConfig) {
-    console.log(`[Firebase] Using env-provided config for ${env}`);
-    return envConfig;
-  }
-
-  // Fall back to hardcoded config based on environment
-  switch (env) {
-    case "prod":
-      console.warn("[Firebase] Missing env config; using hardcoded prod config");
-      return PRODUCTION_CONFIG;
-    case "staging":
-      console.warn("[Firebase] Missing env config; using hardcoded staging config");
-      return STAGING_CONFIG;
-    default:
-      console.log("[Firebase] Using hardcoded config for local dev");
-      return PRODUCTION_CONFIG; // Local dev uses prod Firebase (namespaced data)
-  }
+  return {
+    apiKey,
+    authDomain:
+      getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN") || `${projectId}.firebaseapp.com`,
+    projectId,
+    storageBucket:
+      getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET") ||
+      `${projectId}.firebasestorage.app`,
+    messagingSenderId: getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID") || "",
+    appId,
+    measurementId: getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"),
+  };
 }
 
 /**
- * Get the expected Firebase App ID for an environment
- * Used for guardrail validation
+ * Get Firebase config for the current environment.
+ *
+ * All values are read from environment variables. If the required variables
+ * (API key, project ID, app ID) are missing the function throws so that
+ * misconfigurations are caught immediately rather than silently falling back
+ * to stale hardcoded credentials.
+ */
+export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): FirebaseConfig {
+  const env = getAppEnv();
+  const config = buildConfigFromEnv();
+
+  if (config) {
+    console.log(`[Firebase] Using env-provided config for ${env}`);
+    return config;
+  }
+
+  const missing = REQUIRED_FIREBASE_VARS.filter((v) => !getPublicEnvOptional(v));
+  throw new Error(
+    `[Firebase] Missing required environment variables: ${missing.join(", ")}. ` +
+      `Set these in your .env file or deployment environment. See .env.example for reference.`
+  );
+}
+
+/**
+ * Get the expected Firebase App ID for an environment.
+ * Used for guardrail validation.
+ *
+ * Returns the env-var value, or empty string when unset (guardrails that
+ * depend on this will skip the check when no expected ID is configured).
  */
 export function getExpectedAppId(env: AppEnv): string {
   switch (env) {
     case "prod":
-      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_PROD") || PRODUCTION_CONFIG.appId;
+      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_PROD") || "";
     case "staging":
-      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_STAGING") || STAGING_CONFIG.appId;
+      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_STAGING") || "";
     default:
-      return PRODUCTION_CONFIG.appId;
+      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID") || "";
   }
 }
 
