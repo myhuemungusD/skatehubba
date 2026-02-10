@@ -10,7 +10,7 @@ import { useToast } from "../../hooks/use-toast";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Progress } from "../../components/ui/progress";
-import { usernameSchema } from "@shared/schema";
+import { usernameSchema } from "@shared/validation/profile";
 import { apiRequest, buildApiUrl } from "../../lib/api/client";
 import { getUserFriendlyMessage, isApiError } from "../../lib/api/errors";
 import { logger } from "../../lib/logger";
@@ -193,7 +193,7 @@ export default function ProfileSetup() {
           usernameWarnedRef.current = true;
         }
         setUsernameStatus("unverified");
-        setUsernameMessage("Could not verify username. We'll check on submit.");
+        setUsernameMessage("Couldn't check availability right now. We'll verify when you submit.");
       }
     }, 500);
 
@@ -230,9 +230,9 @@ export default function ProfileSetup() {
     }
     if (usernameStatus === "unverified") {
       return (
-        <span className="inline-flex items-center gap-1 text-sm text-yellow-300">
+        <span className="inline-flex items-center gap-1 text-sm text-neutral-400">
           <AlertTriangle className="h-4 w-4" />
-          Unverified
+          Check failed
         </span>
       );
     }
@@ -339,6 +339,10 @@ export default function ProfileSetup() {
             setSubmitError("Please sign in again to continue.");
           } else if (errorCode === "rate_limited" || error.code === "RATE_LIMIT") {
             setSubmitError("You're moving fast. Take a breather and try again.");
+          } else if (errorCode === "database_unavailable") {
+            setSubmitError("Our servers are temporarily unavailable. Please try again shortly.");
+          } else if (errorCode === "profile_create_failed") {
+            setSubmitError("Could not create your profile. Please try again.");
           } else {
             setSubmitError(getUserFriendlyMessage(error));
           }
