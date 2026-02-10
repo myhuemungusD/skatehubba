@@ -52,7 +52,7 @@ describe("useGeolocation", () => {
         expect.any(Function),
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 30000,
           maximumAge: 0,
         }
       );
@@ -67,7 +67,7 @@ describe("useGeolocation", () => {
         expect.any(Function),
         {
           enableHighAccuracy: true,
-          timeout: 10000,
+          timeout: 30000,
           maximumAge: 0,
         }
       );
@@ -157,7 +157,7 @@ describe("useGeolocation", () => {
       });
     });
 
-    it("should enter browse mode on position unavailable", async () => {
+    it("should auto-retry on position unavailable and enter browse mode after exhausting retries", async () => {
       const mockError: GeolocationPositionError = {
         code: 2, // POSITION_UNAVAILABLE
         message: "Position unavailable",
@@ -166,7 +166,7 @@ describe("useGeolocation", () => {
         TIMEOUT: 3,
       };
 
-      mockGeolocation.getCurrentPosition.mockImplementation((_, error) => {
+      mockGeolocation.getCurrentPosition.mockImplementation((_success, error) => {
         error(mockError);
       });
 
@@ -176,9 +176,12 @@ describe("useGeolocation", () => {
         expect(result.current.status).toBe("browse");
         expect(result.current.errorCode).toBe("unavailable");
       });
+
+      // Initial attempt + 2 auto-retries = 3 total calls
+      expect(mockGeolocation.getCurrentPosition).toHaveBeenCalledTimes(3);
     });
 
-    it("should enter browse mode on timeout", async () => {
+    it("should auto-retry on timeout and enter browse mode after exhausting retries", async () => {
       const mockError: GeolocationPositionError = {
         code: 3, // TIMEOUT
         message: "Timeout",
@@ -187,7 +190,7 @@ describe("useGeolocation", () => {
         TIMEOUT: 3,
       };
 
-      mockGeolocation.getCurrentPosition.mockImplementation((_, error) => {
+      mockGeolocation.getCurrentPosition.mockImplementation((_success, error) => {
         error(mockError);
       });
 
@@ -197,6 +200,9 @@ describe("useGeolocation", () => {
         expect(result.current.status).toBe("browse");
         expect(result.current.errorCode).toBe("timeout");
       });
+
+      // Initial attempt + 2 auto-retries = 3 total calls
+      expect(mockGeolocation.getCurrentPosition).toHaveBeenCalledTimes(3);
     });
 
     it("should enter browse mode when geolocation is not supported", async () => {
@@ -235,7 +241,7 @@ describe("useGeolocation", () => {
   });
 
   describe("retry functionality", () => {
-    it("should allow retrying location request", async () => {
+    it("should succeed on auto-retry after initial timeout", async () => {
       let callCount = 0;
       mockGeolocation.getCurrentPosition.mockImplementation((success, error) => {
         callCount++;
@@ -267,8 +273,55 @@ describe("useGeolocation", () => {
 
       const { result } = renderHook(() => useGeolocation(false));
 
+      // Auto-retry should succeed on the second attempt
+      await waitFor(() => {
+        expect(result.current.status).toBe("ready");
+        expect(result.current.latitude).toBe(40.7128);
+        expect(result.current.longitude).toBe(-74.006);
+      });
+
+      expect(mockGeolocation.getCurrentPosition).toHaveBeenCalledTimes(2);
+    });
+
+    it("should allow manual retry after all auto-retries exhausted", async () => {
+      let callCount = 0;
+      mockGeolocation.getCurrentPosition.mockImplementation((_success, error) => {
+        callCount++;
+        if (callCount <= 3) {
+          // Fail all 3 auto attempts (1 initial + 2 retries)
+          const mockError: GeolocationPositionError = {
+            code: 3,
+            message: "Timeout",
+            PERMISSION_DENIED: 1,
+            POSITION_UNAVAILABLE: 2,
+            TIMEOUT: 3,
+          };
+          error(mockError);
+        }
+      });
+
+      const { result } = renderHook(() => useGeolocation(false));
+
       await waitFor(() => {
         expect(result.current.status).toBe("browse");
+      });
+      expect(mockGeolocation.getCurrentPosition).toHaveBeenCalledTimes(3);
+
+      // Now succeed on manual retry
+      mockGeolocation.getCurrentPosition.mockImplementation((success) => {
+        const mockPosition: GeolocationPosition = {
+          coords: {
+            latitude: 40.7128,
+            longitude: -74.006,
+            accuracy: 15,
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+          },
+          timestamp: Date.now(),
+        };
+        success(mockPosition);
       });
 
       act(() => {
@@ -278,10 +331,7 @@ describe("useGeolocation", () => {
       await waitFor(() => {
         expect(result.current.status).toBe("ready");
         expect(result.current.latitude).toBe(40.7128);
-        expect(result.current.longitude).toBe(-74.006);
       });
-
-      expect(mockGeolocation.getCurrentPosition).toHaveBeenCalledTimes(2);
     });
   });
 

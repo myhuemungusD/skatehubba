@@ -5,6 +5,7 @@ export type ApiErrorCode =
   | "BANNED"
   | "UNAUTHORIZED"
   | "VALIDATION_ERROR"
+  | "TOO_FAR"
   | "UNKNOWN";
 
 export class ApiError extends Error {
@@ -31,6 +32,7 @@ const toCode = (value: string): ApiErrorCode => {
   if (normalized.includes("UNAUTHORIZED") || normalized.includes("AUTH")) return "UNAUTHORIZED";
   if (normalized.includes("VALIDATION") || normalized.includes("INVALID"))
     return "VALIDATION_ERROR";
+  if (normalized.includes("TOO_FAR")) return "TOO_FAR";
 
   return "UNKNOWN";
 };
@@ -103,6 +105,15 @@ export const getUserFriendlyMessage = (error: ApiError): string => {
       return "Please sign in again to continue.";
     case "VALIDATION_ERROR":
       return "We couldn't process that request. Double-check your info and try again.";
+    case "TOO_FAR": {
+      const details = error.details as Record<string, unknown> | undefined;
+      const distance = details?.distance;
+      const radius = details?.radius;
+      if (typeof distance === "number" && typeof radius === "number") {
+        return `You're ~${distance}m away (need to be within ${radius}m). Move closer and try again.`;
+      }
+      return "You're too far from this spot. Move closer and try again.";
+    }
     default:
       return "Unexpected error. Please try again.";
   }

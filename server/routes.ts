@@ -297,7 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Authentication required" });
       }
 
-      const { spotId, lat, lng, nonce, clientTimestamp } = parsedBody;
+      const { spotId, lat, lng, accuracy, nonce, clientTimestamp } = parsedBody;
 
       const replayCheck = await verifyReplayProtection(userId, {
         spotId,
@@ -325,7 +325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       try {
-        const result = await verifyAndCheckIn(userId, spotId, lat, lng);
+        const result = await verifyAndCheckIn(userId, spotId, lat, lng, accuracy);
         if (!result.success) {
           logAuditEvent({
             action: "spot.checkin.denied",
@@ -336,7 +336,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
               reason: result.message,
             },
           });
-          return res.status(403).json({ message: result.message });
+          return res.status(422).json({
+            message: result.message,
+            code: result.code,
+            distance: result.distance,
+            radius: result.radius,
+          });
         }
 
         logAuditEvent({

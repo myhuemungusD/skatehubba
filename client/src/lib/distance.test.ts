@@ -61,14 +61,14 @@ describe("formatDistance", () => {
 });
 
 describe("getProximity", () => {
-  it("returns 'here' for distances under 30m", () => {
+  it("returns 'here' for distances under 50m", () => {
     expect(getProximity(0)).toBe("here");
-    expect(getProximity(15)).toBe("here");
-    expect(getProximity(29)).toBe("here");
+    expect(getProximity(25)).toBe("here");
+    expect(getProximity(49)).toBe("here");
   });
 
-  it("returns 'nearby' for 30-200m", () => {
-    expect(getProximity(30)).toBe("nearby");
+  it("returns 'nearby' for 50-200m", () => {
+    expect(getProximity(50)).toBe("nearby");
     expect(getProximity(100)).toBe("nearby");
     expect(getProximity(199)).toBe("nearby");
   });
