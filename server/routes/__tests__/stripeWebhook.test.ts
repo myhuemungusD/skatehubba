@@ -545,9 +545,6 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
 
       await callWebhook(req, res);
 
-      // Give time for async email/notification calls
-      await new Promise((resolve) => setTimeout(resolve, 10));
-
       expect(mockSendPaymentReceiptEmail).toHaveBeenCalledWith(
         "user@test.com",
         "John",
