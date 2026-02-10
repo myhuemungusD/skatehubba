@@ -32,16 +32,18 @@ To enable full deployment functionality, configure the following GitHub reposito
 
 ## Required Public Env Vars (Web)
 
-Vercel builds must set the following **VITE\_\*** variables:
+Vercel builds must set the following **EXPO_PUBLIC\_\*** variables:
 
-- `VITE_FIREBASE_API_KEY`
-- `VITE_FIREBASE_AUTH_DOMAIN`
-- `VITE_FIREBASE_PROJECT_ID`
-- `VITE_FIREBASE_STORAGE_BUCKET`
-- `VITE_FIREBASE_MESSAGING_SENDER_ID`
-- `VITE_FIREBASE_APP_ID`
+- `EXPO_PUBLIC_FIREBASE_API_KEY`
+- `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN`
+- `EXPO_PUBLIC_FIREBASE_PROJECT_ID`
+- `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET`
+- `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+- `EXPO_PUBLIC_FIREBASE_APP_ID`
 
-The build will fail if any are missing. For Expo/mobile, use `EXPO_PUBLIC_*` equivalents.
+The build will fail if any are missing. Legacy `VITE_*` equivalents are still accepted as
+a fallback but `EXPO_PUBLIC_*` takes priority. If both prefixes are set for the same key,
+remove the `VITE_*` version to avoid confusion.
 
 ## Configuration Files
 
