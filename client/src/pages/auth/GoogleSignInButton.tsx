@@ -75,6 +75,7 @@ export function GoogleSignInButton({
         }`}
         onClick={onSignIn}
         disabled={isLoading || inEmbeddedBrowser}
+        data-testid="button-google-signin"
       >
         {isLoading ? (
           <Loader2 className="mr-2 h-4 w-4 animate-spin" />

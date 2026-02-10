@@ -180,6 +180,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (result?.user) {
         sessionStorage.removeItem("googleRedirectPending");
         await authenticateWithBackend(result.user);
+      } else {
+        // No redirect result (normal page load, result already consumed,
+        // or third-party cookies blocked the redirect). Clear stale flag
+        // to prevent false "sign-in failed" toasts on subsequent loads.
+        sessionStorage.removeItem("googleRedirectPending");
       }
     } catch (err: unknown) {
       logger.error("[AuthStore] Redirect result error:", err);
@@ -211,21 +216,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         );
       }
 
+      // Primary: Use popup (reliable across all modern browsers).
+      // signInWithRedirect silently fails when third-party cookies are blocked
+      // (Safari, Brave, Firefox ETP, Chrome Privacy Sandbox).
+      if (isPopupSafe()) {
+        const result = await signInWithPopup(auth, googleProvider);
+        if (result.user) {
+          await authenticateWithBackend(result.user);
+        }
+        return;
+      }
+
+      // Fallback: Redirect for environments where popups cannot open
       sessionStorage.setItem("googleRedirectPending", "true");
       await signInWithRedirect(auth, googleProvider);
     } catch (err: unknown) {
       logger.error("[AuthStore] Google sign-in error:", err);
+
+      // If popup was blocked by the browser, fall back to redirect flow
       if (err && typeof err === "object" && "code" in err) {
         const code = (err as { code?: string }).code;
-        const popupFallbackCodes = [
-          "auth/operation-not-supported-in-this-environment",
-          "auth/unauthorized-domain",
-        ];
-        if (code && popupFallbackCodes.includes(code) && isPopupSafe()) {
-          const popupResult = await signInWithPopup(auth, googleProvider);
-          if (popupResult.user) {
-            await authenticateWithBackend(popupResult.user);
-          }
+        if (code === "auth/popup-blocked") {
+          logger.log("[AuthStore] Popup blocked, falling back to redirect");
+          sessionStorage.setItem("googleRedirectPending", "true");
+          await signInWithRedirect(auth, googleProvider);
           return;
         }
       }

@@ -23,6 +23,8 @@ test-results
 coverage
 *.lcov
 .nyc_output
+**/cypress/screenshots
+**/cypress/videos
 
 # OS files
 .DS_Store
