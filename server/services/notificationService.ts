@@ -13,6 +13,9 @@ import {
   notificationPreferences,
   customUsers,
   type NotificationType,
+  type NotificationPrefs,
+  DEFAULT_NOTIFICATION_PREFS,
+  shouldSendForType,
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { sendGameEventEmail } from "./emailService";
@@ -122,28 +125,8 @@ export async function sendQuickMatchNotification(
 // User preference helpers
 // ============================================================================
 
-interface UserPrefs {
-  pushEnabled: boolean;
-  emailEnabled: boolean;
-  inAppEnabled: boolean;
-  gameNotifications: boolean;
-  challengeNotifications: boolean;
-  turnNotifications: boolean;
-  resultNotifications: boolean;
-}
-
-const DEFAULT_PREFS: UserPrefs = {
-  pushEnabled: true,
-  emailEnabled: true,
-  inAppEnabled: true,
-  gameNotifications: true,
-  challengeNotifications: true,
-  turnNotifications: true,
-  resultNotifications: true,
-};
-
-async function getUserPrefs(userId: string): Promise<UserPrefs> {
-  if (!isDatabaseAvailable()) return DEFAULT_PREFS;
+async function getUserPrefs(userId: string): Promise<NotificationPrefs> {
+  if (!isDatabaseAvailable()) return DEFAULT_NOTIFICATION_PREFS;
 
   try {
     const db = getDb();
@@ -153,7 +136,7 @@ async function getUserPrefs(userId: string): Promise<UserPrefs> {
       .where(eq(notificationPreferences.userId, userId))
       .limit(1);
 
-    if (!prefs) return DEFAULT_PREFS;
+    if (!prefs) return DEFAULT_NOTIFICATION_PREFS;
     return {
       pushEnabled: prefs.pushEnabled,
       emailEnabled: prefs.emailEnabled,
@@ -162,43 +145,14 @@ async function getUserPrefs(userId: string): Promise<UserPrefs> {
       challengeNotifications: prefs.challengeNotifications,
       turnNotifications: prefs.turnNotifications,
       resultNotifications: prefs.resultNotifications,
+      marketingEmails: prefs.marketingEmails,
+      weeklyDigest: prefs.weeklyDigest,
+      quietHoursStart: prefs.quietHoursStart,
+      quietHoursEnd: prefs.quietHoursEnd,
     };
   } catch {
-    return DEFAULT_PREFS;
+    return DEFAULT_NOTIFICATION_PREFS;
   }
-}
-
-function isGameType(type: NotificationType): boolean {
-  return [
-    "challenge_received",
-    "your_turn",
-    "game_over",
-    "opponent_forfeited",
-    "game_forfeited_timeout",
-    "deadline_warning",
-    "dispute_filed",
-    "quick_match",
-  ].includes(type);
-}
-
-function isChallengeType(type: NotificationType): boolean {
-  return ["challenge_received", "quick_match"].includes(type);
-}
-
-function isTurnType(type: NotificationType): boolean {
-  return ["your_turn", "deadline_warning"].includes(type);
-}
-
-function isResultType(type: NotificationType): boolean {
-  return ["game_over", "opponent_forfeited", "game_forfeited_timeout"].includes(type);
-}
-
-function shouldSendForType(prefs: UserPrefs, type: NotificationType): boolean {
-  if (isGameType(type) && !prefs.gameNotifications) return false;
-  if (isChallengeType(type) && !prefs.challengeNotifications) return false;
-  if (isTurnType(type) && !prefs.turnNotifications) return false;
-  if (isResultType(type) && !prefs.resultNotifications) return false;
-  return true;
 }
 
 // ============================================================================

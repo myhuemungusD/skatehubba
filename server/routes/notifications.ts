@@ -18,6 +18,7 @@ import {
   customUsers,
   notifications,
   notificationPreferences,
+  DEFAULT_NOTIFICATION_PREFS,
 } from "@shared/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import logger from "../logger";
@@ -108,20 +109,7 @@ router.get("/preferences", async (req, res) => {
       .limit(1);
 
     if (!prefs) {
-      // Return defaults if no preferences set yet
-      return res.json({
-        pushEnabled: true,
-        emailEnabled: true,
-        inAppEnabled: true,
-        gameNotifications: true,
-        challengeNotifications: true,
-        turnNotifications: true,
-        resultNotifications: true,
-        marketingEmails: true,
-        weeklyDigest: true,
-        quietHoursStart: null,
-        quietHoursEnd: null,
-      });
+      return res.json(DEFAULT_NOTIFICATION_PREFS);
     }
 
     // Strip internal fields
@@ -147,8 +135,16 @@ const preferencesSchema = z.object({
   resultNotifications: z.boolean().optional(),
   marketingEmails: z.boolean().optional(),
   weeklyDigest: z.boolean().optional(),
-  quietHoursStart: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
-  quietHoursEnd: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  quietHoursStart: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .nullable()
+    .optional(),
+  quietHoursEnd: z
+    .string()
+    .regex(/^\d{2}:\d{2}$/)
+    .nullable()
+    .optional(),
 });
 
 router.put("/preferences", async (req, res) => {
@@ -211,12 +207,7 @@ router.get("/unread-count", async (req, res) => {
     const [result] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(notifications)
-      .where(
-        and(
-          eq(notifications.userId, userId),
-          eq(notifications.isRead, false)
-        )
-      );
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
 
     res.json({ count: result?.count ?? 0 });
   } catch (error) {
@@ -286,12 +277,7 @@ router.post("/:id/read", async (req, res) => {
     const [updated] = await db
       .update(notifications)
       .set({ isRead: true, readAt: new Date() })
-      .where(
-        and(
-          eq(notifications.id, notificationId),
-          eq(notifications.userId, userId)
-        )
-      )
+      .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)))
       .returning();
 
     if (!updated) {
@@ -321,12 +307,7 @@ router.post("/read-all", async (req, res) => {
     await db
       .update(notifications)
       .set({ isRead: true, readAt: new Date() })
-      .where(
-        and(
-          eq(notifications.userId, userId),
-          eq(notifications.isRead, false)
-        )
-      );
+      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
 
     res.json({ success: true });
   } catch (error) {
