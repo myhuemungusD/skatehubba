@@ -17,6 +17,33 @@ import type Stripe from "stripe";
 // Mocks
 // ============================================================================
 
+// Mock express - capture route handlers
+const _routeHandlers: Record<string, Function> = {};
+
+const mockExpressApp: any = {
+  use: vi.fn(),
+  post: vi.fn((path: string, handler: Function) => {
+    _routeHandlers[`POST ${path}`] = handler;
+  }),
+  get: vi.fn(),
+  put: vi.fn(),
+  delete: vi.fn(),
+  patch: vi.fn(),
+};
+
+const mockExpress = Object.assign(
+  vi.fn(() => mockExpressApp),
+  {
+    Router: vi.fn(() => mockExpressApp),
+    raw: vi.fn(() => (req: any, res: any, next: any) => next()),
+    json: vi.fn(() => (req: any, res: any, next: any) => next()),
+  }
+);
+
+vi.mock("express", () => ({
+  default: mockExpress,
+}));
+
 // Mock firebase-functions/v2
 vi.mock("firebase-functions/v2/https", () => ({
   onRequest: vi.fn((_opts: any, app: any) => app),
@@ -31,16 +58,18 @@ vi.mock("firebase-functions/v2", () => ({
   },
 }));
 
-// Mock Stripe
+// Mock Stripe - must be a proper constructor function
 const mockConstructEvent = vi.fn();
 const mockWebhooks = {
   constructEvent: mockConstructEvent,
 };
 
+const FakeStripe = function (this: any) {
+  this.webhooks = mockWebhooks;
+} as any;
+
 vi.mock("stripe", () => ({
-  default: vi.fn().mockImplementation(() => ({
-    webhooks: mockWebhooks,
-  })),
+  default: FakeStripe,
 }));
 
 // In-memory Firestore mock
@@ -140,7 +169,7 @@ vi.mock("../webhookDedupe", () => ({
 describe("Stripe Webhook Handler (Firebase Functions)", () => {
   let originalEnv: NodeJS.ProcessEnv;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     mockDocs.clear();
 
@@ -159,11 +188,23 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
     mockConsumeHold.mockResolvedValue(true);
     mockReleaseHoldAtomic.mockResolvedValue(true);
     mockRestockFromConsumedHold.mockResolvedValue(true);
+
+    // Import to register routes
+    await import("../stripeWebhook");
   });
 
   afterEach(() => {
     process.env = originalEnv;
   });
+
+  // Helper to call the webhook handler
+  async function callWebhook(req: any, res: any) {
+    const handler = _routeHandlers["POST /stripe"];
+    if (!handler) {
+      throw new Error("POST /stripe handler not found");
+    }
+    await handler(req, res);
+  }
 
   // ==========================================================================
   // Configuration & Signature Verification
@@ -174,8 +215,9 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       delete process.env.STRIPE_SECRET_KEY;
       delete process.env.STRIPE_WEBHOOK_SECRET;
 
-      // Import after env is cleared
-      const { stripeWebhook } = await import("../stripeWebhook");
+      // Re-import after env is cleared
+      vi.resetModules();
+      await import("../stripeWebhook");
 
       const mockReq = {
         headers: { "stripe-signature": "test" },
@@ -187,15 +229,17 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(500);
       expect(mockRes.send).toHaveBeenCalledWith("Stripe not configured");
+
+      // Restore env for other tests
+      process.env.STRIPE_SECRET_KEY = "sk_test_mock";
+      process.env.STRIPE_WEBHOOK_SECRET = "whsec_mock";
     });
 
     it("returns 400 when stripe-signature header is missing", async () => {
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: {},
         body: Buffer.from("test"),
@@ -206,7 +250,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.send).toHaveBeenCalledWith("Missing signature");
@@ -216,8 +260,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       mockConstructEvent.mockImplementation(() => {
         throw new Error("Invalid signature");
       });
-
-      const { stripeWebhook } = await import("../stripeWebhook");
 
       const mockReq = {
         headers: { "stripe-signature": "invalid_sig" },
@@ -229,7 +271,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(400);
       expect(mockRes.send).toHaveBeenCalledWith("Webhook Error: Invalid signature");
@@ -257,8 +299,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -269,7 +309,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockMarkEventProcessedOrSkip).toHaveBeenCalledWith("evt_duplicate");
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -307,8 +347,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -319,7 +357,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockConsumeHold).toHaveBeenCalledWith(orderId);
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -341,8 +379,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -353,7 +389,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockConsumeHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -375,8 +411,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -387,7 +421,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockConsumeHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -418,8 +452,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -430,7 +462,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockConsumeHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -461,8 +493,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -473,7 +503,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockConsumeHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -504,8 +534,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -516,7 +544,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockConsumeHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -547,8 +575,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -559,7 +585,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockConsumeHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -590,8 +616,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -602,7 +626,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockConsumeHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -638,8 +662,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -650,7 +672,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockReleaseHoldAtomic).toHaveBeenCalledWith(orderId, orderId);
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -670,8 +692,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -682,7 +702,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockReleaseHoldAtomic).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -711,8 +731,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -723,7 +741,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockReleaseHoldAtomic).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -761,8 +779,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -773,7 +789,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
@@ -793,8 +809,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -805,7 +819,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
@@ -834,8 +848,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -846,7 +858,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
@@ -875,8 +887,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -887,7 +897,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
@@ -924,8 +934,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -936,7 +944,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRestockFromConsumedHold).toHaveBeenCalledWith(orderId);
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -968,8 +976,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -980,7 +986,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRestockFromConsumedHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -1010,8 +1016,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -1022,7 +1026,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRestockFromConsumedHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -1052,8 +1056,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -1064,7 +1066,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRestockFromConsumedHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -1085,8 +1087,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -1097,7 +1097,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRestockFromConsumedHold).not.toHaveBeenCalled();
       expect(mockRes.status).toHaveBeenCalledWith(200);
@@ -1120,8 +1120,6 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
 
       mockConstructEvent.mockReturnValue(event);
 
-      const { stripeWebhook } = await import("../stripeWebhook");
-
       const mockReq = {
         headers: { "stripe-signature": "valid_sig" },
         body: Buffer.from("test"),
@@ -1132,7 +1130,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
         send: vi.fn(),
       } as any;
 
-      await stripeWebhook(mockReq, mockRes);
+      await callWebhook(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(200);
       expect(mockRes.send).toHaveBeenCalledWith("OK");
