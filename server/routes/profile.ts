@@ -75,7 +75,7 @@ router.get("/username-check", usernameCheckLimiter, async (req, res) => {
   const parsed = usernameSchema.safeParse(raw);
 
   if (!parsed.success) {
-    return Errors.badRequest(res, "INVALID_USERNAME", "Username format is invalid.", { field: "username" });
+    return Errors.badRequest(res, "invalid_username", "Username format is invalid.", { field: "username" });
   }
 
   try {
