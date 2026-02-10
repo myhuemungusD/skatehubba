@@ -76,6 +76,19 @@ vi.mock("@shared/schema", () => ({
     userId: "userId",
     updatedAt: "updatedAt",
   },
+  DEFAULT_NOTIFICATION_PREFS: {
+    pushEnabled: true,
+    emailEnabled: true,
+    inAppEnabled: true,
+    gameNotifications: true,
+    challengeNotifications: true,
+    turnNotifications: true,
+    resultNotifications: true,
+    marketingEmails: true,
+    weeklyDigest: true,
+    quietHoursStart: null,
+    quietHoursEnd: null,
+  },
 }));
 
 // Controllable mock db returns
