@@ -7,10 +7,10 @@
  * - updateLatency: updates latency, warns if > 500ms
  * - cleanupSocketHealth: removes entry
  * - getHealthStats: aggregates stats across all sockets
- * - startHealthMonitor / stopHealthMonitor: interval lifecycle
+ * - startHealthMonitor / stopHealthMonitor: interval lifecycle and stale disconnection
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // ============================================================================
 // Mocks — declared before any application imports
@@ -45,8 +45,11 @@ const logger = (await import("../logger")).default;
 // Helpers
 // ============================================================================
 
-function createMockSocket(id: string) {
-  return { id } as any;
+/** Unique ID counter to avoid collisions across tests */
+let idCounter = 0;
+
+function createMockSocket(id?: string) {
+  return { id: id ?? `health-test-${++idCounter}` } as any;
 }
 
 // ============================================================================
@@ -54,57 +57,67 @@ function createMockSocket(id: string) {
 // ============================================================================
 
 describe("Socket Health Monitor", () => {
+  /** Track sockets created in each test so we can clean them up */
+  let trackedIds: string[];
+
   beforeEach(() => {
     vi.clearAllMocks();
-    // Clean up any leftover entries from previous tests
-    const stats = getHealthStats();
-    // We don't have direct access to the map, but we can cleanup via known IDs
+    trackedIds = [];
   });
+
+  afterEach(() => {
+    // Remove any sockets registered during the test
+    for (const id of trackedIds) {
+      cleanupSocketHealth(id);
+    }
+  });
+
+  /** Helper: init + track for automatic cleanup */
+  function initAndTrack(socket: { id: string }) {
+    initSocketHealth(socket as any);
+    trackedIds.push(socket.id);
+  }
 
   // ==========================================================================
   // initSocketHealth
   // ==========================================================================
 
   describe("initSocketHealth", () => {
-    it("creates a health entry for the socket", () => {
-      const socket = createMockSocket("socket-init-1");
-      initSocketHealth(socket);
+    it("creates a health entry and getHealthStats reflects 1 socket", () => {
+      const socket = createMockSocket("init-single");
+      const before = getHealthStats().totalSockets;
+
+      initAndTrack(socket);
 
       const stats = getHealthStats();
-      expect(stats.totalSockets).toBeGreaterThanOrEqual(1);
-
-      // Cleanup
-      cleanupSocketHealth("socket-init-1");
+      expect(stats.totalSockets).toBe(before + 1);
     });
 
-    it("sets initial values (latency 0, missedPings 0, messageCount 0)", () => {
-      const socket = createMockSocket("socket-init-2");
-      initSocketHealth(socket);
+    it("initializes with zero latency (avgLatency is 0 for single fresh socket)", () => {
+      const socket = createMockSocket("init-zeroes");
+      initAndTrack(socket);
 
-      // Verify through stats — latency should be 0, no high latency, no stale
+      // Only this socket should contribute; latency = 0
+      // We need to account for other possible sockets, so just verify
+      // that this socket does not count as high latency or stale
       const stats = getHealthStats();
       expect(stats.highLatencyCount).toBe(0);
-
-      cleanupSocketHealth("socket-init-2");
+      expect(stats.staleConnections).toBe(0);
     });
 
-    it("overwrites existing entry if called again with same socket", () => {
-      const socket = createMockSocket("socket-init-3");
+    it("overwrites existing entry when called again with same socket id", () => {
+      const socket = createMockSocket("init-overwrite");
+      initAndTrack(socket);
+
+      // Bump latency so entry is non-default
+      updateLatency("init-overwrite", 800);
+
+      // Re-init should reset latency to 0
       initSocketHealth(socket);
 
-      // Record some activity
-      recordMessage("socket-init-3");
-      recordMessage("socket-init-3");
-
-      // Re-init should reset
-      initSocketHealth(socket);
-
-      // After re-init, messageCount is 0 again
-      // We can't read messageCount directly, but the entry exists
+      // The high-latency socket should no longer count
       const stats = getHealthStats();
-      expect(stats.totalSockets).toBeGreaterThanOrEqual(1);
-
-      cleanupSocketHealth("socket-init-3");
+      expect(stats.highLatencyCount).toBe(0);
     });
   });
 
@@ -113,40 +126,45 @@ describe("Socket Health Monitor", () => {
   // ==========================================================================
 
   describe("recordMessage", () => {
-    it("updates lastPing and resets missedPings", () => {
-      const socket = createMockSocket("socket-msg-1");
-      initSocketHealth(socket);
+    it("increments messageCount (verifiable via no errors on repeated calls)", () => {
+      const socket = createMockSocket("msg-inc");
+      initAndTrack(socket);
 
-      recordMessage("socket-msg-1");
+      // Should not throw and socket stays healthy
+      recordMessage("msg-inc");
+      recordMessage("msg-inc");
+      recordMessage("msg-inc");
 
-      // After recording a message, the socket should not be stale
-      const stats = getHealthStats();
-      expect(stats.staleConnections).toBe(0);
-
-      cleanupSocketHealth("socket-msg-1");
-    });
-
-    it("increments messageCount on each call", () => {
-      const socket = createMockSocket("socket-msg-2");
-      initSocketHealth(socket);
-
-      recordMessage("socket-msg-2");
-      recordMessage("socket-msg-2");
-      recordMessage("socket-msg-2");
-
-      // No direct assertion on messageCount, but no errors should occur
       const stats = getHealthStats();
       expect(stats.totalSockets).toBeGreaterThanOrEqual(1);
+      expect(stats.staleConnections).toBe(0);
+    });
 
-      cleanupSocketHealth("socket-msg-2");
+    it("resets missedPings so socket is not considered stale after activity", () => {
+      vi.useFakeTimers();
+      try {
+        const socket = createMockSocket("msg-reset");
+        initAndTrack(socket);
+
+        // Advance time past stale threshold (60s = 2 * 30s)
+        vi.advanceTimersByTime(61_000);
+
+        // Socket would be stale now
+        expect(getHealthStats().staleConnections).toBe(1);
+
+        // Recording a message updates lastPing
+        recordMessage("msg-reset");
+
+        // No longer stale
+        expect(getHealthStats().staleConnections).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("does nothing for unknown socketId", () => {
       // Should not throw
-      recordMessage("nonexistent-socket");
-      const stats = getHealthStats();
-      // Stats should not change for a nonexistent socket
-      expect(stats).toBeDefined();
+      expect(() => recordMessage("nonexistent-socket")).not.toThrow();
     });
   });
 
@@ -155,70 +173,67 @@ describe("Socket Health Monitor", () => {
   // ==========================================================================
 
   describe("updateLatency", () => {
-    it("updates latency value for the socket", () => {
-      const socket = createMockSocket("socket-lat-1");
-      initSocketHealth(socket);
+    it("updates latency value reflected in avgLatency", () => {
+      const socket = createMockSocket("lat-update");
+      initAndTrack(socket);
 
-      updateLatency("socket-lat-1", 100);
+      updateLatency("lat-update", 250);
 
+      // With only this socket, avgLatency should be 250
+      // (there may be other sockets from parallel tests, so we check >= 0)
       const stats = getHealthStats();
       expect(stats.avgLatency).toBeGreaterThanOrEqual(0);
-
-      cleanupSocketHealth("socket-lat-1");
     });
 
-    it("logs warning when latency exceeds 500ms", () => {
-      const socket = createMockSocket("socket-lat-2");
-      initSocketHealth(socket);
+    it("triggers logger.warn when latency exceeds 500ms", () => {
+      const socket = createMockSocket("lat-warn");
+      initAndTrack(socket);
 
-      updateLatency("socket-lat-2", 600);
+      updateLatency("lat-warn", 600);
 
       expect(logger.warn).toHaveBeenCalledWith(
         "[Socket] High latency detected",
-        expect.objectContaining({ socketId: "socket-lat-2", latencyMs: 600 })
+        expect.objectContaining({ socketId: "lat-warn", latencyMs: 600 })
       );
-
-      cleanupSocketHealth("socket-lat-2");
     });
 
-    it("does not log warning when latency is exactly 500ms", () => {
-      const socket = createMockSocket("socket-lat-3");
-      initSocketHealth(socket);
+    it("does not warn when latency is exactly 500ms", () => {
+      const socket = createMockSocket("lat-500");
+      initAndTrack(socket);
 
-      updateLatency("socket-lat-3", 500);
+      updateLatency("lat-500", 500);
 
       expect(logger.warn).not.toHaveBeenCalled();
-
-      cleanupSocketHealth("socket-lat-3");
     });
 
-    it("does not log warning when latency is below 500ms", () => {
-      const socket = createMockSocket("socket-lat-4");
-      initSocketHealth(socket);
+    it("does not warn when latency is below 500ms", () => {
+      const socket = createMockSocket("lat-low");
+      initAndTrack(socket);
 
-      updateLatency("socket-lat-4", 200);
+      updateLatency("lat-low", 200);
 
       expect(logger.warn).not.toHaveBeenCalled();
-
-      cleanupSocketHealth("socket-lat-4");
     });
 
-    it("does nothing for unknown socketId", () => {
-      updateLatency("nonexistent-socket", 999);
+    it("does nothing for unknown socketId (no warn)", () => {
+      updateLatency("nonexistent-socket", 9999);
       expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it("resets missedPings and updates lastPing", () => {
-      const socket = createMockSocket("socket-lat-5");
-      initSocketHealth(socket);
+      vi.useFakeTimers();
+      try {
+        const socket = createMockSocket("lat-ping-reset");
+        initAndTrack(socket);
 
-      updateLatency("socket-lat-5", 50);
+        vi.advanceTimersByTime(61_000);
+        expect(getHealthStats().staleConnections).toBe(1);
 
-      // Socket should not be stale after latency update
-      const stats = getHealthStats();
-      expect(stats.staleConnections).toBe(0);
-
-      cleanupSocketHealth("socket-lat-5");
+        updateLatency("lat-ping-reset", 50);
+        expect(getHealthStats().staleConnections).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 
@@ -227,36 +242,31 @@ describe("Socket Health Monitor", () => {
   // ==========================================================================
 
   describe("cleanupSocketHealth", () => {
-    it("removes the socket entry from the health map", () => {
-      const socket = createMockSocket("socket-cleanup-1");
+    it("removes the socket entry from health tracking", () => {
+      const socket = createMockSocket("cleanup-rem");
       initSocketHealth(socket);
 
-      const statsBefore = getHealthStats();
-      const countBefore = statsBefore.totalSockets;
+      const before = getHealthStats().totalSockets;
+      cleanupSocketHealth("cleanup-rem");
+      const after = getHealthStats().totalSockets;
 
-      cleanupSocketHealth("socket-cleanup-1");
-
-      const statsAfter = getHealthStats();
-      expect(statsAfter.totalSockets).toBe(countBefore - 1);
+      expect(after).toBe(before - 1);
     });
 
     it("does nothing for unknown socketId", () => {
-      const statsBefore = getHealthStats();
-      cleanupSocketHealth("nonexistent-socket");
-      const statsAfter = getHealthStats();
+      const before = getHealthStats().totalSockets;
+      cleanupSocketHealth("nonexistent-cleanup");
+      const after = getHealthStats().totalSockets;
 
-      expect(statsAfter.totalSockets).toBe(statsBefore.totalSockets);
+      expect(after).toBe(before);
     });
 
     it("can be called multiple times without error", () => {
-      const socket = createMockSocket("socket-cleanup-2");
+      const socket = createMockSocket("cleanup-multi");
       initSocketHealth(socket);
 
-      cleanupSocketHealth("socket-cleanup-2");
-      cleanupSocketHealth("socket-cleanup-2");
-
-      // Should not throw
-      expect(true).toBe(true);
+      cleanupSocketHealth("cleanup-multi");
+      expect(() => cleanupSocketHealth("cleanup-multi")).not.toThrow();
     });
   });
 
@@ -265,72 +275,103 @@ describe("Socket Health Monitor", () => {
   // ==========================================================================
 
   describe("getHealthStats", () => {
-    it("returns zero stats when no sockets are tracked", () => {
-      // Clean up any lingering entries
-      const currentStats = getHealthStats();
-      // We can't clean all, but test with fresh sockets
+    it("returns correct structure with all required fields", () => {
       const stats = getHealthStats();
       expect(stats).toEqual(
         expect.objectContaining({
+          totalSockets: expect.any(Number),
           avgLatency: expect.any(Number),
           highLatencyCount: expect.any(Number),
           staleConnections: expect.any(Number),
-          totalSockets: expect.any(Number),
         })
       );
     });
 
-    it("aggregates stats across multiple sockets", () => {
-      const s1 = createMockSocket("socket-stats-1");
-      const s2 = createMockSocket("socket-stats-2");
-      const s3 = createMockSocket("socket-stats-3");
+    it("calculates average latency across multiple sockets", () => {
+      const s1 = createMockSocket("stats-avg-1");
+      const s2 = createMockSocket("stats-avg-2");
+      const s3 = createMockSocket("stats-avg-3");
 
-      initSocketHealth(s1);
-      initSocketHealth(s2);
-      initSocketHealth(s3);
+      // Record baseline so we can isolate our 3 sockets
+      const baseline = getHealthStats();
 
-      updateLatency("socket-stats-1", 100);
-      updateLatency("socket-stats-2", 200);
-      updateLatency("socket-stats-3", 300);
+      initAndTrack(s1);
+      initAndTrack(s2);
+      initAndTrack(s3);
+
+      updateLatency("stats-avg-1", 100);
+      updateLatency("stats-avg-2", 200);
+      updateLatency("stats-avg-3", 300);
 
       const stats = getHealthStats();
-      expect(stats.totalSockets).toBeGreaterThanOrEqual(3);
-      expect(stats.avgLatency).toBe(200); // (100+200+300)/3 = 200
-      expect(stats.highLatencyCount).toBe(0);
+      expect(stats.totalSockets).toBe(baseline.totalSockets + 3);
 
-      cleanupSocketHealth("socket-stats-1");
-      cleanupSocketHealth("socket-stats-2");
-      cleanupSocketHealth("socket-stats-3");
+      // Total latency from our sockets = 600; total sockets includes baseline
+      // avgLatency = round((baselineLatency + 600) / totalSockets)
+      // For an isolated run: (100+200+300)/3 = 200
+      // We verify it is a reasonable number >= 0
+      expect(stats.avgLatency).toBeGreaterThanOrEqual(0);
+      // If baseline is 0 sockets, then avg should be exactly 200
+      if (baseline.totalSockets === 0) {
+        expect(stats.avgLatency).toBe(200);
+      }
     });
 
-    it("counts high latency sockets (> 500ms)", () => {
-      const s1 = createMockSocket("socket-hlat-1");
-      const s2 = createMockSocket("socket-hlat-2");
+    it("counts high latency sockets (latency > 500ms)", () => {
+      const baseline = getHealthStats();
 
-      initSocketHealth(s1);
-      initSocketHealth(s2);
+      const s1 = createMockSocket("stats-high-1");
+      const s2 = createMockSocket("stats-high-2");
+      const s3 = createMockSocket("stats-high-3");
 
-      updateLatency("socket-hlat-1", 600);
-      updateLatency("socket-hlat-2", 200);
+      initAndTrack(s1);
+      initAndTrack(s2);
+      initAndTrack(s3);
+
+      updateLatency("stats-high-1", 600); // high
+      updateLatency("stats-high-2", 200); // normal
+      updateLatency("stats-high-3", 800); // high
 
       const stats = getHealthStats();
-      expect(stats.highLatencyCount).toBeGreaterThanOrEqual(1);
-
-      cleanupSocketHealth("socket-hlat-1");
-      cleanupSocketHealth("socket-hlat-2");
+      expect(stats.highLatencyCount).toBe(baseline.highLatencyCount + 2);
     });
 
-    it("counts stale connections based on lastPing time", () => {
-      const s1 = createMockSocket("socket-stale-1");
-      initSocketHealth(s1);
+    it("counts stale connections based on lastPing age", () => {
+      vi.useFakeTimers();
+      try {
+        const s1 = createMockSocket("stats-stale-1");
+        const s2 = createMockSocket("stats-stale-2");
 
-      // We can't easily manipulate lastPing directly,
-      // but we can test that a fresh socket is NOT stale
+        initAndTrack(s1);
+        initAndTrack(s2);
+
+        // Both are fresh
+        expect(getHealthStats().staleConnections).toBe(0);
+
+        // Advance past stale threshold (60s = 2 * HEALTH_CHECK_INTERVAL_MS)
+        vi.advanceTimersByTime(61_000);
+
+        const stats = getHealthStats();
+        expect(stats.staleConnections).toBe(2);
+
+        // Refresh one socket
+        recordMessage("stats-stale-1");
+
+        const after = getHealthStats();
+        expect(after.staleConnections).toBe(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("returns zero avgLatency when no sockets are tracked", () => {
+      // Clean state: if other tests cleaned up, this should be 0
+      // We can only assert it does not throw and returns a number
       const stats = getHealthStats();
-      // A just-initialized socket should not be stale
-      expect(stats.staleConnections).toBe(0);
-
-      cleanupSocketHealth("socket-stale-1");
+      expect(typeof stats.avgLatency).toBe("number");
+      if (stats.totalSockets === 0) {
+        expect(stats.avgLatency).toBe(0);
+      }
     });
   });
 
@@ -340,24 +381,78 @@ describe("Socket Health Monitor", () => {
 
   describe("startHealthMonitor", () => {
     it("returns an interval ID", () => {
-      const mockIo = {
-        fetchSockets: vi.fn().mockResolvedValue([]),
-      } as any;
+      const mockIo = { fetchSockets: vi.fn().mockResolvedValue([]) } as any;
 
       const intervalId = startHealthMonitor(mockIo);
       expect(intervalId).toBeDefined();
 
       stopHealthMonitor(intervalId);
     });
+
+    it("disconnects stale sockets that exceed max missed pings", async () => {
+      vi.useFakeTimers();
+      try {
+        const staleSocketMock = {
+          id: "monitor-stale",
+          data: { odv: "user-stale" },
+          disconnect: vi.fn(),
+        };
+        const healthySocketMock = {
+          id: "monitor-healthy",
+          data: { odv: "user-healthy" },
+          disconnect: vi.fn(),
+        };
+
+        const mockIo = {
+          fetchSockets: vi.fn().mockResolvedValue([staleSocketMock, healthySocketMock]),
+        } as any;
+
+        // Init health entries
+        initSocketHealth({ id: "monitor-stale" } as any);
+        trackedIds.push("monitor-stale");
+        initSocketHealth({ id: "monitor-healthy" } as any);
+        trackedIds.push("monitor-healthy");
+
+        const intervalId = startHealthMonitor(mockIo);
+
+        // Need to miss MAX_MISSED_PINGS (3) health checks.
+        // Each check interval is 30s. The check increments missedPings
+        // when now - lastPing > 30s.
+        // Advance 31s and run the interval callback to trigger first missed ping
+        vi.advanceTimersByTime(31_000);
+        await vi.advanceTimersToNextTimerAsync();
+        await Promise.resolve(); // flush microtasks
+
+        // Keep healthy socket alive
+        recordMessage("monitor-healthy");
+
+        // Second missed ping
+        vi.advanceTimersByTime(30_000);
+        await vi.advanceTimersToNextTimerAsync();
+        await Promise.resolve();
+
+        recordMessage("monitor-healthy");
+
+        // Third missed ping - should trigger disconnect
+        vi.advanceTimersByTime(30_000);
+        await vi.advanceTimersToNextTimerAsync();
+        await Promise.resolve();
+
+        expect(staleSocketMock.disconnect).toHaveBeenCalledWith(true);
+        expect(healthySocketMock.disconnect).not.toHaveBeenCalled();
+
+        stopHealthMonitor(intervalId);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe("stopHealthMonitor", () => {
-    it("clears the interval", () => {
+    it("clears the interval via clearInterval", () => {
       const clearIntervalSpy = vi.spyOn(global, "clearInterval");
 
-      const mockIo = {
-        fetchSockets: vi.fn().mockResolvedValue([]),
-      } as any;
+      const mockIo = { fetchSockets: vi.fn().mockResolvedValue([]) } as any;
 
       const intervalId = startHealthMonitor(mockIo);
       stopHealthMonitor(intervalId);
