@@ -290,6 +290,10 @@ service cloud.firestore {
 
     // =========================================================================
     // GAME SESSIONS (Real-time SKATE)
+    // All mutations go through Cloud Functions (submitTrick, judgeTrick,
+    // processVoteTimeouts) which use Admin SDK. Direct client writes are
+    // blocked to prevent bypassing server-side validation and race condition
+    // protections. See docs/RACE_CONDITIONS.md for details.
     // =========================================================================
 
     match /game_sessions/{gameId} {
@@ -297,32 +301,7 @@ service cloud.firestore {
         && (resource.data.player1Id == request.auth.uid
             || resource.data.player2Id == request.auth.uid);
 
-      allow create: if isAuthenticated()
-        && hasRequiredFields(['player1Id', 'player2Id', 'currentTurn', 'status', 'createdAt'])
-        && (request.resource.data.player1Id == request.auth.uid
-            || request.resource.data.player2Id == request.auth.uid)
-        && request.resource.data.player1Id != request.resource.data.player2Id
-        && request.resource.data.status == 'waiting'
-        && request.resource.data.currentTurn in [
-          request.resource.data.player1Id,
-          request.resource.data.player2Id
-        ]
-        && isRecentTimestamp('createdAt');
-
-      allow update: if isAuthenticated()
-        && isGameParticipant(resource.data)
-        && (
-          (resource.data.currentTurn == request.auth.uid && resource.data.status == 'active')
-          || (request.auth.uid == resource.data.player2Id && resource.data.status == 'waiting')
-        )
-        && request.resource.data.player1Id == resource.data.player1Id
-        && request.resource.data.player2Id == resource.data.player2Id
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.status in ['waiting', 'active', 'completed', 'abandoned']
-        && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
-
-      allow delete: if isAuthenticated()
-        && isGameParticipant(resource.data);
+      allow create, update, delete: if false;
     }
 
     // =========================================================================
