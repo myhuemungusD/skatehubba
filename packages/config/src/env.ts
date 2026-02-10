@@ -245,24 +245,36 @@ export function getFeatureFlags() {
 /**
  * Validate that all required environment variables are set
  * Call this at app startup
+ * 
+ * In prod/staging: throws an error if required vars are missing
+ * In local: only logs a warning
+ * 
+ * Required vars are aligned with getFirebaseConfig():
+ * - EXPO_PUBLIC_FIREBASE_API_KEY
+ * - EXPO_PUBLIC_FIREBASE_PROJECT_ID
+ * - EXPO_PUBLIC_FIREBASE_APP_ID
  */
 export function validateEnv(): void {
   const required = [
     "EXPO_PUBLIC_FIREBASE_API_KEY",
-    "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
     "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
-    "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
-    "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
     "EXPO_PUBLIC_FIREBASE_APP_ID",
   ];
 
   const missing = required.filter((name) => !readEnv(name));
 
   if (missing.length > 0) {
-    console.warn(
+    const message =
       `Missing required environment variables:\n${missing.join("\n")}\n` +
-        `Firebase will fail to initialize. Set these in your .env file or deployment environment.`
-    );
+      `Firebase will fail to initialize. Set these in your .env file or deployment environment.`;
+
+    // In prod/staging, throw an error to fail fast at startup
+    // In local, only warn to allow developers to work without full config
+    if (isProd() || isStaging()) {
+      throw new Error(message);
+    } else {
+      console.warn(message);
+    }
   }
 }
 
