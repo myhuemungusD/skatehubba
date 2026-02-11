@@ -2,9 +2,12 @@
  * @fileoverview Integration tests for game management routes
  *
  * Tests:
- * - POST /:id/forfeit: voluntary forfeit, not a player, game not active, game not found, db unavailable
- * - GET /my-games: categorized game lists, db unavailable, db error
- * - GET /:id: game details with turns/disputes, not a player, not found, db unavailable
+ * - POST /:id/forfeit: voluntary forfeit (p1 + p2), not a player, game not active,
+ *     game not found, db unavailable, db error (500), winnerId null branch
+ * - GET /my-games: categorized game lists, db unavailable, db error (500)
+ * - GET /:id: game details with turns/disputes, isMyTurn, needsToJudge,
+ *     needsToRespond, pendingTurnId, canDispute, not a player, not found,
+ *     db unavailable, db error (500)
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -13,7 +16,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks
 // =============================================================================
 
-// Mock Express Router to capture registered routes
 const _routeHandlers: Record<string, Function[]> = {};
 const _mockRouter: any = {
   use: vi.fn(),
@@ -81,42 +83,60 @@ vi.mock("@shared/schema", () => ({
   },
 }));
 
-const mockDbReturns = {
-  selectResult: [] as any[],
-  insertResult: [] as any[],
-  updateResult: [] as any[],
-};
-
+// ---- Thenable chain mock ----
 let mockIsDatabaseAvailable = true;
-let selectCallCount = 0;
-let selectResults: any[][] = [];
+let shouldDbThrow = false;
+let resultQueue: any[] = [];
+
+function nextResult() {
+  if (shouldDbThrow) throw new Error("DB boom");
+  return Promise.resolve(resultQueue.length > 0 ? resultQueue.shift() : []);
+}
+
+function makeChain(): any {
+  let _resolved = false;
+  let _result: any;
+
+  const chain: any = {};
+  const methods = [
+    "select",
+    "from",
+    "where",
+    "limit",
+    "offset",
+    "orderBy",
+    "set",
+    "returning",
+    "values",
+    "insert",
+    "update",
+  ];
+
+  for (const m of methods) {
+    chain[m] = vi.fn().mockImplementation(() => chain);
+  }
+
+  chain.then = (resolve: Function, reject?: Function) => {
+    if (!_resolved) {
+      _resolved = true;
+      try {
+        _result = nextResult();
+      } catch (err) {
+        if (reject) return reject(err);
+        throw err;
+      }
+    }
+    return Promise.resolve(_result).then(resolve as any, reject as any);
+  };
+
+  return chain;
+}
 
 vi.mock("../db", () => ({
   getDb: () => ({
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockImplementation(() => {
-            const result =
-              selectResults.length > 0 ? selectResults.shift() : mockDbReturns.selectResult;
-            return Promise.resolve(result);
-          }),
-          orderBy: vi.fn().mockReturnValue({
-            limit: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
-          }),
-        }),
-        orderBy: vi.fn().mockReturnValue({
-          limit: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
-        }),
-      }),
-    }),
-    update: vi.fn().mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
-        }),
-      }),
-    }),
+    select: vi.fn().mockImplementation(() => makeChain()),
+    update: vi.fn().mockImplementation(() => makeChain()),
+    insert: vi.fn().mockImplementation(() => makeChain()),
   }),
   isDatabaseAvailable: () => mockIsDatabaseAvailable,
 }));
@@ -167,12 +187,9 @@ async function callRoute(method: string, path: string, req: any, res: any) {
 describe("Game Management Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockDbReturns.selectResult = [];
-    mockDbReturns.insertResult = [];
-    mockDbReturns.updateResult = [];
     mockIsDatabaseAvailable = true;
-    selectCallCount = 0;
-    selectResults = [];
+    shouldDbThrow = false;
+    resultQueue = [];
   });
 
   // ===========================================================================
@@ -180,22 +197,11 @@ describe("Game Management Routes", () => {
   // ===========================================================================
 
   describe("POST /:id/forfeit", () => {
-    it("forfeits an active game successfully", async () => {
-      mockDbReturns.selectResult = [
-        {
-          id: "game-1",
-          player1Id: "user-1",
-          player2Id: "opponent-1",
-          status: "active",
-        },
-      ];
-      mockDbReturns.updateResult = [
-        {
-          id: "game-1",
-          status: "forfeited",
-          winnerId: "opponent-1",
-        },
-      ];
+    it("forfeits an active game as player1 — winner is player2", async () => {
+      resultQueue.push(
+        [{ id: "game-1", player1Id: "user-1", player2Id: "opponent-1", status: "active" }],
+        [{ id: "game-1", status: "forfeited", winnerId: "opponent-1" }]
+      );
 
       const req = mockRequest({ params: { id: "game-1" } });
       const res = mockResponse();
@@ -215,15 +221,48 @@ describe("Game Management Routes", () => {
       );
     });
 
+    it("forfeits an active game as player2 — winner is player1", async () => {
+      resultQueue.push(
+        [{ id: "game-2", player1Id: "opponent-1", player2Id: "user-1", status: "active" }],
+        [{ id: "game-2", status: "forfeited", winnerId: "opponent-1" }]
+      );
+
+      const req = mockRequest({ params: { id: "game-2" } });
+      const res = mockResponse();
+
+      await callRoute("POST", "/:id/forfeit", req, res);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          game: expect.objectContaining({ status: "forfeited" }),
+          message: "You forfeited.",
+        })
+      );
+      expect(sendGameNotificationToUser).toHaveBeenCalledWith(
+        "opponent-1",
+        "opponent_forfeited",
+        expect.any(Object)
+      );
+    });
+
+    it("does not send notification when winnerId is null", async () => {
+      resultQueue.push(
+        [{ id: "game-3", player1Id: "user-1", player2Id: null, status: "active" }],
+        [{ id: "game-3", status: "forfeited", winnerId: null }]
+      );
+
+      const req = mockRequest({ params: { id: "game-3" } });
+      const res = mockResponse();
+
+      await callRoute("POST", "/:id/forfeit", req, res);
+
+      expect(sendGameNotificationToUser).not.toHaveBeenCalled();
+    });
+
     it("returns 403 when user is not a player in the game", async () => {
-      mockDbReturns.selectResult = [
-        {
-          id: "game-1",
-          player1Id: "other-1",
-          player2Id: "other-2",
-          status: "active",
-        },
-      ];
+      resultQueue.push([
+        { id: "game-1", player1Id: "other-1", player2Id: "other-2", status: "active" },
+      ]);
 
       const req = mockRequest({ params: { id: "game-1" } });
       const res = mockResponse();
@@ -237,14 +276,9 @@ describe("Game Management Routes", () => {
     });
 
     it("returns 400 when game is not active", async () => {
-      mockDbReturns.selectResult = [
-        {
-          id: "game-1",
-          player1Id: "user-1",
-          player2Id: "opponent-1",
-          status: "completed",
-        },
-      ];
+      resultQueue.push([
+        { id: "game-1", player1Id: "user-1", player2Id: "opponent-1", status: "completed" },
+      ]);
 
       const req = mockRequest({ params: { id: "game-1" } });
       const res = mockResponse();
@@ -258,7 +292,7 @@ describe("Game Management Routes", () => {
     });
 
     it("returns 404 when game not found", async () => {
-      mockDbReturns.selectResult = [];
+      resultQueue.push([]);
 
       const req = mockRequest({ params: { id: "nonexistent" } });
       const res = mockResponse();
@@ -279,29 +313,16 @@ describe("Game Management Routes", () => {
       expect(res.status).toHaveBeenCalledWith(503);
     });
 
-    it("sets winner to player2 when player1 forfeits", async () => {
-      mockDbReturns.selectResult = [
-        {
-          id: "game-1",
-          player1Id: "user-1",
-          player2Id: "opponent-1",
-          status: "active",
-        },
-      ];
-      mockDbReturns.updateResult = [{ id: "game-1", status: "forfeited", winnerId: "opponent-1" }];
-
-      const req = mockRequest({
-        params: { id: "game-1" },
-        currentUser: { id: "user-1" },
-      });
+    it("returns 500 when db throws", async () => {
+      shouldDbThrow = true;
+      const req = mockRequest({ params: { id: "game-1" } });
       const res = mockResponse();
 
       await callRoute("POST", "/:id/forfeit", req, res);
 
-      expect(sendGameNotificationToUser).toHaveBeenCalledWith(
-        "opponent-1",
-        "opponent_forfeited",
-        expect.any(Object)
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to forfeit game" })
       );
     });
   });
@@ -312,7 +333,7 @@ describe("Game Management Routes", () => {
 
   describe("GET /my-games", () => {
     it("returns categorized games", async () => {
-      mockDbReturns.selectResult = [
+      resultQueue.push([
         {
           id: "g1",
           player1Id: "other",
@@ -355,7 +376,7 @@ describe("Game Management Routes", () => {
           status: "forfeited",
           updatedAt: new Date(),
         },
-      ];
+      ]);
 
       const req = mockRequest();
       const res = mockResponse();
@@ -369,8 +390,23 @@ describe("Game Management Routes", () => {
       expect(result.sentChallenges[0].id).toBe("g2");
       expect(result.activeGames).toHaveLength(1);
       expect(result.activeGames[0].id).toBe("g3");
-      expect(result.completedGames).toHaveLength(3);
+      expect(result.completedGames).toHaveLength(3); // completed + declined + forfeited
       expect(result.total).toBe(6);
+    });
+
+    it("returns empty categories when no games", async () => {
+      resultQueue.push([]);
+      const req = mockRequest();
+      const res = mockResponse();
+
+      await callRoute("GET", "/my-games", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.pendingChallenges).toHaveLength(0);
+      expect(result.sentChallenges).toHaveLength(0);
+      expect(result.activeGames).toHaveLength(0);
+      expect(result.completedGames).toHaveLength(0);
+      expect(result.total).toBe(0);
     });
 
     it("returns 503 when database is unavailable", async () => {
@@ -382,6 +418,19 @@ describe("Game Management Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(503);
     });
+
+    it("returns 500 when db throws", async () => {
+      shouldDbThrow = true;
+      const req = mockRequest();
+      const res = mockResponse();
+
+      await callRoute("GET", "/my-games", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to fetch games" })
+      );
+    });
   });
 
   // ===========================================================================
@@ -389,15 +438,159 @@ describe("Game Management Routes", () => {
   // ===========================================================================
 
   describe("GET /:id", () => {
+    it("returns full game details with turns, disputes, and flags", async () => {
+      resultQueue.push(
+        [
+          {
+            id: "game-1",
+            player1Id: "user-1",
+            player2Id: "opponent-1",
+            status: "active",
+            currentTurn: "user-1",
+            turnPhase: "set",
+            player1DisputeUsed: false,
+            player2DisputeUsed: false,
+          },
+        ],
+        [
+          { id: 10, turnNumber: 1, result: "landed", turnType: "set", playerId: "user-1" },
+          { id: 11, turnNumber: 2, result: "pending", turnType: "set", playerId: "opponent-1" },
+        ],
+        [{ id: 20, gameId: "game-1", createdAt: new Date() }]
+      );
+
+      const req = mockRequest({ params: { id: "game-1" } });
+      const res = mockResponse();
+
+      await callRoute("GET", "/:id", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.game.id).toBe("game-1");
+      expect(result.turns).toHaveLength(2);
+      expect(result.disputes).toHaveLength(1);
+      expect(result.isMyTurn).toBe(true);
+      expect(result.canDispute).toBe(true);
+    });
+
+    it("sets needsToJudge and pendingTurnId when turnPhase is judge", async () => {
+      resultQueue.push(
+        [
+          {
+            id: "game-1",
+            player1Id: "user-1",
+            player2Id: "opponent-1",
+            status: "active",
+            currentTurn: "user-1",
+            turnPhase: "judge",
+            player1DisputeUsed: false,
+            player2DisputeUsed: false,
+          },
+        ],
+        [{ id: 15, turnNumber: 1, result: "pending", turnType: "set", playerId: "opponent-1" }],
+        []
+      );
+
+      const req = mockRequest({ params: { id: "game-1" } });
+      const res = mockResponse();
+
+      await callRoute("GET", "/:id", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.needsToJudge).toBe(true);
+      expect(result.pendingTurnId).toBe(15);
+    });
+
+    it("sets needsToRespond when turnPhase is respond_trick", async () => {
+      resultQueue.push(
+        [
+          {
+            id: "game-1",
+            player1Id: "opponent-1",
+            player2Id: "user-1",
+            status: "active",
+            currentTurn: "user-1",
+            turnPhase: "respond_trick",
+            player1DisputeUsed: false,
+            player2DisputeUsed: true,
+          },
+        ],
+        [],
+        []
+      );
+
+      const req = mockRequest({ params: { id: "game-1" } });
+      const res = mockResponse();
+
+      await callRoute("GET", "/:id", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.needsToRespond).toBe(true);
+      expect(result.isMyTurn).toBe(true);
+      expect(result.canDispute).toBe(false); // player2 dispute used
+    });
+
+    it("sets isMyTurn false and canDispute for player1 with unused dispute", async () => {
+      resultQueue.push(
+        [
+          {
+            id: "game-1",
+            player1Id: "user-1",
+            player2Id: "opponent-1",
+            status: "active",
+            currentTurn: "opponent-1",
+            turnPhase: "set",
+            player1DisputeUsed: false,
+            player2DisputeUsed: true,
+          },
+        ],
+        [],
+        []
+      );
+
+      const req = mockRequest({ params: { id: "game-1" } });
+      const res = mockResponse();
+
+      await callRoute("GET", "/:id", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.isMyTurn).toBe(false);
+      expect(result.canDispute).toBe(true);
+      expect(result.needsToJudge).toBe(false);
+      expect(result.needsToRespond).toBe(false);
+      expect(result.pendingTurnId).toBeNull();
+    });
+
+    it("sets canDispute false for player1 when dispute already used", async () => {
+      resultQueue.push(
+        [
+          {
+            id: "game-1",
+            player1Id: "user-1",
+            player2Id: "opponent-1",
+            status: "active",
+            currentTurn: "user-1",
+            turnPhase: "set",
+            player1DisputeUsed: true,
+            player2DisputeUsed: false,
+          },
+        ],
+        [],
+        []
+      );
+
+      const req = mockRequest({ params: { id: "game-1" } });
+      const res = mockResponse();
+
+      await callRoute("GET", "/:id", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.canDispute).toBe(false);
+    });
+
     it("returns 403 when user is not a player", async () => {
-      mockDbReturns.selectResult = [
-        {
-          id: "game-1",
-          player1Id: "other-1",
-          player2Id: "other-2",
-          status: "active",
-        },
-      ];
+      resultQueue.push([
+        { id: "game-1", player1Id: "other-1", player2Id: "other-2", status: "active" },
+      ]);
 
       const req = mockRequest({ params: { id: "game-1" } });
       const res = mockResponse();
@@ -411,7 +604,7 @@ describe("Game Management Routes", () => {
     });
 
     it("returns 404 when game not found", async () => {
-      mockDbReturns.selectResult = [];
+      resultQueue.push([]);
 
       const req = mockRequest({ params: { id: "nonexistent" } });
       const res = mockResponse();
@@ -430,6 +623,19 @@ describe("Game Management Routes", () => {
       await callRoute("GET", "/:id", req, res);
 
       expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    it("returns 500 when db throws", async () => {
+      shouldDbThrow = true;
+      const req = mockRequest({ params: { id: "game-1" } });
+      const res = mockResponse();
+
+      await callRoute("GET", "/:id", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to fetch game" })
+      );
     });
   });
 });
