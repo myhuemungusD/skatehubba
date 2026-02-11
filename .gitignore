@@ -8,6 +8,7 @@ package-lock.json
 .env.development
 .env.*.local
 .env.backup
+.jwt-secret.dev
 
 # Build outputs
 dist
