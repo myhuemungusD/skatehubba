@@ -70,7 +70,8 @@ jobs:
           target: google_apis
           arch: x86_64
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-load
+          emulator-boot-timeout: 900
           disable-animations: true
           script: echo "Generated AVD snapshot for caching."
 
@@ -108,20 +109,11 @@ jobs:
           target: google_apis
           arch: x86_64
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-load
+          emulator-boot-timeout: 900
           disable-animations: true
           working-directory: mobile
           script: |
-            adb kill-server
-            adb start-server
-            adb wait-for-device
-            for i in $(seq 1 30); do
-              if adb shell getprop sys.boot_completed 2>/dev/null | grep -q 1; then
-                echo "Emulator booted after ${i}x2 seconds"
-                break
-              fi
-              sleep 2
-            done
             adb devices
             pnpm run e2e:test:android -- --headless
 
