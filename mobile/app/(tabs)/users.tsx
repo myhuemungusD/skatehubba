@@ -46,7 +46,7 @@ export default function UsersScreen() {
           e.stopPropagation();
           router.push({
             pathname: "/challenge/new",
-            params: { opponentId: item.id },
+            params: { opponentUid: item.id },
           });
         }}
       >
