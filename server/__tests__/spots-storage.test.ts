@@ -256,14 +256,14 @@ describe("SpotStorage", () => {
   describe("updateRating", () => {
     it("should atomically update rating", async () => {
       mockDbChain.then = (resolve: any) => Promise.resolve(undefined).then(resolve);
-      await spotStorage.updateRating(1, 4.5);
+      await spotStorage.updateRating(1, 4.5, "test-user-id");
       expect(mockDbChain.update).toHaveBeenCalled();
     });
 
     it("should throw when db is null", async () => {
       mockDb = null;
       const storage = new SpotStorage();
-      await expect(storage.updateRating(1, 4.5)).rejects.toThrow();
+      await expect(storage.updateRating(1, 4.5, "test-user-id")).rejects.toThrow();
     });
   });
 

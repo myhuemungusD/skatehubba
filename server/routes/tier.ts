@@ -4,10 +4,11 @@ import { getDb, isDatabaseAvailable } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { requirePaidOrPro } from "../middleware/requirePaidOrPro";
 import { customUsers, consumedPaymentIntents } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, count } from "drizzle-orm";
 import logger from "../logger";
 import { DEV_DEFAULT_ORIGIN } from "../config/server";
 import { Errors, sendError } from "../utils/apiError";
+import { proAwardLimiter } from "../middleware/security";
 
 const router = Router();
 
@@ -32,7 +33,7 @@ const awardProSchema = z.object({
   userId: z.string().min(1, "User ID is required"),
 });
 
-router.post("/award-pro", authenticateUser, requirePaidOrPro, async (req, res) => {
+router.post("/award-pro", authenticateUser, requirePaidOrPro, proAwardLimiter, async (req, res) => {
   const parsed = awardProSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());
@@ -40,6 +41,12 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, async (req, res) =
 
   const { userId } = parsed.data;
   const awarder = req.currentUser!;
+
+  // Only premium (paid) users can award pro status.
+  // Pro users who were themselves awarded cannot propagate the chain.
+  if (awarder.accountTier !== "premium") {
+    return Errors.forbidden(res, "PREMIUM_REQUIRED", "Only Premium members can award Pro status.");
+  }
 
   if (userId === awarder.id) {
     return Errors.badRequest(res, "SELF_AWARD", "You can't award Pro to yourself.");
@@ -51,6 +58,21 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, async (req, res) =
 
   try {
     const db = getDb();
+
+    // Cap the number of pro awards a single premium user can give
+    const MAX_PRO_AWARDS = 5;
+    const [awardCount] = await db
+      .select({ value: count() })
+      .from(customUsers)
+      .where(eq(customUsers.proAwardedBy, awarder.id));
+
+    if ((awardCount?.value ?? 0) >= MAX_PRO_AWARDS) {
+      return Errors.conflict(
+        res,
+        "AWARD_LIMIT_REACHED",
+        `You have already awarded Pro status to ${MAX_PRO_AWARDS} users.`
+      );
+    }
 
     // Check if target user exists and is on free tier
     const [targetUser] = await db

@@ -72,6 +72,27 @@ export const spots = pgTable(
   })
 );
 
+// Per-user spot ratings for deduplication (prevents infinite vote manipulation)
+export const spotRatings = pgTable(
+  "spot_ratings",
+  {
+    id: serial("id").primaryKey(),
+    spotId: integer("spot_id")
+      .notNull()
+      .references(() => spots.id, { onDelete: "cascade" }),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    rating: integer("rating").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueUserSpot: uniqueIndex("unique_spot_rating_per_user").on(table.spotId, table.userId),
+    spotIdx: index("IDX_spot_ratings_spot").on(table.spotId),
+  })
+);
+
+export type SpotRating = typeof spotRatings.$inferSelect;
+
 export const filmerRequestStatusEnum = pgEnum("filmer_request_status", [
   "pending",
   "accepted",
