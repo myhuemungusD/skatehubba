@@ -12,11 +12,11 @@
     "web": "expo start --web",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "e2e:build:ios": "detox build --configuration ios.sim.debug",
-    "e2e:test:ios": "detox test --configuration ios.sim.debug",
-    "e2e:build:android": "detox build --configuration android.emu.debug",
-    "e2e:test:android": "detox test --configuration android.emu.debug",
-    "e2e:smoke": "detox test --configuration ios.sim.debug --testNamePattern \"Smoke\""
+    "e2e:build:ios": "detox build --config-path .detoxrc.json --configuration ios.sim.debug",
+    "e2e:test:ios": "detox test --config-path .detoxrc.json --configuration ios.sim.debug",
+    "e2e:build:android": "detox build --config-path .detoxrc.json --configuration android.emu.debug",
+    "e2e:test:android": "detox test --config-path .detoxrc.json --configuration android.emu.debug",
+    "e2e:smoke": "detox test --config-path .detoxrc.json --configuration ios.sim.debug --testNamePattern \"Smoke\""
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -35,6 +35,12 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: .
 
+      - name: Verify Detox installed
+        run: |
+          npx detox --version
+          echo "Config file exists:"
+          cat .detoxrc.json | head -5
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -85,6 +91,13 @@ jobs:
       - name: Expo Prebuild (Android)
         run: npx expo prebuild --platform android --no-install
 
+      - name: Verify Android project
+        run: |
+          echo "android/ directory contents:"
+          ls -la android/app/ || echo "ERROR: android/app/ does not exist"
+          echo "gradlew exists:"
+          test -f android/gradlew && echo "yes" || echo "no"
+
       - name: Build Detox (Android)
         run: pnpm run e2e:build:android
 
@@ -98,7 +111,19 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           disable-animations: true
           working-directory: mobile
-          script: pnpm run e2e:test:android -- --headless
+          script: |
+            adb kill-server
+            adb start-server
+            adb wait-for-device
+            for i in $(seq 1 30); do
+              if adb shell getprop sys.boot_completed 2>/dev/null | grep -q 1; then
+                echo "Emulator booted after ${i}x2 seconds"
+                break
+              fi
+              sleep 2
+            done
+            adb devices
+            pnpm run e2e:test:android -- --headless
 
       - name: Upload Detox Artifacts
         if: failure()
