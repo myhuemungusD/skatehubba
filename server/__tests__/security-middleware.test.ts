@@ -61,6 +61,10 @@ vi.mock("../config/rateLimits", () => {
       usernameCheck: stub,
       profileCreate: stub,
       staticFile: stub,
+      quickMatch: stub,
+      spotRating: stub,
+      spotDiscovery: stub,
+      proAward: stub,
     },
   };
 });

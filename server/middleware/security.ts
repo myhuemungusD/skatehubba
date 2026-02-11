@@ -181,6 +181,57 @@ export const staticFileLimiter = rateLimit({
 });
 
 /**
+ * Rate limiter for quick match requests
+ */
+export const quickMatchLimiter = rateLimit({
+  windowMs: RL.quickMatch.windowMs,
+  max: RL.quickMatch.max,
+  message: { error: RL.quickMatch.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.quickMatch.prefix),
+});
+
+/**
+ * Rate limiter for spot rating requests
+ */
+export const spotRatingLimiter = rateLimit({
+  windowMs: RL.spotRating.windowMs,
+  max: RL.spotRating.max,
+  message: { error: RL.spotRating.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.spotRating.prefix),
+});
+
+/**
+ * Rate limiter for spot discovery requests
+ */
+export const spotDiscoveryLimiter = rateLimit({
+  windowMs: RL.spotDiscovery.windowMs,
+  max: RL.spotDiscovery.max,
+  message: { error: RL.spotDiscovery.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: buildStore(RL.spotDiscovery.prefix),
+});
+
+/**
+ * Rate limiter for pro award requests
+ */
+export const proAwardLimiter = rateLimit({
+  windowMs: RL.proAward.windowMs,
+  max: RL.proAward.max,
+  message: { error: RL.proAward.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.proAward.prefix),
+});
+
+/**
  * Honeypot validation middleware to catch bots
  *
  * Checks for a hidden form field named 'company' that humans won't fill but bots will.

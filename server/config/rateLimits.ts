@@ -100,6 +100,38 @@ export const RATE_LIMIT_CONFIG = {
     prefix: "rl:static:",
   },
 
+  /** Quick match requests per user */
+  quickMatch: {
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 5,
+    message: "Too many quick match requests, please slow down.",
+    prefix: "rl:quickmatch:",
+  },
+
+  /** Spot rating requests per user */
+  spotRating: {
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 10,
+    message: "Too many rating requests, please slow down.",
+    prefix: "rl:spotrate:",
+  },
+
+  /** Spot discovery requests per IP */
+  spotDiscovery: {
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 10,
+    message: "Too many discovery requests, please slow down.",
+    prefix: "rl:discover:",
+  },
+
+  /** Pro award requests per user */
+  proAward: {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 5,
+    message: "Too many pro award attempts, please try again later.",
+    prefix: "rl:proaward:",
+  },
+
   // --- rateLimit.ts limiters (auth/routes.ts login, AI endpoints) ---
 
   /** Auth limiter used by auth/routes.ts (login endpoint) */

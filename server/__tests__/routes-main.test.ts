@@ -77,6 +77,9 @@ vi.mock("../middleware/security", () => ({
   perUserCheckInLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
   perUserSpotWriteLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
   publicWriteLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+  quickMatchLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+  spotRatingLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+  spotDiscoveryLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
 }));
 vi.mock("../middleware/csrf", () => ({
   requireCsrfToken: vi.fn((_r: any, _s: any, n: any) => n()),
@@ -485,7 +488,7 @@ describe("registerRoutes", () => {
   describe("POST /api/spots/:spotId/rate", () => {
     it("should rate a spot and return updated spot", async () => {
       const updated = { id: 1, name: "Park", rating: 4 };
-      vi.mocked(spotStorage.updateRating).mockResolvedValue(undefined);
+      vi.mocked(spotStorage.updateRating).mockResolvedValue(true);
       vi.mocked(spotStorage.getSpotById).mockResolvedValue(updated as any);
 
       const handler = routes.get("POST /api/spots/:spotId/rate")!;
@@ -499,7 +502,7 @@ describe("registerRoutes", () => {
         res
       );
 
-      expect(spotStorage.updateRating).toHaveBeenCalledWith(1, 4);
+      expect(spotStorage.updateRating).toHaveBeenCalledWith(1, 4, "user1");
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(updated);
     });
@@ -521,7 +524,7 @@ describe("registerRoutes", () => {
     });
 
     it("should return 404 when spot disappears after rating update", async () => {
-      vi.mocked(spotStorage.updateRating).mockResolvedValue(undefined);
+      vi.mocked(spotStorage.updateRating).mockResolvedValue(true);
       vi.mocked(spotStorage.getSpotById).mockResolvedValue(null);
 
       const handler = routes.get("POST /api/spots/:spotId/rate")!;
