@@ -114,6 +114,15 @@ function resetDbChains() {
   });
   mockTransaction.mockImplementation(async (cb: (tx: any) => Promise<void>) => {
     const tx = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              for: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
+            }),
+          }),
+        }),
+      }),
       insert: vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
       }),
