@@ -1,4 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+
+// Mock Firebase so the module-level initFirebase() doesn't throw in CI
+vi.mock("../firebase/config", () => ({
+  auth: {},
+}));
+
+vi.mock("@skatehubba/config", () => ({
+  getApiBaseUrl: () => "http://localhost:3000",
+}));
+
+vi.mock("../devAdmin", () => ({
+  isDevAdmin: () => false,
+}));
+
 import { apiRequestRaw } from "./client";
 
 describe("CSRF Protection", () => {
