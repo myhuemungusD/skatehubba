@@ -1,22 +1,72 @@
-# SkateHubba
+# 🎮 SkateHubba
 
-SkateHubba is a spot map for skateboarders. Find spots, check in, and climb the leaderboard.
+**The only skate app with async turn-based S.K.A.T.E. battles.**
+
+Challenge skaters worldwide to video-based games of S.K.A.T.E. Record your tricks, judge opponents, and prove your skills—all asynchronously. Play at your own pace, anywhere in the world.
+
+> **What makes us different:** While Shred Spots, The Spot Guide, and Skately just show you maps of skate spots, **SkateHubba lets you actually play S.K.A.T.E.** with video proof. We're not just a spot finder—we're skateboarding's first async turn-based video game.
 
 ---
 
-## Features
+## 🎯 Core Features
 
-### Spot Map
+### 🎮 S.K.A.T.E. Game (Our Differentiator)
+
+**The classic skateboarding game, reimagined for the digital age.**
+
+- **Challenge Anyone, Anywhere:** Play against skaters in different cities, time zones, or countries
+- **Video-Based Gameplay:** Record your tricks (up to 30s), no honor system—video is proof
+- **Async Turn-Based:** Play when you're free, no need to coordinate schedules
+- **Judgement System:** Opponents judge your tricks as LAND or BAIL
+- **Dispute Resolution:** Challenge unfair judgements with admin review
+- **Real-Time Updates:** Socket.io notifications when it's your turn
+- **Full Game History:** Every trick, every judgement, saved forever
+
+**How it works:**
+1. Challenge a skater from the lobby
+2. Record your trick attempt and upload
+3. Opponent judges it (LAND or BAIL)
+4. If LAND, they must attempt the same trick
+5. You judge their attempt
+6. First to spell S.K.A.T.E. loses
+
+[Learn the full rules →](docs/GAME_RULES.md)
+
+---
+
+### 📍 Spot Map
 
 Browse skate spots on an interactive map. Filter by type (ledge, rail, stair set, park, etc.) and tier. Spots are sourced from OpenStreetMap and can be discovered via geolocation.
 
-### Check-ins
+### ✅ Check-ins
 
 Check in at a spot when you're within 30 meters. Each check-in is geo-verified and counts toward your streak, XP, and leaderboard rank. Daily limits prevent abuse.
 
-### Leaderboard
+### 🏆 Leaderboard
 
 Real-time rankings across XP, spot count, and streaks. See who's putting in work city-wide.
+
+### 🎬 TrickMint
+
+Upload skateboarding trick videos to the public feed. Build your trick library and share your progression with the community.
+
+---
+
+## 🆚 How We Compare to Other Skate Apps
+
+| Feature | SkateHubba | Shred Spots | The Spot Guide | Skately |
+|---------|-----------|-------------|----------------|---------|
+| **Spot Map** | ✅ | ✅ | ✅ | ✅ |
+| **Check-ins** | ✅ | ✅ | ✅ | ✅ |
+| **Leaderboard** | ✅ | ✅ | ❌ | ❌ |
+| **Video Uploads** | ✅ | ❌ | ❌ | ❌ |
+| **S.K.A.T.E. Game** | ✅ 🎮 | ❌ | ❌ | ❌ |
+| **Async Turn-Based Gameplay** | ✅ 🎮 | ❌ | ❌ | ❌ |
+| **Video-Based Trick Judgement** | ✅ 🎮 | ❌ | ❌ | ❌ |
+| **Dispute Resolution** | ✅ | ❌ | ❌ | ❌ |
+| **Real-Time Game Updates** | ✅ | ❌ | ❌ | ❌ |
+
+**Bottom line:** Other apps help you find spots. **SkateHubba helps you compete.**
 
 ---
 
@@ -83,15 +133,71 @@ See [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md).
 
 ---
 
-## Security
+## 📚 Documentation
 
-See [docs/security/SECURITY.md](docs/security/SECURITY.md).
+- **[Game Rules](docs/GAME_RULES.md)** - Learn how S.K.A.T.E. works on SkateHubba
+- **[Architecture](docs/ARCHITECTURE.md)** - System design with Mermaid diagrams
+- **[Roadmap](ROADMAP.md)** - Upcoming features and vision
+- **[Changelog](CHANGELOG.md)** - What's been built (v0.9.0)
+- **[Deployment](docs/DEPLOYMENT_RUNBOOK.md)** - Production deployment guide
+- **[Contributing](CONTRIBUTING.md)** - Development workflow and standards
+- **[Security](docs/security/SECURITY.md)** - Security policies and reporting
 
-## Contributing
+---
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+## 🎬 Demo & Screenshots
 
-## License
+> **Note:** Screenshots coming soon! See [docs/screenshots/README.md](docs/screenshots/README.md) for how to contribute.
+
+Want to see the S.K.A.T.E. game in action? We're preparing:
+- Hero GIF showing full game flow (record → judge → letter awarded)
+- Game lobby screenshots
+- Mobile app mockups
+- 3-minute demo video walkthrough
+
+**Help wanted:** If you have access to the app, capture screenshots and open a PR!
+
+---
+
+## 🚀 What's Next
+
+See our [Roadmap](ROADMAP.md) for upcoming features, including:
+- **Q1 2026:** Mobile app (React Native), spectator mode, game stats
+- **Q2 2026:** Tournament mode, trick recognition AI, crew battles
+- **Q3 2026:** Premium tiers, analytics dashboard, sponsor integration
+- **Q4 2026:** New game modes (Speed S.K.A.T.E., Tag Team), global expansion
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+- Development setup and workflow
+- Branch naming conventions (feat/, fix/, refactor/, chore/)
+- Conventional Commits specification
+- Code quality standards (no `any` types, functional components)
+- PR process with CI validation
+
+All PRs must pass:
+- ✅ TypeScript type checking
+- ✅ ESLint linting (zero warnings)
+- ✅ Unit tests (136 test files)
+- ✅ Secret scanning (Gitleaks)
+- ✅ Build verification
+
+---
+
+## 🔒 Security
+
+See [docs/security/SECURITY.md](docs/security/SECURITY.md) for:
+- Reporting vulnerabilities
+- Security features (rate limiting, CSRF, email verification)
+- Firestore and Storage security rules
+- Multi-layer secret scanning
+
+---
+
+## 📄 License
 
 See [LICENSE](LICENSE).
 
