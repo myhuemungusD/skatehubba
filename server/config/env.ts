@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomBytes } from "crypto";
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
@@ -8,7 +9,7 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters"),
 
-  // JWT Secret - required in production, has dev fallback (SECURITY: Change in production!)
+  // JWT Secret - required in production, random fallback generated for dev
   JWT_SECRET: z
     .string()
     .optional()
@@ -17,10 +18,17 @@ const envSchema = z.object({
         if (process.env.NODE_ENV === "production") {
           throw new Error("JWT_SECRET is required in production");
         } else {
-          console.warn("JWT_SECRET not set, using fallback for dev");
+          // Generate a cryptographically secure random secret for development
+          const randomSecret = randomBytes(32).toString("hex");
+          console.warn(
+            "⚠️  JWT_SECRET not set - generated random secret for this session.\n" +
+            "   This is INSECURE for development with multiple instances.\n" +
+            "   Set JWT_SECRET in your .env file for consistent tokens."
+          );
+          return randomSecret;
         }
       }
-      return val || "dev-jwt-secret-change-in-production-32chars";
+      return val;
     }),
 
   // Replit environment (optional)

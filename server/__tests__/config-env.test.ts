@@ -5,7 +5,7 @@
  * - Test mode short-circuit: hardcoded values returned when NODE_ENV=test
  * - All expected test-mode fields and their exact values
  * - Non-test validation path via dynamic import with resetModules
- * - JWT_SECRET transform (dev fallback)
+ * - JWT_SECRET transform (random dev fallback generation)
  * - STRIPE_SECRET_KEY transform (empty, valid, invalid prefix)
  * - STRIPE_WEBHOOK_SECRET transform (empty, valid)
  * - TESTING_STRIPE_SECRET_KEY transform
@@ -89,14 +89,18 @@ describe("config/env — non-test validation path", () => {
     process.env.PORT = "4000";
     process.env.DATABASE_URL = "postgres://dev:dev@localhost:5432/dev";
     process.env.SESSION_SECRET = "a-valid-session-secret-at-least-32-chars-here";
-    // JWT_SECRET left undefined — should use dev fallback
+    // JWT_SECRET left undefined — should generate random fallback
 
     const { env } = await import("../config/env");
 
     expect(env.NODE_ENV).toBe("development");
     expect(env.PORT).toBe("4000");
     expect(env.DATABASE_URL).toBe("postgres://dev:dev@localhost:5432/dev");
-    expect(env.JWT_SECRET).toBe("dev-jwt-secret-change-in-production-32chars");
+    // Should have a random JWT_SECRET that's at least 32 characters
+    expect(env.JWT_SECRET).toBeDefined();
+    expect(env.JWT_SECRET!.length).toBeGreaterThanOrEqual(32);
+    // Should NOT be the old predictable hardcoded value
+    expect(env.JWT_SECRET).not.toBe("dev-jwt-secret-change-in-production-32chars");
   });
 
   it("uses default PORT when not specified", async () => {
