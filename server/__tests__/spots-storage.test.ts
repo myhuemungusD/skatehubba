@@ -18,6 +18,7 @@ mockDbChain.offset = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.leftJoin = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.insert = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.values = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.onConflictDoUpdate = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.returning = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.update = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
@@ -51,6 +52,15 @@ vi.mock("@shared/schema", () => ({
     lng: "lng",
     updatedAt: "updatedAt",
   },
+  spotRatings: {
+    _table: "spot_ratings",
+    id: "id",
+    spotId: "spotId",
+    userId: "userId",
+    rating: "rating",
+    createdAt: "createdAt",
+    updatedAt: "updatedAt",
+  },
   customUsers: {
     id: "id",
     firstName: "firstName",
@@ -62,6 +72,8 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   desc: vi.fn(),
   and: vi.fn(),
+  avg: vi.fn(() => "avg_col"),
+  count: vi.fn(() => "count_col"),
   sql: Object.assign((strings: TemplateStringsArray, ..._values: any[]) => ({ _sql: true }), {
     raw: (s: string) => ({ _sql: true, raw: s }),
   }),
@@ -254,9 +266,23 @@ describe("SpotStorage", () => {
   });
 
   describe("updateRating", () => {
-    it("should atomically update rating", async () => {
-      mockDbChain.then = (resolve: any) => Promise.resolve(undefined).then(resolve);
+    it("should upsert per-user rating and recompute aggregate", async () => {
+      // The new updateRating does three awaits on the chain:
+      // 1. insert().values().onConflictDoUpdate() — void
+      // 2. select().from().where() — needs [{ avgRating, total }]
+      // 3. update().set().where() — void
+      let callCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        callCount++;
+        // Second thenable is the aggregate select — return a result row
+        if (callCount === 2) {
+          return Promise.resolve([{ avgRating: "4.5", total: 1 }]).then(resolve);
+        }
+        return Promise.resolve(undefined).then(resolve);
+      };
       await spotStorage.updateRating(1, 4.5, "test-user-id");
+      expect(mockDbChain.insert).toHaveBeenCalled();
+      expect(mockDbChain.onConflictDoUpdate).toHaveBeenCalled();
       expect(mockDbChain.update).toHaveBeenCalled();
     });
 

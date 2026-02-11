@@ -56,8 +56,13 @@ vi.mock("../middleware/requirePaidOrPro", () => ({
   requirePaidOrPro: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
+vi.mock("../middleware/security", () => ({
+  proAwardLimiter: vi.fn((_req: any, _res: any, next: any) => next()),
+}));
+
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
+  count: vi.fn(),
 }));
 
 vi.mock("@shared/schema", () => ({
@@ -85,6 +90,7 @@ vi.mock("../config/server", () => ({
 
 const mockDbReturns = {
   selectResult: [] as any[],
+  countResult: [{ value: 0 }] as any[],
   updateResult: [] as any[],
 };
 
@@ -97,12 +103,22 @@ const mockUpdate = vi.fn();
 const mockTransaction = vi.fn();
 
 function resetDbChains() {
-  mockSelect.mockReturnValue({
-    from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        limit: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
-      }),
-    }),
+  // The select chain needs to be thenable at both .where() and .limit() to
+  // support queries that terminate at either point (e.g. count queries have
+  // no .limit(), while target-user lookups do).
+  mockSelect.mockImplementation(() => {
+    const chain: any = {};
+    chain.from = vi.fn().mockReturnValue(chain);
+    chain.where = vi.fn().mockImplementation(() => {
+      // Return something that is both thenable (for count queries ending at .where())
+      // and chainable (for queries that continue to .limit())
+      const whereResult: any = Promise.resolve(mockDbReturns.countResult);
+      whereResult.limit = vi
+        .fn()
+        .mockImplementation(() => Promise.resolve(mockDbReturns.selectResult));
+      return whereResult;
+    });
+    return chain;
   });
   mockInsert.mockReturnValue({
     values: vi.fn().mockResolvedValue(undefined),
@@ -224,6 +240,7 @@ describe("Tier Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockDbReturns.selectResult = [];
+    mockDbReturns.countResult = [{ value: 0 }];
     mockDbReturns.updateResult = [];
     mockIsDatabaseAvailable = true;
     resetDbChains();
@@ -319,10 +336,28 @@ describe("Tier Routes", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
+    it("blocks pro (non-premium) users from awarding", async () => {
+      const req = mockRequest({
+        body: { userId: "target-1" },
+        currentUser: { id: "user-1", accountTier: "pro" },
+      });
+      const res = mockResponse();
+
+      await callRoute("POST", "/award-pro", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: "PREMIUM_REQUIRED",
+          message: "Only Premium members can award Pro status.",
+        })
+      );
+    });
+
     it("blocks self-award", async () => {
       const req = mockRequest({
         body: { userId: "user-1" },
-        currentUser: { id: "user-1", accountTier: "pro" },
+        currentUser: { id: "user-1", accountTier: "premium" },
       });
       const res = mockResponse();
 
@@ -340,7 +375,10 @@ describe("Tier Routes", () => {
     it("returns 503 when database is unavailable", async () => {
       mockIsDatabaseAvailable = false;
 
-      const req = mockRequest({ body: { userId: "target-1" } });
+      const req = mockRequest({
+        body: { userId: "target-1" },
+        currentUser: { id: "user-1", accountTier: "premium" },
+      });
       const res = mockResponse();
 
       await callRoute("POST", "/award-pro", req, res);
@@ -355,9 +393,13 @@ describe("Tier Routes", () => {
     });
 
     it("returns 404 when target user not found", async () => {
+      // First select (count) returns 0 awards, second select (target) returns empty
       mockDbReturns.selectResult = [];
 
-      const req = mockRequest({ body: { userId: "nonexistent" } });
+      const req = mockRequest({
+        body: { userId: "nonexistent" },
+        currentUser: { id: "user-1", accountTier: "premium" },
+      });
       const res = mockResponse();
 
       await callRoute("POST", "/award-pro", req, res);
@@ -374,7 +416,10 @@ describe("Tier Routes", () => {
     it("returns 409 when target user already has pro or premium", async () => {
       mockDbReturns.selectResult = [{ id: "target-1", accountTier: "pro", firstName: "Skater" }];
 
-      const req = mockRequest({ body: { userId: "target-1" } });
+      const req = mockRequest({
+        body: { userId: "target-1" },
+        currentUser: { id: "user-1", accountTier: "premium" },
+      });
       const res = mockResponse();
 
       await callRoute("POST", "/award-pro", req, res);
@@ -394,7 +439,7 @@ describe("Tier Routes", () => {
 
       const req = mockRequest({
         body: { userId: "target-1" },
-        currentUser: { id: "user-1", accountTier: "pro" },
+        currentUser: { id: "user-1", accountTier: "premium" },
       });
       const res = mockResponse();
 
@@ -415,7 +460,7 @@ describe("Tier Routes", () => {
 
       const req = mockRequest({
         body: { userId: "target-2" },
-        currentUser: { id: "user-1", accountTier: "pro" },
+        currentUser: { id: "user-1", accountTier: "premium" },
       });
       const res = mockResponse();
 
@@ -436,7 +481,7 @@ describe("Tier Routes", () => {
 
       const req = mockRequest({
         body: { userId: "target-1" },
-        currentUser: { id: "user-1", accountTier: "pro" },
+        currentUser: { id: "user-1", accountTier: "premium" },
       });
       const res = mockResponse();
 

@@ -77,6 +77,9 @@ vi.mock("../middleware/security", () => ({
   perUserCheckInLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
   perUserSpotWriteLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
   publicWriteLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+  quickMatchLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+  spotRatingLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+  spotDiscoveryLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
 }));
 vi.mock("../middleware/csrf", () => ({
   requireCsrfToken: vi.fn((_r: any, _s: any, n: any) => n()),
@@ -499,7 +502,7 @@ describe("registerRoutes", () => {
         res
       );
 
-      expect(spotStorage.updateRating).toHaveBeenCalledWith(1, 4, "dev-admin-000");
+      expect(spotStorage.updateRating).toHaveBeenCalledWith(1, 4, "user1");
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(updated);
     });
