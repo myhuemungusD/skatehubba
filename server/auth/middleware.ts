@@ -35,8 +35,8 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
 
   try {
     // Dev-only admin bypass — allows e2e testing without Firebase auth
-    // BLOCKED in staging and production: only active in development
-    if (process.env.NODE_ENV === "development" && req.headers["x-dev-admin"] === "true") {
+    // BLOCKED in staging and production: only active in development and test
+    if ((process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") && req.headers["x-dev-admin"] === "true") {
       req.currentUser = {
         id: "dev-admin-000",
         firebaseUid: "dev-admin-uid",
