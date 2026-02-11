@@ -140,6 +140,7 @@ vi.mock("drizzle-orm", () => ({
   ilike: vi.fn(),
   or: vi.fn(),
   eq: vi.fn(),
+  and: vi.fn((...args: any[]) => args),
   count: vi.fn(() => "count_agg"),
   sql: Object.assign((strings: TemplateStringsArray, ..._values: any[]) => ({ _sql: true }), {
     raw: (s: string) => ({ _sql: true, raw: s }),
@@ -1096,11 +1097,10 @@ describe("registerRoutes", () => {
   // GET /api/users
   // --------------------------------------------------------------------------
   describe("GET /api/users", () => {
-    it("should return users list", async () => {
+    it("should return users list with only safe fields (no email or firebaseUid)", async () => {
       const dbResults = [
         {
-          uid: "fb1",
-          email: "a@test.com",
+          id: "u1",
           displayName: "Alice",
           photoURL: null,
         },
@@ -1121,6 +1121,14 @@ describe("registerRoutes", () => {
       await handler(mockReq(), res);
 
       expect(res.json).toHaveBeenCalledWith(dbResults);
+      const returnedData = res.json.mock.calls[0][0];
+      for (const user of returnedData) {
+        expect(user).not.toHaveProperty("email");
+        expect(user).not.toHaveProperty("firebaseUid");
+        expect(user).not.toHaveProperty("uid");
+        expect(user).toHaveProperty("id");
+        expect(user).toHaveProperty("displayName");
+      }
     });
 
     it("should return empty array when db unavailable", async () => {

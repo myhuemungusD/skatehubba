@@ -4,19 +4,16 @@ import { apiRequest } from "@/lib/queryClient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/hooks/useAuth";
 import { SKATE } from "@/theme";
 
 interface User {
-  uid: string;
+  id: string;
   displayName: string;
   photoURL: string | null;
-  email: string;
 }
 
 export default function UsersScreen() {
   const router = useRouter();
-  const { user: currentUser } = useAuth();
   const [search, setSearch] = useState("");
 
   const { data: users, isLoading } = useQuery({
@@ -26,13 +23,11 @@ export default function UsersScreen() {
 
   const filteredUsers = users?.filter(
     (user: User) =>
-      user.uid !== currentUser?.uid &&
-      (user.displayName?.toLowerCase().includes(search.toLowerCase()) ||
-        user.email?.toLowerCase().includes(search.toLowerCase()))
+      user.displayName?.toLowerCase().includes(search.toLowerCase())
   );
 
   const renderUser = ({ item }: { item: User }) => (
-    <TouchableOpacity style={styles.userCard} onPress={() => router.push(`/profile/${item.uid}`)}>
+    <TouchableOpacity style={styles.userCard} onPress={() => router.push(`/profile/${item.id}`)}>
       {item.photoURL ? (
         <Image source={{ uri: item.photoURL }} style={styles.avatar} />
       ) : (
@@ -44,7 +39,6 @@ export default function UsersScreen() {
       )}
       <View style={styles.info}>
         <Text style={styles.name}>{item.displayName || "Skater"}</Text>
-        <Text style={styles.email}>{item.email}</Text>
       </View>
       <TouchableOpacity
         style={styles.challengeButton}
@@ -52,7 +46,7 @@ export default function UsersScreen() {
           e.stopPropagation();
           router.push({
             pathname: "/challenge/new",
-            params: { opponentUid: item.uid },
+            params: { opponentUid: item.id },
           });
         }}
       >
@@ -93,7 +87,7 @@ export default function UsersScreen() {
         <FlatList
           data={filteredUsers}
           renderItem={renderUser}
-          keyExtractor={(item) => item.uid}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
         />
       )}
@@ -165,11 +159,6 @@ const styles = StyleSheet.create({
     fontSize: SKATE.fontSize.lg,
     fontWeight: SKATE.fontWeight.bold,
     color: SKATE.colors.white,
-  },
-  email: {
-    fontSize: SKATE.fontSize.sm,
-    color: SKATE.colors.lightGray,
-    marginTop: 2,
   },
   challengeButton: {
     backgroundColor: SKATE.colors.orange,

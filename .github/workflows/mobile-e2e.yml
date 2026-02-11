@@ -35,6 +35,33 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: .
 
+      - name: Write google-services.json for Firebase
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json
+          else
+            cat > google-services.json << 'PLACEHOLDER'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "skatehubba-ci-placeholder",
+              "storage_bucket": "skatehubba-ci-placeholder.appspot.com"
+            },
+            "client": [{
+              "client_info": {
+                "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                "android_client_info": { "package_name": "com.skatehubba.app" }
+              },
+              "api_key": [{ "current_key": "ci-placeholder" }],
+              "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+            }],
+            "configuration_version": "1"
+          }
+          PLACEHOLDER
+          fi
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
       - name: Verify Detox installed
         run: |
           npx detox --version
@@ -69,6 +96,8 @@ jobs:
           api-level: 31
           target: default
           arch: x86_64
+          avd-name: Pixel_6_API_34
+          profile: pixel_6
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-load
           emulator-boot-timeout: 600
@@ -108,6 +137,8 @@ jobs:
           api-level: 31
           target: default
           arch: x86_64
+          avd-name: Pixel_6_API_34
+          profile: pixel_6
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
           emulator-boot-timeout: 600

@@ -4,7 +4,7 @@ import { setupAuthRoutes } from "./auth/routes";
 import { spotStorage } from "./storage/spots";
 import { getDb, isDatabaseAvailable } from "./db";
 import { customUsers, spots, games, betaSignups } from "@shared/schema";
-import { ilike, or, eq, count, sql } from "drizzle-orm";
+import { ilike, or, eq, and, count, sql } from "drizzle-orm";
 import { insertSpotSchema } from "@shared/schema";
 import {
   checkInIpLimiter,
@@ -497,22 +497,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/users", authenticateUser, async (_req, res) => {
+  app.get("/api/users", authenticateUser, async (req, res) => {
     if (!isDatabaseAvailable()) {
       return res.json([]);
     }
 
     try {
       const database = getDb();
+      const currentUserId = req.currentUser?.id;
+      const conditions = [eq(customUsers.isActive, true)];
+      if (currentUserId) {
+        conditions.push(sql`${customUsers.id} != ${currentUserId}`);
+      }
       const results = await database
         .select({
-          uid: customUsers.firebaseUid,
-          email: customUsers.email,
+          id: customUsers.id,
           displayName: customUsers.firstName,
           photoURL: sql<string | null>`null`,
         })
         .from(customUsers)
-        .where(eq(customUsers.isActive, true))
+        .where(and(...conditions))
         .limit(100);
 
       res.json(results);
