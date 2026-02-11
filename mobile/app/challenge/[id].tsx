@@ -195,7 +195,10 @@ export default function ChallengeDetailScreen() {
               onPress={() =>
                 router.push({
                   pathname: "/challenge/new",
-                  params: { opponentUid: challenge.createdBy },
+                  params: {
+                    opponentUid: challenge.createdBy,
+                    challengeId: challenge.id,
+                  },
                 })
               }
             >
