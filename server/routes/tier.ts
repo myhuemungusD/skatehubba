@@ -252,6 +252,21 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
         });
         return sendError(res, 402, "PAYMENT_AMOUNT_INVALID", "Payment amount invalid.");
       }
+
+      // Verify payment intent belongs to current user
+      if (intent.metadata?.userId !== user.id) {
+        logger.warn("Payment intent user mismatch", {
+          userId: user.id,
+          intentUserId: intent.metadata?.userId,
+          paymentIntentId,
+        });
+        return sendError(
+          res,
+          403,
+          "PAYMENT_INTENT_FORBIDDEN",
+          "This payment intent does not belong to you."
+        );
+      }
     } catch (stripeError) {
       logger.error("Stripe payment verification failed", {
         userId: user.id,
@@ -263,28 +278,25 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
 
     const db = getDb();
 
-    // Check if this payment intent has already been consumed
-    const [existing] = await db
-      .select({ id: consumedPaymentIntents.id })
-      .from(consumedPaymentIntents)
-      .where(eq(consumedPaymentIntents.paymentIntentId, paymentIntentId))
-      .limit(1);
-
-    if (existing) {
-      logger.warn("Payment intent already consumed", {
-        userId: user.id,
-        paymentIntentId,
-      });
-      return sendError(
-        res,
-        409,
-        "PAYMENT_ALREADY_USED",
-        "This payment has already been applied to an account."
-      );
-    }
-
-    // Atomically record the consumed payment intent and upgrade the user
+    // Atomically check and record the consumed payment intent, then upgrade the user
+    // This prevents race conditions by doing the check within the transaction
     await db.transaction(async (tx) => {
+      // Check if this payment intent has already been consumed
+      const [existing] = await tx
+        .select({ id: consumedPaymentIntents.id })
+        .from(consumedPaymentIntents)
+        .where(eq(consumedPaymentIntents.paymentIntentId, paymentIntentId))
+        .limit(1)
+        .for("update");
+
+      if (existing) {
+        logger.warn("Payment intent already consumed", {
+          userId: user.id,
+          paymentIntentId,
+        });
+        throw new Error("PAYMENT_ALREADY_USED");
+      }
+
       await tx.insert(consumedPaymentIntents).values({
         paymentIntentId,
         userId: user.id,
@@ -311,6 +323,16 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
       tier: "premium",
     });
   } catch (error) {
+    // Handle specific error for payment already used
+    if (error instanceof Error && error.message === "PAYMENT_ALREADY_USED") {
+      return sendError(
+        res,
+        409,
+        "PAYMENT_ALREADY_USED",
+        "This payment has already been applied to an account."
+      );
+    }
+
     logger.error("Failed to process premium purchase", {
       error: error instanceof Error ? error.message : String(error),
     });
