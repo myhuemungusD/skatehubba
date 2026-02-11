@@ -87,7 +87,7 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-api-31-${{ runner.os }}
+          key: avd-test-api31-${{ runner.os }}
 
       - name: Create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
@@ -96,27 +96,13 @@ jobs:
           api-level: 31
           target: default
           arch: x86_64
-          avd-name: Pixel_6_API_34
+          avd-name: test
           profile: pixel_6
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-load
           emulator-boot-timeout: 600
           disable-animations: true
           script: echo "Generated AVD snapshot for caching."
-
-      - name: Create google-services.json
-        run: |
-          if [ -n '${{ secrets.GOOGLE_SERVICES_JSON }}' ]; then
-            echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > google-services.json
-          else
-            cat > google-services.json << 'GSEOF'
-          {
-            "project_info": { "project_number": "000000000000", "project_id": "skatehubba-placeholder", "storage_bucket": "skatehubba-placeholder.appspot.com" },
-            "client": [{ "client_info": { "mobilesdk_app_id": "1:000000000000:android:0000000000000000", "android_client_info": { "package_name": "com.skatehubba.app" } }, "api_key": [{ "current_key": "placeholder" }], "services": {} }],
-            "configuration_version": "1"
-          }
-          GSEOF
-          fi
 
       - name: Expo Prebuild (Android)
         run: npx expo prebuild --platform android --no-install
@@ -128,6 +114,15 @@ jobs:
           echo "gradlew exists:"
           test -f android/gradlew && echo "yes" || echo "no"
 
+      - name: Pre-bundle JS for Android
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx expo export:embed \
+            --platform android \
+            --dev false \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res/
+
       - name: Build Detox (Android)
         run: pnpm run e2e:build:android
 
@@ -137,7 +132,7 @@ jobs:
           api-level: 31
           target: default
           arch: x86_64
-          avd-name: Pixel_6_API_34
+          avd-name: test
           profile: pixel_6
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
@@ -146,7 +141,7 @@ jobs:
           working-directory: mobile
           script: |
             adb devices
-            pnpm run e2e:test:android -- --headless
+            pnpm run e2e:test:android
 
       - name: Upload Detox Artifacts
         if: failure()
