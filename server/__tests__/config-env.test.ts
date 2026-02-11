@@ -5,7 +5,7 @@
  * - Test mode short-circuit: hardcoded values returned when NODE_ENV=test
  * - All expected test-mode fields and their exact values
  * - Non-test validation path via dynamic import with resetModules
- * - JWT_SECRET transform (random dev fallback generation)
+ * - JWT_SECRET transform (persistent random dev fallback generation)
  * - STRIPE_SECRET_KEY transform (empty, valid, invalid prefix)
  * - STRIPE_WEBHOOK_SECRET transform (empty, valid)
  * - TESTING_STRIPE_SECRET_KEY transform
@@ -14,6 +14,8 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { unlinkSync, existsSync } from "fs";
+import { join } from "path";
 
 // =============================================================================
 // Test mode short-circuit (default — no module reset needed)
@@ -79,6 +81,15 @@ describe("config/env — non-test validation path", () => {
 
   afterEach(() => {
     process.env = originalEnv;
+    // Clean up any generated .jwt-secret.dev file from tests
+    const secretPath = join(process.cwd(), ".jwt-secret.dev");
+    if (existsSync(secretPath)) {
+      try {
+        unlinkSync(secretPath);
+      } catch (e) {
+        // Ignore cleanup errors
+      }
+    }
   });
 
   it("validates and returns parsed env for development with all required fields", async () => {
@@ -89,16 +100,16 @@ describe("config/env — non-test validation path", () => {
     process.env.PORT = "4000";
     process.env.DATABASE_URL = "postgres://dev:dev@localhost:5432/dev";
     process.env.SESSION_SECRET = "a-valid-session-secret-at-least-32-chars-here";
-    // JWT_SECRET left undefined — should generate random fallback
+    // JWT_SECRET left undefined — should generate and persist random fallback
 
     const { env } = await import("../config/env");
 
     expect(env.NODE_ENV).toBe("development");
     expect(env.PORT).toBe("4000");
     expect(env.DATABASE_URL).toBe("postgres://dev:dev@localhost:5432/dev");
-    // Should have a random JWT_SECRET that's at least 32 characters
+    // Should have a JWT_SECRET that's at least 64 characters (32 bytes as hex)
     expect(env.JWT_SECRET).toBeDefined();
-    expect(env.JWT_SECRET!.length).toBeGreaterThanOrEqual(32);
+    expect(env.JWT_SECRET!.length).toBeGreaterThanOrEqual(64);
     // Should NOT be the old predictable hardcoded value
     expect(env.JWT_SECRET).not.toBe("dev-jwt-secret-change-in-production-32chars");
   });
