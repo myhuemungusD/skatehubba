@@ -8,6 +8,7 @@ import {
   timestamp,
   json,
   varchar,
+  index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -54,6 +55,20 @@ export const orders = pgTable("orders", {
   paymentIntentId: varchar("payment_intent_id", { length: 255 }).unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// Consumed payment intents for premium upgrades — prevents reuse of a single payment
+export const consumedPaymentIntents = pgTable(
+  "consumed_payment_intents",
+  {
+    id: serial("id").primaryKey(),
+    paymentIntentId: varchar("payment_intent_id", { length: 255 }).notNull().unique(),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("IDX_consumed_payment_intents_user").on(table.userId),
+  })
+);
 
 export const insertDonationSchema = createInsertSchema(donations);
 

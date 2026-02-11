@@ -6,7 +6,7 @@
  * - POST /award-pro: invalid body, self-award, DB unavailable, user not found, already upgraded, success, error
  * - POST /create-checkout-session: invalid body, already premium, no STRIPE_SECRET_KEY, success (mock Stripe), error
  * - POST /purchase-premium: invalid body, already premium, DB unavailable, no STRIPE_SECRET_KEY,
- *                           payment not succeeded, amount mismatch, stripe error, success, general error
+ *                           payment not succeeded, amount mismatch, stripe error, payment reuse, success, general error
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -69,6 +69,12 @@ vi.mock("@shared/schema", () => ({
     premiumPurchasedAt: "premiumPurchasedAt",
     updatedAt: "updatedAt",
   },
+  consumedPaymentIntents: {
+    id: "id",
+    paymentIntentId: "paymentIntentId",
+    userId: "userId",
+    createdAt: "createdAt",
+  },
 }));
 
 vi.mock("../config/server", () => ({
@@ -84,27 +90,58 @@ const mockDbReturns = {
 
 let mockIsDatabaseAvailable = true;
 
-const mockDb: any = {
-  select: vi.fn(),
-  update: vi.fn(),
-};
+// Mutable mock functions so individual tests can override behaviour
+const mockSelect = vi.fn();
+const mockInsert = vi.fn();
+const mockUpdate = vi.fn();
+const mockTransaction = vi.fn();
 
 function resetDbChains() {
-  mockDb.select.mockReturnValue({
+  mockSelect.mockReturnValue({
     from: vi.fn().mockReturnValue({
       where: vi.fn().mockReturnValue({
         limit: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
       }),
     }),
   });
-  mockDb.update.mockReturnValue({
+  mockInsert.mockReturnValue({
+    values: vi.fn().mockResolvedValue(undefined),
+  });
+  mockUpdate.mockReturnValue({
     set: vi.fn().mockReturnValue({
       where: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
     }),
   });
+  mockTransaction.mockImplementation(async (cb: (tx: any) => Promise<void>) => {
+    const tx = {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockReturnValue({
+              for: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
+            }),
+          }),
+        }),
+      }),
+      insert: vi.fn().mockReturnValue({
+        values: vi.fn().mockResolvedValue(undefined),
+      }),
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
+        }),
+      }),
+    };
+    return cb(tx);
+  });
 }
 
-resetDbChains();
+const mockDb = {
+  select: mockSelect,
+  insert: mockInsert,
+  update: mockUpdate,
+  transaction: mockTransaction,
+};
 
 vi.mock("../db", () => ({
   getDb: () => mockDb,
@@ -393,7 +430,6 @@ describe("Tier Routes", () => {
     });
 
     it("returns 500 when db operation throws", async () => {
-      // Override the shared mockDb.select to throw synchronously
       mockDb.select.mockImplementationOnce(() => {
         throw new Error("DB connection lost");
       });
@@ -667,6 +703,7 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "requires_payment_method",
         amount: 999,
+        metadata: { userId: "user-1" },
       });
 
       const req = mockRequest({
@@ -690,6 +727,7 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 500,
+        metadata: { userId: "user-1" },
       });
 
       const req = mockRequest({
@@ -729,11 +767,67 @@ describe("Tier Routes", () => {
       );
     });
 
+    it("returns 403 when payment intent does not belong to user", async () => {
+      mockStripePaymentIntentsRetrieve.mockResolvedValue({
+        status: "succeeded",
+        amount: 999,
+        metadata: { userId: "other-user" },
+      });
+
+      const req = mockRequest({
+        body: { paymentIntentId: "pi_other_user" },
+        currentUser: {
+          id: "user-1",
+          email: "test@test.com",
+          accountTier: "free",
+        },
+      });
+      const res = mockResponse();
+
+      await callRoute("POST", "/purchase-premium", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: "PAYMENT_INTENT_FORBIDDEN",
+          message: "This payment intent does not belong to you.",
+        })
+      );
+    });
+
+    it("returns 409 when payment intent has already been consumed", async () => {
+      mockStripePaymentIntentsRetrieve.mockResolvedValue({
+        status: "succeeded",
+        amount: 999,
+        metadata: { userId: "user-1" },
+      });
+      // Simulate that the payment intent already exists in consumed_payment_intents
+      mockDbReturns.selectResult = [{ id: 1 }];
+
+      const req = mockRequest({
+        body: { paymentIntentId: "pi_already_used" },
+      });
+      const res = mockResponse();
+
+      await callRoute("POST", "/purchase-premium", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: "PAYMENT_ALREADY_USED",
+          message: "This payment has already been applied to an account.",
+        })
+      );
+    });
+
     it("purchases premium successfully", async () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 999,
+        metadata: { userId: "user-1" },
       });
+      // No existing consumed payment intent
+      mockDbReturns.selectResult = [];
 
       const req = mockRequest({
         body: { paymentIntentId: "pi_test_123" },
@@ -758,14 +852,11 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 999,
+        metadata: { userId: "user-1" },
       });
 
-      // Override the shared mockDb.update for this call to throw
-      mockDb.update.mockReturnValueOnce({
-        set: vi.fn().mockReturnValue({
-          where: vi.fn().mockRejectedValue(new Error("DB write failed")),
-        }),
-      });
+      // Override the shared mockDb.select for this call to throw inside the transaction
+      mockTransaction.mockRejectedValueOnce(new Error("DB write failed"));
 
       const req = mockRequest({
         body: { paymentIntentId: "pi_test_123" },
