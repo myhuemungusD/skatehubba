@@ -68,6 +68,12 @@ vi.mock("@shared/schema", () => ({
     premiumPurchasedAt: "premiumPurchasedAt",
     updatedAt: "updatedAt",
   },
+  consumedPaymentIntents: {
+    id: "id",
+    paymentIntentId: "paymentIntentId",
+    userId: "userId",
+    createdAt: "createdAt",
+  },
 }));
 
 const mockDbReturns = {
@@ -77,6 +83,21 @@ const mockDbReturns = {
 };
 
 let mockIsDatabaseAvailable = true;
+
+const mockTxMethods = () => ({
+  insert: vi.fn().mockReturnValue({
+    values: vi.fn().mockReturnValue({
+      returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.insertResult)),
+    }),
+  }),
+  update: vi.fn().mockReturnValue({
+    set: vi.fn().mockReturnValue({
+      where: vi.fn().mockReturnValue({
+        returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
+      }),
+    }),
+  }),
+});
 
 vi.mock("../db", () => ({
   getDb: () => ({
@@ -99,6 +120,7 @@ vi.mock("../db", () => ({
         }),
       }),
     }),
+    transaction: vi.fn().mockImplementation(async (cb: Function) => cb(mockTxMethods())),
   }),
   isDatabaseAvailable: () => mockIsDatabaseAvailable,
 }));
@@ -108,16 +130,18 @@ const mockStripeCheckoutCreate = vi.fn();
 const mockStripePaymentIntentsRetrieve = vi.fn();
 
 vi.mock("stripe", () => ({
-  default: vi.fn().mockImplementation(() => ({
-    checkout: {
-      sessions: {
-        create: mockStripeCheckoutCreate,
+  default: vi.fn().mockImplementation(function () {
+    return {
+      checkout: {
+        sessions: {
+          create: mockStripeCheckoutCreate,
+        },
       },
-    },
-    paymentIntents: {
-      retrieve: mockStripePaymentIntentsRetrieve,
-    },
-  })),
+      paymentIntents: {
+        retrieve: mockStripePaymentIntentsRetrieve,
+      },
+    };
+  }),
 }));
 
 // =============================================================================
@@ -256,7 +280,10 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "SELF_AWARD", message: "You can't award Pro to yourself." })
+        expect.objectContaining({
+          error: "SELF_AWARD",
+          message: "You can't award Pro to yourself.",
+        })
       );
     });
 
@@ -271,7 +298,9 @@ describe("Tier Routes", () => {
       await callRoute("POST", "/award-pro", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "USER_NOT_FOUND", message: "User not found." }));
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "USER_NOT_FOUND", message: "User not found." })
+      );
     });
 
     it("returns 409 when user already has pro or premium", async () => {
@@ -302,7 +331,10 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "DATABASE_UNAVAILABLE", message: "Database unavailable. Please try again shortly." })
+        expect.objectContaining({
+          error: "DATABASE_UNAVAILABLE",
+          message: "Database unavailable. Please try again shortly.",
+        })
       );
     });
 
@@ -349,7 +381,10 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "PAYMENT_NOT_CONFIGURED", message: "Payment service not available." })
+        expect.objectContaining({
+          error: "PAYMENT_NOT_CONFIGURED",
+          message: "Payment service not available.",
+        })
       );
     });
 
@@ -375,7 +410,10 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "CHECKOUT_FAILED", message: "Failed to create checkout session." })
+        expect.objectContaining({
+          error: "CHECKOUT_FAILED",
+          message: "Failed to create checkout session.",
+        })
       );
     });
   });
@@ -412,7 +450,10 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "PAYMENT_NOT_CONFIGURED", message: "Payment verification not available." })
+        expect.objectContaining({
+          error: "PAYMENT_NOT_CONFIGURED",
+          message: "Payment verification not available.",
+        })
       );
     });
 
@@ -428,7 +469,10 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "DATABASE_UNAVAILABLE", message: "Database unavailable. Please try again shortly." })
+        expect.objectContaining({
+          error: "DATABASE_UNAVAILABLE",
+          message: "Database unavailable. Please try again shortly.",
+        })
       );
     });
 
@@ -440,6 +484,53 @@ describe("Tier Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
+    });
+
+    it("returns 409 when payment intent has already been consumed", async () => {
+      mockStripePaymentIntentsRetrieve.mockResolvedValue({
+        status: "succeeded",
+        amount: 999,
+      });
+      // Simulate that the payment intent already exists in consumed_payment_intents
+      mockDbReturns.selectResult = [{ id: 1 }];
+
+      const req = mockRequest({
+        body: { paymentIntentId: "pi_already_used" },
+      });
+      const res = mockResponse();
+
+      await callRoute("POST", "/purchase-premium", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: "PAYMENT_ALREADY_USED",
+          message: "This payment has already been applied to an account.",
+        })
+      );
+    });
+
+    it("upgrades to premium and records payment intent on success", async () => {
+      mockStripePaymentIntentsRetrieve.mockResolvedValue({
+        status: "succeeded",
+        amount: 999,
+      });
+      // No existing consumed payment intent
+      mockDbReturns.selectResult = [];
+
+      const req = mockRequest({
+        body: { paymentIntentId: "pi_fresh_123" },
+      });
+      const res = mockResponse();
+
+      await callRoute("POST", "/purchase-premium", req, res);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          tier: "premium",
+        })
+      );
     });
   });
 });

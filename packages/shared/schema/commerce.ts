@@ -55,6 +55,14 @@ export const orders = pgTable("orders", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+// Consumed payment intents for premium upgrades — prevents reuse of a single payment
+export const consumedPaymentIntents = pgTable("consumed_payment_intents", {
+  id: serial("id").primaryKey(),
+  paymentIntentId: varchar("payment_intent_id", { length: 255 }).notNull().unique(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const insertDonationSchema = createInsertSchema(donations);
 
 export const insertProductSchema = createInsertSchema(products).omit({

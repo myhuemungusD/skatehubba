@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getDb, isDatabaseAvailable } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { requirePaidOrPro } from "../middleware/requirePaidOrPro";
-import { customUsers } from "@shared/schema";
+import { customUsers, consumedPaymentIntents } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
 import { DEV_DEFAULT_ORIGIN } from "../config/server";
@@ -68,7 +68,9 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, async (req, res) =
     }
 
     if (targetUser.accountTier !== "free") {
-      return Errors.conflict(res, "ALREADY_UPGRADED", "User already has Pro or Premium status.", { currentTier: targetUser.accountTier });
+      return Errors.conflict(res, "ALREADY_UPGRADED", "User already has Pro or Premium status.", {
+        currentTier: targetUser.accountTier,
+      });
     }
 
     // Award Pro status
@@ -120,7 +122,9 @@ router.post("/create-checkout-session", authenticateUser, async (req, res) => {
   const { idempotencyKey } = parsed.data;
 
   if (user.accountTier === "premium") {
-    return Errors.conflict(res, "ALREADY_PREMIUM", "You already have Premium.", { currentTier: "premium" });
+    return Errors.conflict(res, "ALREADY_PREMIUM", "You already have Premium.", {
+      currentTier: "premium",
+    });
   }
 
   try {
@@ -208,7 +212,9 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
   const { paymentIntentId } = parsed.data;
 
   if (user.accountTier === "premium") {
-    return Errors.conflict(res, "ALREADY_PREMIUM", "You already have Premium.", { currentTier: "premium" });
+    return Errors.conflict(res, "ALREADY_PREMIUM", "You already have Premium.", {
+      currentTier: "premium",
+    });
   }
 
   if (!isDatabaseAvailable()) {
@@ -232,7 +238,9 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
 
       // Verify payment succeeded and amount is correct ($9.99 = 999 cents)
       if (intent.status !== "succeeded") {
-        return sendError(res, 402, "PAYMENT_NOT_COMPLETED", "Payment not completed.", { status: intent.status });
+        return sendError(res, 402, "PAYMENT_NOT_COMPLETED", "Payment not completed.", {
+          status: intent.status,
+        });
       }
 
       if (intent.amount !== 999) {
@@ -244,9 +252,6 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
         });
         return sendError(res, 402, "PAYMENT_AMOUNT_INVALID", "Payment amount invalid.");
       }
-
-      // Optional: Verify this payment hasn't been used before
-      // You might want to store processed payment intent IDs to prevent reuse
     } catch (stripeError) {
       logger.error("Stripe payment verification failed", {
         userId: user.id,
@@ -258,14 +263,42 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
 
     const db = getDb();
 
-    await db
-      .update(customUsers)
-      .set({
-        accountTier: "premium",
-        premiumPurchasedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(eq(customUsers.id, user.id));
+    // Check if this payment intent has already been consumed
+    const [existing] = await db
+      .select({ id: consumedPaymentIntents.id })
+      .from(consumedPaymentIntents)
+      .where(eq(consumedPaymentIntents.paymentIntentId, paymentIntentId))
+      .limit(1);
+
+    if (existing) {
+      logger.warn("Payment intent already consumed", {
+        userId: user.id,
+        paymentIntentId,
+      });
+      return sendError(
+        res,
+        409,
+        "PAYMENT_ALREADY_USED",
+        "This payment has already been applied to an account."
+      );
+    }
+
+    // Atomically record the consumed payment intent and upgrade the user
+    await db.transaction(async (tx) => {
+      await tx.insert(consumedPaymentIntents).values({
+        paymentIntentId,
+        userId: user.id,
+      });
+
+      await tx
+        .update(customUsers)
+        .set({
+          accountTier: "premium",
+          premiumPurchasedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(customUsers.id, user.id));
+    });
 
     logger.info("Premium purchased", {
       userId: user.id,
