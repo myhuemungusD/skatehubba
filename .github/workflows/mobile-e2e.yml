@@ -35,6 +35,12 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: .
 
+      - name: Verify Detox installed
+        run: |
+          npx detox --version
+          echo "Config file exists:"
+          cat .detoxrc.json | head -5
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -54,22 +60,44 @@ jobs:
           path: |
             ~/.android/avd/*
             ~/.android/adb*
-          key: avd-api-34-${{ runner.os }}
+          key: avd-api-31-${{ runner.os }}
 
       - name: Create AVD and generate snapshot for caching
         if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
-          target: google_apis
+          api-level: 31
+          target: default
           arch: x86_64
           force-avd-creation: false
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-load
+          emulator-boot-timeout: 600
           disable-animations: true
           script: echo "Generated AVD snapshot for caching."
 
+      - name: Create google-services.json
+        run: |
+          if [ -n '${{ secrets.GOOGLE_SERVICES_JSON }}' ]; then
+            echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > google-services.json
+          else
+            cat > google-services.json << 'GSEOF'
+          {
+            "project_info": { "project_number": "000000000000", "project_id": "skatehubba-placeholder", "storage_bucket": "skatehubba-placeholder.appspot.com" },
+            "client": [{ "client_info": { "mobilesdk_app_id": "1:000000000000:android:0000000000000000", "android_client_info": { "package_name": "com.skatehubba.app" } }, "api_key": [{ "current_key": "placeholder" }], "services": {} }],
+            "configuration_version": "1"
+          }
+          GSEOF
+          fi
+
       - name: Expo Prebuild (Android)
         run: npx expo prebuild --platform android --no-install
+
+      - name: Verify Android project
+        run: |
+          echo "android/ directory contents:"
+          ls -la android/app/ || echo "ERROR: android/app/ does not exist"
+          echo "gradlew exists:"
+          test -f android/gradlew && echo "yes" || echo "no"
 
       - name: Build Detox (Android)
         run: pnpm run e2e:build:android
@@ -77,14 +105,17 @@ jobs:
       - name: Run Detox Tests (Android)
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
-          target: google_apis
+          api-level: 31
+          target: default
           arch: x86_64
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          emulator-boot-timeout: 600
           disable-animations: true
           working-directory: mobile
-          script: pnpm run e2e:test:android -- --headless
+          script: |
+            adb devices
+            pnpm run e2e:test:android -- --headless
 
       - name: Upload Detox Artifacts
         if: failure()
@@ -127,6 +158,44 @@ jobs:
           path: mobile/ios/Pods
           key: ${{ runner.os }}-pods-${{ hashFiles('mobile/ios/Podfile.lock') }}
           restore-keys: ${{ runner.os }}-pods-
+
+      - name: Create Firebase config files
+        run: |
+          if [ -n '${{ secrets.GOOGLE_SERVICES_JSON }}' ]; then
+            echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > google-services.json
+          else
+            cat > google-services.json << 'GSEOF'
+          {
+            "project_info": { "project_number": "000000000000", "project_id": "skatehubba-placeholder", "storage_bucket": "skatehubba-placeholder.appspot.com" },
+            "client": [{ "client_info": { "mobilesdk_app_id": "1:000000000000:android:0000000000000000", "android_client_info": { "package_name": "com.skatehubba.app" } }, "api_key": [{ "current_key": "placeholder" }], "services": {} }],
+            "configuration_version": "1"
+          }
+          GSEOF
+          fi
+          if [ -n '${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}' ]; then
+            echo '${{ secrets.GOOGLE_SERVICE_INFO_PLIST }}' > GoogleService-Info.plist
+          else
+            cat > GoogleService-Info.plist << 'PEOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>CLIENT_ID</key><string>placeholder</string>
+            <key>REVERSED_CLIENT_ID</key><string>placeholder</string>
+            <key>API_KEY</key><string>placeholder</string>
+            <key>GCM_SENDER_ID</key><string>000000000000</string>
+            <key>PLIST_VERSION</key><string>1</string>
+            <key>BUNDLE_ID</key><string>com.skatehubba.app</string>
+            <key>PROJECT_ID</key><string>skatehubba-placeholder</string>
+            <key>STORAGE_BUCKET</key><string>skatehubba-placeholder.appspot.com</string>
+            <key>IS_ADS_ENABLED</key><false/>
+            <key>IS_ANALYTICS_ENABLED</key><false/>
+            <key>IS_APPINVITE_ENABLED</key><false/>
+            <key>IS_GCM_ENABLED</key><true/>
+            <key>IS_SIGNIN_ENABLED</key><true/>
+            <key>GOOGLE_APP_ID</key><string>1:000000000000:ios:0000000000000000</string>
+          </dict></plist>
+          PEOF
+          fi
 
       - name: Install CocoaPods
         run: |
