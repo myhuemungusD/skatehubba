@@ -128,16 +128,30 @@ function resetDbChains() {
       where: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
     }),
   });
-  mockTransaction.mockImplementation(async (cb: (tx: any) => Promise<void>) => {
+  mockTransaction.mockImplementation(async (cb: (tx: any) => Promise<any>) => {
+    let selectCallCount = 0;
     const tx = {
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockReturnValue({
-          where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockReturnValue({
-              for: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
+      select: vi.fn().mockImplementation(() => {
+        selectCallCount++;
+        return {
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockImplementation(() => {
+              // The where() result needs to support both:
+              // 1. Being awaitable directly (for count queries)
+              // 2. Having a .limit() method (for user lookup queries)
+              const whereResult: any = Promise.resolve(mockDbReturns.countResult);
+              whereResult.limit = vi.fn().mockImplementation(() => {
+                // Support optional .for("update") call
+                const limitResult: any = Promise.resolve(mockDbReturns.selectResult);
+                limitResult.for = vi
+                  .fn()
+                  .mockImplementation(() => Promise.resolve(mockDbReturns.selectResult));
+                return limitResult;
+              });
+              return whereResult;
             }),
           }),
-        }),
+        };
       }),
       insert: vi.fn().mockReturnValue({
         values: vi.fn().mockResolvedValue(undefined),
@@ -475,7 +489,7 @@ describe("Tier Routes", () => {
     });
 
     it("returns 500 when db operation throws", async () => {
-      mockDb.select.mockImplementationOnce(() => {
+      mockTransaction.mockImplementationOnce(() => {
         throw new Error("DB connection lost");
       });
 
