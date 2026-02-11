@@ -31,10 +31,10 @@ export function setupLoginRoutes(app: Express) {
 
       try {
         let decoded;
-        // Handle mock tokens ONLY in development mode (no Firebase configured)
-        // SECURITY: Mock tokens are blocked in production
+        // Handle mock tokens ONLY in development/test mode (no Firebase configured)
+        // SECURITY: Mock tokens are blocked in staging and production
         const isMockToken = idToken === "mock-google-token" || idToken === "mock-token";
-        const isDevelopment = process.env.NODE_ENV !== "production";
+        const isDevelopment = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 
         if (isMockToken && isDevelopment) {
           // Use deterministic UIDs so that subsequent logins find the existing user
