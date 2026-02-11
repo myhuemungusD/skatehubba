@@ -236,6 +236,16 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
     try {
       const intent = await stripe.paymentIntents.retrieve(paymentIntentId);
 
+      // Verify payment intent belongs to current user
+      if (intent.metadata?.userId !== user.id) {
+        logger.warn("Payment intent userId mismatch", {
+          userId: user.id,
+          intentUserId: intent.metadata?.userId,
+          paymentIntentId,
+        });
+        return sendError(res, 403, "PAYMENT_INTENT_UNAUTHORIZED", "Payment intent does not belong to this user.");
+      }
+
       // Verify payment succeeded and amount is correct ($9.99 = 999 cents)
       if (intent.status !== "succeeded") {
         return sendError(res, 402, "PAYMENT_NOT_COMPLETED", "Payment not completed.", {

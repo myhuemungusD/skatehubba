@@ -690,10 +690,45 @@ describe("Tier Routes", () => {
       );
     });
 
+    it("returns 403 when payment intent belongs to a different user", async () => {
+      mockStripePaymentIntentsRetrieve.mockResolvedValue({
+        status: "succeeded",
+        amount: 999,
+        metadata: {
+          userId: "different-user-id",
+          type: "premium_upgrade",
+        },
+      });
+
+      const req = mockRequest({
+        body: { paymentIntentId: "pi_test_123" },
+        currentUser: {
+          id: "user-1",
+          email: "test@test.com",
+          accountTier: "free",
+        },
+      });
+      const res = mockResponse();
+
+      await callRoute("POST", "/purchase-premium", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: "PAYMENT_INTENT_UNAUTHORIZED",
+          message: "Payment intent does not belong to this user.",
+        })
+      );
+    });
+
     it("returns 402 when payment has not succeeded", async () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "requires_payment_method",
         amount: 999,
+        metadata: {
+          userId: "user-1",
+          type: "premium_upgrade",
+        },
       });
 
       const req = mockRequest({
@@ -717,6 +752,10 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 500,
+        metadata: {
+          userId: "user-1",
+          type: "premium_upgrade",
+        },
       });
 
       const req = mockRequest({
@@ -760,6 +799,10 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 999,
+        metadata: {
+          userId: "user-1",
+          type: "premium_upgrade",
+        },
       });
       // Simulate that the payment intent already exists in consumed_payment_intents
       mockDbReturns.selectResult = [{ id: 1 }];
@@ -784,6 +827,10 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 999,
+        metadata: {
+          userId: "user-1",
+          type: "premium_upgrade",
+        },
       });
       // No existing consumed payment intent
       mockDbReturns.selectResult = [];
@@ -811,6 +858,10 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 999,
+        metadata: {
+          userId: "user-1",
+          type: "premium_upgrade",
+        },
       });
 
       // Override the shared mockDb.select for this call to throw inside the transaction
