@@ -50,6 +50,8 @@ jobs:
         run: pnpm run lint
 
       - name: Build
+        env:
+          ALLOW_MISSING_PUBLIC_ENV: "true"
         run: pnpm run build
 
       - name: Test with Coverage
