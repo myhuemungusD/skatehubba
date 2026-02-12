@@ -152,8 +152,7 @@ export default function Demo() {
                         </Badge>
                       </p>
                       <p className="text-sm text-gray-300 mt-2">
-                        Tutorial progress:{" "}
-                        {demoUser?.onboardingCompleted ? "Completed" : "Ready to start"}
+                        Tutorial progress: Ready to start
                       </p>
                     </div>
 
