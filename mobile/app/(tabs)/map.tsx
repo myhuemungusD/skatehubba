@@ -9,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { showMessage } from "react-native-flash-message";
+import { AddSpotModal } from "@/components/AddSpotModal";
 
 export default function MapScreen() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -37,14 +38,83 @@ export default function MapScreen() {
     setShowAddSpotModal(true);
   };
 
-  const handleCheckIn = (spot: Spot) => {
+  const handleCheckIn = async (spot: Spot) => {
     if (!checkAuth({ message: "Sign in to check in" })) return;
-    showMessage({
-      message: "Checked In!",
-      description: `You're now at ${spot.name}`,
-      type: "success",
-      duration: 2000,
-    });
+
+    if (!location) {
+      showMessage({
+        message: "Location Required",
+        description: "Turn on location services to verify your check-in.",
+        type: "warning",
+        duration: 2000,
+      });
+      return;
+    }
+
+    // Calculate distance to spot (Haversine formula)
+    const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const R = 6371; // Earth's radius in km
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLng = ((lng2 - lng1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c * 1000; // distance in meters
+    };
+
+    const distance = calculateDistance(
+      location.coords.latitude,
+      location.coords.longitude,
+      spot.lat,
+      spot.lng
+    );
+
+    // Check if user is within 100 meters of the spot
+    if (distance > 100) {
+      showMessage({
+        message: "Too Far Away",
+        description: `You need to be within 100m of ${spot.name} to check in. You're ${Math.round(distance)}m away.`,
+        type: "warning",
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      const nonce = crypto.randomUUID();
+      const data = await apiRequest<{ success: boolean; message?: string }>("/api/spots/check-in", {
+        method: "POST",
+        body: JSON.stringify({
+          spotId: spot.id,
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+          accuracy: location.coords.accuracy,
+          nonce,
+        }),
+      });
+
+      if (data.success) {
+        showMessage({
+          message: "✅ Check-in Confirmed!",
+          description: `You're now checked in at ${spot.name}`,
+          type: "success",
+          duration: 2000,
+        });
+      } else {
+        throw new Error(data.message || "Check-in failed");
+      }
+    } catch (error) {
+      showMessage({
+        message: "Check-in Failed",
+        description: error instanceof Error ? error.message : "Unable to check in right now.",
+        type: "danger",
+        duration: 2000,
+      });
+    }
   };
 
   // Unauthenticated users are redirected to sign-in by the root layout guard.
@@ -173,36 +243,19 @@ export default function MapScreen() {
           )}
 
           {/* Add Spot Modal */}
-          <Modal
-            visible={showAddSpotModal}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowAddSpotModal(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <TouchableOpacity
-                  style={styles.modalClose}
-                  onPress={() => setShowAddSpotModal(false)}
-                >
-                  <Ionicons name="close" size={24} color={SKATE.colors.white} />
-                </TouchableOpacity>
-
-                <Text style={styles.modalTitle}>Add New Spot</Text>
-                <Text style={styles.modalDescription}>
-                  This feature is coming soon! You'll be able to add new skate spots to share with
-                  the community.
-                </Text>
-
-                <TouchableOpacity
-                  style={[styles.checkInButton, { backgroundColor: SKATE.colors.gray }]}
-                  onPress={() => setShowAddSpotModal(false)}
-                >
-                  <Text style={styles.checkInButtonText}>Got It</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
+          <AddSpotModal
+            isOpen={showAddSpotModal}
+            onClose={() => setShowAddSpotModal(false)}
+            userLocation={
+              location
+                ? {
+                    lat: location.coords.latitude,
+                    lng: location.coords.longitude,
+                    accuracy: location.coords.accuracy ?? undefined,
+                  }
+                : null
+            }
+          />
         </>
       )}
     </View>

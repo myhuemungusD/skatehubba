@@ -378,6 +378,9 @@ importers:
       expo-crypto:
         specifier: ~15.0.8
         version: 15.0.8(expo@54.0.32)
+      expo-image-picker:
+        specifier: ^17.0.10
+        version: 17.0.10(expo@54.0.32)
       expo-location:
         specifier: ~18.0.0
         version: 18.0.10(expo@54.0.32)
@@ -5740,6 +5743,16 @@ packages:
       expo: '*'
       react: '*'
       react-native: '*'
+
+  expo-image-loader@6.0.0:
+    resolution: {integrity: sha512-nKs/xnOGw6ACb4g26xceBD57FKLFkSwEUTDXEDF3Gtcu3MqF3ZIYd3YM+sSb1/z9AKV1dYT7rMSGVNgsveXLIQ==}
+    peerDependencies:
+      expo: '*'
+
+  expo-image-picker@17.0.10:
+    resolution: {integrity: sha512-a2xrowp2trmvXyUWgX3O6Q2rZaa2C59AqivKI7+bm+wLvMfTEbZgldLX4rEJJhM8xtmEDTNU+lzjtObwzBRGaw==}
+    peerDependencies:
+      expo: '*'
 
   expo-keep-awake@15.0.8:
     resolution: {integrity: sha512-YK9M1VrnoH1vLJiQzChZgzDvVimVoriibiDIFLbQMpjYBnvyfUeHJcin/Gx1a+XgupNXy92EQJLgI/9ZuXajYQ==}
@@ -14221,14 +14234,6 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.0.3
 
-  '@vitest/mocker@4.0.18(vite@6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
-    dependencies:
-      '@vitest/spy': 4.0.18
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
-
   '@vitest/mocker@4.0.18(vite@6.4.1(@types/node@22.19.9)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@vitest/spy': 4.0.18
@@ -15985,6 +15990,15 @@ snapshots:
       fontfaceobserver: 2.3.0
       react: 18.3.1
       react-native: 0.83.1(@babel/core@7.29.0)(react@18.3.1)
+
+  expo-image-loader@6.0.0(expo@54.0.32):
+    dependencies:
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+
+  expo-image-picker@17.0.10(expo@54.0.32):
+    dependencies:
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo-image-loader: 6.0.0(expo@54.0.32)
 
   expo-keep-awake@15.0.8(expo@54.0.32)(react@18.3.1):
     dependencies:
@@ -19986,7 +20000,7 @@ snapshots:
   vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.7)(jiti@2.6.1)(jsdom@23.2.0)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       '@vitest/expect': 4.0.18
-      '@vitest/mocker': 4.0.18(vite@6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@vitest/mocker': 4.0.18(vite@6.4.1(@types/node@22.19.9)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
       '@vitest/pretty-format': 4.0.18
       '@vitest/runner': 4.0.18
       '@vitest/snapshot': 4.0.18

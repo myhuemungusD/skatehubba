@@ -68,6 +68,14 @@ export default function HomeScreen() {
             <Text style={styles.cardDesc}>See top skaters</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.card} onPress={() => router.push("/(tabs)/trickmint")}>
+            <View style={styles.cardIconContainer}>
+              <Ionicons name="film" size={32} color={SKATE.colors.orange} />
+            </View>
+            <Text style={styles.cardTitle}>TrickMint</Text>
+            <Text style={styles.cardDesc}>Upload and share tricks</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.card} onPress={() => router.push("/(tabs)/shop")}>
             <View style={styles.cardIconContainer}>
               <Ionicons name="cart" size={32} color={SKATE.colors.orange} />
