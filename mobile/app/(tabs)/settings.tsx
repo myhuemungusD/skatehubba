@@ -109,15 +109,17 @@ export default function SettingsScreen() {
   const handleDeleteAccount = () => {
     Alert.alert(
       "Delete Account",
-      "This action cannot be undone. All your data will be permanently deleted.",
+      "This action cannot be undone. All your data, game history, and profile information will be permanently deleted.",
       [
         { text: "Cancel", style: "cancel" },
         {
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            // Would implement account deletion here
-            Alert.alert("Coming Soon", "Account deletion will be available soon.");
+            Alert.alert(
+              "Coming Soon",
+              "Account deletion is not yet available. This feature requires a backend endpoint and confirmation flow that are currently in development."
+            );
           },
         },
       ]
@@ -228,12 +230,22 @@ export default function SettingsScreen() {
           <SettingItem
             icon="help-circle"
             title="Help & FAQ"
-            onPress={() => Alert.alert("Coming Soon", "Help section will be available soon.")}
+            onPress={() =>
+              Alert.alert(
+                "Coming Soon",
+                "Help & FAQ section is coming soon. We're building a comprehensive knowledge base to answer your questions."
+              )
+            }
           />
           <SettingItem
             icon="chatbubble"
             title="Contact Us"
-            onPress={() => Alert.alert("Coming Soon", "Contact form will be available soon.")}
+            onPress={() =>
+              Alert.alert(
+                "Coming Soon",
+                "Contact form is coming soon. In the meantime, reach out to us at support@skatehubba.com."
+              )
+            }
           />
           <SettingItem
             icon="document-text"

@@ -1,8 +1,33 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useLocation } from "wouter";
-import { LogOut, Bell, Mail, Smartphone, Gamepad2, Trophy, Zap, Newspaper } from "lucide-react";
+import {
+  LogOut,
+  Bell,
+  Mail,
+  Smartphone,
+  Gamepad2,
+  Trophy,
+  Zap,
+  Newspaper,
+  HelpCircle,
+  MessageSquare,
+  Trash2,
+  Construction,
+  ChevronRight,
+} from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../lib/queryClient";
 import { type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@shared/schema";
@@ -50,10 +75,54 @@ function ToggleRow({
   );
 }
 
+function ComingSoonBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-medium">
+      <Construction className="h-3 w-3" />
+      Coming Soon
+    </span>
+  );
+}
+
+function SettingsLink({
+  icon,
+  label,
+  description,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  description?: string;
+  onClick?: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-between py-3 border-b border-neutral-800 last:border-0 text-left"
+    >
+      <div className="flex items-center gap-3">
+        <div className="text-neutral-400">{icon}</div>
+        <div>
+          <p className="text-sm font-medium text-white">{label}</p>
+          {description && <p className="text-xs text-neutral-500 mt-0.5">{description}</p>}
+        </div>
+      </div>
+      <ChevronRight className="h-4 w-4 text-neutral-600" />
+    </button>
+  );
+}
+
 export default function SettingsPage() {
   const auth = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const [comingSoonMessage, setComingSoonMessage] = useState<string | null>(null);
+
+  // Auto-dismiss coming soon toast after 3 seconds
+  const showComingSoon = useCallback((message: string) => {
+    setComingSoonMessage(message);
+    setTimeout(() => setComingSoonMessage(null), 3000);
+  }, []);
 
   const handleLogout = useCallback(async () => {
     try {
@@ -209,18 +278,88 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Support */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3 text-white">Support</h2>
+          <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-4">
+            <SettingsLink
+              icon={<HelpCircle className="h-4 w-4" />}
+              label="Help & FAQ"
+              description="Get answers to common questions"
+              onClick={() => showComingSoon("Help & FAQ section is coming soon.")}
+            />
+            <SettingsLink
+              icon={<MessageSquare className="h-4 w-4" />}
+              label="Contact Us"
+              description="Reach out for support"
+              onClick={() => showComingSoon("Contact form is coming soon.")}
+            />
+          </div>
+        </div>
+
         {/* Account */}
         <div className="border-t border-neutral-800 pt-8">
           <h2 className="text-lg font-semibold mb-3 text-white">Account</h2>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white"
-          >
-            <LogOut className="w-4 h-4 mr-2" aria-hidden="true" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white"
+            >
+              <LogOut className="w-4 h-4 mr-2" aria-hidden="true" />
+              Sign Out
+            </Button>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="border-red-900/50 text-red-400 hover:bg-red-950 hover:text-red-300"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                  Delete Account
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-neutral-900 border-neutral-700">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-white">Delete Account</AlertDialogTitle>
+                  <AlertDialogDescription className="text-neutral-400">
+                    This action cannot be undone. All your data, game history, and profile
+                    information will be permanently deleted.
+                  </AlertDialogDescription>
+                  <div className="pt-2">
+                    <ComingSoonBadge />
+                  </div>
+                  <p className="text-xs text-neutral-500 pt-1">
+                    Account deletion is not yet available. This feature requires a backend endpoint
+                    and confirmation flow that are currently in development.
+                  </p>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white">
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    disabled
+                    className="bg-red-600 text-white opacity-50 cursor-not-allowed hover:bg-red-600"
+                  >
+                    Delete Account
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
+
+        {/* Coming Soon Toast */}
+        {comingSoonMessage && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-neutral-800 border border-neutral-700 shadow-lg">
+              <Construction className="h-4 w-4 text-orange-400 flex-shrink-0" />
+              <p className="text-sm text-neutral-200">{comingSoonMessage}</p>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
