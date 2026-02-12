@@ -109,7 +109,7 @@ describe("Firestore Hooks", () => {
       expect(capturedEffects.length).toBeGreaterThan(0);
 
       // Execute the effect
-      const cleanup = capturedEffects[capturedEffects.length - 1]();
+      capturedEffects[capturedEffects.length - 1]();
 
       expect(mockCollection).toHaveBeenCalledWith({}, "users");
       expect(mockOnSnapshot).toHaveBeenCalled();
