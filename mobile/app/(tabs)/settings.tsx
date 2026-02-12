@@ -16,6 +16,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase.config";
 import { useState, useEffect, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import { removePushTokenFromServer } from "@/lib/pushNotifications";
 
 type SettingItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -96,6 +97,7 @@ export default function SettingsScreen() {
         style: "destructive",
         onPress: async () => {
           try {
+            await removePushTokenFromServer();
             await signOut(auth);
             router.replace("/(tabs)");
           } catch (error) {

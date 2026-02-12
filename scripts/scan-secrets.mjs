@@ -57,10 +57,13 @@ async function main() {
 
   let hasErrors = false;
 
+  // Quote file paths to handle special characters like () and []
+  const quotedFiles = stagedFiles.map(f => `'${f.replace(/'/g, "'\\''")}'`).join(' ');
+
   // 1. Run secretlint (npm-based, always available)
   log(`${BOLD}1️⃣  Running Secretlint...${RESET}`);
   const secretlintResult = runCommand(
-    `npx secretlint --format table ${stagedFiles.join(' ')}`,
+    `npx secretlint --format table ${quotedFiles}`,
     { cwd: process.cwd() }
   );
 
@@ -75,7 +78,7 @@ async function main() {
   // 2. Run custom hardcoded secret scanner
   log(`\n${BOLD}2️⃣  Running hardcoded secret scanner...${RESET}`);
   const hardcodedSecretsResult = runCommand(
-    `node scripts/scan-hardcoded-secrets.mjs ${stagedFiles.join(' ')}`
+    `node scripts/scan-hardcoded-secrets.mjs ${quotedFiles}`
   );
 
   if (!hardcodedSecretsResult.success) {
