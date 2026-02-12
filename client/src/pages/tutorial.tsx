@@ -7,7 +7,7 @@ import { Progress } from "../components/ui/progress";
 import { Badge } from "../components/ui/badge";
 import { CheckCircle, PlayCircle, Target, Users, ArrowLeft, ArrowRight } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
-import type { TutorialStep, User, UserProgress } from "@shared/schema";
+import type { TutorialStep, CustomUser, UserProgress } from "@shared/schema";
 
 interface TutorialProps {
   userId: string;
@@ -26,7 +26,7 @@ export default function Tutorial({ userId }: TutorialProps) {
   const queryClient = useQueryClient();
 
   // Fetch user data
-  const { data: _user } = useQuery<User>({
+  const { data: _user } = useQuery<CustomUser>({
     queryKey: [`/api/users/${userId}`],
   });
 

@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Badge } from "../components/ui/badge";
 import { User, Play, ArrowLeft } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
-import type { User as UserType } from "@shared/schema";
+import type { CustomUser as UserType } from "@shared/schema";
 
 export default function Demo() {
   const [, setLocation] = useLocation();

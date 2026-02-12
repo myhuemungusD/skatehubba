@@ -1,13 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock dependencies
-const mockDb = {
-  insert: vi.fn(),
-  select: vi.fn(),
-  update: vi.fn(),
-  delete: vi.fn(),
-};
-
 vi.mock("../db", () => ({
   db: null as any,
   requireDb: vi.fn(),
@@ -23,7 +16,7 @@ vi.mock("../logger", () => ({
 }));
 
 vi.mock("@shared/schema", () => ({
-  users: {
+  customUsers: {
     id: "id",
     email: "email",
   },
@@ -49,14 +42,18 @@ describe("createUser", () => {
   });
 
   it("inserts user and returns created record", async () => {
-    const user = { id: "uid1", email: "test@example.com" };
+    const user = { id: "uid1", email: "test@example.com", passwordHash: "hashed" };
     const returningFn = vi.fn().mockResolvedValue([user]);
     const valuesFn = vi.fn().mockReturnValue({ returning: returningFn });
     const insertFn = vi.fn().mockReturnValue({ values: valuesFn });
     const db = { insert: insertFn };
     (dbModule.requireDb as any).mockReturnValue(db);
 
-    const result = await createUser({ id: "uid1", email: "test@example.com" });
+    const result = await createUser({
+      id: "uid1",
+      email: "test@example.com",
+      passwordHash: "hashed",
+    });
     expect(result).toEqual(user);
     expect(insertFn).toHaveBeenCalled();
   });
@@ -180,7 +177,11 @@ describe("getOrCreateUser", () => {
     const selectFn = vi.fn().mockReturnValue({ from: fromFn });
     (dbModule as any).db = { select: selectFn };
 
-    const result = await getOrCreateUser({ id: "uid1", email: "test@example.com" });
+    const result = await getOrCreateUser({
+      id: "uid1",
+      email: "test@example.com",
+      passwordHash: "hashed",
+    });
     expect(result).toEqual(user);
   });
 
@@ -200,7 +201,11 @@ describe("getOrCreateUser", () => {
     const dbForCreate = { insert: insertFn };
     (dbModule.requireDb as any).mockReturnValue(dbForCreate);
 
-    const result = await getOrCreateUser({ id: "uid1", email: "test@example.com" });
+    const result = await getOrCreateUser({
+      id: "uid1",
+      email: "test@example.com",
+      passwordHash: "hashed",
+    });
     expect(result).toEqual(user);
   });
 
@@ -225,7 +230,11 @@ describe("getOrCreateUser", () => {
     const insertFn = vi.fn().mockReturnValue({ values: valuesFn });
     (dbModule.requireDb as any).mockReturnValue({ insert: insertFn });
 
-    const result = await getOrCreateUser({ id: "uid1", email: "test@example.com" });
+    const result = await getOrCreateUser({
+      id: "uid1",
+      email: "test@example.com",
+      passwordHash: "hashed",
+    });
     expect(result).toEqual(user);
   });
 });
