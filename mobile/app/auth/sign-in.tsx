@@ -190,6 +190,15 @@ export default function SignIn() {
             <Ionicons name="logo-google" size={20} color="#FFF" style={{ marginRight: 10 }} />
             <Text style={styles.socialButtonText}>Continue with Google</Text>
           </TouchableOpacity>
+
+          {/* Investor Demo Mode */}
+          <TouchableOpacity
+            style={styles.demoButton}
+            onPress={() => router.push("/demo")}
+          >
+            <Ionicons name="eye-outline" size={18} color="#FF6600" style={{ marginRight: 8 }} />
+            <Text style={styles.demoButtonText}>Investor Demo</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -269,4 +278,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   socialButtonText: { color: "#FFF", fontWeight: "600" },
+  demoButton: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    paddingVertical: 12,
+  },
+  demoButtonText: { color: "#FF6600", fontWeight: "600", fontSize: 14 },
 });
