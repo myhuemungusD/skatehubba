@@ -44,7 +44,6 @@ const mockCreateObjectURL = vi.fn(() => "blob:mock-url");
 const mockRevokeObjectURL = vi.fn();
 
 // Setup DOM mocks - preserve URL constructor while adding static methods
-const OriginalURL = globalThis.URL;
 
 vi.stubGlobal("document", {
   createElement: (tag: string) => {
