@@ -7,8 +7,6 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
-  sendPasswordResetEmail,
-  sendEmailVerification,
   getIdTokenResult,
   GoogleAuthProvider,
 } from "firebase/auth";
@@ -286,12 +284,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch (firestoreErr) {
         logger.error("[AuthStore] Failed to create Firestore user doc:", firestoreErr);
       }
-      try {
-        await sendEmailVerification(result.user);
-        logger.log("[AuthStore] Verification email sent to", email);
-      } catch (verifyErr) {
-        logger.error("[AuthStore] Failed to send verification email:", verifyErr);
-      }
+      // Branded verification email is sent server-side by authenticateWithBackend
+      // when isRegistration=true (via Resend, not Firebase default templates)
     } catch (err: unknown) {
       logger.error("[AuthStore] Email sign-up error:", err);
       if (err instanceof Error) {
@@ -335,7 +329,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   resetPassword: async (email: string) => {
     set({ error: null });
     try {
-      await sendPasswordResetEmail(auth, email);
+      await apiRequest({
+        method: "POST",
+        path: "/api/auth/forgot-password",
+        body: { email },
+      });
     } catch (err: unknown) {
       logger.error("[AuthStore] Password reset error:", err);
       if (err instanceof Error) {

@@ -9,6 +9,7 @@ import { authLimiter } from "../../middleware/rateLimit.ts";
 import { requireCsrfToken } from "../../middleware/csrf.ts";
 import { AuditLogger, getClientIP } from "../audit.ts";
 import logger from "../../logger.ts";
+import { sendPasswordResetEmail as sendBrandedResetEmail } from "../email.ts";
 
 export function setupPasswordRoutes(app: Express) {
   /**
@@ -85,8 +86,15 @@ export function setupPasswordRoutes(app: Express) {
 
       // Log the request (internally track if user exists)
       await AuditLogger.logPasswordResetRequested(email, ipAddress, !!resetToken);
-      // NOTE: Email delivery is handled by Firebase's sendPasswordResetEmail on the client side.
-      // This server endpoint generates and logs the reset token for audit purposes.
+
+      // Send branded password reset email if user exists
+      if (resetToken) {
+        const user = await AuthService.findUserByEmail(email);
+        const name = user?.firstName || "Skater";
+        sendBrandedResetEmail(email, resetToken, name).catch((err) =>
+          logger.error("Failed to send password reset email", { error: String(err) })
+        );
+      }
 
       // Always return success to prevent email enumeration
       res.json({
