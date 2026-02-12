@@ -1,6 +1,5 @@
 packages:
   - "client"
-  - "web"
   - "server"
   - "mobile"
   - "functions"
