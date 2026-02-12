@@ -87,11 +87,12 @@ export default function ChallengesScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View testID="challenges-screen" style={styles.container}>
       <TouchableOpacity
         accessible
         accessibilityRole="button"
         accessibilityLabel="Create new S.K.A.T.E. challenge"
+        testID="challenges-create"
         style={styles.createButton}
         onPress={() => router.push("/challenge/new")}
       >
@@ -102,13 +103,14 @@ export default function ChallengesScreen() {
       {isLoading ? (
         <Text style={styles.loadingText}>Loading challenges...</Text>
       ) : challenges?.length === 0 ? (
-        <View style={styles.emptyState}>
+        <View testID="challenges-empty" style={styles.emptyState}>
           <Ionicons name="videocam-outline" size={64} color={SKATE.colors.gray} />
           <Text style={styles.emptyText}>No challenges yet</Text>
           <Text style={styles.emptySubtext}>Create your first S.K.A.T.E. challenge!</Text>
         </View>
       ) : (
         <FlatList
+          testID="challenges-list"
           data={challenges}
           renderItem={renderChallenge}
           keyExtractor={(item) => item.id}

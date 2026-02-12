@@ -24,6 +24,9 @@ export default defineConfig({
         '**/dist/**',
         '**/*.d.ts',
         'mobile/**',
+        // Pure interface/type-alias files compile to empty JS — no executable code for v8
+        '**/types.ts',
+        '**/socket-types.ts',
       ],
       thresholds: {
         // Coverage gate: 90% target reached
