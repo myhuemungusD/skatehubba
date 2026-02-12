@@ -8,6 +8,8 @@ import { useEffect } from "react";
 import { useAuthListener } from "@/hooks/useAuthListener";
 import { useAuthStore } from "@/store/authStore";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useOfflineCache } from "@/hooks/useOfflineCache";
 import { OfflineBanner } from "@/components/common/OfflineBanner";
 
 export default function RootLayout() {
@@ -17,6 +19,12 @@ export default function RootLayout() {
 
   // Initialize network status monitoring
   useNetworkStatus();
+
+  // Register push notifications and handle notification taps
+  usePushNotifications();
+
+  // Sync key data to AsyncStorage for offline use
+  useOfflineCache();
 
   useAuthListener();
 
@@ -68,10 +76,7 @@ export default function RootLayout() {
           name="game/[id]"
           options={{ title: "S.K.A.T.E. Battle", headerShown: false }}
         />
-        <Stack.Screen
-          name="demo"
-          options={{ title: "Investor Demo", headerShown: false }}
-        />
+        <Stack.Screen name="demo" options={{ title: "Investor Demo", headerShown: false }} />
       </Stack>
       <OfflineBanner />
       <FlashMessage position="top" />
