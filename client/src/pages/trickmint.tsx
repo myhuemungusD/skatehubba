@@ -60,7 +60,7 @@ async function uploadBlob(path: string, blob: Blob): Promise<string> {
  * to the bandwidth-optimized rendition only when the original is missing.
  */
 function getVideoUrl(clip: TrickClip): string {
-  return clip.videoUrl || clip.videoUrlForQuality;
+  return clip.videoUrl ?? clip.videoUrlForQuality ?? "";
 }
 
 type Tab = "upload" | "my-clips" | "feed";
