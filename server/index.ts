@@ -13,18 +13,22 @@ import logger from "./logger.ts";
 import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { apiLimiter, staticFileLimiter } from "./middleware/security.ts";
 import { requestTracing } from "./middleware/requestTracing.ts";
-import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
+import { initializeSocketServer, shutdownSocketServer } from "./socket/index.ts";
 import { initializeDatabase } from "./db.ts";
 import { getRedisClient, shutdownRedis } from "./redis.ts";
 import { DEV_ORIGINS, BODY_PARSE_LIMIT, SERVER_PORT } from "./config/server.ts";
 import swaggerUi from "swagger-ui-express";
 import { generateOpenAPISpec } from "./api-docs/index.ts";
+import { metricsMiddleware, registerMonitoringRoutes } from "./monitoring/index.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
+
+// Request metrics collection
+app.use(metricsMiddleware());
 
 // Request tracing — generate/propagate request ID before anything else
 app.use(requestTracing);
@@ -124,20 +128,8 @@ await initializeDatabase();
 const io = initializeSocketServer(server);
 logger.info("[Server] WebSocket server initialized");
 
-// Health check endpoint with socket stats
-app.get("/api/health", async (req, res) => {
-  const stats = await getSocketStats();
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    requestId: req.requestId,
-    websocket: {
-      connections: stats.connections,
-      rooms: stats.rooms.totalRooms,
-      onlineUsers: stats.presence.online,
-    },
-  });
-});
+// Monitoring: health checks, readiness probes, system status
+registerMonitoringRoutes(app);
 
 // Setup Vite dev server or production static file serving
 if (process.env.NODE_ENV === "development") {
