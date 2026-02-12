@@ -54,11 +54,13 @@ async function uploadBlob(path: string, blob: Blob): Promise<string> {
 }
 
 /**
- * Get the best video URL for a clip, preferring the bandwidth-optimized
- * URL from the server when available.
+ * Get the best video URL for a clip.
+ *
+ * Prefer the original, always-available URL for reliability, and fall back
+ * to the bandwidth-optimized rendition only when the original is missing.
  */
 function getVideoUrl(clip: TrickClip): string {
-  return clip.videoUrlForQuality || clip.videoUrl;
+  return clip.videoUrl || clip.videoUrlForQuality;
 }
 
 type Tab = "upload" | "my-clips" | "feed";
