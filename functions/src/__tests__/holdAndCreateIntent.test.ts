@@ -171,7 +171,7 @@ vi.mock("stripe", () => {
 const savedStripeKey = process.env.STRIPE_SECRET_KEY;
 process.env.STRIPE_SECRET_KEY = "sk_test_holdAndCreate";
 
-const mod = await import("../commerce/holdAndCreateIntent");
+await import("../commerce/holdAndCreateIntent");
 
 // Restore original env after import
 if (savedStripeKey === undefined) {
