@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { onAuthStateChanged, signOut as firebaseSignOut, type User } from "firebase/auth";
 import { auth } from "@/lib/firebase.config";
+import { clearAnalyticsSession } from "@/lib/analytics/logEvent";
 
 interface AuthState {
   user: User | null;
@@ -26,9 +27,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   signOut: async () => {
     try {
       await firebaseSignOut(auth);
+      // Clear analytics session to prevent cross-account session tracking
+      await clearAnalyticsSession();
       set({ user: null });
     } catch (error) {
-      console.error("[AuthStore] Sign out failed", error);
+      if (__DEV__) {
+        console.error("[AuthStore] Sign out failed", error);
+      }
     }
   },
 }));

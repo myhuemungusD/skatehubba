@@ -47,8 +47,10 @@ export default function SignIn() {
 
       setLoading(true);
       signInWithCredential(auth, credential).catch((error) => {
-        console.error("Mobile Google Sign-In Error:", error);
-        Alert.alert("Login Failed", error.message);
+        if (__DEV__) {
+          console.error("Mobile Google Sign-In Error:", error);
+        }
+        Alert.alert("Login Failed", "Google sign-in failed. Please try again.");
         setLoading(false);
       });
       // Success is handled by the Global Store Listener (redirects automatically)
@@ -81,7 +83,9 @@ export default function SignIn() {
         const provider = new GoogleAuthProvider();
         await signInWithPopup(auth, provider);
       } catch (error: unknown) {
-        console.error(error);
+        if (__DEV__) {
+          console.error("Web Google Sign-In Error:", error);
+        }
         setLoading(false);
       }
     } else {
@@ -133,6 +137,9 @@ export default function SignIn() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              textContentType="emailAddress"
+              autoComplete="email"
+              maxLength={254}
               testID="auth-email"
             />
           </View>
@@ -150,6 +157,9 @@ export default function SignIn() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              textContentType="password"
+              autoComplete="password"
+              maxLength={128}
               testID="auth-password"
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
