@@ -127,14 +127,15 @@ export default function MapScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View testID="map-screen" style={styles.container}>
       {isLoading ? (
-        <View style={styles.loadingContainer}>
+        <View testID="map-loading" style={styles.loadingContainer}>
           <Text style={styles.loadingText}>Loading spots...</Text>
         </View>
       ) : (
         <>
           <MapView
+            testID="map-view"
             style={styles.map}
             initialRegion={{
               latitude: location?.coords.latitude || 37.7749,
@@ -164,6 +165,7 @@ export default function MapScreen() {
           {/* Floating Action Buttons */}
           <View style={styles.fabContainer}>
             <TouchableOpacity
+              testID="map-add-spot"
               style={styles.fab}
               onPress={handleAddSpot}
               accessibilityLabel="Add new skate spot"
@@ -173,7 +175,7 @@ export default function MapScreen() {
           </View>
 
           {/* Legend */}
-          <View style={styles.legend}>
+          <View testID="map-legend" style={styles.legend}>
             <Text style={styles.legendTitle}>Tier</Text>
             <View style={styles.legendItems}>
               <View style={styles.legendItem}>
@@ -209,7 +211,9 @@ export default function MapScreen() {
                     <Ionicons name="close" size={24} color={SKATE.colors.white} />
                   </TouchableOpacity>
 
-                  <Text style={styles.modalTitle}>{selectedSpot.name}</Text>
+                  <Text testID="map-spot-title" style={styles.modalTitle}>
+                    {selectedSpot.name}
+                  </Text>
                   <Text style={styles.modalDescription}>{selectedSpot.description ?? ""}</Text>
 
                   <View style={styles.modalDifficulty}>
@@ -228,6 +232,7 @@ export default function MapScreen() {
                   </View>
 
                   <TouchableOpacity
+                    testID="map-check-in"
                     style={styles.checkInButton}
                     onPress={() => {
                       handleCheckIn(selectedSpot);

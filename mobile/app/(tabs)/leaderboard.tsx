@@ -15,7 +15,10 @@ export default function LeaderboardScreen() {
     const isTopThree = index < 3;
 
     return (
-      <View style={[styles.row, isTopThree && styles.topThreeRow]}>
+      <View
+        testID={`leaderboard-row-${index}`}
+        style={[styles.row, isTopThree && styles.topThreeRow]}
+      >
         <View style={styles.rankContainer}>
           {index === 0 && <Ionicons name="trophy" size={24} color={SKATE.colors.gold} />}
           {index === 1 && <Ionicons name="trophy" size={24} color="#c0c0c0" />}
@@ -46,17 +49,22 @@ export default function LeaderboardScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View testID="leaderboard-screen" style={styles.container}>
       {isLoading ? (
-        <Text style={styles.loadingText}>Loading leaderboard...</Text>
+        <Text testID="leaderboard-loading" style={styles.loadingText}>
+          Loading leaderboard...
+        </Text>
       ) : (
         <FlatList
+          testID="leaderboard-list"
           data={leaderboard}
           renderItem={renderItem}
           keyExtractor={(item) => item.userId}
           ListHeaderComponent={
             <View style={styles.header}>
-              <Text style={styles.headerText}>Top Skaters</Text>
+              <Text testID="leaderboard-header" style={styles.headerText}>
+                Top Skaters
+              </Text>
             </View>
           }
         />
