@@ -13,8 +13,14 @@ export const usernameSchema = z
 
 export const profileCreateSchema = z.object({
   username: usernameSchema.optional(),
-  stance: stanceSchema.optional().nullable(),
-  experienceLevel: experienceLevelSchema.optional().nullable(),
+  stance: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    stanceSchema.optional().nullable()
+  ),
+  experienceLevel: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    experienceLevelSchema.optional().nullable()
+  ),
   favoriteTricks: z.array(z.string().min(1).max(50)).max(20).optional(),
   bio: z.string().max(500).optional().nullable(),
   sponsorFlow: z.string().max(100).optional().nullable(),
