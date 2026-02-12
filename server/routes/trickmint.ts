@@ -44,8 +44,9 @@ const router = Router();
  */
 function withPreferredVideoUrl<T extends { videoUrl: string }>(
   clip: T,
-  preferredQuality: QualityTier
-): T & { videoUrlForQuality: string; preferredQuality: QualityTier } {
+  quality?: string
+): T & { videoUrlForQuality: string; preferredQuality: string } {
+  const preferredQuality = (quality ?? "medium") as QualityTier;
   // For now, derive the URL by convention. When multi-quality transcoding
   // is enabled and renditions exist, this URL will resolve to the smaller file.
   // If the rendition doesn't exist yet, Firebase returns 404 and the client

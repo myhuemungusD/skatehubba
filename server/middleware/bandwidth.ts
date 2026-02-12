@@ -16,12 +16,6 @@
 import type { Request, Response, NextFunction } from "express";
 import type { QualityTier } from "../services/videoTranscoder";
 
-declare module "express-serve-static-core" {
-  interface Request {
-    preferredQuality: QualityTier;
-  }
-}
-
 const VALID_TIERS = new Set<QualityTier>(["low", "medium", "high"]);
 
 export function bandwidthDetection(req: Request, _res: Response, next: NextFunction): void {
