@@ -113,14 +113,26 @@ export function useProfileSubmit(
             setUsernameStatus("invalid");
             setUsernameMessage("Invalid username format.");
             setSubmitError("Invalid username format.");
+          } else if (errorCode === "username_required") {
+            setSubmitError("Username is required. Pick a handle or skip for now.");
+          } else if (
+            errorCode === "invalid_payload" ||
+            errorCode === "validation_error" ||
+            error.code === "VALIDATION_ERROR"
+          ) {
+            setSubmitError("Some profile fields are invalid. Check your entries and try again.");
           } else if (errorCode === "auth_required" || error.code === "UNAUTHORIZED") {
-            setSubmitError("Please sign in again to continue.");
+            setSubmitError("Your session has expired. Please refresh the page and sign in again.");
+          } else if (errorCode === "invalid_csrf_token") {
+            setSubmitError("Session token mismatch. Please refresh the page and try again.");
           } else if (errorCode === "rate_limited" || error.code === "RATE_LIMIT") {
-            setSubmitError("You're moving fast. Take a breather and try again.");
-          } else if (errorCode === "database_unavailable") {
+            setSubmitError("Too many attempts. Wait a minute and try again.");
+          } else if (errorCode === "database_unavailable" || errorCode === "service_unavailable") {
             setSubmitError("Our servers are temporarily unavailable. Please try again shortly.");
           } else if (errorCode === "profile_create_failed") {
-            setSubmitError("Could not create your profile. Please try again.");
+            setSubmitError(
+              "Could not save your profile. This is a server issue — please try again in a moment."
+            );
           } else {
             setSubmitError(error.message || getUserFriendlyMessage(error));
           }
