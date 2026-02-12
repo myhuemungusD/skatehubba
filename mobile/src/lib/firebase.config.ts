@@ -22,7 +22,9 @@ validateEnv();
 try {
   assertEnvWiring();
 } catch (error) {
-  console.error("[Firebase Mobile] Environment mismatch detected!", error);
+  if (__DEV__) {
+    console.error("[Firebase Mobile] Environment mismatch detected!", error);
+  }
   if (isProd()) {
     throw error;
   }
@@ -31,14 +33,13 @@ try {
 // Get Firebase configuration from shared package
 const firebaseConfig = getSharedFirebaseConfig();
 
-// Log environment on startup (non-prod only)
-if (!isProd()) {
+// Log environment on startup (dev builds only, guarded by __DEV__ for safety)
+if (__DEV__ && !isProd()) {
   const banner = getEnvBanner();
   if (banner) {
     console.log(`[Firebase Mobile] ${banner}`);
   }
   console.log(`[Firebase Mobile] Environment: ${getAppEnv()}`);
-  console.log(`[Firebase Mobile] Project: ${firebaseConfig.projectId}`);
 }
 
 // Initialize Firebase
