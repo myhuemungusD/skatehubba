@@ -12,45 +12,53 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRef, useEffect } from "react";
 import { SKATE } from "@/theme";
 
-const DEMO_SCREENS = [
+interface DemoScreen {
+  route: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  subtitle: string;
+  color: string;
+}
+
+const DEMO_SCREENS: DemoScreen[] = [
   {
     route: "/demo/battle",
-    icon: "flash" as const,
+    icon: "flash",
     title: "S.K.A.T.E. Battle",
     subtitle: "Live game in progress — Round 6",
     color: SKATE.colors.orange,
   },
   {
     route: "/demo/judging",
-    icon: "eye" as const,
+    icon: "eye",
     title: "Judging Phase",
     subtitle: "Both players vote: Landed or Bailed",
     color: SKATE.colors.gold,
   },
   {
     route: "/demo/result",
-    icon: "trophy" as const,
+    icon: "trophy",
     title: "Victory Screen",
     subtitle: "Post-game stats and trick history",
     color: SKATE.colors.neon,
   },
   {
     route: "/demo/lobby",
-    icon: "game-controller" as const,
+    icon: "game-controller",
     title: "Game Lobby",
     subtitle: "Active challenges and matchmaking",
     color: "#3b82f6",
   },
   {
     route: "/demo/leaderboard",
-    icon: "podium" as const,
+    icon: "podium",
     title: "Leaderboard",
     subtitle: "Global rankings and top skaters",
     color: SKATE.colors.gold,
   },
   {
     route: "/demo/profile",
-    icon: "person" as const,
+    icon: "person",
     title: "Player Profile",
     subtitle: "Stats, achievements, and challenge button",
     color: SKATE.colors.blood,
@@ -140,11 +148,11 @@ export default function DemoIndexScreen() {
           Tap any screen to preview the mobile experience
         </Text>
 
-        {DEMO_SCREENS.map((screen, index) => (
+        {DEMO_SCREENS.map((screen) => (
           <TouchableOpacity
             key={screen.route}
             style={styles.screenCard}
-            onPress={() => router.push(screen.route as any)}
+            onPress={() => router.push(screen.route)}
             activeOpacity={0.7}
           >
             <View style={[styles.screenIcon, { backgroundColor: screen.color }]}>
