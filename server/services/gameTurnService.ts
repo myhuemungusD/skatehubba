@@ -22,10 +22,17 @@ interface SubmitTurnInput {
   thumbnailUrl?: string | null;
 }
 
+interface NotificationData {
+  gameId: string;
+  opponentName?: string;
+  winnerId?: string;
+  youWon?: boolean;
+}
+
 interface Notification {
   playerId: string;
   type: "your_turn" | "game_over";
-  data: Record<string, unknown>;
+  data: NotificationData;
 }
 
 type TxError = { ok: false; status: number; error: string };
