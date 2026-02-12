@@ -62,6 +62,7 @@ async function main() {
 
   // 1. Run secretlint (npm-based, always available)
   log(`${BOLD}1️⃣  Running Secretlint...${RESET}`);
+  const quotedFiles = stagedFiles.map(f => `'${f}'`).join(' ');
   const secretlintResult = runCommand(
     `npx secretlint --format table ${quotedFiles}`,
     { cwd: process.cwd() }

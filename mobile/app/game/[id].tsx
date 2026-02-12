@@ -374,7 +374,7 @@ export default function GameScreen() {
   // Loading state
   if (isLoading || !gameSession) {
     return (
-      <View style={styles.loadingContainer}>
+      <View testID="game-loading" style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={SKATE.colors.orange} />
         <Text style={styles.loadingText}>Loading battle...</Text>
       </View>
@@ -399,7 +399,9 @@ export default function GameScreen() {
       <View style={styles.container}>
         <View style={styles.waitingCard}>
           <Ionicons name="flash" size={48} color={SKATE.colors.orange} />
-          <Text style={styles.waitingTitle}>CHALLENGE RECEIVED</Text>
+          <Text testID="game-challenge-received" style={styles.waitingTitle}>
+            CHALLENGE RECEIVED
+          </Text>
           <Text style={styles.waitingSubtitle}>
             {gameSession.player1DisplayName} wants to battle!
           </Text>
@@ -408,6 +410,7 @@ export default function GameScreen() {
             accessible
             accessibilityRole="button"
             accessibilityLabel="Accept the challenge and start the battle"
+            testID="game-accept-challenge"
             style={styles.acceptButton}
             onPress={handleJoinGame}
             disabled={joinGameMutation.isPending}
@@ -442,7 +445,9 @@ export default function GameScreen() {
       <View style={styles.container}>
         <View style={styles.waitingCard}>
           <ActivityIndicator size="large" color={SKATE.colors.orange} />
-          <Text style={styles.waitingTitle}>WAITING FOR OPPONENT</Text>
+          <Text testID="game-waiting-opponent" style={styles.waitingTitle}>
+            WAITING FOR OPPONENT
+          </Text>
           <Text style={styles.waitingSubtitle}>
             {gameSession.player2DisplayName} hasn't accepted yet...
           </Text>
@@ -463,20 +468,21 @@ export default function GameScreen() {
 
   // Main battle UI
   return (
-    <View style={styles.container}>
+    <View testID="game-battle-screen" style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <TouchableOpacity
           accessible
           accessibilityRole="button"
           accessibilityLabel="Forfeit game"
+          testID="game-forfeit"
           style={styles.headerButton}
           onPress={handleForfeit}
         >
           <Ionicons name="flag" size={24} color={SKATE.colors.blood} />
         </TouchableOpacity>
 
-        <View style={styles.roundBadge}>
+        <View testID="game-round-badge" style={styles.roundBadge}>
           <Text style={styles.roundText}>ROUND {gameSession.roundNumber}</Text>
         </View>
 
@@ -534,7 +540,9 @@ export default function GameScreen() {
       {/* Judging Section */}
       {gameSession.turnPhase === "judging" && (
         <View style={styles.judgingSection}>
-          <Text style={styles.judgingTitle}>DID THEY LAND IT?</Text>
+          <Text testID="game-judging-title" style={styles.judgingTitle}>
+            DID THEY LAND IT?
+          </Text>
           <Text style={styles.judgingSubtitle}>Both players vote. Tie goes to defender.</Text>
 
           {/* Show the match attempt video with slow-mo replay option */}
@@ -590,6 +598,7 @@ export default function GameScreen() {
                 accessible
                 accessibilityRole="button"
                 accessibilityLabel="Vote that trick was landed"
+                testID="game-vote-landed"
                 style={[styles.judgeButton, styles.landedButton]}
                 onPress={() => handleJudge("landed")}
                 disabled={judgeTrickMutation.isPending}
@@ -602,6 +611,7 @@ export default function GameScreen() {
                 accessible
                 accessibilityRole="button"
                 accessibilityLabel="Vote that trick was bailed"
+                testID="game-vote-bailed"
                 style={[styles.judgeButton, styles.bailedButton]}
                 onPress={() => handleJudge("bailed")}
                 disabled={judgeTrickMutation.isPending}
@@ -628,6 +638,7 @@ export default function GameScreen() {
             accessible
             accessibilityRole="button"
             accessibilityLabel={isAttacker ? "Record trick to set" : "Record your attempt"}
+            testID="game-record-trick"
             style={styles.recordButton}
             onPress={handleRecordTrick}
             disabled={submitTrickMutation.isPending}
