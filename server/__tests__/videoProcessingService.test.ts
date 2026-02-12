@@ -78,10 +78,7 @@ vi.mock("../db", () => ({
         }),
       })),
     })),
-    update: (table: any) => {
-      mockUpdateFn(table);
-      return { set: mockSetFn };
-    },
+    update: mockUpdateFn,
   }),
 }));
 
