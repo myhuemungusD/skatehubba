@@ -32,6 +32,7 @@ export const VerifyPage = lazy(() => import("../pages/verify"));
 export const AuthVerifyPage = lazy(() => import("../pages/auth-verify"));
 export const VerifyEmailPage = lazy(() => import("../pages/verify-email"));
 export const VerifiedPage = lazy(() => import("../pages/verified"));
+export const ResetPasswordPage = lazy(() => import("../pages/reset-password"));
 
 // Public pages
 export const SkaterProfilePage = lazy(() => import("../pages/skater/profile"));
