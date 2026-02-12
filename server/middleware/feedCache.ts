@@ -45,12 +45,25 @@ export function feedCache(ttlSeconds: number = DEFAULT_TTL_SECONDS) {
     // Intercept res.json to cache the response
     const originalJson = res.json.bind(res);
     res.json = function (body: unknown) {
-      // Cache asynchronously — don't block the response
-      const serialized = JSON.stringify(body);
-      redis.setex(cacheKey, ttlSeconds, serialized).catch((writeErr: unknown) => {
-        logger.warn("[FeedCache] Redis write failed", { error: String(writeErr) });
-      });
+      // Only cache successful, non-error responses
+      const hasErrorField =
+        body !== null &&
+        typeof body === "object" &&
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "error" in (body as any);
+      const shouldCache = res.statusCode === 200 && !hasErrorField;
 
+      if (shouldCache) {
+        // Cache asynchronously — don't block the response
+        const serialized = JSON.stringify(body);
+        redis
+          .setex(cacheKey, ttlSeconds, serialized)
+          .catch((writeErr: unknown) => {
+            logger.warn("[FeedCache] Redis write failed", {
+              error: String(writeErr),
+            });
+          });
+      }
       res.setHeader("X-Cache", "MISS");
       return originalJson(body);
     };
