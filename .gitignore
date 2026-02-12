@@ -10,6 +10,9 @@ package-lock.json
 .env.backup
 .jwt-secret.dev
 
+# TLS certificates
+deploy/nginx/certs/
+
 # Build outputs
 dist
 build
@@ -18,6 +21,9 @@ build
 functions/lib
 *.log
 *.tsbuildinfo
+
+# Benchmark results
+benchmarks/results/*.json
 
 # Test artifacts
 test-results

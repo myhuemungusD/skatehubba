@@ -19,6 +19,7 @@ export const AdminDashboard = lazy(() => import("../pages/admin/AdminDashboard")
 export const AdminReports = lazy(() => import("../pages/admin/AdminReports"));
 export const AdminUsers = lazy(() => import("../pages/admin/AdminUsers"));
 export const AdminAuditLog = lazy(() => import("../pages/admin/AdminAuditLog"));
+export const AdminMetrics = lazy(() => import("../pages/admin/AdminMetrics"));
 
 // Auth pages
 export const LoginPage = lazy(() => import("../pages/login"));

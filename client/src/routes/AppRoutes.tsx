@@ -40,6 +40,7 @@ import {
   AdminReportsRoute,
   AdminUsersRoute,
   AdminAuditLogRoute,
+  AdminMetricsRoute,
 } from "./routeWrappers";
 
 /**
@@ -163,6 +164,7 @@ export default function AppRoutes() {
         {/* ============================================================== */}
         <AdminRoute path="/admin/reports" component={AdminReportsRoute} />
         <AdminRoute path="/admin/users" component={AdminUsersRoute} />
+        <AdminRoute path="/admin/metrics" component={AdminMetricsRoute} />
         <AdminRoute path="/admin/audit-log" component={AdminAuditLogRoute} />
         <AdminRoute path="/admin" component={AdminDashboardRoute} />
 

@@ -1,6 +1,15 @@
 import { type ReactNode, useState } from "react";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Flag, Users, ScrollText, ArrowLeft, Menu, X } from "lucide-react";
+import {
+  LayoutDashboard,
+  Flag,
+  Users,
+  ScrollText,
+  BarChart3,
+  ArrowLeft,
+  Menu,
+  X,
+} from "lucide-react";
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -10,6 +19,7 @@ const adminNav = [
   { label: "Overview", href: "/admin", icon: LayoutDashboard },
   { label: "Reports", href: "/admin/reports", icon: Flag },
   { label: "Users", href: "/admin/users", icon: Users },
+  { label: "Metrics", href: "/admin/metrics", icon: BarChart3 },
   { label: "Audit Log", href: "/admin/audit-log", icon: ScrollText },
 ];
 

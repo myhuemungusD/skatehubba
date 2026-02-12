@@ -20,6 +20,7 @@ import {
   AdminReports,
   AdminUsers,
   AdminAuditLog,
+  AdminMetrics,
 } from "./lazyPages";
 
 // ============================================================================
@@ -147,6 +148,14 @@ export function AdminAuditLogRoute() {
   return (
     <AdminLayout>
       <AdminAuditLog />
+    </AdminLayout>
+  );
+}
+
+export function AdminMetricsRoute() {
+  return (
+    <AdminLayout>
+      <AdminMetrics />
     </AdminLayout>
   );
 }
