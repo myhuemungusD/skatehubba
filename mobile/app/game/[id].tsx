@@ -30,6 +30,7 @@ import { ResultScreen } from "@/components/game/ResultScreen";
 import { SlowMoReplay } from "@/components/game/SlowMoReplay";
 import { VideoErrorBoundary } from "@/components/common/VideoErrorBoundary";
 import { logEvent } from "@/lib/analytics/logEvent";
+import { useCacheGameSession } from "@/hooks/useOfflineCache";
 import type { GameOverlay, SkateLetter } from "@/types";
 
 /**
@@ -56,6 +57,9 @@ export default function GameScreen() {
 
   const activeOverlay = useActiveOverlay();
   const { isAttacker, isDefender, isMyTurn } = usePlayerRole(gameSession);
+
+  // Cache game session to AsyncStorage for offline access
+  useCacheGameSession(gameSession);
 
   // Network state for offline handling
   const { setActiveGame, resetReconnectState } = useNetworkStore();

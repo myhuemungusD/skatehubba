@@ -1,4 +1,11 @@
 import { create } from "zustand";
+import {
+  getCachedActiveGame,
+  getCachedVisitedSpots,
+  getCachedUserProfile,
+  type CachedUserProfile,
+} from "@/lib/offlineCache";
+import type { GameSession, Spot } from "@/types";
 
 /** Reconnection window in milliseconds (120 seconds) */
 const RECONNECT_WINDOW_MS = 120 * 1000;
@@ -170,4 +177,30 @@ export function useReconnectionStatus() {
     expired: state.reconnectExpired,
     isConnected: state.isConnected,
   }));
+}
+
+// ============================================================================
+// Offline data access — read from AsyncStorage cache when offline
+// ============================================================================
+
+/**
+ * Get the cached active game session (for offline viewing).
+ * Returns null when online or if no cached data exists.
+ */
+export async function getOfflineGameSession(): Promise<GameSession | null> {
+  return getCachedActiveGame();
+}
+
+/**
+ * Get cached visited spots (for offline browsing).
+ */
+export async function getOfflineSpots(): Promise<Spot[]> {
+  return getCachedVisitedSpots();
+}
+
+/**
+ * Get cached user profile (for offline display).
+ */
+export async function getOfflineUserProfile(): Promise<CachedUserProfile | null> {
+  return getCachedUserProfile();
 }

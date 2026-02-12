@@ -19,6 +19,9 @@ describe("useUserLookup", () => {
           retry: false,
           gcTime: 0,
           staleTime: 0, // Always fetch on queryKey change
+          queryFn: () => {
+            throw new Error("No queryFn configured for this query");
+          },
         },
       },
     });
@@ -97,13 +100,16 @@ describe("useUserLookup", () => {
       });
 
       // Force refetch to trigger error
-      await waitFor(() => {
-        if (result.current.error === "notFound") {
-          expect(result.current.error).toBe("notFound");
-          expect(result.current.userId).toBe(null);
-          expect(result.current.profile).toBe(null);
-        }
-      }, { timeout: 100 }).catch(() => {
+      await waitFor(
+        () => {
+          if (result.current.error === "notFound") {
+            expect(result.current.error).toBe("notFound");
+            expect(result.current.userId).toBe(null);
+            expect(result.current.profile).toBe(null);
+          }
+        },
+        { timeout: 100 }
+      ).catch(() => {
         // Expected to timeout if error state isn't set
       });
     });
@@ -178,13 +184,10 @@ describe("useUserLookup", () => {
         queryFn: async () => mockProfile2,
       });
 
-      const { result, rerender } = renderHook(
-        ({ handle }) => useUserLookup(handle),
-        {
-          wrapper,
-          initialProps: { handle: "user1" },
-        }
-      );
+      const { result, rerender } = renderHook(({ handle }) => useUserLookup(handle), {
+        wrapper,
+        initialProps: { handle: "user1" },
+      });
 
       // Wait for first query to complete
       await waitFor(() => {

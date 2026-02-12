@@ -57,6 +57,9 @@ async function main() {
 
   let hasErrors = false;
 
+  // Quote file paths to handle special characters like () and []
+  const quotedFiles = stagedFiles.map(f => `'${f.replace(/'/g, "'\\''")}'`).join(' ');
+
   // 1. Run secretlint (npm-based, always available)
   log(`${BOLD}1️⃣  Running Secretlint...${RESET}`);
   const quotedFiles = stagedFiles.map(f => `'${f}'`).join(' ');

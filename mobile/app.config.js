@@ -62,6 +62,15 @@ export default {
         }
       ],
       [
+        "expo-notifications",
+        {
+          icon: "./assets/icon.png",
+          color: "#ff6600",
+          sounds: [],
+          defaultChannel: "default"
+        }
+      ],
+      [
         "react-native-vision-camera",
         {
           cameraPermissionText: "Allow SkateHubba to access your camera to record trick videos.",
