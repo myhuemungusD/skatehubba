@@ -208,7 +208,7 @@ vi.mock("../db", () => ({
 }));
 
 // Import after mocking
-const { initializeVoting, castVote, getBattleVoteState, processVoteTimeouts, generateEventId } =
+const { initializeVoting, castVote, getBattleVoteState, processVoteTimeouts } =
   await import("../services/battleStateService");
 
 import logger from "../logger";
