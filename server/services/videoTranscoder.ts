@@ -239,8 +239,7 @@ export async function transcodeVideo(
 
   // Audio handling
   if (opts.audioEnabled) {
-    const audioBitrate =
-      (options as TranscodeOptions & { audioBitrate?: string }).audioBitrate || "96k";
+    const { audioBitrate = "96k" } = options as { audioBitrate?: string };
     args.push("-c:a", "aac", "-b:a", audioBitrate, "-ac", "2");
   } else {
     args.push("-an");
