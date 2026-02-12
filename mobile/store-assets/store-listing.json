@@ -1,0 +1,15 @@
+{
+  "appName": "SkateHubba",
+  "shortDescription": "Battle your friends in S.K.A.T.E., discover skate spots, and climb the leaderboard.",
+  "fullDescription": "SkateHubba is the ultimate skateboarding app. Challenge friends to real-time S.K.A.T.E. battles with video proof, explore an interactive map of skate spots, and climb the global leaderboard.\n\nKEY FEATURES:\n- S.K.A.T.E. Battles — Set tricks and film your attempts. Both players vote on landed vs bailed.\n- Spot Map — Discover and check in at skate parks, street spots, and DIY builds near you.\n- Video Challenges — Send trick-video challenges to friends with deadlines and one-take rules.\n- Leaderboards — Track your wins, streaks, and ranking against skaters worldwide.\n- Push Notifications — Get notified when it's your turn or someone sends a challenge.\n\nWhether you're warming up at the local park or hunting new spots across town, SkateHubba keeps the session going.",
+  "keywords": "skateboard,skate,SKATE,game,battle,tricks,spots,map,leaderboard,challenge,video",
+  "categories": {
+    "ios": "Sports",
+    "android": "Sports"
+  },
+  "contentRating": "Everyone 10+",
+  "privacyPolicyUrl": "https://skatehubba.com/privacy",
+  "termsOfServiceUrl": "https://skatehubba.com/terms",
+  "supportUrl": "https://skatehubba.com",
+  "contactEmail": "support@skatehubba.com"
+}

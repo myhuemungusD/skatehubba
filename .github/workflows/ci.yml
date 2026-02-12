@@ -158,6 +158,66 @@ jobs:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: node scripts/verify-firebase-rules.mjs
 
+  # Mobile EAS Build — queues an EAS preview build to verify native compilation
+  mobile_eas_build:
+    name: "Mobile EAS Build"
+    needs: mobile_quality
+    runs-on: ubuntu-latest
+    # Only run when mobile code changes and EXPO_TOKEN is available
+    if: |
+      github.event.pull_request.head.repo.full_name == github.repository ||
+      github.event_name == 'push'
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - name: Check EXPO_TOKEN
+        id: token_check
+        working-directory: .
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::EXPO_TOKEN not configured — skipping EAS build step."
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout Code
+        if: steps.token_check.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+        if: steps.token_check.outputs.skip != 'true'
+
+      - name: Install Dependencies
+        if: steps.token_check.outputs.skip != 'true'
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+
+      - name: Setup EAS
+        if: steps.token_check.outputs.skip != 'true'
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Run EAS Build (preview, non-blocking)
+        if: steps.token_check.outputs.skip != 'true'
+        run: eas build --profile preview --platform all --non-interactive --no-wait
+        env:
+          EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID }}
+          EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID: ${{ secrets.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID }}
+
+  # Mobile Detox Smoke Test — runs the Android smoke suite to catch regressions
+  mobile_detox_smoke:
+    name: "Mobile Detox Smoke"
+    needs: mobile_quality
+    uses: ./.github/workflows/mobile-e2e.yml
+    secrets: inherit
+
   # Secret scanning with gitleaks (all branches and PRs)
   secret_scan:
     name: "No Secrets in Repo"

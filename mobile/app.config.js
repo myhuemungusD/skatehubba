@@ -23,6 +23,7 @@ export default {
       supportsTablet: true,
       bundleIdentifier: "com.skatehubba.app",
       googleServicesFile: "./GoogleService-Info.plist",
+      associatedDomains: ["applinks:skatehubba.com"],
       infoPlist: {
         NSCameraUsageDescription: "SkateHubba needs camera access to record trick videos for challenges.",
         NSLocationWhenInUseUsageDescription: "SkateHubba needs your location to discover nearby skate spots and enable AR check-ins.",
@@ -45,6 +46,18 @@ export default {
         "RECORD_AUDIO",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
+      ],
+
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            { scheme: "https", host: "skatehubba.com", pathPrefix: "/game/" },
+            { scheme: "https", host: "skatehubba.com", pathPrefix: "/challenge/" }
+          ],
+          category: ["BROWSABLE", "DEFAULT"]
+        }
       ]
     },
 
@@ -91,6 +104,8 @@ export default {
 
     extra: {
       router: { origin: false },
+      privacyPolicyUrl: "https://skatehubba.com/privacy",
+      termsOfServiceUrl: "https://skatehubba.com/terms",
       eas: {
         projectId: "682cb6d2-cf8f-407c-a7f1-1069c45156dd"
       }
