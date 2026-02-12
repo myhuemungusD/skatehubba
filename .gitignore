@@ -22,6 +22,9 @@ functions/lib
 *.log
 *.tsbuildinfo
 
+# Benchmark results
+benchmarks/results/*.json
+
 # Test artifacts
 test-results
 coverage
