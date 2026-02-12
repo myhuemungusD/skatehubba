@@ -10,8 +10,9 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
-export default function HomeScreen() {
+function HomeScreenContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -153,6 +154,14 @@ export default function HomeScreen() {
 
       <View style={styles.bottomPadding} />
     </ScrollView>
+  );
+}
+
+export default function HomeScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Home">
+      <HomeScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 

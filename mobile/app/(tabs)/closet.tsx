@@ -11,8 +11,9 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
-export default function ClosetScreen() {
+function ClosetScreenContent() {
   const { user, isAuthenticated, checkAuth } = useRequireAuth();
   const router = useRouter();
 
@@ -114,6 +115,14 @@ export default function ClosetScreen() {
 
       <View style={styles.bottomPadding} />
     </ScrollView>
+  );
+}
+
+export default function ClosetScreen() {
+  return (
+    <ScreenErrorBoundary screenName="My Closet">
+      <ClosetScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 
