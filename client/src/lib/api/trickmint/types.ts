@@ -11,6 +11,10 @@ export interface TrickClip {
   trickName: string;
   description: string | null;
   videoUrl: string;
+  /** Bandwidth-optimized URL chosen by the server based on Save-Data / ECT headers */
+  videoUrlForQuality?: string;
+  /** Quality tier the server selected (low/medium/high) */
+  preferredQuality?: "low" | "medium" | "high";
   videoDurationMs: number | null;
   thumbnailUrl: string | null;
   fileSizeBytes: number | null;

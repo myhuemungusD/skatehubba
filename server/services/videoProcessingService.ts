@@ -12,7 +12,7 @@
 import { getDb } from "../db";
 import { trickClips } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { validateUploadedFile, getPublicUrl } from "./storageService";
+import { validateUploadedFile, getPublicUrl, setCacheHeaders } from "./storageService";
 import logger from "../logger";
 
 // ============================================================================
@@ -122,7 +122,13 @@ export async function processUpload(input: ProcessUploadInput): Promise<ProcessU
     }
   }
 
-  // Step 4: Create DB record
+  // Step 4: Set cache headers on uploaded files (reduces egress on repeat views)
+  setCacheHeaders(videoPath, "video");
+  if (thumbnailPath) {
+    setCacheHeaders(thumbnailPath, "thumbnail");
+  }
+
+  // Step 5: Create DB record
   try {
     const db = getDb();
     const videoUrl = getPublicUrl(videoPath);

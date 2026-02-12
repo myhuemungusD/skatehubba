@@ -228,6 +228,7 @@ export function uploadVideo(
   const storageRef = ref(storage, storagePath);
   const metadata = {
     contentType: file.type,
+    cacheControl: "public, max-age=31536000, immutable",
     customMetadata: {
       uid,
       gameId,

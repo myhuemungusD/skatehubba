@@ -54,6 +54,7 @@ vi.mock("../services/storageService", () => ({
     return mockValidateResult;
   }),
   getPublicUrl: vi.fn((path: string) => `https://cdn.example.com/${path}`),
+  setCacheHeaders: vi.fn(),
   generateUploadUrls: vi.fn(),
   UPLOAD_LIMITS: { maxFileSize: 50 * 1024 * 1024 },
 }));

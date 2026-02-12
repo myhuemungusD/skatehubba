@@ -18,6 +18,11 @@ const SIGNED_URL_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes
 const MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
 const MAX_THUMBNAIL_SIZE_BYTES = 2 * 1024 * 1024; // 2 MB
 
+// Immutable content can be cached aggressively — videos/thumbnails never change after upload.
+// This dramatically reduces GCS egress: repeat views are served from CDN/browser cache.
+const VIDEO_CACHE_CONTROL = "public, max-age=31536000, immutable";
+const THUMBNAIL_CACHE_CONTROL = "public, max-age=31536000, immutable";
+
 const ALLOWED_VIDEO_MIME_TYPES = [
   "video/webm",
   "video/mp4",
@@ -75,18 +80,26 @@ export async function generateUploadUrls(
 
   const expiresAt = new Date(Date.now() + SIGNED_URL_EXPIRY_MS);
 
-  const [videoUploadUrl] = await bucket.file(videoPath).getSignedUrl({
+  const videoFile = bucket.file(videoPath);
+  const [videoUploadUrl] = await videoFile.getSignedUrl({
     version: "v4",
     action: "write",
     expires: expiresAt,
     contentType: fileExtension === "mp4" ? "video/mp4" : "video/webm",
+    extensionHeaders: {
+      "x-goog-meta-cache-control": VIDEO_CACHE_CONTROL,
+    },
   });
 
-  const [thumbnailUploadUrl] = await bucket.file(thumbnailPath).getSignedUrl({
+  const thumbnailFile = bucket.file(thumbnailPath);
+  const [thumbnailUploadUrl] = await thumbnailFile.getSignedUrl({
     version: "v4",
     action: "write",
     expires: expiresAt,
     contentType: "image/jpeg",
+    extensionHeaders: {
+      "x-goog-meta-cache-control": THUMBNAIL_CACHE_CONTROL,
+    },
   });
 
   return {
@@ -179,6 +192,25 @@ export function getPublicUrl(filePath: string): string {
 }
 
 /**
+ * Ensure a file in storage has aggressive cache headers set.
+ * Call this after a client-SDK upload to reduce repeated GCS egress.
+ */
+export async function setCacheHeaders(
+  filePath: string,
+  type: "video" | "thumbnail"
+): Promise<void> {
+  try {
+    const bucket = getBucket();
+    const file = bucket.file(filePath);
+    const cacheControl = type === "video" ? VIDEO_CACHE_CONTROL : THUMBNAIL_CACHE_CONTROL;
+    await file.setMetadata({ cacheControl });
+  } catch (error) {
+    // Non-fatal: the file is still accessible, just won't be cached as aggressively
+    logger.warn("[Storage] Failed to set cache headers", { filePath, error });
+  }
+}
+
+/**
  * Delete a file from storage.
  */
 export async function deleteFile(filePath: string): Promise<void> {
@@ -206,6 +238,58 @@ export function isOwnStorageUrl(url: string): boolean {
     url.includes(`firebasestorage.googleapis.com/v0/b/${bucketName}`) ||
     url.includes(`storage.googleapis.com/${bucketName}`)
   );
+}
+
+// ============================================================================
+// Quality-variant URL derivation
+// ============================================================================
+
+import type { QualityTier } from "./videoTranscoder";
+
+/**
+ * Derive the storage path for a quality rendition from the original path.
+ * Convention: `trickmint/user/abc_123.webm` → `trickmint/user/abc_123_low.mp4`
+ *
+ * All renditions are always MP4 (H.264) regardless of original format.
+ */
+export function getQualityVariantPath(originalPath: string, quality: QualityTier): string {
+  const dotIdx = originalPath.lastIndexOf(".");
+  if (dotIdx === -1) return `${originalPath}_${quality}.mp4`;
+  const base = originalPath.substring(0, dotIdx);
+  return `${base}_${quality}.mp4`;
+}
+
+/**
+ * Get the public URL for a specific quality tier of a video.
+ * Falls back to the original URL if the quality tier is "high" or
+ * if the original is the best available.
+ */
+export function getQualityVideoUrl(
+  originalVideoUrl: string,
+  originalPath: string,
+  quality: QualityTier
+): string {
+  // "high" just uses the original upload
+  if (quality === "high") return originalVideoUrl;
+
+  const variantPath = getQualityVariantPath(originalPath, quality);
+  return getPublicUrl(variantPath);
+}
+
+/**
+ * Build a map of available quality URLs for a video.
+ * Returned in API responses so the client can switch quality without
+ * additional server round-trips.
+ */
+export function buildQualityUrls(
+  originalVideoUrl: string,
+  originalPath: string
+): Record<QualityTier, string> {
+  return {
+    low: getPublicUrl(getQualityVariantPath(originalPath, "low")),
+    medium: getPublicUrl(getQualityVariantPath(originalPath, "medium")),
+    high: originalVideoUrl,
+  };
 }
 
 export const UPLOAD_LIMITS = {
