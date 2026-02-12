@@ -20,6 +20,8 @@ import { storage, auth } from "@/lib/firebase.config";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { TrickMintSkeleton } from "@/components/common/Skeleton";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
 type Tab = "upload" | "my-clips" | "feed";
 
@@ -49,7 +51,7 @@ interface ClipListResponse {
   offset: number;
 }
 
-export default function TrickMintScreen() {
+function TrickMintScreenContent() {
   const { isAuthenticated, checkAuth } = useRequireAuth();
   const [activeTab, setActiveTab] = useState<Tab>("upload");
   const [trickName, setTrickName] = useState("");
@@ -385,12 +387,7 @@ export default function TrickMintScreen() {
         {/* My Clips Tab */}
         {activeTab === "my-clips" && (
           <View style={styles.clipsContainer}>
-            {myClipsQuery.isLoading && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={SKATE.colors.orange} />
-                <Text style={styles.loadingText}>Loading clips...</Text>
-              </View>
-            )}
+            {myClipsQuery.isLoading && <TrickMintSkeleton />}
 
             {myClipsQuery.data && myClipsQuery.data.clips.length === 0 && (
               <View style={styles.emptyState}>
@@ -426,12 +423,7 @@ export default function TrickMintScreen() {
         {/* Feed Tab */}
         {activeTab === "feed" && (
           <View style={styles.clipsContainer}>
-            {feedQuery.isLoading && (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color={SKATE.colors.orange} />
-                <Text style={styles.loadingText}>Loading feed...</Text>
-              </View>
-            )}
+            {feedQuery.isLoading && <TrickMintSkeleton />}
 
             {feedQuery.data && feedQuery.data.clips.length === 0 && (
               <View style={styles.emptyState}>
@@ -471,6 +463,14 @@ export default function TrickMintScreen() {
         </Modal>
       )}
     </View>
+  );
+}
+
+export default function TrickMintScreen() {
+  return (
+    <ScreenErrorBoundary screenName="TrickMint">
+      <TrickMintScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 

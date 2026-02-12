@@ -10,8 +10,10 @@ import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { showMessage } from "react-native-flash-message";
 import { AddSpotModal } from "@/components/AddSpotModal";
+import { MapSkeleton } from "@/components/common/Skeleton";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
-export default function MapScreen() {
+function MapScreenContent() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [showAddSpotModal, setShowAddSpotModal] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
@@ -129,9 +131,7 @@ export default function MapScreen() {
   return (
     <View testID="map-screen" style={styles.container}>
       {isLoading ? (
-        <View testID="map-loading" style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading spots...</Text>
-        </View>
+        <MapSkeleton />
       ) : (
         <>
           <MapView
@@ -267,6 +267,14 @@ export default function MapScreen() {
   );
 }
 
+export default function MapScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Map">
+      <MapScreenContent />
+    </ScreenErrorBoundary>
+  );
+}
+
 function getTierColor(tier: Spot["tier"]): string {
   switch (tier) {
     case "bronze":
@@ -295,10 +303,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: SKATE.colors.ink,
-  },
-  loadingText: {
-    color: SKATE.colors.white,
-    fontSize: 16,
   },
   fabContainer: {
     position: "absolute",
