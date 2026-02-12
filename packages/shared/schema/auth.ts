@@ -16,33 +16,7 @@ import {
 import { sql } from "drizzle-orm";
 import { usernameSchema, passwordSchema } from "./validation";
 
-// Session storage table for Replit Auth
-export const sessions = pgTable(
-  "sessions",
-  {
-    sid: varchar("sid").primaryKey(),
-    sess: json("sess").notNull(),
-    expire: timestamp("expire").notNull(),
-  },
-  (table) => ({
-    expireIdx: index("IDX_session_expire").on(table.expire),
-  })
-);
-
-// User storage table for Replit Auth
-export const users = pgTable("users", {
-  id: varchar("id").primaryKey(),
-  email: varchar("email").unique(),
-  firstName: varchar("first_name"),
-  lastName: varchar("last_name"),
-  profileImageUrl: varchar("profile_image_url"),
-  onboardingCompleted: boolean("onboarding_completed").default(false),
-  currentTutorialStep: integer("current_tutorial_step").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
-  updatedAt: timestamp("updated_at").defaultNow(),
-});
-
-// Custom authentication tables
+// Authentication tables
 export const accountTierEnum = pgEnum("account_tier", ["free", "pro", "premium"]);
 
 export const customUsers = pgTable("custom_users", {
@@ -195,8 +169,6 @@ export const resetPasswordSchema = z.object({
 export const ACCOUNT_TIERS = ["free", "pro", "premium"] as const;
 export type AccountTier = (typeof ACCOUNT_TIERS)[number];
 
-export type User = typeof users.$inferSelect;
-export type UpsertUser = typeof users.$inferInsert;
 export type CustomUser = typeof customUsers.$inferSelect;
 export type InsertCustomUser = typeof customUsers.$inferInsert;
 export type AuthSession = typeof authSessions.$inferSelect;

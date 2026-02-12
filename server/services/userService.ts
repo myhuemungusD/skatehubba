@@ -1,8 +1,9 @@
 /**
  * User Service - Database abstraction layer for user operations
  *
- * Single source of truth for user profile data: PostgreSQL users table
+ * Single source of truth for user account data: PostgreSQL custom_users table
  * Firebase Auth is used ONLY for authentication, not profile storage
+ * Extended profile data (bio, stance, avatar) lives in user_profiles table
  *
  * NOTE: Role management is handled by Firebase Custom Claims, not database.
  * Use Firebase Admin SDK to set/get user roles via custom claims.
@@ -11,30 +12,26 @@
 
 import { eq } from "drizzle-orm";
 import { db, requireDb } from "../db";
-import { users } from "@shared/schema";
+import { customUsers } from "@shared/schema";
 import logger from "../logger";
 
-export type User = typeof users.$inferSelect;
-export type InsertUser = typeof users.$inferInsert;
+export type User = typeof customUsers.$inferSelect;
+export type InsertUser = typeof customUsers.$inferInsert;
 
 export interface CreateUserInput {
   id: string; // Firebase UID
   email: string;
+  passwordHash: string;
   firstName?: string | null;
   lastName?: string | null;
-  profileImageUrl?: string | null;
-  // roles intentionally omitted from DB (Firebase Custom Claims)
+  firebaseUid?: string | null;
 }
 
 export interface UpdateUserInput {
   firstName?: string | null;
   lastName?: string | null;
-  bio?: string | null;
-  location?: string | null;
-  photoUrl?: string | null;
-  profileImageUrl?: string | null;
-  onboardingCompleted?: boolean;
-  currentTutorialStep?: number;
+  email?: string;
+  pushToken?: string | null;
 }
 
 /**
@@ -50,13 +47,14 @@ export async function createUser(input: CreateUserInput): Promise<User> {
   });
 
   const [user] = await database
-    .insert(users)
+    .insert(customUsers)
     .values({
       id: input.id,
       email: input.email,
+      passwordHash: input.passwordHash,
       firstName: input.firstName ?? null,
       lastName: input.lastName ?? null,
-      profileImageUrl: input.profileImageUrl ?? null,
+      firebaseUid: input.firebaseUid ?? null,
     })
     .returning();
 
@@ -65,12 +63,12 @@ export async function createUser(input: CreateUserInput): Promise<User> {
 }
 
 /**
- * Get user by Firebase UID
+ * Get user by ID
  */
 export async function getUserById(userId: string): Promise<User | null> {
   if (!db) return null;
 
-  const results = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  const results = await db.select().from(customUsers).where(eq(customUsers.id, userId)).limit(1);
 
   return results[0] ?? null;
 }
@@ -81,26 +79,30 @@ export async function getUserById(userId: string): Promise<User | null> {
 export async function getUserByEmail(email: string): Promise<User | null> {
   if (!db) return null;
 
-  const results = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  const results = await db.select().from(customUsers).where(eq(customUsers.email, email)).limit(1);
 
   return results[0] ?? null;
 }
 
 /**
- * Update user profile
+ * Update user account fields
  */
 export async function updateUser(userId: string, input: UpdateUserInput): Promise<User> {
   const database = requireDb();
 
-  logger.info("Updating user profile", { userId });
+  logger.info("Updating user", { userId });
 
-  const [updated] = await database.update(users).set(input).where(eq(users.id, userId)).returning();
+  const [updated] = await database
+    .update(customUsers)
+    .set({ ...input, updatedAt: new Date() })
+    .where(eq(customUsers.id, userId))
+    .returning();
 
   if (!updated) {
     throw new Error(`User ${userId} not found`);
   }
 
-  logger.info("User profile updated", { userId });
+  logger.info("User updated", { userId });
   return updated;
 }
 
@@ -112,7 +114,7 @@ export async function deleteUser(userId: string): Promise<void> {
 
   logger.warn("Deleting user", { userId });
 
-  await database.delete(users).where(eq(users.id, userId));
+  await database.delete(customUsers).where(eq(customUsers.id, userId));
 
   logger.info("User deleted", { userId });
 }
