@@ -62,27 +62,22 @@ export default function TrickMintScreen() {
   // Queries
   const myClipsQuery = useQuery({
     queryKey: ["trickmint", "my-clips"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/trickmint/my-clips?limit=50&offset=0");
-      return response.json() as Promise<ClipListResponse>;
-    },
+    queryFn: () =>
+      apiRequest<ClipListResponse>("/api/trickmint/my-clips?limit=50&offset=0"),
     enabled: activeTab === "my-clips" && isAuthenticated,
   });
 
   const feedQuery = useQuery({
     queryKey: ["trickmint", "feed"],
-    queryFn: async () => {
-      const response = await apiRequest("GET", "/api/trickmint/feed?limit=50&offset=0");
-      return response.json() as Promise<ClipListResponse>;
-    },
+    queryFn: () =>
+      apiRequest<ClipListResponse>("/api/trickmint/feed?limit=50&offset=0"),
     enabled: activeTab === "feed" && isAuthenticated,
   });
 
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (clipId: number) => {
-      const response = await apiRequest("DELETE", `/api/trickmint/${clipId}`);
-      return response.json();
+      return apiRequest(`/api/trickmint/${clipId}`, { method: "DELETE" });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["trickmint"] });
@@ -179,17 +174,18 @@ export default function TrickMintScreen() {
           const videoUrl = await getDownloadURL(uploadTask.snapshot.ref);
 
           // Submit to server
-          const submitResponse = await apiRequest("POST", "/api/trickmint/submit", {
-            trickName: trickName.trim(),
-            description: description.trim() || undefined,
-            videoUrl,
-            videoDurationMs: durationMs,
-            fileSizeBytes: blob.size,
-            mimeType: blob.type || "video/mp4",
-            isPublic,
+          const data = await apiRequest<{ clip?: unknown }>("/api/trickmint/submit", {
+            method: "POST",
+            body: JSON.stringify({
+              trickName: trickName.trim(),
+              description: description.trim() || undefined,
+              videoUrl,
+              videoDurationMs: durationMs,
+              fileSizeBytes: blob.size,
+              mimeType: blob.type || "video/mp4",
+              isPublic,
+            }),
           });
-
-          const data = await submitResponse.json();
 
           if (data.clip) {
             showMessage({

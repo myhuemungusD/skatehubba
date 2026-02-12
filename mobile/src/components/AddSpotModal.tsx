@@ -88,8 +88,10 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
 
   const mutation = useMutation({
     mutationFn: async (payload: InsertSpot) => {
-      const response = await apiRequest("POST", "/api/spots", payload);
-      return response.json();
+      return apiRequest("/api/spots", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/spots"] });

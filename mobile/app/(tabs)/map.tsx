@@ -86,15 +86,16 @@ export default function MapScreen() {
 
     try {
       const nonce = crypto.randomUUID();
-      const response = await apiRequest("POST", "/api/spots/check-in", {
-        spotId: spot.id,
-        lat: location.coords.latitude,
-        lng: location.coords.longitude,
-        accuracy: location.coords.accuracy,
-        nonce,
+      const data = await apiRequest<{ success: boolean; message?: string }>("/api/spots/check-in", {
+        method: "POST",
+        body: JSON.stringify({
+          spotId: spot.id,
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+          accuracy: location.coords.accuracy,
+          nonce,
+        }),
       });
-
-      const data = await response.json();
 
       if (data.success) {
         showMessage({
@@ -250,7 +251,7 @@ export default function MapScreen() {
                 ? {
                     lat: location.coords.latitude,
                     lng: location.coords.longitude,
-                    accuracy: location.coords.accuracy,
+                    accuracy: location.coords.accuracy ?? undefined,
                   }
                 : null
             }
