@@ -126,6 +126,12 @@ jobs:
       - name: Build Detox (Android)
         run: pnpm run e2e:build:android
 
+      - name: Kill any running adb servers
+        run: adb kill-server || true
+
+      - name: Start adb server
+        run: adb start-server
+
       - name: Run Detox Tests (Android)
         uses: reactivecircus/android-emulator-runner@v2
         with:
