@@ -5,6 +5,8 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
+import { UsersSkeleton } from "@/components/common/Skeleton";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
 interface User {
   id: string;
@@ -12,7 +14,7 @@ interface User {
   photoURL: string | null;
 }
 
-export default function UsersScreen() {
+function UsersScreenContent() {
   const router = useRouter();
   const [search, setSearch] = useState("");
 
@@ -74,7 +76,7 @@ export default function UsersScreen() {
       </View>
 
       {isLoading ? (
-        <Text style={styles.loadingText}>Loading skaters...</Text>
+        <UsersSkeleton />
       ) : filteredUsers?.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="people-outline" size={64} color={SKATE.colors.orange} />
@@ -92,6 +94,14 @@ export default function UsersScreen() {
         />
       )}
     </View>
+  );
+}
+
+export default function UsersScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Find Skaters">
+      <UsersScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 
@@ -186,11 +196,5 @@ const styles = StyleSheet.create({
     fontSize: SKATE.fontSize.md,
     textAlign: "center",
     lineHeight: 20,
-  },
-  loadingText: {
-    color: SKATE.colors.white,
-    fontSize: SKATE.fontSize.lg,
-    textAlign: "center",
-    marginTop: 32,
   },
 });

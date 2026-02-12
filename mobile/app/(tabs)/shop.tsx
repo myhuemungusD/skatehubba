@@ -1,6 +1,7 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
 // Placeholder product data
 const FEATURED_PRODUCTS = [
@@ -18,7 +19,7 @@ const CATEGORIES = [
   { id: "accessories", name: "Accessories", icon: "bag-handle" as const },
 ];
 
-export default function ShopScreen() {
+function ShopScreenContent() {
   return (
     <ScrollView style={styles.container}>
       {/* Coming Soon Banner */}
@@ -74,6 +75,14 @@ export default function ShopScreen() {
 
       <View style={styles.bottomPadding} />
     </ScrollView>
+  );
+}
+
+export default function ShopScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Shop">
+      <ShopScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 

@@ -4,8 +4,10 @@ import { apiRequest } from "@/lib/queryClient";
 import { LeaderboardEntry } from "@/types";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
+import { LeaderboardSkeleton } from "@/components/common/Skeleton";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
-export default function LeaderboardScreen() {
+function LeaderboardScreenContent() {
   const { data: leaderboard, isLoading } = useQuery({
     queryKey: ["/api/leaderboard"],
     queryFn: () => apiRequest<LeaderboardEntry[]>("/api/leaderboard"),
@@ -51,9 +53,7 @@ export default function LeaderboardScreen() {
   return (
     <View testID="leaderboard-screen" style={styles.container}>
       {isLoading ? (
-        <Text testID="leaderboard-loading" style={styles.loadingText}>
-          Loading leaderboard...
-        </Text>
+        <LeaderboardSkeleton />
       ) : (
         <FlatList
           testID="leaderboard-list"
@@ -70,6 +70,14 @@ export default function LeaderboardScreen() {
         />
       )}
     </View>
+  );
+}
+
+export default function LeaderboardScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Leaderboard">
+      <LeaderboardScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 
@@ -144,11 +152,5 @@ const styles = StyleSheet.create({
     fontSize: SKATE.fontSize.xl,
     fontWeight: SKATE.fontWeight.bold,
     color: SKATE.colors.orange,
-  },
-  loadingText: {
-    color: SKATE.colors.white,
-    fontSize: SKATE.fontSize.lg,
-    textAlign: "center",
-    marginTop: 32,
   },
 });

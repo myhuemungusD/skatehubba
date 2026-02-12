@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase.config";
 import { useState, useEffect, useCallback } from "react";
@@ -58,7 +59,7 @@ function SettingItem({
   );
 }
 
-export default function SettingsScreen() {
+function SettingsScreenContent() {
   const { user, isAuthenticated } = useRequireAuth();
   const router = useRouter();
   const [pushEnabled, setPushEnabled] = useState(true);
@@ -269,6 +270,14 @@ export default function SettingsScreen() {
 
       <View style={styles.bottomPadding} />
     </ScrollView>
+  );
+}
+
+export default function SettingsScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Settings">
+      <SettingsScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 
