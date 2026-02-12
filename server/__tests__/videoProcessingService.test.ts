@@ -78,8 +78,8 @@ vi.mock("../db", () => ({
         }),
       })),
     })),
-    update: (...args: any[]) => {
-      mockUpdateFn(...args);
+    update: (table: any) => {
+      mockUpdateFn(table);
       return { set: mockSetFn };
     },
   }),
