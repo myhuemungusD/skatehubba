@@ -17,6 +17,8 @@ import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./
 import { initializeDatabase } from "./db.ts";
 import { getRedisClient, shutdownRedis } from "./redis.ts";
 import { DEV_ORIGINS, BODY_PARSE_LIMIT, SERVER_PORT } from "./config/server.ts";
+import swaggerUi from "swagger-ui-express";
+import { generateOpenAPISpec } from "./api-docs/index.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,6 +72,19 @@ app.use(cors(corsOptions));
 
 // Compression
 app.use(compression());
+
+// OpenAPI / Swagger UI — served before auth/CSRF since docs are public
+const openApiSpec = generateOpenAPISpec();
+app.get("/api/docs/openapi.json", (_req, res) => res.json(openApiSpec));
+app.use(
+  "/api/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(openApiSpec, {
+    customSiteTitle: "SkateHubba API Docs",
+    customCss: ".swagger-ui .topbar { background-color: #667eea; }",
+    swaggerOptions: { persistAuthorization: true },
+  })
+);
 
 // Raw body for Stripe webhook signature verification (MUST precede express.json())
 app.use("/webhooks/stripe", express.raw({ type: "application/json" }));
