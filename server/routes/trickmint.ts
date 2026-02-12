@@ -28,6 +28,8 @@ import {
   confirmDirectUpload,
   VIDEO_LIMITS,
 } from "../services/videoProcessingService";
+import type { QualityTier } from "../services/videoTranscoder";
+import { feedCache } from "../middleware/feedCache";
 
 const router = Router();
 
@@ -35,12 +37,41 @@ const router = Router();
 // Helpers
 // ============================================================================
 
+/**
+ * Enrich a clip response with a bandwidth-appropriate video URL.
+ * Adds `videoUrlForQuality` — the URL the client should use by default —
+ * so the client doesn't need to implement quality selection logic.
+ */
+function withPreferredVideoUrl<T extends { videoUrl: string }>(
+  clip: T,
+  preferredQuality: QualityTier
+): T & { videoUrlForQuality: string; preferredQuality: QualityTier } {
+  // For now, derive the URL by convention. When multi-quality transcoding
+  // is enabled and renditions exist, this URL will resolve to the smaller file.
+  // If the rendition doesn't exist yet, Firebase returns 404 and the client
+  // should fall back to videoUrl.
+  let videoUrlForQuality = clip.videoUrl;
+  if (preferredQuality !== "high") {
+    // Derive quality variant URL from the original video URL path
+    const bucketMatch = clip.videoUrl.match(/\/o\/(.+?)(\?|$)/);
+    if (bucketMatch) {
+      const originalPath = decodeURIComponent(bucketMatch[1]);
+      const dotIdx = originalPath.lastIndexOf(".");
+      const base = dotIdx !== -1 ? originalPath.substring(0, dotIdx) : originalPath;
+      const variantPath = `${base}_${preferredQuality}.mp4`;
+      const encodedVariant = encodeURIComponent(variantPath);
+      videoUrlForQuality = clip.videoUrl.replace(/\/o\/[^?]+/, `/o/${encodedVariant}`);
+    }
+  }
+  return { ...clip, videoUrlForQuality, preferredQuality };
+}
+
 const VIEW_INCREMENT_MAX_RETRIES = 3;
 const VIEW_INCREMENT_BASE_DELAY_MS = 100;
 
 async function incrementViewsWithRetry(
   db: ReturnType<typeof getDb>,
-  clipId: number,
+  clipId: number
 ): Promise<void> {
   for (let attempt = 1; attempt <= VIEW_INCREMENT_MAX_RETRIES; attempt++) {
     try {
@@ -307,7 +338,7 @@ router.get("/my-clips", authenticateUser, async (req, res) => {
 // GET /api/trickmint/feed — Public feed of ready clips
 // ============================================================================
 
-router.get("/feed", authenticateUser, async (req, res) => {
+router.get("/feed", authenticateUser, feedCache(30), async (req, res) => {
   if (!isDatabaseAvailable()) {
     return res.status(503).json({ error: "Database unavailable" });
   }
@@ -322,7 +353,7 @@ router.get("/feed", authenticateUser, async (req, res) => {
   try {
     const db = getDb();
 
-    const clips = await db
+    const rawClips = await db
       .select()
       .from(trickClips)
       .where(and(eq(trickClips.isPublic, true), eq(trickClips.status, "ready")))
@@ -334,6 +365,9 @@ router.get("/feed", authenticateUser, async (req, res) => {
       .select({ total: sql<number>`count(*)::int` })
       .from(trickClips)
       .where(and(eq(trickClips.isPublic, true), eq(trickClips.status, "ready")));
+
+    // Enrich with bandwidth-appropriate video URL
+    const clips = rawClips.map((clip) => withPreferredVideoUrl(clip, req.preferredQuality));
 
     res.json({
       clips,
@@ -378,7 +412,7 @@ router.get("/:id", authenticateUser, async (req, res) => {
     // Increment views (fire-and-forget with retry)
     incrementViewsWithRetry(db, clipId);
 
-    res.json({ clip });
+    res.json({ clip: withPreferredVideoUrl(clip, req.preferredQuality) });
   } catch (error) {
     logger.error("[TrickMint] Failed to fetch clip", { clipId, error });
     res.status(500).json({ error: "Failed to fetch clip" });
