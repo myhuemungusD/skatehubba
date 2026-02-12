@@ -1,0 +1,112 @@
+name: Deploy Staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/staging
+
+jobs:
+  build-and-push:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            EXPO_PUBLIC_APP_ENV=staging
+            EXPO_PUBLIC_API_BASE_URL=${{ vars.STAGING_API_URL }}
+            EXPO_PUBLIC_CANONICAL_ORIGIN=${{ vars.STAGING_CANONICAL_ORIGIN }}
+            EXPO_PUBLIC_FIREBASE_API_KEY=${{ vars.STAGING_FIREBASE_API_KEY }}
+            EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=${{ vars.STAGING_FIREBASE_AUTH_DOMAIN }}
+            EXPO_PUBLIC_FIREBASE_PROJECT_ID=${{ vars.STAGING_FIREBASE_PROJECT_ID }}
+            EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=${{ vars.STAGING_FIREBASE_STORAGE_BUCKET }}
+            EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${{ vars.STAGING_FIREBASE_MESSAGING_SENDER_ID }}
+            EXPO_PUBLIC_FIREBASE_APP_ID=${{ vars.STAGING_FIREBASE_APP_ID }}
+            EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY=${{ vars.STAGING_STRIPE_PK }}
+            EXPO_PUBLIC_SENTRY_DSN=${{ vars.STAGING_SENTRY_DSN }}
+
+  deploy:
+    name: Deploy to Staging Server
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/skatehubba
+            docker compose -f docker-compose.staging.yml pull app
+            docker compose -f docker-compose.staging.yml up -d --no-deps app
+            docker image prune -f
+
+  migrate:
+    name: Run Database Migrations
+    needs: deploy
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm-env
+      - run: pnpm install
+      - name: Run Drizzle migrations
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: pnpm db:migrate
+
+  smoke-test:
+    name: Smoke Test
+    needs: deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Health check
+        run: |
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w '%{http_code}' "${{ vars.STAGING_API_URL }}/api/health" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i: status=$STATUS, retrying in 10s..."
+            sleep 10
+          done
+          echo "Health check failed after 5 attempts"
+          exit 1
+
+      - name: API docs check
+        run: |
+          curl -sf "${{ vars.STAGING_API_URL }}/api/docs/openapi.json" | head -c 200
