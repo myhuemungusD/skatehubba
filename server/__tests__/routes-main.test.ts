@@ -96,6 +96,9 @@ vi.mock("../middleware/validation", () => ({
 vi.mock("../middleware/requirePaidOrPro", () => ({
   requirePaidOrPro: vi.fn((_r: any, _s: any, n: any) => n()),
 }));
+vi.mock("../middleware/bandwidth", () => ({
+  bandwidthDetection: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
 
 // -- auth middleware --
 vi.mock("../auth/middleware", () => ({
