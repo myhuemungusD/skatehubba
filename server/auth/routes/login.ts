@@ -12,6 +12,7 @@ import { AuditLogger } from "../audit.ts";
 import { getClientIP } from "../audit.ts";
 import { LockoutService } from "../lockout.ts";
 import logger from "../../logger.ts";
+import { sendVerificationEmail } from "../email.ts";
 
 export function setupLoginRoutes(app: Express) {
   // Single login/register endpoint - Firebase ID token only (with rate limiting)
@@ -73,21 +74,33 @@ export function setupLoginRoutes(app: Express) {
         }
 
         const uid = decoded.uid;
-        const { firstName, lastName, isRegistration: _isRegistration } = req.body;
+        const { firstName, lastName, isRegistration } = req.body;
 
         // Find or create user record
         let user = await AuthService.findUserByFirebaseUid(uid);
+        let isNewUser = false;
 
         if (!user) {
+          isNewUser = true;
+          const userFirstName = firstName || decoded.name?.split(" ")[0] || "User";
           // Create new user from Firebase token data
-          const { user: newUser } = await AuthService.createUser({
+          // Only auto-verify if the Firebase token confirms email_verified (e.g. Google OAuth)
+          const { user: newUser, emailToken } = await AuthService.createUser({
             email: decoded.email || `user${uid.slice(0, 8)}@firebase.local`,
             password: "firebase-auth-user", // Placeholder
-            firstName: firstName || decoded.name?.split(" ")[0] || "User",
+            firstName: userFirstName,
             lastName: lastName || decoded.name?.split(" ").slice(1).join(" ") || "",
             firebaseUid: uid,
+            isEmailVerified: !!decoded.email_verified,
           });
           user = newUser;
+
+          // Send branded verification email for new email/password registrations
+          if (isRegistration && !decoded.email_verified && decoded.email) {
+            sendVerificationEmail(decoded.email, emailToken, userFirstName).catch((err) =>
+              logger.error("Failed to send verification email", { error: String(err) })
+            );
+          }
         }
 
         // Sync Firebase email verification status to custom DB

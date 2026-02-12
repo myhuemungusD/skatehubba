@@ -1,7 +1,6 @@
 import { useMemo, useState, useCallback } from "react";
-import { sendEmailVerification } from "firebase/auth";
-import { auth } from "../lib/firebase";
 import { useAuth } from "./useAuth";
+import { apiRequest } from "../lib/api/client";
 import { isDevAdmin } from "../lib/devAdmin";
 
 const RESEND_COOLDOWN_MS = 60000; // 1 minute cooldown
@@ -33,8 +32,7 @@ export function useEmailVerification() {
   }, [lastResendTime]);
 
   const resendVerificationEmail = useCallback(async () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
+    if (!user) {
       throw new Error("No user signed in");
     }
 
@@ -45,12 +43,15 @@ export function useEmailVerification() {
 
     setIsResending(true);
     try {
-      await sendEmailVerification(currentUser);
+      await apiRequest({
+        method: "POST",
+        path: "/api/auth/resend-verification",
+      });
       setLastResendTime(Date.now());
     } finally {
       setIsResending(false);
     }
-  }, [canResend, lastResendTime]);
+  }, [user, canResend, lastResendTime]);
 
   // Dev admin bypass — skip verification gate entirely
   if (isDevAdmin()) {

@@ -14,6 +14,7 @@ import {
   SignupPage,
   SigninPage,
   ForgotPasswordPage,
+  ResetPasswordPage,
   ProfileSetup,
   VerifyPage,
   AuthVerifyPage,
@@ -142,6 +143,7 @@ export default function AppRoutes() {
         <Route path="/signup" component={SignupPage} />
         <Route path="/signin" component={SigninPage} />
         <Route path="/forgot-password" component={ForgotPasswordPage} />
+        <Route path="/reset-password" component={ResetPasswordPage} />
         <Route path="/verify" component={VerifyPage} />
         <Route path="/auth/verify" component={AuthVerifyPage} />
         <Route path="/verify-email" component={VerifyEmailPage} />

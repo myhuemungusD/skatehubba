@@ -104,6 +104,7 @@ export class AuthService {
     firstName: string;
     lastName: string;
     firebaseUid?: string;
+    isEmailVerified?: boolean;
   }): Promise<{ user: CustomUser; emailToken: string }> {
     const passwordHash = userData.firebaseUid
       ? "firebase-auth-user" // Placeholder for Firebase users
@@ -121,7 +122,7 @@ export class AuthService {
         firebaseUid: userData.firebaseUid || null,
         emailVerificationToken: emailToken,
         emailVerificationExpires: emailTokenExpiry,
-        isEmailVerified: !!userData.firebaseUid, // Firebase users are auto-verified
+        isEmailVerified: userData.isEmailVerified ?? false,
         isActive: true,
       })
       .returning();
