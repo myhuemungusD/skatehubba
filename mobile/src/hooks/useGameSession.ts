@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { doc, onSnapshot, updateDoc, serverTimestamp, Timestamp } from "firebase/firestore";
+import { doc, onSnapshot, Timestamp } from "firebase/firestore";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { z } from "zod";
@@ -387,11 +387,15 @@ export function useJoinGame(gameId: string) {
         throw new Error("Not authenticated");
       }
 
-      const gameDocRef = doc(db, "game_sessions", gameId);
-      await updateDoc(gameDocRef, {
-        status: "active",
-        updatedAt: serverTimestamp(),
-      });
+      // SECURITY: Use Cloud Function instead of direct Firestore write.
+      // game_sessions rules block all client writes (allow update: if false),
+      // so direct updateDoc calls would be silently rejected by Firestore.
+      const joinGame = httpsCallable<
+        { gameId: string },
+        { success: boolean }
+      >(functions, "joinGame");
+
+      await joinGame({ gameId });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: gameKeys.session(gameId) });
@@ -410,32 +414,22 @@ export function useJoinGame(gameId: string) {
 }
 
 export function useAbandonGame(gameId: string) {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationFn: async () => {
       if (!auth.currentUser) {
         throw new Error("Not authenticated");
       }
 
-      const currentSession = queryClient.getQueryData<GameSession>(gameKeys.session(gameId));
+      // SECURITY: Use Cloud Function instead of direct Firestore write.
+      // Direct client writes to game_sessions are blocked by Firestore rules.
+      // Additionally, letting the client set winnerId is a game integrity risk
+      // since a malicious client could set themselves as the winner.
+      const abandonGame = httpsCallable<
+        { gameId: string },
+        { success: boolean }
+      >(functions, "abandonGame");
 
-      if (!currentSession) {
-        throw new Error("Game session not found");
-      }
-
-      const winnerId =
-        auth.currentUser.uid === currentSession.player1Id
-          ? currentSession.player2Id
-          : currentSession.player1Id;
-
-      const gameDocRef = doc(db, "game_sessions", gameId);
-      await updateDoc(gameDocRef, {
-        status: "abandoned",
-        winnerId,
-        completedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
+      await abandonGame({ gameId });
     },
     onSuccess: () => {
       showMessage({
