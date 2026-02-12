@@ -96,6 +96,14 @@ vi.mock("../services/videoProcessingService", () => ({
   VIDEO_LIMITS: { MAX_VIDEO_DURATION_MS: 60000, MIN_VIDEO_DURATION_MS: 500 },
 }));
 
+// Mock feedCache — passthrough middleware in tests
+vi.mock("../middleware/feedCache", () => ({
+  feedCache: () => (_req: any, _res: any, next: any) => next(),
+}));
+
+// Mock videoTranscoder type import
+vi.mock("../services/videoTranscoder", () => ({}));
+
 // Capture route handlers
 const routeHandlers: Record<string, any[]> = {};
 

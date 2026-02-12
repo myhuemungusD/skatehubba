@@ -27,6 +27,8 @@ declare global {
       requestId: string;
       /** Child logger with requestId pre-bound */
       log: RequestLogger;
+      /** Preferred video quality tier set by bandwidth detection middleware */
+      preferredQuality?: string;
     }
   }
 }

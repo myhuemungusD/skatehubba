@@ -88,6 +88,14 @@ vi.mock("../services/videoProcessingService", () => ({
   VIDEO_LIMITS: { MAX_VIDEO_DURATION_MS: 60000 },
 }));
 
+// Mock feedCache — passthrough middleware in tests
+vi.mock("../middleware/feedCache", () => ({
+  feedCache: () => (_req: any, _res: any, next: any) => next(),
+}));
+
+// Mock videoTranscoder type import
+vi.mock("../services/videoTranscoder", () => ({}));
+
 // Capture route handlers
 const routeHandlers: Record<string, any[]> = {};
 
@@ -305,7 +313,9 @@ describe("Trickmint Routes", () => {
 
   describe("GET /feed", () => {
     it("should return public feed", async () => {
-      const clips = [{ id: 1, isPublic: true, status: "ready" }];
+      const clips = [
+        { id: 1, isPublic: true, status: "ready", videoUrl: "https://example.com/v.mp4" },
+      ];
       let callCount = 0;
       mockDbChain.then = (resolve: any) => {
         callCount++;
@@ -316,13 +326,25 @@ describe("Trickmint Routes", () => {
       const req = createReq({ query: {} });
       const res = createRes();
       await callHandler("GET /feed", req, res);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ clips, total: 1 }));
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          clips: expect.arrayContaining([
+            expect.objectContaining({ id: 1, videoUrl: "https://example.com/v.mp4" }),
+          ]),
+          total: 1,
+        })
+      );
     });
   });
 
   describe("GET /:id", () => {
     it("should return a clip and increment views", async () => {
-      const clip = { id: 1, isPublic: true, userId: "user-1" };
+      const clip = {
+        id: 1,
+        isPublic: true,
+        userId: "user-1",
+        videoUrl: "https://example.com/v.mp4",
+      };
       let callCount = 0;
       mockDbChain.then = (resolve: any) => {
         callCount++;
@@ -333,7 +355,9 @@ describe("Trickmint Routes", () => {
       const req = createReq({ params: { id: "1" } });
       const res = createRes();
       await callHandler("GET /:id", req, res);
-      expect(res.json).toHaveBeenCalledWith({ clip });
+      expect(res.json).toHaveBeenCalledWith({
+        clip: expect.objectContaining({ id: 1, videoUrl: "https://example.com/v.mp4" }),
+      });
     });
 
     it("should return 400 for invalid clip ID", async () => {

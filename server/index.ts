@@ -46,7 +46,7 @@ if (process.env.NODE_ENV === "production") {
           connectSrc: ["'self'", "https:"],
           fontSrc: ["'self'", "data:"],
           objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
+          mediaSrc: ["'self'", "https://firebasestorage.googleapis.com", "blob:"],
           frameSrc: ["'none'"],
         },
       },

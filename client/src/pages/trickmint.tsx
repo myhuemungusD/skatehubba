@@ -46,8 +46,21 @@ async function uploadBlob(path: string, blob: Blob): Promise<string> {
   const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
   const storage = await getFirebaseStorage();
   const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, blob);
+  // Set immutable cache headers to reduce GCS egress on repeat views
+  await uploadBytes(storageRef, blob, {
+    cacheControl: "public, max-age=31536000, immutable",
+  });
   return getDownloadURL(storageRef);
+}
+
+/**
+ * Get the best video URL for a clip.
+ *
+ * Prefer the original, always-available URL for reliability, and fall back
+ * to the bandwidth-optimized rendition only when the original is missing.
+ */
+function getVideoUrl(clip: TrickClip): string {
+  return clip.videoUrl ?? clip.videoUrlForQuality ?? "";
 }
 
 type Tab = "upload" | "my-clips" | "feed";
@@ -81,6 +94,7 @@ export default function TrickMintPage() {
     queryKey: ["trickmint", "feed"],
     queryFn: () => trickmintApi.getFeed(50, 0),
     enabled: activeTab === "feed",
+    staleTime: 30_000, // Match server-side feed cache TTL — avoid redundant refetches
   });
 
   // ============================================================================
@@ -431,7 +445,7 @@ function ClipGrid({ clips, onVideoClick, onDelete, showDelete }: ClipGridProps) 
         >
           {/* Thumbnail / Play Button */}
           <button
-            onClick={() => onVideoClick(clip.videoUrl)}
+            onClick={() => onVideoClick(getVideoUrl(clip))}
             className="relative w-full aspect-[9/16] bg-black flex items-center justify-center"
             type="button"
           >

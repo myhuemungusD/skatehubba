@@ -102,8 +102,16 @@ vi.mock("../db", () => ({
 }));
 
 // Import after mocking
-const { probeVideo, transcodeVideo, generateThumbnail, processVideoJob, checkFfmpegAvailable } =
-  await import("../services/videoTranscoder");
+const {
+  probeVideo,
+  transcodeVideo,
+  generateThumbnail,
+  processVideoJob,
+  checkFfmpegAvailable,
+  transcodeMultiQuality,
+  QUALITY_PRESETS,
+  DEFAULT_QUALITY,
+} = await import("../services/videoTranscoder");
 
 describe("VideoTranscoder", () => {
   beforeEach(() => {
@@ -614,6 +622,171 @@ describe("VideoTranscoder", () => {
       const result = await processVideoJob(7, "/test/4k.mp4");
 
       expect(result.success).toBe(true);
+    });
+  });
+
+  // ===========================================================================
+  // Quality presets & constants
+  // ===========================================================================
+
+  describe("QUALITY_PRESETS", () => {
+    it("should define low, medium, and high presets", () => {
+      expect(QUALITY_PRESETS.low).toBeDefined();
+      expect(QUALITY_PRESETS.medium).toBeDefined();
+      expect(QUALITY_PRESETS.high).toBeDefined();
+    });
+
+    it("should have increasing widths across tiers", () => {
+      expect(QUALITY_PRESETS.low.maxWidth).toBeLessThan(QUALITY_PRESETS.medium.maxWidth);
+      expect(QUALITY_PRESETS.medium.maxWidth).toBeLessThan(QUALITY_PRESETS.high.maxWidth);
+    });
+
+    it("should export medium as default quality", () => {
+      expect(DEFAULT_QUALITY).toBe("medium");
+    });
+  });
+
+  // ===========================================================================
+  // transcodeMultiQuality
+  // ===========================================================================
+
+  describe("transcodeMultiQuality", () => {
+    it("should return failure for corrupt source", async () => {
+      // Probe returns corrupt
+      execFileAsyncMock.mockResolvedValueOnce({
+        stdout: JSON.stringify({ format: {}, streams: [] }),
+      });
+
+      const result = await transcodeMultiQuality("/test/corrupt.mp4", "/tmp/work");
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("corrupt");
+    });
+
+    it("should skip transcoding when source fits within tier bounds", async () => {
+      // Probe returns small video (480x360 — fits within low tier 480x854)
+      execFileAsyncMock.mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          format: { duration: "10", size: "500000", bit_rate: "400000" },
+          streams: [
+            {
+              codec_type: "video",
+              codec_name: "h264",
+              width: 480,
+              height: 360,
+              r_frame_rate: "30/1",
+            },
+          ],
+        }),
+      });
+      // Thumbnail generation
+      execFileAsyncMock.mockResolvedValueOnce({ stdout: "", stderr: "" });
+
+      const result = await transcodeMultiQuality("/test/small.mp4", "/tmp/work", {
+        tiers: ["low"],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.outputs.low).toBeDefined();
+      expect(result.outputs.low!.path).toBe("/test/small.mp4"); // Uses source directly
+    });
+
+    it("should transcode when source exceeds tier bounds", async () => {
+      // Source: 1920x1080 — exceeds low (480x854) so transcode is needed
+      execFileAsyncMock.mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          format: { duration: "10", size: "5000000", bit_rate: "2000000" },
+          streams: [
+            {
+              codec_type: "video",
+              codec_name: "h264",
+              width: 1920,
+              height: 1080,
+              r_frame_rate: "30/1",
+            },
+          ],
+        }),
+      });
+      // Transcode for "low" tier
+      execFileAsyncMock.mockResolvedValueOnce({ stdout: "", stderr: "" });
+      // Probe output of transcoded file
+      execFileAsyncMock.mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          format: { duration: "10", size: "1000000", bit_rate: "800000" },
+          streams: [
+            {
+              codec_type: "video",
+              codec_name: "h264",
+              width: 480,
+              height: 270,
+              r_frame_rate: "30/1",
+            },
+          ],
+        }),
+      });
+      // Thumbnail generation
+      execFileAsyncMock.mockResolvedValueOnce({ stdout: "", stderr: "" });
+
+      const result = await transcodeMultiQuality("/test/hd.mp4", "/tmp/work", {
+        tiers: ["low"],
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.outputs.low).toBeDefined();
+      expect(result.thumbnailPath).toBeDefined();
+    });
+
+    it("should handle transcode failure for a tier", async () => {
+      // Source: large
+      execFileAsyncMock.mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          format: { duration: "10", size: "5000000", bit_rate: "2000000" },
+          streams: [
+            {
+              codec_type: "video",
+              codec_name: "h264",
+              width: 1920,
+              height: 1080,
+              r_frame_rate: "30/1",
+            },
+          ],
+        }),
+      });
+      // Transcode fails
+      execFileAsyncMock.mockRejectedValueOnce(new Error("ffmpeg error"));
+
+      const result = await transcodeMultiQuality("/test/hd.mp4", "/tmp/work", {
+        tiers: ["low"],
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("low");
+    });
+
+    it("should use default tiers when none specified", async () => {
+      // Source fits within low and medium
+      execFileAsyncMock.mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          format: { duration: "5", size: "200000", bit_rate: "300000" },
+          streams: [
+            {
+              codec_type: "video",
+              codec_name: "h264",
+              width: 320,
+              height: 240,
+              r_frame_rate: "30/1",
+            },
+          ],
+        }),
+      });
+      // Thumbnail
+      execFileAsyncMock.mockResolvedValueOnce({ stdout: "", stderr: "" });
+
+      const result = await transcodeMultiQuality("/test/tiny.mp4", "/tmp/work");
+
+      expect(result.success).toBe(true);
+      // Default tiers are ["low", "medium"] — source is smaller than both
+      expect(result.outputs.low).toBeDefined();
+      expect(result.outputs.medium).toBeDefined();
     });
   });
 
