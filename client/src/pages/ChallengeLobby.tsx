@@ -136,18 +136,18 @@ export default function ChallengeLobby() {
 
           <div className="space-y-3">
             {myGames.pendingChallenges.map((game) => (
-              <div key={game.id} className="flex items-center gap-3">
+              <div key={game.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <GameCard
                   game={game}
                   currentUserId={user.uid}
                   onClick={() => handleViewGame(game.id)}
                   className="flex-1"
                 />
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <Button
                     onClick={() => handleAcceptChallenge(game.id)}
                     disabled={respondToGame.isPending}
-                    className="bg-green-500 hover:bg-green-600"
+                    className="flex-1 sm:flex-none bg-green-500 hover:bg-green-600"
                     size="sm"
                   >
                     Accept
@@ -157,6 +157,7 @@ export default function ChallengeLobby() {
                     disabled={respondToGame.isPending}
                     variant="outline"
                     size="sm"
+                    className="flex-1 sm:flex-none"
                   >
                     Decline
                   </Button>
