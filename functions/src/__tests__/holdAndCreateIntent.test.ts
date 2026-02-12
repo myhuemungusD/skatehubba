@@ -14,7 +14,7 @@
  * - Stripe failure handling
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // ============================================================================
 // Mocks - declared BEFORE any imports of the module under test
