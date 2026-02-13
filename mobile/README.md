@@ -66,11 +66,15 @@ The Detox E2E suite expects an AVD named **`test`** (API 31, Pixel 6 profile).
 
 ### 1. Create the AVD (one-time setup)
 
+The easiest way is through **Android Studio > Device Manager** — create a device named `test` with API 31 and the Pixel 6 profile.
+
+Alternatively, use the command line:
+
+**macOS / Linux:**
+
 ```bash
-# Install the system image if you don't have it
 sdkmanager "system-images;android-31;default;x86_64"
 
-# Create the AVD
 avdmanager create avd \
   --name test \
   --package "system-images;android-31;default;x86_64" \
@@ -78,15 +82,38 @@ avdmanager create avd \
   --force
 ```
 
-Or create it through **Android Studio > Device Manager** — just name it `test` with API 31 and the Pixel 6 profile.
+**Windows (PowerShell):**
+
+The SDK tools aren't on PATH by default. Use the full path (adjust if your SDK is elsewhere):
+
+```powershell
+# Shorthand for the SDK path
+$SDK = "$env:LOCALAPPDATA\Android\Sdk"
+
+# Install the system image
+& "$SDK\cmdline-tools\latest\bin\sdkmanager.bat" "system-images;android-31;default;x86_64"
+
+# Create the AVD
+& "$SDK\cmdline-tools\latest\bin\avdmanager.bat" create avd --name test --package "system-images;android-31;default;x86_64" --device "pixel_6" --force
+```
+
+> **Tip:** If `cmdline-tools\latest` doesn't exist, open Android Studio > Settings > SDK Manager > SDK Tools and install "Android SDK Command-line Tools (latest)".
 
 ### 2. Boot the emulator
+
+**macOS / Linux:**
 
 ```bash
 emulator -avd test -gpu swiftshader_indirect -noaudio -no-boot-anim
 ```
 
-Drop `-no-window` if you want to see the emulator UI. Wait for the device to fully boot — verify with:
+**Windows (PowerShell):**
+
+```powershell
+& "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe" -avd test -gpu swiftshader_indirect -noaudio -no-boot-anim
+```
+
+Wait for the device to fully boot — verify with:
 
 ```bash
 adb wait-for-device shell getprop sys.boot_completed
@@ -101,13 +128,9 @@ cd mobile
 # Generate the android/ native project
 npx expo prebuild --platform android --no-install
 
-# Pre-bundle JS into the APK
+# Pre-bundle JS into the APK (on Windows use mkdir without -p)
 mkdir -p android/app/src/main/assets
-npx expo export:embed \
-  --platform android \
-  --dev false \
-  --bundle-output android/app/src/main/assets/index.android.bundle \
-  --assets-dest android/app/src/main/res/
+npx expo export:embed --platform android --dev false --bundle-output android/app/src/main/assets/index.android.bundle --assets-dest android/app/src/main/res/
 ```
 
 ### 4. Build & run tests
@@ -122,7 +145,9 @@ pnpm run e2e:test:android
 
 ### Troubleshooting
 
-- **Emulator won't boot** — Make sure KVM is enabled (`kvm-ok` on Linux). On CI this is handled by the workflow; locally you may need to enable virtualization in your BIOS.
+- **`sdkmanager` / `avdmanager` not found (Windows)** — Use the full path as shown above, or add `%LOCALAPPDATA%\Android\Sdk\cmdline-tools\latest\bin` to your system PATH.
+- **`emulator` not found (Windows)** — Use the full path, or add `%LOCALAPPDATA%\Android\Sdk\emulator` to your system PATH.
+- **Emulator won't boot** — Make sure hardware virtualization is enabled in your BIOS/UEFI (Intel HAXM or AMD Hypervisor on Windows, KVM on Linux).
 - **`adb devices` shows "offline"** — Run `adb kill-server && adb start-server` and reboot the emulator.
 - **Gradle build fails** — Ensure `JAVA_HOME` points to JDK 17 and you have API 31 + build-tools installed.
 - **`google-services.json` missing** — Place your Firebase config at `mobile/google-services.json` or use the CI placeholder from the workflow file.
