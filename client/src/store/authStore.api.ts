@@ -13,12 +13,16 @@ export const fetchProfile = async (uid: string): Promise<UserProfile | null> => 
     });
     return transformProfile(uid, res.profile);
   } catch (err) {
-    // 404 = no profile yet (new user), not an error worth logging
+    // 404 = no profile yet (new user) — this is expected for onboarding
     if (isApiError(err) && err.status === 404) {
       return null;
     }
+    // Any other error (401 auth failure, 500 server error, 503 DB down, network
+    // failure) must propagate so the caller can distinguish "no profile" from
+    // "server unreachable". Swallowing these errors causes the app to show the
+    // profile-setup form even when the server can't process submissions.
     logger.error("[AuthStore] Failed to fetch profile:", err);
-    return null;
+    throw err;
   }
 };
 
