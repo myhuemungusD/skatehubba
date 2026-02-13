@@ -8,9 +8,6 @@ export default {
     userInterfaceStyle: "dark",
     scheme: "skatehubba",
 
-    // REQUIRED FOR EXPO ROUTER
-    entryPoint: "expo-router/entry",
-
     splash: {
       image: "./assets/splash.png",
       resizeMode: "contain",
