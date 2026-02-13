@@ -35,14 +35,14 @@ Place in: `mobile/store-assets/android/screenshots/`
 - [x] Full description (4000 char max): defined in `store-listing.json`
 - [x] Keywords: defined in `store-listing.json`
 - [x] Category: Sports
-- [x] Content rating: Everyone 10+
+- [x] Content / age rating: 12+ (App Store) / Teen (Play Store) — target audience 13+ (not directed to children under 13)
 
 ## Legal & Privacy
 
 - [x] Privacy Policy URL: https://skatehubba.com/privacy
 - [x] Terms of Service URL: https://skatehubba.com/terms
 - [x] Contact email: support@skatehubba.com
-- [ ] COPPA compliance declaration (app is 13+)
+- [ ] COPPA compliance declaration (app is not directed to children under 13; target audience 13+)
 - [ ] Data safety form (Play Store) — camera, location, contacts usage
 
 ## EAS Configuration
