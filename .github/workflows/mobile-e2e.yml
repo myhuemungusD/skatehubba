@@ -80,6 +80,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Install emulator system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libpulse0
+
       - name: AVD Cache
         uses: actions/cache@v4
         id: avd-cache
