@@ -51,6 +51,82 @@ mobile/
   e2e/              # Detox E2E tests
 ```
 
+## Running the Android Emulator (E2E Tests)
+
+The Detox E2E suite expects an AVD named **`test`** (API 31, Pixel 6 profile).
+
+### Prerequisites
+
+| Dependency | Version |
+|------------|---------|
+| Java (JDK) | 17 |
+| Android SDK | API 31+ installed via SDK Manager |
+| Android Emulator | installed via SDK Manager |
+| System image | `system-images;android-31;default;x86_64` |
+
+### 1. Create the AVD (one-time setup)
+
+```bash
+# Install the system image if you don't have it
+sdkmanager "system-images;android-31;default;x86_64"
+
+# Create the AVD
+avdmanager create avd \
+  --name test \
+  --package "system-images;android-31;default;x86_64" \
+  --device "pixel_6" \
+  --force
+```
+
+Or create it through **Android Studio > Device Manager** — just name it `test` with API 31 and the Pixel 6 profile.
+
+### 2. Boot the emulator
+
+```bash
+emulator -avd test -gpu swiftshader_indirect -noaudio -no-boot-anim
+```
+
+Drop `-no-window` if you want to see the emulator UI. Wait for the device to fully boot — verify with:
+
+```bash
+adb wait-for-device shell getprop sys.boot_completed
+# Should print "1" when ready
+```
+
+### 3. Prebuild & bundle
+
+```bash
+cd mobile
+
+# Generate the android/ native project
+npx expo prebuild --platform android --no-install
+
+# Pre-bundle JS into the APK
+mkdir -p android/app/src/main/assets
+npx expo export:embed \
+  --platform android \
+  --dev false \
+  --bundle-output android/app/src/main/assets/index.android.bundle \
+  --assets-dest android/app/src/main/res/
+```
+
+### 4. Build & run tests
+
+```bash
+# Build the debug APK + test APK
+pnpm run e2e:build:android
+
+# Run all Detox E2E tests
+pnpm run e2e:test:android
+```
+
+### Troubleshooting
+
+- **Emulator won't boot** — Make sure KVM is enabled (`kvm-ok` on Linux). On CI this is handled by the workflow; locally you may need to enable virtualization in your BIOS.
+- **`adb devices` shows "offline"** — Run `adb kill-server && adb start-server` and reboot the emulator.
+- **Gradle build fails** — Ensure `JAVA_HOME` points to JDK 17 and you have API 31 + build-tools installed.
+- **`google-services.json` missing** — Place your Firebase config at `mobile/google-services.json` or use the CI placeholder from the workflow file.
+
 ## Notes
 
 - E2E scripts require native projects (ios/android) to exist before running.
