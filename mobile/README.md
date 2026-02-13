@@ -66,11 +66,15 @@ The Detox E2E suite expects an AVD named **`test`** (API 31, Pixel 6 profile).
 
 ### 1. Create the AVD (one-time setup)
 
-The easiest way is through **Android Studio > Device Manager** — create a device named `test` with API 31 and the Pixel 6 profile.
+**Recommended — use Android Studio UI:**
 
-Alternatively, use the command line:
+1. Open **Android Studio > Tools > Device Manager**
+2. Click **Create Virtual Device**
+3. Pick **Pixel 6**, hit Next
+4. Pick **API 31** system image (download if needed), hit Next
+5. Set AVD name to **`test`**, hit Finish
 
-**macOS / Linux:**
+**Alternative — command line (macOS / Linux):**
 
 ```bash
 sdkmanager "system-images;android-31;default;x86_64"
@@ -82,22 +86,19 @@ avdmanager create avd \
   --force
 ```
 
-**Windows (PowerShell):**
+**Alternative — command line (Windows PowerShell):**
 
-The SDK tools aren't on PATH by default. Use the full path (adjust if your SDK is elsewhere):
+First ensure you have command-line tools installed: **Android Studio > Settings > Languages & Frameworks > Android SDK > SDK Tools > check "Android SDK Command-line Tools (latest)" > Apply**.
 
 ```powershell
-# Shorthand for the SDK path
 $SDK = "$env:LOCALAPPDATA\Android\Sdk"
 
-# Install the system image
-& "$SDK\cmdline-tools\latest\bin\sdkmanager.bat" "system-images;android-31;default;x86_64"
+# If "latest" doesn't exist, check what you have: ls "$SDK\cmdline-tools"
+# and replace "latest" with the version folder name (e.g. "11.0")
 
-# Create the AVD
+& "$SDK\cmdline-tools\latest\bin\sdkmanager.bat" "system-images;android-31;default;x86_64"
 & "$SDK\cmdline-tools\latest\bin\avdmanager.bat" create avd --name test --package "system-images;android-31;default;x86_64" --device "pixel_6" --force
 ```
-
-> **Tip:** If `cmdline-tools\latest` doesn't exist, open Android Studio > Settings > SDK Manager > SDK Tools and install "Android SDK Command-line Tools (latest)".
 
 ### 2. Boot the emulator
 
