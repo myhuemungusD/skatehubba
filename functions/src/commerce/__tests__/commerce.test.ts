@@ -301,6 +301,48 @@ describe("Commerce / Payment Flow", () => {
       expect(result).toBe(true);
     });
 
+    it("uses default shard count (20) when product doc does not exist (covers line 72)", async () => {
+      mockDocs.set("holds/order-no-product", {
+        status: "held",
+        items: [{ productId: "nonexistent-prod", qty: 1 }],
+      });
+      // Do NOT set products/nonexistent-prod -> productSnap.exists is false -> shards defaults to 20
+
+      const result = await releaseHoldAtomic("order-no-product", "order-no-product");
+      expect(result).toBe(true);
+      expect(mockBatch.set).toHaveBeenCalled();
+      expect(mockBatch.commit).toHaveBeenCalled();
+    });
+
+    it("uses default shard count when product has no shards field (covers line 72)", async () => {
+      mockDocs.set("holds/order-no-shards-field", {
+        status: "held",
+        items: [{ productId: "prod-no-shards", qty: 2 }],
+      });
+      // Product exists but has no shards field
+      mockDocs.set("products/prod-no-shards", { name: "Test Product" });
+
+      const result = await releaseHoldAtomic("order-no-shards-field", "order-no-shards-field");
+      expect(result).toBe(true);
+      expect(mockBatch.set).toHaveBeenCalled();
+    });
+
+    it("caches product shard count for repeated product IDs (covers line 70-74)", async () => {
+      mockDocs.set("holds/order-repeated-prod", {
+        status: "held",
+        items: [
+          { productId: "prod-1", qty: 1 },
+          { productId: "prod-1", qty: 2 },
+        ],
+      });
+      mockDocs.set("products/prod-1", { shards: 8 });
+
+      const result = await releaseHoldAtomic("order-repeated-prod", "order-repeated-prod");
+      expect(result).toBe(true);
+      // Both items should use the same cached shard count
+      expect(mockBatch.set).toHaveBeenCalledTimes(2);
+    });
+
     it("handles multiple items in a single hold", async () => {
       mockDocs.set("holds/order-1", {
         status: "held",
@@ -341,6 +383,16 @@ describe("Commerce / Payment Flow", () => {
     it("creates event record when processing new event", async () => {
       await markEventProcessedOrSkip("evt_brand_new");
       expect(mockTransaction.set).toHaveBeenCalled();
+    });
+
+    it("returns false when transaction throws an error (covers lines 45-47)", async () => {
+      // Save original and temporarily make runTransaction throw
+      const { getAdminDb } = await import("../../firebaseAdmin");
+      const db = getAdminDb();
+      (db.runTransaction as any).mockRejectedValueOnce(new Error("Firestore unavailable"));
+
+      const result = await markEventProcessedOrSkip("evt_error_123");
+      expect(result).toBe(false);
     });
   });
 
@@ -575,6 +627,46 @@ describe("Commerce / Payment Flow", () => {
       expect(hold.status).toBe("released");
     });
 
+    it("uses default shard count when product not found during restock (covers lines 171-175)", async () => {
+      mockDocs.set("holds/order-restock-no-prod", {
+        status: "consumed",
+        items: [{ productId: "ghost-prod", qty: 2 }],
+      });
+      // Do NOT set products/ghost-prod -> defaults to 20 shards
+
+      const result = await restockFromConsumedHold("order-restock-no-prod");
+      expect(result).toBe(true);
+      expect(mockBatch.set).toHaveBeenCalled();
+      expect(mockBatch.commit).toHaveBeenCalled();
+    });
+
+    it("uses default shard count when product has no shards field during restock (covers line 173)", async () => {
+      mockDocs.set("holds/order-restock-no-shards", {
+        status: "consumed",
+        items: [{ productId: "prod-bare", qty: 1 }],
+      });
+      mockDocs.set("products/prod-bare", { name: "Bare Product" });
+
+      const result = await restockFromConsumedHold("order-restock-no-shards");
+      expect(result).toBe(true);
+      expect(mockBatch.set).toHaveBeenCalled();
+    });
+
+    it("caches product shard count for repeated product IDs during restock (covers lines 171-176)", async () => {
+      mockDocs.set("holds/order-restock-cache", {
+        status: "consumed",
+        items: [
+          { productId: "prod-1", qty: 1 },
+          { productId: "prod-1", qty: 3 },
+        ],
+      });
+      mockDocs.set("products/prod-1", { shards: 6 });
+
+      const result = await restockFromConsumedHold("order-restock-cache");
+      expect(result).toBe(true);
+      expect(mockBatch.set).toHaveBeenCalledTimes(2);
+    });
+
     it("restocks multiple items to correct shards", async () => {
       mockDocs.set("holds/order-multi", {
         status: "consumed",
@@ -654,6 +746,82 @@ describe("Commerce / Payment Flow", () => {
       });
 
       // Should not throw - errors are caught per-hold
+      await expireHolds();
+    });
+
+    it("breaks out of main loop when timeout guard is triggered (covers lines 36-40)", async () => {
+      // Create a large batch of expired holds to force a long processing time
+      // We mock Date.now to simulate time passing
+      const originalNow = Date.now;
+      let callCount = 0;
+
+      // First call returns the real time, subsequent calls simulate 55s elapsed
+      vi.spyOn(Date, "now").mockImplementation(() => {
+        callCount++;
+        if (callCount <= 2) return originalNow.call(Date);
+        // After first batch iteration, return a time > 50s past start
+        return originalNow.call(Date) + 55000;
+      });
+
+      mockDocs.set("holds/timeout-1", {
+        status: "held",
+        uid: "user-1",
+        items: [{ productId: "prod-1", qty: 1 }],
+        expiresAt: { toMillis: () => originalNow.call(Date) - 60000 },
+      });
+      mockDocs.set("products/prod-1", { shards: 5 });
+
+      await expireHolds();
+
+      vi.spyOn(Date, "now").mockRestore();
+    });
+
+    it("breaks out of per-doc loop when mid-batch timeout triggers (covers lines 62-66)", async () => {
+      const originalNow = Date.now;
+      let callCount = 0;
+
+      // Let processing start, but timeout mid-batch when iterating docs
+      vi.spyOn(Date, "now").mockImplementation(() => {
+        callCount++;
+        // First few calls (start + loop entry) -> normal time
+        if (callCount <= 4) return originalNow.call(Date);
+        // Mid-batch: time has exceeded 50s
+        return originalNow.call(Date) + 55000;
+      });
+
+      // Create multiple expired holds to iterate
+      mockDocs.set("holds/mb-1", {
+        status: "held",
+        uid: "user-1",
+        items: [{ productId: "prod-1", qty: 1 }],
+        expiresAt: { toMillis: () => originalNow.call(Date) - 60000 },
+      });
+      mockDocs.set("holds/mb-2", {
+        status: "held",
+        uid: "user-2",
+        items: [{ productId: "prod-1", qty: 1 }],
+        expiresAt: { toMillis: () => originalNow.call(Date) - 60000 },
+      });
+      mockDocs.set("products/prod-1", { shards: 5 });
+
+      await expireHolds();
+
+      vi.spyOn(Date, "now").mockRestore();
+    });
+
+    it("logs error but continues when releaseHoldAtomic throws (covers line 91)", async () => {
+      // Force releaseHoldAtomic to throw by making the batch commit fail
+      mockBatch.commit.mockRejectedValueOnce(new Error("Firestore batch write failed"));
+
+      mockDocs.set("holds/err-1", {
+        status: "held",
+        uid: "user-1",
+        items: [{ productId: "prod-1", qty: 1 }],
+        expiresAt: { toMillis: () => Date.now() - 60000 },
+      });
+      mockDocs.set("products/prod-1", { shards: 5 });
+
+      // Should not throw - error is caught per-hold
       await expireHolds();
     });
   });

@@ -442,4 +442,48 @@ describe("Firestore Hooks", () => {
       expect(setLoading).toHaveBeenCalledWith(false);
     });
   });
+
+  describe("Cleanup when unsubscribe is not set (lines 80, 140)", () => {
+    it("should safely call cleanup even when collection setup threw (unsubscribe undefined)", () => {
+      const setupError = new Error("Setup failed");
+      mockCollection.mockImplementationOnce(() => {
+        throw setupError;
+      });
+
+      useFirestoreCollection("broken/path");
+
+      // Execute the effect and capture cleanup
+      const cleanup = capturedEffects[capturedEffects.length - 1]();
+
+      // Cleanup function should exist
+      expect(typeof cleanup).toBe("function");
+
+      // Calling cleanup should NOT throw even though unsubscribe is undefined
+      expect(() => cleanup()).not.toThrow();
+
+      // mockUnsubscribe should NOT have been called since it was never set
+      expect(mockUnsubscribe).not.toHaveBeenCalled();
+    });
+
+    it("should safely call cleanup even when document setup threw (unsubscribe undefined)", () => {
+      const setupError = new Error("Doc setup failed");
+      mockDoc.mockImplementationOnce(() => {
+        throw setupError;
+      });
+
+      useFirestoreDocument("users", "bad-doc");
+
+      // Execute the effect and capture cleanup
+      const cleanup = capturedEffects[capturedEffects.length - 1]();
+
+      // Cleanup function should exist
+      expect(typeof cleanup).toBe("function");
+
+      // Calling cleanup should NOT throw even though unsubscribe is undefined
+      expect(() => cleanup()).not.toThrow();
+
+      // mockUnsubscribe should NOT have been called
+      expect(mockUnsubscribe).not.toHaveBeenCalled();
+    });
+  });
 });

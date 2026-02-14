@@ -248,6 +248,18 @@ describe("queryClient module", () => {
       expect(retryFn(0, new ApiError("Unprocessable", "UNKNOWN", 422))).toBe(false);
     });
 
+    it("retries ApiError with no status set (falls through to default)", () => {
+      // An ApiError with UNKNOWN code and no status - skips both 5xx and 4xx checks
+      expect(retryFn(0, new ApiError("Something", "UNKNOWN"))).toBe(true);
+    });
+
+    it("does NOT retry 4xx ApiError with UNKNOWN code and status between 400-499", () => {
+      // Explicitly tests the branch at line 48: error.status >= 400 && error.status < 500
+      expect(retryFn(0, new ApiError("Forbidden", "UNKNOWN", 403))).toBe(false);
+      expect(retryFn(0, new ApiError("Conflict", "UNKNOWN", 409))).toBe(false);
+      expect(retryFn(0, new ApiError("Teapot", "UNKNOWN", 418))).toBe(false);
+    });
+
     it("retries unknown / unrecognised error types by default", () => {
       expect(retryFn(0, new Error("Random"))).toBe(true);
       expect(retryFn(0, "string error")).toBe(true);

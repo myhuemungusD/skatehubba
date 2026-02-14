@@ -452,6 +452,61 @@ describe("GameService", () => {
         );
       });
 
+      it("assigns a letter to player1 when player1 is the defender (isPlayer1 branch)", async () => {
+        // user-1 is player1 AND the defender (not the setter)
+        // turnPlayerId=user-2 means user-2 is setter, user-1 is defender
+        const mockTx = setupTransaction(
+          makeGameDoc({
+            state: makeGameState({
+              phase: "DEFENDER_ATTEMPTING",
+              turnPlayerId: "user-2", // user-2 is setter
+              p1Letters: 2, // player1 (user-1) is defender with 2 letters
+            }),
+          })
+        );
+
+        // user-1 is current user and player1 (defender)
+        mockAuth.currentUser = { uid: "user-1", displayName: "TestSkater", photoURL: null };
+
+        await GameService.submitAction("game-123", "BAIL");
+
+        expect(mockTx.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            "state.p1Letters": expect.objectContaining({ _increment: 1 }),
+            "state.phase": "SETTER_RECORDING",
+            "state.currentTrick": null,
+          })
+        );
+      });
+
+      it("ends the game when player1 (defender) reaches 5 letters", async () => {
+        const mockTx = setupTransaction(
+          makeGameDoc({
+            state: makeGameState({
+              phase: "DEFENDER_ATTEMPTING",
+              turnPlayerId: "user-2", // user-2 is setter
+              p1Letters: 4, // player1 (user-1) has 4 letters, bail = game over
+            }),
+          })
+        );
+
+        // user-1 is current user and player1 (defender)
+        mockAuth.currentUser = { uid: "user-1", displayName: "TestSkater", photoURL: null };
+
+        await GameService.submitAction("game-123", "BAIL");
+
+        expect(mockTx.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({
+            "state.status": "COMPLETED",
+            "state.phase": "VERIFICATION",
+            "state.p1Letters": 5,
+            winnerId: "user-2", // setter wins
+          })
+        );
+      });
+
       it("throws when the setter tries to BAIL", async () => {
         setupTransaction(
           makeGameDoc({
@@ -543,6 +598,32 @@ describe("GameService", () => {
 
       await expect(GameService.setterMissed("game-123")).rejects.toThrow(
         "Can only miss during defend phase"
+      );
+    });
+
+    it("swaps turn to player1 when player2 is the setter (line 442 else branch)", async () => {
+      mockAuth.currentUser = { uid: "user-2", displayName: "Opponent", photoURL: null };
+
+      const mockTx = setupTransaction(
+        makeGameDoc({
+          state: makeGameState({
+            turnPlayerId: "user-2",
+            phase: "DEFENDER_ATTEMPTING",
+          }),
+        })
+      );
+
+      await GameService.setterMissed("game-123");
+
+      // players[0] is "user-1", players[0] === "user-2" is false,
+      // so opponentId = players[0] = "user-1"
+      expect(mockTx.update).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          "state.turnPlayerId": "user-1",
+          "state.phase": "SETTER_RECORDING",
+          "state.currentTrick": null,
+        })
       );
     });
 
@@ -800,6 +881,83 @@ describe("GameService", () => {
 
       expect(onSnapshot).toHaveBeenCalled();
       expect(unsub).toBe(mockUnsubscribe);
+    });
+
+    it("calls onMatch with gameId when queue entry is deleted and game is found", async () => {
+      // Set up onSnapshot to capture the callback and call it with a non-existing snapshot
+      vi.mocked(onSnapshot).mockImplementation((_ref: any, callback: any) => {
+        // Simulate queue entry being deleted (matched)
+        callback({ exists: () => false });
+        return vi.fn();
+      });
+
+      // Mock getDocs to return a matching game
+      vi.mocked(getDocs).mockResolvedValue({
+        empty: false,
+        docs: [{ id: "matched-game-123" }],
+      } as any);
+
+      const onMatch = vi.fn();
+      GameService.subscribeToQueue("q-1", onMatch);
+
+      // Wait for async operations
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(onMatch).toHaveBeenCalledWith("matched-game-123");
+    });
+
+    it("does not call onMatch when queue entry is deleted but no game found", async () => {
+      vi.mocked(onSnapshot).mockImplementation((_ref: any, callback: any) => {
+        callback({ exists: () => false });
+        return vi.fn();
+      });
+
+      // Mock getDocs to return empty results
+      vi.mocked(getDocs).mockResolvedValue({
+        empty: true,
+        docs: [],
+      } as any);
+
+      const onMatch = vi.fn();
+      GameService.subscribeToQueue("q-1", onMatch);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(onMatch).not.toHaveBeenCalled();
+    });
+
+    it("does not query games when queue entry is deleted and user is not authenticated", async () => {
+      mockAuth.currentUser = null;
+
+      vi.mocked(onSnapshot).mockImplementation((_ref: any, callback: any) => {
+        callback({ exists: () => false });
+        return vi.fn();
+      });
+
+      const onMatch = vi.fn();
+      GameService.subscribeToQueue("q-1", onMatch);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // getDocs should not have been called because user is null
+      expect(getDocs).not.toHaveBeenCalled();
+      expect(onMatch).not.toHaveBeenCalled();
+    });
+
+    it("does nothing when queue entry still exists (not yet matched)", async () => {
+      vi.mocked(onSnapshot).mockImplementation((_ref: any, callback: any) => {
+        callback({ exists: () => true });
+        return vi.fn();
+      });
+
+      const onMatch = vi.fn();
+      GameService.subscribeToQueue("q-1", onMatch);
+
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Should not query for games or call onMatch
+      expect(getDocs).not.toHaveBeenCalled();
+      expect(onMatch).not.toHaveBeenCalled();
     });
   });
 });

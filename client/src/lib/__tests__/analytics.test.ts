@@ -112,6 +112,32 @@ describe("analytics", () => {
 
       expect(logger.warn).toHaveBeenCalledWith("Analytics tracking failed:", expect.any(Error));
     });
+
+    it("does nothing when firebaseAnalytics is null (non-dev mode)", async () => {
+      // Reset modules so we can re-mock firebase with analytics = null
+      vi.resetModules();
+
+      vi.doMock("firebase/analytics", () => ({
+        logEvent: vi.fn(),
+      }));
+      vi.doMock("../firebase", () => ({
+        analytics: null,
+      }));
+      vi.doMock("../../config/env", () => ({
+        env: { DEV: false },
+      }));
+      vi.doMock("../logger", () => ({
+        logger: { debug: vi.fn(), warn: vi.fn(), error: vi.fn(), log: vi.fn(), info: vi.fn() },
+      }));
+
+      const { logEvent: freshLogEvent } = await import("firebase/analytics");
+      const { trackEvent: freshTrackEvent } = await import("../analytics");
+
+      freshTrackEvent("null_analytics_event", { key: "value" });
+
+      // logEvent should NOT have been called since firebaseAnalytics is null
+      expect(freshLogEvent).not.toHaveBeenCalled();
+    });
   });
 
   // ────────────────────────────────────────────────────────────────────────
