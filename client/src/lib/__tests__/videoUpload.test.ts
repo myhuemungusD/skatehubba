@@ -206,6 +206,70 @@ describe("Video Upload", () => {
       expect(result.error).toContain("Could not determine video duration");
     });
 
+    it("should reject video when duration is zero", async () => {
+      vi.stubGlobal("document", {
+        createElement: () => {
+          const el: any = {
+            preload: "",
+            src: "",
+            onloadedmetadata: null,
+            onerror: null,
+            duration: 0,
+            remove: vi.fn(),
+          };
+          Object.defineProperty(el, "src", {
+            set(val: string) {
+              el._src = val;
+              setTimeout(() => {
+                if (el.onloadedmetadata) el.onloadedmetadata();
+              }, 0);
+            },
+            get() {
+              return el._src;
+            },
+          });
+          return el;
+        },
+      });
+
+      const file = createMockFile("video/mp4", 1024 * 1024);
+      const result = await validateVideo(file);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Could not determine video duration");
+    });
+
+    it("should reject video when duration is negative", async () => {
+      vi.stubGlobal("document", {
+        createElement: () => {
+          const el: any = {
+            preload: "",
+            src: "",
+            onloadedmetadata: null,
+            onerror: null,
+            duration: -5,
+            remove: vi.fn(),
+          };
+          Object.defineProperty(el, "src", {
+            set(val: string) {
+              el._src = val;
+              setTimeout(() => {
+                if (el.onloadedmetadata) el.onloadedmetadata();
+              }, 0);
+            },
+            get() {
+              return el._src;
+            },
+          });
+          return el;
+        },
+      });
+
+      const file = createMockFile("video/mp4", 1024 * 1024);
+      const result = await validateVideo(file);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Could not determine video duration");
+    });
+
     it("should reject video on error event", async () => {
       vi.stubGlobal("document", {
         createElement: () => {
@@ -408,6 +472,251 @@ describe("Video Upload", () => {
 
       await successCb();
       expect(onError).toHaveBeenCalled();
+    });
+
+    it("should handle setDoc failing when creating video doc (line 224)", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc, setDoc } = await import("firebase/firestore");
+      const { logger } = await import("../logger");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+      (setDoc as any).mockRejectedValue(new Error("Firestore write failed"));
+
+      const mockUploadTask = { on: vi.fn() };
+      (uploadBytesResumable as any).mockReturnValue(mockUploadTask);
+
+      const file = { type: "video/mp4", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000
+      );
+
+      // Wait for the rejected setDoc promise to settle
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "[VideoUpload] Failed to create video doc",
+        expect.any(Error)
+      );
+    });
+
+    it("should handle updateDoc failing in error handler (line 264)", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc, updateDoc } = await import("firebase/firestore");
+      const { logger } = await import("../logger");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+      (updateDoc as any).mockRejectedValue(new Error("Update doc failed"));
+
+      let errorCb: any;
+      (uploadBytesResumable as any).mockReturnValue({
+        on: vi.fn((_event: string, _progress: any, onError: any) => {
+          errorCb = onError;
+        }),
+      });
+
+      const onError = vi.fn();
+      const file = { type: "video/mp4", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000,
+        { onError }
+      );
+
+      // Trigger upload error, which tries updateDoc (which fails)
+      await errorCb({ code: "storage/canceled", message: "Upload canceled" });
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "[VideoUpload] Failed to update video doc on error",
+        expect.any(Error)
+      );
+      expect(onError).toHaveBeenCalled();
+    });
+
+    it("should handle updateDoc failing in post-upload success handler (line 297)", async () => {
+      const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
+      const { doc, updateDoc } = await import("firebase/firestore");
+      const { logger } = await import("../logger");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+      (getDownloadURL as any).mockRejectedValue(new Error("getDownloadURL failed"));
+      // Make the first updateDoc (for status="failed") also fail
+      (updateDoc as any).mockRejectedValue(new Error("Failed to update video doc"));
+
+      let successCb: any;
+      (uploadBytesResumable as any).mockReturnValue({
+        on: vi.fn((_event: string, _progress: any, _error: any, onSuccess: any) => {
+          successCb = onSuccess;
+        }),
+      });
+
+      const onError = vi.fn();
+      const file = { type: "video/mp4", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000,
+        { onError }
+      );
+
+      await successCb();
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "[VideoUpload] Failed to update video doc after post-upload error",
+        expect.any(Error)
+      );
+      expect(onError).toHaveBeenCalled();
+    });
+
+    it("should use 'mov' extension for video/quicktime mime type (line 179)", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc } = await import("firebase/firestore");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+
+      const mockUploadTask = { on: vi.fn() };
+      (uploadBytesResumable as any).mockReturnValue(mockUploadTask);
+
+      const file = { type: "video/quicktime", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000
+      );
+
+      expect(ref).toHaveBeenCalledWith(expect.anything(), "videos/u1/g1/r1/v1.mov");
+    });
+
+    it("should use 'webm' extension for video/webm mime type (line 181)", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc } = await import("firebase/firestore");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+
+      const mockUploadTask = { on: vi.fn() };
+      (uploadBytesResumable as any).mockReturnValue(mockUploadTask);
+
+      const file = { type: "video/webm", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000
+      );
+
+      expect(ref).toHaveBeenCalledWith(expect.anything(), "videos/u1/g1/r1/v1.webm");
+    });
+
+    it("should use 'mp4' extension for video/mp4 mime type", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc } = await import("firebase/firestore");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+
+      const mockUploadTask = { on: vi.fn() };
+      (uploadBytesResumable as any).mockReturnValue(mockUploadTask);
+
+      const file = { type: "video/mp4", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000
+      );
+
+      expect(ref).toHaveBeenCalledWith(expect.anything(), "videos/u1/g1/r1/v1.mp4");
+    });
+
+    it("should use default extension 'mp4' for unknown mime type (line 183)", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc } = await import("firebase/firestore");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+
+      const mockUploadTask = { on: vi.fn() };
+      (uploadBytesResumable as any).mockReturnValue(mockUploadTask);
+
+      const file = { type: "video/x-unknown", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000
+      );
+
+      // The storage path should end with .mp4 (default extension)
+      expect(ref).toHaveBeenCalledWith(expect.anything(), "videos/u1/g1/r1/v1.mp4");
+    });
+
+    it("should handle non-Error thrown in post-upload (line 300-301)", async () => {
+      const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
+      const { doc, updateDoc } = await import("firebase/firestore");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+      (getDownloadURL as any).mockRejectedValue("string-error"); // non-Error throw
+      (updateDoc as any).mockResolvedValue(undefined);
+
+      let successCb: any;
+      (uploadBytesResumable as any).mockReturnValue({
+        on: vi.fn((_event: string, _progress: any, _error: any, onSuccess: any) => {
+          successCb = onSuccess;
+        }),
+      });
+
+      const onError = vi.fn();
+      const file = { type: "video/mp4", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000,
+        { onError }
+      );
+
+      await successCb();
+
+      // When non-Error is thrown, errorMessage should be "Post-upload processing failed"
+      expect(updateDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          status: "failed",
+          errorCode: "post_upload_error",
+          errorMessage: "Post-upload processing failed",
+        })
+      );
+      // onError should receive a new Error wrapping the non-Error throw
+      expect(onError).toHaveBeenCalledWith(expect.any(Error));
+    });
+
+    it("should handle video duration timeout in readVideoDuration", async () => {
+      // Override createElement to simulate a timeout (no onloadedmetadata fires)
+      vi.stubGlobal("document", {
+        createElement: () => {
+          const el: any = {
+            preload: "",
+            src: "",
+            onloadedmetadata: null,
+            onerror: null,
+            duration: 0,
+            remove: vi.fn(),
+          };
+          // Don't fire any event - simulate timeout
+          Object.defineProperty(el, "src", {
+            set(val: string) {
+              el._src = val;
+              // Don't fire onloadedmetadata or onerror - let the timeout trigger
+            },
+            get() {
+              return el._src;
+            },
+          });
+          return el;
+        },
+      });
+
+      // Use fake timers to fast-forward past the 10s timeout
+      vi.useFakeTimers();
+      const file = { type: "video/mp4", size: 1024 * 1024 } as File;
+      const resultPromise = validateVideo(file);
+
+      // Fast-forward 10 seconds
+      vi.advanceTimersByTime(10_000);
+
+      const result = await resultPromise;
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Timed out reading video duration");
+
+      vi.useRealTimers();
     });
   });
 });

@@ -233,6 +233,51 @@ describe("validateEventProps", () => {
     expect(() => validateEventProps("game_forfeited", { game_id: "g1" })).not.toThrow();
   });
 
+  it("validates battle_joined with valid props (line 182-184)", () => {
+    const result = validateEventProps("battle_joined", { battle_id: "b1" });
+    expect(result).toEqual({ battle_id: "b1" });
+  });
+
+  it("validates battle_joined with creator_id", () => {
+    const result = validateEventProps("battle_joined", { battle_id: "b1", creator_id: "u2" });
+    expect(result).toEqual({ battle_id: "b1", creator_id: "u2" });
+  });
+
+  it("throws for battle_joined with missing battle_id", () => {
+    expect(() => validateEventProps("battle_joined", {})).toThrow();
+  });
+
+  it("validates game_trick_submitted with valid props (line 196-198)", () => {
+    const result = validateEventProps("game_trick_submitted", { game_id: "g1" });
+    expect(result).toEqual({ game_id: "g1" });
+  });
+
+  it("validates game_trick_submitted with trick_name", () => {
+    const result = validateEventProps("game_trick_submitted", {
+      game_id: "g1",
+      trick_name: "kickflip",
+    });
+    expect(result).toEqual({ game_id: "g1", trick_name: "kickflip" });
+  });
+
+  it("throws for game_trick_submitted with missing game_id", () => {
+    expect(() => validateEventProps("game_trick_submitted", {})).toThrow();
+  });
+
+  it("validates game_trick_passed with valid props", () => {
+    const result = validateEventProps("game_trick_passed", { game_id: "g1", letters: "SK" });
+    expect(result).toEqual({ game_id: "g1", letters: "SK" });
+  });
+
+  it("validates battle_completed with all optional fields", () => {
+    const result = validateEventProps("battle_completed", {
+      battle_id: "b1",
+      winner_id: "u1",
+      total_rounds: 5,
+    });
+    expect(result).toEqual({ battle_id: "b1", winner_id: "u1", total_rounds: 5 });
+  });
+
   it("validates supporting events", () => {
     expect(() => validateEventProps("clip_uploaded", { clip_id: "c1" })).not.toThrow();
     expect(() => validateEventProps("spot_checkin_validated", { spot_id: "s1" })).not.toThrow();

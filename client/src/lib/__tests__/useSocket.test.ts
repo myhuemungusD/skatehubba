@@ -436,6 +436,30 @@ describe("useSocket", () => {
       expect(mockCurrentUser.getIdToken).toHaveBeenCalledWith(true);
     });
 
+    it("does not force-refresh when auth error occurs but currentUser is null (line 172)", async () => {
+      const { useSocket } = await import("../useSocket");
+      useSocket();
+
+      const connectFn = capturedCallbacks[0];
+      await connectFn();
+
+      // Simulate user signing out after socket was created
+      mockCurrentUser = null;
+
+      const errorHandler = getSocketHandler("connect_error");
+      const authError = new Error("invalid_token");
+      errorHandler!(authError);
+
+      // getIdToken(true) should NOT have been called since currentUser is null
+      // We can't check mockCurrentUser.getIdToken since mockCurrentUser is null
+      // The key assertion is that no error is thrown and state is set to error
+      const connectionStateUpdates = getStateUpdatesFor(0);
+      expect(connectionStateUpdates).toContain("error");
+
+      const errorUpdates = getStateUpdatesFor(1);
+      expect(errorUpdates).toContain("invalid_token");
+    });
+
     it("does not force-refresh when error is not auth-related", async () => {
       const { useSocket } = await import("../useSocket");
       useSocket();
@@ -677,6 +701,95 @@ describe("useSocket", () => {
       await authCb(cb);
 
       expect(cb).toHaveBeenCalledWith({});
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 12. pendingRefresh catch path (lines 127-130)
+  // -----------------------------------------------------------------------
+  describe("pendingRefresh catch path", () => {
+    it("catches and logs when pendingRefresh rejects, then continues with fresh token", async () => {
+      // Setup: getIdToken(true) for force-refresh should reject
+      mockCurrentUser.getIdToken = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("force-refresh failed")) // for force-refresh (called with true)
+        .mockResolvedValue("recovered-token"); // for regular getIdToken call
+
+      const { useSocket } = await import("../useSocket");
+      const { logger } = await import("../logger");
+      useSocket();
+
+      const connectFn = capturedCallbacks[0];
+      await connectFn();
+
+      // Trigger auth error to create pendingRefresh
+      const errorHandler = getSocketHandler("connect_error");
+      const authError = new Error("invalid_token");
+      errorHandler!(authError);
+
+      // getIdToken(true) was called for force-refresh and will reject
+      expect(mockCurrentUser.getIdToken).toHaveBeenCalledWith(true);
+
+      // Now, when the auth callback fires again (e.g., on reconnect),
+      // it should await pendingRefresh (which rejects), catch the error,
+      // then proceed to get a fresh token.
+      // Reset the mock to allow the next getIdToken() call to succeed
+      mockCurrentUser.getIdToken = vi.fn().mockResolvedValue("fresh-token-after-retry");
+
+      const ioArgs = mockIo.mock.calls[0][0];
+      const authCb = ioArgs.auth;
+      const cb = vi.fn();
+      await authCb(cb);
+
+      // The pendingRefresh error should have been caught and logged
+      expect(logger.warn).toHaveBeenCalledWith(
+        "[Socket] Token force-refresh failed",
+        expect.any(Error)
+      );
+
+      // After catching, it should still call getIdToken for a fresh token
+      expect(cb).toHaveBeenCalledWith({ token: "fresh-token-after-retry" });
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // 13. Non-Error thrown in outer catch (lines 192-193)
+  // -----------------------------------------------------------------------
+  describe("non-Error thrown in connect", () => {
+    it("sets error to 'Connection failed' when non-Error is thrown", async () => {
+      // Make io() throw a non-Error value
+      mockIo.mockImplementationOnce(() => {
+        throw "string-error";
+      });
+
+      const { useSocket } = await import("../useSocket");
+      useSocket();
+
+      const connectFn = capturedCallbacks[0];
+      await connectFn();
+
+      // Should set error to "Connection failed" (the non-Error fallback)
+      const errorUpdates = getStateUpdatesFor(1);
+      expect(errorUpdates).toContain("Connection failed");
+
+      // Should set state to "error"
+      const connectionStateUpdates = getStateUpdatesFor(0);
+      expect(connectionStateUpdates).toContain("error");
+    });
+
+    it("sets error to Error.message when Error is thrown in connect", async () => {
+      mockIo.mockImplementationOnce(() => {
+        throw new Error("Socket creation failed");
+      });
+
+      const { useSocket } = await import("../useSocket");
+      useSocket();
+
+      const connectFn = capturedCallbacks[0];
+      await connectFn();
+
+      const errorUpdates = getStateUpdatesFor(1);
+      expect(errorUpdates).toContain("Socket creation failed");
     });
   });
 });
