@@ -205,6 +205,66 @@ describe("RemoteSkateService", () => {
       expect(mockOnSnapshot).toHaveBeenCalled();
       expect(typeof unsub).toBe("function");
     });
+
+    it("should call callback with game data when snapshot exists (lines 218-219)", () => {
+      let snapshotCb: any;
+      mockOnSnapshot.mockImplementationOnce((_ref: any, onNext: any, _onError: any) => {
+        snapshotCb = onNext;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      RemoteSkateService.subscribeToGame("game-1", callback);
+
+      snapshotCb({
+        exists: () => true,
+        id: "game-1",
+        data: () => ({ status: "active", playerAUid: "user-1" }),
+      });
+
+      expect(callback).toHaveBeenCalledWith({
+        id: "game-1",
+        status: "active",
+        playerAUid: "user-1",
+      });
+    });
+
+    it("should call callback with null when snapshot does not exist (line 221)", () => {
+      let snapshotCb: any;
+      mockOnSnapshot.mockImplementationOnce((_ref: any, onNext: any, _onError: any) => {
+        snapshotCb = onNext;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      RemoteSkateService.subscribeToGame("game-1", callback);
+
+      snapshotCb({
+        exists: () => false,
+        id: "game-1",
+        data: () => null,
+      });
+
+      expect(callback).toHaveBeenCalledWith(null);
+    });
+
+    it("should call callback with null and log error on snapshot error (lines 224-226)", async () => {
+      let errorCb: any;
+      mockOnSnapshot.mockImplementationOnce((_ref: any, _onNext: any, onError: any) => {
+        errorCb = onError;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      RemoteSkateService.subscribeToGame("game-1", callback);
+
+      const { logger } = await import("../logger");
+      const error = new Error("Permission denied");
+      errorCb(error);
+
+      expect(callback).toHaveBeenCalledWith(null);
+      expect(logger.error).toHaveBeenCalledWith("[RemoteSkate] Game subscription error", error);
+    });
   });
 
   describe("subscribeToRounds", () => {
@@ -214,6 +274,47 @@ describe("RemoteSkateService", () => {
       expect(mockOnSnapshot).toHaveBeenCalled();
       expect(typeof unsub).toBe("function");
     });
+
+    it("should call callback with mapped round docs on snapshot success (lines 244-248)", () => {
+      let snapshotCb: any;
+      mockOnSnapshot.mockImplementationOnce((_ref: any, onNext: any, _onError: any) => {
+        snapshotCb = onNext;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      RemoteSkateService.subscribeToRounds("game-1", callback);
+
+      snapshotCb({
+        docs: [
+          { id: "round-1", data: () => ({ status: "awaiting_set", offenseUid: "user-1" }) },
+          { id: "round-2", data: () => ({ status: "resolved", offenseUid: "user-2" }) },
+        ],
+      });
+
+      expect(callback).toHaveBeenCalledWith([
+        { id: "round-1", status: "awaiting_set", offenseUid: "user-1" },
+        { id: "round-2", status: "resolved", offenseUid: "user-2" },
+      ]);
+    });
+
+    it("should call callback with empty array on snapshot error (lines 250-252)", async () => {
+      let errorCb: any;
+      mockOnSnapshot.mockImplementationOnce((_ref: any, _onNext: any, onError: any) => {
+        errorCb = onError;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      RemoteSkateService.subscribeToRounds("game-1", callback);
+
+      const { logger } = await import("../logger");
+      const error = new Error("Firestore unavailable");
+      errorCb(error);
+
+      expect(callback).toHaveBeenCalledWith([]);
+      expect(logger.error).toHaveBeenCalledWith("[RemoteSkate] Rounds subscription error", error);
+    });
   });
 
   describe("subscribeToVideo", () => {
@@ -222,6 +323,71 @@ describe("RemoteSkateService", () => {
       const unsub = RemoteSkateService.subscribeToVideo("video-1", callback);
       expect(mockOnSnapshot).toHaveBeenCalled();
       expect(typeof unsub).toBe("function");
+    });
+
+    it("should call callback with video data when snapshot exists", () => {
+      // Capture the onSnapshot callbacks
+      let snapshotCb: any;
+      mockOnSnapshot.mockImplementationOnce((_ref: any, onNext: any, _onError: any) => {
+        snapshotCb = onNext;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      RemoteSkateService.subscribeToVideo("video-1", callback);
+
+      // Simulate snapshot with data
+      snapshotCb({
+        exists: () => true,
+        id: "video-1",
+        data: () => ({ status: "ready", downloadURL: "https://example.com/video.mp4" }),
+      });
+
+      expect(callback).toHaveBeenCalledWith({
+        id: "video-1",
+        status: "ready",
+        downloadURL: "https://example.com/video.mp4",
+      });
+    });
+
+    it("should call callback with null when snapshot does not exist (line 271)", () => {
+      let snapshotCb: any;
+      mockOnSnapshot.mockImplementationOnce((_ref: any, onNext: any, _onError: any) => {
+        snapshotCb = onNext;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      RemoteSkateService.subscribeToVideo("video-1", callback);
+
+      // Simulate snapshot that doesn't exist (video deleted)
+      snapshotCb({
+        exists: () => false,
+        id: "video-1",
+        data: () => null,
+      });
+
+      expect(callback).toHaveBeenCalledWith(null);
+    });
+
+    it("should call callback with null and log error on snapshot error (lines 274-276)", async () => {
+      let errorCb: any;
+      mockOnSnapshot.mockImplementationOnce((_ref: any, _onNext: any, onError: any) => {
+        errorCb = onError;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      RemoteSkateService.subscribeToVideo("video-1", callback);
+
+      const { logger } = await import("../logger");
+
+      // Simulate error in snapshot listener
+      const error = new Error("Permission denied");
+      errorCb(error);
+
+      expect(callback).toHaveBeenCalledWith(null);
+      expect(logger.error).toHaveBeenCalledWith("[RemoteSkate] Video subscription error", error);
     });
   });
 
@@ -238,6 +404,49 @@ describe("RemoteSkateService", () => {
       const unsub = RemoteSkateService.subscribeToMyGames("user-1", "playerB", callback);
       expect(mockOnSnapshot).toHaveBeenCalled();
       expect(typeof unsub).toBe("function");
+    });
+
+    it("should call callback with mapped game docs on snapshot success (lines 296-300)", () => {
+      let snapshotCb: any;
+      mockOnSnapshot.mockImplementationOnce((_ref: any, onNext: any, _onError: any) => {
+        snapshotCb = onNext;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      RemoteSkateService.subscribeToMyGames("user-1", "playerA", callback);
+
+      // Simulate snapshot with docs
+      snapshotCb({
+        docs: [
+          { id: "game-1", data: () => ({ status: "active", playerAUid: "user-1" }) },
+          { id: "game-2", data: () => ({ status: "waiting", playerAUid: "user-1" }) },
+        ],
+      });
+
+      expect(callback).toHaveBeenCalledWith([
+        { id: "game-1", status: "active", playerAUid: "user-1" },
+        { id: "game-2", status: "waiting", playerAUid: "user-1" },
+      ]);
+    });
+
+    it("should call callback with empty array on snapshot error (lines 302-304)", async () => {
+      let errorCb: any;
+      mockOnSnapshot.mockImplementationOnce((_ref: any, _onNext: any, onError: any) => {
+        errorCb = onError;
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      RemoteSkateService.subscribeToMyGames("user-1", "playerA", callback);
+
+      const { logger } = await import("../logger");
+
+      const error = new Error("Firestore unavailable");
+      errorCb(error);
+
+      expect(callback).toHaveBeenCalledWith([]);
+      expect(logger.error).toHaveBeenCalledWith("[RemoteSkate] My games subscription error", error);
     });
   });
 

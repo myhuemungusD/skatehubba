@@ -1623,6 +1623,164 @@ describe("SkateHubba Cloud Functions", () => {
       );
     });
 
+    it("logs error when sending vote reminder notification fails (covers line 889)", async () => {
+      const nowMs = Date.now();
+      const deadlineMs = nowMs + 20000; // 20s remaining (< 30s window, > 0)
+
+      const gameDoc = {
+        id: "game-reminder-fail",
+        data: () => ({
+          player1Id: "p1",
+          player2Id: "p2",
+          currentAttacker: "p1",
+          voteDeadline: { toMillis: () => deadlineMs },
+          voteReminderSent: false,
+          moves: [
+            {
+              type: "match",
+              result: "pending",
+              judgmentVotes: { attackerVote: null, defenderVote: null },
+            },
+          ],
+        }),
+        ref: { update: vi.fn().mockResolvedValue(undefined) },
+      };
+
+      mocks.collectionRef.get.mockResolvedValue({ docs: [gameDoc] });
+
+      // Mock user doc to return fcmToken so messaging().send is called
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ fcmToken: "token-fail" }),
+        get: (field: string) => (field === "fcmToken" ? "token-fail" : null),
+      });
+
+      // Make messaging send throw
+      mocks.messagingInstance.send.mockRejectedValue(new Error("FCM send failed"));
+
+      await (processVoteTimeouts as any)();
+
+      // Should log the error but not crash
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining("[VoteReminder] Failed to send notification"),
+        expect.anything()
+      );
+    });
+
+    it("sends timeout notifications with fcmToken (covers lines 984-997)", async () => {
+      const nowMs = Date.now();
+      const deadlineMs = nowMs - 5000; // 5s ago - expired
+
+      const freshGameData = {
+        player1Id: "p1",
+        player2Id: "p2",
+        currentAttacker: "p1",
+        turnPhase: "judging",
+        roundNumber: 1,
+        voteDeadline: { toMillis: () => deadlineMs },
+        voteReminderSent: true,
+        moves: [
+          {
+            type: "match",
+            result: "pending",
+            judgmentVotes: { attackerVote: null, defenderVote: null },
+          },
+        ],
+        player1Letters: [],
+        player2Letters: [],
+      };
+
+      const gameDoc = {
+        id: "game-timeout-notif",
+        data: () => freshGameData,
+        ref: { update: vi.fn().mockResolvedValue(undefined) },
+      };
+
+      mocks.collectionRef.get.mockResolvedValue({ docs: [gameDoc] });
+
+      // autoResolveVoteTimeout reads the game again inside a transaction
+      mocks.transaction.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ ...freshGameData }),
+      });
+
+      // Return user with fcmToken so messaging().send is called for timeout notifications
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ fcmToken: "token-timeout" }),
+        get: (field: string) => (field === "fcmToken" ? "token-timeout" : null),
+      });
+
+      await (processVoteTimeouts as any)();
+
+      // Should have sent timeout notification via messaging
+      expect(mocks.messagingInstance.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          token: "token-timeout",
+          notification: expect.objectContaining({
+            title: "Vote Timed Out",
+          }),
+          data: expect.objectContaining({
+            type: "vote_timeout",
+            gameId: "game-timeout-notif",
+          }),
+        })
+      );
+    });
+
+    it("logs error when sending timeout notification fails (covers line 997)", async () => {
+      const nowMs = Date.now();
+      const deadlineMs = nowMs - 5000; // expired
+
+      const freshGameData = {
+        player1Id: "p1",
+        player2Id: "p2",
+        currentAttacker: "p1",
+        turnPhase: "judging",
+        roundNumber: 1,
+        voteDeadline: { toMillis: () => deadlineMs },
+        voteReminderSent: true,
+        moves: [
+          {
+            type: "match",
+            result: "pending",
+            judgmentVotes: { attackerVote: null, defenderVote: null },
+          },
+        ],
+        player1Letters: [],
+        player2Letters: [],
+      };
+
+      const gameDoc = {
+        id: "game-timeout-err",
+        data: () => freshGameData,
+        ref: { update: vi.fn().mockResolvedValue(undefined) },
+      };
+
+      mocks.collectionRef.get.mockResolvedValue({ docs: [gameDoc] });
+
+      mocks.transaction.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ ...freshGameData }),
+      });
+
+      // Return user with fcmToken but make send fail
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ fcmToken: "token-err" }),
+        get: (field: string) => (field === "fcmToken" ? "token-err" : null),
+      });
+
+      mocks.messagingInstance.send.mockRejectedValue(new Error("FCM timeout error"));
+
+      await (processVoteTimeouts as any)();
+
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining("[VoteTimeout] Failed to notify"),
+        expect.anything()
+      );
+    });
+
     it("skips game docs with null voteDeadline", async () => {
       const gameDoc = {
         id: "game-null",
