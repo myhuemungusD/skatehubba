@@ -51,11 +51,36 @@ mobile/
   e2e/              # Detox E2E tests
 ```
 
-## Running the Android Emulator (E2E Tests)
+## Running Android E2E Tests
 
-The Detox E2E suite expects an AVD named **`test`** (API 31, Pixel 6 profile).
+You can run Detox E2E tests on either an **emulator** or a **physical Android device**.
 
-### Prerequisites
+### Option A: Physical Device (recommended for low-RAM machines)
+
+If you have less than 16 GB of RAM, a physical device avoids the 2-4 GB overhead of the emulator.
+
+1. **Enable Developer Options** on your phone: Settings > About Phone > tap "Build Number" 7 times
+2. **Enable USB Debugging**: Settings > Developer Options > USB Debugging > On
+3. Plug in via USB and accept the debugging prompt on your phone
+4. Verify the connection:
+
+```bash
+adb devices
+# Should list your device
+```
+
+Then skip to **"Prebuild & bundle"** below. When running tests, use the physical device configuration:
+
+```bash
+pnpm run e2e:build:android
+npx detox test --configuration android.att.debug
+```
+
+### Option B: Emulator
+
+The emulator configuration expects an AVD named **`test`** (API 31, Pixel 6 profile).
+
+#### Prerequisites
 
 | Dependency | Version |
 |------------|---------|
@@ -63,6 +88,7 @@ The Detox E2E suite expects an AVD named **`test`** (API 31, Pixel 6 profile).
 | Android SDK | API 31+ installed via SDK Manager |
 | Android Emulator | installed via SDK Manager |
 | System image | `system-images;android-31;default;x86_64` |
+| RAM | 16 GB+ recommended |
 
 ### 1. Create the AVD (one-time setup)
 

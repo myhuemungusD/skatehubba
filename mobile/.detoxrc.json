@@ -33,6 +33,12 @@
       "device": {
         "avdName": "test"
       }
+    },
+    "attached": {
+      "type": "android.attached",
+      "device": {
+        "adbName": ".*"
+      }
     }
   },
   "configurations": {
@@ -42,6 +48,10 @@
     },
     "android.emu.debug": {
       "device": "emulator",
+      "app": "android.debug"
+    },
+    "android.att.debug": {
+      "device": "attached",
       "app": "android.debug"
     }
   }
