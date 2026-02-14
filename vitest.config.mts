@@ -24,14 +24,17 @@ export default defineConfig({
         '**/dist/**',
         '**/*.d.ts',
         'mobile/**',
+        // Pure interface/type-alias files compile to empty JS — no executable code for v8
+        '**/types.ts',
+        '**/socket-types.ts',
       ],
       thresholds: {
-        // Coverage gate raised to ~50%. Target is 60% by Q2 2026.
+        // Coverage gate: 90% target reached
         // Track progress: pnpm vitest run --coverage
-        statements: 50,
-        branches: 43,
-        functions: 55,
-        lines: 50,
+        statements: 90,
+        branches: 83,
+        functions: 89,
+        lines: 90,
       },
     },
     testTimeout: 10000,

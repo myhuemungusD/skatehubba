@@ -13,6 +13,7 @@ const mockFileExists = vi.fn();
 const mockFileGetMetadata = vi.fn();
 const mockFileDelete = vi.fn();
 const mockFileSave = vi.fn();
+const mockSetMetadata = vi.fn();
 
 const mockFile = () => ({
   getSignedUrl: mockGetSignedUrl,
@@ -20,6 +21,7 @@ const mockFile = () => ({
   getMetadata: mockFileGetMetadata,
   delete: mockFileDelete,
   save: mockFileSave,
+  setMetadata: mockSetMetadata,
 });
 
 const mockBucketFile = vi.fn().mockReturnValue(mockFile());
@@ -54,6 +56,10 @@ const {
   getPublicUrl,
   deleteFile,
   isOwnStorageUrl,
+  setCacheHeaders,
+  getQualityVariantPath,
+  getQualityVideoUrl,
+  buildQualityUrls,
   UPLOAD_LIMITS,
 } = await import("../services/storageService");
 
@@ -256,6 +262,77 @@ describe("Storage Service", () => {
       expect(UPLOAD_LIMITS.ALLOWED_VIDEO_MIME_TYPES).toContain("video/webm");
       expect(UPLOAD_LIMITS.ALLOWED_VIDEO_MIME_TYPES).toContain("video/mp4");
       expect(UPLOAD_LIMITS.ALLOWED_VIDEO_MIME_TYPES).toContain("video/quicktime");
+    });
+  });
+
+  describe("getQualityVariantPath", () => {
+    it("should append quality tier before extension", () => {
+      const path = getQualityVariantPath("trickmint/user-1/abc_123.webm", "low");
+      expect(path).toBe("trickmint/user-1/abc_123_low.mp4");
+    });
+
+    it("should handle path without extension", () => {
+      const path = getQualityVariantPath("trickmint/user-1/abc_123", "medium");
+      expect(path).toBe("trickmint/user-1/abc_123_medium.mp4");
+    });
+
+    it("should work with high quality tier", () => {
+      const path = getQualityVariantPath("trickmint/user-1/vid.mp4", "high");
+      expect(path).toBe("trickmint/user-1/vid_high.mp4");
+    });
+  });
+
+  describe("getQualityVideoUrl", () => {
+    it("should return original URL for high quality", () => {
+      const url = getQualityVideoUrl("https://example.com/original.mp4", "path/video.webm", "high");
+      expect(url).toBe("https://example.com/original.mp4");
+    });
+
+    it("should return variant URL for low quality", () => {
+      const url = getQualityVideoUrl("https://example.com/original.mp4", "path/video.webm", "low");
+      expect(url).toContain("path%2Fvideo_low.mp4");
+    });
+
+    it("should return variant URL for medium quality", () => {
+      const url = getQualityVideoUrl(
+        "https://example.com/original.mp4",
+        "path/video.webm",
+        "medium"
+      );
+      expect(url).toContain("path%2Fvideo_medium.mp4");
+    });
+  });
+
+  describe("buildQualityUrls", () => {
+    it("should return URLs for all quality tiers", () => {
+      const urls = buildQualityUrls("https://example.com/original.mp4", "path/video.webm");
+      expect(urls.low).toContain("path%2Fvideo_low.mp4");
+      expect(urls.medium).toContain("path%2Fvideo_medium.mp4");
+      expect(urls.high).toBe("https://example.com/original.mp4");
+    });
+  });
+
+  describe("setCacheHeaders", () => {
+    it("should set video cache headers", async () => {
+      mockSetMetadata.mockResolvedValue(undefined);
+      await setCacheHeaders("trickmint/user-1/video.mp4", "video");
+      expect(mockSetMetadata).toHaveBeenCalledWith({
+        cacheControl: "public, max-age=31536000, immutable",
+      });
+    });
+
+    it("should set thumbnail cache headers", async () => {
+      mockSetMetadata.mockResolvedValue(undefined);
+      await setCacheHeaders("trickmint/user-1/thumb.jpg", "thumbnail");
+      expect(mockSetMetadata).toHaveBeenCalledWith({
+        cacheControl: "public, max-age=31536000, immutable",
+      });
+    });
+
+    it("should handle errors gracefully", async () => {
+      mockSetMetadata.mockRejectedValue(new Error("Permission denied"));
+      // Should not throw
+      await setCacheHeaders("trickmint/user-1/video.mp4", "video");
     });
   });
 });

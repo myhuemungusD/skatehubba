@@ -605,11 +605,11 @@ export default function SkateGamePage() {
         {/* ====== VIDEO PLAYER MODAL ====== */}
         {selectedVideo && (
           <div
-            className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+            className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4"
             onClick={() => setSelectedVideo(null)}
           >
             <div
-              className="bg-neutral-900 rounded-lg p-4 max-w-lg w-full"
+              className="bg-neutral-900 rounded-none sm:rounded-lg p-2 sm:p-4 w-full sm:max-w-lg"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-3">
@@ -618,7 +618,7 @@ export default function SkateGamePage() {
                   Close
                 </Button>
               </div>
-              <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden">
+              <div className="aspect-[9/16] bg-black rounded-none sm:rounded-lg overflow-hidden">
                 <video
                   src={selectedVideo}
                   className="w-full h-full object-contain"

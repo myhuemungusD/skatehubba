@@ -60,6 +60,39 @@ export interface TranscodeResult {
 }
 
 // ============================================================================
+// Quality Tiers — reduce egress by serving smaller renditions by default
+// ============================================================================
+
+export type QualityTier = "low" | "medium" | "high";
+
+export interface QualityPreset {
+  maxWidth: number;
+  maxHeight: number;
+  targetBitrate: string;
+  audioBitrate: string;
+}
+
+/**
+ * Quality presets tuned for short skate clips (15-30s).
+ * "low" is served to Save-Data clients, "medium" is the default,
+ * "high" preserves near-original quality for detail-focused viewing.
+ */
+export const QUALITY_PRESETS: Record<QualityTier, QualityPreset> = {
+  low: { maxWidth: 480, maxHeight: 854, targetBitrate: "500k", audioBitrate: "64k" },
+  medium: { maxWidth: 720, maxHeight: 1280, targetBitrate: "1200k", audioBitrate: "96k" },
+  high: { maxWidth: 1080, maxHeight: 1920, targetBitrate: "2500k", audioBitrate: "128k" },
+};
+
+export const DEFAULT_QUALITY: QualityTier = "medium";
+
+export interface MultiQualityResult {
+  success: boolean;
+  outputs: Partial<Record<QualityTier, { path: string; probe: ProbeResult }>>;
+  thumbnailPath?: string;
+  error?: string;
+}
+
+// ============================================================================
 // Constants
 // ============================================================================
 
@@ -67,7 +100,7 @@ const DEFAULT_OPTIONS: Required<TranscodeOptions> = {
   maxDurationMs: 30_000,
   maxWidth: 1080,
   maxHeight: 1920,
-  targetBitrate: "2M",
+  targetBitrate: "1200k", // Default lowered from 2M — medium tier is the new default
   audioEnabled: true,
 };
 
@@ -206,7 +239,8 @@ export async function transcodeVideo(
 
   // Audio handling
   if (opts.audioEnabled) {
-    args.push("-c:a", "aac", "-b:a", "128k", "-ac", "2");
+    const { audioBitrate = "96k" } = options as { audioBitrate?: string };
+    args.push("-c:a", "aac", "-b:a", audioBitrate, "-ac", "2");
   } else {
     args.push("-an");
   }
@@ -257,6 +291,84 @@ export async function generateThumbnail(
     logger.warn("[Transcoder] Thumbnail generation failed", { inputPath, error: message });
     return { success: false, error: message };
   }
+}
+
+// ============================================================================
+// Multi-quality transcoding
+// ============================================================================
+
+/**
+ * Transcode an input video into multiple quality renditions.
+ * Only generates renditions that are smaller than the source resolution.
+ * Returns paths keyed by quality tier for upload to storage.
+ */
+export async function transcodeMultiQuality(
+  inputPath: string,
+  workDir: string,
+  options: { maxDurationMs?: number; tiers?: QualityTier[] } = {}
+): Promise<MultiQualityResult> {
+  const tiers = options.tiers ?? (["low", "medium"] as QualityTier[]);
+  const maxDurationMs = options.maxDurationMs ?? DEFAULT_OPTIONS.maxDurationMs;
+
+  // Probe source to skip renditions larger than original
+  const sourceProbe = await probeVideo(inputPath);
+  if (sourceProbe.isCorrupt) {
+    return { success: false, outputs: {}, error: "Source video is corrupt" };
+  }
+
+  const outputs: MultiQualityResult["outputs"] = {};
+  const errors: string[] = [];
+
+  for (const tier of tiers) {
+    const preset = QUALITY_PRESETS[tier];
+
+    // Skip if source is already smaller than this tier
+    if (sourceProbe.width <= preset.maxWidth && sourceProbe.height <= preset.maxHeight) {
+      // Source fits within this tier's bounds — just use source directly for this tier
+      outputs[tier] = { path: inputPath, probe: sourceProbe };
+      continue;
+    }
+
+    const outputPath = join(workDir, `${tier}.mp4`);
+    const result = await transcodeVideo(inputPath, outputPath, {
+      maxDurationMs: maxDurationMs / 1000 > 0 ? maxDurationMs : DEFAULT_OPTIONS.maxDurationMs,
+      maxWidth: preset.maxWidth,
+      maxHeight: preset.maxHeight,
+      targetBitrate: preset.targetBitrate,
+      audioEnabled: true,
+      audioBitrate: preset.audioBitrate,
+    } as TranscodeOptions & { audioBitrate: string });
+
+    if (result.success) {
+      const probe = await probeVideo(outputPath);
+      outputs[tier] = { path: outputPath, probe };
+    } else {
+      errors.push(`${tier}: ${result.error}`);
+      logger.warn("[Transcoder] Quality tier failed", { tier, error: result.error });
+    }
+  }
+
+  // Generate thumbnail from best available rendition
+  const bestTier = tiers.find((t) => outputs[t]) ?? Object.keys(outputs)[0];
+  let thumbnailPath: string | undefined;
+  if (bestTier && outputs[bestTier as QualityTier]) {
+    const thumbOutput = join(workDir, "thumb.jpg");
+    const thumbResult = await generateThumbnail(
+      outputs[bestTier as QualityTier]!.path,
+      thumbOutput
+    );
+    if (thumbResult.success) {
+      thumbnailPath = thumbOutput;
+    }
+  }
+
+  const hasAnyOutput = Object.keys(outputs).length > 0;
+  return {
+    success: hasAnyOutput,
+    outputs,
+    thumbnailPath,
+    error: hasAnyOutput ? undefined : errors.join("; "),
+  };
 }
 
 // ============================================================================
