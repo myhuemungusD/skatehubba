@@ -510,5 +510,44 @@ describe("client", () => {
         "Expected JSON response"
       );
     });
+
+    it("returns undefined from parseJsonSafely for non-JSON content type on success path", async () => {
+      // A 200 OK response with text/html content type
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        new Response("<html>OK</html>", {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        })
+      );
+
+      // apiRequest calls parseJsonSafely which returns undefined for non-JSON,
+      // then throws "Expected JSON response"
+      await expect(apiRequest({ method: "GET", path: "/api/test" })).rejects.toThrow(
+        "Expected JSON response"
+      );
+    });
+
+    it("parseJsonSafely returns undefined when response.json() throws (catch branch)", async () => {
+      // content-type says json, but json() throws a SyntaxError
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        new Response("{{invalid json!!", {
+          status: 200,
+          headers: { "content-type": "application/json; charset=utf-8" },
+        })
+      );
+
+      await expect(apiRequest({ method: "GET", path: "/api/test" })).rejects.toThrow(
+        "Expected JSON response"
+      );
+    });
+
+    it("returns undefined from parseJsonSafely when content-type header is missing", async () => {
+      // A 200 OK response with no content-type header
+      vi.mocked(globalThis.fetch).mockResolvedValue(new Response("plain body", { status: 200 }));
+
+      await expect(apiRequest({ method: "GET", path: "/api/test" })).rejects.toThrow(
+        "Expected JSON response"
+      );
+    });
   });
 });

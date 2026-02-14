@@ -115,6 +115,29 @@ describe("normalizeApiError", () => {
     expect(err.message).toBe("Something went wrong. Please try again.");
   });
 
+  it("returns undefined message from extractMessage when object has no message or error fields", () => {
+    // payload is an object but has neither .message nor .error as strings
+    const err = normalizeApiError({ payload: { data: 123 }, statusText: "Fallback" });
+    expect(err.message).toBe("Fallback");
+  });
+
+  it("returns undefined from extractMessage for null payload", () => {
+    const err = normalizeApiError({ payload: null, statusText: "StatusFallback" });
+    expect(err.message).toBe("StatusFallback");
+  });
+
+  it("returns undefined from extractCode when payload has no code and error is not a string or object", () => {
+    // payload.code is a number (not string), payload.error is a number (not string or object)
+    const err = normalizeApiError({ payload: { code: 123, error: 456 }, status: 500 });
+    expect(err.code).toBe("UNKNOWN");
+  });
+
+  it("extractCode returns undefined from nested error object when nested code is not a string", () => {
+    // error is an object, but nested.code is a number
+    const err = normalizeApiError({ payload: { error: { code: 999 } }, status: 500 });
+    expect(err.code).toBe("UNKNOWN");
+  });
+
   it("extracts code from nested error object", () => {
     const err = normalizeApiError({
       payload: { error: { code: "RATE_LIMIT_HIT" } },
@@ -164,5 +187,42 @@ describe("getUserFriendlyMessage", () => {
   it("returns fallback for UNKNOWN", () => {
     const err = new ApiError("test", "UNKNOWN");
     expect(getUserFriendlyMessage(err)).toContain("Unexpected");
+  });
+
+  it("returns distance/radius message for TOO_FAR with valid numeric details", () => {
+    const err = new ApiError("Too far", "TOO_FAR", 403, {
+      distance: 250,
+      radius: 100,
+    });
+    const msg = getUserFriendlyMessage(err);
+    expect(msg).toContain("250m away");
+    expect(msg).toContain("within 100m");
+    expect(msg).toContain("Move closer");
+  });
+
+  it("returns generic TOO_FAR message when details are missing", () => {
+    const err = new ApiError("Too far", "TOO_FAR", 403);
+    const msg = getUserFriendlyMessage(err);
+    expect(msg).toBe("You're too far from this spot. Move closer and try again.");
+  });
+
+  it("returns generic TOO_FAR message when distance/radius are not numbers", () => {
+    const err = new ApiError("Too far", "TOO_FAR", 403, {
+      distance: "far",
+      radius: "close",
+    });
+    const msg = getUserFriendlyMessage(err);
+    expect(msg).toBe("You're too far from this spot. Move closer and try again.");
+  });
+
+  it("returns generic TOO_FAR message when details is empty object", () => {
+    const err = new ApiError("Too far", "TOO_FAR", 403, {});
+    const msg = getUserFriendlyMessage(err);
+    expect(msg).toBe("You're too far from this spot. Move closer and try again.");
+  });
+
+  it("maps TOO_FAR code from payload", () => {
+    const err = normalizeApiError({ payload: { code: "TOO_FAR" } });
+    expect(err.code).toBe("TOO_FAR");
   });
 });

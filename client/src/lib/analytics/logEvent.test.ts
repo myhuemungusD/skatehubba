@@ -293,6 +293,144 @@ describe("logEvent", () => {
         })
       );
     });
+
+    it("generates and stores session ID when sessionStorage returns null", async () => {
+      mockUser();
+
+      // Clear any cached session ID by resetting modules
+      vi.resetModules();
+      vi.doMock("@shared/analytics-events", () => ({
+        AnalyticsIngestSchema: { safeParse: vi.fn().mockReturnValue({ success: true, data: {} }) },
+        EVENT_NAMES: ["battle_created", "app_opened"] as const,
+      }));
+      vi.doMock("../firebase", () => ({
+        auth: { currentUser: { getIdToken: vi.fn().mockResolvedValue("token") } },
+      }));
+      vi.doMock("@skatehubba/config", () => ({
+        getAppConfig: vi.fn(() => ({ version: "1.0.0-test" })),
+      }));
+      vi.doMock("../logger", () => ({
+        logger: { log: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+      }));
+
+      // Provide sessionStorage that returns null on getItem (first visit)
+      const setItemSpy = vi.fn();
+      Object.defineProperty(globalThis, "window", {
+        value: {
+          sessionStorage: {
+            getItem: () => null,
+            setItem: setItemSpy,
+          },
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      vi.spyOn(crypto, "randomUUID").mockReturnValue(
+        "new-session-uuid-1234" as `${string}-${string}-${string}-${string}-${string}`
+      );
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ok", { status: 200 }));
+
+      const { logEvent: freshLogEvent } = await import("./logEvent");
+      await freshLogEvent("battle_created", {});
+
+      // sessionStorage.setItem should have been called to persist the new session ID
+      expect(setItemSpy).toHaveBeenCalledWith("skatehubba_session_id", expect.any(String));
+    });
+
+    it("falls back to generated session ID when sessionStorage throws", async () => {
+      mockUser();
+
+      // Override sessionStorage to throw on getItem
+      const originalSessionStorage = globalThis.window?.sessionStorage;
+      Object.defineProperty(globalThis, "window", {
+        value: {
+          sessionStorage: {
+            getItem: () => {
+              throw new Error("Storage denied");
+            },
+            setItem: () => {
+              throw new Error("Storage denied");
+            },
+          },
+        },
+        writable: true,
+        configurable: true,
+      });
+
+      await logEvent("battle_created", {});
+
+      // Should still include a valid session_id (from the fallback path)
+      expect(AnalyticsIngestSchema.safeParse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          session_id: expect.any(String),
+        })
+      );
+
+      // Restore
+      if (originalSessionStorage) {
+        Object.defineProperty(globalThis, "window", {
+          value: { sessionStorage: originalSessionStorage },
+          writable: true,
+          configurable: true,
+        });
+      }
+    });
+
+    it("falls back to generated session ID when window is undefined", async () => {
+      mockUser();
+
+      // Save and remove window
+      const originalWindow = globalThis.window;
+      // @ts-ignore
+      delete globalThis.window;
+
+      // Need a fresh module import since getSessionId caches
+      vi.resetModules();
+      vi.doMock("@shared/analytics-events", () => {
+        return {
+          AnalyticsIngestSchema: {
+            safeParse: vi.fn().mockReturnValue({ success: true, data: {} }),
+          },
+          EVENT_NAMES: ["battle_created", "app_opened"] as const,
+        };
+      });
+      vi.doMock("../firebase", () => ({
+        auth: {
+          currentUser: {
+            getIdToken: vi.fn().mockResolvedValue("token"),
+          },
+        },
+      }));
+      vi.doMock("@skatehubba/config", () => ({
+        getAppConfig: vi.fn(() => ({ version: "1.0.0-test" })),
+      }));
+      vi.doMock("../logger", () => ({
+        logger: { log: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+      }));
+
+      const freshLogEvent = (await import("./logEvent")).logEvent;
+
+      // Provide crypto.randomUUID
+      vi.spyOn(crypto, "randomUUID").mockReturnValue(
+        "fallback-uuid-1234-5678-9abc-def012345" as any
+      );
+
+      vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ok", { status: 200 }));
+
+      await freshLogEvent("battle_created", {});
+
+      // The safeParse should have been called (session_id will be a generated fallback)
+      const { AnalyticsIngestSchema: freshSchema } = await import("@shared/analytics-events");
+      expect(freshSchema.safeParse).toHaveBeenCalledWith(
+        expect.objectContaining({
+          session_id: expect.any(String),
+        })
+      );
+
+      // Restore
+      globalThis.window = originalWindow;
+    });
   });
 });
 

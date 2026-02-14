@@ -84,6 +84,29 @@ describe("Firestore Operations", () => {
       await updateDocument("users", "doc-1", { name: "Updated" });
       expect(mockUpdateDoc).toHaveBeenCalled();
     });
+
+    it("should update document without timestamp by default", async () => {
+      await updateDocument("users", "doc-1", { name: "NoTimestamp" });
+      const callArgs = mockUpdateDoc.mock.calls[0];
+      // The data passed should NOT include updatedAt
+      expect(callArgs[1]).toEqual({ name: "NoTimestamp" });
+    });
+
+    it("should add updatedAt timestamp when addTimestamp option is true", async () => {
+      await updateDocument("users", "doc-1", { name: "WithTimestamp" }, { addTimestamp: true });
+      const callArgs = mockUpdateDoc.mock.calls[0];
+      // The data passed should include updatedAt from serverTimestamp
+      expect(callArgs[1]).toEqual({
+        name: "WithTimestamp",
+        updatedAt: { _serverTimestamp: true },
+      });
+    });
+
+    it("should not add timestamp when addTimestamp is explicitly false", async () => {
+      await updateDocument("users", "doc-1", { name: "ExplicitFalse" }, { addTimestamp: false });
+      const callArgs = mockUpdateDoc.mock.calls[0];
+      expect(callArgs[1]).toEqual({ name: "ExplicitFalse" });
+    });
   });
 
   describe("deleteDocument", () => {
