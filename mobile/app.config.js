@@ -48,7 +48,7 @@ export default {
       intentFilters: [
         {
           action: "VIEW",
-          autoVerify: true,
+          autoVerify: false,
           data: [
             { scheme: "https", host: "skatehubba.com", pathPrefix: "/game/" },
             { scheme: "https", host: "skatehubba.com", pathPrefix: "/challenge/" }

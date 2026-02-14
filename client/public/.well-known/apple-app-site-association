@@ -3,7 +3,7 @@
     "apps": [],
     "details": [
       {
-        "appIDs": ["TEAM_ID.com.skatehubba.app"],
+        "appIDs": [],
         "paths": ["/game/*", "/challenge/*"]
       }
     ]

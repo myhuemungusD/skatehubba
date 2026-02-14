@@ -32,9 +32,6 @@
   "submit": {
     "production": {
       "ios": {
-        "appleId": "TODO@skatehubba.com",
-        "ascAppId": "TODO_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "TODO_APPLE_TEAM_ID",
         "companyName": "SkateHubba",
         "language": "en-US"
       },

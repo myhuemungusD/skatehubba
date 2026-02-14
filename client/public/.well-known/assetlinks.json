@@ -4,9 +4,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.skatehubba.app",
-      "sha256_cert_fingerprints": [
-        "TODO:REPLACE_WITH_ACTUAL_SHA256_FINGERPRINT"
-      ]
+      "sha256_cert_fingerprints": []
     }
   }
 ]
