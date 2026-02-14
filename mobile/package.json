@@ -2,6 +2,7 @@
   "name": "skatehubba-mobile",
   "version": "0.1.0",
   "private": true,
+  "main": "expo-router/entry",
   "type": "module",
   "description": "SkateHubba mobile app — Expo + React Native with S.K.A.T.E. battle, spot mapping, and leaderboard.",
   "scripts": {
@@ -36,6 +37,7 @@
     "expo-crypto": "~15.0.8",
     "expo-device": "^8.0.10",
     "expo-image-picker": "^17.0.10",
+    "expo-linking": "~7.0.0",
     "expo-location": "~18.0.0",
     "expo-network": "~7.0.0",
     "expo-notifications": "^0.32.16",
