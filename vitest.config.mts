@@ -33,8 +33,11 @@ export default defineConfig({
         'server/api-docs.ts',
         'server/config/server.ts',
         'functions/src/firebaseAdmin.ts',
-        // Pure schema-definition files — pgTable calls produce zero branching logic
+        // Pure schema-definition files — pgTable/pgEnum/references callbacks produce zero branching logic
         'packages/shared/schema-analytics.ts',
+        'packages/shared/schema/auth.ts',
+        'packages/shared/schema/battles.ts',
+        'packages/shared/schema/spots.ts',
         // React hook + dynamic Firebase imports — requires React runtime, store actions tested separately
         'client/src/lib/stores/user.ts',
         // Barrel re-export files — no logic, implicitly tested by underlying modules
@@ -47,6 +50,8 @@ export default defineConfig({
         'client/src/lib/firestore/index.ts',
         'client/src/lib/game/index.ts',
         'client/src/lib/remoteSkate/index.ts',
+        // Test setup/mock helpers — not production code
+        'server/__tests__/game-critical-paths/mockSetup.ts',
       ],
       thresholds: {
         statements: 97,
