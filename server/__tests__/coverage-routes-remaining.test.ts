@@ -755,7 +755,7 @@ describe("RemoteSkate — error response mapping", () => {
   });
 
   it("uses default message for non-Error throw", () => {
-    const error = "string error";
+    const error: unknown = "string error";
     const message = error instanceof Error ? error.message : "Failed to resolve round";
     expect(message).toBe("Failed to resolve round");
   });
@@ -767,7 +767,8 @@ describe("RemoteSkate — error response mapping", () => {
 
 describe("RemoteSkate — verifyFirebaseAuth branches", () => {
   it("rejects missing Authorization header", () => {
-    const authHeader = undefined;
+    const headers: Record<string, string> = {};
+    const authHeader = headers.authorization;
     expect(!authHeader || !authHeader.startsWith("Bearer ")).toBe(true);
   });
 
@@ -897,18 +898,20 @@ describe("Admin — error paths and fallback logic", () => {
   });
 
   it("audit-logs totalRow fallback (line 328)", () => {
-    const totalRow = undefined;
+    const rows: Array<{ value?: number }> = [];
+    const totalRow = rows[0];
     expect(totalRow?.value ?? 0).toBe(0);
 
-    const totalRow2 = { value: undefined };
+    const totalRow2 = { value: undefined as number | undefined };
     expect(totalRow2?.value ?? 0).toBe(0);
 
-    const totalRow3 = { value: 42 };
+    const totalRow3 = { value: 42 as number | undefined };
     expect(totalRow3?.value ?? 0).toBe(42);
   });
 
   it("mod-actions totalRow fallback (line 358)", () => {
-    const totalRow = undefined;
+    const rows: Array<{ value?: number }> = [];
+    const totalRow = rows[0];
     expect(totalRow?.value ?? 0).toBe(0);
   });
 

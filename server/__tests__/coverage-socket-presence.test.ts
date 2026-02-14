@@ -20,7 +20,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const mockGetRedisClient = vi.fn<() => any>();
 
 vi.mock("../redis", () => ({
-  getRedisClient: (...args: any[]) => mockGetRedisClient(...args),
+  getRedisClient: (...args: unknown[]) => mockGetRedisClient(),
 }));
 
 vi.mock("../logger", () => ({
