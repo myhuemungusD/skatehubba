@@ -110,6 +110,11 @@ function makeDocRef(path: string) {
   };
 }
 
+// Shared runTransaction mock so tests can override it per-call
+const mockRunTransaction = vi.fn().mockImplementation(async (callback: any) => {
+  return await callback(mockTransaction);
+});
+
 vi.mock("../../firebaseAdmin", () => ({
   getAdminDb: () => ({
     collection: vi.fn().mockImplementation((collName: string) => ({
@@ -143,9 +148,7 @@ vi.mock("../../firebaseAdmin", () => ({
         return { empty: docs.length === 0, docs };
       }),
     })),
-    runTransaction: vi.fn().mockImplementation(async (callback: any) => {
-      return await callback(mockTransaction);
-    }),
+    runTransaction: mockRunTransaction,
     batch: vi.fn().mockReturnValue(mockBatch),
   }),
 }));
@@ -386,10 +389,8 @@ describe("Commerce / Payment Flow", () => {
     });
 
     it("returns false when transaction throws an error (covers lines 45-47)", async () => {
-      // Save original and temporarily make runTransaction throw
-      const { getAdminDb } = await import("../../firebaseAdmin");
-      const db = getAdminDb();
-      (db.runTransaction as any).mockRejectedValueOnce(new Error("Firestore unavailable"));
+      // Temporarily make runTransaction throw
+      mockRunTransaction.mockRejectedValueOnce(new Error("Firestore unavailable"));
 
       const result = await markEventProcessedOrSkip("evt_error_123");
       expect(result).toBe(false);
