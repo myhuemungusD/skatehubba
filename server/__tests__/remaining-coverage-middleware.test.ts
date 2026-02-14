@@ -119,7 +119,7 @@ describe("middleware.ts — additional coverage", () => {
       vi.advanceTimersByTime(6 * 60 * 1000);
 
       // Now mock crypto.randomInt to return 0 to trigger cleanup
-      const randomIntSpy = vi.spyOn(crypto, "randomInt").mockReturnValue(0);
+      const randomIntSpy = vi.spyOn(crypto, "randomInt").mockImplementation(() => 0);
 
       // Record a new auth — this should trigger cleanup
       recordRecentAuth(newUserId);
@@ -139,7 +139,7 @@ describe("middleware.ts — additional coverage", () => {
       const userId = "skip-cleanup-" + crypto.randomUUID();
 
       // Mock randomInt to return 5 (not 0)
-      const randomIntSpy = vi.spyOn(crypto, "randomInt").mockReturnValue(5);
+      const randomIntSpy = vi.spyOn(crypto, "randomInt").mockImplementation(() => 5);
 
       recordRecentAuth(userId);
 
