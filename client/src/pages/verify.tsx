@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { sendEmailVerification } from "firebase/auth";
 import { auth } from "../lib/firebase";
+import { apiRequest } from "../lib/api/client";
+import { isApiError } from "../lib/api/errors";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { useToast } from "../hooks/use-toast";
@@ -27,22 +28,26 @@ export default function VerifyPage() {
 
     setIsResending(true);
     try {
-      await sendEmailVerification(currentUser);
+      await apiRequest({
+        method: "POST",
+        path: "/api/auth/resend-verification",
+      });
       toast({
-        title: "Verification email sent! ",
+        title: "Verification email sent!",
         description: "Check your inbox and spam folder.",
       });
-    } catch (error: any) {
-      if (error.code === "auth/too-many-requests") {
+    } catch (error: unknown) {
+      if (isApiError(error) && error.code === "RATE_LIMIT") {
         toast({
           title: "Too many requests",
           description: "Please wait a few minutes before trying again.",
           variant: "destructive",
         });
       } else {
+        const msg = error instanceof Error ? error.message : "Please try again later.";
         toast({
           title: "Failed to send email",
-          description: error.message,
+          description: msg,
           variant: "destructive",
         });
       }
@@ -78,7 +83,9 @@ export default function VerifyPage() {
                 <CheckCircle2 className="h-5 w-5 text-success mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-white font-medium">Step 1: Check your inbox</p>
-                  <p className="text-gray-400 text-sm">Look for an email from Firebase</p>
+                  <p className="text-gray-400 text-sm">
+                    Look for an email from SkateHubba (hello@skatehubba.com)
+                  </p>
                 </div>
               </div>
               <div className="flex items-start gap-3">

@@ -47,8 +47,10 @@ export default function SignIn() {
 
       setLoading(true);
       signInWithCredential(auth, credential).catch((error) => {
-        console.error("Mobile Google Sign-In Error:", error);
-        Alert.alert("Login Failed", error.message);
+        if (__DEV__) {
+          console.error("Mobile Google Sign-In Error:", error);
+        }
+        Alert.alert("Login Failed", "Google sign-in failed. Please try again.");
         setLoading(false);
       });
       // Success is handled by the Global Store Listener (redirects automatically)
@@ -64,9 +66,10 @@ export default function SignIn() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-    } catch (error: any) {
+    } catch (error: unknown) {
       let msg = "Something went wrong.";
-      if (error.code === "auth/invalid-credential") msg = "Invalid email or password.";
+      const firebaseError = error as { code?: string };
+      if (firebaseError.code === "auth/invalid-credential") msg = "Invalid email or password.";
       Alert.alert("Sign In Failed", msg);
       setLoading(false);
     }
@@ -79,8 +82,10 @@ export default function SignIn() {
       try {
         const provider = new GoogleAuthProvider();
         await signInWithPopup(auth, provider);
-      } catch (error: any) {
-        console.error(error);
+      } catch (error: unknown) {
+        if (__DEV__) {
+          console.error("Web Google Sign-In Error:", error);
+        }
         setLoading(false);
       }
     } else {
@@ -132,6 +137,9 @@ export default function SignIn() {
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              textContentType="emailAddress"
+              autoComplete="email"
+              maxLength={254}
               testID="auth-email"
             />
           </View>
@@ -149,6 +157,9 @@ export default function SignIn() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              textContentType="password"
+              autoComplete="password"
+              maxLength={128}
               testID="auth-password"
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
@@ -188,6 +199,15 @@ export default function SignIn() {
           >
             <Ionicons name="logo-google" size={20} color="#FFF" style={{ marginRight: 10 }} />
             <Text style={styles.socialButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
+
+          {/* Investor Demo Mode */}
+          <TouchableOpacity
+            style={styles.demoButton}
+            onPress={() => router.push("/demo")}
+          >
+            <Ionicons name="eye-outline" size={18} color="#FF6600" style={{ marginRight: 8 }} />
+            <Text style={styles.demoButtonText}>Investor Demo</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -268,4 +288,12 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   socialButtonText: { color: "#FFF", fontWeight: "600" },
+  demoButton: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    paddingVertical: 12,
+  },
+  demoButtonText: { color: "#FF6600", fontWeight: "600", fontSize: 14 },
 });

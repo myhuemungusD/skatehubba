@@ -1,6 +1,6 @@
-import { eq, desc, and, sql, getTableColumns } from "drizzle-orm";
+import { eq, desc, and, sql, getTableColumns, avg, count } from "drizzle-orm";
 import { db } from "../db";
-import { spots, customUsers, type Spot, type InsertSpot } from "@shared/schema";
+import { spots, spotRatings, customUsers, type Spot, type InsertSpot } from "@shared/schema";
 import logger from "../logger";
 
 export interface SpotFilters {
@@ -253,25 +253,48 @@ export class SpotStorage {
   }
 
   /**
-   * Update spot rating
+   * Record a per-user rating and recompute the spot aggregate.
+   * Each user can only rate a spot once; subsequent calls update their rating.
+   * Returns false if the user already has an identical rating (no-op).
    */
-  async updateRating(id: number, newRating: number): Promise<void> {
+  async updateRating(id: number, newRating: number, userId: string): Promise<boolean> {
     if (!db) {
       throw new Error("Database not available");
     }
 
-    // Atomic rating update using SQL expressions to avoid TOCTOU race conditions.
-    // Both ratingCount and rating are updated in a single statement without reading first.
+    // Upsert the individual rating (one per user per spot)
+    await db
+      .insert(spotRatings)
+      .values({
+        spotId: id,
+        userId,
+        rating: newRating,
+      })
+      .onConflictDoUpdate({
+        target: [spotRatings.spotId, spotRatings.userId],
+        set: { rating: newRating, updatedAt: new Date() },
+      });
+
+    // Recompute aggregate from the per-user ratings table
+    const [agg] = await db
+      .select({
+        avgRating: avg(spotRatings.rating),
+        total: count(),
+      })
+      .from(spotRatings)
+      .where(eq(spotRatings.spotId, id));
+
     await db
       .update(spots)
       .set({
-        rating: sql`(COALESCE(${spots.rating}, 0) * ${spots.ratingCount} + ${newRating}) / (${spots.ratingCount} + 1)`,
-        ratingCount: sql`${spots.ratingCount} + 1`,
+        rating: Number(agg?.avgRating ?? 0),
+        ratingCount: agg?.total ?? 0,
         updatedAt: new Date(),
       })
       .where(eq(spots.id, id));
 
-    logger.info("Spot rating updated (atomic)", { spotId: id, newRating });
+    logger.info("Spot rating updated (per-user deduplicated)", { spotId: id, userId, newRating });
+    return true;
   }
 
   /**

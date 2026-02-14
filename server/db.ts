@@ -1,6 +1,6 @@
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import * as schema from "../packages/shared/schema.ts";
+import * as schema from "../packages/shared/schema/index";
 import { eq } from "drizzle-orm";
 import { env } from "./config/env";
 import logger from "./logger";

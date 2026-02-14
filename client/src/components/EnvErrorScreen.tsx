@@ -43,9 +43,9 @@ export default function EnvErrorScreen({ missingKeys, error }: EnvErrorScreenPro
         )}
 
         <div className="text-sm text-neutral-400">
-          Web builds should set <span className="font-semibold">VITE_*</span> variables. Mobile
-          builds should set <span className="font-semibold">EXPO_PUBLIC_*</span> variables. Server
-          builds should read from <span className="font-semibold">process.env</span>.
+          Client-side builds (web and mobile) should set{" "}
+          <span className="font-semibold">EXPO_PUBLIC_*</span> variables. Server builds should
+          read from <span className="font-semibold">process.env</span>.
         </div>
       </div>
     </div>

@@ -55,7 +55,7 @@ This document lists all identified race conditions in the S.K.A.T.E. battle syst
   - It is the caller's turn
   - Game is in correct phase for the action
   - Caller has correct role (attacker/defender)
-- Direct Firestore writes should be blocked by security rules (TODO: verify rules)
+- Direct Firestore writes are blocked by security rules (`allow create, update, delete: if false`)
 - Location: `infra/firebase/functions/index.ts` - `submitTrick` function
 
 ### 4. Vote and Timeout Simultaneous Trigger (FIXED)
@@ -146,10 +146,10 @@ Additional integration tests should be added to verify transaction behavior unde
 
 ## TODO
 
-- [ ] Add Firestore security rules to block direct client writes to `game_sessions`
+- [x] Add Firestore security rules to block direct client writes to `game_sessions` - DONE (firestore.rules: `allow create, update, delete: if false`)
 - [x] Implement vote timeout (Problem 2) - DONE
-- [ ] Add integration tests that simulate concurrent requests
-- [ ] Monitor transaction retry rates in production
+- [x] Add integration tests that simulate concurrent requests - DONE (infra/firebase/functions/concurrent-game.integration.test.ts)
+- [x] Monitor transaction retry rates in production - DONE (`monitoredTransaction` wrapper in functions/src/index.ts)
 
 ## Vote Timeout Implementation Details
 

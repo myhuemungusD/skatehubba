@@ -40,7 +40,11 @@ export function ARTrickViewer({
   const checkARSupport = async () => {
     if ("xr" in navigator) {
       try {
-        const isSupported = await (navigator as any).xr?.isSessionSupported("immersive-ar");
+        const isSupported = await (
+          navigator as Navigator & {
+            xr?: { isSessionSupported: (mode: string) => Promise<boolean> };
+          }
+        ).xr?.isSessionSupported("immersive-ar");
         setArSupported(isSupported || false);
       } catch {
         setArSupported(false);

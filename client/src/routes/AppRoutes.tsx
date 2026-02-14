@@ -14,6 +14,7 @@ import {
   SignupPage,
   SigninPage,
   ForgotPasswordPage,
+  ResetPasswordPage,
   ProfileSetup,
   VerifyPage,
   AuthVerifyPage,
@@ -40,6 +41,7 @@ import {
   AdminReportsRoute,
   AdminUsersRoute,
   AdminAuditLogRoute,
+  AdminMetricsRoute,
 } from "./routeWrappers";
 
 /**
@@ -141,6 +143,7 @@ export default function AppRoutes() {
         <Route path="/signup" component={SignupPage} />
         <Route path="/signin" component={SigninPage} />
         <Route path="/forgot-password" component={ForgotPasswordPage} />
+        <Route path="/reset-password" component={ResetPasswordPage} />
         <Route path="/verify" component={VerifyPage} />
         <Route path="/auth/verify" component={AuthVerifyPage} />
         <Route path="/verify-email" component={VerifyEmailPage} />
@@ -163,6 +166,7 @@ export default function AppRoutes() {
         {/* ============================================================== */}
         <AdminRoute path="/admin/reports" component={AdminReportsRoute} />
         <AdminRoute path="/admin/users" component={AdminUsersRoute} />
+        <AdminRoute path="/admin/metrics" component={AdminMetricsRoute} />
         <AdminRoute path="/admin/audit-log" component={AdminAuditLogRoute} />
         <AdminRoute path="/admin" component={AdminDashboardRoute} />
 

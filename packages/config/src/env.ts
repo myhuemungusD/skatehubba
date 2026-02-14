@@ -12,6 +12,8 @@
  * @module @skatehubba/config/env
  */
 
+import { globals } from "./globals";
+
 type EnvRecord = Record<string, string | undefined>;
 
 const EXPO_PREFIX = "EXPO_PUBLIC_";
@@ -40,7 +42,7 @@ function normalizeNameCandidates(name: string): string[] {
  */
 function detectPlatform(): "vite" | "node" | "metro" {
   // Check if we're in a Vite environment
-  if (typeof globalThis !== "undefined" && (globalThis as any).import?.meta?.env) {
+  if (typeof globalThis !== "undefined" && globals.import?.meta?.env) {
     return "vite";
   }
 
@@ -59,14 +61,17 @@ function detectPlatform(): "vite" | "node" | "metro" {
  */
 function prioritizeCandidates(candidates: string[], platform: "vite" | "node" | "metro"): string[] {
   if (platform === "vite") {
+    // EXPO_PUBLIC_ is the canonical prefix after standardization.
+    // VITE_ is kept as a legacy fallback but must NOT shadow EXPO_PUBLIC_ values,
+    // otherwise stale VITE_* vars on Vercel would override correct EXPO_PUBLIC_* vars.
     return [...candidates].sort((a, b) => {
-      const aIsVite = a.startsWith(VITE_PREFIX);
-      const bIsVite = b.startsWith(VITE_PREFIX);
       const aIsExpo = a.startsWith(EXPO_PREFIX);
       const bIsExpo = b.startsWith(EXPO_PREFIX);
+      const aIsVite = a.startsWith(VITE_PREFIX);
+      const bIsVite = b.startsWith(VITE_PREFIX);
 
-      if (aIsVite !== bIsVite) return aIsVite ? -1 : 1;
       if (aIsExpo !== bIsExpo) return aIsExpo ? -1 : 1;
+      if (aIsVite !== bIsVite) return aIsVite ? -1 : 1;
       return 0;
     });
   }
@@ -95,7 +100,7 @@ function readEnv(name: string): string | undefined {
   switch (platform) {
     case "vite": {
       // Web: Read from Vite's import.meta.env
-      const meta = (globalThis as any).import?.meta;
+      const meta = globals.import?.meta;
       const env: EnvRecord = meta?.env || {};
       for (const candidate of candidates) {
         if (env[candidate] !== undefined) return env[candidate];
@@ -106,7 +111,7 @@ function readEnv(name: string): string | undefined {
     case "metro":
     case "node": {
       // Mobile/Server: Read from process.env
-      const env: EnvRecord = (globalThis as any).process?.env || {};
+      const env: EnvRecord = globals.process?.env || {};
       for (const candidate of candidates) {
         if (env[candidate] !== undefined) return env[candidate];
       }
@@ -220,9 +225,9 @@ export function getApiEnv() {
  */
 export function getAppConfig() {
   return {
-    version: getEnvOptional("VITE_APP_VERSION", "dev"),
+    version: getEnvOptional("EXPO_PUBLIC_APP_VERSION", "dev"),
     canonicalOrigin: getEnvOptional("EXPO_PUBLIC_CANONICAL_ORIGIN", "http://localhost:5173"),
-    stripePublicKey: getEnvOptional("VITE_STRIPE_PUBLIC_KEY", ""),
+    stripePublicKey: getEnvOptional("EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY", ""),
   };
 }
 
@@ -277,9 +282,7 @@ export function getAllEnv(): Record<string, string> {
 
   const platform = detectPlatform();
   const env: EnvRecord =
-    platform === "vite"
-      ? (globalThis as any).import?.meta?.env || {}
-      : (globalThis as any).process?.env || {};
+    platform === "vite" ? globals.import?.meta?.env || {} : globals.process?.env || {};
 
   return Object.fromEntries(
     Object.entries(env).filter(([_, v]) => v !== undefined) as [string, string][]

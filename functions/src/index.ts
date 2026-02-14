@@ -2,7 +2,7 @@
  * Firebase Cloud Functions
  *
  * Secure serverless functions for SkateHubba.
- * Handles role management, profile creation, and S.K.A.T.E. game logic.
+ * Handles role management and S.K.A.T.E. game logic.
  *
  * Security Features:
  * - App Check enforcement for abuse prevention
@@ -21,7 +21,6 @@ import * as os from "os";
 import * as fs from "fs";
 import ffmpeg from "fluent-ffmpeg";
 import ffprobeInstaller from "@ffprobe-installer/ffprobe";
-// Bounties feature archived - see archive/functions-src/bounties/
 
 const SKATE_LETTERS = ["S", "K", "A", "T", "E"] as const;
 
@@ -42,21 +41,46 @@ const VALID_ROLES = ["admin", "moderator", "verified_pro"] as const;
 type ValidRole = (typeof VALID_ROLES)[number];
 
 // ============================================================================
-// Profile Creation Schema
+// Transaction Monitoring
 // ============================================================================
 
-const VALID_STANCES = ["regular", "goofy"] as const;
-const VALID_EXPERIENCE_LEVELS = ["beginner", "intermediate", "advanced", "pro"] as const;
+/**
+ * Wraps a Firestore transaction with structured logging for monitoring
+ * retry rates, latency, and contention in production.
+ *
+ * Firestore automatically retries transactions up to 25 times on contention.
+ * This wrapper tracks attempt count and total duration for observability.
+ */
+async function monitoredTransaction<T>(
+  db: admin.firestore.Firestore,
+  label: string,
+  gameId: string,
+  updateFn: (transaction: admin.firestore.Transaction) => Promise<T>
+): Promise<T> {
+  let attempts = 0;
+  const startMs = Date.now();
 
-interface ProfileCreatePayload {
-  username?: string;
-  stance?: (typeof VALID_STANCES)[number] | null;
-  experienceLevel?: (typeof VALID_EXPERIENCE_LEVELS)[number] | null;
-  favoriteTricks?: string[];
-  bio?: string | null;
-  crewName?: string | null;
-  avatarBase64?: string;
-  skip?: boolean;
+  const result = await db.runTransaction(async (transaction) => {
+    attempts++;
+    return updateFn(transaction);
+  });
+
+  const durationMs = Date.now() - startMs;
+  const logData = {
+    transaction: label,
+    gameId,
+    attempts,
+    durationMs,
+    retried: attempts > 1,
+  };
+
+  if (attempts > 1) {
+    console.warn("[TransactionMonitor] Contention detected:", JSON.stringify(logData));
+  } else {
+    console.log("[TransactionMonitor]", JSON.stringify(logData));
+  }
+
+  return result;
 }
 
 // ============================================================================
@@ -303,25 +327,6 @@ export const getUserRoles = functions.https.onCall(
 );
 
 // ============================================================================
-// Profile Creation (Deprecated - handled by REST API)
-// ============================================================================
-
-/**
- * createProfile
- *
- * @deprecated Profile creation is now handled by the REST API.
- * This callable function exists only to provide a helpful error message.
- */
-export const createProfile = functions.https.onCall(
-  async (_data: ProfileCreatePayload, _context: functions.https.CallableContext) => {
-    throw new functions.https.HttpsError(
-      "failed-precondition",
-      "Profile creation is handled by the REST API. Use POST /api/profile/create."
-    );
-  }
-);
-
-// ============================================================================
 // Video Validation (Storage Trigger)
 // ============================================================================
 
@@ -422,8 +427,9 @@ export const submitTrick = functions.https.onCall(
     const db = admin.firestore();
     const gameRef = db.doc(`game_sessions/${gameId}`);
 
-    // Use transaction to ensure atomic read-modify-write
-    const result = await db.runTransaction(async (transaction) => {
+    // Use monitored transaction to ensure atomic read-modify-write
+    // and track retry rates for production observability
+    const result = await monitoredTransaction(db, "submitTrick", gameId, async (transaction) => {
       const gameSnap = await transaction.get(gameRef);
 
       if (!gameSnap.exists) {
@@ -589,8 +595,9 @@ export const judgeTrick = functions.https.onCall(
     const db = admin.firestore();
     const gameRef = db.doc(`game_sessions/${gameId}`);
 
-    // Use transaction to ensure atomic read-modify-write
-    const result = await db.runTransaction(async (transaction) => {
+    // Use monitored transaction to ensure atomic read-modify-write
+    // and track retry rates for production observability
+    const result = await monitoredTransaction(db, "judgeTrick", gameId, async (transaction) => {
       const gameSnap = await transaction.get(gameRef);
 
       if (!gameSnap.exists) {
@@ -895,7 +902,7 @@ async function autoResolveVoteTimeout(
   const db = admin.firestore();
   const gameRef = db.doc(`game_sessions/${gameId}`);
 
-  await db.runTransaction(async (transaction) => {
+  await monitoredTransaction(db, "autoResolveVoteTimeout", gameId, async (transaction) => {
     // Re-read the game state to ensure we have latest data
     const freshSnap = await transaction.get(gameRef);
     if (!freshSnap.exists) return;

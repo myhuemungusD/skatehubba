@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense } from "react";
 import { useLocation, useSearch } from "wouter";
-import { Zap, Trophy, Gamepad2 } from "lucide-react";
+import { Zap, Trophy, Gamepad2, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
@@ -8,11 +8,13 @@ import { LoadingScreen } from "@/components/LoadingScreen";
 const ChallengeLobbyContent = lazy(() => import("./ChallengeLobby"));
 const LeaderboardContent = lazy(() => import("./leaderboard"));
 const SkateGameContent = lazy(() => import("./skate-game"));
+const RemoteSkateContent = lazy(() => import("./remote-skate"));
 
-type PlayTab = "lobby" | "rankings" | "active";
+type PlayTab = "lobby" | "rankings" | "active" | "remote";
 
 const tabs: { id: PlayTab; label: string; icon: typeof Zap; mobileLabel: string }[] = [
   { id: "lobby", label: "Challenge Lobby", icon: Zap, mobileLabel: "Lobby" },
+  { id: "remote", label: "Remote S.K.A.T.E.", icon: Video, mobileLabel: "Remote" },
   { id: "rankings", label: "Leaderboard", icon: Trophy, mobileLabel: "Rankings" },
   { id: "active", label: "Active Game", icon: Gamepad2, mobileLabel: "Play" },
 ];
@@ -75,6 +77,12 @@ export default function PlayPage() {
           {activeTab === "rankings" && (
             <section aria-label="Leaderboard Rankings">
               <LeaderboardContent />
+            </section>
+          )}
+
+          {activeTab === "remote" && (
+            <section aria-label="Remote SKATE">
+              <RemoteSkateContent />
             </section>
           )}
 

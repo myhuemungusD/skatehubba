@@ -11,17 +11,24 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import logger from "./logger.ts";
 import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
-import { apiLimiter, staticFileLimiter, securityMiddleware } from "./middleware/security.ts";
+import { apiLimiter, staticFileLimiter } from "./middleware/security.ts";
 import { requestTracing } from "./middleware/requestTracing.ts";
-import { initializeSocketServer, shutdownSocketServer, getSocketStats } from "./socket/index.ts";
+import { initializeSocketServer, shutdownSocketServer } from "./socket/index.ts";
 import { initializeDatabase } from "./db.ts";
 import { getRedisClient, shutdownRedis } from "./redis.ts";
+import { DEV_ORIGINS, BODY_PARSE_LIMIT, SERVER_PORT } from "./config/server.ts";
+import swaggerUi from "swagger-ui-express";
+import { generateOpenAPISpec } from "./api-docs/index.ts";
+import { metricsMiddleware, registerMonitoringRoutes } from "./monitoring/index.ts";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
+
+// Request metrics collection
+app.use(metricsMiddleware());
 
 // Request tracing — generate/propagate request ID before anything else
 app.use(requestTracing);
@@ -39,7 +46,7 @@ if (process.env.NODE_ENV === "production") {
           connectSrc: ["'self'", "https:"],
           fontSrc: ["'self'", "data:"],
           objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
+          mediaSrc: ["'self'", "https://firebasestorage.googleapis.com", "blob:"],
           frameSrc: ["'none'"],
         },
       },
@@ -54,9 +61,8 @@ const corsOptions = {
     callback: (err: Error | null, allow?: boolean) => void
   ) {
     const allowed = process.env.ALLOWED_ORIGINS?.split(",") || [];
-    const devOrigins = ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
     const allAllowed =
-      process.env.NODE_ENV === "production" ? allowed : [...allowed, ...devOrigins];
+      process.env.NODE_ENV === "production" ? allowed : [...allowed, ...DEV_ORIGINS];
     // Allow requests with no origin (mobile apps, server-to-server) or matching allowed domains
     if (!origin || allAllowed.indexOf(origin) !== -1) {
       callback(null, true);
@@ -71,12 +77,25 @@ app.use(cors(corsOptions));
 // Compression
 app.use(compression());
 
+// OpenAPI / Swagger UI — served before auth/CSRF since docs are public
+const openApiSpec = generateOpenAPISpec();
+app.get("/api/docs/openapi.json", (_req, res) => res.json(openApiSpec));
+app.use(
+  "/api/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(openApiSpec, {
+    customSiteTitle: "SkateHubba API Docs",
+    customCss: ".swagger-ui .topbar { background-color: #667eea; }",
+    swaggerOptions: { persistAuthorization: true },
+  })
+);
+
 // Raw body for Stripe webhook signature verification (MUST precede express.json())
 app.use("/webhooks/stripe", express.raw({ type: "application/json" }));
 
 // Body parsing (before CSRF to enable JSON/form requests)
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: BODY_PARSE_LIMIT }));
+app.use(express.urlencoded({ extended: true, limit: BODY_PARSE_LIMIT }));
 
 // Cookie parsing - MUST come before CSRF token creation
 // lgtm[js/missing-token-validation] - CSRF protection is implemented via ensureCsrfToken/requireCsrfToken below
@@ -91,7 +110,6 @@ app.use(cookieParser());
 app.use(ensureCsrfToken);
 
 // Global rate limiting for all API routes (before CSRF validation for better error handling)
-app.use("/api", securityMiddleware);
 app.use("/api", apiLimiter);
 
 // Global CSRF validation for all state-changing API requests
@@ -110,20 +128,8 @@ await initializeDatabase();
 const io = initializeSocketServer(server);
 logger.info("[Server] WebSocket server initialized");
 
-// Health check endpoint with socket stats
-app.get("/api/health", async (req, res) => {
-  const stats = await getSocketStats();
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    requestId: req.requestId,
-    websocket: {
-      connections: stats.connections,
-      rooms: stats.rooms.totalRooms,
-      onlineUsers: stats.presence.online,
-    },
-  });
-});
+// Monitoring: health checks, readiness probes, system status
+registerMonitoringRoutes(app);
 
 // Setup Vite dev server or production static file serving
 if (process.env.NODE_ENV === "development") {
@@ -174,7 +180,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Start server
-const port = parseInt(process.env.PORT || "3001", 10);
+const port = SERVER_PORT;
 server.listen(port, "0.0.0.0", () => {
   const mode = process.env.NODE_ENV || "development";
   if (mode === "development") {

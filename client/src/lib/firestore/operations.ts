@@ -1,49 +1,49 @@
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc, 
+import {
+  collection,
+  doc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
   addDoc,
   getDoc,
   getDocs,
   query,
   QueryConstraint,
   Timestamp,
-  serverTimestamp
-} from 'firebase/firestore';
-import { db } from '../firebase';
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "../firebase";
 
 export const firestoreCollections = {
-  users: 'users',
-  chatMessages: 'chat_messages',
-  gameSessions: 'game_sessions',
-  notifications: 'notifications',
-  activeCheckins: 'active_checkins',
-  challengeVotes: 'challenge_votes',
-  leaderboardLive: 'leaderboard_live',
+  users: "users",
+  chatMessages: "chat_messages",
+  gameSessions: "game_sessions",
+  notifications: "notifications",
+  activeCheckins: "active_checkins",
+  challengeVotes: "challenge_votes",
+  leaderboardLive: "leaderboard_live",
 } as const;
 
-export type FirestoreCollection = typeof firestoreCollections[keyof typeof firestoreCollections];
+export type FirestoreCollection = (typeof firestoreCollections)[keyof typeof firestoreCollections];
 
-export async function createDocument<T extends Record<string, any>>(
+export async function createDocument<T extends Record<string, unknown>>(
   collectionPath: FirestoreCollection,
   data: T,
   customId?: string
 ): Promise<string> {
   const collectionRef = collection(db, collectionPath);
-  
+
   if (customId) {
     const docRef = doc(collectionRef, customId);
     await setDoc(docRef, {
       ...data,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
     });
     return customId;
   } else {
     const docRef = await addDoc(collectionRef, {
       ...data,
-      createdAt: serverTimestamp()
+      createdAt: serverTimestamp(),
     });
     return docRef.id;
   }
@@ -52,13 +52,11 @@ export async function createDocument<T extends Record<string, any>>(
 export async function updateDocument(
   collectionPath: FirestoreCollection,
   documentId: string,
-  data: Record<string, any>,
+  data: Record<string, unknown>,
   options: { addTimestamp?: boolean } = { addTimestamp: false }
 ): Promise<void> {
   const docRef = doc(db, collectionPath, documentId);
-  const updateData = options.addTimestamp 
-    ? { ...data, updatedAt: serverTimestamp() }
-    : data;
+  const updateData = options.addTimestamp ? { ...data, updatedAt: serverTimestamp() } : data;
   await updateDoc(docRef, updateData);
 }
 
@@ -70,34 +68,34 @@ export async function deleteDocument(
   await deleteDoc(docRef);
 }
 
-export async function getDocument<T = any>(
+export async function getDocument<T = Record<string, unknown>>(
   collectionPath: FirestoreCollection,
   documentId: string
 ): Promise<T | null> {
   const docRef = doc(db, collectionPath, documentId);
   const snapshot = await getDoc(docRef);
-  
+
   if (snapshot.exists()) {
     return {
       id: snapshot.id,
-      ...snapshot.data()
+      ...snapshot.data(),
     } as T;
   }
-  
+
   return null;
 }
 
-export async function queryDocuments<T = any>(
+export async function queryDocuments<T = Record<string, unknown>>(
   collectionPath: FirestoreCollection,
   constraints: QueryConstraint[]
 ): Promise<T[]> {
   const collectionRef = collection(db, collectionPath);
   const q = query(collectionRef, ...constraints);
   const snapshot = await getDocs(q);
-  
-  return snapshot.docs.map(doc => ({
+
+  return snapshot.docs.map((doc) => ({
     id: doc.id,
-    ...doc.data()
+    ...doc.data(),
   })) as T[];
 }
 

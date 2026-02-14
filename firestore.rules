@@ -290,6 +290,10 @@ service cloud.firestore {
 
     // =========================================================================
     // GAME SESSIONS (Real-time SKATE)
+    // All mutations go through Cloud Functions (submitTrick, judgeTrick,
+    // processVoteTimeouts) which use Admin SDK. Direct client writes are
+    // blocked to prevent bypassing server-side validation and race condition
+    // protections. See docs/RACE_CONDITIONS.md for details.
     // =========================================================================
 
     match /game_sessions/{gameId} {
@@ -297,32 +301,7 @@ service cloud.firestore {
         && (resource.data.player1Id == request.auth.uid
             || resource.data.player2Id == request.auth.uid);
 
-      allow create: if isAuthenticated()
-        && hasRequiredFields(['player1Id', 'player2Id', 'currentTurn', 'status', 'createdAt'])
-        && (request.resource.data.player1Id == request.auth.uid
-            || request.resource.data.player2Id == request.auth.uid)
-        && request.resource.data.player1Id != request.resource.data.player2Id
-        && request.resource.data.status == 'waiting'
-        && request.resource.data.currentTurn in [
-          request.resource.data.player1Id,
-          request.resource.data.player2Id
-        ]
-        && isRecentTimestamp('createdAt');
-
-      allow update: if isAuthenticated()
-        && isGameParticipant(resource.data)
-        && (
-          (resource.data.currentTurn == request.auth.uid && resource.data.status == 'active')
-          || (request.auth.uid == resource.data.player2Id && resource.data.status == 'waiting')
-        )
-        && request.resource.data.player1Id == resource.data.player1Id
-        && request.resource.data.player2Id == resource.data.player2Id
-        && request.resource.data.createdAt == resource.data.createdAt
-        && request.resource.data.status in ['waiting', 'active', 'completed', 'abandoned']
-        && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
-
-      allow delete: if isAuthenticated()
-        && isGameParticipant(resource.data);
+      allow create, update, delete: if false;
     }
 
     // =========================================================================
@@ -516,6 +495,110 @@ service cloud.firestore {
       allow delete: if isAuthenticated()
         && resource.data.createdBy == request.auth.uid
         && resource.data.status == 'pending';
+    }
+
+    // =========================================================================
+    // REMOTE S.K.A.T.E. - Video-verified games
+    // =========================================================================
+
+    // Helper: check if user is a participant in a remote SKATE game
+    function isRemoteGameParticipant(gameData) {
+      return isAuthenticated()
+        && (gameData.playerAUid == request.auth.uid
+            || gameData.playerBUid == request.auth.uid);
+    }
+
+    // Games collection
+    match /games/{gameId} {
+      // Only participants can read
+      allow read: if isAuthenticated()
+        && (resource.data.playerAUid == request.auth.uid
+            || resource.data.playerBUid == request.auth.uid);
+
+      // Creator can create (playerA = self, playerB = null, status = waiting)
+      allow create: if isAuthenticated()
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.playerAUid == request.auth.uid
+        && request.resource.data.playerBUid == null
+        && request.resource.data.status == 'waiting';
+
+      // Participants can update (join, turn changes)
+      // Resolution and letter changes are server-trusted via Admin SDK
+      allow update: if isAuthenticated()
+        && (
+          // Player B joining a waiting game
+          (resource.data.status == 'waiting'
+           && resource.data.playerBUid == null
+           && request.auth.uid != resource.data.playerAUid
+           && request.resource.data.playerBUid == request.auth.uid
+           && request.resource.data.status == 'active'
+           && request.resource.data.playerAUid == resource.data.playerAUid
+           && request.resource.data.createdByUid == resource.data.createdByUid
+           && request.resource.data.createdAt == resource.data.createdAt)
+          ||
+          // Current turn player updating turn/lastMoveAt (for set/reply completion)
+          (resource.data.status == 'active'
+           && isRemoteGameParticipant(resource.data)
+           && request.resource.data.status == 'active'
+           && request.resource.data.playerAUid == resource.data.playerAUid
+           && request.resource.data.playerBUid == resource.data.playerBUid
+           && request.resource.data.createdByUid == resource.data.createdByUid
+           && request.resource.data.createdAt == resource.data.createdAt)
+        );
+
+      allow delete: if false;
+
+      // Rounds subcollection
+      match /rounds/{roundId} {
+        // Participants can read rounds
+        allow read: if isAuthenticated()
+          && (get(/databases/$(db)/documents/games/$(gameId)).data.playerAUid == request.auth.uid
+              || get(/databases/$(db)/documents/games/$(gameId)).data.playerBUid == request.auth.uid);
+
+        // Participants can create rounds (first round on join)
+        allow create: if isAuthenticated()
+          && (get(/databases/$(db)/documents/games/$(gameId)).data.playerAUid == request.auth.uid
+              || get(/databases/$(db)/documents/games/$(gameId)).data.playerBUid == request.auth.uid)
+          && request.resource.data.status == 'awaiting_set';
+
+        // Participants can update rounds (set video ID, reply video ID, status transitions)
+        // Resolution (status=resolved, result) is server-only via Admin SDK
+        allow update: if isAuthenticated()
+          && (get(/databases/$(db)/documents/games/$(gameId)).data.playerAUid == request.auth.uid
+              || get(/databases/$(db)/documents/games/$(gameId)).data.playerBUid == request.auth.uid)
+          && request.resource.data.offenseUid == resource.data.offenseUid
+          && request.resource.data.defenseUid == resource.data.defenseUid
+          && request.resource.data.createdAt == resource.data.createdAt
+          // Cannot set result or resolved status from client
+          && (request.resource.data.status == 'awaiting_set'
+              || request.resource.data.status == 'awaiting_reply');
+
+        allow delete: if false;
+      }
+    }
+
+    // Videos collection
+    match /videos/{videoId} {
+      // Only creator can read their own video docs
+      // Game participants can read via the video's gameId
+      allow read: if isAuthenticated()
+        && (resource.data.uid == request.auth.uid
+            || (get(/databases/$(db)/documents/games/$(resource.data.gameId)).data.playerAUid == request.auth.uid
+                || get(/databases/$(db)/documents/games/$(resource.data.gameId)).data.playerBUid == request.auth.uid));
+
+      // Only creator can create video docs (uid must match auth)
+      allow create: if isAuthenticated()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'uploading';
+
+      // Only creator can update their video doc
+      allow update: if isAuthenticated()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.gameId == resource.data.gameId
+        && request.resource.data.roundId == resource.data.roundId;
+
+      allow delete: if false;
     }
 
     // =========================================================================

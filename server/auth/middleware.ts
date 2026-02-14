@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
 import { AuthService } from "./service.ts";
-import type { CustomUser as _CustomUser } from "../../packages/shared/schema.ts";
+import type { CustomUser as _CustomUser } from "../../packages/shared/schema/index";
 import type { AuthenticatedUser as _AuthenticatedUser } from "../types/express.d.ts";
 import { admin } from "../admin.ts";
 import "../types/express.d.ts";
@@ -35,8 +35,11 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
 
   try {
     // Dev-only admin bypass — allows e2e testing without Firebase auth
-    // BLOCKED in production: only active when NODE_ENV !== "production"
-    if (process.env.NODE_ENV !== "production" && req.headers["x-dev-admin"] === "true") {
+    // BLOCKED in staging and production: only active in development and test
+    if (
+      (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") &&
+      req.headers["x-dev-admin"] === "true"
+    ) {
       req.currentUser = {
         id: "dev-admin-000",
         firebaseUid: "dev-admin-uid",
@@ -298,7 +301,14 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
   }
 
   try {
-    // Check Firebase custom claims for admin role
+    // Check roles already populated by authenticateUser (covers both
+    // cookie-authenticated and bearer-token-authenticated admins)
+    if (req.currentUser.roles?.includes("admin")) {
+      return next();
+    }
+
+    // Fallback: re-verify Firebase custom claims from Authorization header
+    // (in case authenticateUser didn't populate roles for this path)
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
@@ -308,9 +318,6 @@ export const requireAdmin = async (req: Request, res: Response, next: NextFuncti
         return next();
       }
     }
-
-    // Fallback: Check database for admin flag (if implemented)
-    // This is a placeholder for your admin check logic
 
     return res.status(403).json({
       error: "Admin access required",

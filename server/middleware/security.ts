@@ -15,18 +15,9 @@ function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined
 
   return new RedisStore({
     sendCommand: (...args: string[]) =>
-      redis.call(...(args as [string, ...string[]])) as Promise<any>,
+      redis.call(...(args as [string, ...string[]])) as Promise<number>,
     prefix,
   });
-}
-
-/**
- * Security middleware: bypass static/public assets, apply to everything else.
- * Keep heavy checks (auth/rate limit) on /api paths in the server bootstrap.
- */
-export function securityMiddleware(_req: Request, _res: Response, next: NextFunction) {
-  // Currently a pass-through middleware; add security checks for non-public paths if needed.
-  next();
 }
 
 const RL = RATE_LIMIT_CONFIG;
@@ -43,22 +34,6 @@ export const emailSignupLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   store: buildStore(RL.emailSignup.prefix),
-});
-
-/**
- * Rate limiter for authentication endpoints (login/register)
- * Limits to 10 authentication attempts per 15 minutes per IP address
- * Does not count successful logins, only failed attempts
- * Helps prevent brute force attacks
- */
-export const authLimiter = rateLimit({
-  windowMs: RL.auth.windowMs,
-  max: RL.auth.max,
-  message: { error: RL.auth.message },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  store: buildStore(RL.auth.prefix),
 });
 
 /**
@@ -203,6 +178,57 @@ export const staticFileLimiter = rateLimit({
     const staticExtensions = /\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/i;
     return staticExtensions.test(req.path);
   },
+});
+
+/**
+ * Rate limiter for quick match requests
+ */
+export const quickMatchLimiter = rateLimit({
+  windowMs: RL.quickMatch.windowMs,
+  max: RL.quickMatch.max,
+  message: { error: RL.quickMatch.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.quickMatch.prefix),
+});
+
+/**
+ * Rate limiter for spot rating requests
+ */
+export const spotRatingLimiter = rateLimit({
+  windowMs: RL.spotRating.windowMs,
+  max: RL.spotRating.max,
+  message: { error: RL.spotRating.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.spotRating.prefix),
+});
+
+/**
+ * Rate limiter for spot discovery requests
+ */
+export const spotDiscoveryLimiter = rateLimit({
+  windowMs: RL.spotDiscovery.windowMs,
+  max: RL.spotDiscovery.max,
+  message: { error: RL.spotDiscovery.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: buildStore(RL.spotDiscovery.prefix),
+});
+
+/**
+ * Rate limiter for pro award requests
+ */
+export const proAwardLimiter = rateLimit({
+  windowMs: RL.proAward.windowMs,
+  max: RL.proAward.max,
+  message: { error: RL.proAward.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.proAward.prefix),
 });
 
 /**

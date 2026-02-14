@@ -1,0 +1,28 @@
+{
+  "lifecycle": {
+    "rule": [
+      {
+        "action": {
+          "type": "SetStorageClass",
+          "storageClass": "NEARLINE"
+        },
+        "condition": {
+          "age": 90,
+          "matchesPrefix": ["videos/", "trickmint/"],
+          "matchesSuffix": [".webm", ".mp4", ".mov"]
+        }
+      },
+      {
+        "action": {
+          "type": "SetStorageClass",
+          "storageClass": "COLDLINE"
+        },
+        "condition": {
+          "age": 365,
+          "matchesPrefix": ["videos/", "trickmint/"],
+          "matchesSuffix": [".webm", ".mp4", ".mov"]
+        }
+      }
+    ]
+  }
+}

@@ -2,9 +2,9 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { getDb } from "../db.ts";
-import { customUsers, authSessions } from "../../packages/shared/schema.ts";
+import { customUsers, authSessions } from "../../packages/shared/schema/index";
 import { eq, and, gt } from "drizzle-orm";
-import type { CustomUser, InsertCustomUser, AuthSession } from "../../packages/shared/schema.ts";
+import type { CustomUser, InsertCustomUser, AuthSession } from "../../packages/shared/schema/index";
 import { env } from "../config/env";
 
 /**
@@ -104,6 +104,7 @@ export class AuthService {
     firstName: string;
     lastName: string;
     firebaseUid?: string;
+    isEmailVerified?: boolean;
   }): Promise<{ user: CustomUser; emailToken: string }> {
     const passwordHash = userData.firebaseUid
       ? "firebase-auth-user" // Placeholder for Firebase users
@@ -121,7 +122,7 @@ export class AuthService {
         firebaseUid: userData.firebaseUid || null,
         emailVerificationToken: emailToken,
         emailVerificationExpires: emailTokenExpiry,
-        isEmailVerified: !!userData.firebaseUid, // Firebase users are auto-verified
+        isEmailVerified: userData.isEmailVerified ?? false,
         isActive: true,
       })
       .returning();
@@ -222,19 +223,28 @@ export class AuthService {
   }
 
   /**
+   * Hash a session token for storage.
+   * Only the hash is persisted; the raw JWT is never stored in the database.
+   */
+  static hashToken(token: string): string {
+    return crypto.createHash("sha256").update(token).digest("hex");
+  }
+
+  /**
    * Create a new authentication session for a user
    * @param userId - User ID to create session for
    * @returns Promise resolving to JWT token and session record
    */
   static async createSession(userId: string): Promise<{ token: string; session: AuthSession }> {
     const token = this.generateJWT(userId);
+    const tokenHash = this.hashToken(token);
     const expiresAt = new Date(Date.now() + this.TOKEN_EXPIRY);
 
     const [session] = await getDb()
       .insert(authSessions)
       .values({
         userId,
-        token,
+        token: tokenHash,
         expiresAt,
       })
       .returning();
@@ -252,11 +262,12 @@ export class AuthService {
     const decoded = this.verifyJWT(token);
     if (!decoded) return null;
 
-    // Check if session exists and is valid
+    // Look up session by token hash (raw token is never stored)
+    const tokenHash = this.hashToken(token);
     const [session] = await getDb()
       .select()
       .from(authSessions)
-      .where(and(eq(authSessions.token, token), gt(authSessions.expiresAt, new Date())));
+      .where(and(eq(authSessions.token, tokenHash), gt(authSessions.expiresAt, new Date())));
 
     if (!session) return null;
 
@@ -270,7 +281,8 @@ export class AuthService {
    * @returns Promise that resolves when session is deleted
    */
   static async deleteSession(token: string): Promise<void> {
-    await getDb().delete(authSessions).where(eq(authSessions.token, token));
+    const tokenHash = this.hashToken(token);
+    await getDb().delete(authSessions).where(eq(authSessions.token, tokenHash));
   }
 
   /**

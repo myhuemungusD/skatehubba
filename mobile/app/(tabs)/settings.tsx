@@ -1,12 +1,23 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Switch,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase.config";
 import { useState, useEffect, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
+import { removePushTokenFromServer } from "@/lib/pushNotifications";
 
 type SettingItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -48,7 +59,7 @@ function SettingItem({
   );
 }
 
-export default function SettingsScreen() {
+function SettingsScreenContent() {
   const { user, isAuthenticated } = useRequireAuth();
   const router = useRouter();
   const [pushEnabled, setPushEnabled] = useState(true);
@@ -58,12 +69,14 @@ export default function SettingsScreen() {
   // Load notification preferences from server
   useEffect(() => {
     if (!isAuthenticated) return;
-    apiRequest("/api/notifications/preferences")
-      .then((prefs: any) => {
+    apiRequest<{ pushEnabled?: boolean; emailEnabled?: boolean }>("/api/notifications/preferences")
+      .then((prefs) => {
         if (prefs.pushEnabled !== undefined) setPushEnabled(prefs.pushEnabled);
         if (prefs.emailEnabled !== undefined) setEmailEnabled(prefs.emailEnabled);
       })
-      .catch(() => { /* use defaults */ });
+      .catch(() => {
+        /* use defaults */
+      });
   }, [isAuthenticated]);
 
   const updatePref = useCallback(async (key: string, value: boolean) => {
@@ -85,6 +98,7 @@ export default function SettingsScreen() {
         style: "destructive",
         onPress: async () => {
           try {
+            await removePushTokenFromServer();
             await signOut(auth);
             router.replace("/(tabs)");
           } catch (error) {
@@ -97,19 +111,8 @@ export default function SettingsScreen() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      "Delete Account",
-      "This action cannot be undone. All your data will be permanently deleted.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            // Would implement account deletion here
-            Alert.alert("Coming Soon", "Account deletion will be available soon.");
-          },
-        },
-      ]
+      "Coming Soon",
+      "Account deletion is not yet available. When launched, this will permanently remove all your data, game history, and profile information."
     );
   };
 
@@ -133,7 +136,7 @@ export default function SettingsScreen() {
             icon="person"
             title="Edit Profile"
             subtitle="Update your name, photo, and bio"
-            onPress={() => router.push(`/profile/${user?.uid}` as any)}
+            onPress={() => router.push(`/profile/${user?.uid}`)}
           />
           <SettingItem
             icon="mail"
@@ -217,12 +220,14 @@ export default function SettingsScreen() {
           <SettingItem
             icon="help-circle"
             title="Help & FAQ"
-            onPress={() => Alert.alert("Coming Soon", "Help section will be available soon.")}
+            onPress={() =>
+              Alert.alert("Coming Soon", "Help & FAQ section is coming soon. Stay tuned!")
+            }
           />
           <SettingItem
             icon="chatbubble"
             title="Contact Us"
-            onPress={() => Alert.alert("Coming Soon", "Contact form will be available soon.")}
+            onPress={() => Alert.alert("Coming Soon", "Contact form is coming soon. Stay tuned!")}
           />
           <SettingItem
             icon="document-text"
@@ -265,6 +270,14 @@ export default function SettingsScreen() {
 
       <View style={styles.bottomPadding} />
     </ScrollView>
+  );
+}
+
+export default function SettingsScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Settings">
+      <SettingsScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 

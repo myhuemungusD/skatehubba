@@ -6,6 +6,7 @@
 
 import { apiRequest } from "../client";
 import type {
+  Game,
   GameWithDetails,
   MyGames,
   CreateGameRequest,
@@ -80,7 +81,7 @@ export const gameApi = {
     });
   },
 
-  async forfeitGame(gameId: string): Promise<{ game: any; message: string }> {
+  async forfeitGame(gameId: string): Promise<{ game: Game; message: string }> {
     return apiRequest({
       method: "POST",
       path: `/api/games/${gameId}/forfeit`,

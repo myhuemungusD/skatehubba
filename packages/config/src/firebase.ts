@@ -7,7 +7,8 @@
  * @module @skatehubba/config/firebase
  */
 
-import { getPublicEnvOptional, getAppEnv, type AppEnv } from "./publicEnv";
+import { getEnvOptional, getAppEnv, type AppEnv } from "./env";
+import { globals } from "./globals";
 
 /**
  * Firebase configuration interface
@@ -42,36 +43,92 @@ const REQUIRED_FIREBASE_VARS = [
   "EXPO_PUBLIC_FIREBASE_API_KEY",
   "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
   "EXPO_PUBLIC_FIREBASE_APP_ID",
+  "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
+  "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
+  "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
 ] as const;
 
+function normalizeEnvValue(value: string | undefined | null): string | undefined {
+  if (!value) return undefined;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.toLowerCase() === "undefined" || trimmed.toLowerCase() === "null") {
+    return undefined;
+  }
+  return trimmed;
+}
+
 function buildConfigFromEnv(): FirebaseConfig | null {
-  const apiKey = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_API_KEY");
-  const projectId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_PROJECT_ID");
-  const appId = getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID");
+  const apiKey = normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_API_KEY"));
+  const projectId = normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_PROJECT_ID"));
+  const appId = normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID"));
 
   if (!apiKey || !projectId || !appId) return null;
 
+  const authDomain =
+    normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN")) ||
+    `${projectId}.firebaseapp.com`;
+
+  const storageBucket =
+    normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET")) ||
+    `${projectId}.firebasestorage.app`;
+
+  const messagingSenderId =
+    normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID")) || "";
+
+  const measurementId = normalizeEnvValue(getEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"));
+
   return {
     apiKey,
-    authDomain:
-      getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN") || `${projectId}.firebaseapp.com`,
+    authDomain,
     projectId,
-    storageBucket:
-      getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET") ||
-      `${projectId}.firebasestorage.app`,
-    messagingSenderId: getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID") || "",
+    storageBucket,
+    messagingSenderId,
     appId,
-    measurementId: getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID"),
+    measurementId,
   };
 }
+
+/**
+ * Detect CI / build environments where Firebase is never actually called.
+ *
+ * Vercel sets CI=1 during builds; GitHub Actions sets CI=true.
+ * Vitest sets VITEST=true. We also check NODE_ENV=test.
+ *
+ * At *runtime* on Vercel (serverless / edge) CI is NOT set, so a missing
+ * config will still hard-fail there.
+ */
+function isBuildOrTest(): boolean {
+  try {
+    const env = globals.process?.env;
+    if (!env) return false;
+    return env.CI === "true" || env.CI === "1" || env.VITEST === "true" || env.NODE_ENV === "test";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Placeholder config returned during CI / build when env vars are missing.
+ * Firebase SDK will never be called during builds, so these values are inert.
+ */
+const CI_PLACEHOLDER_CONFIG: FirebaseConfig = {
+  apiKey: "CI_PLACEHOLDER",
+  authDomain: "placeholder.firebaseapp.com",
+  projectId: "ci-placeholder",
+  storageBucket: "ci-placeholder.firebasestorage.app",
+  messagingSenderId: "000000000000",
+  appId: "1:000000000000:web:placeholder",
+};
 
 /**
  * Get Firebase config for the current environment.
  *
  * All values are read from environment variables. If the required variables
- * (API key, project ID, app ID) are missing the function throws so that
- * misconfigurations are caught immediately rather than silently falling back
- * to stale hardcoded credentials.
+ * (API key, project ID, app ID) are missing:
+ * - During CI / build / test: returns a placeholder config with a warning
+ *   so builds and tests don't crash on modules that transitively import this.
+ * - At runtime: throws so misconfigurations are caught immediately rather
+ *   than silently falling back to stale hardcoded credentials.
  */
 export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): FirebaseConfig {
   const env = getAppEnv();
@@ -82,11 +139,19 @@ export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): Fire
     return config;
   }
 
-  const missing = REQUIRED_FIREBASE_VARS.filter((v) => !getPublicEnvOptional(v));
-  throw new Error(
+  const missing = REQUIRED_FIREBASE_VARS.filter((v) => !getEnvOptional(v));
+  const message =
     `[Firebase] Missing required environment variables: ${missing.join(", ")}. ` +
-      `Set these in your .env file or deployment environment. See .env.example for reference.`
-  );
+    `Set these in your .env file or deployment environment. See .env.example for reference.`;
+
+  // During CI / build / test, warn but don't crash — Firebase is never
+  // actually initialised during these steps.
+  if (isBuildOrTest()) {
+    console.warn(message + " (using CI placeholder config)");
+    return CI_PLACEHOLDER_CONFIG;
+  }
+
+  throw new Error(message);
 }
 
 /**
@@ -98,11 +163,11 @@ export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): Fire
 export function getExpectedAppId(env: AppEnv): string {
   switch (env) {
     case "prod":
-      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_PROD") || "";
+      return getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_PROD") || "";
     case "staging":
-      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_STAGING") || "";
+      return getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID_STAGING") || "";
     default:
-      return getPublicEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID") || "";
+      return getEnvOptional("EXPO_PUBLIC_FIREBASE_APP_ID") || "";
   }
 }
 

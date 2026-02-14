@@ -9,7 +9,7 @@ export interface FeedCheckIn {
   spotName: string;
   displayName: string;
   trick?: string;
-  points?: number;
+  xp?: number;
   checkedInAt: Date;
   photoUrl?: string;
 }
@@ -20,7 +20,7 @@ interface FirestoreCheckIn {
   spotName?: string;
   displayName?: string;
   trick?: string;
-  points?: number;
+  xp?: number;
   checkedInAt?: Timestamp | Date | string;
   photoUrl?: string;
 }
@@ -40,7 +40,7 @@ const toFeedCheckIn = (item: FirestoreCheckIn): FeedCheckIn => {
     spotName: item.spotName ?? "Unknown spot",
     displayName: item.displayName ?? "Skater",
     trick: item.trick,
-    points: item.points,
+    xp: item.xp,
     checkedInAt: toDate(item.checkedInAt),
     photoUrl: item.photoUrl,
   };

@@ -2,6 +2,7 @@ import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { db, type Database } from "../db";
 import { checkIns, spots } from "@shared/schema";
 import { logServerEvent } from "./analyticsService";
+import { MAX_ACCURACY_BONUS_METERS } from "../config/constants";
 
 const EARTH_RADIUS_KM = 6371;
 // Base check-in radius in meters. 50m accounts for typical GPS accuracy (5-50m)
@@ -108,7 +109,7 @@ export async function verifyAndCheckIn(
 
   // Effective radius accounts for GPS inaccuracy: base radius + reported accuracy,
   // capped at MAX to prevent abuse via inflated accuracy values.
-  const accuracyBonus = accuracy && accuracy > 0 ? Math.min(accuracy, 100) : 0;
+  const accuracyBonus = accuracy && accuracy > 0 ? Math.min(accuracy, MAX_ACCURACY_BONUS_METERS) : 0;
   const effectiveRadius = Math.min(
     CHECK_IN_RADIUS_METERS + accuracyBonus,
     MAX_CHECK_IN_RADIUS_METERS

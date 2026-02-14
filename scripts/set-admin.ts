@@ -20,7 +20,7 @@ import * as path from "path";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import { eq } from "drizzle-orm";
-import { users } from "../packages/shared/schema";
+import { customUsers } from "../packages/shared/schema";
 
 const { Pool } = pg;
 
@@ -78,7 +78,7 @@ function isValidEmail(email: string): boolean {
 async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   maxRetries: number = 3,
-  operation: string = 'operation'
+  operation: string = "operation"
 ): Promise<T> {
   let lastError: Error;
 
@@ -92,7 +92,7 @@ async function retryWithBackoff<T>(
         const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
         console.warn(`⚠️  ${operation} failed (attempt ${attempt + 1}/${maxRetries})`);
         console.warn(`   Retrying in ${delay}ms...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
+        await new Promise((resolve) => setTimeout(resolve, delay));
       }
     }
   }
@@ -105,12 +105,12 @@ async function retryWithBackoff<T>(
  */
 async function rollbackFirebaseClaims(uid: string): Promise<void> {
   try {
-    console.log('🔄 Rolling back Firebase custom claims...');
+    console.log("🔄 Rolling back Firebase custom claims...");
     await admin.auth().setCustomUserClaims(uid, null);
-    console.log('✅ Firebase claims rolled back successfully');
+    console.log("✅ Firebase claims rolled back successfully");
   } catch (error) {
-    console.error('⚠️  Failed to rollback Firebase claims:', (error as Error).message);
-    console.error('   You may need to manually remove claims for user:', uid);
+    console.error("⚠️  Failed to rollback Firebase claims:", (error as Error).message);
+    console.error("   You may need to manually remove claims for user:", uid);
   }
 }
 
@@ -122,7 +122,7 @@ async function grantGodMode() {
     // Validate email format
     if (!isValidEmail(TARGET_EMAIL)) {
       console.error(`❌ ERROR: Invalid email format: ${TARGET_EMAIL}`);
-      console.error('   Expected format: user@example.com');
+      console.error("   Expected format: user@example.com");
       process.exit(1);
     }
 
@@ -132,7 +132,7 @@ async function grantGodMode() {
     const user = await retryWithBackoff(
       () => admin.auth().getUserByEmail(TARGET_EMAIL),
       3,
-      'Firebase user lookup'
+      "Firebase user lookup"
     );
 
     userUid = user.uid;
@@ -143,7 +143,7 @@ async function grantGodMode() {
     await retryWithBackoff(
       () => admin.auth().setCustomUserClaims(user.uid, { roles: ROLES }),
       3,
-      'Setting Firebase custom claims'
+      "Setting Firebase custom claims"
     );
     claimsSet = true;
     console.log(`   ✅ Custom claims set: [${ROLES.join(", ")}]`);
@@ -153,33 +153,24 @@ async function grantGodMode() {
 
     const existing = await retryWithBackoff(
       async () => {
-        const result = await db.select().from(users).where(eq(users.id, user.uid)).limit(1);
+        const result = await db
+          .select()
+          .from(customUsers)
+          .where(eq(customUsers.id, user.uid))
+          .limit(1);
         return result;
       },
       3,
-      'PostgreSQL user lookup'
+      "PostgreSQL user lookup"
     );
 
     if (existing.length === 0) {
-      console.log(`   Creating user record in PostgreSQL...`);
-      try {
-        await retryWithBackoff(
-          () => db.insert(users).values({
-            id: user.uid,
-            email: user.email || TARGET_EMAIL,
-          }),
-          3,
-          'PostgreSQL user insert'
-        );
-        console.log("   ✅ Created user record in PostgreSQL");
-      } catch (dbError) {
-        // If PostgreSQL fails, rollback Firebase claims
-        console.error(`❌ Failed to create user in PostgreSQL: ${(dbError as Error).message}`);
-        await rollbackFirebaseClaims(user.uid);
-        throw dbError;
-      }
+      console.warn("   ⚠️  User does not exist in custom_users table.");
+      console.warn(
+        "   The user must register through the app first before admin access takes effect."
+      );
     } else {
-      console.log("   ✅ User already exists in PostgreSQL");
+      console.log("   ✅ User exists in PostgreSQL (custom_users)");
     }
 
     console.log("");
@@ -201,10 +192,13 @@ async function grantGodMode() {
     if (firebaseError.code === "auth/user-not-found") {
       console.error(`❌ ERROR: No user found with email: ${TARGET_EMAIL}`);
       console.error("   Make sure the user has signed up first.");
-    } else if (firebaseError.message?.includes('serviceAccountKey.json')) {
+    } else if (firebaseError.message?.includes("serviceAccountKey.json")) {
       console.error("❌ ERROR: Firebase initialization failed");
       console.error("   Ensure serviceAccountKey.json is valid and properly formatted.");
-    } else if (firebaseError.message?.includes('PostgreSQL') || firebaseError.message?.includes('database')) {
+    } else if (
+      firebaseError.message?.includes("PostgreSQL") ||
+      firebaseError.message?.includes("database")
+    ) {
       console.error(`❌ ERROR: Database operation failed`);
       console.error(`   ${firebaseError.message}`);
       console.error("");
@@ -212,13 +206,7 @@ async function grantGodMode() {
       console.error("   1. Verify DATABASE_URL is correct");
       console.error("   2. Ensure PostgreSQL server is running");
       console.error("   3. Check database permissions");
-      console.error("   4. Verify the 'users' table exists");
-
-      // If claims were set but DB failed, they've already been rolled back
-      if (claimsSet && userUid) {
-        console.error("");
-        console.error("   Note: Firebase claims have been rolled back.");
-      }
+      console.error("   4. Verify the 'custom_users' table exists");
     } else {
       console.error("❌ ERROR:", firebaseError.message || error);
     }
@@ -237,7 +225,7 @@ async function cleanupAndExit(code: number): Promise<void> {
   try {
     await pool.end();
   } catch (error) {
-    console.error('⚠️  Warning: Failed to close database pool:', (error as Error).message);
+    console.error("⚠️  Warning: Failed to close database pool:", (error as Error).message);
   }
 
   process.exit(code);

@@ -29,9 +29,10 @@ import { cn } from "../lib/utils";
 import { trickmintApi } from "../lib/api/trickmint";
 import type { TrickClip } from "../lib/api/trickmint";
 import { extractThumbnail } from "../lib/video/thumbnailExtractor";
+import type { FirebaseStorage } from "firebase/storage";
 
 // Lazy-loaded Firebase Storage
-let storageInstance: any = null;
+let storageInstance: FirebaseStorage | null = null;
 async function getFirebaseStorage() {
   if (!storageInstance) {
     const { getStorage } = await import("firebase/storage");
@@ -45,8 +46,21 @@ async function uploadBlob(path: string, blob: Blob): Promise<string> {
   const { ref, uploadBytes, getDownloadURL } = await import("firebase/storage");
   const storage = await getFirebaseStorage();
   const storageRef = ref(storage, path);
-  await uploadBytes(storageRef, blob);
+  // Set immutable cache headers to reduce GCS egress on repeat views
+  await uploadBytes(storageRef, blob, {
+    cacheControl: "public, max-age=31536000, immutable",
+  });
   return getDownloadURL(storageRef);
+}
+
+/**
+ * Get the best video URL for a clip.
+ *
+ * Prefer the original, always-available URL for reliability, and fall back
+ * to the bandwidth-optimized rendition only when the original is missing.
+ */
+function getVideoUrl(clip: TrickClip): string {
+  return clip.videoUrl ?? clip.videoUrlForQuality ?? "";
 }
 
 type Tab = "upload" | "my-clips" | "feed";
@@ -80,6 +94,7 @@ export default function TrickMintPage() {
     queryKey: ["trickmint", "feed"],
     queryFn: () => trickmintApi.getFeed(50, 0),
     enabled: activeTab === "feed",
+    staleTime: 30_000, // Match server-side feed cache TTL — avoid redundant refetches
   });
 
   // ============================================================================
@@ -378,11 +393,11 @@ export default function TrickMintPage() {
       {/* ====== VIDEO PLAYER MODAL ====== */}
       {selectedVideo && (
         <div
-          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4"
           onClick={() => setSelectedVideo(null)}
         >
           <div
-            className="bg-neutral-900 rounded-lg p-4 max-w-lg w-full"
+            className="bg-neutral-900 rounded-none sm:rounded-lg p-2 sm:p-4 w-full sm:max-w-lg"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-3">
@@ -391,7 +406,7 @@ export default function TrickMintPage() {
                 Close
               </Button>
             </div>
-            <div className="aspect-[9/16] bg-black rounded-lg overflow-hidden">
+            <div className="aspect-[9/16] bg-black rounded-none sm:rounded-lg overflow-hidden">
               <video
                 src={selectedVideo}
                 className="w-full h-full object-contain"
@@ -430,7 +445,7 @@ function ClipGrid({ clips, onVideoClick, onDelete, showDelete }: ClipGridProps) 
         >
           {/* Thumbnail / Play Button */}
           <button
-            onClick={() => onVideoClick(clip.videoUrl)}
+            onClick={() => onVideoClick(getVideoUrl(clip))}
             className="relative w-full aspect-[9/16] bg-black flex items-center justify-center"
             type="button"
           >

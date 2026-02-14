@@ -29,7 +29,7 @@ export interface UseFirestoreDocumentResult<T> {
   error: Error | null;
 }
 
-export function useFirestoreCollection<T = any>(
+export function useFirestoreCollection<T = Record<string, unknown>>(
   collectionPath: string,
   constraints: QueryConstraint[] = [],
   options: FirestoreHookOptions = {}
@@ -86,7 +86,7 @@ export function useFirestoreCollection<T = any>(
   return { data, loading, error };
 }
 
-export function useFirestoreDocument<T = any>(
+export function useFirestoreDocument<T = Record<string, unknown>>(
   collectionPath: string,
   documentId: string | null,
   options: FirestoreHookOptions = {}

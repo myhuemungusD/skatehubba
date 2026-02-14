@@ -1,10 +1,19 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  ActivityIndicator,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
-export default function ClosetScreen() {
+function ClosetScreenContent() {
   const { user, isAuthenticated, checkAuth } = useRequireAuth();
   const router = useRouter();
 
@@ -60,7 +69,7 @@ export default function ClosetScreen() {
         <View style={styles.actionsGrid}>
           <TouchableOpacity
             style={styles.actionCard}
-            onPress={() => router.push(`/profile/${user?.uid}` as any)}
+            onPress={() => router.push(`/profile/${user?.uid}`)}
           >
             <Ionicons name="person" size={28} color={SKATE.colors.orange} />
             <Text style={styles.actionText}>My Profile</Text>
@@ -106,6 +115,14 @@ export default function ClosetScreen() {
 
       <View style={styles.bottomPadding} />
     </ScrollView>
+  );
+}
+
+export default function ClosetScreen() {
+  return (
+    <ScreenErrorBoundary screenName="My Closet">
+      <ClosetScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 

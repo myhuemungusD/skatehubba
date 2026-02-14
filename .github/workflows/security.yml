@@ -1,0 +1,83 @@
+name: "Security Scanning"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Run weekly on Wednesday at 06:00 UTC for continuous monitoring
+    - cron: "0 6 * * 3"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # Dependency vulnerability audit
+  dependency_audit:
+    name: "Dependency Audit"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Run dependency audit
+        run: node scripts/audit-dependencies.mjs --ci
+
+  # Secret scanning with gitleaks (all events)
+  gitleaks:
+    name: "Secret Scanning"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks (PR scan)
+        if: github.event_name == 'pull_request'
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Gitleaks (full scan)
+        if: github.event_name != 'pull_request'
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+  # License compliance check
+  license_check:
+    name: "License Compliance"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Check for problematic licenses
+        run: |
+          # List all production dependency licenses
+          echo "Checking dependency licenses..."
+
+          # Known problematic licenses for commercial projects
+          BLOCKED_LICENSES="GPL-3.0|AGPL|SSPL|EUPL"
+
+          # Get license info (pnpm licenses list)
+          LICENSE_OUTPUT=$(pnpm licenses list --json 2>/dev/null || echo "{}")
+
+          if echo "$LICENSE_OUTPUT" | grep -qiE "$BLOCKED_LICENSES"; then
+            echo "::warning::Found dependencies with potentially restrictive licenses."
+            echo "Review the following output for compliance:"
+            echo "$LICENSE_OUTPUT" | grep -iE "$BLOCKED_LICENSES" || true
+          else
+            echo "No problematic licenses detected."
+          fi

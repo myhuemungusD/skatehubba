@@ -16,7 +16,7 @@ let viteModule: typeof import("vite") | null = null;
 
 let viteLogger: import("vite").Logger | null = null;
 
-let reactPlugin: any = null;
+let reactPlugin: (() => import("vite").PluginOption) | null = null;
 
 // Inline vite config for dev server (avoids importing root vite.config.ts which has external deps)
 const viteConfig = {
@@ -60,7 +60,7 @@ export async function setupVite(app: Express, server: Server) {
 
   const vite = await viteModule.createServer({
     ...viteConfig,
-    plugins: [reactPlugin()],
+    plugins: [reactPlugin!()],
     configFile: false,
     customLogger: viteLogger
       ? {

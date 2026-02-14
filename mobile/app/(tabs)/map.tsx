@@ -9,8 +9,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { showMessage } from "react-native-flash-message";
+import { AddSpotModal } from "@/components/AddSpotModal";
+import { MapSkeleton } from "@/components/common/Skeleton";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
-export default function MapScreen() {
+function MapScreenContent() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [showAddSpotModal, setShowAddSpotModal] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
@@ -28,7 +31,7 @@ export default function MapScreen() {
 
   const { data: spots, isLoading } = useQuery({
     queryKey: ["/api/spots"],
-    queryFn: () => apiRequest("/api/spots"),
+    queryFn: () => apiRequest<Spot[]>("/api/spots"),
     enabled: isAuthenticated,
   });
 
@@ -37,14 +40,83 @@ export default function MapScreen() {
     setShowAddSpotModal(true);
   };
 
-  const handleCheckIn = (spot: Spot) => {
+  const handleCheckIn = async (spot: Spot) => {
     if (!checkAuth({ message: "Sign in to check in" })) return;
-    showMessage({
-      message: "Checked In!",
-      description: `You're now at ${spot.name}`,
-      type: "success",
-      duration: 2000,
-    });
+
+    if (!location) {
+      showMessage({
+        message: "Location Required",
+        description: "Turn on location services to verify your check-in.",
+        type: "warning",
+        duration: 2000,
+      });
+      return;
+    }
+
+    // Calculate distance to spot (Haversine formula)
+    const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+      const R = 6371; // Earth's radius in km
+      const dLat = ((lat2 - lat1) * Math.PI) / 180;
+      const dLng = ((lng2 - lng1) * Math.PI) / 180;
+      const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+          Math.cos((lat2 * Math.PI) / 180) *
+          Math.sin(dLng / 2) *
+          Math.sin(dLng / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c * 1000; // distance in meters
+    };
+
+    const distance = calculateDistance(
+      location.coords.latitude,
+      location.coords.longitude,
+      spot.lat,
+      spot.lng
+    );
+
+    // Check if user is within 100 meters of the spot
+    if (distance > 100) {
+      showMessage({
+        message: "Too Far Away",
+        description: `You need to be within 100m of ${spot.name} to check in. You're ${Math.round(distance)}m away.`,
+        type: "warning",
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      const nonce = crypto.randomUUID();
+      const data = await apiRequest<{ success: boolean; message?: string }>("/api/spots/check-in", {
+        method: "POST",
+        body: JSON.stringify({
+          spotId: spot.id,
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+          accuracy: location.coords.accuracy,
+          nonce,
+        }),
+      });
+
+      if (data.success) {
+        showMessage({
+          message: "✅ Check-in Confirmed!",
+          description: `You're now checked in at ${spot.name}`,
+          type: "success",
+          duration: 2000,
+        });
+      } else {
+        throw new Error(data.message || "Check-in failed");
+      }
+    } catch (error) {
+      showMessage({
+        message: "Check-in Failed",
+        description: error instanceof Error ? error.message : "Unable to check in right now.",
+        type: "danger",
+        duration: 2000,
+      });
+    }
   };
 
   // Unauthenticated users are redirected to sign-in by the root layout guard.
@@ -57,14 +129,13 @@ export default function MapScreen() {
   }
 
   return (
-    <View style={styles.container}>
+    <View testID="map-screen" style={styles.container}>
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Loading spots...</Text>
-        </View>
+        <MapSkeleton />
       ) : (
         <>
           <MapView
+            testID="map-view"
             style={styles.map}
             initialRegion={{
               latitude: location?.coords.latitude || 37.7749,
@@ -94,6 +165,7 @@ export default function MapScreen() {
           {/* Floating Action Buttons */}
           <View style={styles.fabContainer}>
             <TouchableOpacity
+              testID="map-add-spot"
               style={styles.fab}
               onPress={handleAddSpot}
               accessibilityLabel="Add new skate spot"
@@ -103,7 +175,7 @@ export default function MapScreen() {
           </View>
 
           {/* Legend */}
-          <View style={styles.legend}>
+          <View testID="map-legend" style={styles.legend}>
             <Text style={styles.legendTitle}>Tier</Text>
             <View style={styles.legendItems}>
               <View style={styles.legendItem}>
@@ -139,7 +211,9 @@ export default function MapScreen() {
                     <Ionicons name="close" size={24} color={SKATE.colors.white} />
                   </TouchableOpacity>
 
-                  <Text style={styles.modalTitle}>{selectedSpot.name}</Text>
+                  <Text testID="map-spot-title" style={styles.modalTitle}>
+                    {selectedSpot.name}
+                  </Text>
                   <Text style={styles.modalDescription}>{selectedSpot.description ?? ""}</Text>
 
                   <View style={styles.modalDifficulty}>
@@ -158,6 +232,7 @@ export default function MapScreen() {
                   </View>
 
                   <TouchableOpacity
+                    testID="map-check-in"
                     style={styles.checkInButton}
                     onPress={() => {
                       handleCheckIn(selectedSpot);
@@ -173,39 +248,30 @@ export default function MapScreen() {
           )}
 
           {/* Add Spot Modal */}
-          <Modal
-            visible={showAddSpotModal}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setShowAddSpotModal(false)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <TouchableOpacity
-                  style={styles.modalClose}
-                  onPress={() => setShowAddSpotModal(false)}
-                >
-                  <Ionicons name="close" size={24} color={SKATE.colors.white} />
-                </TouchableOpacity>
-
-                <Text style={styles.modalTitle}>Add New Spot</Text>
-                <Text style={styles.modalDescription}>
-                  This feature is coming soon! You'll be able to add new skate spots to share with
-                  the community.
-                </Text>
-
-                <TouchableOpacity
-                  style={[styles.checkInButton, { backgroundColor: SKATE.colors.gray }]}
-                  onPress={() => setShowAddSpotModal(false)}
-                >
-                  <Text style={styles.checkInButtonText}>Got It</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
+          <AddSpotModal
+            isOpen={showAddSpotModal}
+            onClose={() => setShowAddSpotModal(false)}
+            userLocation={
+              location
+                ? {
+                    lat: location.coords.latitude,
+                    lng: location.coords.longitude,
+                    accuracy: location.coords.accuracy ?? undefined,
+                  }
+                : null
+            }
+          />
         </>
       )}
     </View>
+  );
+}
+
+export default function MapScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Map">
+      <MapScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 
@@ -237,10 +303,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: SKATE.colors.ink,
-  },
-  loadingText: {
-    color: SKATE.colors.white,
-    fontSize: 16,
   },
   fabContainer: {
     position: "absolute",

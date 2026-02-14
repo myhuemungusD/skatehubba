@@ -1,8 +1,31 @@
 import { useCallback } from "react";
 import { useLocation } from "wouter";
-import { LogOut, Bell, Mail, Smartphone, Gamepad2, Trophy, Zap, Newspaper } from "lucide-react";
+import {
+  LogOut,
+  Bell,
+  Mail,
+  Smartphone,
+  Gamepad2,
+  Trophy,
+  Zap,
+  Newspaper,
+  HelpCircle,
+  MessageSquare,
+  Trash2,
+  Construction,
+} from "lucide-react";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../components/ui/alert-dialog";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../lib/queryClient";
 import { type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@shared/schema";
@@ -47,6 +70,15 @@ function ToggleRow({
         />
       </button>
     </div>
+  );
+}
+
+function ComingSoonBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-medium">
+      <Construction className="h-3 w-3" />
+      Coming Soon
+    </span>
   );
 }
 
@@ -209,17 +241,79 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Support */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3 text-white">Support</h2>
+          <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-4">
+            <div className="flex items-center justify-between py-3 border-b border-neutral-800">
+              <div className="flex items-center gap-3">
+                <div className="text-neutral-400">
+                  <HelpCircle className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">Help & FAQ</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">Get answers to common questions</p>
+                </div>
+              </div>
+              <ComingSoonBadge />
+            </div>
+            <div className="flex items-center justify-between py-3">
+              <div className="flex items-center gap-3">
+                <div className="text-neutral-400">
+                  <MessageSquare className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white">Contact Us</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">Reach out for support</p>
+                </div>
+              </div>
+              <ComingSoonBadge />
+            </div>
+          </div>
+        </div>
+
         {/* Account */}
         <div className="border-t border-neutral-800 pt-8">
           <h2 className="text-lg font-semibold mb-3 text-white">Account</h2>
-          <Button
-            variant="outline"
-            onClick={handleLogout}
-            className="border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white"
-          >
-            <LogOut className="w-4 h-4 mr-2" aria-hidden="true" />
-            Sign Out
-          </Button>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <Button
+              variant="outline"
+              onClick={handleLogout}
+              className="border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white"
+            >
+              <LogOut className="w-4 h-4 mr-2" aria-hidden="true" />
+              Sign Out
+            </Button>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="border-red-900/50 text-red-400 hover:bg-red-950 hover:text-red-300"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
+                  Delete Account
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-neutral-900 border-neutral-700">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-white">Delete Account</AlertDialogTitle>
+                  <AlertDialogDescription className="text-neutral-400">
+                    Account deletion is not yet available. When launched, this will permanently
+                    remove all your data, game history, and profile information.
+                  </AlertDialogDescription>
+                  <div className="pt-2">
+                    <ComingSoonBadge />
+                  </div>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white">
+                    Close
+                  </AlertDialogCancel>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
     </section>

@@ -1,10 +1,18 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { useRouter } from "expo-router";
 import { useAuth } from "@/hooks/useAuth";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
-export default function HomeScreen() {
+function HomeScreenContent() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -61,6 +69,14 @@ export default function HomeScreen() {
             <Text style={styles.cardDesc}>See top skaters</Text>
           </TouchableOpacity>
 
+          <TouchableOpacity style={styles.card} onPress={() => router.push("/(tabs)/trickmint")}>
+            <View style={styles.cardIconContainer}>
+              <Ionicons name="film" size={32} color={SKATE.colors.orange} />
+            </View>
+            <Text style={styles.cardTitle}>TrickMint</Text>
+            <Text style={styles.cardDesc}>Upload and share tricks</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.card} onPress={() => router.push("/(tabs)/shop")}>
             <View style={styles.cardIconContainer}>
               <Ionicons name="cart" size={32} color={SKATE.colors.orange} />
@@ -77,7 +93,7 @@ export default function HomeScreen() {
         <View style={styles.activityList}>
           <TouchableOpacity
             style={styles.activityItem}
-            onPress={() => router.push(`/profile/${user.uid}` as any)}
+            onPress={() => router.push(`/profile/${user.uid}`)}
           >
             <View style={styles.activityIcon}>
               <Ionicons name="person" size={20} color={SKATE.colors.orange} />
@@ -119,8 +135,33 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {/* Investor Demo Access */}
+      <View style={styles.section}>
+        <TouchableOpacity
+          style={styles.demoCard}
+          onPress={() => router.push("/demo")}
+        >
+          <View style={styles.demoIconContainer}>
+            <Ionicons name="eye" size={24} color={SKATE.colors.orange} />
+          </View>
+          <View style={styles.demoContent}>
+            <Text style={styles.demoTitle}>Investor Demo</Text>
+            <Text style={styles.demoSubtitle}>Preview all screens with mock data</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={SKATE.colors.orange} />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.bottomPadding} />
     </ScrollView>
+  );
+}
+
+export default function HomeScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Home">
+      <HomeScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 
@@ -231,6 +272,38 @@ const styles = StyleSheet.create({
   },
   activitySubtitle: {
     color: SKATE.colors.gray,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  demoCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: SKATE.colors.grime,
+    borderRadius: SKATE.borderRadius.lg,
+    padding: SKATE.spacing.lg,
+    borderWidth: 1,
+    borderColor: SKATE.colors.orange,
+    borderStyle: "dashed",
+  },
+  demoIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 102, 0, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SKATE.spacing.md,
+  },
+  demoContent: {
+    flex: 1,
+  },
+  demoTitle: {
+    color: SKATE.colors.orange,
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  demoSubtitle: {
+    color: SKATE.colors.lightGray,
     fontSize: 12,
     marginTop: 2,
   },

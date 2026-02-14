@@ -87,6 +87,13 @@ export default function TabLayout() {
           href: null, // Hide from tab bar, accessible from profile
         }}
       />
+      <Tabs.Screen
+        name="trickmint"
+        options={{
+          title: "TrickMint",
+          href: null, // Hide from tab bar, accessible via navigation
+        }}
+      />
     </Tabs>
   );
 }

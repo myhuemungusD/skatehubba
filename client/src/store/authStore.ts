@@ -7,8 +7,6 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
-  sendPasswordResetEmail,
-  sendEmailVerification,
   getIdTokenResult,
   GoogleAuthProvider,
 } from "firebase/auth";
@@ -180,6 +178,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (result?.user) {
         sessionStorage.removeItem("googleRedirectPending");
         await authenticateWithBackend(result.user);
+      } else {
+        // No redirect result (normal page load, result already consumed,
+        // or third-party cookies blocked the redirect). Clear stale flag
+        // to prevent false "sign-in failed" toasts on subsequent loads.
+        sessionStorage.removeItem("googleRedirectPending");
       }
     } catch (err: unknown) {
       logger.error("[AuthStore] Redirect result error:", err);
@@ -211,21 +214,30 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         );
       }
 
+      // Primary: Use popup (reliable across all modern browsers).
+      // signInWithRedirect silently fails when third-party cookies are blocked
+      // (Safari, Brave, Firefox ETP, Chrome Privacy Sandbox).
+      if (isPopupSafe()) {
+        const result = await signInWithPopup(auth, googleProvider);
+        if (result.user) {
+          await authenticateWithBackend(result.user);
+        }
+        return;
+      }
+
+      // Fallback: Redirect for environments where popups cannot open
       sessionStorage.setItem("googleRedirectPending", "true");
       await signInWithRedirect(auth, googleProvider);
     } catch (err: unknown) {
       logger.error("[AuthStore] Google sign-in error:", err);
+
+      // If popup was blocked by the browser, fall back to redirect flow
       if (err && typeof err === "object" && "code" in err) {
         const code = (err as { code?: string }).code;
-        const popupFallbackCodes = [
-          "auth/operation-not-supported-in-this-environment",
-          "auth/unauthorized-domain",
-        ];
-        if (code && popupFallbackCodes.includes(code) && isPopupSafe()) {
-          const popupResult = await signInWithPopup(auth, googleProvider);
-          if (popupResult.user) {
-            await authenticateWithBackend(popupResult.user);
-          }
+        if (code === "auth/popup-blocked") {
+          logger.log("[AuthStore] Popup blocked, falling back to redirect");
+          sessionStorage.setItem("googleRedirectPending", "true");
+          await signInWithRedirect(auth, googleProvider);
           return;
         }
       }
@@ -272,12 +284,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       } catch (firestoreErr) {
         logger.error("[AuthStore] Failed to create Firestore user doc:", firestoreErr);
       }
-      try {
-        await sendEmailVerification(result.user);
-        logger.log("[AuthStore] Verification email sent to", email);
-      } catch (verifyErr) {
-        logger.error("[AuthStore] Failed to send verification email:", verifyErr);
-      }
+      // Branded verification email is sent server-side by authenticateWithBackend
+      // when isRegistration=true (via Resend, not Firebase default templates)
     } catch (err: unknown) {
       logger.error("[AuthStore] Email sign-up error:", err);
       if (err instanceof Error) {
@@ -321,7 +329,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   resetPassword: async (email: string) => {
     set({ error: null });
     try {
-      await sendPasswordResetEmail(auth, email);
+      await apiRequest({
+        method: "POST",
+        path: "/api/auth/forgot-password",
+        body: { email },
+      });
     } catch (err: unknown) {
       logger.error("[AuthStore] Password reset error:", err);
       if (err instanceof Error) {

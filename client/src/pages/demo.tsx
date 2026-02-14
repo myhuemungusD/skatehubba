@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../co
 import { Badge } from "../components/ui/badge";
 import { User, Play, ArrowLeft } from "lucide-react";
 import { useToast } from "../hooks/use-toast";
-import type { User as UserType } from "@shared/schema";
+import type { CustomUser as UserType } from "@shared/schema";
 
 export default function Demo() {
   const [, setLocation] = useLocation();
@@ -152,8 +152,7 @@ export default function Demo() {
                         </Badge>
                       </p>
                       <p className="text-sm text-gray-300 mt-2">
-                        Tutorial progress:{" "}
-                        {demoUser?.onboardingCompleted ? "Completed" : "Ready to start"}
+                        Tutorial progress: Ready to start
                       </p>
                     </div>
 

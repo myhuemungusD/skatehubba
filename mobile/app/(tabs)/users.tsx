@@ -4,38 +4,32 @@ import { apiRequest } from "@/lib/queryClient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/hooks/useAuth";
 import { SKATE } from "@/theme";
+import { UsersSkeleton } from "@/components/common/Skeleton";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
 interface User {
-  uid: string;
+  id: string;
   displayName: string;
   photoURL: string | null;
-  email: string;
 }
 
-export default function UsersScreen() {
+function UsersScreenContent() {
   const router = useRouter();
-  const { user: currentUser } = useAuth();
   const [search, setSearch] = useState("");
 
-  const { data: users, isLoading } = useQuery<User[]>({
+  const { data: users, isLoading } = useQuery({
     queryKey: ["/api/users"],
-    queryFn: () => apiRequest("/api/users"),
+    queryFn: () => apiRequest<User[]>("/api/users"),
   });
 
   const filteredUsers = users?.filter(
     (user: User) =>
-      user.uid !== currentUser?.uid &&
-      (user.displayName?.toLowerCase().includes(search.toLowerCase()) ||
-        user.email?.toLowerCase().includes(search.toLowerCase()))
+      user.displayName?.toLowerCase().includes(search.toLowerCase())
   );
 
   const renderUser = ({ item }: { item: User }) => (
-    <TouchableOpacity
-      style={styles.userCard}
-      onPress={() => router.push(`/profile/${item.uid}` as any)}
-    >
+    <TouchableOpacity style={styles.userCard} onPress={() => router.push(`/profile/${item.id}`)}>
       {item.photoURL ? (
         <Image source={{ uri: item.photoURL }} style={styles.avatar} />
       ) : (
@@ -47,7 +41,6 @@ export default function UsersScreen() {
       )}
       <View style={styles.info}>
         <Text style={styles.name}>{item.displayName || "Skater"}</Text>
-        <Text style={styles.email}>{item.email}</Text>
       </View>
       <TouchableOpacity
         style={styles.challengeButton}
@@ -55,8 +48,8 @@ export default function UsersScreen() {
           e.stopPropagation();
           router.push({
             pathname: "/challenge/new",
-            params: { opponentUid: item.uid },
-          } as any);
+            params: { opponentUid: item.id },
+          });
         }}
       >
         <Ionicons name="videocam" size={20} color={SKATE.colors.white} />
@@ -67,7 +60,12 @@ export default function UsersScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={SKATE.colors.lightGray} style={styles.searchIcon} />
+        <Ionicons
+          name="search"
+          size={20}
+          color={SKATE.colors.lightGray}
+          style={styles.searchIcon}
+        />
         <TextInput
           style={styles.searchInput}
           placeholder="Search skaters..."
@@ -78,7 +76,7 @@ export default function UsersScreen() {
       </View>
 
       {isLoading ? (
-        <Text style={styles.loadingText}>Loading skaters...</Text>
+        <UsersSkeleton />
       ) : filteredUsers?.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="people-outline" size={64} color={SKATE.colors.orange} />
@@ -91,11 +89,19 @@ export default function UsersScreen() {
         <FlatList
           data={filteredUsers}
           renderItem={renderUser}
-          keyExtractor={(item) => item.uid}
+          keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
         />
       )}
     </View>
+  );
+}
+
+export default function UsersScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Find Skaters">
+      <UsersScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 
@@ -164,11 +170,6 @@ const styles = StyleSheet.create({
     fontWeight: SKATE.fontWeight.bold,
     color: SKATE.colors.white,
   },
-  email: {
-    fontSize: SKATE.fontSize.sm,
-    color: SKATE.colors.lightGray,
-    marginTop: 2,
-  },
   challengeButton: {
     backgroundColor: SKATE.colors.orange,
     width: SKATE.accessibility.minimumTouchTarget,
@@ -195,11 +196,5 @@ const styles = StyleSheet.create({
     fontSize: SKATE.fontSize.md,
     textAlign: "center",
     lineHeight: 20,
-  },
-  loadingText: {
-    color: SKATE.colors.white,
-    fontSize: SKATE.fontSize.lg,
-    textAlign: "center",
-    marginTop: 32,
   },
 });

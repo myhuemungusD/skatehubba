@@ -4,13 +4,16 @@ import { setupAuthRoutes } from "./auth/routes";
 import { spotStorage } from "./storage/spots";
 import { getDb, isDatabaseAvailable } from "./db";
 import { customUsers, spots, games, betaSignups } from "@shared/schema";
-import { ilike, or, eq, count, sql } from "drizzle-orm";
+import { ilike, or, eq, and, count, sql } from "drizzle-orm";
 import { insertSpotSchema } from "@shared/schema";
 import {
   checkInIpLimiter,
   perUserCheckInLimiter,
   perUserSpotWriteLimiter,
   publicWriteLimiter,
+  quickMatchLimiter,
+  spotRatingLimiter,
+  spotDiscoveryLimiter,
 } from "./middleware/security";
 import { requireCsrfToken } from "./middleware/csrf";
 import { enforceTrustAction } from "./middleware/trustSafety";
@@ -39,6 +42,8 @@ import { tierRouter } from "./routes/tier";
 import { stripeWebhookRouter } from "./routes/stripeWebhook";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
 import { notificationsRouter } from "./routes/notifications";
+import { remoteSkateRouter } from "./routes/remoteSkate";
+import { bandwidthDetection } from "./middleware/bandwidth";
 import logger from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -64,7 +69,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/games", authenticateUser, requirePaidOrPro, gamesRouter);
 
   // 3e. TrickMint Routes (Video upload pipeline) - Pro/Premium only
-  app.use("/api/trickmint", authenticateUser, requirePaidOrPro, trickmintRouter);
+  app.use(
+    "/api/trickmint",
+    authenticateUser,
+    requirePaidOrPro,
+    bandwidthDetection,
+    trickmintRouter
+  );
 
   // 3f. Tier/Monetization Routes
   app.use("/api/tier", tierRouter);
@@ -74,6 +85,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // 3g. Notification Routes (push token, preferences, feed)
   app.use("/api/notifications", notificationsRouter);
+
+  // 3h. Remote S.K.A.T.E. Routes (Firestore-based video battles)
+  app.use("/api/remote-skate", remoteSkateRouter);
 
   // 4. Spot Endpoints
   app.get("/api/spots", async (_req, res) => {
@@ -90,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Discover skateparks near user's location from OpenStreetMap
   // This fetches real-world skateparks and saves them to the DB
-  app.get("/api/spots/discover", async (req, res) => {
+  app.get("/api/spots/discover", spotDiscoveryLimiter, async (req, res) => {
     const lat = Number(req.query.lat);
     const lng = Number(req.query.lng);
 
@@ -179,6 +193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     "/api/spots/:spotId/rate",
     authenticateUser,
     requirePaidOrPro,
+    spotRatingLimiter,
     validateBody(spotRatingSchema),
     async (req, res) => {
       const spotId = Number(req.params.spotId);
@@ -187,8 +202,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { rating } = (req as Request & { validatedBody: { rating: number } }).validatedBody;
+      const userId = req.currentUser!.id;
 
-      await spotStorage.updateRating(spotId, rating);
+      await spotStorage.updateRating(spotId, rating, userId);
       const updated = await spotStorage.getSpotById(spotId);
 
       if (!updated) {
@@ -459,7 +475,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const database = getDb();
-      const searchTerm = `%${query}%`;
+      // Escape SQL LIKE wildcards to prevent wildcard injection
+      const sanitized = query.replace(/[%_\\]/g, (c) => `\\${c}`);
+      const searchTerm = `%${sanitized}%`;
       const results = await database
         .select({
           id: customUsers.id,
@@ -493,22 +511,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/users", authenticateUser, async (_req, res) => {
+  app.get("/api/users", authenticateUser, async (req, res) => {
     if (!isDatabaseAvailable()) {
       return res.json([]);
     }
 
     try {
       const database = getDb();
+      const currentUserId = req.currentUser?.id;
+      const conditions = [eq(customUsers.isActive, true)];
+      if (currentUserId) {
+        conditions.push(sql`${customUsers.id} != ${currentUserId}`);
+      }
       const results = await database
         .select({
-          uid: customUsers.firebaseUid,
-          email: customUsers.email,
+          id: customUsers.id,
           displayName: customUsers.firstName,
           photoURL: sql<string | null>`null`,
         })
         .from(customUsers)
-        .where(eq(customUsers.isActive, true))
+        .where(and(...conditions))
         .limit(100);
 
       res.json(results);
@@ -518,86 +540,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Quick Match Endpoint
-  app.post("/api/matchmaking/quick-match", authenticateUser, async (req, res) => {
-    const currentUserId = req.currentUser?.id;
-    const currentUserName = req.currentUser?.firstName || "Skater";
+  app.post(
+    "/api/matchmaking/quick-match",
+    authenticateUser,
+    quickMatchLimiter,
+    async (req, res) => {
+      const currentUserId = req.currentUser?.id;
+      const currentUserName = req.currentUser?.firstName || "Skater";
 
-    if (!currentUserId) {
-      return res.status(401).json({ error: "Authentication required" });
-    }
-
-    if (!isDatabaseAvailable()) {
-      return res.status(503).json({ error: "Service unavailable" });
-    }
-
-    try {
-      const database = getDb();
-
-      // Find an available opponent (exclude current user, select random user with push token)
-      const availableOpponents = await database
-        .select({
-          id: customUsers.id,
-          firebaseUid: customUsers.firebaseUid,
-          firstName: customUsers.firstName,
-          pushToken: customUsers.pushToken,
-        })
-        .from(customUsers)
-        .where(eq(customUsers.isActive, true))
-        .limit(50);
-
-      // Filter out current user and users without push tokens
-      const eligibleOpponents = availableOpponents.filter(
-        (u) => u.id !== currentUserId && u.pushToken
-      );
-
-      if (eligibleOpponents.length === 0) {
-        return res.status(404).json({
-          error: "No opponents available",
-          message: "No users found for quick match. Try again later.",
-        });
+      if (!currentUserId) {
+        return res.status(401).json({ error: "Authentication required" });
       }
 
-      // Select random opponent using unbiased cryptographically secure random
-      // Use rejection sampling to avoid modulo bias
-      const maxRange = Math.floor(0xffffffff / eligibleOpponents.length) * eligibleOpponents.length;
-      let randomValue: number;
-      do {
-        const randomBytes = crypto.randomBytes(4);
-        randomValue = randomBytes.readUInt32BE(0);
-      } while (randomValue >= maxRange);
-
-      const randomIndex = randomValue % eligibleOpponents.length;
-      const opponent = eligibleOpponents[randomIndex];
-
-      // In production, you would create a challenge record here
-      // For now, we'll create a temporary challenge ID
-      const challengeId = `qm-${Date.now()}-${currentUserId}-${opponent.id}`;
-
-      // Send push notification to opponent
-      if (opponent.pushToken) {
-        await sendQuickMatchNotification(opponent.pushToken, currentUserName, challengeId);
+      if (!isDatabaseAvailable()) {
+        return res.status(503).json({ error: "Service unavailable" });
       }
 
-      logger.info("[Quick Match] Match found", {
-        requesterId: currentUserId,
-        opponentId: opponent.id,
-        challengeId,
-      });
+      try {
+        const database = getDb();
 
-      res.json({
-        success: true,
-        match: {
+        // Find an available opponent (exclude current user, select random user with push token)
+        const availableOpponents = await database
+          .select({
+            id: customUsers.id,
+            firebaseUid: customUsers.firebaseUid,
+            firstName: customUsers.firstName,
+            pushToken: customUsers.pushToken,
+          })
+          .from(customUsers)
+          .where(eq(customUsers.isActive, true))
+          .limit(50);
+
+        // Filter out current user and users without push tokens
+        const eligibleOpponents = availableOpponents.filter(
+          (u) => u.id !== currentUserId && u.pushToken
+        );
+
+        if (eligibleOpponents.length === 0) {
+          return res.status(404).json({
+            error: "No opponents available",
+            message: "No users found for quick match. Try again later.",
+          });
+        }
+
+        // Select random opponent using unbiased cryptographically secure random
+        // Use rejection sampling to avoid modulo bias
+        const maxRange =
+          Math.floor(0xffffffff / eligibleOpponents.length) * eligibleOpponents.length;
+        let randomValue: number;
+        do {
+          const randomBytes = crypto.randomBytes(4);
+          randomValue = randomBytes.readUInt32BE(0);
+        } while (randomValue >= maxRange);
+
+        const randomIndex = randomValue % eligibleOpponents.length;
+        const opponent = eligibleOpponents[randomIndex];
+
+        // In production, you would create a challenge record here
+        // For now, we'll create a temporary challenge ID
+        const challengeId = `qm-${Date.now()}-${currentUserId}-${opponent.id}`;
+
+        // Send push notification to opponent
+        if (opponent.pushToken) {
+          await sendQuickMatchNotification(opponent.pushToken, currentUserName, challengeId);
+        }
+
+        logger.info("[Quick Match] Match found", {
+          requesterId: currentUserId,
           opponentId: opponent.id,
-          opponentName: opponent.firstName || "Skater",
-          opponentFirebaseUid: opponent.firebaseUid,
           challengeId,
-        },
-      });
-    } catch (error) {
-      logger.error("[Quick Match] Failed to find match", { error, userId: currentUserId });
-      res.status(500).json({ error: "Failed to find match" });
+        });
+
+        res.json({
+          success: true,
+          match: {
+            opponentId: opponent.id,
+            opponentName: opponent.firstName || "Skater",
+            opponentFirebaseUid: opponent.firebaseUid,
+            challengeId,
+          },
+        });
+      } catch (error) {
+        logger.error("[Quick Match] Failed to find match", { error, userId: currentUserId });
+        res.status(500).json({ error: "Failed to find match" });
+      }
     }
-  });
+  );
 
   // Timing-safe cron secret verification to prevent timing attacks
   const verifyCronSecret = (authHeader: string | undefined): boolean => {

@@ -8,6 +8,8 @@ import { useEffect } from "react";
 import { useAuthListener } from "@/hooks/useAuthListener";
 import { useAuthStore } from "@/store/authStore";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useOfflineCache } from "@/hooks/useOfflineCache";
 import { OfflineBanner } from "@/components/common/OfflineBanner";
 
 export default function RootLayout() {
@@ -18,15 +20,23 @@ export default function RootLayout() {
   // Initialize network status monitoring
   useNetworkStatus();
 
+  // Register push notifications and handle notification taps
+  usePushNotifications();
+
+  // Sync key data to AsyncStorage for offline use
+  useOfflineCache();
+
   useAuthListener();
 
-  // Redirect logged-in users away from auth screens; redirect unauthenticated to sign-in
+  // Redirect logged-in users away from auth screens; redirect unauthenticated to sign-in.
+  // Allow demo screens without authentication so investors can preview the app.
   useEffect(() => {
     if (!isInitialized) return;
     const inAuthGroup = segments[0] === "auth";
+    const inDemoGroup = segments[0] === "demo";
     if (user && inAuthGroup) {
       router.replace("/(tabs)");
-    } else if (!user && !inAuthGroup) {
+    } else if (!user && !inAuthGroup && !inDemoGroup) {
       router.replace("/auth/sign-in");
     }
   }, [user, isInitialized, segments, router]);
@@ -66,6 +76,7 @@ export default function RootLayout() {
           name="game/[id]"
           options={{ title: "S.K.A.T.E. Battle", headerShown: false }}
         />
+        <Stack.Screen name="demo" options={{ title: "Investor Demo", headerShown: false }} />
       </Stack>
       <OfflineBanner />
       <FlashMessage position="top" />

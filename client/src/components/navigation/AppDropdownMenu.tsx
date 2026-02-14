@@ -54,6 +54,7 @@ export default function AppDropdownMenu() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center w-full uppercase tracking-wide text-sm"
+                  data-testid={`menu-${item.label.toLowerCase()}`}
                 >
                   {item.label}
                 </a>
@@ -68,6 +69,7 @@ export default function AppDropdownMenu() {
                 className={`flex items-center w-full uppercase tracking-wide text-sm ${
                   isActive ? "bg-[#ff6a00]/10 text-[#ff6a00]" : ""
                 }`}
+                data-testid={`menu-${item.label.toLowerCase()}`}
               >
                 {item.label}
               </Link>

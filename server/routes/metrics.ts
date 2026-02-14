@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { Router } from "express";
+import { sql } from "drizzle-orm";
 import { db } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import {
@@ -12,6 +13,7 @@ import {
   KPI_DASHBOARD,
 } from "../analytics/queries";
 import logger from "../logger";
+import { Errors } from "../utils/apiError";
 
 export const metricsRouter = Router();
 
@@ -21,7 +23,7 @@ export const metricsRouter = Router();
 function requireAdmin(req: Request, res: Response, next: () => void) {
   const user = req.currentUser;
   if (!user?.roles?.includes("admin")) {
-    return res.status(403).json({ error: "admin_required" });
+    return Errors.forbidden(res, "ADMIN_REQUIRED", "Admin access required.");
   }
   next();
 }
@@ -38,15 +40,15 @@ metricsRouter.get(
   requireAdmin,
   async (_req: Request, res: Response) => {
     if (!db) {
-      return res.status(503).json({ error: "database_not_available" });
+      return Errors.dbUnavailable(res);
     }
 
     try {
-      const result = await db.execute(WAB_AU_SNAPSHOT as any);
+      const result = await db.execute(sql.raw(WAB_AU_SNAPSHOT));
       return res.json(result.rows[0] || { wab: 0, au: 0, wab_per_au: 0 });
     } catch (error) {
       logger.error("[Metrics] WAB/AU query failed", { error });
-      return res.status(500).json({ error: "query_failed" });
+      return Errors.internal(res, "QUERY_FAILED", "Database query failed.");
     }
   }
 );
@@ -63,15 +65,15 @@ metricsRouter.get(
   requireAdmin,
   async (_req: Request, res: Response) => {
     if (!db) {
-      return res.status(503).json({ error: "database_not_available" });
+      return Errors.dbUnavailable(res);
     }
 
     try {
-      const result = await db.execute(WAB_AU_TREND_12_WEEKS as any);
+      const result = await db.execute(sql.raw(WAB_AU_TREND_12_WEEKS));
       return res.json(result.rows);
     } catch (error) {
       logger.error("[Metrics] WAB/AU trend query failed", { error });
-      return res.status(500).json({ error: "query_failed" });
+      return Errors.internal(res, "QUERY_FAILED", "Database query failed.");
     }
   }
 );
@@ -84,15 +86,15 @@ metricsRouter.get(
  */
 metricsRouter.get("/kpi", authenticateUser, requireAdmin, async (_req: Request, res: Response) => {
   if (!db) {
-    return res.status(503).json({ error: "database_not_available" });
+    return Errors.dbUnavailable(res);
   }
 
   try {
-    const result = await db.execute(KPI_DASHBOARD as any);
+    const result = await db.execute(sql.raw(KPI_DASHBOARD));
     return res.json(result.rows[0] || {});
   } catch (error) {
     logger.error("[Metrics] KPI dashboard query failed", { error });
-    return res.status(500).json({ error: "query_failed" });
+    return Errors.internal(res, "QUERY_FAILED", "Database query failed.");
   }
 });
 
@@ -108,15 +110,15 @@ metricsRouter.get(
   requireAdmin,
   async (_req: Request, res: Response) => {
     if (!db) {
-      return res.status(503).json({ error: "database_not_available" });
+      return Errors.dbUnavailable(res);
     }
 
     try {
-      const result = await db.execute(UPLOADS_WITH_RESPONSE_48H as any);
+      const result = await db.execute(sql.raw(UPLOADS_WITH_RESPONSE_48H));
       return res.json(result.rows[0] || {});
     } catch (error) {
       logger.error("[Metrics] Response rate query failed", { error });
-      return res.status(500).json({ error: "query_failed" });
+      return Errors.internal(res, "QUERY_FAILED", "Database query failed.");
     }
   }
 );
@@ -133,15 +135,15 @@ metricsRouter.get(
   requireAdmin,
   async (_req: Request, res: Response) => {
     if (!db) {
-      return res.status(503).json({ error: "database_not_available" });
+      return Errors.dbUnavailable(res);
     }
 
     try {
-      const result = await db.execute(VOTES_PER_BATTLE as any);
+      const result = await db.execute(sql.raw(VOTES_PER_BATTLE));
       return res.json(result.rows[0] || {});
     } catch (error) {
       logger.error("[Metrics] Votes per battle query failed", { error });
-      return res.status(500).json({ error: "query_failed" });
+      return Errors.internal(res, "QUERY_FAILED", "Database query failed.");
     }
   }
 );
@@ -158,15 +160,15 @@ metricsRouter.get(
   requireAdmin,
   async (_req: Request, res: Response) => {
     if (!db) {
-      return res.status(503).json({ error: "database_not_available" });
+      return Errors.dbUnavailable(res);
     }
 
     try {
-      const result = await db.execute(CREW_JOIN_RATE as any);
+      const result = await db.execute(sql.raw(CREW_JOIN_RATE));
       return res.json(result.rows[0] || {});
     } catch (error) {
       logger.error("[Metrics] Crew join rate query failed", { error });
-      return res.status(500).json({ error: "query_failed" });
+      return Errors.internal(res, "QUERY_FAILED", "Database query failed.");
     }
   }
 );
@@ -183,15 +185,15 @@ metricsRouter.get(
   requireAdmin,
   async (_req: Request, res: Response) => {
     if (!db) {
-      return res.status(503).json({ error: "database_not_available" });
+      return Errors.dbUnavailable(res);
     }
 
     try {
-      const result = await db.execute(D7_RETENTION as any);
+      const result = await db.execute(sql.raw(D7_RETENTION));
       return res.json(result.rows[0] || {});
     } catch (error) {
       logger.error("[Metrics] Retention query failed", { error });
-      return res.status(500).json({ error: "query_failed" });
+      return Errors.internal(res, "QUERY_FAILED", "Database query failed.");
     }
   }
 );

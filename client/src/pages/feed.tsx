@@ -54,8 +54,8 @@ export default function FeedPage() {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base text-white">{item.displayName}</CardTitle>
-                {item.points !== undefined ? (
-                  <Badge className="bg-yellow-500/20 text-yellow-300">+{item.points} XP</Badge>
+                {item.xp !== undefined ? (
+                  <Badge className="bg-yellow-500/20 text-yellow-300">+{item.xp} XP</Badge>
                 ) : null}
               </div>
             </CardHeader>
