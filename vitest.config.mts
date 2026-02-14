@@ -32,6 +32,7 @@ export default defineConfig({
         'server/vite-dev.ts',
         'server/api-docs.ts',
         'server/config/server.ts',
+        'server/config/env.ts',
         'functions/src/firebaseAdmin.ts',
         // Pure schema-definition files — pgTable/pgEnum/references callbacks produce zero branching logic
         'packages/shared/schema-analytics.ts',
@@ -54,10 +55,10 @@ export default defineConfig({
         'server/__tests__/game-critical-paths/mockSetup.ts',
       ],
       thresholds: {
-        statements: 97,
-        branches: 92,
-        functions: 97,
-        lines: 97,
+        statements: 98,
+        branches: 93,
+        functions: 99,
+        lines: 99,
       },
     },
     testTimeout: 10000,
