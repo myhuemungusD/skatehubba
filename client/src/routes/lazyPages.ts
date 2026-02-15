@@ -19,6 +19,7 @@ export const AdminDashboard = lazy(() => import("../pages/admin/AdminDashboard")
 export const AdminReports = lazy(() => import("../pages/admin/AdminReports"));
 export const AdminUsers = lazy(() => import("../pages/admin/AdminUsers"));
 export const AdminAuditLog = lazy(() => import("../pages/admin/AdminAuditLog"));
+export const AdminMetrics = lazy(() => import("../pages/admin/AdminMetrics"));
 
 // Auth pages
 export const LoginPage = lazy(() => import("../pages/login"));
@@ -31,6 +32,7 @@ export const VerifyPage = lazy(() => import("../pages/verify"));
 export const AuthVerifyPage = lazy(() => import("../pages/auth-verify"));
 export const VerifyEmailPage = lazy(() => import("../pages/verify-email"));
 export const VerifiedPage = lazy(() => import("../pages/verified"));
+export const ResetPasswordPage = lazy(() => import("../pages/reset-password"));
 
 // Public pages
 export const SkaterProfilePage = lazy(() => import("../pages/skater/profile"));

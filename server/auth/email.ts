@@ -46,7 +46,7 @@ const getVerificationEmailTemplate = (name: string, verificationUrl: string) => 
     </div>
     
     <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
-      <p>© 2025 SkateHubba. All rights reserved.</p>
+      <p>© 2026 SkateHubba. All rights reserved.</p>
     </div>
   </div>
 </body>
@@ -98,7 +98,7 @@ const getPasswordResetEmailTemplate = (name: string, resetUrl: string) => `
     </div>
     
     <div style="text-align: center; margin-top: 30px; color: #666; font-size: 12px;">
-      <p>© 2025 SkateHubba. All rights reserved.</p>
+      <p>© 2026 SkateHubba. All rights reserved.</p>
     </div>
   </div>
 </body>

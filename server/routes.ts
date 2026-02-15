@@ -43,6 +43,7 @@ import { stripeWebhookRouter } from "./routes/stripeWebhook";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
 import { notificationsRouter } from "./routes/notifications";
 import { remoteSkateRouter } from "./routes/remoteSkate";
+import { bandwidthDetection } from "./middleware/bandwidth";
 import logger from "./logger";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -68,7 +69,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/games", authenticateUser, requirePaidOrPro, gamesRouter);
 
   // 3e. TrickMint Routes (Video upload pipeline) - Pro/Premium only
-  app.use("/api/trickmint", authenticateUser, requirePaidOrPro, trickmintRouter);
+  app.use(
+    "/api/trickmint",
+    authenticateUser,
+    requirePaidOrPro,
+    bandwidthDetection,
+    trickmintRouter
+  );
 
   // 3f. Tier/Monetization Routes
   app.use("/api/tier", tierRouter);

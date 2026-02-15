@@ -2,6 +2,7 @@
   "name": "skatehubba-mobile",
   "version": "0.1.0",
   "private": true,
+  "main": "expo-router/entry",
   "type": "module",
   "description": "SkateHubba mobile app — Expo + React Native with S.K.A.T.E. battle, spot mapping, and leaderboard.",
   "scripts": {
@@ -16,7 +17,9 @@
     "e2e:test:ios": "detox test --config-path .detoxrc.json --configuration ios.sim.debug",
     "e2e:build:android": "detox build --config-path .detoxrc.json --configuration android.emu.debug",
     "e2e:test:android": "detox test --config-path .detoxrc.json --configuration android.emu.debug",
-    "e2e:smoke": "detox test --config-path .detoxrc.json --configuration ios.sim.debug --testNamePattern \"Smoke\""
+    "e2e:smoke": "detox test --config-path .detoxrc.json --configuration ios.sim.debug --testNamePattern \"Smoke\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -30,9 +33,14 @@
     "expo-auth-session": "~7.0.10",
     "expo-av": "~15.0.0",
     "expo-build-properties": "~0.14.0",
+    "expo-constants": "^18.0.13",
     "expo-crypto": "~15.0.8",
+    "expo-device": "^8.0.10",
+    "expo-image-picker": "^17.0.10",
+    "expo-linking": "~7.0.0",
     "expo-location": "~18.0.0",
     "expo-network": "~7.0.0",
+    "expo-notifications": "^0.32.16",
     "expo-router": "~4.0.0",
     "expo-status-bar": "~2.0.0",
     "expo-web-browser": "~15.0.10",
@@ -48,9 +56,13 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@testing-library/react": "^14.3.1",
+    "@testing-library/react-native": "^13.3.3",
     "@types/react": "^18.3.0",
     "detox": "^20.30.0",
     "jest": "^29.7.0",
-    "typescript": "5.9.3"
+    "jsdom": "^23.2.0",
+    "typescript": "5.9.3",
+    "vitest": "^4.0.18"
   }
 }

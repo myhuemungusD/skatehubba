@@ -179,7 +179,7 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
     mockDocs.clear();
 
     // Clear route handlers
-    Object.keys(_routeHandlers).forEach(key => delete _routeHandlers[key]);
+    Object.keys(_routeHandlers).forEach((key) => delete _routeHandlers[key]);
 
     // Save original env
     originalEnv = process.env;
@@ -1093,6 +1093,134 @@ describe("Stripe Webhook Handler (Firebase Functions)", () => {
       await callWebhook(mockReq, mockRes);
 
       expect(mockRestockFromConsumedHold).not.toHaveBeenCalled();
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+    });
+
+    it("handles order not found for refund (covers line 348)", async () => {
+      // Don't set any order in mockDocs -> findOrderByPaymentIntentId returns null
+      const event: Stripe.Event = {
+        id: "evt_refund_no_order",
+        type: "charge.refunded",
+        data: {
+          object: {
+            id: "ch_orphan",
+            payment_intent: "pi_orphan",
+            refunded: true,
+            amount: 5000,
+            amount_refunded: 5000,
+          } as any,
+        },
+      } as any;
+
+      mockConstructEvent.mockReturnValue(event);
+
+      const mockReq = {
+        headers: { "stripe-signature": "valid_sig" },
+        body: Buffer.from("test"),
+      } as any;
+
+      const mockRes = {
+        status: vi.fn().mockReturnThis(),
+        send: vi.fn(),
+      } as any;
+
+      await callWebhook(mockReq, mockRes);
+
+      expect(mockRestockFromConsumedHold).not.toHaveBeenCalled();
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+    });
+
+    it("handles order update failure during refund (covers lines 387-392)", async () => {
+      const orderId = "order-refund-update-fail";
+
+      mockDocs.set(`orders/${orderId}`, {
+        status: "paid",
+        totalCents: 5000,
+        currency: "usd",
+        stripePaymentIntentId: "pi_refund_fail",
+      });
+
+      const event: Stripe.Event = {
+        id: "evt_refund_fail",
+        type: "charge.refunded",
+        data: {
+          object: {
+            id: "ch_fail",
+            payment_intent: "pi_refund_fail",
+            refunded: true,
+            amount: 5000,
+            amount_refunded: 5000,
+          } as any,
+        },
+      } as any;
+
+      mockConstructEvent.mockReturnValue(event);
+
+      // Make the orderRef.update call fail by having the transaction throw
+      const { getAdminDb } = await import("../../firebaseAdmin");
+      const db = getAdminDb();
+      (db.runTransaction as any).mockRejectedValueOnce(new Error("Firestore write failed"));
+
+      const mockReq = {
+        headers: { "stripe-signature": "valid_sig" },
+        body: Buffer.from("test"),
+      } as any;
+
+      const mockRes = {
+        status: vi.fn().mockReturnThis(),
+        send: vi.fn(),
+      } as any;
+
+      await callWebhook(mockReq, mockRes);
+
+      // Should still return 200 (error handling catches and returns OK)
+      expect(mockRes.status).toHaveBeenCalledWith(200);
+    });
+
+    it("logs error when restock fails after successful refund status update (covers line 399)", async () => {
+      const orderId = "order-restock-fail";
+
+      mockDocs.set(`orders/${orderId}`, {
+        status: "paid",
+        totalCents: 5000,
+        currency: "usd",
+        stripePaymentIntentId: "pi_restock_fail",
+      });
+
+      const event: Stripe.Event = {
+        id: "evt_restock_fail",
+        type: "charge.refunded",
+        data: {
+          object: {
+            id: "ch_restock_fail",
+            payment_intent: "pi_restock_fail",
+            refunded: true,
+            amount: 5000,
+            amount_refunded: 5000,
+          } as any,
+        },
+      } as any;
+
+      mockConstructEvent.mockReturnValue(event);
+
+      // Make restock fail
+      mockRestockFromConsumedHold.mockRejectedValueOnce(new Error("Restock batch failed"));
+
+      const mockReq = {
+        headers: { "stripe-signature": "valid_sig" },
+        body: Buffer.from("test"),
+      } as any;
+
+      const mockRes = {
+        status: vi.fn().mockReturnThis(),
+        send: vi.fn(),
+      } as any;
+
+      await callWebhook(mockReq, mockRes);
+
+      // Restock was attempted
+      expect(mockRestockFromConsumedHold).toHaveBeenCalledWith(orderId);
+      // Should still return 200 (restock failure is non-fatal)
       expect(mockRes.status).toHaveBeenCalledWith(200);
     });
 

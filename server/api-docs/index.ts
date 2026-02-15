@@ -46,3 +46,4 @@ export const apiDocumentation: APICategory[] = [
 ];
 
 export { generateHTMLDocs } from "./htmlGenerator";
+export { generateOpenAPISpec } from "./openapi";

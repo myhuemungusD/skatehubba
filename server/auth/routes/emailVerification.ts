@@ -11,6 +11,7 @@ import { AuditLogger, AUDIT_EVENTS, getClientIP } from "../audit.ts";
 import logger from "../../logger.ts";
 import { sendWelcomeEmail } from "../../services/emailService.ts";
 import { notifyUser } from "../../services/notificationService.ts";
+import { sendVerificationEmail } from "../email.ts";
 
 export function setupEmailVerificationRoutes(app: Express) {
   /**
@@ -106,6 +107,10 @@ export function setupEmailVerificationRoutes(app: Express) {
           emailVerificationExpires: expiry,
         });
 
+        // Send branded verification email via Resend
+        const name = user.firstName || "Skater";
+        await sendVerificationEmail(user.email, token, name);
+
         await AuditLogger.log({
           eventType: AUDIT_EVENTS.EMAIL_VERIFICATION_SENT,
           userId: user.id,
@@ -113,9 +118,6 @@ export function setupEmailVerificationRoutes(app: Express) {
           ipAddress,
           success: true,
         });
-
-        // NOTE: Email delivery is handled by Firebase's sendEmailVerification on the client side.
-        // This endpoint regenerates the server-side token for audit/backup verification.
 
         res.json({
           success: true,

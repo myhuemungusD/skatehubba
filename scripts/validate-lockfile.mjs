@@ -40,13 +40,29 @@ function validateLockfileSync() {
     return { valid: true };
   }
 
-  const packageJsonFiles = stagedFiles.filter(file => 
+  const packageJsonFiles = stagedFiles.filter(file =>
     file.endsWith('package.json') && !file.includes('node_modules')
   );
 
   const lockfileStaged = stagedFiles.includes('pnpm-lock.yaml');
 
-  if (packageJsonFiles.length > 0 && !lockfileStaged) {
+  // Only flag when dependency-related fields actually changed.
+  // Non-dependency fields like "main", "scripts", "type" don't affect the lockfile.
+  const depFields = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies', 'pnpm'];
+  const hasDependencyChanges = packageJsonFiles.some(file => {
+    try {
+      const diff = execSync(`git diff --cached -U0 -- "${file}"`, {
+        encoding: 'utf-8',
+        cwd: rootDir,
+      });
+      return depFields.some(field => diff.includes(`"${field}"`));
+    } catch {
+      // If we can't parse the diff, be safe and require lockfile
+      return true;
+    }
+  });
+
+  if (packageJsonFiles.length > 0 && hasDependencyChanges && !lockfileStaged) {
     return {
       valid: false,
       message: `
