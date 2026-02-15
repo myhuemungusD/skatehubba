@@ -7,13 +7,14 @@
  * @module pages/auth
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 
 import { Card } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useToast } from "../hooks/use-toast";
 import { useAuth } from "../hooks/useAuth";
+import { useAuthStore } from "../store/authStore";
 import { logger } from "../lib/logger";
 import { setAuthPersistence } from "../lib/firebase";
 import { isEmbeddedBrowser } from "./auth/authSchemas";
@@ -79,6 +80,27 @@ export default function AuthPage() {
     logger.log("[AuthPage] Is embedded browser:", isEmbedded);
   }, []);
 
+  // Redirect based on current profile status after sign-in.
+  // Reads directly from the Zustand store to get the latest state
+  // (the hook value may be stale since we're inside an async handler).
+  const redirectAfterSignIn = useCallback(() => {
+    const { profileStatus } = useAuthStore.getState();
+    if (profileStatus === "exists") {
+      setLocation(getNextUrl());
+    } else if (profileStatus === "missing") {
+      const nextUrl = getNextUrl();
+      const setupUrl =
+        nextUrl !== "/hub"
+          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
+          : "/profile/setup";
+      setLocation(setupUrl);
+    } else {
+      // Fallback: profile status couldn't be determined, go to hub
+      // and let the protected route handle it
+      setLocation(getNextUrl());
+    }
+  }, [setLocation]);
+
   const handleGoogleSignIn = async () => {
     if (!auth?.signInWithGoogle) {
       toast({
@@ -96,6 +118,7 @@ export default function AuthPage() {
         title: "Welcome!",
         description: "You have successfully signed in with Google.",
       });
+      redirectAfterSignIn();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Google sign in failed";
       toast({
