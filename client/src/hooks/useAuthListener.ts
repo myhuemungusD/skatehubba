@@ -4,16 +4,19 @@ import { useAuthStore } from "../store/authStore";
 /**
  * One-time auth bootstrap hook.
  *
- * Uses getState() instead of selectors so the component never subscribes
- * to store changes — these are fire-and-forget imperative calls that
- * should run exactly once on mount.
+ * Serializes handleRedirectResult → initialize so the redirect result
+ * (from signInWithRedirect) is consumed and the backend session is
+ * created BEFORE the persistent onAuthStateChanged listener fires.
+ * Running them as separate useEffects caused a race where initialize
+ * could complete first, losing the redirect result and leaving the
+ * user stuck on the loading screen.
  */
 export function useAuthListener() {
   useEffect(() => {
-    void useAuthStore.getState().handleRedirectResult();
-  }, []);
-
-  useEffect(() => {
-    void useAuthStore.getState().initialize();
+    async function boot() {
+      await useAuthStore.getState().handleRedirectResult();
+      await useAuthStore.getState().initialize();
+    }
+    void boot();
   }, []);
 }

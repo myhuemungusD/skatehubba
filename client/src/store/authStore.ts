@@ -162,6 +162,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ error: fatal });
       }
     } finally {
+      // Guarantee profileStatus resolves to a definitive state after boot.
+      // If profile fetch failed and no cache exists, profileStatus is still
+      // "unknown". Falling back to "missing" unblocks the AppRoutes gate
+      // (which shows an infinite loading screen when authenticated +
+      // profileStatus === "unknown") and routes the user to profile setup.
+      const finalState = get();
+      if (finalState.user && finalState.profileStatus === "unknown") {
+        set({ profileStatus: "missing" });
+        finalStatus = "degraded";
+      }
+
       set({
         loading: false,
         isInitialized: true,

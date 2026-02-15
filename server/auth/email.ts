@@ -4,6 +4,10 @@ import logger from '../logger';
 
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 
+if (!resend) {
+  logger.warn('RESEND_API_KEY not configured — password reset and verification emails will be logged to console only');
+}
+
 // Email templates
 const getVerificationEmailTemplate = (name: string, verificationUrl: string) => `
 <!DOCTYPE html>
@@ -109,7 +113,8 @@ const getBaseUrl = (): string => {
   if (env.NODE_ENV === 'production') {
     return env.PRODUCTION_URL || 'https://skatehubba.com';
   }
-  return 'http://localhost:5000';
+  // Dev: use Vite dev server port (5173), not Express port (3001)
+  return `http://localhost:${process.env.DEV_VITE_PORT || '5173'}`;
 };
 
 // Send verification email
@@ -125,7 +130,7 @@ export async function sendVerificationEmail(email: string, token: string, name: 
       html: getVerificationEmailTemplate(name, verificationUrl),
     });
   } else {
-    logger.debug(`📧 Verification email for ${email}:`, { verificationUrl, name, email });
+    logger.warn(`Verification email for ${email} not sent (RESEND_API_KEY not configured)`, { verificationUrl });
   }
 }
 
@@ -142,6 +147,6 @@ export async function sendPasswordResetEmail(email: string, token: string, name:
       html: getPasswordResetEmailTemplate(name, resetUrl),
     });
   } else {
-    logger.debug(`📧 Password reset email for ${email}:`, { resetUrl, name, email });
+    logger.warn(`Password reset email for ${email} not sent (RESEND_API_KEY not configured)`, { resetUrl });
   }
 }

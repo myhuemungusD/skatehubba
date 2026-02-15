@@ -47,7 +47,10 @@ if (process.env.NODE_ENV === "production") {
           fontSrc: ["'self'", "data:"],
           objectSrc: ["'none'"],
           mediaSrc: ["'self'", "https://firebasestorage.googleapis.com", "blob:"],
-          frameSrc: ["'none'"],
+          // Firebase Auth SDK requires an iframe to {authDomain}/__/auth/iframe
+          // for cross-origin session management in both popup and redirect flows.
+          // Blocking this iframe silently breaks Google OAuth sign-in.
+          frameSrc: ["'self'", "https://*.firebaseapp.com", "https://accounts.google.com"],
         },
       },
     })
