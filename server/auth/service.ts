@@ -234,6 +234,11 @@ export class AuthService {
    * Create a new authentication session for a user
    * @param userId - User ID to create session for
    * @returns Promise resolving to JWT token and session record
+   * 
+   * NOTE: Session tokens are stored as SHA256 hashes (not raw JWTs) for security.
+   * This means existing sessions with raw tokens will be invalidated on deploy.
+   * Users with pre-existing sessions will need to re-authenticate.
+   * Consider purging old sessions during deployment if needed.
    */
   static async createSession(userId: string): Promise<{ token: string; session: AuthSession }> {
     const token = this.generateJWT(userId);
