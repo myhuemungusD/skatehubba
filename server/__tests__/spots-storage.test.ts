@@ -267,29 +267,62 @@ describe("SpotStorage", () => {
 
   describe("updateRating", () => {
     it("should upsert per-user rating and recompute aggregate", async () => {
-      // The new updateRating does three awaits on the chain:
-      // 1. insert().values().onConflictDoUpdate() — void
-      // 2. select().from().where() — needs [{ avgRating, total }]
-      // 3. update().set().where() — void
+      // The new updateRating does four awaits on the chain:
+      // 1. select() for spot existence — needs [{ id: number }]
+      // 2. insert().values().onConflictDoUpdate() — void
+      // 3. select().from().where() for aggregate — needs [{ avgRating, total }]
+      // 4. update().set().where() — void
       let callCount = 0;
       mockDbChain.then = (resolve: any) => {
         callCount++;
-        // Second thenable is the aggregate select — return a result row
-        if (callCount === 2) {
-          return Promise.resolve([{ avgRating: "4.5", total: 1 }]).then(resolve);
+        // First thenable is spot existence check — return spot ID
+        if (callCount === 1) {
+          return Promise.resolve([{ id: 1 }]).then(resolve);
+        }
+        // Third thenable is the aggregate select — return a result row
+        if (callCount === 3) {
+          return Promise.resolve([{ avgRating: "4", total: 1 }]).then(resolve);
         }
         return Promise.resolve(undefined).then(resolve);
       };
-      await spotStorage.updateRating(1, 4.5, "test-user-id");
+      await spotStorage.updateRating(1, 4, "test-user-id");
       expect(mockDbChain.insert).toHaveBeenCalled();
       expect(mockDbChain.onConflictDoUpdate).toHaveBeenCalled();
       expect(mockDbChain.update).toHaveBeenCalled();
     });
 
+    it("should throw for non-integer rating", async () => {
+      await expect(spotStorage.updateRating(1, 4.5, "test-user-id")).rejects.toThrow(
+        "Rating must be an integer between 1 and 5"
+      );
+    });
+
+    it("should throw for rating out of range", async () => {
+      await expect(spotStorage.updateRating(1, 6, "test-user-id")).rejects.toThrow(
+        "Rating must be an integer between 1 and 5"
+      );
+      await expect(spotStorage.updateRating(1, 0, "test-user-id")).rejects.toThrow(
+        "Rating must be an integer between 1 and 5"
+      );
+    });
+
+    it("should throw when spot not found", async () => {
+      let callCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        callCount++;
+        // First thenable is spot existence check — return empty array (spot not found)
+        if (callCount === 1) {
+          return Promise.resolve([]).then(resolve);
+        }
+        return Promise.resolve(undefined).then(resolve);
+      };
+      await expect(spotStorage.updateRating(1, 4, "test-user-id")).rejects.toThrow("Spot not found");
+    });
+
     it("should throw when db is null", async () => {
       mockDb = null;
       const storage = new SpotStorage();
-      await expect(storage.updateRating(1, 4.5, "test-user-id")).rejects.toThrow();
+      await expect(storage.updateRating(1, 4, "test-user-id")).rejects.toThrow();
     });
   });
 
