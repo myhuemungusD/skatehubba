@@ -80,6 +80,9 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      - name: Install emulator system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libpulse0
+
       - name: AVD Cache
         uses: actions/cache@v4
         id: avd-cache
@@ -115,6 +118,13 @@ jobs:
           test -f android/gradlew && echo "yes" || echo "no"
 
       - name: Pre-bundle JS for Android
+        env:
+          EXPO_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+          EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+          EXPO_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+          EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: ci-placeholder.appspot.com
+          EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+          EXPO_PUBLIC_FIREBASE_APP_ID: "1:000000000000:android:0000000000000000"
         run: |
           mkdir -p android/app/src/main/assets
           npx expo export:embed \
@@ -148,7 +158,8 @@ jobs:
           working-directory: mobile
           script: |
             adb devices
-            pnpm run e2e:test:android
+            adb shell input keyevent 82
+            pnpm run e2e:test:android -- --loglevel verbose
 
       - name: Upload Detox Artifacts
         if: failure()

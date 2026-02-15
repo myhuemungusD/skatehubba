@@ -158,6 +158,15 @@ jobs:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: node scripts/verify-firebase-rules.mjs
 
+  # NOTE: EAS preview builds are handled by mobile-preview.yml (triggered on PR)
+
+  # Mobile Detox Smoke Test — runs the Android smoke suite to catch regressions
+  mobile_detox_smoke:
+    name: "Mobile Detox Smoke"
+    needs: mobile_quality
+    uses: ./.github/workflows/mobile-e2e.yml
+    secrets: inherit
+
   # Secret scanning with gitleaks (all branches and PRs)
   secret_scan:
     name: "No Secrets in Repo"

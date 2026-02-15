@@ -66,7 +66,7 @@ export function usePushNotifications() {
         challengeId &&
         (type === "challenge" || type === "challenge_received" || type === "quick_match")
       ) {
-        router.push(`/challenge/new`);
+        router.push(`/challenge/${challengeId}`);
       } else if (gameId && (type === "game_over" || type === "game_game_over")) {
         router.push(`/game/${gameId}`);
       }
