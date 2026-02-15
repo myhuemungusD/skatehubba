@@ -18,6 +18,7 @@ import { fileURLToPath } from 'url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = join(__dirname, '..');
 const strictMode = process.argv.includes('--strict');
+const packageManagerOnlyMode = process.argv.includes('--package-manager-only');
 
 /**
  * Discover workspace package.json paths from pnpm-workspace.yaml.
@@ -70,6 +71,7 @@ const CRITICAL_DEPS = [
 const errors = [];
 const warnings = [];
 const versionMap = new Map(); // Track versions across packages
+const packageManagerByFile = new Map();
 
 /**
  * Check for duplicate keys in JSON by parsing raw content
@@ -143,6 +145,17 @@ function trackVersions(filePath, deps, depType) {
 }
 
 /**
+ * Track package manager declarations across workspaces
+ */
+function trackPackageManager(filePath, pkg) {
+  if (typeof pkg.packageManager !== 'string' || pkg.packageManager.trim() === '') {
+    return;
+  }
+
+  packageManagerByFile.set(filePath, pkg.packageManager.trim());
+}
+
+/**
  * Check for version mismatches
  */
 function checkVersionMismatches() {
@@ -172,6 +185,33 @@ function checkVersionMismatches() {
   }
 }
 
+/**
+ * Enforce a single package manager declaration across the monorepo.
+ * Root package.json is the source of truth.
+ */
+function checkPackageManagerConsistency() {
+  const rootPackageManager = packageManagerByFile.get('package.json');
+
+  if (!rootPackageManager) {
+    warnings.push({
+      message: 'Root package.json is missing "packageManager". Add one to ensure deterministic toolchain behavior.',
+    });
+    return;
+  }
+
+  for (const [filePath, packageManager] of packageManagerByFile.entries()) {
+    if (filePath === 'package.json') continue;
+
+    if (packageManager !== rootPackageManager) {
+      errors.push({
+        file: filePath,
+        message: `packageManager mismatch: expected "${rootPackageManager}" (from root package.json), found "${packageManager}"`,
+        critical: true,
+      });
+    }
+  }
+}
+
 // Main execution
 console.log('🔍 Validating package.json files...\n');
 
@@ -192,6 +232,7 @@ for (const relativePath of PACKAGE_PATHS) {
     
     // Parse JSON and track versions
     const pkg = JSON.parse(content);
+    trackPackageManager(relativePath, pkg);
     trackVersions(relativePath, pkg.dependencies, 'dependencies');
     trackVersions(relativePath, pkg.devDependencies, 'devDependencies');
     trackVersions(relativePath, pkg.peerDependencies, 'peerDependencies');
@@ -214,7 +255,10 @@ for (const relativePath of PACKAGE_PATHS) {
 }
 
 // Check for version mismatches
-checkVersionMismatches();
+if (!packageManagerOnlyMode) {
+  checkVersionMismatches();
+}
+checkPackageManagerConsistency();
 
 // Report results
 console.log('\n');

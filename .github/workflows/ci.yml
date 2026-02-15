@@ -43,6 +43,9 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate package manager consistency (strict)
+        run: pnpm run validate:package-manager
+
       - name: Typecheck
         run: pnpm run typecheck
 
