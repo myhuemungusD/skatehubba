@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../hooks/useAuth";
+import { useAuthStore } from "../store/authStore";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { useToast } from "../hooks/use-toast";
@@ -54,17 +55,38 @@ export default function SigninPage() {
     }
   }, [auth?.isAuthenticated, auth?.profileStatus, setLocation, getNextUrl]);
 
+  // Redirect based on current profile status after sign-in.
+  // Reads directly from the Zustand store to get the latest state
+  // (the hook value may be stale since we're inside an async handler).
+  const redirectAfterSignIn = useCallback(() => {
+    const { profileStatus } = useAuthStore.getState();
+    if (profileStatus === "exists") {
+      setLocation(getNextUrl());
+    } else if (profileStatus === "missing") {
+      const nextUrl = getNextUrl();
+      const setupUrl =
+        nextUrl !== "/hub"
+          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
+          : "/profile/setup";
+      setLocation(setupUrl);
+    } else {
+      // Fallback: profile status couldn't be determined, go to hub
+      // and let the protected route handle it
+      setLocation(getNextUrl());
+    }
+  }, [setLocation, getNextUrl]);
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setIsLoading(true);
 
     try {
       await auth?.signInWithEmail(email, password);
-      // useEffect handles redirect based on profileStatus
       toast({
         title: "Welcome back!",
         description: "Signing you in...",
       });
+      redirectAfterSignIn();
     } catch (err: unknown) {
       toast({
         title: "Login failed",
@@ -80,11 +102,11 @@ export default function SigninPage() {
 
     try {
       await auth?.signInWithGoogle();
-      // useEffect handles redirect based on profileStatus
       toast({
         title: "Welcome!",
         description: "Signing you in with Google...",
       });
+      redirectAfterSignIn();
     } catch (err: unknown) {
       toast({
         title: "Google sign-in failed",

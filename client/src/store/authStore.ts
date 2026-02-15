@@ -220,7 +220,26 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (isPopupSafe()) {
         const result = await signInWithPopup(auth, googleProvider);
         if (result.user) {
+          // Update store immediately so callers see authenticated state
+          // without waiting for the async onAuthStateChanged listener.
+          set({ user: result.user, loading: false });
+
           await authenticateWithBackend(result.user);
+
+          // Fetch profile and roles inline so profileStatus is resolved
+          // before this function returns. The onAuthStateChanged listener
+          // will see profileStatus !== "unknown" and skip its own fetch.
+          const [profileResult, rolesResult] = await Promise.all([
+            withTimeout(fetchProfile(result.user.uid), 4000, "fetchProfile"),
+            withTimeout(extractRolesFromToken(result.user), 4000, "fetchRoles"),
+          ]);
+
+          const resolved = resolveProfileResult(result.user.uid, profileResult);
+          set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
+
+          if (rolesResult.status === "ok") {
+            set({ roles: rolesResult.data });
+          }
         }
         return;
       }
@@ -255,7 +274,24 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
+      // Update store immediately so callers see authenticated state
+      set({ user: result.user, loading: false });
+
       await authenticateWithBackend(result.user);
+
+      // Fetch profile and roles inline so profileStatus is resolved
+      // before this function returns.
+      const [profileResult, rolesResult] = await Promise.all([
+        withTimeout(fetchProfile(result.user.uid), 4000, "fetchProfile"),
+        withTimeout(extractRolesFromToken(result.user), 4000, "fetchRoles"),
+      ]);
+
+      const resolved = resolveProfileResult(result.user.uid, profileResult);
+      set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
+
+      if (rolesResult.status === "ok") {
+        set({ roles: rolesResult.data });
+      }
     } catch (err: unknown) {
       logger.error("[AuthStore] Email sign-in error:", err);
       if (err instanceof Error) {
