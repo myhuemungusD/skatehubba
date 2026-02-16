@@ -1,0 +1,45 @@
+# Dependencies (rebuilt in container)
+node_modules/
+.pnpm-store/
+
+# Build outputs (rebuilt in container)
+dist/
+build/
+coverage/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment secrets (NEVER copy into image)
+.env
+.env.local
+.env.*.local
+
+# Test and dev tooling
+__tests__/
+*.test.ts
+*.spec.ts
+cypress/
+.husky/
+
+# Documentation
+*.md
+docs/
+LICENSE
+
+# CI/CD
+.github/
+
+# Mobile (not needed in server image)
+mobile/
+
+# Firebase emulators
+.firebase/
+firebase-debug.log

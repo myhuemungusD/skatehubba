@@ -1,0 +1,26 @@
+# Build outputs
+dist/
+build/
+.next/
+coverage/
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Generated files
+pnpm-lock.yaml
+*.min.js
+*.min.css
+
+# Mobile
+mobile/android/
+mobile/ios/
+mobile/.expo/
+
+# Firebase
+.firebase/
+firebase-debug.log
+
+# Drizzle migrations (generated SQL)
+migrations/

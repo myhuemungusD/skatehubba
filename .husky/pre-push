@@ -1,0 +1,10 @@
+# Pre-push guardrail: catch type errors before they reach CI
+# This is faster feedback than waiting for CI to fail
+
+echo "🔍 Running typecheck before push..."
+pnpm run typecheck || {
+  echo "❌ Typecheck failed — fix type errors before pushing"
+  exit 1
+}
+
+echo "✅ Typecheck passed"

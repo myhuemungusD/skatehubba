@@ -85,6 +85,56 @@ jobs:
           path: dist
           retention-days: 5
 
+  # Bundle size budget — prevents accidental bloat from reaching production
+  bundle_size:
+    name: "📦 Bundle Size Budget"
+    needs: build_lint_typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Prepare client dist
+        run: |
+          mkdir -p client/dist
+          if [ -d dist/assets ]; then
+            cp -r dist/assets client/dist/
+          fi
+
+      - name: Check bundle size budgets
+        run: node scripts/check-bundle-size.mjs --ci
+
+  # Database migration drift — ensures generated migrations match the schema
+  migration_drift:
+    name: "🗄️ Migration Drift Check"
+    needs: lockfile_check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for uncommitted migration changes
+        run: |
+          pnpm db:generate 2>/dev/null || true
+          if [ -n "$(git status --porcelain migrations/)" ]; then
+            echo "::error::Migration drift detected — schema changes exist without a committed migration"
+            echo "Run 'pnpm db:generate' locally and commit the result"
+            git diff migrations/
+            exit 1
+          fi
+          echo "✅ Migrations are in sync with schema"
+
   # Mobile app quality gates - typecheck + lint (runs in parallel with web QC)
   mobile_quality:
     name: "Mobile Quality Control"

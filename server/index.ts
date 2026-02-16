@@ -48,10 +48,25 @@ if (process.env.NODE_ENV === "production") {
           objectSrc: ["'none'"],
           mediaSrc: ["'self'", "https://firebasestorage.googleapis.com", "blob:"],
           frameSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          upgradeInsecureRequests: [],
         },
       },
+      crossOriginEmbedderPolicy: false, // required for cross-origin images/media
+      crossOriginOpenerPolicy: { policy: "same-origin" },
+      crossOriginResourcePolicy: { policy: "same-site" },
     })
   );
+
+  // Permissions-Policy: restrict browser features the app doesn't use
+  app.use((_req, res, next) => {
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+    );
+    next();
+  });
 }
 
 // CORS configuration
