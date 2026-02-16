@@ -26,8 +26,9 @@ router.get("/", authenticateUser, async (req, res) => {
 
 /**
  * POST /api/tier/award-pro - Award Pro status to another user
- * Only existing Pro or Premium users can award Pro to others.
+ * Only Premium (paid) users can award Pro to others.
  * This is like getting sponsored in real skating - a pro vouches for you.
+ * Pro users who were themselves awarded cannot propagate the chain.
  */
 const awardProSchema = z.object({
   userId: z.string().min(1, "User ID is required"),
@@ -59,51 +60,76 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, proAwardLimiter, a
   try {
     const db = getDb();
 
-    // Cap the number of pro awards a single premium user can give
-    const MAX_PRO_AWARDS = 5;
-    const [awardCount] = await db
-      .select({ value: count() })
-      .from(customUsers)
-      .where(eq(customUsers.proAwardedBy, awarder.id));
+    // Use a transaction to atomically check cap and award
+    const result = await db.transaction(async (tx) => {
+      // Cap the number of pro awards a single premium user can give
+      const MAX_PRO_AWARDS = 5;
+      const [awardCount] = await tx
+        .select({ value: count() })
+        .from(customUsers)
+        .where(eq(customUsers.proAwardedBy, awarder.id));
 
-    if ((awardCount?.value ?? 0) >= MAX_PRO_AWARDS) {
-      return Errors.conflict(
-        res,
-        "AWARD_LIMIT_REACHED",
-        `You have already awarded Pro status to ${MAX_PRO_AWARDS} users.`
-      );
+      if ((awardCount?.value ?? 0) >= MAX_PRO_AWARDS) {
+        return {
+          error: "AWARD_LIMIT_REACHED",
+          message: `You have already awarded Pro status to ${MAX_PRO_AWARDS} users.`,
+        };
+      }
+
+      // Check if target user exists and is on free tier
+      const [targetUser] = await tx
+        .select({
+          id: customUsers.id,
+          accountTier: customUsers.accountTier,
+          firstName: customUsers.firstName,
+        })
+        .from(customUsers)
+        .where(eq(customUsers.id, userId))
+        .limit(1);
+
+      if (!targetUser) {
+        return { error: "USER_NOT_FOUND", message: "User not found." };
+      }
+
+      if (targetUser.accountTier !== "free") {
+        return {
+          error: "ALREADY_UPGRADED",
+          message: "User already has Pro or Premium status.",
+          currentTier: targetUser.accountTier,
+        };
+      }
+
+      // Award Pro status
+      await tx
+        .update(customUsers)
+        .set({
+          accountTier: "pro",
+          proAwardedBy: awarder.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(customUsers.id, userId));
+
+      return { success: true, targetUser };
+    });
+
+    if ("error" in result) {
+      if (result.error === "AWARD_LIMIT_REACHED") {
+        return Errors.conflict(res, result.error, result.message);
+      }
+      if (result.error === "USER_NOT_FOUND") {
+        return Errors.notFound(res, result.error, result.message);
+      }
+      if (result.error === "ALREADY_UPGRADED") {
+        return Errors.conflict(res, result.error, result.message, {
+          currentTier: (result as any).currentTier,
+        });
+      }
     }
 
-    // Check if target user exists and is on free tier
-    const [targetUser] = await db
-      .select({
-        id: customUsers.id,
-        accountTier: customUsers.accountTier,
-        firstName: customUsers.firstName,
-      })
-      .from(customUsers)
-      .where(eq(customUsers.id, userId))
-      .limit(1);
-
-    if (!targetUser) {
-      return Errors.notFound(res, "USER_NOT_FOUND", "User not found.");
+    // Type guard: result must have targetUser if no error
+    if (!result.targetUser) {
+      return Errors.internal(res, "PRO_AWARD_FAILED", "Failed to award Pro status.");
     }
-
-    if (targetUser.accountTier !== "free") {
-      return Errors.conflict(res, "ALREADY_UPGRADED", "User already has Pro or Premium status.", {
-        currentTier: targetUser.accountTier,
-      });
-    }
-
-    // Award Pro status
-    await db
-      .update(customUsers)
-      .set({
-        accountTier: "pro",
-        proAwardedBy: awarder.id,
-        updatedAt: new Date(),
-      })
-      .where(eq(customUsers.id, userId));
 
     logger.info("Pro status awarded", {
       awardedTo: userId,
@@ -112,7 +138,7 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, proAwardLimiter, a
 
     return res.json({
       success: true,
-      message: `Pro status awarded to ${targetUser.firstName || "user"}`,
+      message: `Pro status awarded to ${result.targetUser.firstName || "user"}`,
       awardedTo: userId,
       awardedBy: awarder.id,
     });

@@ -255,11 +255,21 @@ export class SpotStorage {
   /**
    * Record a per-user rating and recompute the spot aggregate.
    * Each user can only rate a spot once; subsequent calls update their rating.
-   * Returns false if the user already has an identical rating (no-op).
    */
   async updateRating(id: number, newRating: number, userId: string): Promise<boolean> {
     if (!db) {
       throw new Error("Database not available");
+    }
+
+    // Validate rating is an integer in range [1, 5]
+    if (!Number.isInteger(newRating) || newRating < 1 || newRating > 5) {
+      throw new Error("Rating must be an integer between 1 and 5");
+    }
+
+    // Check if spot exists (FK constraint would throw 500 otherwise)
+    const [existingSpot] = await db.select({ id: spots.id }).from(spots).where(eq(spots.id, id));
+    if (!existingSpot) {
+      throw new Error("Spot not found");
     }
 
     // Upsert the individual rating (one per user per spot)
@@ -276,6 +286,10 @@ export class SpotStorage {
       });
 
     // Recompute aggregate from the per-user ratings table
+    // NOTE: Since existing production data has spots.rating/ratingCount populated
+    // but spot_ratings starts empty, the first new rating will effectively reset
+    // a spot's historical aggregate to a single-vote aggregate.
+    // Consider a migration strategy to preserve existing aggregates or reset them at deploy time.
     const [agg] = await db
       .select({
         avgRating: avg(spotRatings.rating),
