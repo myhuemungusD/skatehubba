@@ -48,6 +48,13 @@ describe("reauth — auth_time undefined branch (line 67)", () => {
     }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     const { setupReauthRoutes } = await import("../auth/routes/reauth");
@@ -112,6 +119,13 @@ describe("password — currentPassword undefined fallback (line 46)", () => {
     }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../auth/email", () => ({
       sendPasswordResetEmail: vi.fn().mockResolvedValue(undefined),
@@ -165,6 +179,13 @@ describe("password — currentPassword undefined fallback (line 46)", () => {
     }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../auth/email", () => ({
       sendPasswordResetEmail: vi.fn(),
@@ -268,8 +289,19 @@ describe("admin routes — null count fallbacks", () => {
       enforceAdminRateLimit: () => (_req: any, _res: any, next: any) => next(),
       enforceNotBanned: () => (_req: any, _res: any, next: any) => next(),
     }));
+    vi.doMock("../middleware/auditLog", () => ({
+      auditMiddleware: vi.fn(() => vi.fn((_req: any, _res: any, next: any) => next())),
+      emitAuditLog: vi.fn(),
+    }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../utils/apiError", () => ({
       Errors: {

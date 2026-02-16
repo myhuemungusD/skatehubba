@@ -45,6 +45,13 @@ describe("LockoutService.unlockAccount and cleanup", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../auth/audit", () => ({
@@ -145,6 +152,13 @@ describe("MfaService.isEnabled", () => {
 
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../config/env", () => ({
@@ -206,6 +220,13 @@ describe("requireRecentAuth — in-memory fallback branch", () => {
 
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../redis", () => ({
@@ -252,6 +273,13 @@ describe("Monitoring — percentile and version coverage", () => {
 
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../config/env", () => ({
@@ -350,6 +378,13 @@ describe("routes.ts — verifyCronSecret with no CRON_SECRET", () => {
 
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../config/env", () => ({

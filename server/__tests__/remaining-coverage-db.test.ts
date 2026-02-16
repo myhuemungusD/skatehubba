@@ -10,6 +10,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock logger
 vi.mock("../logger", () => ({
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 vi.mock("../seeds/defaultSpots", () => ({ defaultSpots: [] }));

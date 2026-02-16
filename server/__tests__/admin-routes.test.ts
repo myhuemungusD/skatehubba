@@ -39,6 +39,17 @@ vi.mock("../logger", () => ({
     error: vi.fn(),
     debug: vi.fn(),
   },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
+}));
+
+vi.mock("../middleware/auditLog", () => ({
+  auditMiddleware: vi.fn(() => vi.fn((_req: any, _res: any, next: any) => next())),
+  emitAuditLog: vi.fn(),
 }));
 
 vi.mock("../auth/middleware", () => ({

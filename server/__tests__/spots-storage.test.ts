@@ -87,6 +87,12 @@ vi.mock("../logger", () => ({
     error: vi.fn(),
     debug: vi.fn(),
   },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 const { SpotStorage, spotStorage } = await import("../storage/spots");
@@ -316,7 +322,9 @@ describe("SpotStorage", () => {
         }
         return Promise.resolve(undefined).then(resolve);
       };
-      await expect(spotStorage.updateRating(1, 4, "test-user-id")).rejects.toThrow("Spot not found");
+      await expect(spotStorage.updateRating(1, 4, "test-user-id")).rejects.toThrow(
+        "Spot not found"
+      );
     });
 
     it("should throw when db is null", async () => {

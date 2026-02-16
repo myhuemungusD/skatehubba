@@ -31,6 +31,12 @@ vi.mock("../logger", () => ({
     error: vi.fn(),
     debug: vi.fn(),
   },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 const mockDbReturns = {
@@ -534,6 +540,13 @@ describe("auth/email.ts - production URL and Resend integration", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     // Mock the Resend constructor to capture emails.send calls
@@ -598,6 +611,13 @@ describe("auth/email.ts - production URL and Resend integration", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     const mockEmailsSend = vi.fn().mockResolvedValue({ id: "email-456" });
