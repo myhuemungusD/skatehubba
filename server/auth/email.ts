@@ -130,7 +130,10 @@ export async function sendVerificationEmail(email: string, token: string, name: 
       html: getVerificationEmailTemplate(name, verificationUrl),
     });
   } else {
-    logger.warn(`Verification email for ${email} not sent (RESEND_API_KEY not configured)`, { verificationUrl });
+    // Log without PII in message string (email goes in structured context
+    // where the logger's redact() can mask it). Never log the full URL
+    // since it contains the secret verification token.
+    logger.warn('Verification email not sent (RESEND_API_KEY not configured)', { email });
   }
 }
 
@@ -147,6 +150,6 @@ export async function sendPasswordResetEmail(email: string, token: string, name:
       html: getPasswordResetEmailTemplate(name, resetUrl),
     });
   } else {
-    logger.warn(`Password reset email for ${email} not sent (RESEND_API_KEY not configured)`, { resetUrl });
+    logger.warn('Password reset email not sent (RESEND_API_KEY not configured)', { email });
   }
 }

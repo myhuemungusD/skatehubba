@@ -135,6 +135,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             {
               const resolved = resolveProfileResult(user.uid, profileResult);
               set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
+
+              // Same fallback as boot: don't leave "unknown" after resolution,
+              // or AppRoutes shows an infinite loading screen.
+              if (resolved.profileStatus === "unknown") {
+                set({ profileStatus: "missing" });
+              }
             }
 
             if (rolesResult.status === "ok") {

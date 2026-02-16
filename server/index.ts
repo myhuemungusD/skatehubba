@@ -35,6 +35,20 @@ app.use(requestTracing);
 
 // Security middleware
 if (process.env.NODE_ENV === "production") {
+  // Resolve the Firebase Auth domain for CSP. Firebase Auth SDK loads
+  // an iframe from {authDomain}/__/auth/iframe for session management.
+  // We pin to the exact project domain rather than wildcard *.firebaseapp.com.
+  const firebaseAuthDomain =
+    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ||
+    (process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID
+      ? `${process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com`
+      : null);
+
+  const frameSrcDirective: string[] = ["'self'", "https://accounts.google.com"];
+  if (firebaseAuthDomain) {
+    frameSrcDirective.push(`https://${firebaseAuthDomain}`);
+  }
+
   app.use(
     helmet({
       contentSecurityPolicy: {
@@ -50,7 +64,8 @@ if (process.env.NODE_ENV === "production") {
           // Firebase Auth SDK requires an iframe to {authDomain}/__/auth/iframe
           // for cross-origin session management in both popup and redirect flows.
           // Blocking this iframe silently breaks Google OAuth sign-in.
-          frameSrc: ["'self'", "https://*.firebaseapp.com", "https://accounts.google.com"],
+          frameSrc: frameSrcDirective,
+          frameAncestors: ["'self'"],
         },
       },
     })

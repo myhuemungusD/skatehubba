@@ -6,7 +6,6 @@ import type { Express } from "express";
 import { AuthService } from "../service.ts";
 import { authenticateUser } from "../middleware.ts";
 import { authLimiter } from "../../middleware/rateLimit.ts";
-import { requireCsrfToken } from "../../middleware/csrf.ts";
 import { admin } from "../../admin.ts";
 import { AuditLogger } from "../audit.ts";
 import { getClientIP } from "../audit.ts";
@@ -14,9 +13,12 @@ import { LockoutService } from "../lockout.ts";
 import logger from "../../logger.ts";
 import { sendVerificationEmail } from "../email.ts";
 
+// NOTE: CSRF validation is handled globally by app.use("/api", requireCsrfToken)
+// in server/index.ts. Do not add per-route requireCsrfToken here.
+
 export function setupLoginRoutes(app: Express) {
   // Single login/register endpoint - Firebase ID token only (with rate limiting)
-  app.post("/api/auth/login", authLimiter, requireCsrfToken, async (req, res) => {
+  app.post("/api/auth/login", authLimiter, async (req, res) => {
     const ipAddress = getClientIP(req);
     const userAgent = req.headers["user-agent"] || undefined;
 
@@ -183,7 +185,7 @@ export function setupLoginRoutes(app: Express) {
   });
 
   // Logout endpoint
-  app.post("/api/auth/logout", authenticateUser, requireCsrfToken, async (req, res) => {
+  app.post("/api/auth/logout", authenticateUser, async (req, res) => {
     const ipAddress = getClientIP(req);
     const userAgent = req.headers["user-agent"] || undefined;
     const user = req.currentUser!;
