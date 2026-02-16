@@ -127,9 +127,10 @@ jobs:
           EXPO_PUBLIC_FIREBASE_APP_ID: "1:000000000000:android:0000000000000000"
         run: |
           mkdir -p android/app/src/main/assets
-          npx expo export:embed \
+          npx react-native bundle \
             --platform android \
             --entry-file index.js \
+            --config metro.config.js \
             --dev false \
             --bundle-output android/app/src/main/assets/index.android.bundle \
             --assets-dest android/app/src/main/res/
@@ -157,8 +158,10 @@ jobs:
           disable-animations: true
           working-directory: mobile
           script: |
+            adb wait-for-device
             adb devices
             adb shell input keyevent 82
+            sleep 5
             pnpm run e2e:test:android -- --loglevel verbose
 
       - name: Upload Detox Artifacts
