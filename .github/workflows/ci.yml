@@ -88,25 +88,20 @@ jobs:
   # Bundle size budget — prevents accidental bloat from reaching production
   bundle_size:
     name: "📦 Bundle Size Budget"
-    needs: build_lint_typecheck
+    needs: lockfile_check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: ./.github/actions/setup-pnpm-env
 
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Prepare client dist
-        run: |
-          mkdir -p client/dist
-          if [ -d dist/assets ]; then
-            cp -r dist/assets client/dist/
-          fi
+      - name: Build Client
+        env:
+          ALLOW_MISSING_PUBLIC_ENV: "true"
+        run: pnpm -C client build
 
       - name: Check bundle size budgets
         run: node scripts/check-bundle-size.mjs --ci
@@ -126,7 +121,11 @@ jobs:
 
       - name: Check for uncommitted migration changes
         run: |
-          pnpm db:generate 2>/dev/null || true
+          if ! pnpm db:generate 2>&1; then
+            echo "::warning::drizzle-kit generate failed — skipping migration drift check"
+            echo "If this persists, ensure drizzle.config.ts is valid"
+            exit 0
+          fi
           if [ -n "$(git status --porcelain migrations/)" ]; then
             echo "::error::Migration drift detected — schema changes exist without a committed migration"
             echo "Run 'pnpm db:generate' locally and commit the result"
