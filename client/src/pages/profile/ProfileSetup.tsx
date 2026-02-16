@@ -29,10 +29,6 @@ export default function ProfileSetup() {
     defaultValues: {
       username: "",
       stance: undefined,
-      experienceLevel: undefined,
-      sponsorFlow: "",
-      sponsorTeam: "",
-      hometownShop: "",
     },
   });
 
@@ -146,79 +142,19 @@ export default function ProfileSetup() {
             {errors.username && <p className="text-xs text-red-400">{errors.username.message}</p>}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-neutral-200" htmlFor="stance">
-                Stance
-              </label>
-              <select
-                id="stance"
-                className="h-12 w-full rounded-lg bg-neutral-900/60 border border-neutral-700 text-white px-3"
-                {...register("stance")}
-              >
-                <option value="">Select stance</option>
-                <option value="regular">Regular</option>
-                <option value="goofy">Goofy</option>
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-neutral-200" htmlFor="experienceLevel">
-                Experience Level
-              </label>
-              <select
-                id="experienceLevel"
-                className="h-12 w-full rounded-lg bg-neutral-900/60 border border-neutral-700 text-white px-3"
-                {...register("experienceLevel")}
-              >
-                <option value="">Select level</option>
-                <option value="beginner">Beginner</option>
-                <option value="intermediate">Intermediate</option>
-                <option value="advanced">Advanced</option>
-              </select>
-              <p className="text-xs text-neutral-400 mt-1">
-                Pro status available via verification only
-              </p>
-            </div>
-          </div>
-
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-neutral-200" htmlFor="sponsorFlow">
-              Sponsor/Flow (Optional)
+            <label className="text-sm font-semibold text-neutral-200" htmlFor="stance">
+              Stance
             </label>
-            <Input
-              id="sponsorFlow"
-              placeholder="e.g., Nike SB"
-              className="h-12 bg-neutral-900/60 border-neutral-700 text-white"
-              {...register("sponsorFlow")}
-            />
-            <p className="text-xs text-neutral-400">Your current sponsor or flow sponsor</p>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-neutral-200" htmlFor="sponsorTeam">
-              Sponsor/Team (Optional)
-            </label>
-            <Input
-              id="sponsorTeam"
-              placeholder="e.g., Element Skateboards"
-              className="h-12 bg-neutral-900/60 border-neutral-700 text-white"
-              {...register("sponsorTeam")}
-            />
-            <p className="text-xs text-neutral-400">Your board sponsor or team affiliation</p>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold text-neutral-200" htmlFor="hometownShop">
-              Hometown Shop (Optional)
-            </label>
-            <Input
-              id="hometownShop"
-              placeholder="e.g., Local Skate Shop"
-              className="h-12 bg-neutral-900/60 border-neutral-700 text-white"
-              {...register("hometownShop")}
-            />
-            <p className="text-xs text-neutral-400">Your local skate shop</p>
+            <select
+              id="stance"
+              className="h-12 w-full rounded-lg bg-neutral-900/60 border border-neutral-700 text-white px-3"
+              {...register("stance")}
+            >
+              <option value="">Select stance</option>
+              <option value="regular">Regular</option>
+              <option value="goofy">Goofy</option>
+            </select>
           </div>
 
           {submitting && (

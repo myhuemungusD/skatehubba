@@ -78,10 +78,6 @@ export function useProfileSubmit(
         const payload: ProfileCreatePayload = {
           username: skip ? undefined : values.username,
           stance: values.stance || undefined,
-          experienceLevel: values.experienceLevel || undefined,
-          sponsorFlow: values.sponsorFlow?.trim() ? values.sponsorFlow.trim() : undefined,
-          sponsorTeam: values.sponsorTeam?.trim() ? values.sponsorTeam.trim() : undefined,
-          hometownShop: values.hometownShop?.trim() ? values.hometownShop.trim() : undefined,
           skip,
         };
 
@@ -168,10 +164,6 @@ export function useProfileSubmit(
       {
         username: "",
         stance: undefined,
-        experienceLevel: undefined,
-        sponsorFlow: "",
-        sponsorTeam: "",
-        hometownShop: "",
       },
       true
     );
