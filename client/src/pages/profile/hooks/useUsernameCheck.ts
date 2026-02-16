@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckCircle, XCircle, Loader2, AlertTriangle } from "lucide-react";
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { createElement } from "react";
 import { buildApiUrl } from "../../../lib/api/client";
 import { logger } from "../../../lib/logger";
@@ -70,8 +70,8 @@ export function useUsernameCheck(username: string | undefined) {
           logger.warn("[ProfileSetup] Username check failed", error);
           usernameWarnedRef.current = true;
         }
-        setUsernameStatus("unverified");
-        setUsernameMessage("Couldn't check availability right now. We'll verify when you submit.");
+        setUsernameStatus("idle");
+        setUsernameMessage("");
       }
     }, 500);
 
@@ -104,14 +104,6 @@ export function useUsernameCheck(username: string | undefined) {
         { className: "inline-flex items-center gap-1 text-sm text-yellow-300" },
         createElement(Loader2, { className: "h-4 w-4 animate-spin" }),
         "Checking"
-      );
-    }
-    if (usernameStatus === "unverified") {
-      return createElement(
-        "span",
-        { className: "inline-flex items-center gap-1 text-sm text-neutral-400" },
-        createElement(AlertTriangle, { className: "h-4 w-4" }),
-        "Check failed"
       );
     }
     return null;
