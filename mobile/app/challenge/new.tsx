@@ -1,14 +1,6 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import {
-  Camera,
-  useCameraDevice,
-  useCameraPermission,
-  useMicrophonePermission,
-  useCameraFormat,
-  VideoFile,
-} from "react-native-vision-camera";
 import { Video } from "expo-av";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { httpsCallable } from "firebase/functions";
@@ -17,6 +9,27 @@ import { functions, storage, auth } from "@/lib/firebase.config";
 import { showMessage } from "react-native-flash-message";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
+import { isExpoGo } from "@/lib/isExpoGo";
+
+// react-native-vision-camera requires native code unavailable in Expo Go
+let Camera: React.ComponentType<any> | null = null;
+let useCameraDevice: any = () => null;
+let useCameraPermission: any = () => ({ hasPermission: false, requestPermission: async () => {} });
+let useMicrophonePermission: any = () => ({ hasPermission: false, requestPermission: async () => {} });
+let useCameraFormat: any = () => null;
+type VideoFile = { path: string };
+if (!isExpoGo) {
+  try {
+    const vc = require("react-native-vision-camera");
+    Camera = vc.Camera;
+    useCameraDevice = vc.useCameraDevice;
+    useCameraPermission = vc.useCameraPermission;
+    useMicrophonePermission = vc.useMicrophonePermission;
+    useCameraFormat = vc.useCameraFormat;
+  } catch {
+    // Native module not available
+  }
+}
 
 const createChallenge = httpsCallable(functions, "createChallenge");
 
@@ -32,7 +45,7 @@ export default function NewChallengeScreen() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<any>(null);
 
   // Vision Camera hooks
   const device = useCameraDevice("back");
@@ -96,6 +109,28 @@ export default function NewChallengeScreen() {
           accessible
           accessibilityRole="button"
           accessibilityLabel="Go back to previous screen"
+          style={styles.button}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Expo Go does not support react-native-vision-camera
+  if (!Camera) {
+    return (
+      <View style={styles.container}>
+        <Ionicons name="videocam-off" size={64} color={SKATE.colors.lightGray} />
+        <Text style={styles.text}>Camera recording requires a development build</Text>
+        <Text style={[styles.text, { fontSize: 13, color: SKATE.colors.gray, marginTop: 0 }]}>
+          Run "npx expo run:android" or use EAS Build to create a dev build with camera support.
+        </Text>
+        <TouchableOpacity
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
           style={styles.button}
           onPress={() => router.back()}
         >
