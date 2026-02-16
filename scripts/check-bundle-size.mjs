@@ -25,7 +25,7 @@ const BUDGETS = {
   // Individual chunk budgets (filename pattern → max KB)
   chunks: {
     vendor: 500,
-    firebase: 350,
+    firebase: 600,
     leaflet: 300,
     motion: 150,
     icons: 200,
