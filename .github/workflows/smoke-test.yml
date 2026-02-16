@@ -1,0 +1,42 @@
+name: Smoke Test
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "URL to test"
+        required: true
+        default: "https://skatehubba1.vercel.app"
+
+jobs:
+  smoke-test:
+    if: github.event.deployment_status.state == 'success' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright
+        run: pnpm -C client exec playwright install --with-deps chromium
+
+      - name: Run Smoke Tests
+        run: pnpm -C client exec playwright test --config ../e2e/playwright.config.ts
+        env:
+          BASE_URL: ${{ github.event.deployment_status.target_url || github.event.inputs.url }}
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
