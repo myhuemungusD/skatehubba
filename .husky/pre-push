@@ -1,0 +1,13 @@
+# Guardrail: Run tests before pushing to catch failures locally.
+# This prevents broken tests from reaching CI and blocking PRs.
+
+echo "🧪 Running tests before push..."
+
+pnpm vitest run --config vitest.config.mts 2>&1 || {
+  echo ""
+  echo "❌ Tests failed! Push aborted."
+  echo "   Fix the failing tests and try again."
+  exit 1
+}
+
+echo "✅ All tests passed — pushing."
