@@ -32,6 +32,12 @@ vi.mock("../logger", () => ({
     error: vi.fn(),
     debug: vi.fn(),
   },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 vi.mock("../middleware/firebaseUid", () => ({

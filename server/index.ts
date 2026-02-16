@@ -65,15 +65,26 @@ if (process.env.NODE_ENV === "production") {
           fontSrc: ["'self'", "data:"],
           objectSrc: ["'none'"],
           mediaSrc: ["'self'", "https://firebasestorage.googleapis.com", "blob:"],
-          // Firebase Auth SDK requires an iframe to {authDomain}/__/auth/iframe
-          // for cross-origin session management in both popup and redirect flows.
-          // Blocking this iframe silently breaks Google OAuth sign-in.
-          frameSrc: frameSrcDirective,
-          frameAncestors: ["'self'"],
+          frameSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          upgradeInsecureRequests: [],
         },
       },
+      crossOriginEmbedderPolicy: false, // required for cross-origin images/media
+      crossOriginOpenerPolicy: { policy: "same-origin" },
+      crossOriginResourcePolicy: { policy: "same-site" },
     })
   );
+
+  // Permissions-Policy: restrict browser features the app doesn't use
+  app.use((_req, res, next) => {
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+    );
+    next();
+  });
 }
 
 // CORS configuration

@@ -46,6 +46,13 @@ describe("admin.ts — line 34 (App Check catch block)", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../config/env", () => ({

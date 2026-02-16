@@ -41,6 +41,13 @@ describe("db.ts — Pool constructor error (line 27)", () => {
     vi.doMock("../seeds/defaultSpots", () => ({ defaultSpots: [] }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     const { db, pool, isDatabaseAvailable } = await import("../db");
@@ -92,7 +99,15 @@ describe("db.ts — initializeDatabase production error rethrow (line 156-160)",
     }));
     vi.doMock("../seeds/defaultSpots", () => ({ defaultSpots: [] }));
     const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
-    vi.doMock("../logger", () => ({ default: mockLogger }));
+    vi.doMock("../logger", () => ({
+      default: mockLogger,
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
+    }));
 
     const dbModule = await import("../db");
 

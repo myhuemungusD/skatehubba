@@ -43,6 +43,12 @@ vi.mock("../logger", () => ({
     error: vi.fn(),
     debug: vi.fn(),
   },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 vi.mock("../auth/middleware", () => ({
@@ -265,7 +271,10 @@ describe("Game Challenge Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(503);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "DATABASE_UNAVAILABLE", message: "Database unavailable. Please try again shortly." })
+        expect.objectContaining({
+          error: "DATABASE_UNAVAILABLE",
+          message: "Database unavailable. Please try again shortly.",
+        })
       );
     });
   });
@@ -365,7 +374,10 @@ describe("Game Challenge Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "NOT_CHALLENGED_PLAYER", message: "Only the challenged player can respond." })
+        expect.objectContaining({
+          error: "NOT_CHALLENGED_PLAYER",
+          message: "Only the challenged player can respond.",
+        })
       );
     });
 
@@ -406,7 +418,9 @@ describe("Game Challenge Routes", () => {
       await callRoute("POST", "/:id/respond", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "GAME_NOT_FOUND", message: "Game not found." }));
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "GAME_NOT_FOUND", message: "Game not found." })
+      );
     });
 
     it("returns 503 when database is unavailable", async () => {

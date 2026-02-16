@@ -15,6 +15,12 @@ vi.mock("../redis", () => ({
 
 vi.mock("../logger", () => ({
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 const { feedCache } = await import("../middleware/feedCache");

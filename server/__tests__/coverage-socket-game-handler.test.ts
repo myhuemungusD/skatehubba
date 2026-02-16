@@ -21,6 +21,12 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../logger", () => ({
   default: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 vi.mock("../socket/rooms", () => ({

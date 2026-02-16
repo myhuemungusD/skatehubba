@@ -30,6 +30,12 @@ vi.mock("../logger", () => ({
     error: (...args: any[]) => mockLoggerError(...args),
     debug: (...args: any[]) => mockLoggerDebug(...args),
   },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 vi.mock("../db", () => ({
@@ -95,6 +101,13 @@ describe("AuditLogger — line 173 (DB write failure)", () => {
         error: mockLoggerError,
         debug: mockLoggerDebug,
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("drizzle-orm", () => ({

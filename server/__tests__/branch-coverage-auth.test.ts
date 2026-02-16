@@ -27,6 +27,13 @@ describe("MfaService — verifyCode with mocked TOTP (mfa.ts line 145)", () => {
     }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     const mockRecord = {
@@ -113,6 +120,13 @@ describe("authenticateUser — session user without firebaseUid (line 88)", () =
     vi.doMock("../types/express.d.ts", () => ({}));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../redis", () => ({ getRedisClient: () => null }));
 
@@ -167,6 +181,13 @@ describe("optionalAuthentication — decoded.admin role push (line 164)", () => 
     vi.doMock("../types/express.d.ts", () => ({}));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../redis", () => ({ getRedisClient: () => null }));
 

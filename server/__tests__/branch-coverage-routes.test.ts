@@ -55,6 +55,13 @@ describe("analytics batch — all invalid events (line 158)", () => {
     }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../utils/apiError", () => ({
       Errors: {
@@ -135,6 +142,13 @@ describe("games-disputes — skip notification when no opponentId (line 53)", ()
     vi.doMock("drizzle-orm", () => ({ eq: vi.fn(), and: vi.fn() }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../services/gameNotificationService", () => ({
       sendGameNotificationToUser: (...args: any[]) => mockSendNotification(...args),
@@ -222,6 +236,13 @@ describe("metrics — db null for kpi and response-rate error (lines 89, 120-121
     }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../utils/apiError", () => ({
       Errors: {
@@ -343,6 +364,13 @@ describe("trickmint — feed and single clip db errors", () => {
     }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../services/storageService", () => ({
       generateUploadUrls: vi.fn(),
@@ -597,6 +625,13 @@ describe("stripeWebhook — additional branches", () => {
     vi.doMock("drizzle-orm", () => ({ eq: vi.fn() }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../services/emailService", () => ({
       sendPaymentReceiptEmail: vi.fn(),
@@ -714,6 +749,13 @@ describe("games-challenges — player2Name fallback (line 150)", () => {
     vi.doMock("drizzle-orm", () => ({ eq: vi.fn() }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
     vi.doMock("../services/gameNotificationService", () => ({
       sendGameNotificationToUser: (...args: any[]) => mockSendNotification(...args),
@@ -804,6 +846,13 @@ describe("remoteSkate — error mapping branches (lines 129-131)", () => {
       }));
       vi.doMock("../logger", () => ({
         default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
+
+        createChildLogger: vi.fn(() => ({
+          info: vi.fn(),
+          warn: vi.fn(),
+          error: vi.fn(),
+          debug: vi.fn(),
+        })),
       }));
 
       const routeHandlers: Record<string, any[]> = {};

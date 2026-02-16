@@ -19,6 +19,12 @@ vi.mock("../logger", () => ({
     debug: vi.fn(),
     fatal: vi.fn(),
   },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 // Mock the env config to avoid database connection requirements

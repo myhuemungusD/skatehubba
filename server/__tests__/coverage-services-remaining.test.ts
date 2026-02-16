@@ -222,6 +222,13 @@ describe("LockoutService — recordAttempt lockout threshold branch", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     const mockInsertValues = vi.fn().mockReturnValue({
@@ -336,6 +343,13 @@ describe("LockoutService — recordAttempt lockout threshold branch", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     // Make the insert throw an error to hit the catch block at line 181-183
@@ -453,6 +467,13 @@ describe("FilmerRequests — uncovered branches", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("drizzle-orm", () => ({
@@ -1165,6 +1186,13 @@ describe("OSM Discovery — uncovered error/null paths", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../redis", () => ({
@@ -1223,6 +1251,13 @@ describe("OSM Discovery — uncovered error/null paths", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../redis", () => ({
@@ -1248,6 +1283,13 @@ describe("OSM Discovery — uncovered error/null paths", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../redis", () => ({
@@ -1271,6 +1313,13 @@ describe("OSM Discovery — uncovered error/null paths", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../redis", () => ({
@@ -1297,6 +1346,13 @@ describe("OSM Discovery — uncovered error/null paths", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../redis", () => ({
@@ -1368,6 +1424,13 @@ describe("OSM Discovery — uncovered error/null paths", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     const mockRedisClient = {
@@ -1413,6 +1476,13 @@ describe("VideoTranscoder — processVideoJob catch block (lines 435-438)", () =
     };
     vi.doMock("../logger", () => ({
       default: mockLogger,
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     const execFileAsyncMock = vi.fn();
@@ -1519,6 +1589,13 @@ describe("VideoTranscoder — processVideoJob catch block (lines 435-438)", () =
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     const execFileAsyncMock2 = vi.fn();
@@ -1640,6 +1717,13 @@ describe("Game Timeouts — paused game disconnect with reconnected player (line
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../services/game/constants", () => ({
@@ -1818,6 +1902,13 @@ describe("Monitoring — version fallback and admin system status", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../config/env", () => ({
@@ -1885,6 +1976,13 @@ describe("Monitoring — version fallback and admin system status", () => {
         error: vi.fn(),
         debug: vi.fn(),
       },
+
+      createChildLogger: vi.fn(() => ({
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
+      })),
     }));
 
     vi.doMock("../config/env", () => ({
