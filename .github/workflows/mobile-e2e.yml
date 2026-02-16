@@ -138,12 +138,6 @@ jobs:
       - name: Build Detox (Android)
         run: pnpm run e2e:build:android
 
-      - name: Kill any running adb servers
-        run: adb kill-server || true
-
-      - name: Start adb server
-        run: adb start-server
-
       - name: Run Detox Tests (Android)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -159,9 +153,10 @@ jobs:
           working-directory: mobile
           script: |
             adb wait-for-device
+            adb shell 'while [ -z "$(getprop sys.boot_completed)" ]; do sleep 1; done'
             adb devices
             adb shell input keyevent 82
-            sleep 5
+            sleep 2
             pnpm run e2e:test:android -- --loglevel verbose
 
       - name: Upload Detox Artifacts
