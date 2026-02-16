@@ -11,15 +11,30 @@ import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { isExpoGo } from "@/lib/isExpoGo";
 
-// react-native-vision-camera requires native code unavailable in Expo Go
-let Camera: React.ComponentType<any> | null = null;
-let useCameraDevice: any = () => null;
-let useCameraPermission: any = () => ({ hasPermission: false, requestPermission: async () => {} });
-let useMicrophonePermission: any = () => ({ hasPermission: false, requestPermission: async () => {} });
-let useCameraFormat: any = () => null;
+// Types for conditionally-loaded vision camera
 type VideoFile = { path: string };
+type CameraDevice = Record<string, unknown>;
+type CameraFormat = Record<string, unknown> & { maxFps?: number };
+interface CameraRef {
+  startRecording: (options: {
+    onRecordingFinished: (video: VideoFile) => void;
+    onRecordingError: (error: unknown) => void;
+  }) => void;
+  stopRecording: () => void;
+}
+
+// react-native-vision-camera requires native code unavailable in Expo Go
+let Camera: React.ComponentType<Record<string, unknown>> | null = null;
+let useCameraDevice: (position: string) => CameraDevice | null = () => null;
+let useCameraPermission: () => { hasPermission: boolean; requestPermission: () => Promise<boolean> } =
+  () => ({ hasPermission: false, requestPermission: async () => false });
+let useMicrophonePermission: () => { hasPermission: boolean; requestPermission: () => Promise<boolean> } =
+  () => ({ hasPermission: false, requestPermission: async () => false });
+let useCameraFormat: (device: CameraDevice | null, filters: Array<Record<string, unknown>>) => CameraFormat | null =
+  () => null;
 if (!isExpoGo) {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const vc = require("react-native-vision-camera");
     Camera = vc.Camera;
     useCameraDevice = vc.useCameraDevice;
@@ -45,7 +60,7 @@ export default function NewChallengeScreen() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
-  const cameraRef = useRef<any>(null);
+  const cameraRef = useRef<CameraRef | null>(null);
 
   // Vision Camera hooks
   const device = useCameraDevice("back");

@@ -13,11 +13,36 @@ import { MapSkeleton } from "@/components/common/Skeleton";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 import { isExpoGo } from "@/lib/isExpoGo";
 
+// Minimal prop types for conditionally-loaded native map components
+interface NativeMapViewProps {
+  testID?: string;
+  style?: unknown;
+  initialRegion?: {
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  };
+  showsUserLocation?: boolean;
+  showsMyLocationButton?: boolean;
+  children?: React.ReactNode;
+}
+
+interface NativeMarkerProps {
+  coordinate: { latitude: number; longitude: number };
+  title?: string;
+  description?: string;
+  pinColor?: string;
+  accessibilityLabel?: string;
+  onCalloutPress?: () => void;
+}
+
 // react-native-maps requires native code unavailable in Expo Go
-let MapView: React.ComponentType<any> | null = null;
-let Marker: React.ComponentType<any> | null = null;
+let MapView: React.ComponentType<NativeMapViewProps> | null = null;
+let Marker: React.ComponentType<NativeMarkerProps> | null = null;
 if (!isExpoGo) {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const maps = require("react-native-maps");
     MapView = maps.default;
     Marker = maps.Marker;
