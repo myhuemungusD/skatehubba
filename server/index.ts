@@ -47,6 +47,10 @@ if (process.env.NODE_ENV === "production") {
   const frameSrcDirective: string[] = ["'self'", "https://accounts.google.com"];
   if (firebaseAuthDomain) {
     frameSrcDirective.push(`https://${firebaseAuthDomain}`);
+  } else {
+    logger.warn(
+      "Firebase Auth domain not configured - OAuth sign-in may fail. Set EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN or EXPO_PUBLIC_FIREBASE_PROJECT_ID."
+    );
   }
 
   app.use(
