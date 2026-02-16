@@ -144,8 +144,12 @@ vi.mock("@shared/schema", () => ({
   accountLockouts: { email: "email", unlockAt: "unlockAt", failedAttempts: "failedAttempts" },
 }));
 
-// The lockout module imports from this path directly
+// The lockout module imports from this path directly; other modules (e.g.
+// auth/service) also resolve here, so we must re-export every table used.
 vi.mock("../../packages/shared/schema/index", () => ({
+  customUsers: { id: "id", isActive: "isActive" },
+  authSessions: { id: "id", userId: "userId", expiresAt: "expiresAt" },
+  mfaSecrets: { id: "id", userId: "userId" },
   loginAttempts: { email: "email", success: "success", createdAt: "createdAt" },
   accountLockouts: { email: "email", unlockAt: "unlockAt", failedAttempts: "failedAttempts" },
 }));

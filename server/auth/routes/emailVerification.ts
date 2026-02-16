@@ -6,19 +6,21 @@ import type { Express } from "express";
 import { AuthService } from "../service.ts";
 import { authenticateUser } from "../middleware.ts";
 import { authLimiter } from "../../middleware/rateLimit.ts";
-import { requireCsrfToken } from "../../middleware/csrf.ts";
 import { AuditLogger, AUDIT_EVENTS, getClientIP } from "../audit.ts";
 import logger from "../../logger.ts";
 import { sendWelcomeEmail } from "../../services/emailService.ts";
 import { notifyUser } from "../../services/notificationService.ts";
 import { sendVerificationEmail } from "../email.ts";
 
+// NOTE: CSRF validation is handled globally by app.use("/api", requireCsrfToken)
+// in server/index.ts. Do not add per-route requireCsrfToken here.
+
 export function setupEmailVerificationRoutes(app: Express) {
   /**
    * Verify email address using token (sent via verification email)
    * Unauthenticated - user clicks link from email, SPA loads and POSTs token
    */
-  app.post("/api/auth/verify-email", authLimiter, requireCsrfToken, async (req, res) => {
+  app.post("/api/auth/verify-email", authLimiter, async (req, res) => {
     const ipAddress = getClientIP(req);
 
     try {
@@ -83,7 +85,6 @@ export function setupEmailVerificationRoutes(app: Express) {
   app.post(
     "/api/auth/resend-verification",
     authenticateUser,
-    requireCsrfToken,
     authLimiter,
     async (req, res) => {
       const ipAddress = getClientIP(req);
