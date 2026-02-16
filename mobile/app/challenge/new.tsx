@@ -150,7 +150,7 @@ export default function NewChallengeScreen() {
           setRecording(false);
           setVideoUri(video.path);
         },
-        onRecordingError: (error) => {
+        onRecordingError: (error: unknown) => {
           console.error("[NewChallenge] Recording error:", error);
           setRecording(false);
           showMessage({

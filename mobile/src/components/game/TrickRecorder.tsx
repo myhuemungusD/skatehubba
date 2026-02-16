@@ -178,7 +178,7 @@ export function TrickRecorder({
             setShowTrickInput(true);
           }
         },
-        onRecordingError: (error) => {
+        onRecordingError: (error: unknown) => {
           console.error("[TrickRecorder] Recording error:", error);
           setRecording(false);
           Alert.alert("Recording Failed", "Please try again.");
