@@ -6,6 +6,10 @@ const monorepoRoot = path.resolve(projectRoot, "..");
 
 const config = getDefaultConfig(projectRoot);
 
+// Pin the project root so Metro resolves entry files from mobile/, not the
+// monorepo root (which watchFolders can confuse in CI environments).
+config.projectRoot = projectRoot;
+
 // Watch the monorepo root so Metro can resolve workspace packages
 config.watchFolders = [monorepoRoot];
 

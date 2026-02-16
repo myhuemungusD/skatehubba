@@ -130,18 +130,13 @@ jobs:
           npx expo export:embed \
             --platform android \
             --entry-file index.js \
+            --config metro.config.cjs \
             --dev false \
             --bundle-output android/app/src/main/assets/index.android.bundle \
             --assets-dest android/app/src/main/res/
 
       - name: Build Detox (Android)
         run: pnpm run e2e:build:android
-
-      - name: Kill any running adb servers
-        run: adb kill-server || true
-
-      - name: Start adb server
-        run: adb start-server
 
       - name: Run Detox Tests (Android)
         uses: reactivecircus/android-emulator-runner@v2
@@ -157,6 +152,9 @@ jobs:
           disable-animations: true
           working-directory: mobile
           script: |
+            adb kill-server
+            adb start-server
+            adb wait-for-device
             adb devices
             adb shell input keyevent 82
             pnpm run e2e:test:android -- --loglevel verbose
