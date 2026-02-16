@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockSend, mockDebug } = vi.hoisted(() => ({
+const { mockSend, mockWarn } = vi.hoisted(() => ({
   mockSend: vi.fn(),
-  mockDebug: vi.fn(),
+  mockWarn: vi.fn(),
 }));
 
-// Default: no RESEND_API_KEY, so resend is null (uses debug logging fallback)
+// Default: no RESEND_API_KEY, so resend is null (uses warn logging fallback)
 vi.mock("../config/env", () => ({
   env: {
     RESEND_API_KEY: "",
@@ -23,9 +23,9 @@ vi.mock("resend", () => ({
 vi.mock("../logger", () => ({
   default: {
     info: vi.fn(),
-    warn: vi.fn(),
+    warn: mockWarn,
     error: vi.fn(),
-    debug: mockDebug,
+    debug: vi.fn(),
   },
 }));
 
@@ -36,28 +36,26 @@ describe("sendVerificationEmail", () => {
     vi.clearAllMocks();
   });
 
-  it("logs verification URL when Resend is not configured", async () => {
+  it("warns when Resend is not configured (no PII in message)", async () => {
     await sendVerificationEmail("test@example.com", "abc123", "Tony");
-    expect(mockDebug).toHaveBeenCalledWith(
-      expect.stringContaining("Verification email for test@example.com"),
-      expect.objectContaining({
-        verificationUrl: expect.stringContaining("verify-email?token=abc123"),
-        name: "Tony",
-        email: "test@example.com",
-      })
+    expect(mockWarn).toHaveBeenCalledWith(
+      "Verification email not sent (RESEND_API_KEY not configured)",
+      expect.objectContaining({ email: "test@example.com" })
     );
   });
 
-  it("includes token in verification URL", async () => {
+  it("does not leak verification token in log context", async () => {
     await sendVerificationEmail("test@example.com", "my-token-123", "User");
-    const logCall = mockDebug.mock.calls[0];
-    expect(logCall[1].verificationUrl).toContain("token=my-token-123");
+    const logCall = mockWarn.mock.calls[0];
+    // Structured context should contain email but NOT the token URL
+    expect(logCall[1]).not.toHaveProperty("verificationUrl");
+    expect(JSON.stringify(logCall[1])).not.toContain("my-token-123");
   });
 
-  it("uses localhost URL in non-production", async () => {
+  it("does not interpolate email into log message string", async () => {
     await sendVerificationEmail("test@example.com", "token", "User");
-    const logCall = mockDebug.mock.calls[0];
-    expect(logCall[1].verificationUrl).toContain("localhost:5000");
+    const logMessage = mockWarn.mock.calls[0][0];
+    expect(logMessage).not.toContain("test@example.com");
   });
 });
 
@@ -66,21 +64,18 @@ describe("sendPasswordResetEmail", () => {
     vi.clearAllMocks();
   });
 
-  it("logs reset URL when Resend is not configured", async () => {
+  it("warns when Resend is not configured (no PII in message)", async () => {
     await sendPasswordResetEmail("test@example.com", "reset-token", "Tony");
-    expect(mockDebug).toHaveBeenCalledWith(
-      expect.stringContaining("Password reset email for test@example.com"),
-      expect.objectContaining({
-        resetUrl: expect.stringContaining("reset-password?token=reset-token"),
-        name: "Tony",
-        email: "test@example.com",
-      })
+    expect(mockWarn).toHaveBeenCalledWith(
+      "Password reset email not sent (RESEND_API_KEY not configured)",
+      expect.objectContaining({ email: "test@example.com" })
     );
   });
 
-  it("includes token in reset URL", async () => {
+  it("does not leak reset token in log context", async () => {
     await sendPasswordResetEmail("test@example.com", "xyz-789", "User");
-    const logCall = mockDebug.mock.calls[0];
-    expect(logCall[1].resetUrl).toContain("token=xyz-789");
+    const logCall = mockWarn.mock.calls[0];
+    expect(logCall[1]).not.toHaveProperty("resetUrl");
+    expect(JSON.stringify(logCall[1])).not.toContain("xyz-789");
   });
 });
