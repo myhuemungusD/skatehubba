@@ -129,8 +129,7 @@ jobs:
           mkdir -p android/app/src/main/assets
           npx expo export:embed \
             --platform android \
-            --entry-file index.js \
-            --config metro.config.cjs \
+            --entry-file "$PWD/index.js" \
             --dev false \
             --bundle-output android/app/src/main/assets/index.android.bundle \
             --assets-dest android/app/src/main/res/
