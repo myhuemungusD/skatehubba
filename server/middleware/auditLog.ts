@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from "express";
-import logger from "../logger";
+import { createChildLogger } from "../logger";
 
 /**
  * Audit event categories for structured logging.
@@ -38,7 +38,7 @@ interface AuditEntry {
   detail?: string;
 }
 
-const auditLogger = logger.child({ module: "audit" });
+const auditLogger = createChildLogger({ module: "audit" });
 
 /**
  * Emit a structured audit log entry.
