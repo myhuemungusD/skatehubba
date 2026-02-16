@@ -1,5 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, FlatList } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Spot } from "@/types";
@@ -12,6 +11,45 @@ import { showMessage } from "react-native-flash-message";
 import { AddSpotModal } from "@/components/AddSpotModal";
 import { MapSkeleton } from "@/components/common/Skeleton";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
+import { isExpoGo } from "@/lib/isExpoGo";
+
+// Minimal prop types for conditionally-loaded native map components
+interface NativeMapViewProps {
+  testID?: string;
+  style?: unknown;
+  initialRegion?: {
+    latitude: number;
+    longitude: number;
+    latitudeDelta: number;
+    longitudeDelta: number;
+  };
+  showsUserLocation?: boolean;
+  showsMyLocationButton?: boolean;
+  children?: React.ReactNode;
+}
+
+interface NativeMarkerProps {
+  coordinate: { latitude: number; longitude: number };
+  title?: string;
+  description?: string;
+  pinColor?: string;
+  accessibilityLabel?: string;
+  onCalloutPress?: () => void;
+}
+
+// react-native-maps requires native code unavailable in Expo Go
+let MapView: React.ComponentType<NativeMapViewProps> | null = null;
+let Marker: React.ComponentType<NativeMarkerProps> | null = null;
+if (!isExpoGo) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const maps = require("react-native-maps");
+    MapView = maps.default;
+    Marker = maps.Marker;
+  } catch {
+    // Native module not available
+  }
+}
 
 function MapScreenContent() {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
@@ -124,6 +162,126 @@ function MapScreenContent() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={SKATE.colors.orange} />
+      </View>
+    );
+  }
+
+  // Expo Go fallback: show spots as a list instead of a native map
+  if (!MapView || !Marker) {
+    return (
+      <View testID="map-screen" style={styles.container}>
+        <View style={styles.expoGoBanner}>
+          <Ionicons name="information-circle" size={20} color={SKATE.colors.orange} />
+          <Text style={styles.expoGoBannerText}>
+            Map view requires a dev build. Showing spots as a list.
+          </Text>
+        </View>
+
+        {/* Add Spot FAB */}
+        <TouchableOpacity
+          testID="map-add-spot"
+          style={styles.expoGoAddButton}
+          onPress={handleAddSpot}
+          accessibilityLabel="Add new skate spot"
+        >
+          <Ionicons name="add" size={20} color={SKATE.colors.white} />
+          <Text style={styles.expoGoAddButtonText}>Add Spot</Text>
+        </TouchableOpacity>
+
+        {isLoading ? (
+          <MapSkeleton />
+        ) : (
+          <FlatList
+            data={spots ?? []}
+            keyExtractor={(item) => String(item.id)}
+            contentContainerStyle={styles.spotList}
+            ListEmptyComponent={
+              <Text style={styles.emptyText}>No spots yet. Be the first to add one!</Text>
+            }
+            renderItem={({ item: spot }) => (
+              <TouchableOpacity
+                style={styles.spotCard}
+                onPress={() => setSelectedSpot(spot)}
+              >
+                <View style={[styles.legendDot, { backgroundColor: getTierColor(spot.tier) }]} />
+                <View style={styles.spotCardContent}>
+                  <Text style={styles.spotCardName}>{spot.name}</Text>
+                  {spot.description ? (
+                    <Text style={styles.spotCardDesc} numberOfLines={1}>
+                      {spot.description}
+                    </Text>
+                  ) : null}
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
+              </TouchableOpacity>
+            )}
+          />
+        )}
+
+        {/* Spot Detail Modal */}
+        {selectedSpot && (
+          <Modal
+            visible={!!selectedSpot}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setSelectedSpot(null)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedSpot(null)}>
+                  <Ionicons name="close" size={24} color={SKATE.colors.white} />
+                </TouchableOpacity>
+
+                <Text testID="map-spot-title" style={styles.modalTitle}>
+                  {selectedSpot.name}
+                </Text>
+                <Text style={styles.modalDescription}>{selectedSpot.description ?? ""}</Text>
+
+                <View style={styles.modalDifficulty}>
+                  <View
+                    style={[
+                      styles.legendDot,
+                      { backgroundColor: getTierColor(selectedSpot.tier) },
+                    ]}
+                  />
+                  <Text style={styles.modalDifficultyText}>
+                    {(() => {
+                      const tierValue = selectedSpot.tier ?? "bronze";
+                      return tierValue.charAt(0).toUpperCase() + tierValue.slice(1);
+                    })()}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  testID="map-check-in"
+                  style={styles.checkInButton}
+                  onPress={() => {
+                    handleCheckIn(selectedSpot);
+                    setSelectedSpot(null);
+                  }}
+                >
+                  <Ionicons name="location" size={20} color={SKATE.colors.white} />
+                  <Text style={styles.checkInButtonText}>Check In Here</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* Add Spot Modal */}
+        <AddSpotModal
+          isOpen={showAddSpotModal}
+          onClose={() => setShowAddSpotModal(false)}
+          userLocation={
+            location
+              ? {
+                  lat: location.coords.latitude,
+                  lng: location.coords.longitude,
+                  accuracy: location.coords.accuracy ?? undefined,
+                }
+              : null
+          }
+        />
       </View>
     );
   }
@@ -408,5 +566,69 @@ const styles = StyleSheet.create({
     color: SKATE.colors.white,
     fontSize: 16,
     fontWeight: "bold",
+  },
+  expoGoBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SKATE.spacing.sm,
+    backgroundColor: SKATE.colors.grime,
+    padding: SKATE.spacing.md,
+    margin: SKATE.spacing.md,
+    borderRadius: SKATE.borderRadius.md,
+    borderWidth: 1,
+    borderColor: SKATE.colors.darkGray,
+  },
+  expoGoBannerText: {
+    color: SKATE.colors.lightGray,
+    fontSize: 13,
+    flex: 1,
+  },
+  expoGoAddButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SKATE.spacing.sm,
+    backgroundColor: SKATE.colors.orange,
+    paddingVertical: SKATE.spacing.sm,
+    paddingHorizontal: SKATE.spacing.lg,
+    borderRadius: SKATE.borderRadius.md,
+    alignSelf: "flex-end",
+    marginRight: SKATE.spacing.md,
+    marginBottom: SKATE.spacing.sm,
+  },
+  expoGoAddButtonText: {
+    color: SKATE.colors.white,
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+  spotList: {
+    padding: SKATE.spacing.md,
+    gap: SKATE.spacing.sm,
+  },
+  spotCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: SKATE.colors.grime,
+    padding: SKATE.spacing.lg,
+    borderRadius: SKATE.borderRadius.md,
+    gap: SKATE.spacing.md,
+  },
+  spotCardContent: {
+    flex: 1,
+  },
+  spotCardName: {
+    color: SKATE.colors.white,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  spotCardDesc: {
+    color: SKATE.colors.lightGray,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  emptyText: {
+    color: SKATE.colors.gray,
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: SKATE.spacing.xl,
   },
 });

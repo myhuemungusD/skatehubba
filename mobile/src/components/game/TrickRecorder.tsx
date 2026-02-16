@@ -13,17 +13,45 @@ import {
 } from "react-native";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  Camera,
-  useCameraDevice,
-  useCameraPermission,
-  useMicrophonePermission,
-  useCameraFormat,
-  VideoFile,
-} from "react-native-vision-camera";
 import { Video, ResizeMode } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
+import { isExpoGo } from "@/lib/isExpoGo";
+
+// Types for conditionally-loaded vision camera
+type VideoFile = { path: string };
+type CameraDevice = Record<string, unknown>;
+type CameraFormat = Record<string, unknown> & { maxFps?: number };
+interface CameraRef {
+  startRecording: (options: {
+    onRecordingFinished: (video: VideoFile) => void;
+    onRecordingError: (error: unknown) => void;
+  }) => void;
+  stopRecording: () => void;
+}
+
+// react-native-vision-camera requires native code unavailable in Expo Go
+let VisionCamera: React.ComponentType<Record<string, unknown>> | null = null;
+let useCameraDevice: (position: string) => CameraDevice | null = () => null;
+let useCameraPermission: () => { hasPermission: boolean; requestPermission: () => Promise<boolean> } =
+  () => ({ hasPermission: false, requestPermission: async () => false });
+let useMicrophonePermission: () => { hasPermission: boolean; requestPermission: () => Promise<boolean> } =
+  () => ({ hasPermission: false, requestPermission: async () => false });
+let useCameraFormat: (device: CameraDevice | null, filters: Array<Record<string, unknown>>) => CameraFormat | null =
+  () => null;
+if (!isExpoGo) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const vc = require("react-native-vision-camera");
+    VisionCamera = vc.Camera;
+    useCameraDevice = vc.useCameraDevice;
+    useCameraPermission = vc.useCameraPermission;
+    useMicrophonePermission = vc.useMicrophonePermission;
+    useCameraFormat = vc.useCameraFormat;
+  } catch {
+    // Native module not available
+  }
+}
 
 /** Maximum recording duration in seconds */
 const MAX_RECORDING_DURATION = 15;
@@ -66,7 +94,7 @@ export function TrickRecorder({
   const [recordingTime, setRecordingTime] = useState(0);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  const cameraRef = useRef<Camera>(null);
+  const cameraRef = useRef<CameraRef | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
@@ -165,7 +193,7 @@ export function TrickRecorder({
             setShowTrickInput(true);
           }
         },
-        onRecordingError: (error) => {
+        onRecordingError: (error: unknown) => {
           console.error("[TrickRecorder] Recording error:", error);
           setRecording(false);
           Alert.alert("Recording Failed", "Please try again.");
@@ -228,6 +256,30 @@ export function TrickRecorder({
     setShowTrickInput(false);
     onRecordComplete(videoUri, trickName.trim() || null);
   }, [videoUri, trickName, onRecordComplete]);
+
+  // Expo Go does not support react-native-vision-camera
+  if (visible && !VisionCamera) {
+    return (
+      <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+        <View style={styles.permissionDenied}>
+          <Ionicons name="videocam-off" size={64} color={SKATE.colors.lightGray} />
+          <Text style={styles.permissionTitle}>Camera Recording Unavailable</Text>
+          <Text style={styles.permissionText}>
+            Trick recording requires a development build. Run "npx expo run:android" or use EAS Build to create a dev build with camera support.
+          </Text>
+          <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={styles.backButton}
+            onPress={onClose}
+          >
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+    );
+  }
 
   // Loading state while checking permissions
   if (visible && isInitializing) {
@@ -325,8 +377,8 @@ export function TrickRecorder({
         {/* Camera / Preview */}
         {!videoUri ? (
           <View style={styles.cameraContainer}>
-            {device && (
-              <Camera
+            {device && VisionCamera && (
+              <VisionCamera
                 ref={cameraRef}
                 style={styles.camera}
                 device={device}
