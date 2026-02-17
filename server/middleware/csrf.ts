@@ -8,6 +8,18 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const createCsrfToken = () => crypto.randomBytes(32).toString("hex");
 
 /**
+ * Timing-safe token comparison using HMAC.
+ * Unlike a direct timingSafeEqual with a length pre-check, HMAC normalises
+ * both inputs to a fixed-length digest so no token-length information leaks.
+ */
+function timingSafeTokenEqual(a: string, b: string): boolean {
+  const key = crypto.randomBytes(32);
+  const hmacA = crypto.createHmac("sha256", key).update(a).digest();
+  const hmacB = crypto.createHmac("sha256", key).update(b).digest();
+  return crypto.timingSafeEqual(hmacA, hmacB);
+}
+
+/**
  * CSRF protection for JSON APIs using a double-submit token strategy.
  *
  * This implements the "Double Submit Cookie" pattern recommended by OWASP:
@@ -55,8 +67,13 @@ export function requireCsrfToken(req: Request, res: Response, next: NextFunction
   const cookieToken = req.cookies?.[CSRF_COOKIE_NAME];
   const headerToken = req.header("x-csrf-token");
 
-  // Validate: both tokens must exist and match
-  if (!cookieToken || !headerToken || cookieToken !== headerToken) {
+  // Validate: both tokens must exist and match (constant-time comparison via HMAC
+  // to avoid leaking length information through the pre-check)
+  if (
+    !cookieToken ||
+    !headerToken ||
+    !timingSafeTokenEqual(cookieToken, headerToken)
+  ) {
     return res.status(403).json({ error: "Invalid CSRF token" });
   }
 

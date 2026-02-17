@@ -25,6 +25,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Trust the first proxy hop so req.ip / req.ips reflect the real client address.
+// Without this, rate limiting and IP-based audit logging see only the proxy IP.
+app.set("trust proxy", 1);
+
 const server = http.createServer(app);
 
 // Request metrics collection
@@ -35,19 +40,23 @@ app.use(requestTracing);
 
 // Security middleware
 if (process.env.NODE_ENV === "production") {
-  // Resolve the Firebase Auth domain for CSP. Firebase Auth SDK loads
-  // an iframe from {authDomain}/__/auth/iframe for session management.
-  // We pin to the exact project domain rather than wildcard *.firebaseapp.com.
-  const firebaseAuthDomain =
-    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ||
-    (process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID
-      ? `${process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com`
-      : null);
-
+  // Collect all Firebase Auth domains for CSP frame-src.
+  // Firebase Auth SDK loads iframes from both the explicit auth domain AND
+  // the default {project}.firebaseapp.com domain, so we must allow both.
   const frameSrcDirective: string[] = ["'self'", "https://accounts.google.com"];
-  if (firebaseAuthDomain) {
-    frameSrcDirective.push(`https://${firebaseAuthDomain}`);
-  } else {
+
+  if (process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN) {
+    frameSrcDirective.push(`https://${process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN}`);
+  }
+
+  if (process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID) {
+    const computedDomain = `${process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com`;
+    if (!frameSrcDirective.includes(`https://${computedDomain}`)) {
+      frameSrcDirective.push(`https://${computedDomain}`);
+    }
+  }
+
+  if (frameSrcDirective.length === 2) {
     logger.warn(
       "Firebase Auth domain not configured - OAuth sign-in may fail. Set EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN or EXPO_PUBLIC_FIREBASE_PROJECT_ID."
     );
@@ -62,18 +71,29 @@ if (process.env.NODE_ENV === "production") {
           styleSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", "data:", "https:", "blob:"],
           connectSrc: ["'self'", "https:"],
-          fontSrc: ["'self'", "data:"],
+          fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
           objectSrc: ["'none'"],
           mediaSrc: ["'self'", "https://firebasestorage.googleapis.com", "blob:"],
-          // Firebase Auth SDK requires an iframe to {authDomain}/__/auth/iframe
-          // for cross-origin session management in both popup and redirect flows.
-          // Blocking this iframe silently breaks Google OAuth sign-in.
           frameSrc: frameSrcDirective,
-          frameAncestors: ["'self'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          upgradeInsecureRequests: [],
         },
       },
+      crossOriginEmbedderPolicy: false, // required for cross-origin images/media
+      crossOriginOpenerPolicy: { policy: "same-origin" },
+      crossOriginResourcePolicy: { policy: "same-site" },
     })
   );
+
+  // Permissions-Policy: restrict browser features the app doesn't use
+  app.use((_req, res, next) => {
+    res.setHeader(
+      "Permissions-Policy",
+      "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+    );
+    next();
+  });
 }
 
 // CORS configuration

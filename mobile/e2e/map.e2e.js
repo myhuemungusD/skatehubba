@@ -10,91 +10,74 @@ describe("Map Interactions", () => {
     await device.reloadReactNative();
   });
 
+  /** Returns false (skip test) when the user is not signed in. */
+  async function requireAuth() {
+    try {
+      await expect(element(by.id("home-screen"))).toBeVisible();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   describe("Map Screen", () => {
     it("renders the map screen", async () => {
-      // Navigate to map tab if authenticated
-      try {
-        await expect(element(by.id("home-screen"))).toBeVisible();
-      } catch {
-        // Not authenticated — skip map tests
-        return;
-      }
+      if (!(await requireAuth())) return;
 
-      try {
-        await expect(element(by.id("map-screen"))).toBeVisible();
-      } catch {
-        // Map tab may need navigation
-      }
+      await expect(element(by.id("map-screen"))).toBeVisible();
     });
 
     it("shows loading state while fetching spots", async () => {
-      try {
-        await expect(element(by.id("map-loading"))).toBeVisible();
-      } catch {
-        // Loading may have already completed or user not authenticated
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("map-loading"))).toBeVisible();
     });
 
     it("displays the map view after loading", async () => {
-      try {
-        await waitFor(element(by.id("map-view")))
-          .toBeVisible()
-          .withTimeout(10000);
-      } catch {
-        // Map requires authentication and location permissions
-      }
+      if (!(await requireAuth())) return;
+
+      await waitFor(element(by.id("map-view")))
+        .toBeVisible()
+        .withTimeout(10000);
     });
 
     it("shows the tier legend", async () => {
-      try {
-        await expect(element(by.id("map-legend"))).toBeVisible();
-        await expect(element(by.text("Bronze"))).toBeVisible();
-        await expect(element(by.text("Silver"))).toBeVisible();
-        await expect(element(by.text("Gold"))).toBeVisible();
-        await expect(element(by.text("Legendary"))).toBeVisible();
-      } catch {
-        // Map not loaded
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("map-legend"))).toBeVisible();
+      await expect(element(by.text("Bronze"))).toBeVisible();
+      await expect(element(by.text("Silver"))).toBeVisible();
+      await expect(element(by.text("Gold"))).toBeVisible();
+      await expect(element(by.text("Legendary"))).toBeVisible();
     });
   });
 
   describe("Add Spot", () => {
     it("shows the add spot button", async () => {
-      try {
-        await expect(element(by.id("map-add-spot"))).toBeVisible();
-      } catch {
-        // Map not loaded
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("map-add-spot"))).toBeVisible();
     });
 
     it("can tap the add spot button", async () => {
-      try {
-        await expect(element(by.id("map-add-spot"))).toBeVisible();
-        await element(by.id("map-add-spot")).tap();
-        // AddSpotModal should appear or auth prompt should show
-      } catch {
-        // Map not loaded
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("map-add-spot"))).toBeVisible();
+      await element(by.id("map-add-spot")).tap();
     });
   });
 
   describe("Spot Detail", () => {
     it("shows spot detail modal when a marker callout is pressed", async () => {
-      // This test requires spots to be loaded and a marker to be tappable.
-      // In Detox, MapView markers can be hard to interact with.
-      try {
-        await expect(element(by.id("map-spot-title"))).toBeVisible();
-      } catch {
-        // No spot selected or no spots loaded
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("map-spot-title"))).toBeVisible();
     });
 
     it("shows check-in button in spot detail", async () => {
-      try {
-        await expect(element(by.id("map-check-in"))).toBeVisible();
-      } catch {
-        // No spot detail visible
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("map-check-in"))).toBeVisible();
     });
   });
 });

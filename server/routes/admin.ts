@@ -14,6 +14,7 @@ import {
 } from "@shared/schema";
 import logger from "../logger";
 import { Errors } from "../utils/apiError";
+import { auditMiddleware } from "../middleware/auditLog";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, DEFAULT_AUDIT_PAGE_SIZE, MAX_AUDIT_PAGE_SIZE } from "../config/constants";
 
 export const adminRouter = Router();
@@ -167,7 +168,7 @@ const trustLevelSchema = z.object({
   trustLevel: z.number().int().min(0).max(2),
 });
 
-adminRouter.patch("/users/:userId/trust-level", ...adminMiddleware, async (req, res) => {
+adminRouter.patch("/users/:userId/trust-level", ...adminMiddleware, auditMiddleware("admin.role_change"), async (req, res) => {
   const parsed = trustLevelSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten(), "INVALID_TRUST_LEVEL", "Invalid trust level.");
@@ -228,7 +229,7 @@ const reportStatusSchema = z.object({
   status: z.enum(["queued", "reviewing", "resolved", "dismissed", "escalated"]),
 });
 
-adminRouter.patch("/reports/:reportId/status", ...adminMiddleware, async (req, res) => {
+adminRouter.patch("/reports/:reportId/status", ...adminMiddleware, auditMiddleware("content.moderate"), async (req, res) => {
   const parsed = reportStatusSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten(), "INVALID_STATUS", "Invalid report status.");
@@ -371,7 +372,7 @@ const tierOverrideSchema = z.object({
   accountTier: z.enum(["free", "pro", "premium"]),
 });
 
-adminRouter.patch("/users/:userId/tier", ...adminMiddleware, async (req, res) => {
+adminRouter.patch("/users/:userId/tier", ...adminMiddleware, auditMiddleware("admin.config_change"), async (req, res) => {
   const parsed = tierOverrideSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten(), "INVALID_TIER", "Invalid account tier.");

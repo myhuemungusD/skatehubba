@@ -29,6 +29,8 @@
     "validate:env:prod": "node scripts/validate-env.mjs --production",
     "audit:deps": "node scripts/audit-dependencies.mjs",
     "audit:deps:ci": "node scripts/audit-dependencies.mjs --ci",
+    "check:bundle": "node scripts/check-bundle-size.mjs",
+    "check:bundle:ci": "node scripts/check-bundle-size.mjs --ci",
     "scan:secrets": "node scripts/scan-secrets.mjs",
     "precommit": "lint-staged",
     "prepare": "husky",
@@ -36,7 +38,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "set-admin": "tsx scripts/set-admin.ts"
+    "set-admin": "tsx scripts/set-admin.ts",
+    "validate:package-manager": "node scripts/validate-packages.mjs --package-manager-only"
   },
   "lint-staged": {
     "*.{ts,tsx}": [

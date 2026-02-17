@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "main": "expo-router/entry",
-  "type": "module",
   "description": "SkateHubba mobile app — Expo + React Native with S.K.A.T.E. battle, spot mapping, and leaderboard.",
   "scripts": {
     "start": "expo start",
@@ -18,6 +17,8 @@
     "e2e:build:android": "detox build --config-path .detoxrc.json --configuration android.emu.debug",
     "e2e:test:android": "detox test --config-path .detoxrc.json --configuration android.emu.debug",
     "e2e:smoke": "detox test --config-path .detoxrc.json --configuration ios.sim.debug --testNamePattern \"Smoke\"",
+    "e2e:smoke:ios": "detox test --config-path .detoxrc.json --configuration ios.sim.debug --testNamePattern \"Smoke\"",
+    "e2e:smoke:android": "detox test --config-path .detoxrc.json --configuration android.emu.debug --testNamePattern \"Smoke\"",
     "test": "vitest run",
     "test:watch": "vitest"
   },

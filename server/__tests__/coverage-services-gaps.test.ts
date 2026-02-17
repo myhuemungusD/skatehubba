@@ -81,6 +81,12 @@ vi.mock("../config/env", () => ({
 
 vi.mock("../logger", () => ({
   default: { info: vi.fn(), error: vi.fn(), warn: vi.fn(), debug: vi.fn() },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 vi.mock("../auth/audit", () => ({
@@ -147,7 +153,24 @@ vi.mock("@shared/schema", () => ({
 // The lockout module imports from this path directly; other modules (e.g.
 // auth/service) also resolve here, so we must re-export every table used.
 vi.mock("../../packages/shared/schema/index", () => ({
+  checkIns: {
+    id: "id",
+    userId: "userId",
+    filmerUid: "filmerUid",
+    filmerRequestId: "filmerRequestId",
+    filmerStatus: "filmerStatus",
+  },
   customUsers: { id: "id", isActive: "isActive" },
+  filmerDailyCounters: { counterKey: "counterKey", day: "day", count: "count" },
+  filmerRequests: {
+    id: "id",
+    checkInId: "checkInId",
+    filmerId: "filmerId",
+    requesterId: "requesterId",
+    status: "status",
+    updatedAt: "updatedAt",
+  },
+  userProfiles: { id: "id", roles: "roles", filmerVerified: "filmerVerified" },
   authSessions: { id: "id", userId: "userId", expiresAt: "expiresAt" },
   mfaSecrets: { id: "id", userId: "userId" },
   loginAttempts: { email: "email", success: "success", createdAt: "createdAt" },

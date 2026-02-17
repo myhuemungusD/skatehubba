@@ -7,124 +7,107 @@ describe("Game Flow", () => {
     await device.reloadReactNative();
   });
 
-  describe("Game Loading", () => {
-    it("shows loading indicator when navigating to a game", async () => {
-      // If authenticated, navigate to challenges tab first
-      try {
-        await expect(element(by.id("home-screen"))).toBeVisible();
-      } catch {
-        // Not authenticated — auth flow tests cover sign-in
-        return;
-      }
-    });
-  });
+  /** Returns false (skip test) when the user is not signed in. */
+  async function requireAuth() {
+    try {
+      await expect(element(by.id("home-screen"))).toBeVisible();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Returns true when a battle screen is visible (requires seeded active game). */
+  async function requireBattleScreen() {
+    try {
+      await expect(element(by.id("game-battle-screen"))).toBeVisible();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Returns true when the judging UI is visible (requires game in judging phase). */
+  async function requireJudgingPhase() {
+    try {
+      await expect(element(by.id("game-judging-title"))).toBeVisible();
+      return true;
+    } catch {
+      return false;
+    }
+  }
 
   describe("Challenge Acceptance", () => {
     it("displays challenge received screen for player 2", async () => {
-      // This test validates the UI renders correctly when a challenge exists.
-      // In a real test environment with seeded data, player 2 would see:
-      try {
-        await expect(element(by.id("game-challenge-received"))).toBeVisible();
-        await expect(element(by.id("game-accept-challenge"))).toBeVisible();
-      } catch {
-        // No pending challenge in test environment — expected
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("game-challenge-received"))).toBeVisible();
+      await expect(element(by.id("game-accept-challenge"))).toBeVisible();
     });
 
     it("displays waiting for opponent screen for player 1", async () => {
-      try {
-        await expect(element(by.id("game-waiting-opponent"))).toBeVisible();
-      } catch {
-        // No waiting game in test environment — expected
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("game-waiting-opponent"))).toBeVisible();
     });
   });
 
   describe("Battle Screen UI", () => {
     it("renders the battle screen with all controls", async () => {
-      // Navigate to an active game if one exists
-      try {
-        await expect(element(by.id("game-battle-screen"))).toBeVisible();
+      if (!(await requireBattleScreen())) return;
 
-        // Verify core battle UI elements
-        await expect(element(by.id("game-round-badge"))).toBeVisible();
-        await expect(element(by.id("game-forfeit"))).toBeVisible();
-      } catch {
-        // No active game in test environment — expected
-      }
+      await expect(element(by.id("game-round-badge"))).toBeVisible();
+      await expect(element(by.id("game-forfeit"))).toBeVisible();
     });
 
     it("shows record trick button when it is the player's turn", async () => {
-      try {
-        await expect(element(by.id("game-battle-screen"))).toBeVisible();
-        await expect(element(by.id("game-record-trick"))).toBeVisible();
-      } catch {
-        // Player may not have an active turn
-      }
+      if (!(await requireBattleScreen())) return;
+
+      await expect(element(by.id("game-record-trick"))).toBeVisible();
     });
   });
 
   describe("Judging Phase", () => {
     it("shows judging UI with landed and bailed buttons", async () => {
-      try {
-        await expect(element(by.id("game-judging-title"))).toBeVisible();
-        await expect(element(by.id("game-vote-landed"))).toBeVisible();
-        await expect(element(by.id("game-vote-bailed"))).toBeVisible();
-      } catch {
-        // No game in judging phase in test environment
-      }
+      if (!(await requireJudgingPhase())) return;
+
+      await expect(element(by.id("game-vote-landed"))).toBeVisible();
+      await expect(element(by.id("game-vote-bailed"))).toBeVisible();
     });
 
     it("can tap landed button during judging", async () => {
-      try {
-        await expect(element(by.id("game-vote-landed"))).toBeVisible();
-        await element(by.id("game-vote-landed")).tap();
-        // After voting, button should be disabled or UI should update
-      } catch {
-        // Not in judging phase
-      }
+      if (!(await requireJudgingPhase())) return;
+
+      await element(by.id("game-vote-landed")).tap();
     });
 
     it("can tap bailed button during judging", async () => {
-      try {
-        await expect(element(by.id("game-vote-bailed"))).toBeVisible();
-        await element(by.id("game-vote-bailed")).tap();
-      } catch {
-        // Not in judging phase
-      }
+      if (!(await requireJudgingPhase())) return;
+
+      await element(by.id("game-vote-bailed")).tap();
     });
   });
 
   describe("Game Forfeit", () => {
     it("shows confirmation alert when forfeit is tapped", async () => {
-      try {
-        await expect(element(by.id("game-forfeit"))).toBeVisible();
-        await element(by.id("game-forfeit")).tap();
+      if (!(await requireBattleScreen())) return;
 
-        // Should show native Alert with "Forfeit Game" title
-        await expect(element(by.text("Forfeit Game"))).toBeVisible();
+      await element(by.id("game-forfeit")).tap();
 
-        // Dismiss the alert
-        await element(by.text("Cancel")).tap();
+      await expect(element(by.text("Forfeit Game"))).toBeVisible();
 
-        // Should still be on the battle screen
-        await expect(element(by.id("game-battle-screen"))).toBeVisible();
-      } catch {
-        // No active game
-      }
+      // Dismiss the alert
+      await element(by.text("Cancel")).tap();
+
+      await expect(element(by.id("game-battle-screen"))).toBeVisible();
     });
   });
 
   describe("Game Completion", () => {
     it("shows result screen when game is completed", async () => {
-      // When a game completes, the ResultScreen component renders
-      // This verifies the transition works (requires seeded completed game)
-      try {
-        // ResultScreen would be rendered by the game screen component
-        await expect(element(by.text("Game Over!"))).toBeVisible();
-      } catch {
-        // No completed game in test environment
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.text("Game Over!"))).toBeVisible();
     });
   });
 });

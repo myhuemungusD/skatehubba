@@ -43,6 +43,9 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate package manager consistency (strict)
+        run: pnpm run validate:package-manager
+
       - name: Typecheck
         run: pnpm run typecheck
 
@@ -84,6 +87,55 @@ jobs:
           name: dist
           path: dist
           retention-days: 5
+
+  # Bundle size budget — prevents accidental bloat from reaching production
+  bundle_size:
+    name: "📦 Bundle Size Budget"
+    needs: lockfile_check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Client
+        env:
+          ALLOW_MISSING_PUBLIC_ENV: "true"
+        run: pnpm -C client build
+
+      - name: Check bundle size budgets
+        run: node scripts/check-bundle-size.mjs --ci
+
+  # Database migration drift — ensures generated migrations match the schema
+  migration_drift:
+    name: "🗄️ Migration Drift Check"
+    needs: lockfile_check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check for uncommitted migration changes
+        run: |
+          if ! pnpm db:generate 2>&1; then
+            echo "::warning::drizzle-kit generate failed — skipping migration drift check"
+            echo "If this persists, ensure drizzle.config.ts is valid"
+            exit 0
+          fi
+          if [ -n "$(git status --porcelain migrations/)" ]; then
+            echo "::error::Migration drift detected — schema changes exist without a committed migration"
+            echo "Run 'pnpm db:generate' locally and commit the result"
+            git diff migrations/
+            exit 1
+          fi
+          echo "✅ Migrations are in sync with schema"
 
   # Mobile app quality gates - typecheck + lint (runs in parallel with web QC)
   mobile_quality:

@@ -35,6 +35,12 @@ vi.mock("../logger", () => ({
     error: mockLoggerError,
     debug: vi.fn(),
   },
+  createChildLogger: vi.fn(() => ({
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  })),
 }));
 
 vi.mock("../config/env", () => ({

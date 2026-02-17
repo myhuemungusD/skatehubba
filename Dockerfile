@@ -34,15 +34,29 @@ RUN pnpm -C client build
 
 # Production image
 FROM base AS production
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/server/node_modules ./server/node_modules
-COPY --from=deps /app/packages ./packages
-COPY --from=client-build /app/client/dist ./client/dist
-COPY server ./server
-COPY packages ./packages
-COPY migrations ./migrations
-COPY drizzle.config.ts tsconfig.json ./
+
+# Security: run as non-root user
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 --gid nodejs skatehubba
+
+COPY --from=deps --chown=skatehubba:nodejs /app/node_modules ./node_modules
+COPY --from=deps --chown=skatehubba:nodejs /app/server/node_modules ./server/node_modules
+COPY --from=deps --chown=skatehubba:nodejs /app/packages ./packages
+COPY --from=client-build --chown=skatehubba:nodejs /app/client/dist ./client/dist
+COPY --chown=skatehubba:nodejs server ./server
+COPY --chown=skatehubba:nodejs packages ./packages
+COPY --chown=skatehubba:nodejs migrations ./migrations
+COPY --chown=skatehubba:nodejs drizzle.config.ts tsconfig.json ./
 
 ENV NODE_ENV=production
+
+# Drop to non-root user
+USER skatehubba
+
 EXPOSE 3001
+
+# Container health check — verifies the process can serve requests
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://localhost:3001/api/health/live').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+
 CMD ["node", "--import", "tsx", "server/index.ts"]
