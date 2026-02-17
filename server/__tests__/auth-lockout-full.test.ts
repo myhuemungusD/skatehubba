@@ -200,16 +200,15 @@ describe("LockoutService.checkLockout", () => {
     expect(status.remainingAttempts).toBe(0);
   });
 
-  it("should fail open (not locked) when database throws an error", async () => {
+  it("should fail closed (locked) when database throws an error", async () => {
     mockDb.select.mockImplementationOnce(() => {
       throw new Error("DB connection lost");
     });
 
     const status = await LockoutService.checkLockout("user@example.com");
 
-    expect(status.isLocked).toBe(false);
-    expect(status.failedAttempts).toBe(0);
-    expect(status.remainingAttempts).toBe(5);
+    expect(status.isLocked).toBe(true);
+    expect(status.failedAttempts).toBe(5);
   });
 
   it("should handle null count result gracefully", async () => {
@@ -304,13 +303,13 @@ describe("LockoutService.recordAttempt", () => {
       throw new Error("DB write error");
     });
 
-    // checkLockout fallback — set up for a fail-open response
+    // checkLockout fallback — DB reads still work, only insert failed
     selectResult = [];
     selectCountResult = [{ count: 0 }];
 
     const status = await LockoutService.recordAttempt("user@example.com", "1.2.3.4", false);
 
-    // Should return checkLockout result (fail open)
+    // Should return checkLockout result (DB readable, 0 failed attempts)
     expect(status.isLocked).toBe(false);
   });
 });

@@ -153,6 +153,30 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
  */
 export const optionalAuthentication = async (req: Request, _res: Response, next: NextFunction) => {
   try {
+    // Option 1: Check for HttpOnly session cookie (preferred, matches authenticateUser)
+    const sessionToken = req.cookies?.sessionToken;
+    if (sessionToken) {
+      try {
+        const user = await AuthService.validateSession(sessionToken);
+        if (user && user.isActive) {
+          const roles: string[] = [];
+          if (user.firebaseUid) {
+            try {
+              const firebaseUser = await admin.auth().getUser(user.firebaseUid);
+              if (firebaseUser.customClaims?.admin) roles.push("admin");
+            } catch {
+              // Ignore Firebase errors, proceed without roles
+            }
+          }
+          req.currentUser = { ...user, roles };
+          return next();
+        }
+      } catch {
+        // Ignore session errors in optional mode, fall through to Bearer check
+      }
+    }
+
+    // Option 2: Fallback to Authorization header
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
