@@ -25,6 +25,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+
+// Trust the first proxy hop so req.ip / req.ips reflect the real client address.
+// Without this, rate limiting and IP-based audit logging see only the proxy IP.
+app.set("trust proxy", 1);
+
 const server = http.createServer(app);
 
 // Request metrics collection
@@ -35,19 +40,23 @@ app.use(requestTracing);
 
 // Security middleware
 if (process.env.NODE_ENV === "production") {
-  // Resolve the Firebase Auth domain for CSP. Firebase Auth SDK loads
-  // an iframe from {authDomain}/__/auth/iframe for session management.
-  // We pin to the exact project domain rather than wildcard *.firebaseapp.com.
-  const firebaseAuthDomain =
-    process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ||
-    (process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID
-      ? `${process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com`
-      : null);
-
+  // Collect all Firebase Auth domains for CSP frame-src.
+  // Firebase Auth SDK loads iframes from both the explicit auth domain AND
+  // the default {project}.firebaseapp.com domain, so we must allow both.
   const frameSrcDirective: string[] = ["'self'", "https://accounts.google.com"];
-  if (firebaseAuthDomain) {
-    frameSrcDirective.push(`https://${firebaseAuthDomain}`);
-  } else {
+
+  if (process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN) {
+    frameSrcDirective.push(`https://${process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN}`);
+  }
+
+  if (process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID) {
+    const computedDomain = `${process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID}.firebaseapp.com`;
+    if (!frameSrcDirective.includes(`https://${computedDomain}`)) {
+      frameSrcDirective.push(`https://${computedDomain}`);
+    }
+  }
+
+  if (frameSrcDirective.length === 2) {
     logger.warn(
       "Firebase Auth domain not configured - OAuth sign-in may fail. Set EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN or EXPO_PUBLIC_FIREBASE_PROJECT_ID."
     );

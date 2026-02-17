@@ -138,4 +138,15 @@ describe("requireCsrfToken", () => {
     expect(next).not.toHaveBeenCalled();
     expect(statusFn).toHaveBeenCalledWith(403);
   });
+
+  it("rejects tokens of different lengths without leaking length info", () => {
+    const { req, res, next, statusFn } = createMockReqRes({
+      method: "POST",
+      cookies: { csrfToken: "short" },
+      headers: { "x-csrf-token": "a-much-longer-token-value" },
+    });
+    requireCsrfToken(req, res, next);
+    expect(next).not.toHaveBeenCalled();
+    expect(statusFn).toHaveBeenCalledWith(403);
+  });
 });
