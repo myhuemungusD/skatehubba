@@ -37,6 +37,7 @@ vi.mock("../auth/middleware", () => ({
     }
     next();
   },
+  requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 vi.mock("../middleware/trustSafety", () => ({
