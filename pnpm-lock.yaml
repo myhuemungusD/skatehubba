@@ -411,6 +411,9 @@ importers:
       firebase:
         specifier: ^11.2.0
         version: 11.10.0(@react-native-async-storage/async-storage@2.1.2(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))
+      jail-monkey:
+        specifier: ^2.8.0
+        version: 2.8.4
       react:
         specifier: ^18.3.1
         version: 18.3.1
@@ -6733,6 +6736,9 @@ packages:
   istextorbinary@9.5.0:
     resolution: {integrity: sha512-5mbUj3SiZXCuRf9fT3ibzbSSEWiy63gFfksmGfdOzujPjW3k+z8WvIBxcJHBoQNlaZaiyB25deviif2+osLmLw==}
     engines: {node: '>=4'}
+
+  jail-monkey@2.8.4:
+    resolution: {integrity: sha512-+WzOb4810AkzyAIrJs9OT1YFqCAysm/8qURgfJzeBBLxoyamBbAT7T5VUlfegt+Dv8qOwHu7gU86tS9/7UB2bw==}
 
   jest-changed-files@29.7.0:
     resolution: {integrity: sha512-fEArFiwf1BpQ+4bXSprcDc3/x4HSzL4al2tozwVpDFpsxALjLYdyiIK4e5Vz66GQJIbXJ82+35PtysofptNX2w==}
@@ -17447,6 +17453,8 @@ snapshots:
       binaryextensions: 6.11.0
       editions: 6.22.0
       textextensions: 6.11.0
+
+  jail-monkey@2.8.4: {}
 
   jest-changed-files@29.7.0:
     dependencies:

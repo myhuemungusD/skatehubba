@@ -36,6 +36,9 @@ export const EVENT_NAMES = [
 
   // Session-ish (optional but useful)
   "app_opened",
+
+  // Security
+  "device_integrity_warning",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];

@@ -247,8 +247,13 @@ export function useSubmitTrick(gameId: string) {
       const userId = auth.currentUser.uid;
       const idempotencyKey = generateIdempotencyKey();
 
-      // Upload video first
-      const storagePath = `game_sessions/${gameId}/move_${userId}_${Date.now()}.mp4`;
+      // Build storage path matching storage.rules: /videos/{userId}/{gameId}/{roundId}/{fileName}
+      // Use randomUUID for non-enumerable filenames (same function as idempotency keys)
+      const currentSession = queryClient.getQueryData<GameSession>(gameKeys.session(gameId));
+      const roundId = currentSession
+        ? `round_${currentSession.roundNumber}`
+        : `round_${Date.now()}`;
+      const storagePath = `videos/${userId}/${gameId}/${roundId}/${crypto.randomUUID()}.mp4`;
       const storageRef = ref(storage, storagePath);
 
       setUploadStatus("uploading");
@@ -390,10 +395,10 @@ export function useJoinGame(gameId: string) {
       // SECURITY: Use Cloud Function instead of direct Firestore write.
       // game_sessions rules block all client writes (allow update: if false),
       // so direct updateDoc calls would be silently rejected by Firestore.
-      const joinGame = httpsCallable<
-        { gameId: string },
-        { success: boolean }
-      >(functions, "joinGame");
+      const joinGame = httpsCallable<{ gameId: string }, { success: boolean }>(
+        functions,
+        "joinGame"
+      );
 
       await joinGame({ gameId });
     },
@@ -424,10 +429,10 @@ export function useAbandonGame(gameId: string) {
       // Direct client writes to game_sessions are blocked by Firestore rules.
       // Additionally, letting the client set winnerId is a game integrity risk
       // since a malicious client could set themselves as the winner.
-      const abandonGame = httpsCallable<
-        { gameId: string },
-        { success: boolean }
-      >(functions, "abandonGame");
+      const abandonGame = httpsCallable<{ gameId: string }, { success: boolean }>(
+        functions,
+        "abandonGame"
+      );
 
       await abandonGame({ gameId });
     },

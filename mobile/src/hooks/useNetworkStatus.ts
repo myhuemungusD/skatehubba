@@ -42,9 +42,10 @@ export function useNetworkStatus() {
     // Initial check
     checkNetworkStatus();
 
-    // Set up polling interval (expo-network doesn't have subscription API)
-    // Poll every 3 seconds for connectivity changes
-    const intervalId = setInterval(checkNetworkStatus, 3000);
+    // Set up polling interval (expo-network doesn't have subscription API).
+    // 10s is sufficient: AppState "active" handler (above) catches the most
+    // critical case, and 10s is well within the 120s reconnection window.
+    const intervalId = setInterval(checkNetworkStatus, 10_000);
 
     // Listen for app state changes
     const appStateSubscription = AppState.addEventListener("change", handleAppStateChange);
