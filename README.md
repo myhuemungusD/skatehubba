@@ -10,7 +10,7 @@ Challenge anyone, anywhere — record tricks on your schedule,
 judge opponents' attempts, and compete without being at the same spot.
 No coordination needed. Just you, your board, and skaters worldwide.
 
-> **What makes us different:** While other skate apps just show you
+> **What makes us different:** While other skate apps show you
 > spot maps, **SkateHubba lets you compete remotely** with video-based
 > S.K.A.T.E. games. Play against skaters in different cities, countries,
 > or time zones — asynchronously, on your own schedule.
@@ -26,19 +26,19 @@ No coordination needed. Just you, your board, and skaters worldwide.
 - **Challenge Anyone, Anywhere** —
   Play against skaters in different cities, time zones, or countries
 - **Video-Based Gameplay** —
-  Record your tricks (up to 30s); no honor system, video is proof
+  Record your tricks (up to 30 s); no honor system, video is proof
 - **Async Turn-Based** —
-  Play when you're free, no need to coordinate schedules
+  Play when you are free, no need to coordinate schedules
 - **Judgement System** —
   Opponents judge your tricks as LAND or BAIL
 - **Dispute Resolution** —
   Challenge unfair judgements with admin review
 - **Real-Time Updates** —
-  Socket.io notifications when it's your turn
+  Socket.io notifications when it is your turn
 - **Full Game History** —
   Every trick, every judgement, saved forever
 
-**How it works:**
+**How it works**
 
 1. Challenge a skater from the lobby
 2. Record your trick attempt and upload
@@ -60,14 +60,14 @@ via geolocation.
 
 ### Check-ins
 
-Check in at a spot when you're within 30 meters.
+Check in at a spot when you are within 30 meters.
 Each check-in is geo-verified and counts toward your streak,
 XP, and leaderboard rank. Daily limits prevent abuse.
 
 ### Leaderboard
 
 Real-time rankings across XP, spot count, and streaks.
-See who's putting in work city-wide.
+City-wide leaderboards surface the most active skaters.
 
 ### TrickMint
 
@@ -77,19 +77,19 @@ with the community.
 
 ---
 
-## How We Compare
+## Feature Comparison
 
-| Feature                        | SkateHubba | Shred Spots | The Spot Guide | Skately |
-| ------------------------------ | ---------- | ----------- | -------------- | ------- |
-| **Remote S.K.A.T.E. Games**    | Yes        | --          | --             | --      |
-| **Async Turn-Based Gameplay**  | Yes        | --          | --             | --      |
-| **Video-Based Trick Judgement**| Yes        | --          | --             | --      |
-| **Dispute Resolution**         | Yes        | --          | --             | --      |
-| **Real-Time Game Updates**     | Yes        | --          | --             | --      |
-| **Spot Map**                   | Yes        | Yes         | Yes            | Yes     |
-| **Check-ins**                  | Yes        | Yes         | Yes            | Yes     |
-| **Leaderboard**                | Yes        | Yes         | --             | --      |
-| **Video Uploads**              | Yes        | --          | --             | --      |
+| Feature                          | SkateHubba | Shred Spots | The Spot Guide | Skately |
+| -------------------------------- | ---------- | ----------- | -------------- | ------- |
+| **Remote S.K.A.T.E. Games**      | Yes        | No          | No             | No      |
+| **Async Turn-Based Gameplay**    | Yes        | No          | No             | No      |
+| **Video-Based Trick Judgement**  | Yes        | No          | No             | No      |
+| **Dispute Resolution**           | Yes        | No          | No             | No      |
+| **Real-Time Game Updates**       | Yes        | No          | No             | No      |
+| **Spot Map**                     | Yes        | Yes         | Yes            | Yes     |
+| **Check-ins**                    | Yes        | Yes         | Yes            | Yes     |
+| **Leaderboard**                  | Yes        | Yes         | No             | No      |
+| **Video Uploads**                | Yes        | No          | No             | No      |
 
 **Bottom line:** Other apps help you find spots.
 **SkateHubba lets you compete remotely.**
@@ -98,19 +98,19 @@ with the community.
 
 ## Tech Stack
 
-| Layer    | Technology                                     |
-| -------- | ---------------------------------------------- |
-| Frontend | React, Vite, TypeScript, TailwindCSS, Leaflet  |
-| Backend  | Express, TypeScript, PostgreSQL, Drizzle ORM    |
-| Auth     | Firebase Auth                                   |
-| Realtime | Socket.io                                       |
-| CI       | GitHub Actions, CodeQL                          |
+| Layer    | Technology                                    |
+| -------- | --------------------------------------------- |
+| Frontend | React, Vite, TypeScript, TailwindCSS, Leaflet |
+| Backend  | Express, TypeScript, PostgreSQL, Drizzle ORM   |
+| Auth     | Firebase Auth                                  |
+| Realtime | Socket.io                                      |
+| CI       | GitHub Actions, CodeQL                         |
 
 ---
 
 ## Repo Structure
 
-```
+```text
 client/      Web app (Vite / React)
 server/      API and services
 packages/    Shared code (types, config, utilities)
@@ -198,20 +198,15 @@ Live at: **<https://staging.skatehubba.com>**
 
 ## Documentation
 
-- [Game Rules](docs/GAME_RULES.md) —
-  Learn how S.K.A.T.E. works on SkateHubba
-- [Architecture](docs/ARCHITECTURE.md) —
-  System design with Mermaid diagrams
-- [Roadmap](ROADMAP.md) —
-  Upcoming features and vision
-- [Changelog](CHANGELOG.md) —
-  What's been built (v0.9.0)
-- [Deployment](docs/DEPLOYMENT_RUNBOOK.md) —
-  Production deployment guide
-- [Contributing](CONTRIBUTING.md) —
-  Development workflow and standards
-- [Security](docs/security/SECURITY.md) —
-  Security policies and reporting
+| Document                                              | Description                        |
+| ----------------------------------------------------- | ---------------------------------- |
+| [Game Rules](docs/GAME_RULES.md)                      | How S.K.A.T.E. works on SkateHubba |
+| [Architecture](docs/ARCHITECTURE.md)                   | System design with Mermaid diagrams |
+| [Roadmap](ROADMAP.md)                                  | Upcoming features and vision        |
+| [Changelog](CHANGELOG.md)                              | Release history (v0.9.0)            |
+| [Deployment](docs/DEPLOYMENT_RUNBOOK.md)               | Production deployment guide         |
+| [Contributing](CONTRIBUTING.md)                        | Development workflow and standards   |
+| [Security](docs/security/SECURITY.md)                  | Security policies and reporting     |
 
 ---
 
@@ -222,26 +217,26 @@ Live at: **<https://staging.skatehubba.com>**
 The staging environment uses demo data and Stripe test mode —
 explore freely without affecting production.
 
-> Screenshots coming soon!
+> Screenshots are in progress.
 > See [docs/screenshots/README.md](docs/screenshots/README.md)
-> for how to contribute.
+> for contribution guidelines.
 
 Planned media:
 
-- Hero GIF showing full remote game flow
+- Hero GIF showing the full remote game flow
   (record → judge → letter awarded)
 - Game lobby screenshots showing worldwide matchups
 - Mobile app mockups
-- 3-minute demo video walkthrough of a remote battle
+- Three-minute demo video walkthrough of a remote battle
 
-**Help wanted:** If you have access to the app,
-capture screenshots and open a PR!
+Contributions welcome — if you have access to the app,
+capture screenshots and open a PR.
 
 ---
 
 ## What's Next
 
-See our [Roadmap](ROADMAP.md) for upcoming features, including:
+See the [Roadmap](ROADMAP.md) for upcoming features, including:
 
 - **Q1 2026** — Mobile app (React Native), spectator mode, game stats
 - **Q2 2026** — Tournament mode, trick recognition AI, crew battles
@@ -252,7 +247,7 @@ See our [Roadmap](ROADMAP.md) for upcoming features, including:
 
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 - Development setup and workflow
 - Branch naming conventions (`feat/`, `fix/`, `refactor/`, `chore/`)
@@ -284,6 +279,8 @@ See [docs/security/SECURITY.md](docs/security/SECURITY.md) for:
 ## License
 
 See [LICENSE](LICENSE).
+
+---
 
 ## Trademark
 
