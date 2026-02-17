@@ -48,11 +48,16 @@ const CIPHER_V2_PREFIX = "v2$";
 /**
  * Resolve the MFA encryption base key.
  * Prefers a dedicated MFA_ENCRYPTION_KEY to isolate MFA secrets from JWT signing material.
+ * Result is cached so the fallback warning is emitted at most once.
  */
+let _mfaBaseKey: string | null = null;
 function getMfaBaseKey(): string {
+  if (_mfaBaseKey !== null) return _mfaBaseKey;
+
   const dedicated = process.env.MFA_ENCRYPTION_KEY;
   if (dedicated) {
-    return dedicated;
+    _mfaBaseKey = dedicated;
+    return _mfaBaseKey;
   }
 
   if (process.env.NODE_ENV === "production") {
@@ -61,7 +66,8 @@ function getMfaBaseKey(): string {
         "Set a dedicated MFA_ENCRYPTION_KEY to separate concerns."
     );
   }
-  return env.JWT_SECRET;
+  _mfaBaseKey = env.JWT_SECRET;
+  return _mfaBaseKey;
 }
 
 /**
@@ -99,10 +105,7 @@ function decrypt(encryptedText: string): string {
     const salt = Buffer.from(payload.slice(0, SALT_LENGTH * 2), "hex");
     const iv = Buffer.from(payload.slice(SALT_LENGTH * 2, (SALT_LENGTH + IV_LENGTH) * 2), "hex");
     const authTag = Buffer.from(
-      payload.slice(
-        (SALT_LENGTH + IV_LENGTH) * 2,
-        (SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH) * 2
-      ),
+      payload.slice((SALT_LENGTH + IV_LENGTH) * 2, (SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH) * 2),
       "hex"
     );
     const encrypted = payload.slice((SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH) * 2);

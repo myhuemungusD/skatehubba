@@ -62,7 +62,8 @@ export function initializeSocketServer(
     httpServer,
     {
       cors: {
-        origin: process.env.ALLOWED_ORIGINS?.split(",") ||
+        origin:
+          process.env.ALLOWED_ORIGINS?.split(",") ||
           (process.env.NODE_ENV === "production" ? false : "*"),
         credentials: true,
       },
@@ -179,6 +180,13 @@ export function initializeSocketServer(
       context: err.context,
     });
   });
+
+  if (!process.env.ALLOWED_ORIGINS && process.env.NODE_ENV === "production") {
+    logger.warn(
+      "[Socket] ALLOWED_ORIGINS is not set — all WebSocket connections will be rejected in production. " +
+        "Set ALLOWED_ORIGINS to a comma-separated list of allowed origins."
+    );
+  }
 
   logger.info("[Socket] Server initialized", {
     transports: ["websocket", "polling"],

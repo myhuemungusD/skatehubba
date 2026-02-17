@@ -320,6 +320,128 @@ describe("MFA - Critical Paths", () => {
   });
 
   // ==========================================================================
+  // v2 Encryption Format
+  // ==========================================================================
+
+  describe("v2 encryption format", () => {
+    it("stores secrets with v2$ prefix (random salt)", async () => {
+      await MfaService.initiateSetup("user-1", "user@test.com");
+
+      const stored = mfaStore.get("user-1");
+      expect(stored.secret.startsWith("v2$")).toBe(true);
+    });
+
+    it("can decrypt v2-encrypted secrets (roundtrip via setup + verify)", async () => {
+      // initiateSetup encrypts with v2; verifySetup decrypts to verify the TOTP code
+      const setup = await MfaService.initiateSetup("user-1", "user@test.com");
+
+      // Generate a correct TOTP code from the plaintext secret
+      const crypto = await import("crypto");
+      const secret = setup.secret;
+      const now = Date.now();
+      const counter = Math.floor(now / 1000 / 30);
+      const counterBuffer = Buffer.alloc(8);
+      counterBuffer.writeBigUInt64BE(BigInt(counter));
+
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+      const cleanStr = secret.toUpperCase().replace(/[^A-Z2-7]/g, "");
+      let bits = 0;
+      let value = 0;
+      const decoded: number[] = [];
+      for (const char of cleanStr) {
+        value = (value << 5) | alphabet.indexOf(char);
+        bits += 5;
+        if (bits >= 8) {
+          decoded.push((value >>> (bits - 8)) & 0xff);
+          bits -= 8;
+        }
+      }
+      const secretBuffer = Buffer.from(decoded);
+
+      const hmac = crypto.createHmac("sha1", secretBuffer);
+      hmac.update(counterBuffer);
+      const hash = hmac.digest();
+      const offset = hash[hash.length - 1] & 0x0f;
+      const binary =
+        ((hash[offset] & 0x7f) << 24) |
+        ((hash[offset + 1] & 0xff) << 16) |
+        ((hash[offset + 2] & 0xff) << 8) |
+        (hash[offset + 3] & 0xff);
+      const otp = (binary % 1000000).toString().padStart(6, "0");
+
+      const result = await MfaService.verifySetup("user-1", "user@test.com", otp, "127.0.0.1");
+      expect(result).toBe(true);
+    });
+
+    it("can decrypt legacy (pre-v2) ciphertexts for backward compatibility", async () => {
+      // Build a legacy-format ciphertext: iv(32hex) + authTag(32hex) + encrypted(hex)
+      // Key derivation: scryptSync(JWT_SECRET, "mfa-salt", 32)
+      const crypto = await import("crypto");
+      const testSecret = "JBSWY3DPEHPK3PXP"; // well-known test base32 secret
+
+      const key = crypto.scryptSync("test-jwt-secret-at-least-32-characters-long!", "mfa-salt", 32);
+      const iv = crypto.randomBytes(16);
+      const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+      let encrypted = cipher.update(testSecret, "utf8", "hex");
+      encrypted += cipher.final("hex");
+      const authTag = cipher.getAuthTag();
+      const legacyCiphertext = iv.toString("hex") + authTag.toString("hex") + encrypted;
+
+      // Should NOT start with v2$
+      expect(legacyCiphertext.startsWith("v2$")).toBe(false);
+
+      // Store as if it were a legacy record, then verify a TOTP code against it
+      mfaStore.set("user-legacy", {
+        userId: "user-legacy",
+        enabled: false,
+        secret: legacyCiphertext,
+        backupCodes: [],
+      });
+
+      // Generate a correct TOTP code from testSecret
+      const now = Date.now();
+      const counter = Math.floor(now / 1000 / 30);
+      const counterBuffer = Buffer.alloc(8);
+      counterBuffer.writeBigUInt64BE(BigInt(counter));
+
+      const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+      const cleanStr = testSecret.toUpperCase().replace(/[^A-Z2-7]/g, "");
+      let bits = 0;
+      let value = 0;
+      const decoded: number[] = [];
+      for (const char of cleanStr) {
+        value = (value << 5) | alphabet.indexOf(char);
+        bits += 5;
+        if (bits >= 8) {
+          decoded.push((value >>> (bits - 8)) & 0xff);
+          bits -= 8;
+        }
+      }
+      const secretBuffer = Buffer.from(decoded);
+
+      const hmac = crypto.createHmac("sha1", secretBuffer);
+      hmac.update(counterBuffer);
+      const hash = hmac.digest();
+      const offset = hash[hash.length - 1] & 0x0f;
+      const binary =
+        ((hash[offset] & 0x7f) << 24) |
+        ((hash[offset + 1] & 0xff) << 16) |
+        ((hash[offset + 2] & 0xff) << 8) |
+        (hash[offset + 3] & 0xff);
+      const otp = (binary % 1000000).toString().padStart(6, "0");
+
+      // verifySetup will call decrypt(legacyCiphertext) → legacy path → testSecret
+      const result = await MfaService.verifySetup(
+        "user-legacy",
+        "legacy@test.com",
+        otp,
+        "127.0.0.1"
+      );
+      expect(result).toBe(true);
+    });
+  });
+
+  // ==========================================================================
   // QR Code URL Format
   // ==========================================================================
 
