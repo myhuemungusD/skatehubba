@@ -73,6 +73,12 @@ const warnings = [];
 const versionMap = new Map(); // Track versions across packages
 const packageManagerByFile = new Map();
 
+const FORBIDDEN_LOCKFILES = [
+  'package-lock.json',
+  'npm-shrinkwrap.json',
+  'yarn.lock',
+];
+
 /**
  * Check for duplicate keys in JSON by parsing raw content
  * This catches cases like having "drizzle-orm" twice in dependencies
@@ -153,6 +159,23 @@ function trackPackageManager(filePath, pkg) {
   }
 
   packageManagerByFile.set(filePath, pkg.packageManager.trim());
+}
+
+
+/**
+ * Reject lockfiles from package managers other than pnpm.
+ */
+function checkForbiddenLockfiles() {
+  for (const lockfile of FORBIDDEN_LOCKFILES) {
+    const lockfilePath = join(rootDir, lockfile);
+    if (!existsSync(lockfilePath)) continue;
+
+    errors.push({
+      file: lockfile,
+      message: `Unexpected lockfile detected: "${lockfile}". This repository uses pnpm only; keep only "pnpm-lock.yaml".`,
+      critical: true,
+    });
+  }
 }
 
 /**
@@ -259,6 +282,7 @@ if (!packageManagerOnlyMode) {
   checkVersionMismatches();
 }
 checkPackageManagerConsistency();
+checkForbiddenLockfiles();
 
 // Report results
 console.log('\n');
