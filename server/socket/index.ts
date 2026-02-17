@@ -62,7 +62,8 @@ export function initializeSocketServer(
     httpServer,
     {
       cors: {
-        origin: process.env.ALLOWED_ORIGINS?.split(",") || "*",
+        origin: process.env.ALLOWED_ORIGINS?.split(",") ||
+          (process.env.NODE_ENV === "production" ? false : "*"),
         credentials: true,
       },
       // Transport options
