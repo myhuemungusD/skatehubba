@@ -112,6 +112,7 @@ vi.mock("../auth/middleware", () => ({
     next();
   }),
   requireEmailVerification: vi.fn((_r: any, _s: any, n: any) => n()),
+  requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 // -- config --
@@ -1211,7 +1212,6 @@ describe("registerRoutes", () => {
           match: expect.objectContaining({
             opponentId: "opponent1",
             opponentName: "Opponent",
-            opponentFirebaseUid: "fb-opp1",
           }),
         })
       );

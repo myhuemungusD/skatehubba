@@ -1,7 +1,7 @@
 /**
  * Coverage tests for server/auth/lockout.ts — uncovered lines 89, 183-227
  *
- * Line 89: checkLockout catch block — error logged, fails open
+ * Line 89: checkLockout catch block — error logged, fails closed
  *   (already covered in lockout.test.ts, but line 89 specifically references
  *    the error message extraction: `error instanceof Error ? error.message : "Unknown error"`)
  *
@@ -118,7 +118,9 @@ describe("LockoutService — additional coverage", () => {
 
     const status = await LockoutService.checkLockout("test@example.com");
 
-    expect(status.isLocked).toBe(false);
+    expect(status.isLocked).toBe(true);
+    expect(status.failedAttempts).toBe(5);
+    expect(status.unlockAt).toBeInstanceOf(Date);
     expect(logger.error).toHaveBeenCalledWith(
       "Error checking lockout status",
       expect.objectContaining({ error: "Unknown error" })

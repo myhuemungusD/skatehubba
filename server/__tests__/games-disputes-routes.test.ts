@@ -45,6 +45,7 @@ vi.mock("../auth/middleware", () => ({
     req.currentUser = req.currentUser || { id: "user-1" };
     next();
   },
+  requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 vi.mock("../logger", () => ({

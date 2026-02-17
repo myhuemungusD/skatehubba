@@ -169,7 +169,7 @@ describe("logIPAddress", () => {
       headers: { "x-forwarded-for": "1.2.3.4" },
     });
     logIPAddress(req, res, next);
-    expect(req.body.ipAddress).toBe("1.2.3.4");
+    expect(req.clientIpAddress).toBe("1.2.3.4");
     expect(next).toHaveBeenCalled();
   });
 
@@ -178,7 +178,7 @@ describe("logIPAddress", () => {
       headers: { "x-real-ip": "5.6.7.8" },
     });
     logIPAddress(req, res, next);
-    expect(req.body.ipAddress).toBe("5.6.7.8");
+    expect(req.clientIpAddress).toBe("5.6.7.8");
     expect(next).toHaveBeenCalled();
   });
 
@@ -187,7 +187,7 @@ describe("logIPAddress", () => {
       connection: { remoteAddress: "10.0.0.1" },
     });
     logIPAddress(req, res, next);
-    expect(req.body.ipAddress).toBe("10.0.0.1");
+    expect(req.clientIpAddress).toBe("10.0.0.1");
     expect(next).toHaveBeenCalled();
   });
 
@@ -196,7 +196,7 @@ describe("logIPAddress", () => {
       headers: { "x-forwarded-for": ["1.1.1.1", "2.2.2.2"] as any },
     });
     logIPAddress(req, res, next);
-    expect(req.body.ipAddress).toBe("1.1.1.1");
+    expect(req.clientIpAddress).toBe("1.1.1.1");
     expect(next).toHaveBeenCalled();
   });
 });

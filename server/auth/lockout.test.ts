@@ -152,12 +152,14 @@ describe("LockoutService.checkLockout", () => {
     expect(mockSelect).toHaveBeenCalled();
   });
 
-  it("fails open on database error", async () => {
+  it("fails closed on database error", async () => {
     mockWhere.mockRejectedValue(new Error("DB connection failed"));
 
     const status = await LockoutService.checkLockout("test@example.com");
-    expect(status.isLocked).toBe(false);
-    expect(status.remainingAttempts).toBe(5);
+    expect(status.isLocked).toBe(true);
+    expect(status.failedAttempts).toBe(5);
+    expect(status.unlockAt).toBeInstanceOf(Date);
+    expect(status.unlockAt!.getTime()).toBeGreaterThan(Date.now());
   });
 });
 

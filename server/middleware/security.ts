@@ -365,6 +365,6 @@ export const logIPAddress = (req: Request, _res: Response, next: NextFunction) =
     req.connection.remoteAddress ||
     req.socket.remoteAddress;
 
-  req.body.ipAddress = Array.isArray(ip) ? ip[0] : ip;
+  req.clientIpAddress = Array.isArray(ip) ? ip[0] : ip;
   next();
 };

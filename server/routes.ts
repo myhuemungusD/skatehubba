@@ -483,15 +483,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           id: customUsers.id,
           firstName: customUsers.firstName,
           lastName: customUsers.lastName,
-          email: customUsers.email,
-          firebaseUid: customUsers.firebaseUid,
         })
         .from(customUsers)
         .where(
           or(
             ilike(customUsers.firstName, searchTerm),
-            ilike(customUsers.lastName, searchTerm),
-            ilike(customUsers.email, searchTerm)
+            ilike(customUsers.lastName, searchTerm)
           )
         )
         .limit(20);
@@ -563,7 +560,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const availableOpponents = await database
           .select({
             id: customUsers.id,
-            firebaseUid: customUsers.firebaseUid,
             firstName: customUsers.firstName,
             pushToken: customUsers.pushToken,
           })
@@ -616,7 +612,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           match: {
             opponentId: opponent.id,
             opponentName: opponent.firstName || "Skater",
-            opponentFirebaseUid: opponent.firebaseUid,
             challengeId,
           },
         });
