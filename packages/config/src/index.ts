@@ -80,3 +80,15 @@ export {
   AUTHORIZED_DOMAINS,
   type FirebaseConfig,
 } from "./firebase";
+
+// Certificate pinning
+export {
+  getCertificatePinningConfig,
+  getAllowedApiDomains,
+  isDomainAllowed,
+  CERT_PIN_ENV_KEYS,
+  type CertificatePin,
+  type PinnedDomain,
+  type CertificatePinningConfig,
+  type SpkiPin,
+} from "./certificatePinning";

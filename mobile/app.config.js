@@ -94,6 +94,28 @@ module.exports = {
           locationAlwaysAndWhenInUsePermission:
             "Allow SkateHubba to use your location to discover skate spots."
         }
+      ],
+      [
+        "./plugins/withCertificatePinning",
+        {
+          domains: [
+            // Production API — pins are injected via env vars at build time.
+            // Set EXPO_PUBLIC_CERT_PIN_API_PRIMARY and EXPO_PUBLIC_CERT_PIN_API_BACKUP
+            // to the SPKI SHA-256 hashes of your server's certificate chain.
+            process.env.EXPO_PUBLIC_CERT_PIN_API_PRIMARY && {
+              hostname: process.env.EXPO_PUBLIC_APP_ENV === "staging"
+                ? "staging-api.skatehubba.com"
+                : "api.skatehubba.com",
+              includeSubdomains: false,
+              pins: [
+                process.env.EXPO_PUBLIC_CERT_PIN_API_PRIMARY,
+                process.env.EXPO_PUBLIC_CERT_PIN_API_BACKUP,
+              ].filter(Boolean),
+            },
+          ].filter(Boolean),
+          pinExpiration: process.env.EXPO_PUBLIC_CERT_PIN_EXPIRATION || "2027-06-01",
+          allowDebugOverrides: process.env.EXPO_PUBLIC_APP_ENV !== "prod",
+        }
       ]
     ],
 

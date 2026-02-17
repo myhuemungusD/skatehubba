@@ -61,4 +61,13 @@ const db = getFirestore(app);
 const functions = getFunctions(app);
 const storage = getStorage(app);
 
+// Initialize certificate pinning monitoring and Firebase App Check.
+// These are imported lazily to avoid circular dependency issues and
+// to ensure Firebase is fully initialized before App Check starts.
+import { initCertificatePinning } from "@/lib/certificatePinning";
+import { initAppCheck } from "@/lib/appCheck";
+
+initCertificatePinning();
+initAppCheck();
+
 export { app, auth, db, functions, storage, getAppEnv, isProd, isStaging };

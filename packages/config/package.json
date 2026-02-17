@@ -9,7 +9,8 @@
     "./publicEnv": "./src/publicEnv.ts",
     "./runtime": "./src/runtime.ts",
     "./guardrails": "./src/guardrails.ts",
-    "./firebase": "./src/firebase.ts"
+    "./firebase": "./src/firebase.ts",
+    "./certificatePinning": "./src/certificatePinning.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
