@@ -209,6 +209,8 @@ describe("LockoutService.checkLockout", () => {
 
     expect(status.isLocked).toBe(true);
     expect(status.failedAttempts).toBe(5);
+    expect(status.unlockAt).toBeInstanceOf(Date);
+    expect(status.unlockAt!.getTime()).toBeGreaterThan(Date.now());
   });
 
   it("should handle null count result gracefully", async () => {

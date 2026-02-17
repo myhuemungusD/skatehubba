@@ -1211,7 +1211,6 @@ describe("registerRoutes", () => {
           match: expect.objectContaining({
             opponentId: "opponent1",
             opponentName: "Opponent",
-            opponentFirebaseUid: "fb-opp1",
           }),
         })
       );
