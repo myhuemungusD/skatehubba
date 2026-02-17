@@ -1,23 +1,31 @@
 # Gitleaks Configuration
 # https://github.com/gitleaks/gitleaks
+#
+# SECURITY NOTE: Avoid blanket directory exclusions (e.g., "mobile/.*") as they
+# suppress scanning of entire subtrees. Prefer targeted path or regex allowlists
+# for known false positives only.
 
 title = "SkateHubba Gitleaks Config"
 
 [extend]
 useDefault = true
 
-# Allowlist paths - these are excluded from ALL rules
 [allowlist]
-description = "Global allowlist for test fixtures, examples, and development placeholders"
+description = "Global allowlist for test fixtures, examples, and known false positives"
 paths = [
+  # Test files — fixtures and mocks may contain fake credentials
   '''__tests__/.*''',
-  '''.*\.test\.ts$''',
-  '''.*\.spec\.ts$''',
+  '''.*\.test\.[jt]sx?$''',
+  '''.*\.spec\.[jt]sx?$''',
+  '''.*\.e2e\.[jt]sx?$''',
   '''test-results/.*''',
+  # Example env files (contain placeholder values by definition)
   '''\.env\.example$''',
+  # Documentation and archived code
   '''docs/.*''',
   '''_archive/.*''',
-  '''mobile/.*''',
+  # Firebase iOS config template (contains only YOUR_* placeholders, no real keys)
+  '''mobile/GoogleService-Info\.plist''',
 ]
 regexes = [
   # Test credential placeholders (clearly marked as test values)
@@ -26,8 +34,15 @@ regexes = [
   '''postgres://test:test@localhost.*''',
   '''dev-jwt-secret-change-in-production.*''',
   '''sk_test_mock''',
-  # Firebase public API keys (these are NOT secrets - they're meant to be public)
+  # Firebase public API keys — client-side identifiers meant to be embedded
+  # in shipped apps, not secrets. See:
+  # https://firebase.google.com/docs/projects/api-keys
   '''AIzaSy[0-9A-Za-z_-]{33}''',
+  # Placeholder values used in config templates (e.g., YOUR_FIREBASE_API_KEY)
+  '''YOUR_[A-Z_]+''',
+  # CI placeholder Firebase config — inert values used during builds/tests
+  # when Firebase env vars are intentionally absent (see packages/config/)
+  '''CI_PLACEHOLDER''',
 ]
 commits = [
   "56bd080",  # .env file exposed (branch deleted, secrets rotated)
