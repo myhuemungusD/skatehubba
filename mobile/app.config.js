@@ -29,6 +29,7 @@ module.exports = {
     },
 
     android: {
+      allowBackup: false,
       adaptiveIcon: {
         foregroundImage: "./assets/adaptive-icon.png",
         backgroundColor: "#0a0a0a"
