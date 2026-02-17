@@ -16,9 +16,94 @@ on:
   workflow_call:
 
 jobs:
+  android_build:
+    name: "Android Build Verification"
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+    timeout-minutes: 30
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: .
+
+      - name: Write google-services.json for Firebase
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > google-services.json
+          else
+            cat > google-services.json << 'PLACEHOLDER'
+          {
+            "project_info": {
+              "project_number": "000000000000",
+              "project_id": "skatehubba-ci-placeholder",
+              "storage_bucket": "skatehubba-ci-placeholder.appspot.com"
+            },
+            "client": [{
+              "client_info": {
+                "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                "android_client_info": { "package_name": "com.skatehubba.app" }
+              },
+              "api_key": [{ "current_key": "ci-placeholder" }],
+              "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+            }],
+            "configuration_version": "1"
+          }
+          PLACEHOLDER
+          fi
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Expo Prebuild (Android)
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Verify Android project
+        run: |
+          echo "android/ directory contents:"
+          ls -la android/app/ || echo "ERROR: android/app/ does not exist"
+          echo "gradlew exists:"
+          test -f android/gradlew && echo "yes" || echo "no"
+
+      - name: Pre-bundle JS for Android
+        env:
+          EXPO_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+          EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+          EXPO_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+          EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: ci-placeholder.appspot.com
+          EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+          EXPO_PUBLIC_FIREBASE_APP_ID: "1:000000000000:android:0000000000000000"
+        run: |
+          mkdir -p android/app/src/main/assets
+          npx expo export:embed \
+            --platform android \
+            --entry-file "$PWD/index.js" \
+            --config metro.config.cjs \
+            --dev false \
+            --bundle-output android/app/src/main/assets/index.android.bundle \
+            --assets-dest android/app/src/main/res/
+
+      - name: Build Android (Debug)
+        run: |
+          cd android && ./gradlew assembleDebug --no-daemon
+
   detox_android:
     name: "Detox E2E (Android)"
     runs-on: ubuntu-latest
+    # Gate behind label or manual dispatch — physical device testing is primary
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'e2e')
+    needs: android_build
     defaults:
       run:
         working-directory: mobile
@@ -110,13 +195,6 @@ jobs:
       - name: Expo Prebuild (Android)
         run: npx expo prebuild --platform android --no-install
 
-      - name: Verify Android project
-        run: |
-          echo "android/ directory contents:"
-          ls -la android/app/ || echo "ERROR: android/app/ does not exist"
-          echo "gradlew exists:"
-          test -f android/gradlew && echo "yes" || echo "no"
-
       - name: Pre-bundle JS for Android
         env:
           EXPO_PUBLIC_FIREBASE_API_KEY: ci-placeholder
@@ -137,12 +215,6 @@ jobs:
       - name: Build Detox (Android)
         run: pnpm run e2e:build:android
 
-      - name: Kill any running adb servers
-        run: adb kill-server || true
-
-      - name: Start adb server
-        run: adb start-server
-
       - name: Run Detox Tests (Android)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -157,6 +229,9 @@ jobs:
           disable-animations: true
           working-directory: mobile
           script: |
+            adb kill-server
+            adb start-server
+            adb wait-for-device
             adb devices
             adb shell input keyevent 82
             pnpm run e2e:test:android -- --loglevel verbose
