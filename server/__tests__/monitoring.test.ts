@@ -273,16 +273,63 @@ describe("Monitoring", () => {
     });
 
     describe("/api/health", () => {
-      it("should return full health check", async () => {
+      it("should return 200 with healthy when all dependencies are up", async () => {
+        mockDbAvailable = true;
+        mockRedisClient = { ping: vi.fn().mockResolvedValue("PONG") };
+        mockFfmpegResult = { ffmpeg: true, ffprobe: true };
+
         const req = createMockReq();
         const res = createMockRes();
         await routes["/api/health"](req, res);
 
         const data = res._getJsonData()[0];
-        expect(data).toHaveProperty("status");
+        expect(data.status).toBe("healthy");
+        expect(res.status).toHaveBeenCalledWith(200);
         expect(data).toHaveProperty("uptime");
         expect(data).toHaveProperty("timestamp");
         expect(data).toHaveProperty("checks");
+      });
+
+      it("should return 503 with degraded when redis is down", async () => {
+        mockDbAvailable = true;
+        mockRedisClient = {
+          ping: vi.fn().mockRejectedValue(new Error("connection refused")),
+        };
+        mockFfmpegResult = { ffmpeg: true, ffprobe: true };
+
+        const req = createMockReq();
+        const res = createMockRes();
+        await routes["/api/health"](req, res);
+
+        const data = res._getJsonData()[0];
+        expect(data.status).toBe("degraded");
+        expect(res.status).toHaveBeenCalledWith(503);
+      });
+
+      it("should return 503 with degraded when ffmpeg is down", async () => {
+        mockDbAvailable = true;
+        mockRedisClient = { ping: vi.fn().mockResolvedValue("PONG") };
+        mockFfmpegResult = { ffmpeg: false, ffprobe: false };
+
+        const req = createMockReq();
+        const res = createMockRes();
+        await routes["/api/health"](req, res);
+
+        const data = res._getJsonData()[0];
+        expect(data.status).toBe("degraded");
+        expect(res.status).toHaveBeenCalledWith(503);
+      });
+
+      it("should return 503 with unhealthy when database is down", async () => {
+        mockDbAvailable = false;
+
+        const req = createMockReq();
+        const res = createMockRes();
+        await routes["/api/health"](req, res);
+
+        const data = res._getJsonData()[0];
+        expect(data.status).toBe("unhealthy");
+        expect(res.status).toHaveBeenCalledWith(503);
       });
     });
 

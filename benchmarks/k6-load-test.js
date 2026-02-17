@@ -74,6 +74,13 @@ export default function () {
     healthLatency.add(res.timings.duration);
     const success = check(res, {
       "health status 200": (r) => r.status === 200,
+      "health body is healthy": (r) => {
+        try {
+          return JSON.parse(r.body).status === "healthy";
+        } catch {
+          return false;
+        }
+      },
       "health latency < 100ms": (r) => r.timings.duration < 100,
     });
     errorRate.add(!success);
