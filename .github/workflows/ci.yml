@@ -26,6 +26,9 @@ jobs:
     name: "Quality Control"
     needs: lockfile_check
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -93,6 +96,9 @@ jobs:
     name: "📦 Bundle Size Budget"
     needs: lockfile_check
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - uses: actions/checkout@v4
 
@@ -142,6 +148,9 @@ jobs:
     name: "Mobile Quality Control"
     needs: lockfile_check
     runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     defaults:
       run:
         working-directory: mobile

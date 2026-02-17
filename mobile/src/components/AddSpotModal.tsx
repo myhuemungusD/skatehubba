@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -82,9 +82,7 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
   const [showTypePicker, setShowTypePicker] = useState(false);
   const [showTierPicker, setShowTierPicker] = useState(false);
 
-  const isLocationReady = Boolean(
-    userLocation && userLocation.lat !== 0 && userLocation.lng !== 0
-  );
+  const isLocationReady = Boolean(userLocation && userLocation.lat !== 0 && userLocation.lng !== 0);
 
   const mutation = useMutation({
     mutationFn: async (payload: InsertSpot) => {
@@ -158,12 +156,7 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
   };
 
   return (
-    <Modal
-      visible={isOpen}
-      transparent
-      animationType="slide"
-      onRequestClose={handleClose}
-    >
+    <Modal visible={isOpen} transparent animationType="slide" onRequestClose={handleClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <TouchableOpacity style={styles.modalClose} onPress={handleClose}>
@@ -278,10 +271,7 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
                   {SPOT_TIERS.map((t) => (
                     <TouchableOpacity
                       key={t}
-                      style={[
-                        styles.pickerOption,
-                        tier === t && styles.pickerOptionSelected,
-                      ]}
+                      style={[styles.pickerOption, tier === t && styles.pickerOptionSelected]}
                       onPress={() => {
                         setTier(t);
                         setShowTierPicker(false);
@@ -333,8 +323,7 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
                 style={[
                   styles.button,
                   styles.buttonPrimary,
-                  (!name.trim() || !isLocationReady || mutation.isPending) &&
-                    styles.buttonDisabled,
+                  (!name.trim() || !isLocationReady || mutation.isPending) && styles.buttonDisabled,
                 ]}
                 onPress={handleSubmit}
                 disabled={!name.trim() || !isLocationReady || mutation.isPending}

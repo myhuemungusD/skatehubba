@@ -1,6 +1,8 @@
 import { QueryClient } from "@tanstack/react-query";
 import { showMessage } from "react-native-flash-message";
 import { auth } from "@/lib/firebase.config";
+import { validateRequestDomain, reportPossiblePinningFailure } from "@/lib/certificatePinning";
+import { getAppCheckToken } from "@/lib/appCheck";
 
 // Create Query Client with default configuration
 export const queryClient = new QueryClient({
@@ -28,6 +30,14 @@ export async function apiRequest<T = unknown>(
   options: RequestInit = {}
 ): Promise<T> {
   const baseUrl = process.env.EXPO_PUBLIC_API_URL || "http://localhost:5000";
+  const url = `${baseUrl}${endpoint}`;
+
+  // Domain allowlist enforcement — reject requests to untrusted domains
+  // before they reach the network stack.
+  const domainCheck = validateRequestDomain(url);
+  if (!domainCheck.allowed) {
+    throw new Error(`Request blocked: ${domainCheck.reason}`);
+  }
 
   // Inject Firebase auth token for authenticated requests.
   // React Native fetch does not support cookie-based sessions the way
@@ -39,14 +49,30 @@ export async function apiRequest<T = unknown>(
     authHeaders["Authorization"] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${baseUrl}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...authHeaders,
-      ...options.headers,
-    },
-  });
+  // Attach App Check token for server-side request attestation.
+  // The token proves this request originates from a genuine app installation.
+  const appCheckToken = await getAppCheckToken();
+  if (appCheckToken) {
+    authHeaders["X-Firebase-AppCheck"] = appCheckToken;
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders,
+        ...options.headers,
+      },
+    });
+  } catch (error) {
+    // Network-level errors may indicate a certificate pinning rejection.
+    // Report for monitoring so the team can distinguish pin failures
+    // from genuine connectivity issues.
+    reportPossiblePinningFailure(url, error);
+    throw error;
+  }
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: "Request failed" }));

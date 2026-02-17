@@ -86,5 +86,19 @@ export default tseslint.config(
       "@typescript-eslint/no-explicit-any": "off",
       "no-console": "off",
     },
+  },
+
+  // Expo config plugins — must be CommonJS (run in Node.js at build time)
+  {
+    files: ["**/plugins/**/*.js"],
+    languageOptions: {
+      sourceType: "commonjs",
+      globals: {
+        ...globals.node,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
+    },
   }
 );
