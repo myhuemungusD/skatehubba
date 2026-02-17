@@ -32,7 +32,7 @@ export default function ProfileScreen() {
     queryFn: () => apiRequest<UserProfile>(`/api/profile/${uid}`),
   });
 
-  const mutation = useMutation({
+  const _mutation = useMutation({
     mutationFn: async ({ clipUrl, thumbnailUrl }: { clipUrl: string; thumbnailUrl: string }) => {
       const res = await createChallenge({
         opponentUid: uid,
