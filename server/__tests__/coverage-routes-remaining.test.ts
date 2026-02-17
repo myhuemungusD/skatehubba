@@ -130,6 +130,7 @@ vi.mock("../auth/middleware", () => ({
     next();
   },
   requireAdmin: (_req: any, _res: any, next: any) => next(),
+  requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 vi.mock("../logger", () => ({

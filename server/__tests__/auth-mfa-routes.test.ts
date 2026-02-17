@@ -22,6 +22,7 @@ vi.mock("../auth/middleware", () => ({
     req.currentUser = { id: "user1", email: "test@example.com", firstName: "Test" };
     next();
   }),
+  requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 vi.mock("../middleware/csrf", () => ({

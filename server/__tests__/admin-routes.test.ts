@@ -55,6 +55,7 @@ vi.mock("../middleware/auditLog", () => ({
 vi.mock("../auth/middleware", () => ({
   authenticateUser: vi.fn((_req: any, _res: any, next: any) => next()),
   requireAdmin: vi.fn((_req: any, _res: any, next: any) => next()),
+  requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 vi.mock("../middleware/trustSafety", () => ({

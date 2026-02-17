@@ -451,7 +451,7 @@ describe("Security Middleware", () => {
 
       logIPAddress(req, res, next);
 
-      expect(req.body.ipAddress).toBe("203.0.113.50");
+      expect(req.clientIpAddress).toBe("203.0.113.50");
       expect(next).toHaveBeenCalled();
     });
 
@@ -465,7 +465,7 @@ describe("Security Middleware", () => {
 
       logIPAddress(req, res, next);
 
-      expect(req.body.ipAddress).toBe("203.0.113.51");
+      expect(req.clientIpAddress).toBe("203.0.113.51");
       expect(next).toHaveBeenCalled();
     });
 
@@ -479,7 +479,7 @@ describe("Security Middleware", () => {
 
       logIPAddress(req, res, next);
 
-      expect(req.body.ipAddress).toBe("203.0.113.50");
+      expect(req.clientIpAddress).toBe("203.0.113.50");
     });
 
     it("should fallback to connection remoteAddress", () => {
@@ -494,7 +494,7 @@ describe("Security Middleware", () => {
 
       logIPAddress(req, res, next);
 
-      expect(req.body.ipAddress).toBe("192.168.1.1");
+      expect(req.clientIpAddress).toBe("192.168.1.1");
     });
   });
 

@@ -78,6 +78,7 @@ vi.mock("../auth/service", () => ({
 // Mock middleware (passthrough)
 vi.mock("../auth/middleware", () => ({
   authenticateUser: (_req: any, _res: any, next: any) => next(),
+  requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 vi.mock("../middleware/rateLimit", () => ({

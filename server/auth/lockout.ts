@@ -88,11 +88,14 @@ export class LockoutService {
       logger.error("Error checking lockout status", {
         error: error instanceof Error ? error.message : "Unknown error",
       });
-      // Fail open - don't lock legitimate users if DB fails
+      // Fail closed - treat DB errors as locked to prevent brute-force
+      // attacks from bypassing lockout when the database is unavailable.
+      // Must include unlockAt so callers that check (isLocked && unlockAt)
+      // correctly enforce the lockout.
       return {
-        isLocked: false,
-        failedAttempts: 0,
-        remainingAttempts: this.MAX_ATTEMPTS,
+        isLocked: true,
+        unlockAt: new Date(Date.now() + this.LOCKOUT_DURATION),
+        failedAttempts: this.MAX_ATTEMPTS,
       };
     }
   }

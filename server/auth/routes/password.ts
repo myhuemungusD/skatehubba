@@ -4,7 +4,7 @@
 
 import type { Express } from "express";
 import { AuthService } from "../service.ts";
-import { authenticateUser } from "../middleware.ts";
+import { authenticateUser, requireRecentAuth } from "../middleware.ts";
 import { authLimiter } from "../../middleware/rateLimit.ts";
 import { AuditLogger, getClientIP } from "../audit.ts";
 import logger from "../../logger.ts";
@@ -19,7 +19,7 @@ export function setupPasswordRoutes(app: Express) {
    * Change password (authenticated users)
    * Invalidates all other sessions for security
    */
-  app.post("/api/auth/change-password", authenticateUser, async (req, res) => {
+  app.post("/api/auth/change-password", authenticateUser, requireRecentAuth, async (req, res) => {
     const ipAddress = getClientIP(req);
     const userAgent = req.headers["user-agent"] || undefined;
     const sessionToken = req.cookies?.sessionToken;

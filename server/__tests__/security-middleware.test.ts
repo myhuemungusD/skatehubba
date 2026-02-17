@@ -553,7 +553,7 @@ describe("logIPAddress", () => {
     });
     logIPAddress(req, res, next);
 
-    expect(req.body.ipAddress).toBe("203.0.113.50");
+    expect(req.clientIpAddress).toBe("203.0.113.50");
     expect(next).toHaveBeenCalledTimes(1);
   });
 
@@ -563,7 +563,7 @@ describe("logIPAddress", () => {
     });
     logIPAddress(req, res, next);
 
-    expect(req.body.ipAddress).toBe("198.51.100.14");
+    expect(req.clientIpAddress).toBe("198.51.100.14");
     expect(next).toHaveBeenCalledTimes(1);
   });
 
@@ -576,7 +576,7 @@ describe("logIPAddress", () => {
     });
     logIPAddress(req, res, next);
 
-    expect(req.body.ipAddress).toBe("203.0.113.50");
+    expect(req.clientIpAddress).toBe("203.0.113.50");
   });
 
   it("should fall back to connection.remoteAddress", () => {
@@ -587,7 +587,7 @@ describe("logIPAddress", () => {
     });
     logIPAddress(req, res, next);
 
-    expect(req.body.ipAddress).toBe("10.10.10.10");
+    expect(req.clientIpAddress).toBe("10.10.10.10");
     expect(next).toHaveBeenCalledTimes(1);
   });
 
@@ -599,7 +599,7 @@ describe("logIPAddress", () => {
     });
     logIPAddress(req, res, next);
 
-    expect(req.body.ipAddress).toBe("10.20.20.20");
+    expect(req.clientIpAddress).toBe("10.20.20.20");
     expect(next).toHaveBeenCalledTimes(1);
   });
 
@@ -609,7 +609,7 @@ describe("logIPAddress", () => {
     });
     logIPAddress(req, res, next);
 
-    expect(req.body.ipAddress).toBe("203.0.113.50");
+    expect(req.clientIpAddress).toBe("203.0.113.50");
     expect(next).toHaveBeenCalledTimes(1);
   });
 
@@ -621,7 +621,7 @@ describe("logIPAddress", () => {
     });
     logIPAddress(req, res, next);
 
-    expect(req.body.ipAddress).toBeUndefined();
+    expect(req.clientIpAddress).toBeUndefined();
     expect(next).toHaveBeenCalledTimes(1);
   });
 

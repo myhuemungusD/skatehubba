@@ -30,6 +30,7 @@ describe("reauth — auth_time undefined branch (line 67)", () => {
         req.currentUser = { id: "user1", email: "test@example.com" };
         next();
       }),
+      requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
       recordRecentAuth: mockRecordRecentAuth,
     }));
     vi.doMock("../middleware/csrf", () => ({
@@ -102,6 +103,7 @@ describe("password — currentPassword undefined fallback (line 46)", () => {
     }));
     vi.doMock("../auth/middleware", () => ({
       authenticateUser: (_req: any, _res: any, next: any) => next(),
+      requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
     }));
     vi.doMock("../middleware/rateLimit", () => ({
       authLimiter: (_req: any, _res: any, next: any) => next(),
@@ -162,6 +164,7 @@ describe("password — currentPassword undefined fallback (line 46)", () => {
     vi.doMock("../auth/service", () => ({ AuthService: {} }));
     vi.doMock("../auth/middleware", () => ({
       authenticateUser: (_req: any, _res: any, next: any) => next(),
+      requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
     }));
     vi.doMock("../middleware/rateLimit", () => ({
       authLimiter: (_req: any, _res: any, next: any) => next(),
@@ -284,6 +287,7 @@ describe("admin routes — null count fallbacks", () => {
         next();
       },
       requireAdmin: (_req: any, _res: any, next: any) => next(),
+      requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
     }));
     vi.doMock("../middleware/trustSafety", () => ({
       enforceAdminRateLimit: () => (_req: any, _res: any, next: any) => next(),

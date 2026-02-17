@@ -56,6 +56,7 @@ vi.mock("../logger", () => ({
 
 vi.mock("../auth/middleware", () => ({
   authenticateUser: vi.fn((_req: any, _res: any, next: any) => next()),
+  requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 vi.mock("../middleware/requirePaidOrPro", () => ({
