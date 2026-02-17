@@ -70,84 +70,89 @@ export const verifyAppCheck = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const mode = getMode();
-  const appCheckToken = req.header(APP_CHECK_HEADER);
+  try {
+    const mode = getMode();
+    const appCheckToken = req.header(APP_CHECK_HEADER);
 
-  // No token provided
-  if (!appCheckToken) {
-    const message = "Missing App Check token";
+    // No token provided
+    if (!appCheckToken) {
+      const message = "Missing App Check token";
 
-    switch (mode) {
-      case "enforce":
-        logger.warn(message, {
-          ip: req.ip,
-          path: req.path,
-          mode,
-        });
-        res.status(401).json({
-          error: "App verification required",
-          code: "APP_CHECK_REQUIRED",
-        });
-        return;
+      switch (mode) {
+        case "enforce":
+          logger.warn(message, {
+            ip: req.ip,
+            path: req.path,
+            mode,
+          });
+          res.status(401).json({
+            error: "App verification required",
+            code: "APP_CHECK_REQUIRED",
+          });
+          return;
 
-      case "warn":
-        res.setHeader("X-App-Check-Warning", "Token missing");
-        logger.info(message, { ip: req.ip, path: req.path, mode });
-        break;
+        case "warn":
+          res.setHeader("X-App-Check-Warning", "Token missing");
+          logger.info(message, { ip: req.ip, path: req.path, mode });
+          break;
 
-      case "monitor":
-      default:
-        logger.debug(message, { path: req.path, mode });
-        break;
+        case "monitor":
+        default:
+          logger.debug(message, { path: req.path, mode });
+          break;
+      }
+
+      next();
+      return;
     }
 
-    next();
-    return;
-  }
+    // Token provided — verify it
+    const claims = await verifyAppCheckToken(appCheckToken);
 
-  // Token provided — verify it
-  const claims = await verifyAppCheckToken(appCheckToken);
+    if (!claims) {
+      const message = "Invalid App Check token";
 
-  if (!claims) {
-    const message = "Invalid App Check token";
+      switch (mode) {
+        case "enforce":
+          logger.warn(message, {
+            ip: req.ip,
+            path: req.path,
+            mode,
+          });
+          res.status(401).json({
+            error: "App verification failed",
+            code: "APP_CHECK_INVALID",
+          });
+          return;
 
-    switch (mode) {
-      case "enforce":
-        logger.warn(message, {
-          ip: req.ip,
-          path: req.path,
-          mode,
-        });
-        res.status(401).json({
-          error: "App verification failed",
-          code: "APP_CHECK_INVALID",
-        });
-        return;
+        case "warn":
+          res.setHeader("X-App-Check-Warning", "Token invalid");
+          logger.warn(message, { ip: req.ip, path: req.path, mode });
+          break;
 
-      case "warn":
-        res.setHeader("X-App-Check-Warning", "Token invalid");
-        logger.warn(message, { ip: req.ip, path: req.path, mode });
-        break;
+        case "monitor":
+        default:
+          logger.warn(message, { path: req.path, mode });
+          break;
+      }
 
-      case "monitor":
-      default:
-        logger.warn(message, { path: req.path, mode });
-        break;
+      next();
+      return;
     }
 
+    // Valid token — attach claims to request for downstream use
+    (req as Request & { appCheckClaims?: typeof claims }).appCheckClaims = claims;
+
+    logger.debug("App Check verified", {
+      appId: claims.appId,
+      path: req.path,
+    });
+
     next();
-    return;
+  } catch (error) {
+    logger.error("App Check middleware error", { error: String(error), path: req.path });
+    next(error);
   }
-
-  // Valid token — attach claims to request for downstream use
-  (req as Request & { appCheckClaims?: typeof claims }).appCheckClaims = claims;
-
-  logger.debug("App Check verified", {
-    appId: claims.appId,
-    path: req.path,
-  });
-
-  next();
 };
 
 /**
@@ -163,34 +168,39 @@ export const requireAppCheck = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const appCheckToken = req.header(APP_CHECK_HEADER);
+  try {
+    const appCheckToken = req.header(APP_CHECK_HEADER);
 
-  if (!appCheckToken) {
-    logger.warn("Missing App Check token on protected endpoint", {
-      ip: req.ip,
-      path: req.path,
-    });
-    res.status(401).json({
-      error: "App verification required",
-      code: "APP_CHECK_REQUIRED",
-    });
-    return;
+    if (!appCheckToken) {
+      logger.warn("Missing App Check token on protected endpoint", {
+        ip: req.ip,
+        path: req.path,
+      });
+      res.status(401).json({
+        error: "App verification required",
+        code: "APP_CHECK_REQUIRED",
+      });
+      return;
+    }
+
+    const claims = await verifyAppCheckToken(appCheckToken);
+
+    if (!claims) {
+      logger.warn("Invalid App Check token on protected endpoint", {
+        ip: req.ip,
+        path: req.path,
+      });
+      res.status(401).json({
+        error: "App verification failed",
+        code: "APP_CHECK_INVALID",
+      });
+      return;
+    }
+
+    (req as Request & { appCheckClaims?: typeof claims }).appCheckClaims = claims;
+    next();
+  } catch (error) {
+    logger.error("App Check middleware error", { error: String(error), path: req.path });
+    next(error);
   }
-
-  const claims = await verifyAppCheckToken(appCheckToken);
-
-  if (!claims) {
-    logger.warn("Invalid App Check token on protected endpoint", {
-      ip: req.ip,
-      path: req.path,
-    });
-    res.status(401).json({
-      error: "App verification failed",
-      code: "APP_CHECK_INVALID",
-    });
-    return;
-  }
-
-  (req as Request & { appCheckClaims?: typeof claims }).appCheckClaims = claims;
-  next();
 };

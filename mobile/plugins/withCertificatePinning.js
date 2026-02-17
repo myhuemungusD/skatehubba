@@ -260,6 +260,16 @@ function withIOSPinnedDomains(config, props) {
  *   allowDebugOverrides?: boolean;
  * }} props
  */
+/**
+ * Validate that a pin string is a well-formed SPKI SHA-256 base64 hash.
+ * SHA-256 = 32 bytes → 44 base64 characters with padding.
+ */
+function isValidPin(pin) {
+  if (typeof pin !== "string" || pin.length !== 44) return false;
+  if (!pin.endsWith("=")) return false;
+  return /^[A-Za-z0-9+/]+=+$/.test(pin);
+}
+
 function withCertificatePinning(config, props = {}) {
   const { domains = [], pinExpiration, allowDebugOverrides = true } = props;
 
@@ -267,6 +277,18 @@ function withCertificatePinning(config, props = {}) {
   const validDomains = domains.filter(
     (d) => d.hostname && Array.isArray(d.pins) && d.pins.length > 0
   );
+
+  // Validate pin formats at build time
+  for (const domain of validDomains) {
+    for (const pin of domain.pins) {
+      if (!isValidPin(pin)) {
+        throw new Error(
+          `[withCertificatePinning] Invalid SPKI pin for ${domain.hostname}: ` +
+            `"${pin.substring(0, 10)}..." — expected a 44-character base64-encoded SHA-256 hash.`
+        );
+      }
+    }
+  }
 
   const normalizedProps = {
     domains: validDomains,

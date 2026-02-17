@@ -24,7 +24,7 @@
  */
 
 import { initializeAppCheck, CustomProvider, type AppCheck, getToken } from "firebase/app-check";
-import { app } from "@/lib/firebase.config";
+import type { FirebaseApp } from "firebase/app";
 import { getAppEnv, getEnvOptional } from "@skatehubba/config";
 
 let appCheckInstance: AppCheck | null = null;
@@ -38,8 +38,11 @@ let appCheckInstance: AppCheck | null = null;
  * In debug/development builds, uses a debug provider with a pre-registered
  * token. In production, uses a custom provider that the build pipeline
  * configures with the appropriate native attestation.
+ *
+ * @param firebaseApp - The initialized Firebase app instance. Passed
+ *   explicitly to avoid a circular dependency with firebase.config.ts.
  */
-export function initAppCheck(): void {
+export function initAppCheck(firebaseApp: FirebaseApp): void {
   if (appCheckInstance) return;
 
   const env = getAppEnv();
@@ -58,7 +61,7 @@ export function initAppCheck(): void {
         g.FIREBASE_APPCHECK_DEBUG_TOKEN = debugToken;
       }
 
-      appCheckInstance = initializeAppCheck(app, {
+      appCheckInstance = initializeAppCheck(firebaseApp, {
         provider: new CustomProvider({
           getToken: async () => {
             // In development, return a debug token that Firebase Console
@@ -82,7 +85,7 @@ export function initAppCheck(): void {
       // those are not available (e.g. Expo Go), the custom provider
       // returns an empty token that the server can handle via its
       // APP_CHECK_MODE setting (monitor → warn → enforce).
-      appCheckInstance = initializeAppCheck(app, {
+      appCheckInstance = initializeAppCheck(firebaseApp, {
         provider: new CustomProvider({
           getToken: async () => {
             // The native attestation token is obtained through the

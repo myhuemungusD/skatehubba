@@ -27,6 +27,7 @@ import {
   onPinningFailure,
   getRecentFailures,
   isPinningEnabled,
+  _resetForTesting,
 } from "../certificatePinning";
 
 const mockGetAppEnv = getAppEnv as ReturnType<typeof vi.fn>;
@@ -36,6 +37,7 @@ const mockIsDomainAllowed = isDomainAllowed as ReturnType<typeof vi.fn>;
 
 describe("certificatePinning runtime", () => {
   beforeEach(() => {
+    _resetForTesting();
     vi.clearAllMocks();
     mockGetAppEnv.mockReturnValue("local");
     mockIsProd.mockReturnValue(false);
@@ -114,8 +116,8 @@ describe("certificatePinning runtime", () => {
       validateRequestDomain("https://evil.com/api");
 
       const failures = getRecentFailures();
-      expect(failures.length).toBeGreaterThan(0);
-      expect(failures[failures.length - 1].hostname).toBe("evil.com");
+      expect(failures).toHaveLength(1);
+      expect(failures[0].hostname).toBe("evil.com");
     });
 
     it("handles invalid URLs gracefully", () => {
@@ -188,10 +190,7 @@ describe("certificatePinning runtime", () => {
         allowDebugOverrides: false,
       });
 
-      // Re-init to pick up the enabled config
       initCertificatePinning();
-
-      const initialCount = getRecentFailures().length;
 
       reportPossiblePinningFailure(
         "https://api.skatehubba.com/api/spots",
@@ -199,8 +198,8 @@ describe("certificatePinning runtime", () => {
       );
 
       const failures = getRecentFailures();
-      expect(failures.length).toBe(initialCount + 1);
-      expect(failures[failures.length - 1].reason).toContain("SSLHandshakeException");
+      expect(failures).toHaveLength(1);
+      expect(failures[0].reason).toContain("SSLHandshakeException");
     });
 
     it("ignores non-TLS errors", () => {
@@ -213,11 +212,9 @@ describe("certificatePinning runtime", () => {
 
       initCertificatePinning();
 
-      const initialCount = getRecentFailures().length;
-
       reportPossiblePinningFailure("https://api.skatehubba.com/api/spots", new Error("timeout"));
 
-      expect(getRecentFailures().length).toBe(initialCount);
+      expect(getRecentFailures()).toHaveLength(0);
     });
 
     it("does nothing when pinning is disabled", () => {
@@ -230,11 +227,9 @@ describe("certificatePinning runtime", () => {
 
       initCertificatePinning();
 
-      const initialCount = getRecentFailures().length;
-
       reportPossiblePinningFailure("https://api.skatehubba.com/api/spots", new Error("SSL error"));
 
-      expect(getRecentFailures().length).toBe(initialCount);
+      expect(getRecentFailures()).toHaveLength(0);
     });
   });
 
@@ -274,10 +269,10 @@ describe("certificatePinning runtime", () => {
       validateRequestDomain("https://evil.com/api/data?token=secret123&user=john");
 
       const failures = getRecentFailures();
-      const lastFailure = failures[failures.length - 1];
-      expect(lastFailure.url).not.toContain("secret123");
-      expect(lastFailure.url).not.toContain("token=");
-      expect(lastFailure.url).toBe("https://evil.com/api/data");
+      expect(failures).toHaveLength(1);
+      expect(failures[0].url).not.toContain("secret123");
+      expect(failures[0].url).not.toContain("token=");
+      expect(failures[0].url).toBe("https://evil.com/api/data");
     });
   });
 });

@@ -114,10 +114,37 @@ const ENV_PIN_KEYS = {
   stagingBackup: "EXPO_PUBLIC_CERT_PIN_STAGING_BACKUP",
 } as const;
 
+/**
+ * Validate that a string is a well-formed SPKI SHA-256 pin.
+ *
+ * A valid pin is a base64-encoded SHA-256 hash (32 bytes → 44 base64 chars
+ * including padding). We validate the length and charset rather than
+ * decoding, which is sufficient to catch typos and copy-paste errors.
+ */
+export function isValidSpkiPin(pin: string): boolean {
+  // SHA-256 = 32 bytes → ceil(32/3)*4 = 44 base64 characters (with padding)
+  if (pin.length !== 44) return false;
+  // Must end with '=' (base64 padding for 32 bytes)
+  if (!pin.endsWith("=")) return false;
+  // Must contain only valid base64 characters
+  return /^[A-Za-z0-9+/]+=+$/.test(pin);
+}
+
 function readPinFromEnv(key: string): string | undefined {
   const value = getEnvOptional(key);
   if (!value || value.trim() === "" || value === "PLACEHOLDER") return undefined;
-  return value.trim();
+
+  const pin = value.trim();
+  if (!isValidSpkiPin(pin)) {
+    console.error(
+      `[CertPinning] Invalid SPKI pin format for ${key}. ` +
+        `Expected a 44-character base64-encoded SHA-256 hash (e.g. "YLh1dUR9y6Kja30RrAn7JKnbQG/uEtLMkBgFF2Fuihg="). ` +
+        `Got: "${pin.substring(0, 10)}..." (length ${pin.length})`
+    );
+    return undefined;
+  }
+
+  return pin;
 }
 
 function hasPinsConfigured(env: AppEnv): boolean {
@@ -138,6 +165,14 @@ function buildProductionDomains(): PinnedDomain[] {
 
   if (!primary || !backup) return [];
 
+  if (primary === backup) {
+    console.error(
+      `[CertPinning] Primary and backup pins for api.skatehubba.com are identical. ` +
+        `Backup pins MUST be from a different certificate chain to survive CA compromise.`
+    );
+    return [];
+  }
+
   return [
     {
       hostname: "api.skatehubba.com",
@@ -155,6 +190,14 @@ function buildStagingDomains(): PinnedDomain[] {
   const backup = readPinFromEnv(ENV_PIN_KEYS.stagingBackup);
 
   if (!primary || !backup) return [];
+
+  if (primary === backup) {
+    console.error(
+      `[CertPinning] Primary and backup pins for staging-api.skatehubba.com are identical. ` +
+        `Backup pins MUST be from a different certificate chain to survive CA compromise.`
+    );
+    return [];
+  }
 
   return [
     {
@@ -205,6 +248,17 @@ export function getCertificatePinningConfig(): CertificatePinningConfig {
   const expiration = getEnvOptional("EXPO_PUBLIC_CERT_PIN_EXPIRATION") || "2027-06-01";
 
   const domains = env === "prod" ? buildProductionDomains() : buildStagingDomains();
+
+  // Domains may be empty if pins failed validation (invalid format, duplicates).
+  // In that case, disable pinning rather than running with no pins.
+  if (domains.length === 0) {
+    return {
+      enabled: false,
+      domains: [],
+      pinExpiration: "",
+      allowDebugOverrides: env !== "prod",
+    };
+  }
 
   return {
     enabled: true,

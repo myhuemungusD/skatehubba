@@ -10,6 +10,7 @@ import {
   getCertificatePinningConfig,
   getAllowedApiDomains,
   isDomainAllowed,
+  isValidSpkiPin,
 } from "../certificatePinning";
 
 const mockGetAppEnv = getAppEnv as ReturnType<typeof vi.fn>;
@@ -71,8 +72,8 @@ describe("certificatePinning", () => {
       mockGetAppEnv.mockReturnValue("staging");
       mockGetEnvOptional.mockImplementation((key: string) => {
         const env: Record<string, string> = {
-          EXPO_PUBLIC_CERT_PIN_STAGING_PRIMARY: "aStagingPrimaryHash=",
-          EXPO_PUBLIC_CERT_PIN_STAGING_BACKUP: "aStagingBackupHash=",
+          EXPO_PUBLIC_CERT_PIN_STAGING_PRIMARY: "C5+lpZ7tcVwmwQIMcRtPbsQtWLABXhQzejna0wHFr8M=",
+          EXPO_PUBLIC_CERT_PIN_STAGING_BACKUP: "lCppFqbkrlJ3EcVFAkeip0+44VaoJUymbnOaEUk7tEU=",
         };
         return env[key] ?? undefined;
       });
@@ -103,8 +104,8 @@ describe("certificatePinning", () => {
       mockGetAppEnv.mockReturnValue("prod");
       mockGetEnvOptional.mockImplementation((key: string) => {
         const env: Record<string, string> = {
-          EXPO_PUBLIC_CERT_PIN_API_PRIMARY: "hashA=",
-          EXPO_PUBLIC_CERT_PIN_API_BACKUP: "hashB=",
+          EXPO_PUBLIC_CERT_PIN_API_PRIMARY: "YLh1dUR9y6Kja30RrAn7JKnbQG/uEtLMkBgFF2Fuihg=",
+          EXPO_PUBLIC_CERT_PIN_API_BACKUP: "Vjs8r4z+80wjNcr1YKepWQboSIRi63WsWXhIMN+eWys=",
           EXPO_PUBLIC_CERT_PIN_EXPIRATION: "2028-12-31",
         };
         return env[key] ?? undefined;
@@ -119,7 +120,7 @@ describe("certificatePinning", () => {
       mockGetAppEnv.mockReturnValue("prod");
       mockGetEnvOptional.mockImplementation((key: string) => {
         const env: Record<string, string> = {
-          EXPO_PUBLIC_CERT_PIN_API_PRIMARY: "onlyPrimary=",
+          EXPO_PUBLIC_CERT_PIN_API_PRIMARY: "YLh1dUR9y6Kja30RrAn7JKnbQG/uEtLMkBgFF2Fuihg=",
         };
         return env[key] ?? undefined;
       });
@@ -193,6 +194,68 @@ describe("certificatePinning", () => {
 
       mockGetAppEnv.mockReturnValue("prod");
       expect(isDomainAllowed("localhost", "prod")).toBe(false);
+    });
+  });
+
+  describe("isValidSpkiPin", () => {
+    it("accepts valid base64 SHA-256 pins", () => {
+      expect(isValidSpkiPin("YLh1dUR9y6Kja30RrAn7JKnbQG/uEtLMkBgFF2Fuihg=")).toBe(true);
+      expect(isValidSpkiPin("Vjs8r4z+80wjNcr1YKepWQboSIRi63WsWXhIMN+eWys=")).toBe(true);
+    });
+
+    it("rejects pins that are too short", () => {
+      expect(isValidSpkiPin("hashA=")).toBe(false);
+      expect(isValidSpkiPin("short")).toBe(false);
+    });
+
+    it("rejects pins that are too long", () => {
+      expect(isValidSpkiPin("YLh1dUR9y6Kja30RrAn7JKnbQG/uEtLMkBgFF2FuihgEXTRA=")).toBe(false);
+    });
+
+    it("rejects pins without base64 padding", () => {
+      expect(isValidSpkiPin("YLh1dUR9y6Kja30RrAn7JKnbQG/uEtLMkBgFF2Fuihg")).toBe(false);
+    });
+
+    it("rejects pins with invalid characters", () => {
+      expect(isValidSpkiPin("YLh1dUR9y6Kja30RrAn7JKnbQG/uEtLM!BgFF2Fui$=")).toBe(false);
+    });
+
+    it("rejects empty strings", () => {
+      expect(isValidSpkiPin("")).toBe(false);
+    });
+  });
+
+  describe("pin validation", () => {
+    it("rejects invalid-format pin from env var", () => {
+      mockGetAppEnv.mockReturnValue("prod");
+      mockGetEnvOptional.mockImplementation((key: string) => {
+        const env: Record<string, string> = {
+          EXPO_PUBLIC_CERT_PIN_API_PRIMARY: "not-a-valid-hash",
+          EXPO_PUBLIC_CERT_PIN_API_BACKUP: "also-not-valid",
+        };
+        return env[key] ?? undefined;
+      });
+
+      const config = getCertificatePinningConfig();
+
+      expect(config.enabled).toBe(false);
+    });
+
+    it("rejects duplicate primary and backup pins", () => {
+      const samePin = "YLh1dUR9y6Kja30RrAn7JKnbQG/uEtLMkBgFF2Fuihg=";
+      mockGetAppEnv.mockReturnValue("prod");
+      mockGetEnvOptional.mockImplementation((key: string) => {
+        const env: Record<string, string> = {
+          EXPO_PUBLIC_CERT_PIN_API_PRIMARY: samePin,
+          EXPO_PUBLIC_CERT_PIN_API_BACKUP: samePin,
+        };
+        return env[key] ?? undefined;
+      });
+
+      const config = getCertificatePinningConfig();
+
+      expect(config.enabled).toBe(false);
+      expect(config.domains).toHaveLength(0);
     });
   });
 });

@@ -172,6 +172,16 @@ export function isPinningEnabled(): boolean {
 }
 
 /**
+ * Reset internal state. Only for use in tests.
+ * @internal
+ */
+export function _resetForTesting(): void {
+  cachedConfig = null;
+  recentFailures.length = 0;
+  failureListeners.clear();
+}
+
+/**
  * Report a network error that may be caused by a certificate pinning failure.
  *
  * Call this from the API client's error handler when a request fails with
