@@ -52,6 +52,28 @@ test.describe("Production Smoke Test", () => {
     await expect(page).toHaveTitle(/SkateHubba/);
   });
 
+  test("should contain client-rendered content", async ({ page }) => {
+    // A broken Vite build could still serve an HTML shell that passes the
+    // other smoke checks. Verify the page contains a Vite-injected root
+    // and at least one React-rendered element to prove the client bundle
+    // actually loaded and executed.
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    // Vite apps mount into #root
+    const root = page.locator("#root");
+    await expect(root).toBeAttached();
+
+    // The root must have child content rendered by React (not an empty div)
+    await expect(root).not.toBeEmpty();
+
+    // Verify a known client-side element exists (the app shell / nav)
+    const clientElement = page.locator(
+      '[data-testid="app-shell"], nav, [role="navigation"]',
+    );
+    await expect(clientElement.first()).toBeVisible();
+  });
+
   test("should serve assets with 200 status", async ({ page }) => {
     const failedRequests: string[] = [];
 

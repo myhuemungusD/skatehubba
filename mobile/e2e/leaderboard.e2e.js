@@ -7,89 +7,75 @@ describe("Leaderboard", () => {
     await device.reloadReactNative();
   });
 
+  /** Returns false (skip test) when the user is not signed in. */
+  async function requireAuth() {
+    try {
+      await expect(element(by.id("home-screen"))).toBeVisible();
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   describe("Leaderboard Screen", () => {
     it("renders the leaderboard screen", async () => {
-      try {
-        await expect(element(by.id("home-screen"))).toBeVisible();
-      } catch {
-        // Not authenticated — auth flow tests cover sign-in
-        return;
-      }
+      if (!(await requireAuth())) return;
 
-      try {
-        await expect(element(by.id("leaderboard-screen"))).toBeVisible();
-      } catch {
-        // May need navigation to reach leaderboard
-      }
+      await expect(element(by.id("leaderboard-screen"))).toBeVisible();
     });
 
     it("shows loading text while fetching data", async () => {
-      try {
-        await expect(element(by.id("leaderboard-loading"))).toBeVisible();
-      } catch {
-        // Loading may have already completed or screen not visible
-      }
+      if (!(await requireAuth())) return;
+
+      // Loading indicator should appear before data arrives
+      await expect(element(by.id("leaderboard-loading"))).toBeVisible();
     });
 
     it("displays the Top Skaters header", async () => {
-      try {
-        await waitFor(element(by.id("leaderboard-header")))
-          .toBeVisible()
-          .withTimeout(10000);
-        await expect(element(by.text("Top Skaters"))).toBeVisible();
-      } catch {
-        // Leaderboard not loaded
-      }
+      if (!(await requireAuth())) return;
+
+      await waitFor(element(by.id("leaderboard-header")))
+        .toBeVisible()
+        .withTimeout(10000);
+      await expect(element(by.text("Top Skaters"))).toBeVisible();
     });
 
     it("renders the leaderboard list", async () => {
-      try {
-        await expect(element(by.id("leaderboard-list"))).toBeVisible();
-      } catch {
-        // List not visible
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("leaderboard-list"))).toBeVisible();
     });
   });
 
   describe("Leaderboard Entries", () => {
     it("displays the first-place entry with gold trophy", async () => {
-      try {
-        await expect(element(by.id("leaderboard-row-0"))).toBeVisible();
-      } catch {
-        // No leaderboard data
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("leaderboard-row-0"))).toBeVisible();
     });
 
     it("displays at least one row with player name and points", async () => {
-      try {
-        await expect(element(by.id("leaderboard-row-0"))).toBeVisible();
-        // Each row should have a name and points text
-        await expect(element(by.text("pts"))).toBeVisible();
-      } catch {
-        // No leaderboard data loaded
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("leaderboard-row-0"))).toBeVisible();
+      await expect(element(by.text("pts"))).toBeVisible();
     });
 
     it("displays top three entries with trophy icons", async () => {
-      try {
-        await expect(element(by.id("leaderboard-row-0"))).toBeVisible();
-        await expect(element(by.id("leaderboard-row-1"))).toBeVisible();
-        await expect(element(by.id("leaderboard-row-2"))).toBeVisible();
-      } catch {
-        // Fewer than 3 entries
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("leaderboard-row-0"))).toBeVisible();
+      await expect(element(by.id("leaderboard-row-1"))).toBeVisible();
+      await expect(element(by.id("leaderboard-row-2"))).toBeVisible();
     });
   });
 
   describe("Leaderboard Scrolling", () => {
     it("allows scrolling through the leaderboard", async () => {
-      try {
-        await expect(element(by.id("leaderboard-list"))).toBeVisible();
-        await element(by.id("leaderboard-list")).scroll(200, "down");
-        // After scrolling, more entries should be visible
-      } catch {
-        // List not available or not enough data to scroll
-      }
+      if (!(await requireAuth())) return;
+
+      await expect(element(by.id("leaderboard-list"))).toBeVisible();
+      await element(by.id("leaderboard-list")).scroll(200, "down");
     });
   });
 });
