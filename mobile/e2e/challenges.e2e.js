@@ -70,7 +70,7 @@ describe("Challenge Creation", () => {
 
       // At least one status badge should be visible
       await expect(
-        element(by.text("PENDING").or(by.text("ACCEPTED")).or(by.text("COMPLETED"))),
+        element(by.text(/^(PENDING|ACCEPTED|COMPLETED)$/)),
       ).toBeVisible();
     });
 

@@ -33,8 +33,11 @@ describe("Smoke", () => {
   });
 
   it("does not show a React Native RedBox or LogBox", async () => {
-    // RedBox / LogBox indicates an unhandled JS error in dev builds
-    await expect(element(by.id("rn-redbox"))).not.toBeVisible();
+    // Native RedBox (bundle syntax errors, Metro down) exposes
+    // accessibilityIdentifier "redbox-error" in RCTRedBox.mm
+    await expect(element(by.id("redbox-error"))).not.toBeVisible();
+
+    // JS LogBox shows this text for unhandled runtime exceptions
     await waitFor(element(by.text("Unhandled JS Exception")))
       .not.toBeVisible()
       .withTimeout(3000);
@@ -42,11 +45,9 @@ describe("Smoke", () => {
 
   it("can reach the API health endpoint", async () => {
     // Verify the mobile app can connect to the backend.
-    // device.launchApp already sets the correct BASE_URL via Detox config;
-    // we hit /api/health/live which always returns { status: "ok" }.
-    const response = await fetch(
-      `${device.appLaunchArgs?.baseUrl ?? process.env.API_URL ?? "http://localhost:3000"}/api/health/live`,
-    );
+    // /api/health/live is the liveness probe — always { status: "ok" }.
+    const baseUrl = process.env.API_URL ?? "http://localhost:3000";
+    const response = await fetch(`${baseUrl}/api/health/live`);
 
     expect(response.status).toBe(200);
     const body = await response.json();
