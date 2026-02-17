@@ -131,12 +131,18 @@ jobs:
       - name: Health check
         run: |
           for i in 1 2 3 4 5; do
-            STATUS=$(curl -s -o /dev/null -w '%{http_code}' "${{ vars.STAGING_API_URL }}/api/health" || true)
-            if [ "$STATUS" = "200" ]; then
-              echo "Health check passed"
+            BODY=$(curl -sf "${{ vars.STAGING_API_URL }}/api/health" 2>/dev/null) || {
+              echo "Attempt $i: request failed, retrying in 10s..."
+              sleep 10
+              continue
+            }
+            HEALTH_STATUS=$(echo "$BODY" | jq -r '.status')
+            if [ "$HEALTH_STATUS" = "healthy" ]; then
+              echo "Health check passed (status: healthy)"
               exit 0
             fi
-            echo "Attempt $i: status=$STATUS, retrying in 10s..."
+            echo "Attempt $i: status=$HEALTH_STATUS, retrying in 10s..."
+            echo "Response: $BODY"
             sleep 10
           done
           echo "Health check failed after 5 attempts"
