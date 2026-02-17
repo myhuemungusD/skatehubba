@@ -207,9 +207,11 @@ export function registerMonitoringRoutes(app: Express) {
   });
 
   // Deep health check (replaces the previous simple /api/health)
+  // Returns 503 for both degraded AND unhealthy — every dependency must be up.
+  // Use /api/health/ready for lenient k8s-style readiness (tolerates degraded).
   app.get("/api/health", async (_req, res) => {
     const health = await runHealthCheck();
-    const httpStatus = health.status === "unhealthy" ? 503 : 200;
+    const httpStatus = health.status === "healthy" ? 200 : 503;
     res.status(httpStatus).json(health);
   });
 

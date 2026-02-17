@@ -131,12 +131,25 @@ jobs:
       - name: Health check
         run: |
           for i in 1 2 3 4 5; do
-            STATUS=$(curl -s -o /dev/null -w '%{http_code}' "${{ vars.STAGING_API_URL }}/api/health" || true)
-            if [ "$STATUS" = "200" ]; then
-              echo "Health check passed"
+            HTTP_CODE=$(curl -s -o /tmp/health.json -w '%{http_code}' --max-time 10 \
+              "${{ vars.STAGING_API_URL }}/api/health") || HTTP_CODE="000"
+
+            if [ "$HTTP_CODE" = "000" ]; then
+              echo "Attempt $i: connection failed, retrying in 10s..."
+              sleep 10
+              continue
+            fi
+
+            HEALTH_STATUS=$(jq -r '.status // "unknown"' /tmp/health.json 2>/dev/null)
+
+            if [ "$HTTP_CODE" = "200" ] && [ "$HEALTH_STATUS" = "healthy" ]; then
+              echo "Health check passed (HTTP $HTTP_CODE, status: $HEALTH_STATUS)"
+              jq -r '.checks | to_entries[] | "  \(.key): \(.value.status)"' /tmp/health.json
               exit 0
             fi
-            echo "Attempt $i: status=$STATUS, retrying in 10s..."
+
+            echo "Attempt $i: HTTP $HTTP_CODE, status=$HEALTH_STATUS"
+            jq -r '.checks | to_entries[] | "  \(.key): \(.value.status)"' /tmp/health.json 2>/dev/null || true
             sleep 10
           done
           echo "Health check failed after 5 attempts"
