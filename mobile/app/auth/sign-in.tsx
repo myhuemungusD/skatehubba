@@ -19,6 +19,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   signInWithCredential,
+  type AuthError,
 } from "firebase/auth";
 import { auth } from "../../src/lib/firebase.config";
 
@@ -39,38 +40,78 @@ export default function SignIn() {
     webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
   });
 
+  const getAuthErrorMessage = (error: unknown): string => {
+    const authError = error as Partial<AuthError>;
+    switch (authError.code) {
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+      case "auth/user-not-found":
+      case "auth/invalid-email":
+        return "Invalid email or password.";
+      case "auth/too-many-requests":
+        return "Too many attempts. Try again in a few minutes.";
+      case "auth/network-request-failed":
+        return "Network error. Check your connection and try again.";
+      default:
+        return "Something went wrong.";
+    }
+  };
+
   // 3. Listen for Native Google Response
   useEffect(() => {
-    if (response?.type === "success") {
-      const { id_token } = response.params;
-      const credential = GoogleAuthProvider.credential(id_token);
+    if (!response) return;
+
+    if (response.type === "success") {
+      const idToken = response.params.id_token ?? response.authentication?.idToken;
+      if (!idToken) {
+        Alert.alert("Login Failed", "Google sign-in did not return an ID token.");
+        setLoading(false);
+        return;
+      }
+
+      const credential = GoogleAuthProvider.credential(idToken);
 
       setLoading(true);
-      signInWithCredential(auth, credential).catch((error) => {
-        if (__DEV__) {
-          console.error("Mobile Google Sign-In Error:", error);
-        }
-        Alert.alert("Login Failed", "Google sign-in failed. Please try again.");
-        setLoading(false);
-      });
-      // Success is handled by the Global Store Listener (redirects automatically)
+      signInWithCredential(auth, credential)
+        .catch((error: unknown) => {
+          if (__DEV__) {
+            console.error("Mobile Google Sign-In Error:", error);
+          }
+          Alert.alert("Login Failed", getAuthErrorMessage(error));
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+      return;
     }
+
+    if (response.type === "cancel" || response.type === "dismiss") {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(false);
   }, [response]);
 
   // 4. Handle Email Sign In
   const handleEmailSignIn = async () => {
-    if (!email || !password) {
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPassword = password.trim();
+
+    if (!normalizedEmail || !normalizedPassword) {
       Alert.alert("Error", "Please enter both email and password.");
       return;
     }
+
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(auth, normalizedEmail, normalizedPassword);
     } catch (error: unknown) {
-      let msg = "Something went wrong.";
-      const firebaseError = error as { code?: string };
-      if (firebaseError.code === "auth/invalid-credential") msg = "Invalid email or password.";
-      Alert.alert("Sign In Failed", msg);
+      Alert.alert("Sign In Failed", getAuthErrorMessage(error));
+      if (__DEV__) {
+        console.error("Email Sign-In Error:", error);
+      }
+    } finally {
       setLoading(false);
     }
   };
@@ -86,6 +127,8 @@ export default function SignIn() {
         if (__DEV__) {
           console.error("Web Google Sign-In Error:", error);
         }
+        Alert.alert("Login Failed", getAuthErrorMessage(error));
+      } finally {
         setLoading(false);
       }
     } else {
@@ -99,7 +142,7 @@ export default function SignIn() {
         return;
       }
       await promptAsync();
-      // Note: setLoading(false) happens if the user cancels the modal
+      // setLoading(false) is handled in the auth-session response effect
     }
   };
 
@@ -202,10 +245,7 @@ export default function SignIn() {
           </TouchableOpacity>
 
           {/* Investor Demo Mode */}
-          <TouchableOpacity
-            style={styles.demoButton}
-            onPress={() => router.push("/demo")}
-          >
+          <TouchableOpacity style={styles.demoButton} onPress={() => router.push("/demo")}>
             <Ionicons name="eye-outline" size={18} color="#FF6600" style={{ marginRight: 8 }} />
             <Text style={styles.demoButtonText}>Investor Demo</Text>
           </TouchableOpacity>
