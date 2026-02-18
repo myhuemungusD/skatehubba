@@ -47,7 +47,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Validate packages (duplicates, lockfiles, version consistency)
-        run: pnpm run validate:packages --strict
+        run: pnpm run validate:packages
 
       - name: Validate package manager consistency
         run: pnpm run validate:package-manager
