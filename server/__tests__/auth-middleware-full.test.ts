@@ -165,6 +165,7 @@ describe("authenticateUser", () => {
   describe("dev-admin bypass", () => {
     it("should set a dev-admin currentUser and call next() when NODE_ENV is not production and x-dev-admin header is true", async () => {
       process.env.NODE_ENV = "test";
+      process.env.DEV_ADMIN_BYPASS = "true";
       const req = mockRequest({ headers: { "x-dev-admin": "true" } });
       const res = mockResponse();
       const next = mockNext();

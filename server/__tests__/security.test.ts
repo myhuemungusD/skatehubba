@@ -47,9 +47,9 @@ const { env } = (await import("../config/env")) as { env: Record<string, string 
 // =============================================================================
 
 describe("SECURITY_CONFIG", () => {
-  it("should have reasonable session TTL (7 days)", () => {
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-    expect(SECURITY_CONFIG.SESSION_TTL).toBe(sevenDaysMs);
+  it("should have reasonable session TTL (24 hours)", () => {
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    expect(SECURITY_CONFIG.SESSION_TTL).toBe(oneDayMs);
   });
 
   it("should limit login attempts to prevent brute force", () => {

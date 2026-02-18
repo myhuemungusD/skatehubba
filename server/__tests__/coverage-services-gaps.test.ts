@@ -588,8 +588,8 @@ describe("monitoring — percentile empty array and admin system-status", () => 
   it("returns valid metrics in admin system-status including p95/p99 values", async () => {
     const routes: Record<string, Function> = {};
     const app: any = {
-      get: vi.fn((path: string, handler: Function) => {
-        routes[path] = handler;
+      get: vi.fn((path: string, ...handlers: Function[]) => {
+        routes[path] = handlers[handlers.length - 1];
       }),
     };
     registerMonitoringRoutes(app);
@@ -627,8 +627,8 @@ describe("monitoring — percentile empty array and admin system-status", () => 
   it("admin system-status computes metrics fields correctly", async () => {
     const routes: Record<string, Function> = {};
     const app: any = {
-      get: vi.fn((path: string, handler: Function) => {
-        routes[path] = handler;
+      get: vi.fn((path: string, ...handlers: Function[]) => {
+        routes[path] = handlers[handlers.length - 1];
       }),
     };
     registerMonitoringRoutes(app);

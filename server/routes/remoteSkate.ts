@@ -31,12 +31,22 @@ const ERROR_MAP: Record<string, { status: number; code: string; message: string 
     code: "INVALID_STATE",
     message: "This action cannot be performed right now.",
   },
-  "Only offense can resolve a round": {
+  "Only offense can submit a round result": {
     status: 403,
     code: "ACCESS_DENIED",
     message: "You do not have permission to perform this action.",
   },
-  "Round is not ready for resolution": {
+  "Only defense can confirm a round result": {
+    status: 403,
+    code: "ACCESS_DENIED",
+    message: "You do not have permission to perform this action.",
+  },
+  "Round is not in a resolvable state": {
+    status: 400,
+    code: "INVALID_STATE",
+    message: "This action cannot be performed right now.",
+  },
+  "Round is not awaiting confirmation": {
     status: 400,
     code: "INVALID_STATE",
     message: "This action cannot be performed right now.",
@@ -156,25 +166,16 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
 
     res.json({ success: true, status: "awaiting_confirmation", offenseClaim: result });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to resolve round";
-    logger.error("[RemoteSkate] Resolve failed", { error: message, gameId, roundId, uid });
+    const internalMessage = error instanceof Error ? error.message : "Failed to resolve round";
+    logger.error("[RemoteSkate] Resolve failed", { error: internalMessage, gameId, roundId, uid });
 
-    // Map known errors to appropriate HTTP status codes (generic messages to prevent info leak)
-    if (message.includes("not found")) {
-      return res.status(404).json({ error: "Resource not found" });
-    }
-    if (message.includes("authorized") || message.includes("access") || message.includes("participants")) {
-      return res.status(403).json({ error: "Not authorized" });
-    }
-    if (
-      message.includes("not active") ||
-      message.includes("resolvable") ||
-      message.includes("Both videos")
-    ) {
-      return res.status(400).json({ error: "Invalid request" });
+    // Map known internal errors to sanitized client-facing responses
+    const mapped = error instanceof Error ? ERROR_MAP[error.message] : undefined;
+    if (mapped) {
+      return res.status(mapped.status).json({ error: mapped.code, message: mapped.message });
     }
 
-    res.status(500).json({ error: "Failed to resolve round" });
+    res.status(500).json({ error: "INTERNAL_ERROR", message: "Failed to resolve round." });
   }
 });
 

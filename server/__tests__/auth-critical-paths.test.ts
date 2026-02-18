@@ -382,6 +382,7 @@ describe("Auth Flow - Critical Paths", () => {
     });
 
     it("allows dev-admin bypass in non-production", async () => {
+      process.env.DEV_ADMIN_BYPASS = "true";
       const req = mockRequest({
         headers: { "x-dev-admin": "true" },
       });

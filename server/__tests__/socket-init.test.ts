@@ -359,7 +359,7 @@ describe("Socket Server Initialization (socket/index.ts)", () => {
       const connectionHandler = getConnectionHandler();
       const roomEmitFn = vi.fn();
       const mockSocket = createMockSocket({
-        data: { odv: "user-1" },
+        data: { odv: "user-1", rooms: new Set(["room-chat"]) },
         to: vi.fn(() => ({ emit: roomEmitFn })),
       });
       await connectionHandler(mockSocket);
