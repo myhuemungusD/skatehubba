@@ -9,6 +9,7 @@
     "pnpm": ">=10.0.0"
   },
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "dev": "turbo dev",
     "start": "tsx server/index.ts",
     "build": "pnpm run verify:public-env && turbo build",
