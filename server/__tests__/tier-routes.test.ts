@@ -91,6 +91,12 @@ vi.mock("@shared/schema", () => ({
 
 vi.mock("../config/server", () => ({
   DEV_DEFAULT_ORIGIN: "http://localhost:5173",
+  validateOrigin: (origin: string | undefined) => {
+    const allowed = ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
+    const fallback = allowed[0] || "http://localhost:5173";
+    if (!origin) return fallback;
+    return allowed.includes(origin) ? origin : fallback;
+  },
 }));
 
 // -- DB mock (shared singleton so tests can override per-call) ----------------
@@ -450,9 +456,10 @@ describe("Tier Routes", () => {
         expect.objectContaining({
           error: "ALREADY_UPGRADED",
           message: "User already has Pro or Premium status.",
-          details: { currentTier: "pro" },
         })
       );
+      // Verify no tier information is leaked in the response
+      expect(res.json.mock.calls[0][0]).not.toHaveProperty("details");
     });
 
     it("awards pro status successfully", async () => {
@@ -631,7 +638,7 @@ describe("Tier Routes", () => {
       });
     });
 
-    it("uses referer header when origin is missing", async () => {
+    it("falls back to default origin when referer is not in allowed list", async () => {
       mockStripeCheckoutCreate.mockResolvedValue({
         id: "cs_test_session",
         url: "https://checkout.stripe.com/pay/cs_test_session",
@@ -650,13 +657,47 @@ describe("Tier Routes", () => {
 
       await callRoute("POST", "/create-checkout-session", req, res);
 
+      // https://myapp.com is not in allowed origins, so it should fall back to default
       expect(mockStripeCheckoutCreate).toHaveBeenCalledWith(
         expect.objectContaining({
-          success_url: expect.stringContaining("https://myapp.com"),
-          cancel_url: expect.stringContaining("https://myapp.com"),
+          success_url: expect.stringContaining("http://localhost:5173"),
+          cancel_url: expect.stringContaining("http://localhost:5173"),
         }),
         expect.anything()
       );
+    });
+
+    it("rejects spoofed origin and falls back to default", async () => {
+      mockStripeCheckoutCreate.mockResolvedValue({
+        id: "cs_test_session",
+        url: "https://checkout.stripe.com/pay/cs_test_session",
+      });
+
+      const req = mockRequest({
+        headers: { origin: "https://evil-site.com" },
+        body: { idempotencyKey: "key-evil" },
+        currentUser: {
+          id: "user-1",
+          email: "test@test.com",
+          accountTier: "free",
+        },
+      });
+      const res = mockResponse();
+
+      await callRoute("POST", "/create-checkout-session", req, res);
+
+      // Spoofed origin should be rejected, URLs use default
+      expect(mockStripeCheckoutCreate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success_url: expect.stringContaining("http://localhost:5173"),
+          cancel_url: expect.stringContaining("http://localhost:5173"),
+        }),
+        expect.anything()
+      );
+      // Verify evil origin is NOT in the URLs
+      const callArgs = mockStripeCheckoutCreate.mock.calls[0][0];
+      expect(callArgs.success_url).not.toContain("evil");
+      expect(callArgs.cancel_url).not.toContain("evil");
     });
 
     it("returns 500 on Stripe error", async () => {

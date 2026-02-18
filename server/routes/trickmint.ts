@@ -19,7 +19,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { getDb, isDatabaseAvailable, getUserDisplayName } from "../db";
 import { authenticateUser } from "../auth/middleware";
-import { trickClips, usernames, customUsers } from "@shared/schema";
+import { trickClips, clipViews, usernames, customUsers } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import logger from "../logger";
 import { generateUploadUrls, UPLOAD_LIMITS } from "../services/storageService";
@@ -67,32 +67,38 @@ function withPreferredVideoUrl<T extends { videoUrl: string }>(
   return { ...clip, videoUrlForQuality, preferredQuality };
 }
 
-const VIEW_INCREMENT_MAX_RETRIES = 3;
-const VIEW_INCREMENT_BASE_DELAY_MS = 100;
-
-async function incrementViewsWithRetry(
+/**
+ * Record a clip view for a user with per-user deduplication.
+ * Uses the unique constraint on (clip_id, user_id) to prevent duplicate views.
+ * If the user has already viewed this clip, the view count is not incremented.
+ */
+export async function recordClipView(
   db: ReturnType<typeof getDb>,
-  clipId: number
+  clipId: number,
+  userId: string
 ): Promise<void> {
-  for (let attempt = 1; attempt <= VIEW_INCREMENT_MAX_RETRIES; attempt++) {
-    try {
-      await db
-        .update(trickClips)
-        .set({ views: sql`${trickClips.views} + 1` })
-        .where(eq(trickClips.id, clipId));
+  try {
+    // Attempt to insert a view record. The unique index on (clip_id, user_id)
+    // will cause this to fail if the user already viewed the clip.
+    await db.insert(clipViews).values({ clipId, userId });
+
+    // If insert succeeded, this is a new unique view — increment the counter
+    await db
+      .update(trickClips)
+      .set({ views: sql`${trickClips.views} + 1` })
+      .where(eq(trickClips.id, clipId));
+  } catch (error: unknown) {
+    // If the error is a unique constraint violation, the user already viewed —
+    // silently skip. PostgreSQL error code 23505 = unique_violation.
+    const pgError = error as { code?: string };
+    if (pgError.code === "23505") {
       return;
-    } catch (error) {
-      if (attempt === VIEW_INCREMENT_MAX_RETRIES) {
-        logger.error("[TrickMint] View increment failed after retries", {
-          clipId,
-          attempts: attempt,
-          error,
-        });
-        return;
-      }
-      const delay = VIEW_INCREMENT_BASE_DELAY_MS * Math.pow(2, attempt - 1);
-      await new Promise((resolve) => setTimeout(resolve, delay));
     }
+    logger.error("[TrickMint] View recording failed", {
+      clipId,
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 
@@ -418,8 +424,8 @@ router.get("/:id", authenticateUser, async (req, res) => {
       return res.status(404).json({ error: "Clip not found" });
     }
 
-    // Increment views (fire-and-forget with retry)
-    incrementViewsWithRetry(db, clipId);
+    // Record view (deduplicated per-user, fire-and-forget)
+    recordClipView(db, clipId, req.currentUser!.id);
 
     res.json({ clip: withPreferredVideoUrl(clip, req.preferredQuality) });
   } catch (error) {

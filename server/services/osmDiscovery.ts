@@ -44,6 +44,10 @@ const CACHE_TTL_SECONDS = Math.ceil(CACHE_TTL_MS / 1000);
 const GRID_SIZE = 0.25; // ~28km grid cells
 const DISCOVERY_KEY_PREFIX = "osm_cache:";
 
+/** Safe bounds for the Overpass API radius parameter */
+export const MIN_RADIUS_METERS = 100;
+export const MAX_RADIUS_METERS = 50000;
+
 function getCacheKey(lat: number, lng: number): string {
   const gridLat = Math.round(lat / GRID_SIZE) * GRID_SIZE;
   const gridLng = Math.round(lng / GRID_SIZE) * GRID_SIZE;
@@ -87,6 +91,9 @@ export async function discoverSkateparks(
   lng: number,
   radiusMeters: number = 50000
 ): Promise<DiscoveredSpot[]> {
+  // Clamp radius to safe bounds to prevent Overpass API abuse
+  radiusMeters = Math.max(MIN_RADIUS_METERS, Math.min(MAX_RADIUS_METERS, radiusMeters));
+
   // Check cache first - skip if we already queried this area recently
   if (await isAreaCached(lat, lng)) {
     logger.info(`Skipping OSM discovery - area already cached for (${lat}, ${lng})`);

@@ -95,6 +95,10 @@ vi.mock("@shared/schema", () => {
       if (RESULT_TYPES.has(type) && !prefs.resultNotifications) return false;
       return true;
     },
+    isWithinQuietHours: (start: string | null, end: string | null) => {
+      if (!start || !end) return false;
+      return true;
+    },
   };
 });
 

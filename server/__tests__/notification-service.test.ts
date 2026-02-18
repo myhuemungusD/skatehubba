@@ -103,6 +103,11 @@ vi.mock("@shared/schema", () => {
       if (RESULT_TYPES.has(type) && !prefs.resultNotifications) return false;
       return true;
     },
+    isWithinQuietHours: (start: string | null, end: string | null) => {
+      // In tests, quiet hours are "active" when both values are set to non-null
+      if (!start || !end) return false;
+      return true;
+    },
   };
 });
 
@@ -448,6 +453,58 @@ describe("Notification Service", () => {
       expect(logger.debug).toHaveBeenCalledWith(
         "[Notification] Skipped — user opted out",
         expect.objectContaining({ type: "game_over" })
+      );
+    });
+
+    it("suppresses push and email during quiet hours but still persists in-app", async () => {
+      mockIsDatabaseAvailable.mockReturnValue(true);
+      const mockDb = {
+        select: vi.fn().mockReturnThis(),
+        from: vi.fn().mockReturnThis(),
+        where: vi.fn().mockReturnThis(),
+        limit: vi.fn().mockResolvedValue([
+          {
+            pushEnabled: true,
+            emailEnabled: true,
+            inAppEnabled: true,
+            gameNotifications: true,
+            challengeNotifications: true,
+            turnNotifications: true,
+            resultNotifications: true,
+            // Non-null values trigger isWithinQuietHours mock to return true
+            quietHoursStart: "22:00",
+            quietHoursEnd: "07:00",
+          },
+        ]),
+        insert: vi.fn().mockReturnThis(),
+        values: vi.fn().mockReturnThis(),
+        returning: vi.fn().mockResolvedValue([]),
+      };
+      mockGetDb.mockReturnValue(mockDb);
+
+      await notifyUser({
+        userId: "user-quiet",
+        type: "challenge_received",
+        title: "New Challenge",
+        body: "You got challenged!",
+      });
+
+      // Should NOT have been skipped by shouldSendForType
+      expect(logger.debug).not.toHaveBeenCalledWith(
+        "[Notification] Skipped — user opted out",
+        expect.any(Object)
+      );
+
+      // In-app notification should still be persisted (insert called)
+      expect(mockDb.insert).toHaveBeenCalled();
+
+      // Push should be suppressed — sendPushNotificationsAsync should NOT be called
+      expect(mockSendPushNotificationsAsync).not.toHaveBeenCalled();
+
+      // Quiet hours suppression should be logged
+      expect(logger.debug).toHaveBeenCalledWith(
+        "[Notification] Quiet hours active — push/email suppressed",
+        expect.objectContaining({ userId: "user-quiet", type: "challenge_received" })
       );
     });
   });

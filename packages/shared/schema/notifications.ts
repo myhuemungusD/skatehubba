@@ -153,3 +153,32 @@ export function shouldSendForType(
   if (RESULT_TYPES.has(type) && !prefs.resultNotifications) return false;
   return true;
 }
+
+/**
+ * Check if the current time falls within the user's quiet hours.
+ * Quiet hours are stored as "HH:MM" strings in the user's local time.
+ *
+ * Returns true if current time IS within quiet hours (notifications should be suppressed).
+ * Supports overnight ranges (e.g., start="22:00", end="07:00").
+ *
+ * @param quietHoursStart - Start time in "HH:MM" format, or null if unset
+ * @param quietHoursEnd - End time in "HH:MM" format, or null if unset
+ * @param currentTimeHHMM - Optional override for testing (defaults to current UTC HH:MM)
+ */
+export function isWithinQuietHours(
+  quietHoursStart: string | null,
+  quietHoursEnd: string | null,
+  currentTimeHHMM?: string
+): boolean {
+  if (!quietHoursStart || !quietHoursEnd) return false;
+
+  const now = currentTimeHHMM ?? new Date().toISOString().slice(11, 16);
+
+  if (quietHoursStart <= quietHoursEnd) {
+    // Same-day range (e.g., 09:00–17:00)
+    return now >= quietHoursStart && now < quietHoursEnd;
+  } else {
+    // Overnight range (e.g., 22:00–07:00)
+    return now >= quietHoursStart || now < quietHoursEnd;
+  }
+}

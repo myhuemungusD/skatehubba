@@ -12,6 +12,7 @@ import {
   NOTIFICATION_CHANNELS,
   DEFAULT_NOTIFICATION_PREFS,
   shouldSendForType,
+  isWithinQuietHours,
   type NotificationType,
   type NotificationPrefs,
 } from "../schema/notifications";
@@ -157,5 +158,46 @@ describe("shouldSendForType", () => {
     // game_over is in both GAME_TYPES and RESULT_TYPES
     const prefs3 = { ...allEnabled, resultNotifications: false };
     expect(shouldSendForType(prefs3, "game_over")).toBe(false);
+  });
+});
+
+describe("isWithinQuietHours", () => {
+  it("returns false when quiet hours are not set", () => {
+    expect(isWithinQuietHours(null, null, "14:00")).toBe(false);
+    expect(isWithinQuietHours("22:00", null, "23:00")).toBe(false);
+    expect(isWithinQuietHours(null, "07:00", "03:00")).toBe(false);
+  });
+
+  it("returns true within same-day range", () => {
+    expect(isWithinQuietHours("09:00", "17:00", "12:00")).toBe(true);
+    expect(isWithinQuietHours("09:00", "17:00", "09:00")).toBe(true);
+    expect(isWithinQuietHours("09:00", "17:00", "16:59")).toBe(true);
+  });
+
+  it("returns false outside same-day range", () => {
+    expect(isWithinQuietHours("09:00", "17:00", "08:59")).toBe(false);
+    expect(isWithinQuietHours("09:00", "17:00", "17:00")).toBe(false);
+    expect(isWithinQuietHours("09:00", "17:00", "23:00")).toBe(false);
+  });
+
+  it("returns true within overnight range", () => {
+    expect(isWithinQuietHours("22:00", "07:00", "23:00")).toBe(true);
+    expect(isWithinQuietHours("22:00", "07:00", "22:00")).toBe(true);
+    expect(isWithinQuietHours("22:00", "07:00", "03:00")).toBe(true);
+    expect(isWithinQuietHours("22:00", "07:00", "06:59")).toBe(true);
+    expect(isWithinQuietHours("22:00", "07:00", "00:00")).toBe(true);
+  });
+
+  it("returns false outside overnight range", () => {
+    expect(isWithinQuietHours("22:00", "07:00", "07:00")).toBe(false);
+    expect(isWithinQuietHours("22:00", "07:00", "12:00")).toBe(false);
+    expect(isWithinQuietHours("22:00", "07:00", "21:59")).toBe(false);
+    expect(isWithinQuietHours("22:00", "07:00", "07:01")).toBe(false);
+  });
+
+  it("handles edge case where start equals end (zero-length window)", () => {
+    // When start === end with same-day logic: now >= start && now < end is always false
+    expect(isWithinQuietHours("12:00", "12:00", "12:00")).toBe(false);
+    expect(isWithinQuietHours("12:00", "12:00", "11:59")).toBe(false);
   });
 });

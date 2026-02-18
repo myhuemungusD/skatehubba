@@ -16,6 +16,7 @@ import {
   type NotificationPrefs,
   DEFAULT_NOTIFICATION_PREFS,
   shouldSendForType,
+  isWithinQuietHours,
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { sendGameEventEmail } from "./emailService";
@@ -180,19 +181,25 @@ export async function notifyUser(params: {
       return;
     }
 
-    // 1. Persist in-app notification
+    const inQuietHours = isWithinQuietHours(prefs.quietHoursStart, prefs.quietHoursEnd);
+
+    // 1. Persist in-app notification (always, even during quiet hours)
     if (prefs.inAppEnabled) {
       await persistNotification(userId, type, title, body, data);
     }
 
-    // 2. Send push notification
-    if (prefs.pushEnabled) {
+    // 2. Send push notification (suppressed during quiet hours)
+    if (prefs.pushEnabled && !inQuietHours) {
       await sendPushToUser(userId, title, body, data);
     }
 
-    // 3. Send email for high-value notifications
-    if (prefs.emailEnabled && shouldEmailForType(type)) {
+    // 3. Send email for high-value notifications (suppressed during quiet hours)
+    if (prefs.emailEnabled && shouldEmailForType(type) && !inQuietHours) {
       await sendEmailToUser(userId, type, title, data);
+    }
+
+    if (inQuietHours) {
+      logger.debug("[Notification] Quiet hours active — push/email suppressed", { userId, type });
     }
   } catch (error) {
     // Non-blocking: log and continue
