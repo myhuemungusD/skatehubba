@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { useNetworkStore } from "./networkStore";
+import { useNetworkStore, RECONNECT_WINDOW_SECONDS } from "./networkStore";
 
 describe("networkStore", () => {
   beforeEach(() => {
@@ -24,7 +24,7 @@ describe("networkStore", () => {
       const state = useNetworkStore.getState();
       expect(state.isReconnecting).toBe(false);
       expect(state.offlineSince).toBeNull();
-      expect(state.reconnectSecondsRemaining).toBe(120);
+      expect(state.reconnectSecondsRemaining).toBe(RECONNECT_WINDOW_SECONDS);
       expect(state.reconnectExpired).toBe(false);
       expect(state.activeGameIdOnDisconnect).toBeNull();
     });
@@ -84,7 +84,7 @@ describe("networkStore", () => {
       const state = useNetworkStore.getState();
       expect(state.isReconnecting).toBe(false);
       expect(state.offlineSince).toBeNull();
-      expect(state.reconnectSecondsRemaining).toBe(120);
+      expect(state.reconnectSecondsRemaining).toBe(RECONNECT_WINDOW_SECONDS);
     });
 
     it("preserves reconnectExpired if it was already expired", () => {
@@ -159,14 +159,14 @@ describe("networkStore", () => {
     it("is a no-op when online", () => {
       useNetworkStore.getState().updateReconnectTimer();
 
-      expect(useNetworkStore.getState().reconnectSecondsRemaining).toBe(120);
+      expect(useNetworkStore.getState().reconnectSecondsRemaining).toBe(RECONNECT_WINDOW_SECONDS);
     });
 
     it("is a no-op when offlineSince is null", () => {
       useNetworkStore.setState({ isConnected: false, offlineSince: null });
       useNetworkStore.getState().updateReconnectTimer();
 
-      expect(useNetworkStore.getState().reconnectSecondsRemaining).toBe(120);
+      expect(useNetworkStore.getState().reconnectSecondsRemaining).toBe(RECONNECT_WINDOW_SECONDS);
     });
   });
 
@@ -181,7 +181,7 @@ describe("networkStore", () => {
       const state = useNetworkStore.getState();
       expect(state.isReconnecting).toBe(false);
       expect(state.offlineSince).toBeNull();
-      expect(state.reconnectSecondsRemaining).toBe(120);
+      expect(state.reconnectSecondsRemaining).toBe(RECONNECT_WINDOW_SECONDS);
       expect(state.reconnectExpired).toBe(false);
     });
   });
