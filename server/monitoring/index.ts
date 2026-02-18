@@ -17,6 +17,7 @@ import { getRedisClient } from "../redis";
 import logger from "../logger";
 import { sql } from "drizzle-orm";
 import { checkFfmpegAvailable } from "../services/videoTranscoder";
+import { authenticateUser, requireAdmin } from "../auth/middleware";
 
 // ============================================================================
 // Types
@@ -216,7 +217,7 @@ export function registerMonitoringRoutes(app: Express) {
   });
 
   // Admin-only system status (metrics + health + process info)
-  app.get("/api/admin/system-status", async (_req, res) => {
+  app.get("/api/admin/system-status", authenticateUser, requireAdmin, async (_req, res) => {
     const health = await runHealthCheck();
 
     const uptimeSeconds = Math.round((Date.now() - metrics.startedAt.getTime()) / 1000);

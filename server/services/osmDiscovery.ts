@@ -91,6 +91,11 @@ export async function discoverSkateparks(
   lng: number,
   radiusMeters: number = 50000
 ): Promise<DiscoveredSpot[]> {
+  // Validate coordinates to prevent invalid Overpass queries
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    logger.warn("Invalid coordinates for OSM discovery", { lat, lng });
+    return [];
+  }
   // Clamp radius to safe bounds to prevent Overpass API abuse
   radiusMeters = Math.max(MIN_RADIUS_METERS, Math.min(MAX_RADIUS_METERS, radiusMeters));
 

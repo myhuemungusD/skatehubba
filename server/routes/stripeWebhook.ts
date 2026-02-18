@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from "express";
 import type Stripe from "stripe";
 import { getDb, isDatabaseAvailable } from "../db";
-import { customUsers } from "@shared/schema";
+import { customUsers, consumedPaymentIntents } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
 import { sendPaymentReceiptEmail } from "../services/emailService";
@@ -130,14 +130,15 @@ router.post("/", async (req: Request, res: Response) => {
         logger.info("Unhandled Stripe event type", { type: event.type });
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error("Error processing webhook event", {
       eventId: event.id,
       type: event.type,
-      error: error instanceof Error ? error.message : String(error),
+      error: errorMessage,
     });
-    // Return 200 even on processing errors to prevent Stripe retries for
-    // application-level failures. Infrastructure failures (DB down) will
-    // naturally retry via Stripe's retry policy.
+    // Return 500 for infrastructure/DB errors so Stripe retries.
+    // The idempotency guard in handleCheckoutCompleted prevents double-processing.
+    return res.status(500).send("Processing error");
   }
 
   return res.status(200).send("OK");
@@ -185,33 +186,57 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
 
   const db = getDb();
 
-  // Guard against double-processing or downgrading an already-premium user
-  const [user] = await db
-    .select({ accountTier: customUsers.accountTier })
-    .from(customUsers)
-    .where(eq(customUsers.id, userId))
-    .limit(1);
-
-  if (!user) {
-    logger.error("User not found for premium upgrade", { userId, sessionId: session.id });
-    return;
-  }
-
-  if (user.accountTier === "premium") {
-    logger.info("User already premium, skipping upgrade", { userId });
-    return;
-  }
-
+  // Use transaction with deduplication to prevent race conditions
+  const paymentKey = `stripe_checkout_${session.id}`;
   const now = new Date();
 
-  await db
-    .update(customUsers)
-    .set({
-      accountTier: "premium",
-      premiumPurchasedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(customUsers.id, userId));
+  await db.transaction(async (tx) => {
+    // Check if this session was already processed (idempotency)
+    const [existing] = await tx
+      .select({ id: consumedPaymentIntents.id })
+      .from(consumedPaymentIntents)
+      .where(eq(consumedPaymentIntents.paymentIntentId, paymentKey))
+      .limit(1)
+      .for("update");
+
+    if (existing) {
+      logger.info("Webhook session already processed, skipping", { sessionId: session.id, userId });
+      return;
+    }
+
+    // Check user exists and isn't already premium
+    const [user] = await tx
+      .select({ accountTier: customUsers.accountTier })
+      .from(customUsers)
+      .where(eq(customUsers.id, userId))
+      .limit(1)
+      .for("update");
+
+    if (!user) {
+      logger.error("User not found for premium upgrade", { userId, sessionId: session.id });
+      return;
+    }
+
+    if (user.accountTier === "premium") {
+      logger.info("User already premium, skipping upgrade", { userId });
+      return;
+    }
+
+    // Record the consumed event and upgrade atomically
+    await tx.insert(consumedPaymentIntents).values({
+      paymentIntentId: paymentKey,
+      userId,
+    });
+
+    await tx
+      .update(customUsers)
+      .set({
+        accountTier: "premium",
+        premiumPurchasedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(customUsers.id, userId));
+  });
 
   logger.info("User upgraded to Premium via Stripe Checkout", {
     userId,

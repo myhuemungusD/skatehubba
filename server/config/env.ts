@@ -129,8 +129,14 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   GOOGLE_AI_API_KEY: z.string().optional(),
 
+  // MFA encryption key (separate from JWT_SECRET for defense in depth)
+  MFA_ENCRYPTION_KEY: z.string().min(32).optional(),
+
   // Admin access (optional, but recommended for production)
   ADMIN_API_KEY: z.string().optional(),
+
+  // Dev admin bypass (must be explicitly enabled)
+  DEV_ADMIN_BYPASS: z.enum(["true", "false"]).optional(),
 
   // Monitoring & URLs
   SENTRY_DSN: z.string().optional(),

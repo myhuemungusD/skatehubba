@@ -3,7 +3,7 @@ import { env } from './config/env';
 import logger from './logger';
 
 export const SECURITY_CONFIG = {
-  SESSION_TTL: 7 * 24 * 60 * 60 * 1000,
+  SESSION_TTL: 24 * 60 * 60 * 1000, // 24 hours (matches AuthService.TOKEN_EXPIRY)
   MAX_LOGIN_ATTEMPTS: 5,
   LOCKOUT_DURATION: 15 * 60 * 1000,
   PASSWORD_MIN_LENGTH: 8,
@@ -26,10 +26,18 @@ export function generateSecureToken(length: number = 32): string {
   return crypto.randomBytes(length).toString('hex');
 }
 
-// Secure string comparison
+// Secure string comparison (constant-time, does not leak length via timing)
 export function secureCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(a, 'utf8'), Buffer.from(b, 'utf8'));
+  const bufA = Buffer.from(a, "utf8");
+  const bufB = Buffer.from(b, "utf8");
+  // Pad to equal length so timingSafeEqual doesn't throw
+  const maxLen = Math.max(bufA.length, bufB.length);
+  const paddedA = Buffer.alloc(maxLen);
+  const paddedB = Buffer.alloc(maxLen);
+  bufA.copy(paddedA);
+  bufB.copy(paddedB);
+  // Both length and content must match
+  return bufA.length === bufB.length && crypto.timingSafeEqual(paddedA, paddedB);
 }
 
 // IP address validation

@@ -133,7 +133,7 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
       }
 
       if (round.status !== "awaiting_reply") {
-        throw new Error("Round is not ready for resolution");
+        throw new Error("Round is not in a resolvable state");
       }
 
       if (!round.setVideoId || !round.replyVideoId) {
@@ -159,18 +159,19 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
     const message = error instanceof Error ? error.message : "Failed to resolve round";
     logger.error("[RemoteSkate] Resolve failed", { error: message, gameId, roundId, uid });
 
+    // Map known errors to appropriate HTTP status codes (generic messages to prevent info leak)
     if (message.includes("not found")) {
-      return res.status(404).json({ error: message });
+      return res.status(404).json({ error: "Resource not found" });
     }
-    if (message.includes("access") || message.includes("Only offense")) {
-      return res.status(403).json({ error: message });
+    if (message.includes("authorized") || message.includes("access") || message.includes("participants")) {
+      return res.status(403).json({ error: "Not authorized" });
     }
     if (
       message.includes("not active") ||
-      message.includes("not ready") ||
+      message.includes("resolvable") ||
       message.includes("Both videos")
     ) {
-      return res.status(400).json({ error: message });
+      return res.status(400).json({ error: "Invalid request" });
     }
 
     res.status(500).json({ error: "Failed to resolve round" });
