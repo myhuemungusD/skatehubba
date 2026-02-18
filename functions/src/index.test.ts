@@ -221,7 +221,9 @@ describe("SkateHubba Cloud Functions", () => {
     mocks.authInstance.setCustomUserClaims.mockResolvedValue(undefined);
     mocks.bucketFile.download.mockResolvedValue(undefined);
     mocks.bucketFile.delete.mockResolvedValue(undefined);
-    mocks.bucketFile.getSignedUrl.mockResolvedValue(["https://storage.example.com/signed?token=abc"]);
+    mocks.bucketFile.getSignedUrl.mockResolvedValue([
+      "https://storage.example.com/signed?token=abc",
+    ]);
     mocks.messagingInstance.send.mockResolvedValue("msg-id");
   });
 
@@ -917,50 +919,45 @@ describe("SkateHubba Cloud Functions", () => {
   describe("getVideoUrl", () => {
     it("rejects unauthenticated caller", async () => {
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "g", storagePath: "videos/u/g/r/f.mp4" },
-          noAuthContext()
-        )
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/u/g/r/f.mp4" }, noAuthContext())
       ).rejects.toThrow("Not logged in");
     });
 
     it("rejects missing gameId", async () => {
       const ctx = makeContext({ uid: freshUid("gv") });
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "", storagePath: "videos/u/g/r/f.mp4" },
-          ctx
-        )
+        (getVideoUrl as any)({ gameId: "", storagePath: "videos/u/g/r/f.mp4" }, ctx)
       ).rejects.toThrow("Missing gameId or storagePath");
     });
 
     it("rejects missing storagePath", async () => {
       const ctx = makeContext({ uid: freshUid("gv") });
-      await expect(
-        (getVideoUrl as any)(
-          { gameId: "g", storagePath: "" },
-          ctx
-        )
-      ).rejects.toThrow("Missing gameId or storagePath");
+      await expect((getVideoUrl as any)({ gameId: "g", storagePath: "" }, ctx)).rejects.toThrow(
+        "Missing gameId or storagePath"
+      );
     });
 
     it("rejects storagePath not starting with videos/", async () => {
-      const ctx = makeContext({ uid: freshUid("gv") });
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "g", storagePath: "uploads/u/file.mp4" },
-          ctx
-        )
+        (getVideoUrl as any)({ gameId: "g", storagePath: "uploads/u/file.mp4" }, ctx)
       ).rejects.toThrow("Invalid storage path");
     });
 
     it("rejects storagePath with path traversal", async () => {
-      const ctx = makeContext({ uid: freshUid("gv") });
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "g", storagePath: "videos/../secrets/key.json" },
-          ctx
-        )
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/../secrets/key.json" }, ctx)
       ).rejects.toThrow("Invalid storage path");
     });
 
@@ -971,10 +968,7 @@ describe("SkateHubba Cloud Functions", () => {
       });
       const ctx = makeContext({ uid: "outsider" });
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "g", storagePath: "videos/p1/g/r/f.mp4" },
-          ctx
-        )
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/p1/g/r/f.mp4" }, ctx)
       ).rejects.toThrow("Not a participant");
     });
 
@@ -982,10 +976,7 @@ describe("SkateHubba Cloud Functions", () => {
       mocks.docRef.get.mockResolvedValue({ exists: false, data: () => ({}) });
       const ctx = makeContext({ uid: freshUid("gv") });
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "ghost", storagePath: "videos/u/ghost/r/f.mp4" },
-          ctx
-        )
+        (getVideoUrl as any)({ gameId: "ghost", storagePath: "videos/u/ghost/r/f.mp4" }, ctx)
       ).rejects.toThrow("Game not found");
     });
 
@@ -1078,45 +1069,53 @@ describe("SkateHubba Cloud Functions", () => {
 
       const ctx = makeContext({ uid: "outsider" });
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "wg", storagePath: "videos/pA/wg/round_1/abc.mp4" },
-          ctx
-        )
+        (getVideoUrl as any)({ gameId: "wg", storagePath: "videos/pA/wg/round_1/abc.mp4" }, ctx)
       ).rejects.toThrow("Not a participant");
     });
 
     it("rejects storagePath with null byte injection", async () => {
-      const ctx = makeContext({ uid: freshUid("gv") });
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "g", storagePath: "videos/uid/gid/round_1/file\0.mp4" },
-          ctx
-        )
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/uid/gid/round_1/file\0.mp4" }, ctx)
       ).rejects.toThrow("Invalid storage path");
     });
 
     it("rejects storagePath missing the round_ prefix", async () => {
-      const ctx = makeContext({ uid: freshUid("gv") });
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "g", storagePath: "videos/uid/gid/noprefix/file.mp4" },
-          ctx
-        )
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/uid/gid/noprefix/file.mp4" }, ctx)
       ).rejects.toThrow("Invalid storage path");
     });
 
     it("rejects storagePath with too few segments", async () => {
-      const ctx = makeContext({ uid: freshUid("gv") });
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "g", storagePath: "videos/uid/file.mp4" },
-          ctx
-        )
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/uid/file.mp4" }, ctx)
       ).rejects.toThrow("Invalid storage path");
     });
 
     it("rejects storagePath with directory traversal in segments", async () => {
-      const ctx = makeContext({ uid: freshUid("gv") });
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
       await expect(
         (getVideoUrl as any)(
           { gameId: "g", storagePath: "videos/uid/../admin/round_1/file.mp4" },
@@ -1136,10 +1135,7 @@ describe("SkateHubba Cloud Functions", () => {
 
       const ctx = makeContext({ uid: "p1" });
       await expect(
-        (getVideoUrl as any)(
-          { gameId: "g", storagePath: "videos/p1/g/round_1/abc.mp4" },
-          ctx
-        )
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/p1/g/round_1/abc.mp4" }, ctx)
       ).rejects.toThrow("Service account missing signBlob permission");
     });
   });

@@ -427,12 +427,14 @@ export const submitTrick = functions.https.onCall(
 
     // Validate storagePath format when provided
     if (storagePath) {
-      const STORAGE_PATH_RE = /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/round_[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
-      if (!STORAGE_PATH_RE.test(storagePath) || storagePath.includes("..") || storagePath.includes("\0")) {
-        throw new functions.https.HttpsError(
-          "invalid-argument",
-          "Invalid storagePath format"
-        );
+      const STORAGE_PATH_RE =
+        /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/round_[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
+      if (
+        !STORAGE_PATH_RE.test(storagePath) ||
+        storagePath.includes("..") ||
+        storagePath.includes("\0")
+      ) {
+        throw new functions.https.HttpsError("invalid-argument", "Invalid storagePath format");
       }
     }
 
@@ -820,25 +822,7 @@ export const getVideoUrl = functions.https.onCall(
     const { gameId, storagePath } = data;
 
     if (!gameId || !storagePath) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Missing gameId or storagePath"
-      );
-    }
-
-    // Validate storagePath format: must match videos/{uid}/{gameId}/{roundId}/{filename}.{ext}
-    // Reject path traversal, null bytes, and malformed paths
-    const STORAGE_PATH_RE = /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/round_[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
-    if (
-      !storagePath.startsWith("videos/") ||
-      storagePath.includes("..") ||
-      storagePath.includes("\0") ||
-      !STORAGE_PATH_RE.test(storagePath)
-    ) {
-      throw new functions.https.HttpsError(
-        "invalid-argument",
-        "Invalid storage path"
-      );
+      throw new functions.https.HttpsError("invalid-argument", "Missing gameId or storagePath");
     }
 
     const userId = context.auth.uid;
@@ -851,10 +835,7 @@ export const getVideoUrl = functions.https.onCall(
     if (gameSnap.exists) {
       const game = gameSnap.data()!;
       if (game.player1Id !== userId && game.player2Id !== userId) {
-        throw new functions.https.HttpsError(
-          "permission-denied",
-          "Not a participant in this game"
-        );
+        throw new functions.https.HttpsError("permission-denied", "Not a participant in this game");
       }
     } else {
       // Fallback: check web games collection (playerAUid/playerBUid)
@@ -867,11 +848,22 @@ export const getVideoUrl = functions.https.onCall(
 
       const webGame = webGameSnap.data()!;
       if (webGame.playerAUid !== userId && webGame.playerBUid !== userId) {
-        throw new functions.https.HttpsError(
-          "permission-denied",
-          "Not a participant in this game"
-        );
+        throw new functions.https.HttpsError("permission-denied", "Not a participant in this game");
       }
+    }
+
+    // Validate storagePath format after authorization checks.
+    // Must match videos/{uid}/{gameId}/{roundId}/{filename}.{ext}
+    // Reject path traversal, null bytes, and malformed paths.
+    const STORAGE_PATH_RE =
+      /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/round_[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
+    if (
+      !storagePath.startsWith("videos/") ||
+      storagePath.includes("..") ||
+      storagePath.includes("\0") ||
+      !STORAGE_PATH_RE.test(storagePath)
+    ) {
+      throw new functions.https.HttpsError("invalid-argument", "Invalid storage path");
     }
 
     // Generate signed URL with 1-hour expiry
