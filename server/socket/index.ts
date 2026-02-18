@@ -18,6 +18,7 @@ import { socketAuthMiddleware } from "./auth";
 import { joinRoom, leaveRoom, leaveAllRooms, getRoomStats } from "./rooms";
 import { registerBattleHandlers, cleanupBattleSubscriptions } from "./handlers/battle";
 import { registerGameHandlers, cleanupGameSubscriptions } from "./handlers/game";
+import { cleanupRateLimits } from "./socketRateLimit";
 import {
   registerPresenceHandlers,
   handlePresenceDisconnect,
@@ -160,6 +161,7 @@ export function initializeSocketServer(
       await leaveAllRooms(socket);
       handlePresenceDisconnect(io, socket);
       cleanupSocketHealth(socket.id);
+      cleanupRateLimits(socket.id);
     });
 
     // Error handling

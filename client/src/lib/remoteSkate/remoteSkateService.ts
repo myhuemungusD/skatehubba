@@ -33,7 +33,7 @@ import { logger } from "../logger";
 // =============================================================================
 
 export type GameStatus = "waiting" | "active" | "complete";
-export type RoundStatus = "awaiting_set" | "awaiting_reply" | "resolved";
+export type RoundStatus = "awaiting_set" | "awaiting_reply" | "awaiting_confirmation" | "disputed" | "resolved";
 export type RoundResult = "landed" | "missed" | null;
 export type VideoRole = "set" | "reply";
 export type VideoStatus = "uploading" | "ready" | "failed";
@@ -57,6 +57,8 @@ export interface RoundDoc {
   setVideoId: string | null;
   replyVideoId: string | null;
   result: RoundResult;
+  offenseClaim?: RoundResult;
+  defenseClaim?: RoundResult;
 }
 
 export interface VideoDoc {
@@ -311,8 +313,8 @@ export const RemoteSkateService = {
   // ---------------------------------------------------------------------------
 
   /**
-   * Resolve a round result via the trusted server endpoint.
-   * Only offense can call this.
+   * Submit a round result claim via the trusted server endpoint.
+   * Only offense can call this. Transitions round to "awaiting_confirmation".
    */
   async resolveRound(gameId: string, roundId: string, result: "landed" | "missed"): Promise<void> {
     const user = auth.currentUser;
@@ -333,5 +335,37 @@ export const RemoteSkateService = {
       const body = await res.json().catch(() => ({ error: "Unknown error" }));
       throw new Error(body.error || `Resolve failed (${res.status})`);
     }
+  },
+
+  /**
+   * Confirm (or dispute) the offense's round result claim.
+   * Only defense can call this. If defense agrees, round is finalized.
+   * If defense disagrees, round is flagged as "disputed".
+   */
+  async confirmRound(
+    gameId: string,
+    roundId: string,
+    result: "landed" | "missed"
+  ): Promise<{ disputed: boolean; result?: string }> {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Must be logged in");
+
+    const idToken = await user.getIdToken();
+
+    const res = await fetch(`/api/remote-skate/${gameId}/rounds/${roundId}/confirm`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ result }),
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ error: "Unknown error" }));
+      throw new Error(body.error || `Confirm failed (${res.status})`);
+    }
+
+    return res.json();
   },
 };

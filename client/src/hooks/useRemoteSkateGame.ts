@@ -55,6 +55,7 @@ export interface RemoteSkateGameState {
   uploadSetVideo: (file: File) => Promise<void>;
   uploadReplyVideo: (file: File) => Promise<void>;
   resolveRound: (result: "landed" | "missed") => Promise<void>;
+  confirmRound: (result: "landed" | "missed") => Promise<void>;
 }
 
 // =============================================================================
@@ -285,7 +286,7 @@ export function useRemoteSkateGame(gameId: string | null): RemoteSkateGameState 
     [gameId, uid, currentRound, toast]
   );
 
-  // Resolve round
+  // Resolve round (offense submits claim, awaits defense confirmation)
   const resolveRound = useCallback(
     async (result: "landed" | "missed") => {
       if (!gameId || !currentRound) return;
@@ -294,14 +295,47 @@ export function useRemoteSkateGame(gameId: string | null): RemoteSkateGameState 
       try {
         await RemoteSkateService.resolveRound(gameId, currentRound.id, result);
         toast({
-          title: result === "landed" ? "Landed!" : "Missed!",
+          title: "Claim submitted",
           description:
             result === "landed"
-              ? "Defense matched the trick. Roles swap."
-              : "Defense missed. They get a letter.",
+              ? "You called it landed. Waiting for opponent to confirm."
+              : "You called it missed. Waiting for opponent to confirm.",
         });
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to resolve round";
+        toast({ title: "Error", description: msg, variant: "destructive" });
+      } finally {
+        setIsResolving(false);
+      }
+    },
+    [gameId, currentRound, toast]
+  );
+
+  // Confirm round (defense confirms or disputes offense's claim)
+  const confirmRound = useCallback(
+    async (result: "landed" | "missed") => {
+      if (!gameId || !currentRound) return;
+
+      setIsResolving(true);
+      try {
+        const response = await RemoteSkateService.confirmRound(gameId, currentRound.id, result);
+        if (response.disputed) {
+          toast({
+            title: "Disputed",
+            description: "You and your opponent disagree. Round flagged for review.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: response.result === "landed" ? "Landed!" : "Missed!",
+            description:
+              response.result === "landed"
+                ? "Both players agree. Roles swap."
+                : "Both players agree. Defense gets a letter.",
+          });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Failed to confirm round";
         toast({ title: "Error", description: msg, variant: "destructive" });
       } finally {
         setIsResolving(false);
@@ -325,5 +359,6 @@ export function useRemoteSkateGame(gameId: string | null): RemoteSkateGameState 
     uploadSetVideo,
     uploadReplyVideo,
     resolveRound,
+    confirmRound,
   };
 }

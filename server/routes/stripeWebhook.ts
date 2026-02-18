@@ -6,8 +6,50 @@ import { eq } from "drizzle-orm";
 import logger from "../logger";
 import { sendPaymentReceiptEmail } from "../services/emailService";
 import { notifyUser } from "../services/notificationService";
+import { getRedisClient } from "../redis";
 
 const router = Router();
+
+// ============================================================================
+// Stripe event deduplication — prevents TOCTOU race on webhook retries
+// ============================================================================
+
+const DEDUP_TTL_SECONDS = 60 * 60 * 24; // 24 hours
+const processedEventsMemory = new Map<string, number>();
+
+/**
+ * Check if a Stripe event ID has already been processed.
+ * Uses Redis when available, falls back to in-memory Map.
+ * Returns true if the event was already seen (i.e. is a duplicate).
+ */
+async function isDuplicateEvent(eventId: string): Promise<boolean> {
+  const redis = getRedisClient();
+  if (redis) {
+    try {
+      const key = `stripe_event:${eventId}`;
+      const result = await redis.set(key, "1", "EX", DEDUP_TTL_SECONDS, "NX");
+      // NX returns "OK" if the key was set (first time), null if it already existed
+      return result !== "OK";
+    } catch {
+      // Redis failure — fall through to memory store
+    }
+  }
+
+  // In-memory fallback
+  const now = Date.now();
+  // Prune expired entries periodically (every 1000 checks)
+  if (processedEventsMemory.size > 1000) {
+    for (const [key, ts] of processedEventsMemory) {
+      if (now - ts > DEDUP_TTL_SECONDS * 1000) processedEventsMemory.delete(key);
+    }
+  }
+
+  if (processedEventsMemory.has(eventId)) {
+    return true;
+  }
+  processedEventsMemory.set(eventId, now);
+  return false;
+}
 
 /**
  * POST /webhooks/stripe - Stripe webhook handler
@@ -46,6 +88,12 @@ router.post("/", async (req: Request, res: Response) => {
       error: err instanceof Error ? err.message : String(err),
     });
     return res.status(400).send("Webhook signature verification failed");
+  }
+
+  // Deduplicate: reject events already processed to prevent TOCTOU races
+  if (await isDuplicateEvent(event.id)) {
+    logger.info("Duplicate Stripe event ignored", { eventId: event.id, type: event.type });
+    return res.status(200).send("OK");
   }
 
   logger.info("Processing Stripe webhook", {

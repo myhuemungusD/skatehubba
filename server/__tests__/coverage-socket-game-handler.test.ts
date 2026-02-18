@@ -46,6 +46,11 @@ vi.mock("../services/gameStateService", () => ({
   generateEventId: vi.fn().mockReturnValue("test-event-id"),
 }));
 
+vi.mock("../socket/socketRateLimit", () => ({
+  registerRateLimitRules: vi.fn(),
+  checkRateLimit: vi.fn(() => true),
+}));
+
 // ============================================================================
 // Imports (after mocks)
 // ============================================================================
