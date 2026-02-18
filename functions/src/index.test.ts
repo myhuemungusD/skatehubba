@@ -1084,6 +1084,156 @@ describe("SkateHubba Cloud Functions", () => {
         )
       ).rejects.toThrow("Not a participant");
     });
+
+    it("rejects storagePath with null byte injection", async () => {
+      const ctx = makeContext({ uid: freshUid("gv") });
+      await expect(
+        (getVideoUrl as any)(
+          { gameId: "g", storagePath: "videos/uid/gid/round_1/file\0.mp4" },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storage path");
+    });
+
+    it("rejects storagePath missing the round_ prefix", async () => {
+      const ctx = makeContext({ uid: freshUid("gv") });
+      await expect(
+        (getVideoUrl as any)(
+          { gameId: "g", storagePath: "videos/uid/gid/noprefix/file.mp4" },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storage path");
+    });
+
+    it("rejects storagePath with too few segments", async () => {
+      const ctx = makeContext({ uid: freshUid("gv") });
+      await expect(
+        (getVideoUrl as any)(
+          { gameId: "g", storagePath: "videos/uid/file.mp4" },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storage path");
+    });
+
+    it("rejects storagePath with directory traversal in segments", async () => {
+      const ctx = makeContext({ uid: freshUid("gv") });
+      await expect(
+        (getVideoUrl as any)(
+          { gameId: "g", storagePath: "videos/uid/../admin/round_1/file.mp4" },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storage path");
+    });
+
+    it("propagates storage SDK error to caller", async () => {
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: "p1", player2Id: "p2" }),
+      });
+      mocks.bucketFile.getSignedUrl.mockRejectedValue(
+        new Error("Service account missing signBlob permission")
+      );
+
+      const ctx = makeContext({ uid: "p1" });
+      await expect(
+        (getVideoUrl as any)(
+          { gameId: "g", storagePath: "videos/p1/g/round_1/abc.mp4" },
+          ctx
+        )
+      ).rejects.toThrow("Service account missing signBlob permission");
+    });
+  });
+
+  // ==========================================================================
+  // submitTrick - storagePath validation
+  // ==========================================================================
+
+  describe("submitTrick - storagePath validation", () => {
+    it("rejects malformed storagePath", async () => {
+      const ctx = makeContext({ uid: freshUid("st") });
+      await expect(
+        (submitTrick as any)(
+          {
+            gameId: "g",
+            clipUrl: "",
+            storagePath: "videos/../etc/passwd",
+            trickName: null,
+            isSetTrick: true,
+            idempotencyKey: "k",
+          },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storagePath format");
+    });
+
+    it("rejects storagePath with null bytes", async () => {
+      const ctx = makeContext({ uid: freshUid("st") });
+      await expect(
+        (submitTrick as any)(
+          {
+            gameId: "g",
+            clipUrl: "",
+            storagePath: "videos/uid/gid/round_1/file\0.mp4",
+            trickName: null,
+            isSetTrick: true,
+            idempotencyKey: "k",
+          },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storagePath format");
+    });
+
+    it("rejects storagePath that does not match expected structure", async () => {
+      const ctx = makeContext({ uid: freshUid("st") });
+      await expect(
+        (submitTrick as any)(
+          {
+            gameId: "g",
+            clipUrl: "",
+            storagePath: "uploads/uid/file.mp4",
+            trickName: null,
+            isSetTrick: true,
+            idempotencyKey: "k",
+          },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storagePath format");
+    });
+
+    it("stores null storagePath when not provided", async () => {
+      const baseGame = {
+        player1Id: "p1",
+        player2Id: "p2",
+        currentTurn: "p1",
+        currentAttacker: "p1",
+        turnPhase: "attacker_recording",
+        roundNumber: 1,
+        moves: [],
+        processedIdempotencyKeys: [],
+        currentSetMove: null,
+        player1Letters: [],
+        player2Letters: [],
+        status: "active",
+      };
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => baseGame });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (submitTrick as any)(
+        {
+          gameId: "g",
+          clipUrl: "https://legacy.url/clip.mp4",
+          trickName: null,
+          isSetTrick: true,
+          idempotencyKey: "k-legacy",
+        },
+        ctx
+      );
+      expect(res.success).toBe(true);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      const move = update.moves[0];
+      expect(move.storagePath).toBeNull();
+      expect(move.clipUrl).toBe("https://legacy.url/clip.mp4");
+    });
   });
 
   // ==========================================================================

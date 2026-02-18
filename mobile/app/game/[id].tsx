@@ -600,16 +600,20 @@ export default function GameScreen() {
           <Text style={styles.judgingSubtitle}>Both players vote. Tie goes to defender.</Text>
 
           {/* Show the match attempt video with slow-mo replay option */}
-          {latestMatchMove && matchMoveVideo.url && (
-            <VideoErrorBoundary>
-              <SlowMoReplay
-                clipUrl={matchMoveVideo.url}
-                trickName={latestMatchMove.trickName}
-                defaultSlowMo={false}
-                autoPlay={true}
-                style={styles.judgingVideo}
-              />
-            </VideoErrorBoundary>
+          {latestMatchMove && (
+            matchMoveVideo.isLoading ? (
+              <ActivityIndicator color={SKATE.colors.orange} style={styles.judgingVideo} />
+            ) : matchMoveVideo.url ? (
+              <VideoErrorBoundary>
+                <SlowMoReplay
+                  clipUrl={matchMoveVideo.url}
+                  trickName={latestMatchMove.trickName}
+                  defaultSlowMo={false}
+                  autoPlay={true}
+                  style={styles.judgingVideo}
+                />
+              </VideoErrorBoundary>
+            ) : null
           )}
 
           {/* Voting status */}

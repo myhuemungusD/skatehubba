@@ -425,6 +425,17 @@ export const submitTrick = functions.https.onCall(
       );
     }
 
+    // Validate storagePath format when provided
+    if (storagePath) {
+      const STORAGE_PATH_RE = /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/round_[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
+      if (!STORAGE_PATH_RE.test(storagePath) || storagePath.includes("..") || storagePath.includes("\0")) {
+        throw new functions.https.HttpsError(
+          "invalid-argument",
+          "Invalid storagePath format"
+        );
+      }
+    }
+
     const userId = context.auth.uid;
     const db = admin.firestore();
     const gameRef = db.doc(`game_sessions/${gameId}`);
@@ -815,8 +826,15 @@ export const getVideoUrl = functions.https.onCall(
       );
     }
 
-    // Validate storagePath format to prevent path traversal
-    if (!storagePath.startsWith("videos/") || storagePath.includes("..")) {
+    // Validate storagePath format: must match videos/{uid}/{gameId}/{roundId}/{filename}.{ext}
+    // Reject path traversal, null bytes, and malformed paths
+    const STORAGE_PATH_RE = /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/round_[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
+    if (
+      !storagePath.startsWith("videos/") ||
+      storagePath.includes("..") ||
+      storagePath.includes("\0") ||
+      !STORAGE_PATH_RE.test(storagePath)
+    ) {
       throw new functions.https.HttpsError(
         "invalid-argument",
         "Invalid storage path"

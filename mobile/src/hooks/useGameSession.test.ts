@@ -239,6 +239,24 @@ describe("useGameSession - Zod validation schemas", () => {
       });
       expect(result.storagePath).toBe("videos/user-123/game-abc/round_1/uuid.mp4");
     });
+
+    it("accepts explicit null storagePath", () => {
+      const result = MoveSchema.parse({
+        ...validMove,
+        storagePath: null,
+      });
+      expect(result.storagePath).toBeNull();
+    });
+
+    it("handles move with empty-string clipUrl and valid storagePath", () => {
+      const result = MoveSchema.parse({
+        ...validMove,
+        clipUrl: "",
+        storagePath: "videos/user-123/game-abc/round_1/uuid.mp4",
+      });
+      expect(result.clipUrl).toBe("");
+      expect(result.storagePath).toBe("videos/user-123/game-abc/round_1/uuid.mp4");
+    });
   });
 
   describe("GameSessionSchema", () => {
@@ -293,6 +311,42 @@ describe("useGameSession - Zod validation schemas", () => {
       expect(result.player1Letters).toEqual(["S", "K"]);
       expect(result.moves).toHaveLength(1);
       expect(result.moves[0].trickName).toBe("Kickflip");
+      expect(result.moves[0].storagePath).toBeNull(); // Legacy move defaults to null
+    });
+
+    it("parses session with moves containing storagePath", () => {
+      const session = {
+        ...validSession,
+        moves: [
+          {
+            id: "move-new",
+            roundNumber: 1,
+            playerId: "user-1",
+            type: "set",
+            trickName: "Heelflip",
+            clipUrl: "",
+            storagePath: "videos/user-1/game-abc/round_1/uuid.mp4",
+            thumbnailUrl: null,
+            createdAt: "2025-01-15T12:01:00Z",
+          },
+        ],
+        currentSetMove: {
+          id: "move-new",
+          roundNumber: 1,
+          playerId: "user-1",
+          type: "set",
+          trickName: "Heelflip",
+          clipUrl: "",
+          storagePath: "videos/user-1/game-abc/round_1/uuid.mp4",
+          thumbnailUrl: null,
+          createdAt: "2025-01-15T12:01:00Z",
+        },
+      };
+
+      const result = GameSessionSchema.parse(session);
+      expect(result.moves[0].storagePath).toBe("videos/user-1/game-abc/round_1/uuid.mp4");
+      expect(result.moves[0].clipUrl).toBe("");
+      expect(result.currentSetMove?.storagePath).toBe("videos/user-1/game-abc/round_1/uuid.mp4");
     });
 
     it("parses all game statuses", () => {

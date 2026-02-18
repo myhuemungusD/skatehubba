@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebase.config";
 
@@ -11,7 +11,17 @@ const urlCache = new Map<string, CachedUrl>();
 /** Refresh signed URL 5 minutes before it expires */
 const REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
-interface UseVideoUrlResult {
+/** Clear the URL cache. Exported for test teardown. */
+export function clearUrlCache(): void {
+  urlCache.clear();
+}
+
+/** Visible for testing — read the current cache size. */
+export function getUrlCacheSize(): number {
+  return urlCache.size;
+}
+
+export interface UseVideoUrlResult {
   url: string | null;
   isLoading: boolean;
   error: string | null;
@@ -40,6 +50,14 @@ export function useVideoUrl(
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track whether the component is still mounted to avoid state updates after unmount
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const fetchUrl = useCallback(async () => {
     if (!storagePath || !gameId) {
@@ -71,14 +89,19 @@ export function useVideoUrl(
         expiresAt: new Date(expiresAt).getTime(),
       });
 
-      setUrl(signedUrl);
+      if (mountedRef.current) {
+        setUrl(signedUrl);
+      }
     } catch (err) {
+      if (!mountedRef.current) return;
       const message = err instanceof Error ? err.message : "Failed to load video";
       setError(message);
       // Fall back to clipUrl on error (e.g. legacy data)
       if (fallbackClipUrl) setUrl(fallbackClipUrl);
     } finally {
-      setIsLoading(false);
+      if (mountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [storagePath, gameId, fallbackClipUrl]);
 
