@@ -21,5 +21,30 @@ export const DEV_ORIGINS = [
 /** Default dev origin used as fallback (e.g. Stripe checkout redirect) */
 export const DEV_DEFAULT_ORIGIN = DEV_ORIGINS[0];
 
+/**
+ * Returns the list of allowed origins for the current environment.
+ * Matches the CORS origin logic in server/index.ts.
+ */
+export function getAllowedOrigins(): string[] {
+  const envOrigins =
+    process.env.ALLOWED_ORIGINS?.split(",")
+      .map((o) => o.trim())
+      .filter(Boolean) || [];
+  if (process.env.NODE_ENV === "production") {
+    return envOrigins;
+  }
+  return [...envOrigins, ...DEV_ORIGINS];
+}
+
+/**
+ * Validate that an origin is in the allowed list.
+ * Returns the origin if valid, or the default fallback origin.
+ */
+export function validateOrigin(origin: string | undefined): string {
+  if (!origin) return DEV_DEFAULT_ORIGIN;
+  const allowed = getAllowedOrigins();
+  return allowed.includes(origin) ? origin : DEV_DEFAULT_ORIGIN;
+}
+
 /** Express body parser size limit */
 export const BODY_PARSE_LIMIT = "10mb";

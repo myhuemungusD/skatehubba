@@ -31,7 +31,8 @@ vi.mock("../redis", () => ({
 const mockFetch = vi.fn();
 vi.stubGlobal("fetch", mockFetch);
 
-const { discoverSkateparks, isAreaCached } = await import("../services/osmDiscovery");
+const { discoverSkateparks, isAreaCached, MIN_RADIUS_METERS, MAX_RADIUS_METERS } =
+  await import("../services/osmDiscovery");
 
 // ============================================================================
 // Tests
@@ -310,6 +311,40 @@ describe("OSM Discovery Service", () => {
 
       const results = await discoverSkateparks(55.0, 55.0);
       expect(results[0].spotType).toBe("park");
+    });
+
+    it("should clamp excessively large radius to MAX_RADIUS_METERS", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ elements: [] }),
+      });
+
+      await discoverSkateparks(15.0, 15.0, 999999);
+      const fetchBody = decodeURIComponent(mockFetch.mock.calls[0][1]?.body as string);
+      expect(fetchBody).toContain(`around:${MAX_RADIUS_METERS}`);
+      expect(fetchBody).not.toContain("around:999999");
+    });
+
+    it("should clamp excessively small radius to MIN_RADIUS_METERS", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ elements: [] }),
+      });
+
+      await discoverSkateparks(16.0, 16.0, 5);
+      const fetchBody = decodeURIComponent(mockFetch.mock.calls[0][1]?.body as string);
+      expect(fetchBody).toContain(`around:${MIN_RADIUS_METERS}`);
+    });
+
+    it("should clamp negative radius to MIN_RADIUS_METERS", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ elements: [] }),
+      });
+
+      await discoverSkateparks(17.0, 17.0, -500);
+      const fetchBody = decodeURIComponent(mockFetch.mock.calls[0][1]?.body as string);
+      expect(fetchBody).toContain(`around:${MIN_RADIUS_METERS}`);
     });
   });
 });

@@ -6,7 +6,7 @@ import { requirePaidOrPro } from "../middleware/requirePaidOrPro";
 import { customUsers, consumedPaymentIntents } from "@shared/schema";
 import { eq, count } from "drizzle-orm";
 import logger from "../logger";
-import { DEV_DEFAULT_ORIGIN } from "../config/server";
+import { validateOrigin } from "../config/server";
 import { Errors, sendError } from "../utils/apiError";
 import { proAwardLimiter } from "../middleware/security";
 
@@ -95,7 +95,6 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, proAwardLimiter, a
         return {
           error: "ALREADY_UPGRADED",
           message: "User already has Pro or Premium status.",
-          currentTier: targetUser.accountTier,
         };
       }
 
@@ -120,9 +119,7 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, proAwardLimiter, a
         return Errors.notFound(res, result.error, result.message);
       }
       if (result.error === "ALREADY_UPGRADED") {
-        return Errors.conflict(res, result.error, result.message, {
-          currentTier: (result as any).currentTier,
-        });
+        return Errors.conflict(res, result.error, result.message);
       }
     }
 
@@ -185,16 +182,16 @@ router.post("/create-checkout-session", authenticateUser, async (req, res) => {
     const Stripe = await import("stripe").then((m) => m.default);
     const stripe = new Stripe(stripeSecretKey);
 
-    let origin = req.headers.origin;
-    if (!origin && req.headers.referer) {
+    let rawOrigin = req.headers.origin;
+    if (!rawOrigin && req.headers.referer) {
       try {
         const refUrl = new URL(req.headers.referer);
-        origin = refUrl.origin;
+        rawOrigin = refUrl.origin;
       } catch {
         // malformed referer — ignore
       }
     }
-    if (!origin) origin = DEV_DEFAULT_ORIGIN;
+    const origin = validateOrigin(rawOrigin);
 
     const session = await stripe.checkout.sessions.create(
       {

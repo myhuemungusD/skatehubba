@@ -16,6 +16,8 @@ mockDbChain.orderBy = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.limit = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.offset = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.update = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.insert = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.values = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.delete = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
@@ -38,6 +40,11 @@ vi.mock("@shared/schema", () => ({
     status: "status",
     views: "views",
     createdAt: "createdAt",
+  },
+  clipViews: {
+    _table: "clip_views",
+    clipId: "clipId",
+    userId: "userId",
   },
   usernames: {},
   customUsers: {},

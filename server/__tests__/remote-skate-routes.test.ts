@@ -270,6 +270,10 @@ describe("Remote Skate Routes", () => {
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "GAME_NOT_FOUND",
+        message: "Game not found.",
+      });
     });
 
     it("should return 403 when non-participant accesses game", async () => {
@@ -291,6 +295,10 @@ describe("Remote Skate Routes", () => {
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "ACCESS_DENIED",
+        message: "You do not have access to this resource.",
+      });
     });
 
     it("should return 400 when game is not active", async () => {
@@ -312,6 +320,10 @@ describe("Remote Skate Routes", () => {
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "INVALID_STATE",
+        message: "This action cannot be performed right now.",
+      });
     });
 
     it("should return 403 when caller is not offense", async () => {
@@ -345,6 +357,10 @@ describe("Remote Skate Routes", () => {
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "ACCESS_DENIED",
+        message: "You do not have permission to perform this action.",
+      });
     });
 
     it("should return 400 when videos not uploaded", async () => {
@@ -378,6 +394,10 @@ describe("Remote Skate Routes", () => {
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "INVALID_STATE",
+        message: "This action cannot be performed right now.",
+      });
     });
 
     it("should return 500 on unexpected error", async () => {
@@ -386,6 +406,10 @@ describe("Remote Skate Routes", () => {
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "INTERNAL_ERROR",
+        message: "Failed to resolve round.",
+      });
     });
   });
 });

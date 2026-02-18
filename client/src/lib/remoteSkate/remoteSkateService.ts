@@ -330,8 +330,8 @@ export const RemoteSkateService = {
     });
 
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: "Unknown error" }));
-      throw new Error(body.error || `Resolve failed (${res.status})`);
+      const body = await res.json().catch(() => ({ message: "Unknown error" }));
+      throw new Error(body.message || body.error || `Resolve failed (${res.status})`);
     }
   },
 };

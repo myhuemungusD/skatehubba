@@ -8,6 +8,7 @@ import {
   timestamp,
   varchar,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -94,9 +95,26 @@ export const insertTrickClipSchema = createInsertSchema(trickClips).omit({
   updatedAt: true,
 });
 
+// Clip view tracking — per-user view deduplication
+export const clipViews = pgTable(
+  "clip_views",
+  {
+    id: serial("id").primaryKey(),
+    clipId: integer("clip_id").notNull(),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    viewedAt: timestamp("viewed_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    uniqueUserClip: uniqueIndex("unique_clip_view_per_user").on(table.clipId, table.userId),
+    clipIdx: index("IDX_clip_views_clip").on(table.clipId),
+  })
+);
+
 export type Trick = typeof tricks.$inferSelect;
 export type InsertTrick = typeof tricks.$inferInsert;
 export type TrickMastery = typeof trickMastery.$inferSelect;
 export type InsertTrickMastery = z.infer<typeof insertTrickMasterySchema>;
 export type TrickClip = typeof trickClips.$inferSelect;
 export type InsertTrickClip = z.infer<typeof insertTrickClipSchema>;
+export type ClipView = typeof clipViews.$inferSelect;
+export type InsertClipView = typeof clipViews.$inferInsert;
