@@ -11,6 +11,7 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useOfflineCache } from "@/hooks/useOfflineCache";
 import { OfflineBanner } from "@/components/common/OfflineBanner";
+import { useDeviceIntegrity } from "@/hooks/useDeviceIntegrity";
 
 export default function RootLayout() {
   const { user, isInitialized } = useAuthStore();
@@ -19,6 +20,9 @@ export default function RootLayout() {
 
   // Initialize network status monitoring
   useNetworkStatus();
+
+  // Warn on jailbroken / rooted devices
+  useDeviceIntegrity();
 
   // Register push notifications and handle notification taps
   usePushNotifications();

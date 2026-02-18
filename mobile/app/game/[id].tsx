@@ -33,6 +33,9 @@ import { logEvent } from "@/lib/analytics/logEvent";
 import { useCacheGameSession } from "@/hooks/useOfflineCache";
 import type { GameOverlay, SkateLetter } from "@/types";
 
+/** Firestore auto-generated IDs: exactly 20 alphanumeric characters. */
+const VALID_GAME_ID = /^[a-zA-Z0-9]{20}$/;
+
 /**
  * Main S.K.A.T.E. Battle Screen
  *
@@ -45,12 +48,17 @@ import type { GameOverlay, SkateLetter } from "@/types";
  */
 export default function GameScreen() {
   const router = useRouter();
-  const { id: gameId } = useLocalSearchParams<{ id: string }>();
+  const { id: rawGameId } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
 
+  // Validate gameId format — reject malicious deep links (e.g. path traversal,
+  // arbitrary strings) before they reach the Firestore listener.
+  const gameId = rawGameId && VALID_GAME_ID.test(rawGameId) ? rawGameId : null;
+  const isInvalidId = !!rawGameId && !gameId;
+
   // Game state from Firestore
-  const { gameSession, isLoading } = useGameSession(gameId || null);
+  const { gameSession, isLoading } = useGameSession(gameId);
 
   // Local UI state from Zustand
   const { initGame, resetGame, showOverlay, dismissOverlay, pendingUpload } = useGameStore();
@@ -370,6 +378,28 @@ export default function GameScreen() {
     if (!gameSession) return null;
     return [...gameSession.moves].reverse().find((m) => m.type === "match") || null;
   }, [gameSession]);
+
+  // Invalid game ID from deep link — show error instead of infinite spinner
+  if (isInvalidId) {
+    if (__DEV__) {
+      console.warn("[GameScreen] Invalid game ID from deep link:", rawGameId);
+    }
+    return (
+      <View testID="game-invalid-id" style={styles.loadingContainer}>
+        <Ionicons name="warning" size={48} color={SKATE.colors.blood} />
+        <Text style={styles.loadingText}>Invalid game link</Text>
+        <TouchableOpacity
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Go back to challenges"
+          style={styles.cancelButton}
+          onPress={() => router.replace("/(tabs)/challenges")}
+        >
+          <Text style={styles.cancelButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // Loading state
   if (isLoading || !gameSession) {
