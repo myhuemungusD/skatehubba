@@ -238,6 +238,13 @@ export default function GameScreen() {
     showOverlay,
   ]);
 
+  // Log invalid deep link attempts for security monitoring
+  useEffect(() => {
+    if (isInvalidId) {
+      logEvent("deep_link_invalid", { raw_id: rawGameId });
+    }
+  }, [isInvalidId, rawGameId]);
+
   // Handle game completion
   useEffect(() => {
     if (gameSession?.status === "completed" && gameId) {
