@@ -39,6 +39,7 @@ export const EVENT_NAMES = [
 
   // Security
   "device_integrity_warning",
+  "deep_link_invalid",
 ] as const;
 
 export type EventName = (typeof EVENT_NAMES)[number];
@@ -176,6 +177,12 @@ export const DeviceIntegrityWarningProps = z
   })
   .strict();
 
+export const DeepLinkInvalidProps = z
+  .object({
+    raw_id: z.string().max(200),
+  })
+  .strict();
+
 /**
  * Validate event properties based on event name.
  * Throws ZodError if validation fails.
@@ -213,6 +220,8 @@ export function validateEventProps(
       return GameForfeitedProps.parse(properties);
     case "device_integrity_warning":
       return DeviceIntegrityWarningProps.parse(properties);
+    case "deep_link_invalid":
+      return DeepLinkInvalidProps.parse(properties);
     default:
       // Gradually tighten others as needed
       return properties;

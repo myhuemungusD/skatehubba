@@ -16,6 +16,7 @@ import {
   GameTrickPassedProps,
   GameCompletedProps,
   GameForfeitedProps,
+  DeepLinkInvalidProps,
   validateEventProps,
 } from "../analytics-events";
 
@@ -38,6 +39,11 @@ describe("EVENT_NAMES", () => {
     expect(EVENT_NAMES).toContain("clip_uploaded");
     expect(EVENT_NAMES).toContain("crew_joined");
     expect(EVENT_NAMES).toContain("spot_checkin_validated");
+  });
+
+  it("contains security events", () => {
+    expect(EVENT_NAMES).toContain("device_integrity_warning");
+    expect(EVENT_NAMES).toContain("deep_link_invalid");
   });
 });
 
@@ -209,6 +215,13 @@ describe("Property schemas", () => {
     ).toBe(true);
     expect(GameForfeitedProps.safeParse({ game_id: "g1", reason: "invalid" }).success).toBe(false);
   });
+
+  it("DeepLinkInvalidProps validates invalid deep link events", () => {
+    expect(DeepLinkInvalidProps.safeParse({ raw_id: "../etc/passwd" }).success).toBe(true);
+    expect(DeepLinkInvalidProps.safeParse({ raw_id: "" }).success).toBe(true);
+    expect(DeepLinkInvalidProps.safeParse({}).success).toBe(false);
+    expect(DeepLinkInvalidProps.safeParse({ raw_id: "x".repeat(201) }).success).toBe(false);
+  });
 });
 
 describe("validateEventProps", () => {
@@ -282,6 +295,16 @@ describe("validateEventProps", () => {
     expect(() => validateEventProps("clip_uploaded", { clip_id: "c1" })).not.toThrow();
     expect(() => validateEventProps("spot_checkin_validated", { spot_id: "s1" })).not.toThrow();
     expect(() => validateEventProps("crew_joined", { crew_id: "cr1" })).not.toThrow();
+  });
+
+  it("validates deep_link_invalid props", () => {
+    expect(() =>
+      validateEventProps("deep_link_invalid", { raw_id: "../etc/passwd" })
+    ).not.toThrow();
+  });
+
+  it("throws for deep_link_invalid with missing raw_id", () => {
+    expect(() => validateEventProps("deep_link_invalid", {})).toThrow();
   });
 
   it("passes through unvalidated events", () => {
