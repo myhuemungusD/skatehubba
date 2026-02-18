@@ -27,6 +27,7 @@ import {
   forfeitGame,
   generateEventId,
 } from "../../services/gameStateService";
+import { registerRateLimitRules, checkRateLimit } from "../socketRateLimit";
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
@@ -34,52 +35,15 @@ type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 // Track which sockets are in which games for cleanup
 const socketGameMap = new Map<string, Set<string>>();
 
-// ============================================================================
-// Per-socket rate limiting for game events
-// ============================================================================
-
-/**
- * Simple sliding-window rate limiter for socket events.
- * Tracks timestamps per socket per event type; no external dependencies.
- */
-const socketRateLimits = new Map<string, Map<string, number[]>>();
-
-const RATE_LIMIT_RULES: Record<string, { maxPerWindow: number; windowMs: number }> = {
+// Register game-specific rate-limit rules once at module load
+registerRateLimitRules({
   "game:create": { maxPerWindow: 3, windowMs: 60_000 },
   "game:join": { maxPerWindow: 5, windowMs: 60_000 },
   "game:trick": { maxPerWindow: 10, windowMs: 60_000 },
   "game:pass": { maxPerWindow: 10, windowMs: 60_000 },
   "game:forfeit": { maxPerWindow: 3, windowMs: 60_000 },
   "game:reconnect": { maxPerWindow: 5, windowMs: 60_000 },
-};
-
-function checkSocketRateLimit(socketId: string, eventName: string): boolean {
-  const rule = RATE_LIMIT_RULES[eventName];
-  if (!rule) return true;
-
-  const now = Date.now();
-  if (!socketRateLimits.has(socketId)) {
-    socketRateLimits.set(socketId, new Map());
-  }
-  const perEvent = socketRateLimits.get(socketId)!;
-
-  const timestamps = perEvent.get(eventName) || [];
-  // Remove entries outside the window
-  const recent = timestamps.filter((t) => now - t < rule.windowMs);
-
-  if (recent.length >= rule.maxPerWindow) {
-    return false; // rate limited
-  }
-
-  recent.push(now);
-  perEvent.set(eventName, recent);
-  return true;
-}
-
-/** Clean up rate-limit tracking for a disconnected socket */
-export function cleanupSocketRateLimits(socketId: string): void {
-  socketRateLimits.delete(socketId);
-}
+});
 
 /**
  * Register game event handlers on a socket
@@ -91,7 +55,7 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
    * Create a new S.K.A.T.E. game
    */
   socket.on("game:create", async (spotId: string, maxPlayers: number = 4) => {
-    if (!checkSocketRateLimit(socket.id, "game:create")) {
+    if (!checkRateLimit(socket.id, "game:create")) {
       socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
       return;
     }
@@ -148,7 +112,7 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
    * Join an existing game
    */
   socket.on("game:join", async (gameId: string) => {
-    if (!checkSocketRateLimit(socket.id, "game:join")) {
+    if (!checkRateLimit(socket.id, "game:join")) {
       socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
       return;
     }
@@ -226,7 +190,7 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
   socket.on(
     "game:trick",
     async (input: { gameId: string; odv: string; trickName: string; clipUrl?: string }) => {
-      if (!checkSocketRateLimit(socket.id, "game:trick")) {
+      if (!checkRateLimit(socket.id, "game:trick")) {
         socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
         return;
       }
@@ -308,7 +272,7 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
    * Pass on a trick (gets a letter)
    */
   socket.on("game:pass", async (gameId: string) => {
-    if (!checkSocketRateLimit(socket.id, "game:pass")) {
+    if (!checkRateLimit(socket.id, "game:pass")) {
       socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
       return;
     }
@@ -381,7 +345,7 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
    * Forfeit a game voluntarily
    */
   socket.on("game:forfeit", async (gameId: string) => {
-    if (!checkSocketRateLimit(socket.id, "game:forfeit")) {
+    if (!checkRateLimit(socket.id, "game:forfeit")) {
       socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
       return;
     }
@@ -433,7 +397,7 @@ export function registerGameHandlers(io: TypedServer, socket: TypedSocket): void
    * Reconnect to a game after disconnect
    */
   socket.on("game:reconnect", async (gameId: string) => {
-    if (!checkSocketRateLimit(socket.id, "game:reconnect")) {
+    if (!checkRateLimit(socket.id, "game:reconnect")) {
       socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
       return;
     }
