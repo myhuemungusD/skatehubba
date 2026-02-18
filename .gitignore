@@ -1,5 +1,9 @@
 node_modules
+
+# Non-pnpm lockfiles (this repo uses pnpm exclusively)
 package-lock.json
+yarn.lock
+npm-shrinkwrap.json
 
 # Environment variables (NEVER commit these!)
 .env
