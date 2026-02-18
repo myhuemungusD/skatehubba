@@ -133,6 +133,7 @@ vi.mock("@shared/schema", () => ({
   },
   spots: { _table: "spots" },
   games: { _table: "games" },
+  authSessions: { expiresAt: "expiresAt" },
   betaSignups: {
     id: "id",
     email: "email",
@@ -149,6 +150,7 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   and: vi.fn((...args: any[]) => args),
   count: vi.fn(() => "count_agg"),
+  lt: vi.fn(),
   sql: Object.assign((strings: TemplateStringsArray, ..._values: any[]) => ({ _sql: true }), {
     raw: (s: string) => ({ _sql: true, raw: s }),
   }),
@@ -1081,6 +1083,22 @@ describe("registerRoutes", () => {
       ]);
     });
 
+    it("should sanitize LIKE wildcards in search query (%, _, \\)", async () => {
+      const dbResults = [
+        { id: "u4", firstName: "100%", lastName: "User", email: "w@t.com", firebaseUid: "fb4" },
+      ];
+      vi.mocked(isDatabaseAvailable).mockReturnValue(true);
+      vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
+
+      const handler = routes.get("GET /api/users/search")!;
+      const res = mockRes();
+      await handler(mockReq({ query: { q: "100%" } }), res);
+
+      expect(res.json).toHaveBeenCalledWith([
+        expect.objectContaining({ id: "u4", displayName: "100% User" }),
+      ]);
+    });
+
     it("should handle user with no name at all", async () => {
       const dbResults = [
         {
@@ -1473,6 +1491,117 @@ describe("registerRoutes", () => {
       expect(res.json).toHaveBeenCalledWith({
         error: "Failed to send deadline warnings",
       });
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // POST /api/cron/cleanup-sessions
+  // --------------------------------------------------------------------------
+  describe("POST /api/cron/cleanup-sessions", () => {
+    const CRON_SECRET = "super-secret-value";
+
+    afterEach(() => {
+      delete process.env.CRON_SECRET;
+    });
+
+    it("should cleanup expired sessions and return deleted count", async () => {
+      process.env.CRON_SECRET = CRON_SECRET;
+      vi.mocked(isDatabaseAvailable).mockReturnValue(true);
+
+      const mockDb = {
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue({ rowCount: 7 }),
+        }),
+      };
+      vi.mocked(getDb).mockReturnValue(mockDb as any);
+
+      const handler = routes.get("POST /api/cron/cleanup-sessions")!;
+      const res = mockRes();
+      await handler(
+        mockReq({
+          headers: { authorization: `Bearer ${CRON_SECRET}` },
+        }),
+        res
+      );
+
+      expect(mockDb.delete).toHaveBeenCalled();
+      expect(res.json).toHaveBeenCalledWith({ success: true, deleted: 7 });
+    });
+
+    it("should return 401 with invalid cron secret", async () => {
+      process.env.CRON_SECRET = CRON_SECRET;
+
+      const handler = routes.get("POST /api/cron/cleanup-sessions")!;
+      const res = mockRes();
+      await handler(
+        mockReq({
+          headers: { authorization: "Bearer wrong" },
+        }),
+        res
+      );
+
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({ error: "Unauthorized" });
+    });
+
+    it("should return 503 when db is unavailable", async () => {
+      process.env.CRON_SECRET = CRON_SECRET;
+      vi.mocked(isDatabaseAvailable).mockReturnValue(false);
+
+      const handler = routes.get("POST /api/cron/cleanup-sessions")!;
+      const res = mockRes();
+      await handler(
+        mockReq({
+          headers: { authorization: `Bearer ${CRON_SECRET}` },
+        }),
+        res
+      );
+
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith({ error: "Database unavailable" });
+    });
+
+    it("should return 500 when db.delete throws", async () => {
+      process.env.CRON_SECRET = CRON_SECRET;
+      vi.mocked(isDatabaseAvailable).mockReturnValue(true);
+      vi.mocked(getDb).mockReturnValue({
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn().mockRejectedValue(new Error("DB fail")),
+        }),
+      } as any);
+
+      const handler = routes.get("POST /api/cron/cleanup-sessions")!;
+      const res = mockRes();
+      await handler(
+        mockReq({
+          headers: { authorization: `Bearer ${CRON_SECRET}` },
+        }),
+        res
+      );
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: "Failed to cleanup sessions" });
+    });
+
+    it("should default deleted count to 0 when rowCount is undefined", async () => {
+      process.env.CRON_SECRET = CRON_SECRET;
+      vi.mocked(isDatabaseAvailable).mockReturnValue(true);
+      vi.mocked(getDb).mockReturnValue({
+        delete: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue({}),
+        }),
+      } as any);
+
+      const handler = routes.get("POST /api/cron/cleanup-sessions")!;
+      const res = mockRes();
+      await handler(
+        mockReq({
+          headers: { authorization: `Bearer ${CRON_SECRET}` },
+        }),
+        res
+      );
+
+      expect(res.json).toHaveBeenCalledWith({ success: true, deleted: 0 });
     });
   });
 
