@@ -93,8 +93,9 @@ vi.mock("../config/server", () => ({
   DEV_DEFAULT_ORIGIN: "http://localhost:5173",
   validateOrigin: (origin: string | undefined) => {
     const allowed = ["http://localhost:5173", "http://localhost:3000", "http://localhost:5000"];
-    if (!origin) return "http://localhost:5173";
-    return allowed.includes(origin) ? origin : "http://localhost:5173";
+    const fallback = allowed[0] || "http://localhost:5173";
+    if (!origin) return fallback;
+    return allowed.includes(origin) ? origin : fallback;
   },
 }));
 

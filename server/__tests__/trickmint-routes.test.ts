@@ -129,7 +129,7 @@ vi.mock("express", () => ({
   }),
 }));
 
-await import("../routes/trickmint");
+const { recordClipView } = await import("../routes/trickmint");
 
 // ============================================================================
 // Helpers
@@ -445,6 +445,73 @@ describe("Trickmint Routes", () => {
           maxVideoSizeBytes: 50 * 1024 * 1024,
           maxThumbnailSizeBytes: 2 * 1024 * 1024,
         })
+      );
+    });
+  });
+
+  // ==========================================================================
+  // recordClipView — M11 per-user deduplication
+  // ==========================================================================
+
+  describe("recordClipView", () => {
+    it("should insert view record and increment counter on first view", async () => {
+      const mockInsert = vi.fn().mockReturnValue({
+        values: vi.fn().mockResolvedValue(undefined),
+      });
+      const mockUpdate = vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      });
+      const db: any = { insert: mockInsert, update: mockUpdate };
+
+      await recordClipView(db, 42, "user-1");
+
+      // Should have inserted into clipViews
+      expect(mockInsert).toHaveBeenCalled();
+      // Should have incremented the views counter
+      expect(mockUpdate).toHaveBeenCalled();
+    });
+
+    it("should silently skip on duplicate view (unique constraint violation 23505)", async () => {
+      const uniqueError: any = new Error("duplicate key value violates unique constraint");
+      uniqueError.code = "23505";
+
+      const mockInsert = vi.fn().mockReturnValue({
+        values: vi.fn().mockRejectedValue(uniqueError),
+      });
+      const mockUpdate = vi.fn();
+      const db: any = { insert: mockInsert, update: mockUpdate };
+
+      // Should not throw
+      await recordClipView(db, 42, "user-1");
+
+      // Insert was attempted
+      expect(mockInsert).toHaveBeenCalled();
+      // Counter should NOT have been incremented
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("should log non-unique-constraint errors without throwing", async () => {
+      const dbError = new Error("connection refused");
+
+      const mockInsert = vi.fn().mockReturnValue({
+        values: vi.fn().mockRejectedValue(dbError),
+      });
+      const mockUpdate = vi.fn();
+      const db: any = { insert: mockInsert, update: mockUpdate };
+
+      const logger = (await import("../logger")).default;
+
+      // Should not throw
+      await recordClipView(db, 42, "user-1");
+
+      // Counter should NOT have been incremented
+      expect(mockUpdate).not.toHaveBeenCalled();
+      // Error should be logged
+      expect(logger.error).toHaveBeenCalledWith(
+        "[TrickMint] View recording failed",
+        expect.objectContaining({ clipId: 42, userId: "user-1" })
       );
     });
   });

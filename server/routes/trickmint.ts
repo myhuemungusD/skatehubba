@@ -72,7 +72,7 @@ function withPreferredVideoUrl<T extends { videoUrl: string }>(
  * Uses the unique constraint on (clip_id, user_id) to prevent duplicate views.
  * If the user has already viewed this clip, the view count is not incremented.
  */
-async function recordClipView(
+export async function recordClipView(
   db: ReturnType<typeof getDb>,
   clipId: number,
   userId: string

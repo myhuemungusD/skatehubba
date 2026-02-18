@@ -501,9 +501,7 @@ describe("Trickmint — incrementViewsWithRetry uncovered branches (lines 85-94)
     });
   });
 
-  it("should log error after all retry attempts fail", async () => {
-    vi.useFakeTimers();
-
+  it("should log error when view recording fails with non-unique error", async () => {
     const clip = {
       id: 30,
       isPublic: true,
@@ -518,30 +516,25 @@ describe("Trickmint — incrementViewsWithRetry uncovered branches (lines 85-94)
       return Promise.resolve(undefined).then(resolve);
     };
 
-    mockDbChain.update = vi.fn().mockReturnValue(mockDbChain);
-    mockDbChain.set = vi.fn().mockImplementation(() => {
-      const result: any = {};
-      result.where = vi.fn().mockRejectedValue(new Error("Persistent DB failure"));
-      return result;
+    // Simulate insert failure (non-unique constraint error)
+    mockDbChain.insert = vi.fn().mockReturnValue({
+      values: vi.fn().mockRejectedValue(new Error("Persistent DB failure")),
     });
 
     const req = createReq({ params: { id: "30" } });
     const res = createRes();
     await callHandler("GET /:id", req, res);
 
-    // Advance through all retry delays (100ms, 200ms, then final)
-    await vi.advanceTimersByTimeAsync(100);
-    await vi.advanceTimersByTimeAsync(200);
-    await vi.advanceTimersByTimeAsync(400);
-    await vi.advanceTimersByTimeAsync(500);
+    // Allow fire-and-forget recordClipView to settle
+    await new Promise((r) => setTimeout(r, 50));
 
     expect(res.json).toHaveBeenCalledWith({
       clip: expect.objectContaining({ id: 30 }),
     });
 
     expect(mockLogger.error).toHaveBeenCalledWith(
-      "[TrickMint] View increment failed after retries",
-      expect.objectContaining({ clipId: 30, attempts: 3 })
+      "[TrickMint] View recording failed",
+      expect.objectContaining({ clipId: 30, userId: "user-1" })
     );
   });
 });

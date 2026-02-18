@@ -1107,7 +1107,10 @@ describe("Remote Skate Routes — auth failure paths", () => {
     const res = createRes();
     await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
     expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith({ error: "Round not found" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "ROUND_NOT_FOUND",
+      message: "Round not found.",
+    });
   });
 
   it("returns 400 when round status is not awaiting_reply (covers line 112)", async () => {
@@ -1141,7 +1144,10 @@ describe("Remote Skate Routes — auth failure paths", () => {
     const res = createRes();
     await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Round is not ready for resolution" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "INVALID_STATE",
+      message: "This action cannot be performed right now.",
+    });
   });
 
   it("returns 500 for unexpected transaction error", async () => {
@@ -1150,7 +1156,10 @@ describe("Remote Skate Routes — auth failure paths", () => {
     const res = createRes();
     await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: "Failed to resolve round" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "INTERNAL_ERROR",
+      message: "Failed to resolve round.",
+    });
   });
 
   it("returns 500 for non-Error thrown in transaction", async () => {
@@ -1159,6 +1168,9 @@ describe("Remote Skate Routes — auth failure paths", () => {
     const res = createRes();
     await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
     expect(res.status).toHaveBeenCalledWith(500);
-    expect(res.json).toHaveBeenCalledWith({ error: "Failed to resolve round" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "INTERNAL_ERROR",
+      message: "Failed to resolve round.",
+    });
   });
 });

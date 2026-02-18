@@ -38,12 +38,14 @@ export function getAllowedOrigins(): string[] {
 
 /**
  * Validate that an origin is in the allowed list.
- * Returns the origin if valid, or the default fallback origin.
+ * Returns the origin if valid, or a safe fallback origin.
+ * In production the fallback is the first ALLOWED_ORIGINS entry (not localhost).
  */
 export function validateOrigin(origin: string | undefined): string {
-  if (!origin) return DEV_DEFAULT_ORIGIN;
   const allowed = getAllowedOrigins();
-  return allowed.includes(origin) ? origin : DEV_DEFAULT_ORIGIN;
+  const fallback = allowed[0] || DEV_DEFAULT_ORIGIN;
+  if (!origin) return fallback;
+  return allowed.includes(origin) ? origin : fallback;
 }
 
 /** Express body parser size limit */

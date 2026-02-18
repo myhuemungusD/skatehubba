@@ -400,6 +400,34 @@ describe("Remote Skate Routes", () => {
       });
     });
 
+    it("should return 404 when round not found", async () => {
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+            status: "active",
+            letters: {},
+          }),
+        };
+        const roundSnap = { exists: false };
+        const transaction = {
+          get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+        };
+        await fn(transaction);
+      });
+
+      const req = createReq();
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "ROUND_NOT_FOUND",
+        message: "Round not found.",
+      });
+    });
+
     it("should return 500 on unexpected error", async () => {
       mockTransaction.mockRejectedValue(new Error("Unexpected"));
       const req = createReq();
