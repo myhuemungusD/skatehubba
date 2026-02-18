@@ -595,34 +595,51 @@ describe("stripeWebhook — additional branches", () => {
     const mockDbUpdate = vi.fn();
     let selectCallCount = 0;
 
-    vi.doMock("../db", () => ({
-      getDb: () => ({
-        select: (...args: any[]) => {
-          mockDbSelect(...args);
-          return {
-            from: vi.fn().mockReturnValue({
-              where: vi.fn().mockReturnValue({
-                limit: vi.fn().mockImplementation(() => {
-                  selectCallCount++;
-                  if (selectCallCount === 1) return [{ accountTier: "free" }]; // user lookup
-                  return [{ email: null, firstName: null }]; // userInfo with no email
+    vi.doMock("../db", () => {
+      const createDb = () => {
+        const db: any = {
+          select: (...args: any[]) => {
+            mockDbSelect(...args);
+            return {
+              from: vi.fn().mockReturnValue({
+                where: vi.fn().mockReturnValue({
+                  limit: vi.fn().mockImplementation(() => {
+                    // Returns a thenable (for direct await) that also has .for() for SELECT FOR UPDATE
+                    const result = Promise.resolve([{ email: null, firstName: null }]);
+                    (result as any).for = vi.fn().mockImplementation(() => {
+                      selectCallCount++;
+                      if (selectCallCount === 1) return Promise.resolve([]); // consumedPaymentIntents
+                      return Promise.resolve([{ accountTier: "free" }]); // user lookup
+                    });
+                    return result;
+                  }),
                 }),
               }),
+            };
+          },
+          update: () => ({
+            set: () => ({
+              where: vi.fn().mockResolvedValue(undefined),
             }),
-          };
-        },
-        update: () => ({
-          set: () => ({
-            where: vi.fn().mockResolvedValue(undefined),
           }),
-        }),
-      }),
-      isDatabaseAvailable: () => true,
-    }));
+          insert: () => ({
+            values: vi.fn().mockResolvedValue(undefined),
+          }),
+          transaction: vi.fn(async (cb: Function) => cb(db)),
+        };
+        return db;
+      };
+      return {
+        getDb: () => createDb(),
+        isDatabaseAvailable: () => true,
+      };
+    });
     vi.doMock("@shared/schema", () => ({
       customUsers: { id: "id", accountTier: "accountTier", email: "email", firstName: "firstName" },
+      consumedPaymentIntents: { id: "id", paymentIntentId: "paymentIntentId", userId: "userId" },
     }));
     vi.doMock("drizzle-orm", () => ({ eq: vi.fn() }));
+    vi.doMock("../redis", () => ({ getRedisClient: () => null }));
     vi.doMock("../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
 
@@ -826,8 +843,8 @@ describe("remoteSkate — error mapping branches (lines 129-131)", () => {
       { error: "You don't have access to this game", expectedStatus: 403 },
       { error: "Game is not active", expectedStatus: 400 },
       { error: "Both videos must be uploaded before resolving", expectedStatus: 400 },
-      { error: "Round is not ready for resolution", expectedStatus: 400 },
-      { error: "Only offense can resolve a round", expectedStatus: 403 },
+      { error: "Round is not in a resolvable state", expectedStatus: 400 },
+      { error: "Only offense can submit a round result", expectedStatus: 403 },
     ];
 
     for (const tc of testCases) {

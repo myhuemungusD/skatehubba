@@ -119,18 +119,20 @@ app.use(cors(corsOptions));
 // Compression
 app.use(compression());
 
-// OpenAPI / Swagger UI — served before auth/CSRF since docs are public
+// OpenAPI / Swagger UI — disabled in production to prevent API surface exposure
 const openApiSpec = generateOpenAPISpec();
-app.get("/api/docs/openapi.json", (_req, res) => res.json(openApiSpec));
-app.use(
-  "/api/docs",
-  swaggerUi.serve,
-  swaggerUi.setup(openApiSpec, {
-    customSiteTitle: "SkateHubba API Docs",
-    customCss: ".swagger-ui .topbar { background-color: #667eea; }",
-    swaggerOptions: { persistAuthorization: true },
-  })
-);
+if (process.env.NODE_ENV !== "production") {
+  app.get("/api/docs/openapi.json", (_req, res) => res.json(openApiSpec));
+  app.use(
+    "/api/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(openApiSpec, {
+      customSiteTitle: "SkateHubba API Docs",
+      customCss: ".swagger-ui .topbar { background-color: #667eea; }",
+      swaggerOptions: { persistAuthorization: true },
+    })
+  );
+}
 
 // Raw body for Stripe webhook signature verification (MUST precede express.json())
 app.use("/webhooks/stripe", express.raw({ type: "application/json" }));

@@ -135,8 +135,8 @@ describe("Monitoring — additional coverage", () => {
     // Now get system status
     const routes: Record<string, Function> = {};
     const app: any = {
-      get: vi.fn((path: string, handler: Function) => {
-        routes[path] = handler;
+      get: vi.fn((path: string, ...handlers: Function[]) => {
+        routes[path] = handlers[handlers.length - 1];
       }),
     };
     registerMonitoringRoutes(app);

@@ -170,8 +170,8 @@ describe("Monitoring", () => {
     beforeEach(() => {
       routes = {};
       app = {
-        get: vi.fn((path: string, handler: Function) => {
-          routes[path] = handler;
+        get: vi.fn((path: string, ...handlers: Function[]) => {
+          routes[path] = handlers[handlers.length - 1];
         }),
       };
       registerMonitoringRoutes(app);
@@ -181,7 +181,12 @@ describe("Monitoring", () => {
       expect(app.get).toHaveBeenCalledWith("/api/health/live", expect.any(Function));
       expect(app.get).toHaveBeenCalledWith("/api/health/ready", expect.any(Function));
       expect(app.get).toHaveBeenCalledWith("/api/health", expect.any(Function));
-      expect(app.get).toHaveBeenCalledWith("/api/admin/system-status", expect.any(Function));
+      expect(app.get).toHaveBeenCalledWith(
+        "/api/admin/system-status",
+        expect.any(Function),
+        expect.any(Function),
+        expect.any(Function)
+      );
     });
 
     describe("/api/health/live", () => {

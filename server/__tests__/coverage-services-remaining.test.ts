@@ -1942,8 +1942,8 @@ describe("Monitoring — version fallback and admin system status", () => {
     // Capture routes
     const routes: Record<string, Function> = {};
     const app: any = {
-      get: vi.fn((path: string, handler: Function) => {
-        routes[path] = handler;
+      get: vi.fn((path: string, ...handlers: Function[]) => {
+        routes[path] = handlers[handlers.length - 1];
       }),
     };
     registerMonitoringRoutes(app);
@@ -2034,8 +2034,8 @@ describe("Monitoring — version fallback and admin system status", () => {
     // Register routes
     const routes: Record<string, Function> = {};
     const app: any = {
-      get: vi.fn((path: string, handler: Function) => {
-        routes[path] = handler;
+      get: vi.fn((path: string, ...handlers: Function[]) => {
+        routes[path] = handlers[handlers.length - 1];
       }),
     };
     registerMonitoringRoutes(app);

@@ -28,10 +28,16 @@ export function setupPasswordRoutes(app: Express) {
       const user = req.currentUser!;
       const { currentPassword, newPassword } = req.body;
 
-      // Validate input
+      // Validate input (bcrypt truncates at 72 bytes — reject longer passwords)
       if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
         return res.status(400).json({
           error: "Password must be at least 8 characters",
+          code: "INVALID_PASSWORD",
+        });
+      }
+      if (newPassword.length > 72) {
+        return res.status(400).json({
+          error: "Password must be at most 72 characters",
           code: "INVALID_PASSWORD",
         });
       }
@@ -126,6 +132,12 @@ export function setupPasswordRoutes(app: Express) {
       if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
         return res.status(400).json({
           error: "Password must be at least 8 characters",
+          code: "INVALID_PASSWORD",
+        });
+      }
+      if (newPassword.length > 72) {
+        return res.status(400).json({
+          error: "Password must be at most 72 characters",
           code: "INVALID_PASSWORD",
         });
       }

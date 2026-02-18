@@ -3,8 +3,8 @@ import { createServer, type Server } from "http";
 import { setupAuthRoutes } from "./auth/routes";
 import { spotStorage } from "./storage/spots";
 import { getDb, isDatabaseAvailable } from "./db";
-import { customUsers, spots, games, betaSignups } from "@shared/schema";
-import { ilike, or, eq, and, count, sql } from "drizzle-orm";
+import { customUsers, spots, games, betaSignups, authSessions } from "@shared/schema";
+import { ilike, or, eq, and, count, sql, lt } from "drizzle-orm";
 import { insertSpotSchema } from "@shared/schema";
 import {
   checkInIpLimiter,
@@ -667,6 +667,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       logger.error("[Cron] Deadline warnings failed", { error });
       res.status(500).json({ error: "Failed to send deadline warnings" });
+    }
+  });
+
+  // Cron endpoint for expired session cleanup (M5 audit finding)
+  app.post("/api/cron/cleanup-sessions", async (req, res) => {
+    if (!verifyCronSecret(req.headers.authorization)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (!isDatabaseAvailable()) {
+      return res.status(503).json({ error: "Database unavailable" });
+    }
+
+    try {
+      const db = getDb();
+      const result = await db
+        .delete(authSessions)
+        .where(lt(authSessions.expiresAt, new Date()));
+      const deleted = (result as { rowCount?: number }).rowCount ?? 0;
+      logger.info("[Cron] Expired sessions cleaned up", { deleted });
+      res.json({ success: true, deleted });
+    } catch (error) {
+      logger.error("[Cron] Session cleanup failed", { error });
+      res.status(500).json({ error: "Failed to cleanup sessions" });
     }
   });
 
