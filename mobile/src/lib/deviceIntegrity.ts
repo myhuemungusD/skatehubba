@@ -107,7 +107,9 @@ export function checkDeviceIntegrity(): DeviceIntegrityResult {
       checkedAt: Date.now(),
     });
   } catch (error) {
-    console.error("[DeviceIntegrity] Check failed:", error);
+    if (__DEV__) {
+      console.error("[DeviceIntegrity] Check failed:", error);
+    }
     cachedResult = { ...SAFE_DEFAULTS, checkedAt: Date.now() };
   }
 
@@ -124,5 +126,11 @@ export function isDeviceCompromised(): boolean {
 
 /** @internal Clear cached result — test-only. */
 export function _resetForTesting(): void {
+  cachedResult = null;
+}
+
+/** @internal Inject mock JailMonkey module and clear cache — test-only. */
+export function _setJailMonkeyForTesting(mock: typeof JailMonkey): void {
+  JailMonkey = mock;
   cachedResult = null;
 }

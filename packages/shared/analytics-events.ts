@@ -168,6 +168,14 @@ export const GameForfeitedProps = z
   })
   .strict();
 
+// Security event properties
+export const DeviceIntegrityWarningProps = z
+  .object({
+    isJailbroken: z.boolean(),
+    hookDetected: z.boolean(),
+  })
+  .strict();
+
 /**
  * Validate event properties based on event name.
  * Throws ZodError if validation fails.
@@ -203,6 +211,8 @@ export function validateEventProps(
       return GameCompletedProps.parse(properties);
     case "game_forfeited":
       return GameForfeitedProps.parse(properties);
+    case "device_integrity_warning":
+      return DeviceIntegrityWarningProps.parse(properties);
     default:
       // Gradually tighten others as needed
       return properties;

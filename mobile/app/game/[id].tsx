@@ -33,6 +33,9 @@ import { logEvent } from "@/lib/analytics/logEvent";
 import { useCacheGameSession } from "@/hooks/useOfflineCache";
 import type { GameOverlay, SkateLetter } from "@/types";
 
+/** Firestore auto-generated IDs: exactly 20 alphanumeric characters. */
+const VALID_GAME_ID = /^[a-zA-Z0-9]{20}$/;
+
 /**
  * Main S.K.A.T.E. Battle Screen
  *
@@ -49,10 +52,8 @@ export default function GameScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
 
-  // Validate gameId format — Firestore auto-generated IDs are 20 alphanumeric chars.
-  // Reject malicious deep links (e.g. path traversal, arbitrary strings) before
-  // they reach the Firestore listener.
-  const VALID_GAME_ID = /^[a-zA-Z0-9]{20}$/;
+  // Validate gameId format — reject malicious deep links (e.g. path traversal,
+  // arbitrary strings) before they reach the Firestore listener.
   const gameId = rawGameId && VALID_GAME_ID.test(rawGameId) ? rawGameId : null;
   const isInvalidId = !!rawGameId && !gameId;
 
@@ -380,6 +381,9 @@ export default function GameScreen() {
 
   // Invalid game ID from deep link — show error instead of infinite spinner
   if (isInvalidId) {
+    if (__DEV__) {
+      console.warn("[GameScreen] Invalid game ID from deep link:", rawGameId);
+    }
     return (
       <View testID="game-invalid-id" style={styles.loadingContainer}>
         <Ionicons name="warning" size={48} color={SKATE.colors.blood} />
