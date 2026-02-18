@@ -1,16 +1,16 @@
 # SkateHubba API System Security Audit
 
-**Date:** 2026-02-16
-**Scope:** Full server-side API layer — authentication, authorization, middleware, WebSocket, payments, database access, and configuration.
-**Auditor:** Automated deep-dive code review
+**Date:** 2026-02-18 (Updated — Second Pass)
+**Scope:** Full server-side API layer — authentication, authorization, middleware, WebSocket, payments, database access, configuration, game logic, video pipeline, and all route modules.
+**Auditor:** Automated deep-dive code review (46 files analyzed across 2 passes)
 
 ---
 
 ## Executive Summary
 
-The SkateHubba API is **well-architected** with many security best practices already in place: bcrypt password hashing, session token hashing (SHA-256), TOTP MFA with AES-256-GCM encryption, timing-safe comparisons in critical paths, Zod input validation, OWASP-compliant CSRF protection, comprehensive rate limiting, audit logging, and replay protection for check-ins.
+The SkateHubba API is **well-architected** with many security best practices already in place: bcrypt password hashing, session token hashing (SHA-256), TOTP MFA with AES-256-GCM encryption, timing-safe comparisons in critical paths, Zod input validation, OWASP-compliant CSRF protection, comprehensive rate limiting, audit logging, replay protection for check-ins, and atomic Stripe payment idempotency via `consumedPaymentIntents`.
 
-However, the audit identified **5 critical**, **6 high**, and **12 medium/low** findings that should be addressed.
+However, the audit identified **5 critical**, **10 high**, and **18 medium/low** findings that should be addressed.
 
 ---
 
@@ -105,6 +105,42 @@ However, the audit identified **5 critical**, **6 high**, and **12 medium/low** 
 - **Issue:** When the database is unreachable, `checkLockout()` returns `isLocked: false` with full remaining attempts. This means during a DB outage, brute-force protection is completely disabled. The code documents this as intentional, but it should be monitored.
 - **Recommendation:** Add alerting when this fallback triggers. Consider a conservative fail-closed mode or in-memory rate limiting as a secondary layer.
 
+#### H7. WebSocket Game Handlers Have No Rate Limiting
+- **File:** `server/socket/handlers/game.ts:46+`
+- **Issue:** Socket event handlers for `game:create`, `game:trick`, `game:pass`, `game:forfeit`, and `game:reconnect` have no rate limiting. A malicious client can spam these events to flood the database with writes and broadcast storms to game rooms. The HTTP API has 15+ rate limiters but the entire WebSocket layer has none for application events.
+- **Fix:** Add per-socket rate limiting to all game/battle event handlers:
+  ```ts
+  const trickLimiter = createInMemoryRateLimiter({ windowMs: 60000, max: 10 });
+  socket.on("game:trick", async (input) => {
+    if (!trickLimiter.check(socket.data.odv).allowed) {
+      return socket.emit("error", { code: "rate_limited" });
+    }
+    // ...
+  });
+  ```
+
+#### H8. TrickMint Video Path Validation Bypassable
+- **File:** `server/routes/trickmint.ts:194`
+- **Code:** `if (!videoPath.startsWith(\`trickmint/${userId}/\`))`
+- **Issue:** The prefix check `startsWith("trickmint/USER_ID/")` can be bypassed if a user ID is a prefix of another user ID (e.g., user `abc` matches `trickmint/abc-admin/file.mp4`). While UUID user IDs make this unlikely, the check is structurally unsound.
+- **Fix:** Split on `/` and check exact segment match:
+  ```ts
+  const segments = videoPath.split("/");
+  if (segments[0] !== "trickmint" || segments[1] !== userId) {
+    return res.status(403).json({ error: "Upload path does not belong to you" });
+  }
+  ```
+
+#### H9. Stripe Webhook Missing Event Deduplication
+- **File:** `server/routes/stripeWebhook.ts:56-96`
+- **Issue:** The webhook handler for `checkout.session.completed` checks `user.accountTier === "premium"` as a guard against double-processing, but this is a **TOCTOU race** — two concurrent webhook deliveries for the same event could both read `accountTier !== "premium"` before either write completes. The `/api/tier/purchase-premium` endpoint correctly uses `consumedPaymentIntents` with `SELECT FOR UPDATE`, but the webhook path does not.
+- **Fix:** Add Stripe event ID deduplication: store `event.id` before processing and skip if already seen. Or wrap the entire upgrade in a `SELECT FOR UPDATE` transaction like the purchase-premium endpoint does.
+
+#### H10. Remote S.K.A.T.E. Offense Can Unilaterally Decide Round Results
+- **File:** `server/routes/remoteSkate.ts:106-140`
+- **Issue:** Only the offense player resolves rounds by declaring "landed" or "missed". There's no verification that the defense player agrees with the result. An offense player can always claim the defense "missed" to accumulate letters against them. This is a game integrity issue — the attacker can win every game by always calling "missed".
+- **Fix:** Require both players to submit a result and flag disputes when they disagree. Alternatively, add a dispute mechanism or community voting on contested rounds.
+
 ---
 
 ### MEDIUM
@@ -139,6 +175,51 @@ However, the audit identified **5 critical**, **6 high**, and **12 medium/low** 
 - **Issue:** The early return on length mismatch leaks string length via timing. This function isn't currently used in critical paths, but it's a footgun if someone uses it for token comparison.
 - **Fix:** Pad both inputs to equal length before comparing, or document it as unsafe for secret comparison.
 
+#### M7. OSM Discovery Passes Unvalidated Radius to Overpass API
+- **File:** `server/services/osmDiscovery.ts:85-109`
+- **Issue:** The `discoverSkateparks()` function accepts a `radiusMeters` parameter (default 50000) that is interpolated directly into the Overpass QL query string. While lat/lng are validated at the route level (`server/routes.ts:111-118`), `radiusMeters` is never validated. A caller passing an extremely large radius could cause expensive Overpass queries (potential DoS of the external API) or negative values causing unexpected behavior.
+- **Fix:** Validate at the service level:
+  ```ts
+  if (radiusMeters < 1000 || radiusMeters > 100000) {
+    throw new Error("Radius out of bounds");
+  }
+  ```
+
+#### M8. Pro Award Tier Error Response Leaks Target User's Current Tier
+- **File:** `server/routes/tier.ts:96-99`
+- **Code:** `currentTier: targetUser.accountTier`
+- **Issue:** When a premium user tries to award Pro to a user who already has Pro/Premium, the error response includes `currentTier`. This leaks another user's account tier to the awarder.
+- **Fix:** Return generic error without `currentTier`:
+  ```ts
+  return { error: "ALREADY_UPGRADED", message: "User already has an upgraded account." };
+  ```
+
+#### M9. Checkout Session `success_url` Derived from Request Origin
+- **File:** `server/routes/tier.ts:188-220`
+- **Issue:** The Stripe Checkout `success_url` and `cancel_url` are constructed from `req.headers.origin` or `req.headers.referer`. If neither is present, it falls back to `DEV_DEFAULT_ORIGIN` (localhost). A malicious client could send a crafted `Origin` header to redirect the Stripe Checkout completion to an attacker-controlled domain, enabling phishing. The `origin` header is not validated against the CORS allowlist.
+- **Fix:** Validate that the origin is in the allowed origins list:
+  ```ts
+  const allowed = process.env.ALLOWED_ORIGINS?.split(",") || [];
+  if (!origin || !allowed.includes(origin)) {
+    origin = process.env.PRODUCTION_URL || DEV_DEFAULT_ORIGIN;
+  }
+  ```
+
+#### M10. Notification Quiet Hours Stored but Never Enforced
+- **File:** `server/routes/notifications.ts` (schema) + `server/services/notificationService.ts`
+- **Issue:** Users can configure `quietHoursStart` and `quietHoursEnd` in notification preferences, but the notification service never checks these values before sending push notifications. Users expecting quiet hours will still receive notifications during those periods.
+- **Fix:** Check quiet hours in `notifyUser()` before dispatching.
+
+#### M11. View Counter Increment Has No Deduplication
+- **File:** `server/routes/trickmint.ts:73-97,414`
+- **Issue:** Every `GET /api/trickmint/:id` request increments the view counter, even for the same user viewing the same clip repeatedly. A single user can inflate view counts by refreshing the page.
+- **Fix:** Track views per-user (Redis set or DB unique constraint on `(clip_id, user_id)`) and only increment for first view.
+
+#### M12. Remote S.K.A.T.E. Error Messages Leak Game State
+- **File:** `server/routes/remoteSkate.ts:200-216`
+- **Issue:** Error messages like "Only offense can resolve a round", "Game is not active", "Round is not ready for resolution" are returned directly to the client. These reveal internal game state to any authenticated user who guesses game/round IDs.
+- **Fix:** Use generic error messages and log details server-side only.
+
 ---
 
 ### LOW / INFORMATIONAL
@@ -166,6 +247,32 @@ However, the audit identified **5 critical**, **6 high**, and **12 medium/low** 
 - **File:** `server/auth/middleware.ts:39-67`
 - **Note:** The `X-Dev-Admin: true` header bypass grants full admin access. It's gated on `NODE_ENV === "development" || "test"` which is correct, but if NODE_ENV is misconfigured in a deployment, this is catastrophic. Consider adding a second check (e.g., `DEV_BYPASS_ENABLED=true` environment variable).
 
+#### L7. FFmpeg Called via `execFile` — Safe but Worth Documenting
+- **File:** `server/services/videoTranscoder.ts:200-258`
+- **Note:** The transcoder uses `execFile()` (not `exec()`), which avoids shell interpretation and prevents command injection. Quality presets are hardcoded in `QUALITY_PRESETS`. This is the correct approach. However, `opts.targetBitrate` is interpolated into the `bufsize` argument string (`${parseInt(opts.targetBitrate) * 2}M`) — if `targetBitrate` somehow becomes non-numeric, `parseInt` returns `NaN` and the argument becomes `NaNM`. This won't cause injection but will cause ffmpeg to error.
+- **Recommendation:** Add a validation guard on `targetBitrate` format.
+
+#### L8. `typing` Socket Event Broadcasts Without Validation
+- **File:** `server/socket/index.ts:136-142`
+- **Note:** The `typing` event broadcasts `isTyping` to a room without validating that the sender is actually a member of that room. A user could send typing indicators to any room ID.
+- **Fix:** Verify socket is in the target room before broadcasting.
+
+#### L9. Stripe SDK Instantiated Per-Request
+- **File:** `server/routes/stripeWebhook.ts:32-33`, `server/routes/tier.ts:185-186`
+- **Note:** The Stripe SDK is dynamically imported and instantiated on every webhook/checkout request. This creates unnecessary overhead. The Stripe client should be initialized once at module level.
+
+#### L10. `DELETE /api/trickmint/:id` Missing Storage File Cleanup
+- **File:** `server/routes/trickmint.ts:427-461`
+- **Note:** Deleting a clip removes the database record but doesn't delete the actual video/thumbnail files from Firebase Storage. Orphaned files will accumulate and incur storage costs.
+
+#### L11. `GET /api/trickmint/upload/limits` Not Behind Auth
+- **File:** `server/routes/trickmint.ts:467-475`
+- **Note:** The upload limits endpoint is public (no `authenticateUser`), even though the parent router applies `authenticateUser` in `routes.ts:73`. This endpoint isn't sensitive, but worth verifying it's intentionally public.
+
+#### L12. Monitoring Routes Registered After Catch-All in Production
+- **File:** `server/index.ts:165` vs `server/index.ts:205`
+- **Note:** `registerMonitoringRoutes(app)` is called on line 165, but the production catch-all `app.get("*", ...)` on line 205 could shadow monitoring routes if they use GET and aren't registered before the catch-all. Verify that health check routes are accessible in production.
+
 ---
 
 ## Positive Findings (Things Done Well)
@@ -189,6 +296,11 @@ However, the audit identified **5 critical**, **6 high**, and **12 medium/low** 
 | **Account lockout** | 5-attempt lockout with 15-minute cooldown |
 | **Email validation** | ReDoS-safe, RFC-compliant email regex |
 | **Graceful shutdown** | SIGTERM/SIGINT handlers for clean WebSocket and Redis shutdown |
+| **Payment idempotency** | `purchase-premium` uses `consumedPaymentIntents` with `SELECT FOR UPDATE` — prevents double-spend |
+| **Pro award caps** | Atomic transaction with count check prevents unlimited Pro awards |
+| **FFmpeg safety** | Uses `execFile()` (not `exec()`) — no shell injection vector |
+| **Socket.io auth** | Firebase token verification + rate limiting on WebSocket connections |
+| **LIKE wildcard escape** | Search queries escape `%`, `_`, `\` to prevent wildcard injection |
 
 ---
 
@@ -202,12 +314,29 @@ However, the audit identified **5 critical**, **6 high**, and **12 medium/low** 
 | P1 (Before launch) | C2: Socket.io wildcard CORS | 1 line |
 | P1 (Before launch) | H2: Email exposure in user search | 5 lines |
 | P1 (Before launch) | H3: Firebase UID leak in quick match | 1 line |
+| P1 (Before launch) | H7: WebSocket game handler rate limiting | Medium |
+| P1 (Before launch) | H9: Stripe webhook event deduplication | Medium |
+| P1 (Before launch) | H10: Remote S.K.A.T.E. unilateral resolution | Medium |
 | P2 (Soon after launch) | C4: MFA encryption key separation | Medium |
 | P2 (Soon after launch) | H1: Optional auth ignores cookies | 15 lines |
 | P2 (Soon after launch) | H4: Password change re-auth guard | 1 line |
+| P2 (Soon after launch) | H8: TrickMint path validation | 5 lines |
 | P2 (Soon after launch) | M3: Stripe webhook error handling | Medium |
+| P2 (Soon after launch) | M9: Checkout redirect origin validation | 10 lines |
 | P3 (Backlog) | All remaining medium/low findings | Various |
 
 ---
 
-*End of audit report.*
+## Finding Count Summary
+
+| Severity | Count |
+|----------|-------|
+| Critical | 5 |
+| High | 10 |
+| Medium | 12 |
+| Low / Informational | 12 |
+| **Total** | **39** |
+
+---
+
+*End of audit report. — Second pass complete.*
