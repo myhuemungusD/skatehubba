@@ -64,6 +64,11 @@ vi.mock("@shared/schema", () => ({
     premiumPurchasedAt: "premiumPurchasedAt",
     updatedAt: "updatedAt",
   },
+  consumedPaymentIntents: {
+    id: "id",
+    paymentIntentId: "paymentIntentId",
+    userId: "userId",
+  },
 }));
 
 // Mock database
@@ -72,14 +77,28 @@ const mockDbReturns = {
   updateResult: [] as any[],
 };
 
+// Track calls to differentiate between tx queries (consumed check, user check) and post-tx queries (email lookup)
+let selectCallCount = 0;
+
 let mockIsDatabaseAvailable = true;
 
-vi.mock("../../db", () => ({
-  getDb: () => ({
+function createMockDb() {
+  const db: any = {
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
+          limit: vi.fn().mockImplementation(() => {
+            // Returns a thenable that also has .for() for SELECT ... FOR UPDATE chains
+            const result = Promise.resolve(mockDbReturns.selectResult);
+            (result as any).for = vi.fn().mockImplementation(() => {
+              selectCallCount++;
+              // First .for("update") call = consumedPaymentIntents check → return [] (not consumed)
+              // Second .for("update") call = user check → return selectResult
+              if (selectCallCount === 1) return Promise.resolve([]);
+              return Promise.resolve(mockDbReturns.selectResult);
+            });
+            return result;
+          }),
         }),
       }),
     }),
@@ -88,7 +107,16 @@ vi.mock("../../db", () => ({
         where: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
       }),
     }),
-  }),
+    insert: vi.fn().mockReturnValue({
+      values: vi.fn().mockResolvedValue(undefined),
+    }),
+    transaction: vi.fn(async (cb: Function) => cb(db)),
+  };
+  return db;
+}
+
+vi.mock("../../db", () => ({
+  getDb: () => createMockDb(),
   isDatabaseAvailable: () => mockIsDatabaseAvailable,
 }));
 
@@ -151,6 +179,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
     mockDbReturns.selectResult = [];
     mockDbReturns.updateResult = [];
     mockIsDatabaseAvailable = true;
+    selectCallCount = 0;
 
     // Default mock behaviors
     mockSendPaymentReceiptEmail.mockResolvedValue(undefined);
@@ -434,7 +463,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
-    it("throws when database is unavailable", async () => {
+    it("returns 500 when database is unavailable (so Stripe retries)", async () => {
       mockIsDatabaseAvailable = false;
 
       const session: Stripe.Checkout.Session = {
@@ -448,7 +477,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       } as any;
 
       const event: Stripe.Event = {
-        id: "evt_123",
+        id: "evt_db_unavail",
         type: "checkout.session.completed",
         data: {
           object: session,
@@ -464,7 +493,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
 
       await callWebhook(req, res);
 
-      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.status).toHaveBeenCalledWith(500);
 
       // Restore for other tests
       mockIsDatabaseAvailable = true;
