@@ -135,7 +135,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
     vi.clearAllMocks();
 
     // Clear route handlers
-    Object.keys(_routeHandlers).forEach(key => delete _routeHandlers[key]);
+    Object.keys(_routeHandlers).forEach((key) => delete _routeHandlers[key]);
 
     // Save original env
     originalEnv = process.env;
@@ -769,6 +769,35 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
   });
 
   // ==========================================================================
+  // Event Deduplication (in-memory fallback)
+  // ==========================================================================
+
+  describe("Event Deduplication", () => {
+    it("should reject duplicate events via in-memory fallback", async () => {
+      const event: Stripe.Event = {
+        id: "evt_dedup_test",
+        type: "customer.created" as any,
+        data: { object: {} as any },
+      } as any;
+
+      mockConstructEvent.mockReturnValue(event);
+
+      // First call — event is new
+      const req1 = mockRequest({ headers: { "stripe-signature": "sig" } });
+      const res1 = mockResponse();
+      await callWebhook(req1, res1);
+      expect(res1.status).toHaveBeenCalledWith(200);
+
+      // Second call with same event ID — duplicate
+      const req2 = mockRequest({ headers: { "stripe-signature": "sig" } });
+      const res2 = mockResponse();
+      await callWebhook(req2, res2);
+      expect(res2.status).toHaveBeenCalledWith(200);
+      expect(res2.send).toHaveBeenCalledWith("OK");
+    });
+  });
+
+  // ==========================================================================
   // Other Event Types
   // ==========================================================================
 
@@ -848,5 +877,4 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
   });
-
 });

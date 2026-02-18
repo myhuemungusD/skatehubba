@@ -450,6 +450,65 @@ describe("RemoteSkateService", () => {
     });
   });
 
+  describe("confirmRound", () => {
+    it("should call confirm API with correct parameters", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ disputed: false, result: "landed" }),
+      });
+
+      const result = await RemoteSkateService.confirmRound("game-1", "round-1", "landed");
+
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/remote-skate/game-1/rounds/round-1/confirm",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            Authorization: "Bearer mock-token",
+          }),
+          body: JSON.stringify({ result: "landed" }),
+        })
+      );
+      expect(result).toEqual({ disputed: false, result: "landed" });
+    });
+
+    it("should throw on confirm API error", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: vi.fn().mockResolvedValue({ error: "Only defense can confirm" }),
+      });
+
+      await expect(RemoteSkateService.confirmRound("game-1", "round-1", "missed")).rejects.toThrow(
+        "Only defense can confirm"
+      );
+    });
+
+    it("should throw when not logged in for confirm", async () => {
+      const { auth } = await import("../firebase");
+      const original = auth.currentUser;
+      (auth as any).currentUser = null;
+
+      await expect(RemoteSkateService.confirmRound("game-1", "round-1", "landed")).rejects.toThrow(
+        "Must be logged in"
+      );
+
+      (auth as any).currentUser = original;
+    });
+
+    it("should handle JSON parse failure on confirm error response", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: vi.fn().mockRejectedValue(new Error("parse error")),
+      });
+
+      await expect(RemoteSkateService.confirmRound("game-1", "round-1", "landed")).rejects.toThrow(
+        "Unknown error"
+      );
+    });
+  });
+
   describe("resolveRound", () => {
     it("should call API with correct parameters", async () => {
       global.fetch = vi.fn().mockResolvedValue({
