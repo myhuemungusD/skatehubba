@@ -8,7 +8,10 @@ import {
 import type { GameSession, Spot } from "@/types";
 
 /** Reconnection window in milliseconds (120 seconds) */
-const RECONNECT_WINDOW_MS = 120 * 1000;
+export const RECONNECT_WINDOW_MS = 120 * 1000;
+
+/** Reconnection window in whole seconds, derived from {@link RECONNECT_WINDOW_MS} */
+export const RECONNECT_WINDOW_SECONDS = RECONNECT_WINDOW_MS / 1000;
 
 interface NetworkState {
   /** Current network connectivity status */
@@ -38,7 +41,7 @@ const initialState: NetworkState = {
   isConnected: true,
   isReconnecting: false,
   offlineSince: null,
-  reconnectSecondsRemaining: 120,
+  reconnectSecondsRemaining: RECONNECT_WINDOW_SECONDS,
   reconnectExpired: false,
   activeGameIdOnDisconnect: null,
 };
@@ -65,7 +68,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
         isConnected: true,
         isReconnecting: false,
         offlineSince: null,
-        reconnectSecondsRemaining: 120,
+        reconnectSecondsRemaining: RECONNECT_WINDOW_SECONDS,
         // Keep reconnectExpired state to inform UI of failed reconnection
         reconnectExpired: wasExpired,
       });
@@ -77,7 +80,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
         isConnected: false,
         isReconnecting: state.activeGameIdOnDisconnect !== null,
         offlineSince: now,
-        reconnectSecondsRemaining: 120,
+        reconnectSecondsRemaining: RECONNECT_WINDOW_SECONDS,
         reconnectExpired: false,
       });
 
@@ -103,7 +106,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
       set({
         isReconnecting: true,
         offlineSince: Date.now(),
-        reconnectSecondsRemaining: 120,
+        reconnectSecondsRemaining: RECONNECT_WINDOW_SECONDS,
       });
 
       reconnectIntervalId = setInterval(() => {
@@ -156,7 +159,7 @@ export const useNetworkStore = create<NetworkStore>((set, get) => ({
     }
     set({
       reconnectExpired: false,
-      reconnectSecondsRemaining: 120,
+      reconnectSecondsRemaining: RECONNECT_WINDOW_SECONDS,
       offlineSince: null,
       isReconnecting: false,
     });

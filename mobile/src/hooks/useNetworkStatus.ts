@@ -4,6 +4,13 @@ import { AppState, AppStateStatus } from "react-native";
 import { useNetworkStore } from "@/store/networkStore";
 
 /**
+ * Network polling interval in milliseconds.
+ * 15s is well within the 120s reconnection window, and the AppState "active"
+ * handler catches the most critical foreground transition immediately.
+ */
+const NETWORK_POLL_INTERVAL_MS = 15 * 1000;
+
+/**
  * Hook to monitor network connectivity and update the network store.
  * Should be used once at the app root level.
  */
@@ -42,10 +49,8 @@ export function useNetworkStatus() {
     // Initial check
     checkNetworkStatus();
 
-    // Set up polling interval (expo-network doesn't have subscription API).
-    // 15s is sufficient: AppState "active" handler (above) catches the most
-    // critical case, and 15s is well within the 120s reconnection window.
-    const intervalId = setInterval(checkNetworkStatus, 15_000);
+    // Set up polling interval (expo-network doesn't have a subscription API)
+    const intervalId = setInterval(checkNetworkStatus, NETWORK_POLL_INTERVAL_MS);
 
     // Listen for app state changes
     const appStateSubscription = AppState.addEventListener("change", handleAppStateChange);
