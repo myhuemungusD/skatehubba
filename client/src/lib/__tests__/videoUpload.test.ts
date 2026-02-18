@@ -15,7 +15,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("firebase/storage", () => ({
   ref: vi.fn(),
   uploadBytesResumable: vi.fn(),
-  getDownloadURL: vi.fn(),
 }));
 
 vi.mock("firebase/firestore", () => ({
@@ -407,11 +406,10 @@ describe("Video Upload", () => {
     });
 
     it("should handle successful upload completion", async () => {
-      const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
       const { doc, updateDoc } = await import("firebase/firestore");
       (doc as any).mockReturnValue({});
       (ref as any).mockReturnValue({});
-      (getDownloadURL as any).mockResolvedValue("https://download.example.com/video.mp4");
       (updateDoc as any).mockResolvedValue(undefined);
 
       let successCb: any;
@@ -437,16 +435,17 @@ describe("Video Upload", () => {
       );
 
       await successCb();
-      expect(onComplete).toHaveBeenCalledWith("https://download.example.com/video.mp4");
+      // onComplete now receives the storage path (signed URLs resolve it later)
+      expect(onComplete).toHaveBeenCalledWith("videos/u1/g1/r1/v1.mp4");
     });
 
     it("should handle post-upload processing failure", async () => {
-      const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
       const { doc, updateDoc } = await import("firebase/firestore");
       (doc as any).mockReturnValue({});
       (ref as any).mockReturnValue({});
-      (getDownloadURL as any).mockRejectedValue(new Error("URL fetch failed"));
-      (updateDoc as any).mockResolvedValue(undefined);
+      // Make updateDoc reject to trigger the post-upload error path
+      (updateDoc as any).mockRejectedValue(new Error("Firestore update failed"));
 
       let successCb: any;
       (uploadBytesResumable as any).mockReturnValue({
@@ -534,13 +533,12 @@ describe("Video Upload", () => {
     });
 
     it("should handle updateDoc failing in post-upload success handler (line 297)", async () => {
-      const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
       const { doc, updateDoc } = await import("firebase/firestore");
       const { logger } = await import("../logger");
       (doc as any).mockReturnValue({});
       (ref as any).mockReturnValue({});
-      (getDownloadURL as any).mockRejectedValue(new Error("getDownloadURL failed"));
-      // Make the first updateDoc (for status="failed") also fail
+      // Make updateDoc reject so the post-upload catch block runs, then inner updateDoc also fails
       (updateDoc as any).mockRejectedValue(new Error("Failed to update video doc"));
 
       let successCb: any;
@@ -641,12 +639,12 @@ describe("Video Upload", () => {
     });
 
     it("should handle non-Error thrown in post-upload (line 300-301)", async () => {
-      const { ref, uploadBytesResumable, getDownloadURL } = await import("firebase/storage");
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
       const { doc, updateDoc } = await import("firebase/firestore");
       (doc as any).mockReturnValue({});
       (ref as any).mockReturnValue({});
-      (getDownloadURL as any).mockRejectedValue("string-error"); // non-Error throw
-      (updateDoc as any).mockResolvedValue(undefined);
+      // Make updateDoc reject with a non-Error to trigger the catch path
+      (updateDoc as any).mockRejectedValue("string-error");
 
       let successCb: any;
       (uploadBytesResumable as any).mockReturnValue({

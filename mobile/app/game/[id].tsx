@@ -21,6 +21,7 @@ import {
   useJoinGame,
   useAbandonGame,
 } from "@/hooks/useGameSession";
+import { useVideoUrl } from "@/hooks/useVideoUrl";
 import { useGameStore, usePlayerRole, useActiveOverlay } from "@/store/gameStore";
 import { useNetworkStore, useReconnectionStatus } from "@/store/networkStore";
 import { LetterIndicator } from "@/components/game/LetterIndicator";
@@ -386,6 +387,18 @@ export default function GameScreen() {
     return [...gameSession.moves].reverse().find((m) => m.type === "match") || null;
   }, [gameSession]);
 
+  // Resolve video URLs via signed URL Cloud Function (falls back to clipUrl for legacy moves)
+  const setMoveVideo = useVideoUrl(
+    gameSession?.currentSetMove?.storagePath,
+    gameId || "",
+    gameSession?.currentSetMove?.clipUrl
+  );
+  const matchMoveVideo = useVideoUrl(
+    latestMatchMove?.storagePath,
+    gameId || "",
+    latestMatchMove?.clipUrl
+  );
+
   // Invalid game ID from deep link — show error instead of infinite spinner
   if (isInvalidId) {
     if (__DEV__) {
@@ -563,13 +576,17 @@ export default function GameScreen() {
             <Text style={styles.trickName}>{gameSession.currentSetMove.trickName}</Text>
           )}
           <VideoErrorBoundary>
-            <Video
-              source={{ uri: gameSession.currentSetMove.clipUrl }}
-              style={styles.previewVideo}
-              useNativeControls
-              isLooping
-              resizeMode={ResizeMode.CONTAIN}
-            />
+            {setMoveVideo.isLoading ? (
+              <ActivityIndicator color={SKATE.colors.orange} style={styles.previewVideo} />
+            ) : setMoveVideo.url ? (
+              <Video
+                source={{ uri: setMoveVideo.url }}
+                style={styles.previewVideo}
+                useNativeControls
+                isLooping
+                resizeMode={ResizeMode.CONTAIN}
+              />
+            ) : null}
           </VideoErrorBoundary>
         </View>
       )}
@@ -584,15 +601,19 @@ export default function GameScreen() {
 
           {/* Show the match attempt video with slow-mo replay option */}
           {latestMatchMove && (
-            <VideoErrorBoundary>
-              <SlowMoReplay
-                clipUrl={latestMatchMove.clipUrl}
-                trickName={latestMatchMove.trickName}
-                defaultSlowMo={false}
-                autoPlay={true}
-                style={styles.judgingVideo}
-              />
-            </VideoErrorBoundary>
+            matchMoveVideo.isLoading ? (
+              <ActivityIndicator color={SKATE.colors.orange} style={styles.judgingVideo} />
+            ) : matchMoveVideo.url ? (
+              <VideoErrorBoundary>
+                <SlowMoReplay
+                  clipUrl={matchMoveVideo.url}
+                  trickName={latestMatchMove.trickName}
+                  defaultSlowMo={false}
+                  autoPlay={true}
+                  style={styles.judgingVideo}
+                />
+              </VideoErrorBoundary>
+            ) : null
           )}
 
           {/* Voting status */}

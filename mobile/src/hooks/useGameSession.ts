@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { doc, onSnapshot, Timestamp } from "firebase/firestore";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
 import { z } from "zod";
 import { db, storage, auth, functions } from "@/lib/firebase.config";
@@ -41,6 +41,7 @@ const MoveSchema = z.object({
   type: z.enum(["set", "match"]),
   trickName: z.string().nullable(),
   clipUrl: z.string(),
+  storagePath: z.string().nullable().optional().default(null),
   thumbnailUrl: z.string().nullable(),
   durationSec: z.number().default(15),
   result: MoveResultSchema.default("pending"),
@@ -142,12 +143,12 @@ async function uploadWithRetry(
   storageRef: ReturnType<typeof ref>,
   blob: Blob,
   onProgress: (progress: number) => void
-): Promise<string> {
+): Promise<void> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      return await new Promise<string>((resolve, reject) => {
+      await new Promise<void>((resolve, reject) => {
         const uploadTask = uploadBytesResumable(storageRef, blob, {
           contentType: "video/mp4",
         });
@@ -161,12 +162,14 @@ async function uploadWithRetry(
             }
           },
           (error) => reject(error),
-          async () => {
-            const url = await getDownloadURL(uploadTask.snapshot.ref);
-            resolve(url);
+          () => {
+            // No longer fetching download URL — video access is now
+            // mediated by the getVideoUrl Cloud Function with signed URLs
+            resolve();
           }
         );
       });
+      return;
     } catch (error) {
       lastError = error as Error;
       if (attempt < MAX_RETRIES) {
@@ -261,7 +264,7 @@ export function useSubmitTrick(gameId: string) {
       const response = await fetch(localVideoUri);
       const blob = await response.blob();
 
-      const clipUrl = await uploadWithRetry(storageRef, blob, (progress) => {
+      await uploadWithRetry(storageRef, blob, (progress) => {
         setUploadProgress(progress);
       });
 
@@ -272,6 +275,7 @@ export function useSubmitTrick(gameId: string) {
         {
           gameId: string;
           clipUrl: string;
+          storagePath: string;
           trickName: string | null;
           isSetTrick: boolean;
           idempotencyKey: string;
@@ -281,7 +285,8 @@ export function useSubmitTrick(gameId: string) {
 
       const result = await submitTrick({
         gameId,
-        clipUrl,
+        clipUrl: "",
+        storagePath,
         trickName,
         isSetTrick,
         idempotencyKey,

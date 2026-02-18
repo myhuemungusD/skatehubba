@@ -45,6 +45,7 @@ const mocks = vi.hoisted(() => {
   const bucketFile = {
     download: vi.fn().mockResolvedValue(undefined),
     delete: vi.fn().mockResolvedValue(undefined),
+    getSignedUrl: vi.fn().mockResolvedValue(["https://storage.example.com/signed?token=abc"]),
   };
 
   const bucket = {
@@ -159,6 +160,7 @@ import {
   getUserRoles,
   submitTrick,
   judgeTrick,
+  getVideoUrl,
   validateChallengeVideo,
   processVoteTimeouts,
 } from "./index";
@@ -219,6 +221,9 @@ describe("SkateHubba Cloud Functions", () => {
     mocks.authInstance.setCustomUserClaims.mockResolvedValue(undefined);
     mocks.bucketFile.download.mockResolvedValue(undefined);
     mocks.bucketFile.delete.mockResolvedValue(undefined);
+    mocks.bucketFile.getSignedUrl.mockResolvedValue([
+      "https://storage.example.com/signed?token=abc",
+    ]);
     mocks.messagingInstance.send.mockResolvedValue("msg-id");
   });
 
@@ -642,17 +647,39 @@ describe("SkateHubba Cloud Functions", () => {
           { gameId: "", clipUrl: "u", trickName: null, isSetTrick: true, idempotencyKey: "k" },
           ctx
         )
-      ).rejects.toThrow("Missing gameId, clipUrl, or idempotencyKey");
+      ).rejects.toThrow("Missing gameId, clipUrl/storagePath, or idempotencyKey");
     });
 
-    it("rejects missing clipUrl", async () => {
+    it("rejects missing clipUrl and storagePath", async () => {
       const ctx = makeContext({ uid: freshUid("st") });
       await expect(
         (submitTrick as any)(
           { gameId: "g", clipUrl: "", trickName: null, isSetTrick: true, idempotencyKey: "k" },
           ctx
         )
-      ).rejects.toThrow("Missing gameId, clipUrl, or idempotencyKey");
+      ).rejects.toThrow("Missing gameId, clipUrl/storagePath, or idempotencyKey");
+    });
+
+    it("accepts storagePath when clipUrl is empty", async () => {
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => baseGame() });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (submitTrick as any)(
+        {
+          gameId: "g",
+          clipUrl: "",
+          storagePath: "videos/p1/g/round_1/abc.mp4",
+          trickName: "kickflip",
+          isSetTrick: true,
+          idempotencyKey: "k-sp",
+        },
+        ctx
+      );
+      expect(res.success).toBe(true);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      const move = update.moves[0];
+      expect(move.storagePath).toBe("videos/p1/g/round_1/abc.mp4");
+      expect(move.clipUrl).toBe("");
     });
 
     it("rejects missing idempotencyKey", async () => {
@@ -662,7 +689,7 @@ describe("SkateHubba Cloud Functions", () => {
           { gameId: "g", clipUrl: "u", trickName: null, isSetTrick: true, idempotencyKey: "" },
           ctx
         )
-      ).rejects.toThrow("Missing gameId, clipUrl, or idempotencyKey");
+      ).rejects.toThrow("Missing gameId, clipUrl/storagePath, or idempotencyKey");
     });
 
     it("throws not-found when game does not exist", async () => {
@@ -882,6 +909,326 @@ describe("SkateHubba Cloud Functions", () => {
       // Should still find the dup key but move is undefined
       expect(res.duplicate).toBe(true);
       expect(res.moveId).toBe("unknown");
+    });
+  });
+
+  // ==========================================================================
+  // getVideoUrl
+  // ==========================================================================
+
+  describe("getVideoUrl", () => {
+    it("rejects unauthenticated caller", async () => {
+      await expect(
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/u/g/r/f.mp4" }, noAuthContext())
+      ).rejects.toThrow("Not logged in");
+    });
+
+    it("rejects missing gameId", async () => {
+      const ctx = makeContext({ uid: freshUid("gv") });
+      await expect(
+        (getVideoUrl as any)({ gameId: "", storagePath: "videos/u/g/r/f.mp4" }, ctx)
+      ).rejects.toThrow("Missing gameId or storagePath");
+    });
+
+    it("rejects missing storagePath", async () => {
+      const ctx = makeContext({ uid: freshUid("gv") });
+      await expect((getVideoUrl as any)({ gameId: "g", storagePath: "" }, ctx)).rejects.toThrow(
+        "Missing gameId or storagePath"
+      );
+    });
+
+    it("rejects storagePath not starting with videos/", async () => {
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
+      await expect(
+        (getVideoUrl as any)({ gameId: "g", storagePath: "uploads/u/file.mp4" }, ctx)
+      ).rejects.toThrow("Invalid storage path");
+    });
+
+    it("rejects storagePath with path traversal", async () => {
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
+      await expect(
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/../secrets/key.json" }, ctx)
+      ).rejects.toThrow("Invalid storage path");
+    });
+
+    it("rejects non-participant in game_sessions", async () => {
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: "p1", player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid: "outsider" });
+      await expect(
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/p1/g/r/f.mp4" }, ctx)
+      ).rejects.toThrow("Not a participant");
+    });
+
+    it("returns not-found when game does not exist in either collection", async () => {
+      mocks.docRef.get.mockResolvedValue({ exists: false, data: () => ({}) });
+      const ctx = makeContext({ uid: freshUid("gv") });
+      await expect(
+        (getVideoUrl as any)({ gameId: "ghost", storagePath: "videos/u/ghost/r/f.mp4" }, ctx)
+      ).rejects.toThrow("Game not found");
+    });
+
+    it("returns signed URL for valid participant in game_sessions", async () => {
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: "p1", player2Id: "p2", status: "active" }),
+      });
+      mocks.bucketFile.getSignedUrl.mockResolvedValue([
+        "https://storage.example.com/signed?token=xyz",
+      ]);
+
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (getVideoUrl as any)(
+        { gameId: "g", storagePath: "videos/p1/g/round_1/abc.mp4" },
+        ctx
+      );
+
+      expect(res.signedUrl).toBe("https://storage.example.com/signed?token=xyz");
+      expect(res.expiresAt).toBeDefined();
+      expect(new Date(res.expiresAt).getTime()).toBeGreaterThan(Date.now());
+      expect(mocks.bucket.file).toHaveBeenCalledWith("videos/p1/g/round_1/abc.mp4");
+      expect(mocks.bucketFile.getSignedUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          version: "v4",
+          action: "read",
+        })
+      );
+    });
+
+    it("returns signed URL for player2 in game_sessions", async () => {
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: "p1", player2Id: "p2", status: "active" }),
+      });
+      mocks.bucketFile.getSignedUrl.mockResolvedValue([
+        "https://storage.example.com/signed?token=p2",
+      ]);
+
+      const ctx = makeContext({ uid: "p2" });
+      const res = await (getVideoUrl as any)(
+        { gameId: "g", storagePath: "videos/p1/g/round_1/abc.mp4" },
+        ctx
+      );
+
+      expect(res.signedUrl).toBe("https://storage.example.com/signed?token=p2");
+    });
+
+    it("falls back to web games collection when game_sessions doc missing", async () => {
+      // First call (game_sessions) returns not found, second call (games) returns found
+      let callCount = 0;
+      mocks.docRef.get.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({ exists: false, data: () => ({}) });
+        }
+        return Promise.resolve({
+          exists: true,
+          data: () => ({ playerAUid: "pA", playerBUid: "pB", status: "active" }),
+        });
+      });
+      mocks.bucketFile.getSignedUrl.mockResolvedValue([
+        "https://storage.example.com/signed?web=true",
+      ]);
+
+      const ctx = makeContext({ uid: "pA" });
+      const res = await (getVideoUrl as any)(
+        { gameId: "wg", storagePath: "videos/pA/wg/round_1/abc.mp4" },
+        ctx
+      );
+
+      expect(res.signedUrl).toBe("https://storage.example.com/signed?web=true");
+      // Should have called doc() for both game_sessions and games
+      expect(mocks.firestoreInstance.doc).toHaveBeenCalledWith("game_sessions/wg");
+      expect(mocks.firestoreInstance.doc).toHaveBeenCalledWith("games/wg");
+    });
+
+    it("rejects non-participant in web games collection", async () => {
+      let callCount = 0;
+      mocks.docRef.get.mockImplementation(() => {
+        callCount++;
+        if (callCount === 1) {
+          return Promise.resolve({ exists: false, data: () => ({}) });
+        }
+        return Promise.resolve({
+          exists: true,
+          data: () => ({ playerAUid: "pA", playerBUid: "pB" }),
+        });
+      });
+
+      const ctx = makeContext({ uid: "outsider" });
+      await expect(
+        (getVideoUrl as any)({ gameId: "wg", storagePath: "videos/pA/wg/round_1/abc.mp4" }, ctx)
+      ).rejects.toThrow("Not a participant");
+    });
+
+    it("rejects storagePath with null byte injection", async () => {
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
+      await expect(
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/uid/gid/round_1/file\0.mp4" }, ctx)
+      ).rejects.toThrow("Invalid storage path");
+    });
+
+    it("rejects storagePath missing the round_ prefix", async () => {
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
+      await expect(
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/uid/gid/noprefix/file.mp4" }, ctx)
+      ).rejects.toThrow("Invalid storage path");
+    });
+
+    it("rejects storagePath with too few segments", async () => {
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
+      await expect(
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/uid/file.mp4" }, ctx)
+      ).rejects.toThrow("Invalid storage path");
+    });
+
+    it("rejects storagePath with directory traversal in segments", async () => {
+      const uid = freshUid("gv");
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
+      });
+      const ctx = makeContext({ uid });
+      await expect(
+        (getVideoUrl as any)(
+          { gameId: "g", storagePath: "videos/uid/../admin/round_1/file.mp4" },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storage path");
+    });
+
+    it("propagates storage SDK error to caller", async () => {
+      mocks.docRef.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ player1Id: "p1", player2Id: "p2" }),
+      });
+      mocks.bucketFile.getSignedUrl.mockRejectedValue(
+        new Error("Service account missing signBlob permission")
+      );
+
+      const ctx = makeContext({ uid: "p1" });
+      await expect(
+        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/p1/g/round_1/abc.mp4" }, ctx)
+      ).rejects.toThrow("Service account missing signBlob permission");
+    });
+  });
+
+  // ==========================================================================
+  // submitTrick - storagePath validation
+  // ==========================================================================
+
+  describe("submitTrick - storagePath validation", () => {
+    it("rejects malformed storagePath", async () => {
+      const ctx = makeContext({ uid: freshUid("st") });
+      await expect(
+        (submitTrick as any)(
+          {
+            gameId: "g",
+            clipUrl: "",
+            storagePath: "videos/../etc/passwd",
+            trickName: null,
+            isSetTrick: true,
+            idempotencyKey: "k",
+          },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storagePath format");
+    });
+
+    it("rejects storagePath with null bytes", async () => {
+      const ctx = makeContext({ uid: freshUid("st") });
+      await expect(
+        (submitTrick as any)(
+          {
+            gameId: "g",
+            clipUrl: "",
+            storagePath: "videos/uid/gid/round_1/file\0.mp4",
+            trickName: null,
+            isSetTrick: true,
+            idempotencyKey: "k",
+          },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storagePath format");
+    });
+
+    it("rejects storagePath that does not match expected structure", async () => {
+      const ctx = makeContext({ uid: freshUid("st") });
+      await expect(
+        (submitTrick as any)(
+          {
+            gameId: "g",
+            clipUrl: "",
+            storagePath: "uploads/uid/file.mp4",
+            trickName: null,
+            isSetTrick: true,
+            idempotencyKey: "k",
+          },
+          ctx
+        )
+      ).rejects.toThrow("Invalid storagePath format");
+    });
+
+    it("stores null storagePath when not provided", async () => {
+      const baseGame = {
+        player1Id: "p1",
+        player2Id: "p2",
+        currentTurn: "p1",
+        currentAttacker: "p1",
+        turnPhase: "attacker_recording",
+        roundNumber: 1,
+        moves: [],
+        processedIdempotencyKeys: [],
+        currentSetMove: null,
+        player1Letters: [],
+        player2Letters: [],
+        status: "active",
+      };
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => baseGame });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (submitTrick as any)(
+        {
+          gameId: "g",
+          clipUrl: "https://legacy.url/clip.mp4",
+          trickName: null,
+          isSetTrick: true,
+          idempotencyKey: "k-legacy",
+        },
+        ctx
+      );
+      expect(res.success).toBe(true);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      const move = update.moves[0];
+      expect(move.storagePath).toBeNull();
+      expect(move.clipUrl).toBe("https://legacy.url/clip.mp4");
     });
   });
 
