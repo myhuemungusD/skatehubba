@@ -44,6 +44,11 @@ vi.mock("../../../logger", () => ({
   },
 }));
 
+vi.mock("../../socketRateLimit", () => ({
+  registerRateLimitRules: vi.fn(),
+  checkRateLimit: vi.fn(() => true),
+}));
+
 describe("Game Socket Handlers Integration", () => {
   let mockSocket: any;
   let mockIo: any;

@@ -196,8 +196,16 @@ router.post("/confirm-upload", authenticateUser, async (req, res) => {
   const { trickName, description, videoPath, thumbnailPath, videoDurationMs, spotId, isPublic } =
     parsed.data;
 
-  // Ensure the path belongs to this user
-  if (!videoPath.startsWith(`trickmint/${userId}/`)) {
+  // Ensure the path belongs to this user.
+  // Reject path traversal sequences and validate the full path structure
+  // with a strict regex rather than a prefix-only startsWith check.
+  const safePathPattern = /^trickmint\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_.\-/]+$/;
+  if (
+    videoPath.includes("..") ||
+    videoPath.includes("//") ||
+    !safePathPattern.test(videoPath) ||
+    !videoPath.startsWith(`trickmint/${userId}/`)
+  ) {
     return res.status(403).json({ error: "Upload path does not belong to you" });
   }
 

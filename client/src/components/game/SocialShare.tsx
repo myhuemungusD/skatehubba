@@ -50,7 +50,7 @@ export function SocialShare({
         description: "Share this link with your crew",
       });
       setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Failed to copy",
         description: "Please try again",
