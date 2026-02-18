@@ -32,7 +32,6 @@ vi.mock("firebase/firestore", () => ({
 vi.mock("firebase/storage", () => ({
   ref: vi.fn(),
   uploadBytesResumable: vi.fn(),
-  getDownloadURL: vi.fn(),
 }));
 
 vi.mock("firebase/functions", () => ({
@@ -71,6 +70,7 @@ const MoveSchema = z.object({
   type: z.enum(["set", "match"]),
   trickName: z.string().nullable(),
   clipUrl: z.string(),
+  storagePath: z.string().nullable().optional().default(null),
   thumbnailUrl: z.string().nullable(),
   durationSec: z.number().default(15),
   result: MoveResultSchema.default("pending"),
@@ -225,6 +225,19 @@ describe("useGameSession - Zod validation schemas", () => {
 
     it("rejects missing required fields", () => {
       expect(() => MoveSchema.parse({ id: "move-1" })).toThrow();
+    });
+
+    it("defaults storagePath to null for legacy moves", () => {
+      const result = MoveSchema.parse(validMove);
+      expect(result.storagePath).toBeNull();
+    });
+
+    it("parses move with storagePath", () => {
+      const result = MoveSchema.parse({
+        ...validMove,
+        storagePath: "videos/user-123/game-abc/round_1/uuid.mp4",
+      });
+      expect(result.storagePath).toBe("videos/user-123/game-abc/round_1/uuid.mp4");
     });
   });
 

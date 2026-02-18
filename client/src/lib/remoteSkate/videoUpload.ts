@@ -7,7 +7,7 @@
  * @module lib/remoteSkate/videoUpload
  */
 
-import { ref, uploadBytesResumable, getDownloadURL, type UploadTask } from "firebase/storage";
+import { ref, uploadBytesResumable, type UploadTask } from "firebase/storage";
 import { doc, setDoc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { storage, db } from "../firebase";
 import { logger } from "../logger";
@@ -269,12 +269,11 @@ export function uploadVideo(
     // Success
     async () => {
       try {
-        const downloadURL = await getDownloadURL(storageRef);
-
-        // Update video doc: status="ready"
+        // Video access is now mediated by the getVideoUrl Cloud Function
+        // with signed URLs — no longer storing permanent download URLs
         await updateDoc(videoDocRef, {
           status: "ready",
-          downloadURL,
+          downloadURL: null,
         });
 
         // Patch round doc with video reference
@@ -282,8 +281,8 @@ export function uploadVideo(
         const roundUpdate = role === "set" ? { setVideoId: videoId } : { replyVideoId: videoId };
         await updateDoc(roundDocRef, roundUpdate);
 
-        logger.info("[VideoUpload] Upload complete", { videoId, downloadURL });
-        callbacks.onComplete?.(downloadURL);
+        logger.info("[VideoUpload] Upload complete", { videoId, storagePath });
+        callbacks.onComplete?.(storagePath);
       } catch (err) {
         logger.error("[VideoUpload] Post-upload processing failed", err);
 

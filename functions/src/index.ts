@@ -387,6 +387,8 @@ export const validateChallengeVideo = functions.storage.object().onFinalize(asyn
 interface SubmitTrickRequest {
   gameId: string;
   clipUrl: string;
+  /** Firebase Storage path for signed-URL resolution (preferred over clipUrl) */
+  storagePath?: string;
   trickName: string | null;
   isSetTrick: boolean;
   /** Client-generated idempotency key to prevent duplicate submissions */
@@ -414,12 +416,12 @@ export const submitTrick = functions.https.onCall(
       throw new functions.https.HttpsError("unauthenticated", "Not logged in");
     }
 
-    const { gameId, clipUrl, trickName, isSetTrick, idempotencyKey } = data;
+    const { gameId, clipUrl, storagePath, trickName, isSetTrick, idempotencyKey } = data;
 
-    if (!gameId || !clipUrl || !idempotencyKey) {
+    if (!gameId || (!clipUrl && !storagePath) || !idempotencyKey) {
       throw new functions.https.HttpsError(
         "invalid-argument",
-        "Missing gameId, clipUrl, or idempotencyKey"
+        "Missing gameId, clipUrl/storagePath, or idempotencyKey"
       );
     }
 
@@ -489,7 +491,8 @@ export const submitTrick = functions.https.onCall(
         playerId: userId,
         type: isSetTrick ? "set" : "match",
         trickName: trickName || null,
-        clipUrl,
+        clipUrl: clipUrl || "",
+        storagePath: storagePath || null,
         thumbnailUrl: null,
         durationSec: 15,
         result: "pending",
@@ -768,6 +771,104 @@ export const judgeTrick = functions.https.onCall(
     });
 
     return result;
+  }
+);
+
+// ============================================================================
+// GET VIDEO URL - Signed URL generation with participant verification
+// ============================================================================
+
+interface GetVideoUrlRequest {
+  gameId: string;
+  storagePath: string;
+}
+
+interface GetVideoUrlResponse {
+  signedUrl: string;
+  expiresAt: string; // ISO 8601
+}
+
+/**
+ * Generate a short-lived signed URL for a game video.
+ * Verifies the caller is a participant in the game before issuing the URL.
+ * This replaces direct Firebase Storage reads which allowed any authenticated
+ * user to access any video.
+ */
+export const getVideoUrl = functions.https.onCall(
+  async (
+    data: GetVideoUrlRequest,
+    context: functions.https.CallableContext
+  ): Promise<GetVideoUrlResponse> => {
+    if (!context.auth?.uid) {
+      throw new functions.https.HttpsError("unauthenticated", "Not logged in");
+    }
+
+    verifyAppCheck(context);
+    checkRateLimit(context.auth.uid);
+
+    const { gameId, storagePath } = data;
+
+    if (!gameId || !storagePath) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing gameId or storagePath"
+      );
+    }
+
+    // Validate storagePath format to prevent path traversal
+    if (!storagePath.startsWith("videos/") || storagePath.includes("..")) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Invalid storage path"
+      );
+    }
+
+    const userId = context.auth.uid;
+    const db = admin.firestore();
+
+    // Check participant membership in game_sessions (mobile flow)
+    const gameRef = db.doc(`game_sessions/${gameId}`);
+    const gameSnap = await gameRef.get();
+
+    if (gameSnap.exists) {
+      const game = gameSnap.data()!;
+      if (game.player1Id !== userId && game.player2Id !== userId) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "Not a participant in this game"
+        );
+      }
+    } else {
+      // Fallback: check web games collection (playerAUid/playerBUid)
+      const webGameRef = db.doc(`games/${gameId}`);
+      const webGameSnap = await webGameRef.get();
+
+      if (!webGameSnap.exists) {
+        throw new functions.https.HttpsError("not-found", "Game not found");
+      }
+
+      const webGame = webGameSnap.data()!;
+      if (webGame.playerAUid !== userId && webGame.playerBUid !== userId) {
+        throw new functions.https.HttpsError(
+          "permission-denied",
+          "Not a participant in this game"
+        );
+      }
+    }
+
+    // Generate signed URL with 1-hour expiry
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    const bucket = admin.storage().bucket();
+    const [signedUrl] = await bucket.file(storagePath).getSignedUrl({
+      version: "v4",
+      action: "read",
+      expires: expiresAt,
+    });
+
+    return {
+      signedUrl,
+      expiresAt: expiresAt.toISOString(),
+    };
   }
 );
 

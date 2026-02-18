@@ -31,6 +31,8 @@ export interface Move {
   type: "set" | "match"; // 'set' = attacker sets trick, 'match' = defender attempts
   trickName: string | null; // Optional trick name (e.g., "Kickflip")
   clipUrl: string;
+  /** Firebase Storage path for signed-URL resolution (null for legacy moves) */
+  storagePath: string | null;
   thumbnailUrl: string | null;
   durationSec: number;
   result: MoveResult;
