@@ -26,8 +26,8 @@ import {
 } from "./security";
 
 describe("SECURITY_CONFIG", () => {
-  it("has expected session TTL (24 hours)", () => {
-    expect(SECURITY_CONFIG.SESSION_TTL).toBe(24 * 60 * 60 * 1000);
+  it("has expected session TTL (7 days)", () => {
+    expect(SECURITY_CONFIG.SESSION_TTL).toBe(7 * 24 * 60 * 60 * 1000);
   });
 
   it("has max login attempts of 5", () => {

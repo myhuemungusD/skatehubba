@@ -137,7 +137,7 @@ export function initializeSocketServer(
 
     // Typing indicators — only broadcast if the sender is actually in the room
     socket.on("typing", (roomId: string, isTyping: boolean) => {
-      if (!data.rooms.has(roomId)) return;
+      if (!data.rooms || !data.rooms.has(roomId)) return;
       socket.to(roomId).emit("typing", {
         odv: data.odv,
         roomId,
