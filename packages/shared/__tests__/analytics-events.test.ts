@@ -218,9 +218,14 @@ describe("Property schemas", () => {
 
   it("DeepLinkInvalidProps validates invalid deep link events", () => {
     expect(DeepLinkInvalidProps.safeParse({ raw_id: "../etc/passwd" }).success).toBe(true);
-    expect(DeepLinkInvalidProps.safeParse({ raw_id: "" }).success).toBe(true);
+    expect(DeepLinkInvalidProps.safeParse({ raw_id: "x", route: "game" }).success).toBe(true);
     expect(DeepLinkInvalidProps.safeParse({}).success).toBe(false);
+    expect(DeepLinkInvalidProps.safeParse({ raw_id: "" }).success).toBe(false);
     expect(DeepLinkInvalidProps.safeParse({ raw_id: "x".repeat(201) }).success).toBe(false);
+  });
+
+  it("DeepLinkInvalidProps rejects extra fields (strict)", () => {
+    expect(DeepLinkInvalidProps.safeParse({ raw_id: "abc", extra: true }).success).toBe(false);
   });
 });
 
@@ -301,6 +306,14 @@ describe("validateEventProps", () => {
     expect(() =>
       validateEventProps("deep_link_invalid", { raw_id: "../etc/passwd" })
     ).not.toThrow();
+  });
+
+  it("validates deep_link_invalid with route", () => {
+    const result = validateEventProps("deep_link_invalid", {
+      raw_id: "bad-id",
+      route: "game",
+    });
+    expect(result).toEqual({ raw_id: "bad-id", route: "game" });
   });
 
   it("throws for deep_link_invalid with missing raw_id", () => {

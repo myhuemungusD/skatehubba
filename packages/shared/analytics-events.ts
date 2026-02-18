@@ -179,7 +179,8 @@ export const DeviceIntegrityWarningProps = z
 
 export const DeepLinkInvalidProps = z
   .object({
-    raw_id: z.string().max(200),
+    raw_id: z.string().min(1).max(200),
+    route: z.string().max(100).optional(),
   })
   .strict();
 

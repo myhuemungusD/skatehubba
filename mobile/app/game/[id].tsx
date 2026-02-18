@@ -94,6 +94,13 @@ export default function GameScreen() {
     };
   }, [gameId, user?.uid, initGame, resetGame]);
 
+  // Log invalid deep link attempts for security monitoring
+  useEffect(() => {
+    if (isInvalidId) {
+      logEvent("deep_link_invalid", { raw_id: rawGameId, route: "game" });
+    }
+  }, [isInvalidId, rawGameId]);
+
   // Track active game for offline handling (120-second reconnection window)
   useEffect(() => {
     if (gameId && gameSession?.status === "active") {
@@ -237,13 +244,6 @@ export default function GameScreen() {
     lastAnnouncedLetter,
     showOverlay,
   ]);
-
-  // Log invalid deep link attempts for security monitoring
-  useEffect(() => {
-    if (isInvalidId) {
-      logEvent("deep_link_invalid", { raw_id: rawGameId });
-    }
-  }, [isInvalidId, rawGameId]);
 
   // Handle game completion
   useEffect(() => {

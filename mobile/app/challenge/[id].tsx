@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
+import { useEffect } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { doc, getDoc } from "firebase/firestore";
@@ -16,23 +17,39 @@ import { Ionicons } from "@expo/vector-icons";
 import { format } from "date-fns";
 import { SKATE } from "@/theme";
 import { VideoErrorBoundary } from "@/components/common/VideoErrorBoundary";
+import { logEvent } from "@/lib/analytics/logEvent";
 import type { Challenge } from "@/types";
 
+/** Firestore auto-generated IDs: exactly 20 alphanumeric characters. */
+const VALID_CHALLENGE_ID = /^[a-zA-Z0-9]{20}$/;
+
 export default function ChallengeDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: rawChallengeId } = useLocalSearchParams<{ id: string }>();
   const { user, isAuthenticated } = useRequireAuth();
   const router = useRouter();
+
+  // Validate challengeId format — reject malicious deep links before Firestore query.
+  const challengeId =
+    rawChallengeId && VALID_CHALLENGE_ID.test(rawChallengeId) ? rawChallengeId : null;
+  const isInvalidId = !!rawChallengeId && !challengeId;
+
+  // Log invalid deep link attempts for security monitoring
+  useEffect(() => {
+    if (isInvalidId) {
+      logEvent("deep_link_invalid", { raw_id: rawChallengeId, route: "challenge" });
+    }
+  }, [isInvalidId, rawChallengeId]);
 
   const {
     data: challenge,
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["challenge", id],
+    queryKey: ["challenge", challengeId],
     queryFn: async () => {
-      if (!id) throw new Error("No challenge ID");
+      if (!challengeId) throw new Error("No challenge ID");
 
-      const docRef = doc(db, "challenges", id);
+      const docRef = doc(db, "challenges", challengeId);
       const snapshot = await getDoc(docRef);
 
       if (!snapshot.exists()) {
@@ -47,13 +64,35 @@ export default function ChallengeDetailScreen() {
         deadline: data.deadline?.toDate(),
       } as Challenge;
     },
-    enabled: !!id && !!user,
+    enabled: !!challengeId && !!user,
   });
 
   if (!isAuthenticated) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={SKATE.colors.orange} />
+      </View>
+    );
+  }
+
+  // Invalid challenge ID from deep link — show error instead of querying Firestore
+  if (isInvalidId) {
+    if (__DEV__) {
+      console.warn("[ChallengeDetail] Invalid challenge ID from deep link:", rawChallengeId);
+    }
+    return (
+      <View testID="challenge-invalid-id" style={styles.centered}>
+        <Ionicons name="warning" size={48} color={SKATE.colors.blood} />
+        <Text style={styles.errorText}>Invalid challenge link</Text>
+        <TouchableOpacity
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Go back to challenges"
+          style={styles.backButton}
+          onPress={() => router.replace("/(tabs)/challenges")}
+        >
+          <Text style={styles.backButtonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -152,9 +191,7 @@ export default function ChallengeDetailScreen() {
 
         {/* Clip A - Creator's video */}
         <View style={styles.clipSection}>
-          <Text style={styles.clipLabel}>
-            {isCreator ? "YOUR CLIP" : "OPPONENT'S CLIP"}
-          </Text>
+          <Text style={styles.clipLabel}>{isCreator ? "YOUR CLIP" : "OPPONENT'S CLIP"}</Text>
           <VideoErrorBoundary>
             <Video
               source={{ uri: challenge.clipA.url }}
