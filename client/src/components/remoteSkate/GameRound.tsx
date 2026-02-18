@@ -43,6 +43,7 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
     uploadSetVideo,
     uploadReplyVideo,
     resolveRound,
+    confirmRound,
   } = useRemoteSkateGame(gameId);
 
   // Loading
@@ -132,10 +133,21 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
     roundStatus === "awaiting_reply" &&
     isMyTurn &&
     replyVideo?.status === "ready";
+  const showConfirmButtons =
+    myRole === "defense" && roundStatus === "awaiting_confirmation";
 
   // Status message
   let statusMessage = "";
-  if (!isMyTurn) {
+  if (roundStatus === "awaiting_confirmation") {
+    if (myRole === "offense") {
+      statusMessage = "Waiting for opponent to confirm your call...";
+    } else if (myRole === "defense") {
+      const claim = currentRound?.offenseClaim;
+      statusMessage = `Opponent called it "${claim}". Do you agree?`;
+    }
+  } else if (roundStatus === "disputed") {
+    statusMessage = "Round disputed. Under review.";
+  } else if (!isMyTurn) {
     if (roundStatus === "awaiting_set") {
       statusMessage = "Waiting for opponent to set a trick...";
     } else if (roundStatus === "awaiting_reply") {
@@ -198,7 +210,7 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
       {/* Videos */}
       <div className="grid grid-cols-1 gap-4">
         <VideoPlayer video={setVideo} label="Set Trick" />
-        {(roundStatus === "awaiting_reply" || replyVideo) && (
+        {(roundStatus === "awaiting_reply" || roundStatus === "awaiting_confirmation" || roundStatus === "disputed" || replyVideo) && (
           <VideoPlayer video={replyVideo} label="Reply" />
         )}
       </div>
@@ -222,7 +234,7 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
         />
       )}
 
-      {/* Resolve buttons */}
+      {/* Resolve buttons (offense submits claim) */}
       {showResolveButtons && (
         <div className="space-y-3">
           <p className="text-sm text-neutral-300 text-center font-medium">
@@ -246,6 +258,41 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
               {isResolving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Missed"}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Confirm buttons (defense confirms or disputes offense's claim) */}
+      {showConfirmButtons && (
+        <div className="space-y-3">
+          <p className="text-sm text-neutral-300 text-center font-medium">
+            Opponent called it <strong className="text-white">&ldquo;{currentRound?.offenseClaim}&rdquo;</strong>. Do you agree?
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => confirmRound(currentRound?.offenseClaim as "landed" | "missed")}
+              disabled={isResolving}
+              className="py-3 px-4 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 font-medium text-sm hover:bg-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isResolving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Agree"}
+            </button>
+            <button
+              type="button"
+              onClick={() => confirmRound(currentRound?.offenseClaim === "landed" ? "missed" : "landed")}
+              disabled={isResolving}
+              className="py-3 px-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-medium text-sm hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isResolving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Dispute"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Disputed round indicator */}
+      {roundStatus === "disputed" && (
+        <div className="flex items-center gap-2 text-xs text-orange-400/80 bg-orange-400/5 border border-orange-400/20 rounded-md px-3 py-2">
+          <Shield className="h-3 w-3" />
+          <span>This round is disputed and under review.</span>
         </div>
       )}
 

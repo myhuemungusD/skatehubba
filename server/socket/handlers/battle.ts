@@ -32,6 +32,47 @@ type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 // Track which sockets are in which battles for cleanup
 const socketBattleMap = new Map<string, Set<string>>();
 
+// ============================================================================
+// Per-socket rate limiting for battle events
+// ============================================================================
+
+const battleRateLimits = new Map<string, Map<string, number[]>>();
+
+const BATTLE_RATE_LIMIT_RULES: Record<string, { maxPerWindow: number; windowMs: number }> = {
+  "battle:create": { maxPerWindow: 3, windowMs: 60_000 },
+  "battle:join": { maxPerWindow: 5, windowMs: 60_000 },
+  "battle:startVoting": { maxPerWindow: 3, windowMs: 60_000 },
+  "battle:vote": { maxPerWindow: 10, windowMs: 60_000 },
+  "battle:ready": { maxPerWindow: 5, windowMs: 60_000 },
+};
+
+function checkBattleRateLimit(socketId: string, eventName: string): boolean {
+  const rule = BATTLE_RATE_LIMIT_RULES[eventName];
+  if (!rule) return true;
+
+  const now = Date.now();
+  if (!battleRateLimits.has(socketId)) {
+    battleRateLimits.set(socketId, new Map());
+  }
+  const perEvent = battleRateLimits.get(socketId)!;
+
+  const timestamps = perEvent.get(eventName) || [];
+  const recent = timestamps.filter((t) => now - t < rule.windowMs);
+
+  if (recent.length >= rule.maxPerWindow) {
+    return false;
+  }
+
+  recent.push(now);
+  perEvent.set(eventName, recent);
+  return true;
+}
+
+/** Clean up rate-limit tracking for a disconnected socket */
+export function cleanupBattleRateLimits(socketId: string): void {
+  battleRateLimits.delete(socketId);
+}
+
 /**
  * Register battle event handlers on a socket
  */
@@ -44,6 +85,10 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
   socket.on(
     "battle:create",
     async (input: { matchmaking: "open" | "direct"; opponentId?: string; creatorId?: string }) => {
+      if (!checkBattleRateLimit(socket.id, "battle:create")) {
+        socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
+        return;
+      }
       try {
         const result = await createBattle({
           creatorId: data.odv,
@@ -101,6 +146,10 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
    * Join an existing battle
    */
   socket.on("battle:join", async (battleId: string) => {
+    if (!checkBattleRateLimit(socket.id, "battle:join")) {
+      socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
+      return;
+    }
     try {
       // Check room exists and has space
       const roomInfo = getRoomInfo("battle", battleId);
@@ -155,6 +204,10 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
    * Start voting phase for a battle
    */
   socket.on("battle:startVoting", async (battleId: string) => {
+    if (!checkBattleRateLimit(socket.id, "battle:startVoting")) {
+      socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
+      return;
+    }
     try {
       const battle = await getBattle(battleId);
       if (!battle) {
@@ -222,6 +275,10 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
   socket.on(
     "battle:vote",
     async (input: { battleId: string; odv: string; vote: "clean" | "sketch" | "redo" }) => {
+      if (!checkBattleRateLimit(socket.id, "battle:vote")) {
+        socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
+        return;
+      }
       try {
         const eventId = generateEventId("vote", data.odv, input.battleId);
 
@@ -292,6 +349,10 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
    * Player ready to start
    */
   socket.on("battle:ready", async (battleId: string) => {
+    if (!checkBattleRateLimit(socket.id, "battle:ready")) {
+      socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });
+      return;
+    }
     try {
       // Join the battle room if not already
       await joinRoom(socket, "battle", battleId);

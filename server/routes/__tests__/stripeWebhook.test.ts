@@ -119,6 +119,11 @@ vi.mock("../../services/notificationService", () => ({
   notifyUser: mockNotifyUser,
 }));
 
+// Mock Redis (returns null — dedup falls back to in-memory)
+vi.mock("../../redis", () => ({
+  getRedisClient: () => null,
+}));
+
 // =============================================================================
 // Test Setup
 // =============================================================================

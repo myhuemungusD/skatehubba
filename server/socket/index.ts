@@ -16,7 +16,7 @@ import { Server } from "socket.io";
 import logger from "../logger";
 import { socketAuthMiddleware } from "./auth";
 import { joinRoom, leaveRoom, leaveAllRooms, getRoomStats } from "./rooms";
-import { registerBattleHandlers, cleanupBattleSubscriptions } from "./handlers/battle";
+import { registerBattleHandlers, cleanupBattleSubscriptions, cleanupBattleRateLimits } from "./handlers/battle";
 import { registerGameHandlers, cleanupGameSubscriptions, cleanupSocketRateLimits } from "./handlers/game";
 import {
   registerPresenceHandlers,
@@ -161,6 +161,7 @@ export function initializeSocketServer(
       handlePresenceDisconnect(io, socket);
       cleanupSocketHealth(socket.id);
       cleanupSocketRateLimits(socket.id);
+      cleanupBattleRateLimits(socket.id);
     });
 
     // Error handling
