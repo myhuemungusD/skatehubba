@@ -56,13 +56,15 @@ export default function AuthPage() {
     return "/hub";
   };
 
-  // Redirect when authenticated and profile status is known
+  // Redirect when authenticated and profile status is known.
+  // Sign-up tab handles its own navigation (creates profile inline then
+  // redirects to /hub), so we only redirect to /profile/setup from sign-in.
   useEffect(() => {
     if (!auth?.isAuthenticated || auth?.profileStatus === "unknown") return;
 
     if (auth.profileStatus === "exists") {
       setLocation(getNextUrl());
-    } else if (auth.profileStatus === "missing") {
+    } else if (auth.profileStatus === "missing" && activeTab === "signin") {
       const nextUrl = getNextUrl();
       const setupUrl =
         nextUrl !== "/hub"
@@ -70,7 +72,7 @@ export default function AuthPage() {
           : "/profile/setup";
       setLocation(setupUrl);
     }
-  }, [auth?.isAuthenticated, auth?.profileStatus, setLocation]);
+  }, [auth?.isAuthenticated, auth?.profileStatus, activeTab, setLocation]);
 
   // Check for embedded browser on mount
   useEffect(() => {

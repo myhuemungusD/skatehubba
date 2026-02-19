@@ -133,11 +133,14 @@ export const SpotMap = memo(function SpotMap({
 
     void initMap();
 
+    // Capture refs inside the effect body so React doesn't warn
+    // about stale ref values in the cleanup function.
+    const spotMarkers = spotMarkersRef.current;
+    const markerProximity = markerProximityRef.current;
+
     // Cleanup only on unmount
     return () => {
       isMounted = false;
-      const spotMarkers = spotMarkersRef.current;
-      const markerProximity = markerProximityRef.current;
       const userMarker = userMarkerRef.current;
       const accuracyCircle = accuracyCircleRef.current;
       const mapInstance = mapInstanceRef.current;

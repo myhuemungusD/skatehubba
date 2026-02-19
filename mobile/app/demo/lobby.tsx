@@ -1,11 +1,4 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  TouchableOpacity,
-} from "react-native";
-import { useRouter } from "expo-router";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { DEMO_CHALLENGES, DEMO_PLAYERS } from "@/demo/mockData";
@@ -19,13 +12,7 @@ type ChallengeStatus = "pending" | "accepted" | "completed" | "forfeit";
  * Demonstrates the matchmaking and game management UI.
  */
 export default function DemoLobbyScreen() {
-  const router = useRouter();
-
-  const renderChallenge = ({
-    item,
-  }: {
-    item: (typeof DEMO_CHALLENGES)[number];
-  }) => {
+  const renderChallenge = ({ item }: { item: (typeof DEMO_CHALLENGES)[number] }) => {
     const statusConfig = getStatusConfig(item.status as ChallengeStatus);
     const isMyTurn = item.isMyTurn;
 
@@ -34,15 +21,11 @@ export default function DemoLobbyScreen() {
         <View style={styles.cardHeader}>
           <View style={styles.opponentRow}>
             <View style={styles.avatarPlaceholder}>
-              <Text style={styles.avatarInitial}>
-                {item.opponentName.charAt(0)}
-              </Text>
+              <Text style={styles.avatarInitial}>{item.opponentName.charAt(0)}</Text>
             </View>
             <View>
               <Text style={styles.opponentName}>vs. {item.opponentName}</Text>
-              <Text style={styles.timeAgo}>
-                {getTimeAgo(item.createdAt)}
-              </Text>
+              <Text style={styles.timeAgo}>{getTimeAgo(item.createdAt)}</Text>
             </View>
           </View>
           <View style={[styles.badge, { backgroundColor: statusConfig.bg }]}>
@@ -79,12 +62,7 @@ export default function DemoLobbyScreen() {
               size={14}
               color={isMyTurn ? SKATE.colors.orange : SKATE.colors.lightGray}
             />
-            <Text
-              style={[
-                styles.turnText,
-                isMyTurn ? styles.myTurnText : styles.theirTurnText,
-              ]}
-            >
+            <Text style={[styles.turnText, isMyTurn ? styles.myTurnText : styles.theirTurnText]}>
               {isMyTurn ? "Your turn — tap to play" : "Waiting for opponent"}
             </Text>
           </View>
@@ -94,24 +72,15 @@ export default function DemoLobbyScreen() {
         {item.status === "completed" && (
           <View style={styles.completedResult}>
             <Ionicons
-              name={
-                item.myLetters.length === 5 ? "sad" : "trophy"
-              }
+              name={item.myLetters.length === 5 ? "sad" : "trophy"}
               size={16}
-              color={
-                item.myLetters.length === 5
-                  ? SKATE.colors.blood
-                  : SKATE.colors.gold
-              }
+              color={item.myLetters.length === 5 ? SKATE.colors.blood : SKATE.colors.gold}
             />
             <Text
               style={[
                 styles.completedText,
                 {
-                  color:
-                    item.myLetters.length === 5
-                      ? SKATE.colors.blood
-                      : SKATE.colors.gold,
+                  color: item.myLetters.length === 5 ? SKATE.colors.blood : SKATE.colors.gold,
                 },
               ]}
             >
@@ -182,16 +151,8 @@ function LetterDots({ letters }: { letters: SkateLetter[] }) {
       {allLetters.map((letter) => {
         const active = letters.includes(letter);
         return (
-          <View
-            key={letter}
-            style={[styles.letterDot, active && styles.letterDotActive]}
-          >
-            <Text
-              style={[
-                styles.letterDotText,
-                active && styles.letterDotTextActive,
-              ]}
-            >
+          <View key={letter} style={[styles.letterDot, active && styles.letterDotActive]}>
+            <Text style={[styles.letterDotText, active && styles.letterDotTextActive]}>
               {letter}
             </Text>
           </View>
@@ -212,7 +173,11 @@ function getStatusConfig(status: ChallengeStatus) {
     case "forfeit":
       return { label: "FORFEIT", color: SKATE.colors.blood, bg: "rgba(255, 26, 26, 0.15)" };
     default:
-      return { label: String(status).toUpperCase(), color: SKATE.colors.gray, bg: SKATE.colors.darkGray };
+      return {
+        label: String(status).toUpperCase(),
+        color: SKATE.colors.gray,
+        bg: SKATE.colors.darkGray,
+      };
   }
 }
 
