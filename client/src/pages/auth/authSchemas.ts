@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { usernameSchema } from "@shared/validation/profile";
 
 export const signInSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -14,6 +15,8 @@ export const signUpSchema = z.object({
     .regex(/[A-Z]/, "Password must contain an uppercase letter")
     .regex(/[a-z]/, "Password must contain a lowercase letter")
     .regex(/[0-9]/, "Password must contain a number"),
+  username: usernameSchema,
+  stance: z.enum(["regular", "goofy"]).optional().or(z.literal("")),
 });
 
 export type SignInForm = z.infer<typeof signInSchema>;
