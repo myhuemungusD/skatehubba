@@ -55,14 +55,28 @@ export function getApiBaseUrl(): string {
 
   const env = getAppEnv();
 
-  // Local dev on web: Vite proxy handles /api → backend
-  if (isWeb() && env === "local") return "";
+  // On web, detect production/staging by hostname as a safety net.
+  // This handles the case where EXPO_PUBLIC_APP_ENV is not set at build
+  // time (e.g. Vercel static hosting), which would default to "local"
+  // and cause API calls to 404 against the static-hosting origin.
+  if (isWeb()) {
+    const hostname = globals.location?.hostname;
+    if (hostname === "skatehubba.com" || hostname === "www.skatehubba.com") {
+      return "https://api.skatehubba.com";
+    }
+    if (hostname?.endsWith(".skatehubba.com") && hostname.startsWith("staging")) {
+      return "https://staging-api.skatehubba.com";
+    }
+  }
 
   switch (env) {
     case "prod":
       return "https://api.skatehubba.com";
     case "staging":
       return "https://staging-api.skatehubba.com";
+    case "local":
+      // Local dev on web: Vite proxy handles /api → backend
+      return isWeb() ? "" : "http://localhost:3001";
     default:
       return isWeb() ? "" : "http://localhost:3001";
   }

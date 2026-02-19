@@ -43,7 +43,15 @@ export default function ProfileSetup() {
     checkUsernameAvailability,
   } = useUsernameCheck(username);
 
-  const { submitting, uploadProgress, submitError, onSubmit, handleSkip } = useProfileSubmit(
+  const {
+    submitting,
+    uploadProgress,
+    submitError,
+    failCount,
+    onSubmit,
+    handleSkip,
+    handleContinue,
+  } = useProfileSubmit(
     usernameStatus,
     setUsernameStatus,
     setUsernameMessage,
@@ -241,6 +249,23 @@ export default function ProfileSetup() {
               Skip for now
             </Button>
           </div>
+
+          {failCount >= 2 && (
+            <div className="text-center">
+              <p className="text-xs text-neutral-400 mb-2">
+                Having trouble? You can set up your profile later.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 border-neutral-600 text-neutral-200 hover:bg-white/10"
+                onClick={handleContinue}
+                data-testid="profile-continue-home"
+              >
+                Continue to homepage
+              </Button>
+            </div>
+          )}
         </form>
       </div>
     </div>
