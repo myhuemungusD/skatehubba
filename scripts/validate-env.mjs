@@ -17,9 +17,10 @@ const isProduction = process.argv.includes('--production');
 
 // Required environment variables
 const REQUIRED_VARS = {
-  // Always required
+  // Always required (all non-test environments)
   common: [
     'DATABASE_URL',
+    'JWT_SECRET',
   ],
   // Required in production only
   production: [
@@ -27,12 +28,20 @@ const REQUIRED_VARS = {
     'FIREBASE_PRIVATE_KEY',
     'FIREBASE_CLIENT_EMAIL',
     'SESSION_SECRET',
+    'MFA_ENCRYPTION_KEY',
   ],
   // Optional but recommended
   recommended: [
     'SENTRY_DSN',
     'RESEND_API_KEY',
   ],
+};
+
+// Minimum length requirements for security-sensitive variables
+const MIN_LENGTH_VARS = {
+  JWT_SECRET: 32,
+  SESSION_SECRET: 32,
+  MFA_ENCRYPTION_KEY: 32,
 };
 
 // Sensitive patterns that should NEVER be in code
@@ -63,6 +72,14 @@ if (isProduction) {
 for (const varName of varsToCheck) {
   if (!process.env[varName]) {
     errors.push(`Missing required variable: ${varName}`);
+  }
+}
+
+// Enforce minimum length for security-sensitive variables
+for (const [varName, minLen] of Object.entries(MIN_LENGTH_VARS)) {
+  const val = process.env[varName];
+  if (val && val.length < minLen) {
+    errors.push(`${varName} must be at least ${minLen} characters (got ${val.length})`);
   }
 }
 
