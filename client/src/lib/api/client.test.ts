@@ -353,7 +353,7 @@ describe("client", () => {
 
       await expect(
         apiRequestRaw({ method: "GET", path: "/api/slow", timeout: 5000 })
-      ).rejects.toThrow("Request timeout");
+      ).rejects.toThrow("The request took too long. Check your connection and try again.");
     });
 
     it("uses default 30s timeout via setTimeout", async () => {
@@ -400,12 +400,12 @@ describe("client", () => {
       expect(clearTimeoutSpy).toHaveBeenCalled();
     });
 
-    it("re-throws non-abort errors as-is", async () => {
+    it("wraps network fetch errors in ApiError with NETWORK_ERROR code", async () => {
       const networkError = new TypeError("Failed to fetch");
       vi.mocked(globalThis.fetch).mockRejectedValue(networkError);
 
       await expect(apiRequestRaw({ method: "GET", path: "/api/test" })).rejects.toThrow(
-        "Failed to fetch"
+        "Network error. Check your connection and try again."
       );
     });
 
@@ -479,7 +479,7 @@ describe("client", () => {
       vi.mocked(globalThis.fetch).mockRejectedValue(networkError);
 
       await expect(apiRequest({ method: "GET", path: "/api/test" })).rejects.toThrow(
-        "Failed to fetch"
+        "Network error. Check your connection and try again."
       );
     });
 

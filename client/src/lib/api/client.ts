@@ -127,15 +127,26 @@ export const apiRequestRaw = async <TBody = unknown>(
 
     return response;
   } catch (error) {
-    // Convert timeout errors to a more specific error
-    if (error instanceof DOMException && error.name === "AbortError") {
+    // Timeout: our own AbortController fired (only when no external signal was provided)
+    if (error instanceof DOMException && error.name === "AbortError" && !options.signal) {
       throw new ApiError(
-        "Request timeout. Please check your connection and try again.",
-        "UNKNOWN",
+        "The request took too long. Check your connection and try again.",
+        "TIMEOUT",
         undefined,
         { timeout, originalError: error }
       );
     }
+
+    // Network failure (e.g. "Failed to fetch" when offline or CORS blocked)
+    if (error instanceof TypeError && error.message.toLowerCase().includes("fetch")) {
+      throw new ApiError(
+        "Network error. Check your connection and try again.",
+        "NETWORK_ERROR",
+        undefined,
+        { originalError: error }
+      );
+    }
+
     throw error;
   } finally {
     if (timeoutId) {

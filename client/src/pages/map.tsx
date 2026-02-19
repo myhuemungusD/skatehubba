@@ -370,6 +370,8 @@ export default function MapPage() {
           isOpen={isAddSpotOpen}
           onClose={handleCloseAddSpot}
           userLocation={userLocationSimple}
+          geolocationStatus={geolocation.status}
+          geolocationErrorCode={geolocation.errorCode}
         />
 
         {/* Floating Header */}

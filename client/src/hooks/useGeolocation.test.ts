@@ -152,7 +152,9 @@ describe("useGeolocation", () => {
       await waitFor(() => {
         expect(result.current.status).toBe("browse");
         expect(result.current.errorCode).toBe("denied");
-        expect(result.current.error).toBe(null); // Error is cleared in browse mode
+        expect(result.current.error).toBe(
+          "Location access was denied. Enable location in your browser settings and retry."
+        );
         expect(result.current.isBrowseMode).toBe(true);
       });
     });
@@ -218,6 +220,54 @@ describe("useGeolocation", () => {
         expect(result.current.status).toBe("browse");
         expect(result.current.errorCode).toBe("unsupported");
         expect(result.current.error).toBe(null);
+      });
+    });
+
+    it("should set an actionable error message on timeout after retries exhausted", async () => {
+      const mockError: GeolocationPositionError = {
+        code: 3,
+        message: "Timeout",
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3,
+      };
+
+      mockGeolocation.getCurrentPosition.mockImplementation((_success, error) => {
+        error(mockError);
+      });
+
+      const { result } = renderHook(() => useGeolocation(false));
+
+      await waitFor(() => {
+        expect(result.current.status).toBe("browse");
+        expect(result.current.errorCode).toBe("timeout");
+        expect(result.current.error).toBe(
+          "Location timed out. Tap retry or browse without location."
+        );
+      });
+    });
+
+    it("should set an actionable error message on position unavailable after retries exhausted", async () => {
+      const mockError: GeolocationPositionError = {
+        code: 2,
+        message: "Position unavailable",
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3,
+      };
+
+      mockGeolocation.getCurrentPosition.mockImplementation((_success, error) => {
+        error(mockError);
+      });
+
+      const { result } = renderHook(() => useGeolocation(false));
+
+      await waitFor(() => {
+        expect(result.current.status).toBe("browse");
+        expect(result.current.errorCode).toBe("unavailable");
+        expect(result.current.error).toBe(
+          "Location unavailable. Move to an open area and retry."
+        );
       });
     });
   });
@@ -335,6 +385,113 @@ describe("useGeolocation", () => {
     });
   });
 
+  describe("retry tracking", () => {
+    it("should increment retryCount in state on each auto-retry", async () => {
+      let callCount = 0;
+      const timeoutError: GeolocationPositionError = {
+        code: 3,
+        message: "Timeout",
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3,
+      };
+
+      mockGeolocation.getCurrentPosition.mockImplementation((_success, error) => {
+        callCount++;
+        if (callCount <= 3) error(timeoutError);
+      });
+
+      const { result } = renderHook(() => useGeolocation(false));
+
+      await waitFor(() => {
+        expect(result.current.status).toBe("browse");
+        expect(result.current.retryCount).toBe(0);
+      });
+    });
+
+    it("should expose isRetrying as true while a retry attempt is in-flight", async () => {
+      let callCount = 0;
+      const timeoutError: GeolocationPositionError = {
+        code: 3,
+        message: "Timeout",
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3,
+      };
+
+      let capturedIsRetrying: boolean | undefined;
+
+      mockGeolocation.getCurrentPosition.mockImplementation((success, error) => {
+        callCount++;
+        if (callCount === 1) {
+          error(timeoutError);
+        } else {
+          capturedIsRetrying = true; // second call means retry is happening
+          const mockPosition: GeolocationPosition = {
+            coords: {
+              latitude: 37.7749,
+              longitude: -122.4194,
+              accuracy: 10,
+              altitude: null,
+              altitudeAccuracy: null,
+              heading: null,
+              speed: null,
+            },
+            timestamp: Date.now(),
+          };
+          success(mockPosition);
+        }
+      });
+
+      const { result } = renderHook(() => useGeolocation(false));
+
+      await waitFor(() => {
+        expect(result.current.status).toBe("ready");
+        expect(capturedIsRetrying).toBe(true);
+      });
+    });
+
+    it("should reset retryCount to 0 in state after a successful position fix", async () => {
+      let callCount = 0;
+      const timeoutError: GeolocationPositionError = {
+        code: 3,
+        message: "Timeout",
+        PERMISSION_DENIED: 1,
+        POSITION_UNAVAILABLE: 2,
+        TIMEOUT: 3,
+      };
+      const mockPosition: GeolocationPosition = {
+        coords: {
+          latitude: 40.7128,
+          longitude: -74.006,
+          accuracy: 15,
+          altitude: null,
+          altitudeAccuracy: null,
+          heading: null,
+          speed: null,
+        },
+        timestamp: Date.now(),
+      };
+
+      mockGeolocation.getCurrentPosition.mockImplementation((success, error) => {
+        callCount++;
+        if (callCount === 1) {
+          error(timeoutError);
+        } else {
+          success(mockPosition);
+        }
+      });
+
+      const { result } = renderHook(() => useGeolocation(false));
+
+      await waitFor(() => {
+        expect(result.current.status).toBe("ready");
+        expect(result.current.retryCount).toBe(0);
+        expect(result.current.isRetrying).toBe(false);
+      });
+    });
+  });
+
   describe("watch mode cleanup", () => {
     it("should clear watch on unmount when watch is true", () => {
       const mockWatchId = 123;
@@ -387,6 +544,16 @@ describe("useGeolocation", () => {
       const { result } = renderHook(() => useGeolocation(false));
 
       expect(result.current.hasLocation).toBe(false);
+    });
+
+    it("should set isRetrying to false in the initial locating state", () => {
+      mockGeolocation.getCurrentPosition.mockImplementation(() => {
+        // Never resolves
+      });
+
+      const { result } = renderHook(() => useGeolocation(false));
+
+      expect(result.current.isRetrying).toBe(false);
     });
   });
 });
