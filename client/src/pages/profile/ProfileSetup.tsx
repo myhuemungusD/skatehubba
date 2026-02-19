@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail } from "lucide-react";
+import { Mail, AtSign } from "lucide-react";
 import { useLocation } from "wouter";
 import { useEmailVerification } from "../../hooks/useEmailVerification";
 import { useToast } from "../../hooks/use-toast";
@@ -119,6 +119,23 @@ export default function ProfileSetup() {
         )}
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+          {userEmail && (
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-neutral-200">
+                Email
+              </label>
+              <div className="relative">
+                <AtSign className="absolute left-3 top-3.5 h-4 w-4 text-neutral-500" />
+                <div className="flex h-12 w-full items-center rounded-lg bg-neutral-900/40 border border-neutral-700/50 pl-10 text-sm text-neutral-400">
+                  {userEmail}
+                </div>
+              </div>
+              <p className="text-xs text-neutral-500">
+                This is the email from your account. You can&apos;t change it here.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-semibold text-neutral-200" htmlFor="username">
               Username

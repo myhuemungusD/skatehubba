@@ -123,20 +123,38 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
   const db = getDb();
   const usernameStore = createUsernameStore(db);
 
-  // Check if profile already exists in PostgreSQL
-  const [existingProfile] = await db
-    .select()
-    .from(onboardingProfiles)
-    .where(eq(onboardingProfiles.uid, uid))
-    .limit(1);
+  let existingProfile;
+  try {
+    [existingProfile] = await db
+      .select()
+      .from(onboardingProfiles)
+      .where(eq(onboardingProfiles.uid, uid))
+      .limit(1);
+  } catch (error) {
+    logger.error("Failed to check existing profile", { uid, error });
+    return Errors.internal(
+      res,
+      "PROFILE_CREATE_FAILED",
+      "Failed to create profile. Please try again."
+    );
+  }
 
   if (existingProfile) {
     if (existingProfile.username) {
-      const ensured = await usernameStore.ensure(uid, existingProfile.username);
-      if (!ensured) {
-        return Errors.conflict(res, "USERNAME_TAKEN", "That username is already taken.", {
-          field: "username",
-        });
+      try {
+        const ensured = await usernameStore.ensure(uid, existingProfile.username);
+        if (!ensured) {
+          return Errors.conflict(res, "USERNAME_TAKEN", "That username is already taken.", {
+            field: "username",
+          });
+        }
+      } catch (error) {
+        logger.error("Failed to ensure username for existing profile", { uid, error });
+        return Errors.internal(
+          res,
+          "PROFILE_CREATE_FAILED",
+          "Failed to create profile. Please try again."
+        );
       }
     }
     return res.status(200).json({
@@ -159,19 +177,28 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
   let reservedUsername = requestedUsername ?? "";
   let reserved = false;
 
-  if (shouldSkip) {
-    for (let attempt = 0; attempt < MAX_USERNAME_GENERATION_ATTEMPTS; attempt += 1) {
-      const candidate = generateUsername();
-      const ok = await usernameStore.reserve(uid, candidate);
-      if (ok) {
-        reservedUsername = candidate;
-        reserved = true;
-        break;
+  try {
+    if (shouldSkip) {
+      for (let attempt = 0; attempt < MAX_USERNAME_GENERATION_ATTEMPTS; attempt += 1) {
+        const candidate = generateUsername();
+        const ok = await usernameStore.reserve(uid, candidate);
+        if (ok) {
+          reservedUsername = candidate;
+          reserved = true;
+          break;
+        }
       }
+    } else if (requestedUsername) {
+      reservedUsername = requestedUsername;
+      reserved = await usernameStore.reserve(uid, reservedUsername);
     }
-  } else if (requestedUsername) {
-    reservedUsername = requestedUsername;
-    reserved = await usernameStore.reserve(uid, reservedUsername);
+  } catch (error) {
+    logger.error("Failed to reserve username", { uid, username: requestedUsername, error });
+    return Errors.internal(
+      res,
+      "PROFILE_CREATE_FAILED",
+      "Failed to create profile. Please try again."
+    );
   }
 
   if (!reserved) {
