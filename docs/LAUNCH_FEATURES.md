@@ -380,7 +380,7 @@ For questions or issues with these features:
 
 ## License
 
-MIT License - See LICENSE file in repository root.
+See [LICENSE](../LICENSE) in the project root.
 
 ---
 

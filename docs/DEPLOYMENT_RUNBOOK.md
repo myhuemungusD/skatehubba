@@ -1,5 +1,17 @@
 # SkateHubba Deployment Runbook
 
+This runbook covers deployment configuration, incident response procedures, and operational decisions for the SkateHubba platform.
+
+## Contents
+
+1. [Task 1 — Vercel Output Mismatch](#task-1--vercel-output-mismatch-public-vs-dist) — Build output directory configuration
+2. [Task 2 — Vite/Rollup Alias Mismatch](#task-2--viterollup-alias-mismatch--works-in-ts-fails-in-vite) — Path alias resolution
+3. [Task 3 — Runtime Crash (Error Boundary)](#task-3--runtime-crash-error-boundary) — Client-side crash recovery
+4. [Task 4 — CodeQL High Severity Alert](#task-4--codeql-high-severity-alert) — Security vulnerability handling
+5. [Task 5 — Merge Decisions](#task-5--merge-decisions) — Release management framework
+
+---
+
 ## Task 1 — Vercel Output Mismatch (public vs dist)
 
 ### Prompt 1: Root Cause Analysis + Minimal Fix + Prevention

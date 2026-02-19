@@ -28,3 +28,7 @@ Include:
 ## Bug Bounty
 
 We do not currently offer a paid bug bounty program, but we appreciate responsible disclosure and will credit reporters in our changelog (with permission).
+
+## Detailed Security Documentation
+
+For technical security details, threat models, and hardening logs, see [docs/security/](docs/security/).

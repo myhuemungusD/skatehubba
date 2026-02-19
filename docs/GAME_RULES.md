@@ -167,7 +167,7 @@ Yes! Challenge any SkateHubba user to a game.
 File a dispute. Admins review video evidence and make final rulings. Repeat offenders may be banned.
 
 ### Can I watch other people's games?
-Not yet, but spectator mode is on the roadmap for Q2 2026.
+Not yet, but spectator mode is on the roadmap for Q1 2026.
 
 ### What if my opponent never responds?
 Games have timeouts. If opponent doesn't respond within the deadline, you win by forfeit.
@@ -202,4 +202,4 @@ Turn-based, asynchronous gameplay means you can face someone in Japan, Brazil, o
 
 ---
 
-**Ready to play?** Head to the game lobby and challenge someone: [Get Started](../client/src/pages/ChallengeLobby.tsx)
+**Ready to play?** Head to the game lobby and challenge someone: [Get Started](https://staging.skatehubba.com)
