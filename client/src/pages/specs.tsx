@@ -48,16 +48,17 @@ export default function SpecsPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="max-w-4xl mx-auto px-6 py-12">
-        <Link href="/">
-          <Button
-            variant="ghost"
-            className="mb-8 text-gray-400 hover:text-white"
-            data-testid="link-back-home"
-          >
+        <Button
+          asChild
+          variant="ghost"
+          className="mb-8 text-gray-400 hover:text-white"
+          data-testid="link-back-home"
+        >
+          <Link href="/">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Home
-          </Button>
-        </Link>
+          </Link>
+        </Button>
 
         <div className="text-center mb-12">
           <Badge variant="outline" className="mb-4 border-orange-500 text-orange-400">

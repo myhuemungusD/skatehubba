@@ -67,12 +67,12 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-secondary/10">
       <div className="container max-w-4xl mx-auto px-4 py-12">
-        <Link href="/">
-          <Button variant="ghost" className="mb-6" data-testid="button-back-home">
+        <Button asChild variant="ghost" className="mb-6" data-testid="button-back-home">
+          <Link href="/">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Home
-          </Button>
-        </Link>
+          </Link>
+        </Button>
 
         <Card className="border-primary/20">
           <CardHeader className="space-y-4">

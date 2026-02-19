@@ -17,11 +17,13 @@ export default function NotFound() {
             This page doesn't exist or may have been moved.
           </p>
 
-          <Link href="/">
-            <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white" data-testid="button-home">
-              Back to Home
-            </Button>
-          </Link>
+          <Button
+            asChild
+            className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white"
+            data-testid="button-home"
+          >
+            <Link href="/">Back to Home</Link>
+          </Button>
         </CardContent>
       </Card>
     </div>

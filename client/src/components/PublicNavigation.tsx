@@ -43,15 +43,16 @@ export default function PublicNavigation() {
             </a>
 
             {/* Sign In CTA */}
-            <Link href="/auth">
-              <Button
-                className="bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90 font-semibold"
-                data-testid="button-public-nav-signin"
-              >
+            <Button
+              asChild
+              className="bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90 font-semibold"
+              data-testid="button-public-nav-signin"
+            >
+              <Link href="/auth">
                 <LogIn className="w-4 h-4 mr-2" aria-hidden="true" />
                 Sign In / Sign Up
-              </Button>
-            </Link>
+              </Link>
+            </Button>
           </div>
         </div>
       </div>
