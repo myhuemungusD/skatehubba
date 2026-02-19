@@ -170,14 +170,13 @@ export default function AuthVerifyPage() {
                 </h2>
                 <p className="text-gray-300 mb-6">{message}</p>
                 <p className="text-gray-400 text-sm mb-4">Redirecting to sign in...</p>
-                <Link href="/auth">
-                  <Button
-                    className="bg-orange-500 hover:bg-orange-600 text-white"
-                    data-testid="button-goto-signin"
-                  >
-                    Go to Sign In
-                  </Button>
-                </Link>
+                <Button
+                  asChild
+                  className="bg-orange-500 hover:bg-orange-600 text-white"
+                  data-testid="button-goto-signin"
+                >
+                  <Link href="/auth">Go to Sign In</Link>
+                </Button>
               </div>
             )}
 
@@ -268,30 +267,26 @@ export default function AuthVerifyPage() {
                 <p className="text-gray-300 mb-6">{message}</p>
                 <div className="space-y-2">
                   {mode === "resetPassword" ? (
-                    <Link href="/auth">
-                      <Button className="w-full bg-orange-500 hover:bg-orange-600 text-white">
-                        Request New Reset Link
-                      </Button>
-                    </Link>
-                  ) : (
-                    <Link href="/signup">
-                      <Button
-                        className="w-full bg-orange-500 hover:bg-orange-600 text-white"
-                        data-testid="button-try-again"
-                      >
-                        Try Signing Up Again
-                      </Button>
-                    </Link>
-                  )}
-                  <Link href="/">
-                    <Button
-                      variant="outline"
-                      className="w-full border-gray-600 text-gray-300 hover:bg-gray-800"
-                      data-testid="button-back-home"
-                    >
-                      Back to Home
+                    <Button asChild className="w-full bg-orange-500 hover:bg-orange-600 text-white">
+                      <Link href="/auth">Request New Reset Link</Link>
                     </Button>
-                  </Link>
+                  ) : (
+                    <Button
+                      asChild
+                      className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                      data-testid="button-try-again"
+                    >
+                      <Link href="/signup">Try Signing Up Again</Link>
+                    </Button>
+                  )}
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="w-full border-gray-600 text-gray-300 hover:bg-gray-800"
+                    data-testid="button-back-home"
+                  >
+                    <Link href="/">Back to Home</Link>
+                  </Button>
                 </div>
               </div>
             )}

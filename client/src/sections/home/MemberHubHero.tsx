@@ -46,12 +46,10 @@ export function MemberHubHero({ badge, title, quickActions }: MemberHubHeroProps
         {/* Quick Actions Grid - Skateboard themed cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {quickActions.map((action, i) => (
-            <Link key={i} href={action.href}>
-              <a className="skate-card">
-                <action.icon className="skate-card-icon" />
-                <h3 className="skate-card-title">{action.label}</h3>
-                <p className="skate-card-description">{action.description}</p>
-              </a>
+            <Link key={i} href={action.href} className="skate-card">
+              <action.icon className="skate-card-icon" />
+              <h3 className="skate-card-title">{action.label}</h3>
+              <p className="skate-card-description">{action.description}</p>
             </Link>
           ))}
         </div>

@@ -54,14 +54,13 @@ export default function PublicProfileView() {
             <p className="text-neutral-500 mb-8 max-w-[200px] mx-auto text-sm">
               Wood not found. This skater hasn't dropped a pin in our system yet.
             </p>
-            <Link href="/">
-              <Button
-                variant="outline"
-                className="border-neutral-800 text-neutral-400 hover:text-white"
-              >
-                Back to base
-              </Button>
-            </Link>
+            <Button
+              asChild
+              variant="outline"
+              className="border-neutral-800 text-neutral-400 hover:text-white"
+            >
+              <Link href="/">Back to base</Link>
+            </Button>
           </div>
         ) : (
           <div className="space-y-6">
@@ -130,10 +129,11 @@ export default function PublicProfileView() {
             </div>
 
             <div className="flex justify-center">
-              <Link href="/">
-                <a className="text-[10px] uppercase font-black tracking-widest text-neutral-500 hover:text-[#ff6a00] transition-all duration-300 flex items-center gap-2">
-                  Find more skaters <ExternalLink className="w-3 h-3" />
-                </a>
+              <Link
+                href="/"
+                className="text-[10px] uppercase font-black tracking-widest text-neutral-500 hover:text-[#ff6a00] transition-all duration-300 flex items-center gap-2"
+              >
+                Find more skaters <ExternalLink className="w-3 h-3" />
               </Link>
             </div>
           </div>

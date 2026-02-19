@@ -39,12 +39,16 @@ export function ComingSoon({ title, description, icon }: ComingSoonProps) {
         </div>
 
         <div className="pt-4">
-          <Link href="/home">
-            <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-800">
+          <Button
+            asChild
+            variant="outline"
+            className="border-gray-600 text-gray-300 hover:bg-gray-800"
+          >
+            <Link href="/home">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Home
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
     </div>

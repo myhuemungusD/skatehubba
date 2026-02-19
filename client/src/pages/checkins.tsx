@@ -113,16 +113,17 @@ export default function CheckinsPage() {
     <div className="text-white">
       <div className="min-h-screen pt-8 pb-12">
         <div className="max-w-4xl mx-auto px-6">
-          <Link href="/">
-            <Button
-              variant="ghost"
-              className="mb-8 text-gray-400 hover:text-white"
-              data-testid="link-back-home"
-            >
+          <Button
+            asChild
+            variant="ghost"
+            className="mb-8 text-gray-400 hover:text-white"
+            data-testid="link-back-home"
+          >
+            <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
               Back to Home
-            </Button>
-          </Link>
+            </Link>
+          </Button>
 
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-12">
             <div>
@@ -154,11 +155,12 @@ export default function CheckinsPage() {
                 <p className="text-gray-400 mb-8 max-w-sm mx-auto">
                   Sign in to view your trick history and track your progression.
                 </p>
-                <Link href="/login">
-                  <Button className="bg-orange-500 hover:bg-orange-600 px-8 py-6 text-lg font-bold">
-                    Sign In / Create Account
-                  </Button>
-                </Link>
+                <Button
+                  asChild
+                  className="bg-orange-500 hover:bg-orange-600 px-8 py-6 text-lg font-bold"
+                >
+                  <Link href="/login">Sign In / Create Account</Link>
+                </Button>
               </CardContent>
             </Card>
           ) : state === "error" ? (
@@ -186,12 +188,15 @@ export default function CheckinsPage() {
                 <p className="text-gray-400 mb-8 text-lg max-w-sm mx-auto">
                   Hit the Map, find a spot, and land your first trick to start building your legacy.
                 </p>
-                <Link href="/map">
-                  <Button className="bg-orange-500 hover:bg-orange-600 px-10 py-6 text-lg font-bold">
+                <Button
+                  asChild
+                  className="bg-orange-500 hover:bg-orange-600 px-10 py-6 text-lg font-bold"
+                >
+                  <Link href="/map">
                     <MapPin className="w-5 h-5 mr-2" aria-hidden />
                     Open the Map
-                  </Button>
-                </Link>
+                  </Link>
+                </Button>
               </CardContent>
             </Card>
           ) : (

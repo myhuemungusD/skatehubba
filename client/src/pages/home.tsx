@@ -50,11 +50,12 @@ export default function Home() {
       {!isAuthenticated && (
         <section className="py-8 px-6">
           <div className="max-w-6xl mx-auto flex justify-center">
-            <Link href="/auth">
-              <a className="group inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4 text-base font-bold uppercase tracking-wide text-black shadow-[0_18px_60px_rgba(255,122,0,0.35)] transition hover:translate-y-[-1px]">
-                Sign In / Sign Up
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </a>
+            <Link
+              href="/auth"
+              className="group inline-flex items-center gap-3 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 px-6 py-4 text-base font-bold uppercase tracking-wide text-black shadow-[0_18px_60px_rgba(255,122,0,0.35)] transition hover:translate-y-[-1px]"
+            >
+              Sign In / Sign Up
+              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
         </section>
