@@ -45,26 +45,29 @@ export function getEnvNamespace(): AppEnv {
  * In Docker production deploys Express serves both the SPA and API on the
  * same origin, so set EXPO_PUBLIC_API_BASE_URL="" (or leave it empty) there.
  *
- * On static-hosting deploys (e.g. Vercel) where the backend runs on a
- * separate origin, EXPO_PUBLIC_API_BASE_URL must be set at build time to
- * the backend URL, or the env-based defaults below are used.
+ * On Vercel, the API is deployed as a serverless function at /api on the
+ * same origin, so web always uses relative URLs (empty string). The Vercel
+ * rewrite routes /api/* to the serverless function automatically.
  */
 export function getApiBaseUrl(): string {
   const override = getEnvOptional("EXPO_PUBLIC_API_BASE_URL");
   if (override) return override;
 
+  // On web, always use relative URLs. The API is served from the same origin:
+  //   - Local dev: Vite proxy forwards /api → Express on port 3001
+  //   - Vercel: Serverless function handles /api via rewrite
+  //   - Docker: Express serves both SPA and API on the same port
+  if (isWeb()) return "";
+
+  // Mobile (React Native): needs an absolute URL to the backend
   const env = getAppEnv();
-
-  // Local dev on web: Vite proxy handles /api → backend
-  if (isWeb() && env === "local") return "";
-
   switch (env) {
     case "prod":
       return "https://api.skatehubba.com";
     case "staging":
       return "https://staging-api.skatehubba.com";
     default:
-      return isWeb() ? "" : "http://localhost:3001";
+      return "http://localhost:3001";
   }
 }
 

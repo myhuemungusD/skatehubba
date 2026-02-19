@@ -1,5 +1,4 @@
 import type { Express, Request } from "express";
-import { createServer, type Server } from "http";
 import { setupAuthRoutes } from "./auth/routes";
 import { spotStorage } from "./storage/spots";
 import { getDb, isDatabaseAvailable } from "./db";
@@ -46,7 +45,7 @@ import { remoteSkateRouter } from "./routes/remoteSkate";
 import { bandwidthDetection } from "./middleware/bandwidth";
 import logger from "./logger";
 
-export async function registerRoutes(app: Express): Promise<Server> {
+export function registerRoutes(app: Express): void {
   // 1. Setup Authentication (Passport session)
   setupAuthRoutes(app);
 
@@ -486,10 +485,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .from(customUsers)
         .where(
-          or(
-            ilike(customUsers.firstName, searchTerm),
-            ilike(customUsers.lastName, searchTerm)
-          )
+          or(ilike(customUsers.firstName, searchTerm), ilike(customUsers.lastName, searchTerm))
         )
         .limit(20);
 
@@ -682,9 +678,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     try {
       const db = getDb();
-      const result = await db
-        .delete(authSessions)
-        .where(lt(authSessions.expiresAt, new Date()));
+      const result = await db.delete(authSessions).where(lt(authSessions.expiresAt, new Date()));
       const deleted = (result as { rowCount?: number }).rowCount ?? 0;
       logger.info("[Cron] Expired sessions cleaned up", { deleted });
       res.json({ success: true, deleted });
@@ -717,8 +711,4 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ totalUsers: 0, totalSpots: 0, totalBattles: 0 });
     }
   });
-
-  // 4. Create HTTP Server
-  const httpServer = createServer(app);
-  return httpServer;
 }

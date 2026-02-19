@@ -26,6 +26,7 @@ export function useProfileSubmit(
   const [submitting, setSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [failCount, setFailCount] = useState(0);
 
   const getNextUrl = useCallback((): string => {
     const params = new URLSearchParams(searchString);
@@ -97,6 +98,7 @@ export function useProfileSubmit(
         setLocation(nextUrl, { replace: true });
       } catch (error) {
         logger.error("[ProfileSetup] Failed to create profile", error);
+        setFailCount((c) => c + 1);
         if (isApiError(error)) {
           const details = error.details as Record<string, unknown> | undefined;
           const errorCode =
@@ -173,11 +175,18 @@ export function useProfileSubmit(
     );
   }, [submitProfile]);
 
+  const handleContinue = useCallback(() => {
+    const nextUrl = getNextUrl();
+    setLocation(nextUrl, { replace: true });
+  }, [getNextUrl, setLocation]);
+
   return {
     submitting,
     uploadProgress,
     submitError,
+    failCount,
     onSubmit,
     handleSkip,
+    handleContinue,
   };
 }
