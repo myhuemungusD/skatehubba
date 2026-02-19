@@ -37,30 +37,34 @@ export function getEnvNamespace(): AppEnv {
 /**
  * Get the API base URL for the current environment
  *
- * On web the Express server serves both the SPA and the API on the same
- * origin, so we return "" (relative URLs).  In dev Vite proxies /api to
- * the backend; in prod Express handles /api directly.
+ * Resolution order:
+ * 1. EXPO_PUBLIC_API_BASE_URL override (any platform)
+ * 2. Web in local dev: "" (relative URLs — Vite proxies /api to backend)
+ * 3. Environment-based defaults (prod/staging/local)
  *
- * Mobile clients need an absolute URL because there is no same-origin
- * server, so they fall back to the environment-based defaults below.
+ * In Docker production deploys Express serves both the SPA and API on the
+ * same origin, so set EXPO_PUBLIC_API_BASE_URL="" (or leave it empty) there.
  *
- * Set EXPO_PUBLIC_API_BASE_URL to override on any platform.
+ * On static-hosting deploys (e.g. Vercel) where the backend runs on a
+ * separate origin, EXPO_PUBLIC_API_BASE_URL must be set at build time to
+ * the backend URL, or the env-based defaults below are used.
  */
 export function getApiBaseUrl(): string {
   const override = getEnvOptional("EXPO_PUBLIC_API_BASE_URL");
   if (override) return override;
 
-  // Web: same-origin — works in both Vite dev (proxy) and Express prod
-  if (isWeb()) return "";
-
   const env = getAppEnv();
+
+  // Local dev on web: Vite proxy handles /api → backend
+  if (isWeb() && env === "local") return "";
+
   switch (env) {
     case "prod":
       return "https://api.skatehubba.com";
     case "staging":
       return "https://staging-api.skatehubba.com";
     default:
-      return "http://localhost:3001";
+      return isWeb() ? "" : "http://localhost:3001";
   }
 }
 
