@@ -1,6 +1,8 @@
 # Screenshots & Visual Assets
 
-This directory contains screenshots, GIFs, and visual assets for documentation and marketing purposes.
+> **Note:** No screenshots have been captured yet. This file is a contribution guide for when visual assets are added.
+
+This directory will contain screenshots, GIFs, and visual assets for documentation and marketing purposes.
 
 ---
 

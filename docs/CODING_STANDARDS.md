@@ -474,7 +474,7 @@ export const createFilmerRequest = async (input: CreateFilmerRequestInput) => {
 ### README Files
 
 - Every package must have a README.md
-- API changes must update `/docs/API.md`
+- API changes must update the relevant files in `/docs/specs/`
 - Architecture changes must update `/docs/architecture/`
 
 ---

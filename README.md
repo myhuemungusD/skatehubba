@@ -207,30 +207,16 @@ Live at: **<https://staging.skatehubba.com>**
 | [Deployment](docs/DEPLOYMENT_RUNBOOK.md)               | Production deployment guide         |
 | [Contributing](CONTRIBUTING.md)                        | Development workflow and standards   |
 | [Security](docs/security/SECURITY.md)                  | Security policies and reporting     |
+| [Setup Guides](docs/setup/)                             | Firebase, Google Sign-in, email config |
 
 ---
 
-## Demo and Screenshots
+## Demo
 
 **[Try the live staging demo →](https://staging.skatehubba.com)**
 
 The staging environment uses demo data and Stripe test mode —
 explore freely without affecting production.
-
-> Screenshots are in progress.
-> See [docs/screenshots/README.md](docs/screenshots/README.md)
-> for contribution guidelines.
-
-Planned media:
-
-- Hero GIF showing the full remote game flow
-  (record → judge → letter awarded)
-- Game lobby screenshots showing worldwide matchups
-- Mobile app mockups
-- Three-minute demo video walkthrough of a remote battle
-
-Contributions welcome — if you have access to the app,
-capture screenshots and open a PR.
 
 ---
 

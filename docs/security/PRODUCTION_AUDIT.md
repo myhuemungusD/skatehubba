@@ -1,8 +1,10 @@
 # SkateHubba Production App Store Audit
 
-**Date:** November 13, 2025  
-**Status:** Pre-Production Review  
+**Date:** November 13, 2025
+**Status:** Pre-Production Review
 **Overall Readiness:** ⚠️ BLOCKERS IDENTIFIED
+
+> **Update (Feb 2026):** Several critical items below have been resolved since the original audit. Resolved items are marked with **RESOLVED**.
 
 ---
 
@@ -24,27 +26,29 @@
 
 ---
 
-### 2. Missing Error Boundary
+### 2. ~~Missing Error Boundary~~ **RESOLVED**
 
-**Severity:** 🔴 CRITICAL  
-**Location:** Client application root  
-**Issue:** No React Error Boundary implemented  
-**Impact:** Any unhandled error will show blank white screen to users instead of graceful error message  
+**Severity:** 🔴 CRITICAL
+**Location:** Client application root
+**Issue:** No React Error Boundary implemented
+**Impact:** Any unhandled error will show blank white screen to users instead of graceful error message
 **Fix Required:** Implement ErrorBoundary component wrapping the entire app
+**Resolution:** Error Boundary implemented. See DEPLOYMENT_RUNBOOK.md Task 3 for details.
 
 ---
 
-### 3. Missing Privacy Policy & Terms of Service
+### 3. ~~Missing Privacy Policy & Terms of Service~~ **RESOLVED**
 
-**Severity:** 🔴 CRITICAL (App Store Requirement)  
-**Location:** Legal pages missing  
-**Issue:** Auth page mentions "Terms of Service and Privacy Policy" but these pages don't exist  
+**Severity:** 🔴 CRITICAL (App Store Requirement)
+**Location:** Legal pages missing
+**Issue:** Auth page mentions "Terms of Service and Privacy Policy" but these pages don't exist
 **Impact:**
 
 - Apple App Store: REJECTS apps without privacy policy
 - Google Play Store: REJECTS apps without privacy policy
 - GDPR/CCPA compliance: REQUIRED by law
   **Fix Required:** Create /privacy and /terms pages with proper legal content
+**Resolution:** Pages implemented at `/privacy` and `/terms` (`client/src/pages/privacy.tsx`, `client/src/pages/terms.tsx`).
 
 ---
 

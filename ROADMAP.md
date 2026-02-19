@@ -14,6 +14,8 @@ While other apps (Shred Spots, The Spot Guide, Skately) focus on passive discove
 
 ## Q1 2026 (Jan - Mar) - Mobile & Core Polish
 
+> **Status:** In progress. See [Recently Completed](#recently-completed) for shipped items.
+
 ### 🎮 Game Improvements
 - [ ] **Spectator Mode** - Watch live S.K.A.T.E. games in progress
 - [ ] **Game Replays** - View full game history with all trick videos
