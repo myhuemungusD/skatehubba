@@ -12,13 +12,37 @@ This approach leverages the strengths of both systems:
 - PostgreSQL provides strong consistency, complex queries, and relationships
 - Firestore enables real-time updates, scalability, and offline support
 
+> **Where data actually lives:**
+>
+> | Data | Authoritative store | In Firestore? |
+> |------|---------------------|---------------|
+> | User identity, email, profile, bio | PostgreSQL `customUsers` / `onboardingProfiles` | `users` doc — display fields only |
+> | Usernames | PostgreSQL `usernames` (atomic) | ❌ No Firestore collection |
+> | Spots | PostgreSQL `spots` | ❌ No Firestore collection |
+
 ## Firestore Collections
+
+### `users` — Minimal Display Document
+
+The Firestore `users/{uid}` document holds display-only fields. It is **not** the authoritative
+user record — that lives in PostgreSQL.
+
+**What's written here and by whom:**
+
+| Field | Written by | When |
+|-------|-----------|------|
+| `uid`, `displayName`, `createdAt`, `updatedAt` | Client (`authStore.ts`) | Sign-up |
+| `roles`, `updatedAt` | Server Cloud Function (`manageUserRole`) | Admin role change |
+| `xp`, `isPro`, `role` | Server via Admin SDK | Future: after check-in / purchase events |
+
+**What clients read here:** `isPro`, `role`, `xp` (loaded in `user.ts` on auth state change for UI badges)
+
+**Not stored here:** email, password, username, bio, spot history — those are PostgreSQL-only.
 
 ### Real-Time Features
 
 | Collection         | Purpose                               | Security Level                                                 |
 | ------------------ | ------------------------------------- | -------------------------------------------------------------- |
-| `users`            | User profiles and public data         | Read: All authenticated users<br>Write: Own profile only       |
 | `chat_messages`    | AI Skate Buddy (Beagle) conversations | Read/Write: Own messages only                                  |
 | `game_sessions`    | Live SKATE game matches               | Read/Write: Participants only                                  |
 | `notifications`    | Real-time user notifications          | Read/Update: Own notifications<br>Create: Server only          |
@@ -75,20 +99,6 @@ isGameParticipant(gameData);
 ```
 
 ### Example Rules
-
-**User Profiles:**
-
-```javascript
-match /users/{userId} {
-  // Anyone can read profiles
-  allow read: if isAuthenticated();
-
-  // Only owner can create/update their profile
-  allow create, update: if isOwner(userId)
-    && hasRequiredFields(['userId', 'displayName'])
-    && isValidString('displayName', 1, 50);
-}
-```
 
 **Game Sessions:**
 
@@ -237,17 +247,6 @@ await updateDocument(firestoreCollections.notifications, notificationId, {
   readAt: new Date(),
 });
 
-// Update user profile (with optional updatedAt)
-await updateDocument(
-  firestoreCollections.users,
-  userId,
-  {
-    displayName: "New Name",
-    bio: "Updated bio",
-  },
-  { addTimestamp: true }
-); // Optional: adds updatedAt field
-
 // Delete check-in
 await deleteDocument(firestoreCollections.activeCheckins, checkinId);
 ```
@@ -295,18 +294,30 @@ await db.collection("leaderboard_live").doc(userId).set({
 
 ## Data Schemas
 
-### User Profile
+> **Note:** Authoritative user profile schemas are defined in the Drizzle ORM schema at
+> `packages/shared/schema/auth.ts` (`customUsers`) and
+> `packages/shared/schema/profiles.ts` (`onboardingProfiles`).
+
+### `users` Display Document
 
 ```typescript
-interface UserProfile {
-  userId: string;
+// Created by client (authStore.ts) on sign-up:
+interface FirestoreUserDocBase {
+  uid: string;
   displayName: string;
-  photoURL?: string;
-  bio?: string;
-  skillLevel?: "beginner" | "intermediate" | "advanced" | "pro";
   createdAt: Timestamp;
-  updatedAt?: Timestamp;
+  updatedAt: Timestamp;
 }
+
+// Fields added later by server Cloud Functions / Admin SDK:
+interface FirestoreUserDocServer {
+  roles?: string[];      // Set by manageUserRole Cloud Function
+  xp?: number;           // Set by server after check-in/challenge events
+  isPro?: boolean;       // Set by server after subscription events
+  role?: "skater" | "filmer" | "pro"; // Derived from roles
+}
+
+// NOT stored here: email, password, username, bio, spot history — PostgreSQL only.
 ```
 
 ### Chat Message
@@ -546,33 +557,6 @@ If you see "permission-denied" errors:
 2. **Reduce Listeners** - Limit active real-time subscriptions
 3. **Use Pagination** - Don't load entire collections at once
 4. **Cache Data** - Store frequently accessed data locally
-
-## Migration Guide
-
-### Moving Data to Firestore
-
-When migrating from PostgreSQL to Firestore:
-
-```typescript
-// 1. Fetch from PostgreSQL
-const users = await db.select().from(customUsers);
-
-// 2. Transform data
-const firestoreData = users.map((user) => ({
-  userId: user.id,
-  displayName: `${user.firstName} ${user.lastName}`,
-  skillLevel: user.skillLevel,
-  createdAt: admin.firestore.Timestamp.fromDate(user.createdAt),
-}));
-
-// 3. Batch write to Firestore
-const batch = admin.firestore().batch();
-firestoreData.forEach((data) => {
-  const ref = admin.firestore().collection("users").doc(data.userId);
-  batch.set(ref, data);
-});
-await batch.commit();
-```
 
 ## Support
 

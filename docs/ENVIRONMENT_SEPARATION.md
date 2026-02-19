@@ -20,16 +20,20 @@ We use **one Firebase project** (`sk8hub-d7806`) with environment separation at:
 │ appId: ...731aaae...       │ appId: ...STAGING...               │
 ├────────────────────────────┴────────────────────────────────────┤
 │                      Firestore Database                         │
-│  ├── /env/prod/users/{uid}       ← Production data              │
-│  ├── /env/prod/checkins/{id}                                    │
-│  ├── /env/staging/users/{uid}    ← Staging data (isolated)      │
-│  └── /env/staging/checkins/{id}                                 │
+│  (real-time features only — users/usernames/spots are in Neon)  │
+│  ├── /env/prod/presence/{uid}    ← Production real-time data    │
+│  ├── /env/prod/challenges/{id}                                  │
+│  ├── /env/staging/presence/{uid} ← Staging data (isolated)      │
+│  └── /env/staging/challenges/{id}                               │
 ├─────────────────────────────────────────────────────────────────┤
 │                      Storage Bucket                             │
 │  ├── /env/prod/uploads/...       ← Production files             │
 │  └── /env/staging/uploads/...    ← Staging files (isolated)     │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+> **Important:** `users`, `usernames`, and `spots` live in **PostgreSQL (Neon)** — not Firestore.
+> Never use `getEnvPath()` or Firestore client SDK to read or write user/username/spot data.
 
 ## Environment Variables
 
@@ -84,10 +88,12 @@ Returns correct Firebase config for current environment.
 
 ### `getEnvPath(basePath: string): string`
 
-Prefixes Firestore paths with environment namespace:
+Prefixes Firestore paths with environment namespace. Use only for real-time Firestore
+collections (presence, challenges, game_sessions, etc.) — **not** for users, usernames,
+or spots, which are in PostgreSQL.
 
 ```ts
-getEnvPath("users/abc123"); // → '/env/prod/users/abc123'
+getEnvPath("presence/abc123"); // → '/env/prod/presence/abc123'
 ```
 
 ### `getStoragePath(path: string): string`
@@ -186,20 +192,23 @@ Currently, Firestore rules enforce **path namespacing** but cannot verify that a
 
 ### Existing Code
 
-Replace direct path references with namespaced versions:
+For real-time Firestore collections, replace direct path references with namespaced versions:
 
 ```ts
 // Before
-const userRef = doc(db, "users", uid);
+const presenceRef = doc(db, "presence", uid);
 
 // After
 import { getEnvPath } from "@skatehubba/config";
-const userRef = doc(db, getEnvPath(`users/${uid}`));
+const presenceRef = doc(db, getEnvPath(`presence/${uid}`));
 ```
+
+> **Do not** migrate user, username, or spot reads to Firestore paths. Those must go through
+> the Express API: `GET /api/profile/me`, `GET /api/spots`, `GET /api/profile/username-check`.
 
 ### Existing Data
 
-Production data stays at root paths. New architecture uses `/env/prod/...` prefix.
+Production real-time data stays at root paths. New architecture uses `/env/prod/...` prefix.
 Consider a migration script if needed.
 
 ## Troubleshooting

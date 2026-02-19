@@ -15,8 +15,6 @@
 
 // Auth tables & types
 export {
-  sessions,
-  users,
   customUsers,
   usernames,
   authSessions,
@@ -29,8 +27,6 @@ export {
 } from "@shared/schema/auth";
 
 export type {
-  User,
-  UpsertUser,
   CustomUser,
   InsertCustomUser,
   AuthSession,

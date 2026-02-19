@@ -17,10 +17,11 @@ SkateHubba uses a **hybrid database architecture** optimized for cost, performan
 **Purpose:** All structured, relational, and transactional data
 
 **What Lives Here:**
-- ✅ User profiles (`customUsers` table)
-  - Email, name, bio, roles, preferences
-  - **Single source of truth** for user data
-  - Keyed by Firebase UID
+- ✅ User identity (`customUsers` table) and profiles (`userProfiles` table)
+  - Identity: email, password hash, Firebase UID, account tier, trust level
+  - Profile: handle, bio, stance, XP, wins/losses, filmer reputation
+  - **Single source of truth** for all user data
+  - `customUsers` keyed by internal UUID; Firebase UID stored in `firebaseUid` field
   
 - ✅ Spots & Check-ins
   - Spot locations, ratings, photos
@@ -35,7 +36,7 @@ SkateHubba uses a **hybrid database architecture** optimized for cost, performan
   - Aggregations and time-series data
   
 - ✅ Sessions
-  - Login sessions (connect-pg-simple)
+  - Login sessions (`authSessions` table)
   
 - ✅ Games & Tournaments
   - Match history, leaderboards, rankings
@@ -80,8 +81,12 @@ const db = drizzle(pool, { schema });
   - Online/offline status
   - Last seen timestamp
   
-- ❌ User profiles (moved to Postgres)
-- ❌ Static spot data (moved to Postgres)
+- ✅ `users` collection — display document for UI badges (not the authoritative record)
+  - Client creates on sign-up: `{ uid, displayName, createdAt, updatedAt }`
+  - Server Cloud Function adds/updates: `roles`, `xp`, `isPro`, `role`
+  - Authoritative profile (email, bio, username) stays in PostgreSQL
+- ❌ `spots` — no Firestore collection; PostgreSQL `spots` table is the only store
+- ❌ `usernames` — no Firestore collection; PostgreSQL `usernames` table is the only store
 
 #### 3. Storage (Firebase Storage)
 - User-uploaded media (photos, videos)
@@ -107,17 +112,17 @@ const db = drizzle(pool, { schema });
 
 ### User Signup
 ```typescript
-// 1. Create Firebase auth user
+// 1. Create Firebase auth user (optional — or use custom auth only)
 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-const uid = userCredential.user.uid;
+const firebaseUid = userCredential.user.uid;
 
-// 2. Create Postgres profile (single source of truth)
+// 2. Create Postgres identity record (id auto-generated; firebaseUid stored separately)
 await db.insert(customUsers).values({
-  id: uid,  // Firebase UID as primary key
   email,
   firstName,
   lastName,
-  createdAt: new Date()
+  firebaseUid,  // Firebase UID stored here, NOT as primary key
+  passwordHash, // for custom auth flow
 });
 
 // 3. NO Firestore user document (unless needed for presence)
@@ -125,12 +130,12 @@ await db.insert(customUsers).values({
 
 ### User Profile Update
 ```typescript
-// Update Postgres only
-await db.update(customUsers)
-  .set({ bio, location })
-  .where(eq(customUsers.id, uid));
+// Update Postgres only (profile fields live in userProfiles, not customUsers)
+await db.update(userProfiles)
+  .set({ bio, stance })
+  .where(eq(userProfiles.id, firebaseUid));
 
-// NO Firestore sync needed
+// NO Firestore sync needed for profile fields
 ```
 
 ### Check-in Flow
@@ -190,15 +195,9 @@ await db.update(games)
 - Spots and check-ins in Postgres
 - Drizzle ORM integration
 
-### 🔄 In Progress
-- Remove Firestore user duplication
-- Update `set-admin.ts` to use Postgres only
-- Add database service layer abstraction
-
-### 📋 Planned
-- Migrate challenge history to Postgres
-- Add Firestore rules restricting user writes
-- Create data migration scripts
+### ✅ Also Completed
+- Removed Firestore user duplication (users, usernames, spots are PostgreSQL-only)
+- Firestore rules no longer include `/users/`, `/usernames/`, or `/spots/` collections
 
 ---
 
