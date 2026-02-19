@@ -1,8 +1,8 @@
 # SkateHubba MVP Specification
 
-**Version**: 1.0
+**Version**: 1.1
 **Surface**: Web (Primary)
-**Last Updated**: 2026-01-26
+**Last Updated**: 2026-02-19
 
 ---
 
@@ -124,13 +124,20 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 
 ---
 
-## Explicitly Out of Scope (Coming Soon Placeholders)
+## Post-MVP Features (Shipped in v0.9.0)
+
+The following were originally out of scope for the MVP but have since been implemented. See [CHANGELOG.md](CHANGELOG.md) for details.
 
 | Feature                  | Page                    | Status          |
 | ------------------------ | ----------------------- | --------------- |
-| S.K.A.T.E. Battles       | `/game`, `/game/active` | Coming Soon     |
-| TrickMint (Video Upload) | `/trickmint`            | Coming Soon     |
-| Payments/Checkout        | `/checkout`             | Coming Soon     |
+| S.K.A.T.E. Battles       | `/game`, `/game/active` | Implemented     |
+| TrickMint (Video Upload) | `/trickmint`            | Implemented     |
+
+## Not Yet Implemented
+
+| Feature                  | Page                    | Status          |
+| ------------------------ | ----------------------- | --------------- |
+| Payments/Checkout        | `/checkout`             | Not implemented |
 | Live Streaming           | N/A                     | Not implemented |
 | AR Check-ins             | N/A                     | Not implemented |
 | Bounties                 | N/A                     | Not implemented |
@@ -200,11 +207,14 @@ Users who haven't verified their email:
 - `/feed` - Activity feed
 - `/leaderboard` - Rankings
 
-### Coming Soon Routes
+### Game Routes (Shipped in v0.9.0)
 
 - `/game` - S.K.A.T.E. lobby
 - `/game/active` - Active game
 - `/trickmint` - Video upload
+
+### Not Yet Implemented
+
 - `/checkout` - Payments
 
 ---

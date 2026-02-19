@@ -1,97 +1,109 @@
-🛹 Contributing to SkateHubba™
-First off, thank you for stepping up to contribute to the future of skateboarding technology. We hold our codebase to the same standards as a professional contest run: technical, clean, and high-impact.
+## Contributing to SkateHubba
 
-🏗 Monorepo Architecture
-SkateHubba™ operates as a TypeScript pnpm workspace. This ensures that our "Shared DNA" (types and logic) remains synchronized across all platforms.
+Thank you for contributing. We hold our codebase to the same standards as a professional contest run: technical, clean, and high-impact.
 
-Project Map
-/client: React + Vite + TypeScript frontend—The core user experience.
+### Monorepo Architecture
 
-/server: Express / Firebase API—The business logic engine.
+SkateHubba is a TypeScript pnpm workspace orchestrated by Turborepo.
 
-/shared: The Source of Truth. Zod schemas and TypeScript interfaces used by both Client and Server.
+**Project Map**
 
-/infra: Firebase Cloud Functions and deployment infrastructure.
+```text
+client/      React + Vite + TypeScript frontend
+server/      Express API + PostgreSQL backend
+mobile/      React Native / Expo app
+functions/   Firebase Cloud Functions
+packages/    Shared code (config, db, firebase, shared, types, utils)
+```
 
-/mobile: Future React Native / Expo integration.
+### Getting Started
 
-🚀 Getting Started: The Professional Workflow
-1. Prerequisites
-Node.js: Version 20.x or higher (LTS).
+**Prerequisites**
 
-pnpm: Version 10.x (Required for workspace integrity).
+- Node.js 20+
+- pnpm 10+ (enforced — `npm install` will fail)
 
-Git: Configured with SSH preferred for secure pushes.
+**Setup**
 
-2. The Fork & Upstream Setup
-To contribute, you must follow the Upstream Synchronization model. This prevents "ghost" commits and ensures your local environment stays fresh.
+```bash
+# 1. Fork the repo at https://github.com/myhuemungusD/skatehubba
+# 2. Clone your fork
+git clone https://github.com/YOUR_USERNAME/skatehubba.git
+cd skatehubba
 
-Bash
+# 3. Add upstream remote
+git remote add upstream https://github.com/myhuemungusD/skatehubba.git
 
-# 1. Fork the repo at https://github.com/myhuemungusD/skatehubba1
-# 2. Clone your personal fork
-git clone https://github.com/YOUR_USERNAME/skatehubba1.git
-cd skatehubba1
-
-# 3. Add the Brand Source as 'upstream'
-git remote add upstream https://github.com/myhuemungusD/skatehubba1.git
-
-# 4. Verify remotes (should show origin and upstream)
-git remote -v
-3. Dependency Management
-Never use npm install. We use pnpm to manage the symlinks between our internal packages.
-
-Bash
-
+# 4. Install dependencies
 pnpm install
-🔄 Development Workflow
-Syncing with the Brand
-Before starting any new feature, sync your local environment with the latest "Gold Standard" code.
+```
 
-Bash
+### Development Workflow
 
+**Syncing with upstream**
+
+```bash
 git fetch upstream
-git checkout dev
-git merge upstream/dev
-Branch Naming Conventions
-feat/description - New functionality.
+git checkout main
+git merge upstream/main
+```
 
-fix/description - Bug resolutions.
+**Running the dev server**
 
-refactor/description - Structural improvements with no logic change.
+```bash
+pnpm dev
+```
 
-chore/description - Dependency updates or maintenance.
+**Branch naming**
 
-📏 Engineering Standards
-🧬 Shared DNA (The @skatehubba/shared Rule)
-If you are adding data structures, they must start in /shared.
+- `feat/description` — New functionality
+- `fix/description` — Bug fixes
+- `refactor/description` — Structural improvements, no logic change
+- `chore/description` — Dependency updates, maintenance
 
-Define the Zod schema in shared/schema.ts.
+### Engineering Standards
 
-Export the types derived from that schema.
+**Shared packages**
 
-Run pnpm install at the root to refresh the workspace links.
+Types and schemas live in `packages/`. If you add data structures that are used across client and server, define them there.
 
-💻 Code Quality
-Strict Typing: No any. Use unknown or generics if the type is dynamic.
+**Code quality**
 
-Functional Components: React components must use functional patterns and hooks.
+- Strict TypeScript — no `any`. Use `unknown` or generics for dynamic types.
+- Functional React components with hooks.
+- Tailwind CSS — follow the design tokens in `tailwind.config.ts`, no hardcoded hex codes.
 
-Tailwind CSS: Follow the design tokens in tailwind.config.ts. Do not use hardcoded hex codes.
+### Commit Guidelines
 
-📝 Commit Guidelines
-We follow the Conventional Commits specification. This allows for automated changelog generation and clean history.
+We follow [Conventional Commits](https://www.conventionalcommits.org/).
 
-Format: type(scope): subject Example: feat(client): add real-time spot check-in validation
+Format: `type(scope): subject`
 
-🔀 Pull Request Process
-Rebase: Before submitting, rebase your feature branch against upstream/dev to ensure a clean merge.
+Example: `feat(client): add real-time spot check-in validation`
 
-Verify: Run pnpm build at the root. If the build fails, the PR will be rejected automatically by CI.
+### Pull Request Process
 
-Documentation: Update any relevant .md files in /specs if you've changed API endpoints or data flows.
+1. **Rebase** your feature branch against `upstream/main` before submitting.
+2. **Verify locally** — run the full quality suite:
 
-📚 Recognition & Governance
-Every meaningful contribution is tracked. Significant features earn a spot in the CONTRIBUTORS.md and the CHANGELOG.md.
+```bash
+pnpm run typecheck    # TypeScript checking
+pnpm run lint         # ESLint (zero warnings)
+pnpm test             # Unit tests
+pnpm run format:check # Prettier formatting
+pnpm run build        # Full build
+```
 
-This monorepo workflow was verified and hardened by the internal dev agent for Design Mainline LLC. All workflows are workspace-aligned, Vercel-ready, and Firebase-scalable.
+Or run everything at once:
+
+```bash
+pnpm run verify
+```
+
+3. **Update docs** — if you changed API endpoints or data flows, update the relevant files in `docs/`.
+
+All PRs are gated by CI (GitHub Actions) which runs typecheck, lint, tests, format checking, secret scanning, and build verification.
+
+### Recognition
+
+Every meaningful contribution is tracked. Significant features earn a spot in CONTRIBUTORS.md and the [Changelog](CHANGELOG.md).
