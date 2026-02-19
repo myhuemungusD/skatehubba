@@ -201,10 +201,12 @@ Live at: **<https://staging.skatehubba.com>**
 | Document                                              | Description                        |
 | ----------------------------------------------------- | ---------------------------------- |
 | [Game Rules](docs/GAME_RULES.md)                      | How S.K.A.T.E. works on SkateHubba |
-| [Architecture](docs/ARCHITECTURE.md)                   | System design with Mermaid diagrams |
+| [System Architecture](docs/SYSTEM_ARCHITECTURE.md)     | Boundaries, data flow, auth, video pipeline |
+| [Game Architecture](docs/ARCHITECTURE.md)              | Game system design with Mermaid diagrams |
+| [Release & Deployment](docs/RELEASE.md)                | Environments, deploys, secret rotation |
 | [Roadmap](ROADMAP.md)                                  | Upcoming features and vision        |
 | [Changelog](CHANGELOG.md)                              | Release history (v0.9.0)            |
-| [Deployment](docs/DEPLOYMENT_RUNBOOK.md)               | Production deployment guide         |
+| [Deployment Runbook](docs/DEPLOYMENT_RUNBOOK.md)       | Incident response and troubleshooting |
 | [Contributing](CONTRIBUTING.md)                        | Development workflow and standards   |
 | [Security](docs/security/SECURITY.md)                  | Security policies and reporting     |
 | [Setup Guides](docs/setup/)                             | Firebase, Google Sign-in, email config |
