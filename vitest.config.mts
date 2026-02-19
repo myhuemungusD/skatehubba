@@ -29,6 +29,7 @@ export default defineConfig({
         '**/socket-types.ts',
         // Infrastructure / entry-point / dev-tooling files — tested via integration / E2E
         'server/index.ts',
+        'server/app.ts',
         'server/vite-dev.ts',
         'server/api-docs.ts',
         'server/config/server.ts',
