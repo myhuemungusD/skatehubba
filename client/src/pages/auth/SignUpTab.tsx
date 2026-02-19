@@ -201,7 +201,7 @@ export function SignUpTab({
               Name
             </Label>
             <div className="relative">
-              <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <User aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 id="signup-name"
                 placeholder="Your name"
@@ -220,7 +220,7 @@ export function SignUpTab({
               Email
             </Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Mail aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 id="signup-email"
                 type="email"
@@ -240,7 +240,7 @@ export function SignUpTab({
               Password
             </Label>
             <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Lock aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 id="signup-password"
                 type={showPassword ? "text" : "password"}
@@ -251,9 +251,14 @@ export function SignUpTab({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff aria-hidden="true" className="h-4 w-4" />
+                ) : (
+                  <Eye aria-hidden="true" className="h-4 w-4" />
+                )}
               </button>
             </div>
             <p className="text-xs text-gray-500">
@@ -278,7 +283,7 @@ export function SignUpTab({
             </Label>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative flex-1">
-                <AtSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <AtSign aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                 <Input
                   id="signup-username"
                   placeholder="skatelegend"
@@ -328,7 +333,7 @@ export function SignUpTab({
           >
             {isFormLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
                 {isCreatingProfile ? "Setting up profile..." : "Creating Account..."}
               </>
             ) : (

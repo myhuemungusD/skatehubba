@@ -41,13 +41,13 @@ export function FeatureGrid({ features, columns = 3 }: FeatureGridProps) {
             const IconComponent = typeof feature.icon === "function" ? feature.icon : null;
 
             return (
-              <div key={i} className="group relative">
+              <article key={i} className="group relative">
                 {/* Hover glow effect */}
-                <div className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl opacity-0 group-hover:opacity-20 blur transition-opacity duration-500" />
+                <div aria-hidden="true" className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl opacity-0 group-hover:opacity-20 blur transition-opacity duration-500" />
 
                 <div className="relative h-full bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-2xl p-8 transition-all duration-300 group-hover:scale-[1.02]">
                   {/* Icon */}
-                  <div className="mb-6">
+                  <div className="mb-6" aria-hidden="true">
                     {typeof feature.icon === "string" ? (
                       <span className="text-5xl">{feature.icon}</span>
                     ) : IconComponent ? (
@@ -65,7 +65,7 @@ export function FeatureGrid({ features, columns = 3 }: FeatureGridProps) {
                   </h3>
                   <p className="text-zinc-400 leading-relaxed">{feature.description}</p>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
