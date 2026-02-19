@@ -12,11 +12,32 @@ This approach leverages the strengths of both systems:
 - PostgreSQL provides strong consistency, complex queries, and relationships
 - Firestore enables real-time updates, scalability, and offline support
 
-> **Important:** `users`, `usernames`, and `spots` are stored in **PostgreSQL (Neon) via Drizzle ORM**,
-> not Firestore. Do not query or write these from the Firestore client. Use the Express API instead:
-> `GET /api/profile/me`, `GET /api/spots`, `GET /api/profile/username-check`.
+> **Where data actually lives:**
+>
+> | Data | Authoritative store | In Firestore? |
+> |------|---------------------|---------------|
+> | User identity, email, profile, bio | PostgreSQL `customUsers` / `onboardingProfiles` | `users` doc — display fields only |
+> | Usernames | PostgreSQL `usernames` (atomic) | ❌ No Firestore collection |
+> | Spots | PostgreSQL `spots` | ❌ No Firestore collection |
 
 ## Firestore Collections
+
+### `users` — Minimal Display Document
+
+The Firestore `users/{uid}` document holds display-only fields. It is **not** the authoritative
+user record — that lives in PostgreSQL.
+
+**What's written here and by whom:**
+
+| Field | Written by | When |
+|-------|-----------|------|
+| `uid`, `displayName`, `createdAt`, `updatedAt` | Client (`authStore.ts`) | Sign-up |
+| `roles`, `updatedAt` | Server Cloud Function (`manageUserRole`) | Admin role change |
+| `xp`, `isPro`, `role` | Server via Admin SDK | Future: after check-in / purchase events |
+
+**What clients read here:** `isPro`, `role`, `xp` (loaded in `user.ts` on auth state change for UI badges)
+
+**Not stored here:** email, password, username, bio, spot history — those are PostgreSQL-only.
 
 ### Real-Time Features
 
@@ -273,10 +294,31 @@ await db.collection("leaderboard_live").doc(userId).set({
 
 ## Data Schemas
 
-> **Note:** User profile schemas are defined in the Drizzle ORM schema at
+> **Note:** Authoritative user profile schemas are defined in the Drizzle ORM schema at
 > `packages/shared/schema/auth.ts` (`customUsers`) and
 > `packages/shared/schema/profiles.ts` (`onboardingProfiles`).
-> The schemas below cover Firestore-only collections.
+
+### `users` Display Document
+
+```typescript
+// Created by client (authStore.ts) on sign-up:
+interface FirestoreUserDocBase {
+  uid: string;
+  displayName: string;
+  createdAt: Timestamp;
+  updatedAt: Timestamp;
+}
+
+// Fields added later by server Cloud Functions / Admin SDK:
+interface FirestoreUserDocServer {
+  roles?: string[];      // Set by manageUserRole Cloud Function
+  xp?: number;           // Set by server after check-in/challenge events
+  isPro?: boolean;       // Set by server after subscription events
+  role?: "skater" | "filmer" | "pro"; // Derived from roles
+}
+
+// NOT stored here: email, password, username, bio, spot history — PostgreSQL only.
+```
 
 ### Chat Message
 

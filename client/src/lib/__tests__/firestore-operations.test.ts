@@ -55,6 +55,7 @@ describe("Firestore Operations", () => {
 
   describe("firestoreCollections", () => {
     it("should export collection name constants", () => {
+      expect(firestoreCollections.users).toBe("users");
       expect(firestoreCollections.chatMessages).toBe("chat_messages");
       expect(firestoreCollections.gameSessions).toBe("game_sessions");
       expect(firestoreCollections.notifications).toBe("notifications");

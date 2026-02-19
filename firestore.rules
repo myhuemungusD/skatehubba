@@ -105,6 +105,38 @@ service cloud.firestore {
     }
 
     // =========================================================================
+    // USERS - /users/{userId}
+    //
+    // This is NOT the authoritative user record.
+    // Authoritative data (email, profile, username, spots) is in PostgreSQL.
+    //
+    // What's written here:
+    //   - Client creates on sign-up: { uid, displayName, createdAt, updatedAt }
+    //     (see authStore.ts signUpWithEmail)
+    //   - Server Cloud Function updates roles via Admin SDK (bypasses these rules)
+    //   - Server may write xp/isPro via Admin SDK (bypasses these rules)
+    //
+    // What clients read: isPro, role, xp for display badges (see user.ts store)
+    //
+    // NOT here: email, password, username, bio, spot history — PostgreSQL only.
+    // =========================================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+
+      // Client creates minimal display doc on sign-up.
+      // Strictly limited to what authStore.ts actually writes.
+      allow create: if isOwner(userId)
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'createdAt', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+
+      // Updates (roles, xp, isPro) go through the server via Admin SDK only.
+      allow update, delete: if false;
+    }
+
+    // =========================================================================
     // USER PRESENCE
     // =========================================================================
 

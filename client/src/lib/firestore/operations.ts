@@ -14,9 +14,15 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 
-// NOTE: users, usernames, and spots are in PostgreSQL (Neon) — not Firestore.
-// Use the Express API: GET /api/profile/me, GET /api/spots, GET /api/profile/username-check
+// NOTE: usernames and spots are exclusively in PostgreSQL (Neon). Do not query them from Firestore.
+//
+// `users` is a display document, NOT the authoritative user record (that is PostgreSQL).
+// Client creates { uid, displayName, createdAt, updatedAt } on sign-up (authStore.ts).
+// Server Cloud Functions add roles/xp/isPro via Admin SDK.
+// For authoritative profile data use the Express API: GET /api/profile/me
+// For spots use: GET /api/spots
 export const firestoreCollections = {
+  users: "users", // display doc — see docs/architecture/FIRESTORE.md
   chatMessages: "chat_messages",
   gameSessions: "game_sessions",
   notifications: "notifications",
