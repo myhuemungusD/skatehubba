@@ -186,9 +186,10 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
 
       socket.on("error", (data) => {
         // Feature-level errors (battle, game) emitted by the server are
-        // logged only — not surfaced as UI error state. Non-MVP features
-        // failing silently keeps the core auth/map experience stable.
-        logger.warn("[Socket] Feature error (suppressed from UI)", data.code, data.message);
+        // logged and surfaced via error state so callers (e.g. rate-limit
+        // feedback) can react, while keeping connection state stable.
+        logger.warn("[Socket] Feature error", data.code, data.message);
+        setError(typeof data?.message === "string" ? data.message : "Server error");
       });
 
       socket.on("connected", (data) => {
