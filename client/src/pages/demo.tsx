@@ -109,10 +109,6 @@ export default function Demo() {
                     </li>
                     <li className="flex items-start gap-3">
                       <span className="text-orange-400"></span>
-                      <span>Customize your avatar and digital closet</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="text-orange-400"></span>
                       <span>Challenge other skaters to S.K.A.T.E. battles</span>
                     </li>
                     <li className="flex items-start gap-3">

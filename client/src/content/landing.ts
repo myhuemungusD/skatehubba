@@ -3,62 +3,57 @@ import { Shield, Zap, Globe2, Trophy, MapPin, TrendingUp } from "lucide-react";
 export const landingContent = {
   hero: {
     badge: {
-      text: "Now Available - Join the Beta",
+      text: "Open Beta — Now Live",
       variant: "success" as const,
     },
-    eyebrow: "The Future of Competitive Skateboarding",
+    eyebrow: "Prove It on the Street",
     title: "Own the Spot.",
     subtitle: "Play SKATE Anywhere.",
     description:
-      "The ultimate mobile skateboarding platform where every clip, spot, and session tells a story.",
+      "Film tricks. Check spots. Battle for rank. SkateHubba is built for skaters who want to compete — no judges, no entry fees, just you and your board.",
     primaryCTA: {
       text: "Sign In / Sign Up",
       href: "/auth",
       testId: "cta-landing-primary",
     },
-    secondaryCTA: {
-      text: "Learn More",
-      href: "/specs",
-      testId: "cta-landing-secondary",
-    },
   },
   trustIndicators: [
     {
       icon: Shield,
-      text: "Enterprise-grade Security",
+      text: "Secure Sign-In",
       color: "text-emerald-400",
     },
     {
       icon: Zap,
-      text: "Real-time Infrastructure",
+      text: "Real-time Battles",
       color: "text-amber-400",
     },
     {
       icon: Globe2,
-      text: "Global Community",
+      text: "Growing Beta Community",
       color: "text-sky-400",
     },
   ],
   features: [
     {
       icon: Trophy,
-      title: "Competitive Battles",
+      title: "S.K.A.T.E. Battles",
       description:
-        "Challenge opponents worldwide with video submission battles. Sophisticated voting system ensures fair competition.",
+        "Film your trick, post the clip, and let skaters vote. Take letters, win battles, and rise up the global leaderboard.",
       iconColor: "text-orange-500",
     },
     {
       icon: MapPin,
-      title: "Spot Documentation",
+      title: "Skate Spot Map",
       description:
-        "Build your session history at verified locations. Track progress and establish credibility within the community.",
+        "Check into 50+ verified spots near you. Log your sessions and build credibility in your local scene.",
       iconColor: "text-blue-500",
     },
     {
       icon: TrendingUp,
-      title: "Performance Analytics",
+      title: "Community Leaderboards",
       description:
-        "Advanced statistics track your progression. Compare rankings and identify areas for improvement.",
+        "Every battle won and spot checked moves your rank. Real-time standings, zero politics.",
       iconColor: "text-emerald-500",
     },
   ],

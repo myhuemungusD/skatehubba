@@ -66,7 +66,6 @@ export default function UnifiedLanding() {
         subtitle={landingContent.hero.subtitle}
         description={landingContent.hero.description}
         primaryCTA={landingContent.hero.primaryCTA}
-        secondaryCTA={landingContent.hero.secondaryCTA}
         trustIndicators={landingContent.trustIndicators}
       />
 
