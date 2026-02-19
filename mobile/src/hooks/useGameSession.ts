@@ -7,7 +7,7 @@ import { z } from "zod";
 import { db, storage, auth, functions } from "@/lib/firebase.config";
 import { showMessage } from "react-native-flash-message";
 import { useGameStore } from "@/store/gameStore";
-import type { GameSession, Move, TurnPhase } from "@/types";
+import type { GameSession } from "@/types";
 
 /** Number of retry attempts (not including initial attempt) */
 const MAX_RETRIES = 3;

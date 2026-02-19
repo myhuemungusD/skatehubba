@@ -350,6 +350,87 @@ describe("Security Middleware", () => {
 
       expect(next).not.toHaveBeenCalled();
     });
+
+    it("should reject email with invalid characters in local part", () => {
+      const req = createReq({ body: { email: "user!name@example.com" } });
+      const res = createRes();
+      const next = vi.fn();
+
+      validateEmail(req, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("should reject email with special characters in domain", () => {
+      const req = createReq({ body: { email: "user@$example.com" } });
+      const res = createRes();
+      const next = vi.fn();
+
+      validateEmail(req, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("should reject email with domain label exceeding 63 characters", () => {
+      const longLabel = "a".repeat(64);
+      const req = createReq({ body: { email: `user@${longLabel}.com` } });
+      const res = createRes();
+      const next = vi.fn();
+
+      validateEmail(req, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("should reject email with domain label starting with hyphen", () => {
+      const req = createReq({ body: { email: "user@-example.com" } });
+      const res = createRes();
+      const next = vi.fn();
+
+      validateEmail(req, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("should reject email with domain label ending with hyphen", () => {
+      const req = createReq({ body: { email: "user@example-.com" } });
+      const res = createRes();
+      const next = vi.fn();
+
+      validateEmail(req, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("should reject email with non-printable ASCII characters", () => {
+      const req = createReq({ body: { email: "user\x00name@example.com" } });
+      const res = createRes();
+      const next = vi.fn();
+
+      validateEmail(req, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("should reject email with local part starting with dot", () => {
+      const req = createReq({ body: { email: ".user@example.com" } });
+      const res = createRes();
+      const next = vi.fn();
+
+      validateEmail(req, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it("should reject email with local part ending with dot", () => {
+      const req = createReq({ body: { email: "user.@example.com" } });
+      const res = createRes();
+      const next = vi.fn();
+
+      validateEmail(req, res, next);
+
+      expect(next).not.toHaveBeenCalled();
+    });
   });
 
   // ===========================================================================

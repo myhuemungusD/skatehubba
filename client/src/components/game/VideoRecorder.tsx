@@ -12,9 +12,9 @@
  * - Recording auto-starts → auto-sends on stop
  */
 
-import { useRef, useState, useCallback, useEffect } from 'react';
-import { Video, Circle, Square } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { useRef, useState, useCallback, useEffect } from "react";
+import { Video, Circle, Square } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const MAX_DURATION_MS = 15_000;
 const MAX_DURATION_S = MAX_DURATION_MS / 1000;
@@ -25,7 +25,7 @@ interface VideoRecorderProps {
   className?: string;
 }
 
-type RecorderState = 'idle' | 'requesting' | 'recording' | 'sent';
+type RecorderState = "idle" | "requesting" | "recording" | "sent";
 
 export function VideoRecorder({ onRecordingComplete, disabled, className }: VideoRecorderProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -37,7 +37,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onCompleteRef = useRef(onRecordingComplete);
 
-  const [state, setState] = useState<RecorderState>('idle');
+  const [state, setState] = useState<RecorderState>("idle");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,7 +58,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.onstop = null;
       mediaRecorderRef.current.onerror = null;
-      if (mediaRecorderRef.current.state !== 'inactive') {
+      if (mediaRecorderRef.current.state !== "inactive") {
         mediaRecorderRef.current.stop();
       }
       mediaRecorderRef.current = null;
@@ -77,15 +77,15 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
   }, [cleanup]);
 
   const startRecording = useCallback(async () => {
-    if (state !== 'idle' || disabled) return;
+    if (state !== "idle" || disabled) return;
 
-    setState('requesting');
+    setState("requesting");
     setError(null);
     chunksRef.current = [];
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: true,
       });
 
@@ -98,9 +98,9 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
       }
 
       const recorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
-          ? 'video/webm;codecs=vp9'
-          : 'video/webm',
+        mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+          ? "video/webm;codecs=vp9"
+          : "video/webm",
       });
 
       recorder.ondataavailable = (e) => {
@@ -111,10 +111,10 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
 
       recorder.onstop = () => {
         const durationMs = Math.min(Date.now() - startTimeRef.current, MAX_DURATION_MS);
-        const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+        const blob = new Blob(chunksRef.current, { type: "video/webm" });
 
         cleanup();
-        setState('sent');
+        setState("sent");
 
         // Auto-send. No preview. No confirmation. Done.
         onCompleteRef.current(blob, durationMs);
@@ -122,14 +122,14 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
 
       recorder.onerror = () => {
         cleanup();
-        setState('idle');
-        setError('Recording failed.');
+        setState("idle");
+        setError("Recording failed.");
       };
 
       mediaRecorderRef.current = recorder;
       startTimeRef.current = Date.now();
       recorder.start(100); // collect chunks every 100ms
-      setState('recording');
+      setState("recording");
 
       // Countdown timer
       timerRef.current = setInterval(() => {
@@ -139,19 +139,19 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
 
       // Auto-stop at 15 seconds — hard limit
       autoStopRef.current = setTimeout(() => {
-        if (mediaRecorderRef.current?.state === 'recording') {
+        if (mediaRecorderRef.current?.state === "recording") {
           mediaRecorderRef.current.stop();
         }
       }, MAX_DURATION_MS);
-    } catch (err) {
+    } catch {
       cleanup();
-      setState('idle');
-      setError('Camera access denied.');
+      setState("idle");
+      setError("Camera access denied.");
     }
   }, [state, disabled, cleanup]);
 
   const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current?.state === 'recording') {
+    if (mediaRecorderRef.current?.state === "recording") {
       mediaRecorderRef.current.stop();
     }
   }, []);
@@ -160,9 +160,9 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
   const remainingS = MAX_DURATION_S - elapsedS;
   const progress = elapsedMs / MAX_DURATION_MS;
 
-  if (state === 'sent') {
+  if (state === "sent") {
     return (
-      <div className={cn('flex flex-col items-center gap-4 p-6', className)}>
+      <div className={cn("flex flex-col items-center gap-4 p-6", className)}>
         <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center">
           <Video className="w-8 h-8 text-neutral-400" />
         </div>
@@ -172,17 +172,12 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
   }
 
   return (
-    <div className={cn('flex flex-col items-center gap-4', className)}>
+    <div className={cn("flex flex-col items-center gap-4", className)}>
       {/* Camera viewfinder — only visible during recording */}
       <div className="relative w-full aspect-[9/16] max-h-[400px] bg-black rounded-lg overflow-hidden">
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          playsInline
-          muted
-        />
+        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
 
-        {state === 'recording' && (
+        {state === "recording" && (
           <>
             {/* Timer bar */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-neutral-800">
@@ -205,7 +200,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
           </>
         )}
 
-        {state === 'idle' && !error && (
+        {state === "idle" && !error && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
               <Video className="w-10 h-10 text-neutral-600 mx-auto mb-2" />
@@ -214,26 +209,24 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
           </div>
         )}
 
-        {state === 'requesting' && (
+        {state === "requesting" && (
           <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-xs text-neutral-400 font-mono">Accessing camera...</p>
           </div>
         )}
       </div>
 
-      {error && (
-        <div className="text-xs text-red-400">{error}</div>
-      )}
+      {error && <div className="text-xs text-red-400">{error}</div>}
 
       {/* Record / Stop button */}
-      {state === 'idle' && (
+      {state === "idle" && (
         <button
           onClick={startRecording}
           disabled={disabled}
           className={cn(
-            'w-16 h-16 rounded-full border-4 border-red-500 flex items-center justify-center transition-all',
-            'hover:border-red-400 active:scale-95',
-            disabled && 'opacity-50 cursor-not-allowed'
+            "w-16 h-16 rounded-full border-4 border-red-500 flex items-center justify-center transition-all",
+            "hover:border-red-400 active:scale-95",
+            disabled && "opacity-50 cursor-not-allowed"
           )}
           type="button"
         >
@@ -241,7 +234,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
         </button>
       )}
 
-      {state === 'recording' && (
+      {state === "recording" && (
         <button
           onClick={stopRecording}
           className="w-16 h-16 rounded-full border-4 border-red-500 flex items-center justify-center transition-all active:scale-95"
@@ -251,7 +244,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
         </button>
       )}
 
-      {state === 'idle' && (
+      {state === "idle" && (
         <p className="text-xs text-neutral-500 text-center max-w-[200px]">
           Max {MAX_DURATION_S}s. Starts immediately. Auto-sends on stop.
         </p>

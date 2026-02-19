@@ -14,7 +14,7 @@ import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
 function ClosetScreenContent() {
-  const { user, isAuthenticated, checkAuth } = useRequireAuth();
+  const { user, isAuthenticated } = useRequireAuth();
   const router = useRouter();
 
   // Unauthenticated users are redirected to sign-in by the root layout guard.
