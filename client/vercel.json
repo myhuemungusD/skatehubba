@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "pnpm run build",
+  "buildCommand": "node ../scripts/verify-public-env.mjs && pnpm run build",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [

@@ -99,6 +99,24 @@ const envSchema = z.object({
   // Monitoring & URLs
   SENTRY_DSN: z.string().optional(),
   PRODUCTION_URL: z.string().optional(),
+
+  // CORS allowed origins (comma-separated)
+  ALLOWED_ORIGINS: z.string().optional(),
+
+  // Redis (optional — enables caching and session store)
+  REDIS_URL: z.string().url("REDIS_URL must be a valid URL").optional(),
+
+  // Cron endpoint protection (recommended in production)
+  CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
+
+  // Logging
+  LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
+
+  // Firebase App Check enforcement mode
+  APP_CHECK_MODE: z.enum(["enforce", "permissive"]).default("permissive"),
+
+  // Spot check-in radius in metres
+  CHECK_IN_RADIUS_METERS: z.coerce.number().positive().default(100),
 });
 
 function validateEnv() {

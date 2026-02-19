@@ -18,37 +18,87 @@ const strict = (isVercel || isProd) && !allowMissing;
 
 /**
  * Resolve a key by checking EXPO_PUBLIC_ first, then VITE_ fallback.
- * Returns the resolved value or undefined.
+ * Returns { prefix, value } if found, null if not found.
  */
 function resolveKey(key) {
-  return process.env[`EXPO_PUBLIC_${key}`] || process.env[`VITE_${key}`];
+  if (process.env[`EXPO_PUBLIC_${key}`]) {
+    return { prefix: "EXPO_PUBLIC_", value: process.env[`EXPO_PUBLIC_${key}`] };
+  }
+  if (process.env[`VITE_${key}`]) {
+    return { prefix: "VITE_", value: process.env[`VITE_${key}`] };
+  }
+  return null;
 }
 
-const missing = REQUIRED_KEYS.filter((key) => !resolveKey(key));
+/**
+ * Check if the bare (unprefixed) key is set — used only for diagnostics.
+ * These vars are NOT bundled by Vite and will never reach the browser.
+ */
+function hasUnprefixed(key) {
+  return process.env[key] !== undefined;
+}
+
+const results = REQUIRED_KEYS.map((key) => ({
+  key,
+  resolved: resolveKey(key),
+  hasUnprefixed: hasUnprefixed(key),
+}));
+
+const missing = results.filter((r) => !r.resolved);
+const found = results.filter((r) => r.resolved);
 
 if (missing.length > 0) {
-  console.error("\n\u274C Missing required public env vars for web build:");
-  missing.forEach((key) =>
-    console.error(`  - EXPO_PUBLIC_${key} (or VITE_${key})`)
-  );
+  console.error("\n\u274C Missing required public env vars for web build:\n");
 
-  console.error("\nSet these in Vercel (Project \u2192 Settings \u2192 Environment Variables).\n");
+  let hasRenameSuggestions = false;
+
+  missing.forEach(({ key, hasUnprefixed: unprefixed }) => {
+    if (unprefixed) {
+      console.error(`  \u2717 EXPO_PUBLIC_${key}`);
+      console.error(
+        `    \u2192 Found "${key}" (no prefix). Rename it to "EXPO_PUBLIC_${key}" in Vercel.`
+      );
+      console.error(
+        `    \u2192 Without the prefix, Vite won't bundle this value into the client build.`
+      );
+      hasRenameSuggestions = true;
+    } else {
+      console.error(`  \u2717 EXPO_PUBLIC_${key}  (not set)`);
+    }
+  });
+
+  console.error("");
+
+  if (hasRenameSuggestions) {
+    console.error(
+      "\u2139\uFE0F  The EXPO_PUBLIC_ prefix is required so Vite includes these values in the"
+    );
+    console.error(
+      "   browser bundle. Variables without it are server-side only and never reach the client."
+    );
+    console.error("");
+  }
+
+  console.error(
+    "Set these in Vercel \u2192 Project \u2192 Settings \u2192 Environment Variables.\n"
+  );
 
   if (strict) {
     process.exit(1);
   } else {
-    console.warn("\u26A0\uFE0F  Non-strict mode: continuing despite missing vars. Build may fail at runtime.\n");
+    console.warn(
+      "\u26A0\uFE0F  Non-strict mode: continuing despite missing vars. Build may fail at runtime.\n"
+    );
   }
 } else {
   console.log("\u2705 Public env check passed:");
-  REQUIRED_KEYS.forEach((key) => {
-    const prefix = process.env[`EXPO_PUBLIC_${key}`] ? "EXPO_PUBLIC_" : "VITE_";
-    console.log(`  - ${prefix}${key}`);
+  found.forEach(({ key, resolved }) => {
+    console.log(`  \u2713 ${resolved.prefix}${key}`);
   });
   OPTIONAL_KEYS.forEach((key) => {
-    if (resolveKey(key)) {
-      const prefix = process.env[`EXPO_PUBLIC_${key}`] ? "EXPO_PUBLIC_" : "VITE_";
-      console.log(`  - ${prefix}${key} (optional)`);
+    const resolved = resolveKey(key);
+    if (resolved) {
+      console.log(`  \u2713 ${resolved.prefix}${key} (optional)`);
     }
   });
 }
