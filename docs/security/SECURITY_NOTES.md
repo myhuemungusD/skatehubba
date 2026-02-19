@@ -83,7 +83,7 @@ class ServiceContainer {
 ### ✅ Environment Variable Validation
 
 - Zod schema validates required env vars at startup
-- JWT_SECRET enforced in production
+- JWT_SECRET enforced in ALL environments (min 32 chars, fail-fast at boot)
 - Clear error messages for missing configuration
 
 ### ✅ Stripe Key Validation
@@ -112,7 +112,7 @@ Before deploying to production, ensure:
 
 - [ ] **Remove `unsafe-inline` from CSP** (CRITICAL)
 - [ ] **Review all inline scripts and styles**
-- [ ] **Set secure session secrets** (SESSION_SECRET, JWT_SECRET)
+- [x] **Set secure session secrets** (SESSION_SECRET, JWT_SECRET) — enforced at boot with 32-char minimum
 - [ ] **Use production Stripe keys** (not test keys)
 - [ ] **Enable HTTPS-only cookies** in production
 - [ ] **Set NODE_ENV=production**
