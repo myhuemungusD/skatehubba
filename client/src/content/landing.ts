@@ -12,8 +12,8 @@ export const landingContent = {
     description:
       "The ultimate mobile skateboarding platform where every clip, spot, and session tells a story.",
     primaryCTA: {
-      text: "Sign In / Sign Up",
-      href: "/auth",
+      text: "Join the Beta",
+      href: "/auth?tab=signup",
       testId: "cta-landing-primary",
     },
     secondaryCTA: {

@@ -56,20 +56,22 @@ export function HeroSection({
           {/* Badge */}
           {badge && (
             <div className="flex justify-center animate-fade-in">
-              <div
-                className={`inline-flex items-center gap-2 ${
-                  badge.variant === "success"
-                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                    : "bg-blue-500/10 border-blue-500/20 text-blue-400"
-                } border backdrop-blur-sm rounded-full px-4 py-2 text-sm font-medium`}
-              >
+              <Link href="/auth?tab=signup">
                 <div
-                  className={`w-1.5 h-1.5 ${
-                    badge.variant === "success" ? "bg-emerald-400" : "bg-blue-400"
-                  } rounded-full animate-pulse`}
-                />
-                <span>{badge.text}</span>
-              </div>
+                  className={`inline-flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity ${
+                    badge.variant === "success"
+                      ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                      : "bg-blue-500/10 border-blue-500/20 text-blue-400"
+                  } border backdrop-blur-sm rounded-full px-4 py-2 text-sm font-medium`}
+                >
+                  <div
+                    className={`w-1.5 h-1.5 ${
+                      badge.variant === "success" ? "bg-emerald-400" : "bg-blue-400"
+                    } rounded-full animate-pulse`}
+                  />
+                  <span>{badge.text}</span>
+                </div>
+              </Link>
             </div>
           )}
 
