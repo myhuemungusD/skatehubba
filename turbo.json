@@ -6,7 +6,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["verify:public-env", "^build"],
-      "outputs": ["dist/**", ".next/**", "build/**"],
+      "outputs": ["dist/**", "build/**"],
       "cache": true
     },
     "verify:public-env": {
