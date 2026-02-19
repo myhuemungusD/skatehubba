@@ -65,8 +65,8 @@ describe("turbo.json schema", () => {
  * ------------------------------------------------------------------------ */
 
 describe("dev task (inner-loop)", () => {
-  it("depends on ^dev, not ^build", () => {
-    expect(tasks.dev.dependsOn).toEqual(["^dev"]);
+  it("has no task dependencies (starts immediately)", () => {
+    expect(tasks.dev.dependsOn).toBeUndefined();
   });
 
   it("is persistent (long-running dev servers)", () => {
