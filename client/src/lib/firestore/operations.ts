@@ -14,8 +14,9 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 
+// NOTE: users, usernames, and spots are in PostgreSQL (Neon) — not Firestore.
+// Use the Express API: GET /api/profile/me, GET /api/spots, GET /api/profile/username-check
 export const firestoreCollections = {
-  users: "users",
   chatMessages: "chat_messages",
   gameSessions: "game_sessions",
   notifications: "notifications",

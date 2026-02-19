@@ -12,13 +12,16 @@ This approach leverages the strengths of both systems:
 - PostgreSQL provides strong consistency, complex queries, and relationships
 - Firestore enables real-time updates, scalability, and offline support
 
+> **Important:** `users`, `usernames`, and `spots` are stored in **PostgreSQL (Neon) via Drizzle ORM**,
+> not Firestore. Do not query or write these from the Firestore client. Use the Express API instead:
+> `GET /api/profile/me`, `GET /api/spots`, `GET /api/profile/username-check`.
+
 ## Firestore Collections
 
 ### Real-Time Features
 
 | Collection         | Purpose                               | Security Level                                                 |
 | ------------------ | ------------------------------------- | -------------------------------------------------------------- |
-| `users`            | User profiles and public data         | Read: All authenticated users<br>Write: Own profile only       |
 | `chat_messages`    | AI Skate Buddy (Beagle) conversations | Read/Write: Own messages only                                  |
 | `game_sessions`    | Live SKATE game matches               | Read/Write: Participants only                                  |
 | `notifications`    | Real-time user notifications          | Read/Update: Own notifications<br>Create: Server only          |
@@ -75,20 +78,6 @@ isGameParticipant(gameData);
 ```
 
 ### Example Rules
-
-**User Profiles:**
-
-```javascript
-match /users/{userId} {
-  // Anyone can read profiles
-  allow read: if isAuthenticated();
-
-  // Only owner can create/update their profile
-  allow create, update: if isOwner(userId)
-    && hasRequiredFields(['userId', 'displayName'])
-    && isValidString('displayName', 1, 50);
-}
-```
 
 **Game Sessions:**
 
@@ -237,17 +226,6 @@ await updateDocument(firestoreCollections.notifications, notificationId, {
   readAt: new Date(),
 });
 
-// Update user profile (with optional updatedAt)
-await updateDocument(
-  firestoreCollections.users,
-  userId,
-  {
-    displayName: "New Name",
-    bio: "Updated bio",
-  },
-  { addTimestamp: true }
-); // Optional: adds updatedAt field
-
 // Delete check-in
 await deleteDocument(firestoreCollections.activeCheckins, checkinId);
 ```
@@ -295,19 +273,10 @@ await db.collection("leaderboard_live").doc(userId).set({
 
 ## Data Schemas
 
-### User Profile
-
-```typescript
-interface UserProfile {
-  userId: string;
-  displayName: string;
-  photoURL?: string;
-  bio?: string;
-  skillLevel?: "beginner" | "intermediate" | "advanced" | "pro";
-  createdAt: Timestamp;
-  updatedAt?: Timestamp;
-}
-```
+> **Note:** User profile schemas are defined in the Drizzle ORM schema at
+> `packages/shared/schema/auth.ts` (`customUsers`) and
+> `packages/shared/schema/profiles.ts` (`onboardingProfiles`).
+> The schemas below cover Firestore-only collections.
 
 ### Chat Message
 
@@ -546,33 +515,6 @@ If you see "permission-denied" errors:
 2. **Reduce Listeners** - Limit active real-time subscriptions
 3. **Use Pagination** - Don't load entire collections at once
 4. **Cache Data** - Store frequently accessed data locally
-
-## Migration Guide
-
-### Moving Data to Firestore
-
-When migrating from PostgreSQL to Firestore:
-
-```typescript
-// 1. Fetch from PostgreSQL
-const users = await db.select().from(customUsers);
-
-// 2. Transform data
-const firestoreData = users.map((user) => ({
-  userId: user.id,
-  displayName: `${user.firstName} ${user.lastName}`,
-  skillLevel: user.skillLevel,
-  createdAt: admin.firestore.Timestamp.fromDate(user.createdAt),
-}));
-
-// 3. Batch write to Firestore
-const batch = admin.firestore().batch();
-firestoreData.forEach((data) => {
-  const ref = admin.firestore().collection("users").doc(data.userId);
-  batch.set(ref, data);
-});
-await batch.commit();
-```
 
 ## Support
 

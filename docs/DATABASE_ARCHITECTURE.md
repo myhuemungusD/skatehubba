@@ -190,15 +190,9 @@ await db.update(games)
 - Spots and check-ins in Postgres
 - Drizzle ORM integration
 
-### 🔄 In Progress
-- Remove Firestore user duplication
-- Update `set-admin.ts` to use Postgres only
-- Add database service layer abstraction
-
-### 📋 Planned
-- Migrate challenge history to Postgres
-- Add Firestore rules restricting user writes
-- Create data migration scripts
+### ✅ Also Completed
+- Removed Firestore user duplication (users, usernames, spots are PostgreSQL-only)
+- Firestore rules no longer include `/users/`, `/usernames/`, or `/spots/` collections
 
 ---
 

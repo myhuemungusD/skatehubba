@@ -55,7 +55,6 @@ describe("Firestore Operations", () => {
 
   describe("firestoreCollections", () => {
     it("should export collection name constants", () => {
-      expect(firestoreCollections.users).toBe("users");
       expect(firestoreCollections.chatMessages).toBe("chat_messages");
       expect(firestoreCollections.gameSessions).toBe("game_sessions");
       expect(firestoreCollections.notifications).toBe("notifications");
@@ -67,13 +66,13 @@ describe("Firestore Operations", () => {
 
   describe("createDocument", () => {
     it("should create document with auto-generated ID", async () => {
-      const id = await createDocument("users", { name: "Test" });
+      const id = await createDocument("chat_messages", { name: "Test" });
       expect(id).toBe("auto-generated-id");
       expect(mockAddDoc).toHaveBeenCalled();
     });
 
     it("should create document with custom ID", async () => {
-      const id = await createDocument("users", { name: "Test" }, "custom-id");
+      const id = await createDocument("chat_messages", { name: "Test" }, "custom-id");
       expect(id).toBe("custom-id");
       expect(mockSetDoc).toHaveBeenCalled();
     });
@@ -81,19 +80,19 @@ describe("Firestore Operations", () => {
 
   describe("updateDocument", () => {
     it("should update document fields", async () => {
-      await updateDocument("users", "doc-1", { name: "Updated" });
+      await updateDocument("chat_messages", "doc-1", { name: "Updated" });
       expect(mockUpdateDoc).toHaveBeenCalled();
     });
 
     it("should update document without timestamp by default", async () => {
-      await updateDocument("users", "doc-1", { name: "NoTimestamp" });
+      await updateDocument("chat_messages", "doc-1", { name: "NoTimestamp" });
       const callArgs = mockUpdateDoc.mock.calls[0];
       // The data passed should NOT include updatedAt
       expect(callArgs[1]).toEqual({ name: "NoTimestamp" });
     });
 
     it("should add updatedAt timestamp when addTimestamp option is true", async () => {
-      await updateDocument("users", "doc-1", { name: "WithTimestamp" }, { addTimestamp: true });
+      await updateDocument("chat_messages", "doc-1", { name: "WithTimestamp" }, { addTimestamp: true });
       const callArgs = mockUpdateDoc.mock.calls[0];
       // The data passed should include updatedAt from serverTimestamp
       expect(callArgs[1]).toEqual({
@@ -103,7 +102,7 @@ describe("Firestore Operations", () => {
     });
 
     it("should not add timestamp when addTimestamp is explicitly false", async () => {
-      await updateDocument("users", "doc-1", { name: "ExplicitFalse" }, { addTimestamp: false });
+      await updateDocument("chat_messages", "doc-1", { name: "ExplicitFalse" }, { addTimestamp: false });
       const callArgs = mockUpdateDoc.mock.calls[0];
       expect(callArgs[1]).toEqual({ name: "ExplicitFalse" });
     });
@@ -111,14 +110,14 @@ describe("Firestore Operations", () => {
 
   describe("deleteDocument", () => {
     it("should delete document", async () => {
-      await deleteDocument("users", "doc-1");
+      await deleteDocument("chat_messages", "doc-1");
       expect(mockDeleteDoc).toHaveBeenCalled();
     });
   });
 
   describe("getDocument", () => {
     it("should return document data when exists", async () => {
-      const result = await getDocument("users", "doc-1");
+      const result = await getDocument("chat_messages", "doc-1");
       expect(result).toEqual(expect.objectContaining({ name: "Test", value: 42 }));
     });
 
@@ -127,14 +126,14 @@ describe("Firestore Operations", () => {
         exists: () => false,
         data: () => null,
       });
-      const result = await getDocument("users", "nonexistent");
+      const result = await getDocument("chat_messages", "nonexistent");
       expect(result).toBeNull();
     });
   });
 
   describe("queryDocuments", () => {
     it("should return array of documents", async () => {
-      const results = await queryDocuments("users", []);
+      const results = await queryDocuments("chat_messages", []);
       expect(results).toHaveLength(2);
       expect(results[0]).toEqual(expect.objectContaining({ id: "doc-1" }));
     });

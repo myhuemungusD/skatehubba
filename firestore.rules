@@ -4,6 +4,22 @@ service cloud.firestore {
   match /databases/{db}/documents {
 
     // =========================================================================
+    // ARCHITECTURE NOTE
+    // =========================================================================
+    //
+    // users, usernames, and spots are stored exclusively in PostgreSQL (Neon)
+    // via Drizzle ORM. They do NOT exist as Firestore collections.
+    //
+    // Firestore is used only for real-time features:
+    //   presence, chat_messages, game_sessions, notifications,
+    //   active_checkins, challenge_votes, leaderboard_live,
+    //   challenges, games, videos, products, holds, orders
+    //
+    // Do NOT add Firestore rules for users, usernames, or spots.
+    //
+    // =========================================================================
+
+    // =========================================================================
     // HELPER FUNCTIONS
     // =========================================================================
 
@@ -37,49 +53,10 @@ service cloud.firestore {
         && (gameData.player1Id == request.auth.uid || gameData.player2Id == request.auth.uid);
     }
 
-    // Allowed fields for user profile documents.
-    // spotsVisited and credibilityScore are server-managed and excluded from client writes.
-    function profileAllowedFields() {
-      return [
-        'uid', 'username', 'displayName',
-        'stance', 'experienceLevel', 'favoriteTricks',
-        'bio', 'sponsorFlow', 'sponsorTeam', 'hometownShop',
-        'crewName', 'avatarUrl', 'createdAt', 'updatedAt'
-      ];
-    }
-
-    // Fields the client may change after creation (excludes uid, createdAt, server metrics)
-    function profileMutableFields() {
-      return [
-        'username', 'displayName',
-        'stance', 'experienceLevel', 'favoriteTricks',
-        'bio', 'sponsorFlow', 'sponsorTeam', 'hometownShop',
-        'crewName', 'avatarUrl', 'updatedAt'
-      ];
-    }
-
-    // Validate profile field types and size limits when present.
-    // uid is checked against the authenticated user to prevent impersonation.
-    function isValidProfileFields(data) {
-      return (!('uid' in data) || data.uid == request.auth.uid)
-        && (!('username' in data) || (data.username is string && data.username.size() >= 1 && data.username.size() <= 50))
-        && (!('displayName' in data) || (data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100))
-        && (!('stance' in data) || data.stance == null || data.stance in ['regular', 'goofy'])
-        && (!('experienceLevel' in data) || data.experienceLevel == null || data.experienceLevel in ['beginner', 'intermediate', 'advanced', 'pro'])
-        && (!('favoriteTricks' in data) || (data.favoriteTricks is list && data.favoriteTricks.size() <= 50))
-        && (!('bio' in data) || data.bio == null || (data.bio is string && data.bio.size() <= 500))
-        && (!('sponsorFlow' in data) || data.sponsorFlow == null || (data.sponsorFlow is string && data.sponsorFlow.size() <= 100))
-        && (!('sponsorTeam' in data) || data.sponsorTeam == null || (data.sponsorTeam is string && data.sponsorTeam.size() <= 100))
-        && (!('hometownShop' in data) || data.hometownShop == null || (data.hometownShop is string && data.hometownShop.size() <= 100))
-        && (!('crewName' in data) || data.crewName == null || (data.crewName is string && data.crewName.size() <= 100))
-        && (!('avatarUrl' in data) || data.avatarUrl == null || (data.avatarUrl is string && data.avatarUrl.size() <= 2000))
-        && (!('createdAt' in data) || data.createdAt is timestamp)
-        && (!('updatedAt' in data) || data.updatedAt is timestamp);
-    }
-
     // =========================================================================
     // ENVIRONMENT NAMESPACED DATA
-    // New data should use /env/{environment}/ prefix for isolation.
+    // Real-time Firestore collections may use /env/{environment}/ prefix for
+    // prod/staging isolation.
     //
     // IMPORTANT:
     // - 'local' is NOT allowed in production Firestore.
@@ -90,43 +67,8 @@ service cloud.firestore {
     // limited. Client guardrails should enforce correct env usage.
     // =========================================================================
 
-    // User profiles in environment namespace (client-writable with field whitelist)
-    match /env/{environment}/users/{userId} {
-      allow read: if isAuthenticated();
-
-      allow create: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(profileAllowedFields())
-        && isValidProfileFields(request.resource.data);
-
-      allow update: if isOwner(userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileMutableFields())
-        && isValidProfileFields(request.resource.data);
-
-      allow delete: if false;
-    }
-
-    // -------------------------------------------------------------------------
-    // Explicit prod match: /env/prod is a literal path that can override
-    // the generic /env/{environment} match. This ensures owner-only profile
-    // writes work in prod despite the catch-all below.
-    // -------------------------------------------------------------------------
-    match /env/prod/users/{userId} {
-      allow read: if isAuthenticated();
-
-      allow create: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(profileAllowedFields())
-        && isValidProfileFields(request.resource.data);
-
-      allow update: if isOwner(userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileMutableFields())
-        && isValidProfileFields(request.resource.data);
-
-      allow delete: if false;
-    }
-
     // Staging environment: read-only for authenticated users.
-    // Writes are handled by explicit collection rules (e.g. /env/{environment}/users above)
-    // or via Admin SDK on the server. The previous wildcard write was too permissive.
+    // Writes are handled by explicit collection rules or via Admin SDK on the server.
     match /env/staging/{path=**} {
       allow read: if isAuthenticated();
       allow write: if false;
@@ -136,7 +78,6 @@ service cloud.firestore {
     // Client writes are only allowed for explicitly listed collections below.
     // Everything else (billing, admin, moderation, analytics_events, etc.) is
     // server-only via Admin SDK.
-    // NOTE: 'users' writes are handled by the explicit /env/prod/users/{userId} match above.
     match /env/prod/{collection}/{docId=**} {
       allow read: if isAuthenticated();
       allow write: if false;
@@ -161,87 +102,6 @@ service cloud.firestore {
 
     match /moderation_quotas/{quotaId} {
       allow read, write: if false;
-    }
-
-    // =========================================================================
-    // USER PROFILES - /profiles/{uid}
-    // Used by profile setup.
-    // =========================================================================
-
-    match /profiles/{uid} {
-      allow read: if isOwner(uid);
-
-      allow create: if isOwner(uid)
-        && request.resource.data.keys().hasOnly(profileAllowedFields())
-        && isValidProfileFields(request.resource.data);
-
-      allow update: if isOwner(uid)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileMutableFields())
-        && isValidProfileFields(request.resource.data);
-
-      allow delete: if false;
-    }
-
-    // =========================================================================
-    // MAP / SPOTS (read-only to clients)
-    // =========================================================================
-
-    match /map/{id} {
-      allow read: if isAuthenticated();
-      allow write: if false;
-    }
-
-    match /spots/{id} {
-      allow read: if isAuthenticated();
-      allow write: if false;
-    }
-
-    // Optional explicit env path for spots (still read-only)
-    match /env/prod/spots/{id} {
-      allow read: if isAuthenticated();
-      allow write: if false;
-    }
-
-    // =========================================================================
-    // USERS - /users/{userId}
-    // Core user document created on signup. Owner can read and create their
-    // own doc; updates restricted to mutable profile fields.
-    // =========================================================================
-
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-
-      allow create: if isOwner(userId)
-        && request.resource.data.keys().hasOnly(profileAllowedFields())
-        && isValidProfileFields(request.resource.data);
-
-      allow update: if isOwner(userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileMutableFields())
-        && isValidProfileFields(request.resource.data);
-
-      allow delete: if false;
-    }
-
-    // =========================================================================
-    // USERNAMES - /usernames/{username}
-    // Create-only reservation map. Each doc ID is a lowercase username,
-    // containing only the uid of the owner. Once created, it cannot be
-    // updated or deleted by clients, ensuring username permanence.
-    // =========================================================================
-
-    match /usernames/{username} {
-      allow read: if true;
-
-      allow create: if isAuthenticated()
-        && request.resource.data.keys().hasOnly(['uid', 'createdAt'])
-        && request.resource.data.uid == request.auth.uid
-        && request.resource.data.createdAt is timestamp
-        // Username format: 3-20 chars, lowercase alphanumeric
-        && username.size() >= 3
-        && username.size() <= 20
-        && username.matches('^[a-z0-9]+$');
-
-      allow update, delete: if false;
     }
 
     // =========================================================================
