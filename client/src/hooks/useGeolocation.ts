@@ -9,6 +9,7 @@ export interface GeolocationState {
   status: GeolocationStatus;
   error: string | null;
   errorCode: "denied" | "timeout" | "unavailable" | "unsupported" | null;
+  retryCount: number;
 }
 
 const MAX_AUTO_RETRIES = 2;
@@ -22,6 +23,7 @@ export function useGeolocation(watch = true) {
     status: "idle",
     error: null,
     errorCode: null,
+    retryCount: 0,
   });
 
   const retryCountRef = useRef(0);
@@ -32,6 +34,7 @@ export function useGeolocation(watch = true) {
       ...prev,
       status: "browse",
       error: null,
+      retryCount: 0,
     }));
   }, []);
 
@@ -58,6 +61,7 @@ export function useGeolocation(watch = true) {
         status: "ready",
         error: null,
         errorCode: null,
+        retryCount: 0,
       });
     };
 
@@ -81,6 +85,7 @@ export function useGeolocation(watch = true) {
       const isRetryable = errorCode === "timeout" || errorCode === "unavailable";
       if (isRetryable && retryCountRef.current < MAX_AUTO_RETRIES) {
         retryCountRef.current += 1;
+        setState((prev) => ({ ...prev, retryCount: retryCountRef.current }));
         navigator.geolocation.getCurrentPosition(onSuccess, onError, {
           enableHighAccuracy: retryCountRef.current <= 1,
           timeout: GEO_TIMEOUT_MS,
@@ -93,12 +98,15 @@ export function useGeolocation(watch = true) {
       setState((prev) => ({
         ...prev,
         status: "browse",
+        retryCount: 0,
         error:
           errorCode === "timeout"
             ? "Location timed out. Tap retry or browse without location."
             : errorCode === "unavailable"
               ? "Location unavailable. Move to an open area and retry."
-              : null,
+              : errorCode === "denied"
+                ? "Location access was denied. Enable location in your browser settings and retry."
+                : null,
         errorCode,
       }));
     };
@@ -128,5 +136,6 @@ export function useGeolocation(watch = true) {
     browseWithoutLocation: enterBrowseMode,
     isBrowseMode: state.status === "browse",
     hasLocation: state.status === "ready" && state.latitude !== null,
+    isRetrying: state.status === "locating" && state.retryCount > 0,
   };
 }
