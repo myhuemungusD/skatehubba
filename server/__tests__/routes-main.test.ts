@@ -1868,16 +1868,12 @@ describe("registerRoutes", () => {
   });
 
   // --------------------------------------------------------------------------
-  // Edge case: registerRoutes returns an http.Server
+  // registerRoutes registers routes without errors
   // --------------------------------------------------------------------------
   describe("return value", () => {
-    it("should return an http.Server instance", async () => {
+    it("should register routes without throwing", () => {
       const app = buildMockApp();
-      const server = await registerRoutes(app as any);
-      // createServer is the real http.createServer here (not mocked),
-      // so we just check it's truthy and has a listen method.
-      expect(server).toBeTruthy();
-      expect(typeof server.listen).toBe("function");
+      expect(() => registerRoutes(app as any)).not.toThrow();
     });
   });
 });

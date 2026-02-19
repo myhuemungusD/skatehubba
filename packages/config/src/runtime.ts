@@ -45,40 +45,29 @@ export function getEnvNamespace(): AppEnv {
  * In Docker production deploys Express serves both the SPA and API on the
  * same origin, so set EXPO_PUBLIC_API_BASE_URL="" (or leave it empty) there.
  *
- * On static-hosting deploys (e.g. Vercel) where the backend runs on a
- * separate origin, EXPO_PUBLIC_API_BASE_URL must be set at build time to
- * the backend URL, or the env-based defaults below are used.
+ * On Vercel, the API is deployed as a serverless function at /api on the
+ * same origin, so web always uses relative URLs (empty string). The Vercel
+ * rewrite routes /api/* to the serverless function automatically.
  */
 export function getApiBaseUrl(): string {
   const override = getEnvOptional("EXPO_PUBLIC_API_BASE_URL");
   if (override) return override;
 
+  // On web, always use relative URLs. The API is served from the same origin:
+  //   - Local dev: Vite proxy forwards /api → Express on port 3001
+  //   - Vercel: Serverless function handles /api via rewrite
+  //   - Docker: Express serves both SPA and API on the same port
+  if (isWeb()) return "";
+
+  // Mobile (React Native): needs an absolute URL to the backend
   const env = getAppEnv();
-
-  // On web, detect production/staging by hostname as a safety net.
-  // This handles the case where EXPO_PUBLIC_APP_ENV is not set at build
-  // time (e.g. Vercel static hosting), which would default to "local"
-  // and cause API calls to 404 against the static-hosting origin.
-  if (isWeb()) {
-    const hostname = globals.location?.hostname;
-    if (hostname === "skatehubba.com" || hostname === "www.skatehubba.com") {
-      return "https://api.skatehubba.com";
-    }
-    if (hostname?.endsWith(".skatehubba.com") && hostname.startsWith("staging")) {
-      return "https://staging-api.skatehubba.com";
-    }
-  }
-
   switch (env) {
     case "prod":
       return "https://api.skatehubba.com";
     case "staging":
       return "https://staging-api.skatehubba.com";
-    case "local":
-      // Local dev on web: Vite proxy handles /api → backend
-      return isWeb() ? "" : "http://localhost:3001";
     default:
-      return isWeb() ? "" : "http://localhost:3001";
+      return "http://localhost:3001";
   }
 }
 
