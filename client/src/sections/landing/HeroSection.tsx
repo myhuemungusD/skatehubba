@@ -56,7 +56,7 @@ export function HeroSection({
           {/* Badge */}
           {badge && (
             <div className="flex justify-center animate-fade-in">
-              <Link href="/auth?tab=signup">
+              <Link href="/auth?tab=signup" aria-label="Sign up for the SkateHubba beta">
                 <div
                   className={`inline-flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity ${
                     badge.variant === "success"
@@ -65,6 +65,7 @@ export function HeroSection({
                   } border backdrop-blur-sm rounded-full px-4 py-2 text-sm font-medium`}
                 >
                   <div
+                    aria-hidden="true"
                     className={`w-1.5 h-1.5 ${
                       badge.variant === "success" ? "bg-emerald-400" : "bg-blue-400"
                     } rounded-full animate-pulse`}
@@ -126,7 +127,7 @@ export function HeroSection({
                   data-testid={primaryCTA.testId}
                 >
                   {primaryCTA.text}
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  <ArrowRight aria-hidden="true" className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Link>
               )}
               {secondaryCTA && (
@@ -135,7 +136,7 @@ export function HeroSection({
                   className="group inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white text-base font-semibold px-8 py-4 rounded-xl border border-white/10 hover:border-white/20 transition-all"
                   data-testid={secondaryCTA.testId}
                 >
-                  <Play className="w-5 h-5" />
+                  <Play aria-hidden="true" className="w-5 h-5" />
                   {secondaryCTA.text}
                 </Link>
               )}
