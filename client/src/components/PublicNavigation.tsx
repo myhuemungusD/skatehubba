@@ -9,7 +9,7 @@
 
 import { Link } from "wouter";
 import { Button } from "./ui/button";
-import { LogIn, ShoppingBag } from "lucide-react";
+import { UserPlus, ShoppingBag } from "lucide-react";
 
 export default function PublicNavigation() {
   return (
@@ -42,15 +42,15 @@ export default function PublicNavigation() {
               Merch
             </a>
 
-            {/* Sign In CTA */}
+            {/* Join CTA */}
             <Button
               asChild
               className="bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90 font-semibold"
               data-testid="button-public-nav-signin"
             >
-              <Link href="/auth">
-                <LogIn className="w-4 h-4 mr-2" aria-hidden="true" />
-                Sign In / Sign Up
+              <Link href="/auth?tab=signup">
+                <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
+                Join the Beta
               </Link>
             </Button>
           </div>

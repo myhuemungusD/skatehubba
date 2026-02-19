@@ -153,5 +153,27 @@ export function createApp(): express.Express {
   // Monitoring: health checks, readiness probes, system status
   registerMonitoringRoutes(app);
 
+  // Global error handler — catches any unhandled Express errors from all routes
+  // including non-MVP systems (Stripe, TrickMint, games, battles) so they never
+  // cascade or crash the server during the demo.
+  // Must be registered last, after all routes and middleware.
+  app.use(
+    (
+      err: Error,
+      _req: express.Request,
+      res: express.Response,
+      _next: express.NextFunction
+    ) => {
+      logger.error("[App] Unhandled route error", {
+        name: err?.name,
+        message: err?.message,
+        stack: process.env.NODE_ENV !== "production" ? err?.stack : undefined,
+      });
+      if (!res.headersSent) {
+        res.status(500).json({ error: "INTERNAL_ERROR", message: "An unexpected error occurred." });
+      }
+    }
+  );
+
   return app;
 }
