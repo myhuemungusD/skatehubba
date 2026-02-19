@@ -40,7 +40,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "set-admin": "tsx scripts/set-admin.ts",
-    "validate:package-manager": "node scripts/validate-packages.mjs --package-manager-only"
+    "validate:package-manager": "node scripts/validate-packages.mjs --package-manager-only",
+    "format:check": "prettier --check '**/*.json'"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
