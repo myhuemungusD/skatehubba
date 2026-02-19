@@ -26,9 +26,18 @@ getRedisClient();
 // Initialize database (seed default spots + tutorial steps if empty)
 await initializeDatabase();
 
-// Initialize WebSocket server
-const io = initializeSocketServer(server);
-logger.info("[Server] WebSocket server initialized");
+// Initialize WebSocket server — wrapped so a Socket.io startup failure
+// degrades gracefully rather than crashing the entire server process.
+// Core auth/map features remain available even without real-time support.
+let io: ReturnType<typeof initializeSocketServer> | null = null;
+try {
+  io = initializeSocketServer(server);
+  logger.info("[Server] WebSocket server initialized");
+} catch (err) {
+  logger.error("[Server] WebSocket server failed to initialize — real-time features disabled", {
+    error: err instanceof Error ? err.message : String(err),
+  });
+}
 
 // Setup Vite dev server or production static file serving
 if (process.env.NODE_ENV === "development") {
@@ -91,10 +100,27 @@ server.listen(port, "0.0.0.0", () => {
   }
 });
 
+// Prevent unhandled promise rejections from crashing the server during a demo.
+// Non-MVP subsystems (battles, games, TrickMint, Stripe background tasks) may
+// fire async work that rejects; we log and move on rather than taking down the
+// process and losing the core auth/map experience.
+process.on("unhandledRejection", (reason) => {
+  logger.error("[Server] Unhandled promise rejection — continuing", {
+    reason: reason instanceof Error ? reason.message : String(reason),
+  });
+});
+
+process.on("uncaughtException", (err) => {
+  logger.error("[Server] Uncaught exception — continuing", {
+    name: err.name,
+    message: err.message,
+  });
+});
+
 // Graceful shutdown
 process.on("SIGTERM", async () => {
   logger.info("[Server] SIGTERM received, shutting down gracefully...");
-  await shutdownSocketServer(io);
+  if (io) await shutdownSocketServer(io);
   await shutdownRedis();
   server.close(() => {
     logger.info("[Server] HTTP server closed");
@@ -104,7 +130,7 @@ process.on("SIGTERM", async () => {
 
 process.on("SIGINT", async () => {
   logger.info("[Server] SIGINT received, shutting down gracefully...");
-  await shutdownSocketServer(io);
+  if (io) await shutdownSocketServer(io);
   await shutdownRedis();
   server.close(() => {
     logger.info("[Server] HTTP server closed");

@@ -173,14 +173,22 @@ export function useSocket(options: UseSocketOptions = {}): UseSocketReturn {
             logger.log("[Socket] Auth error, forcing token refresh before reconnect");
             pendingRefresh = currentUser.getIdToken(true);
           }
+          // Auth errors are real errors — surface them so UI can prompt re-login
+          setError(err.message);
+          setConnectionState("error");
+        } else {
+          // Transient network/server errors — log silently and let socket.io
+          // handle reconnection automatically. Do not surface as UI error state
+          // so core auth/map experience is unaffected during demo.
+          logger.warn("[Socket] Connection error (will retry)", err.message);
         }
-
-        setError(err.message);
-        setConnectionState("error");
       });
 
       socket.on("error", (data) => {
-        setError(data.message);
+        // Feature-level errors (battle, game) emitted by the server are
+        // logged only — not surfaced as UI error state. Non-MVP features
+        // failing silently keeps the core auth/map experience stable.
+        logger.warn("[Socket] Feature error (suppressed from UI)", data.code, data.message);
       });
 
       socket.on("connected", (data) => {
