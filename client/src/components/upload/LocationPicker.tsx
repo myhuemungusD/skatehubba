@@ -39,6 +39,7 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
   const { toast } = useToast();
   const [leafletLoaded, setLeafletLoaded] = useState(false);
   const [mapError, setMapError] = useState(false);
+  const [mapInitKey, setMapInitKey] = useState(0);
   const [selectedLocation, setSelectedLocation] = useState<Location>(
     initialLocation || DEFAULT_CENTER
   );
@@ -114,7 +115,7 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
       }
       markerRef.current = null;
     };
-  }, [handleLocationClick, selectedLocation.lat, selectedLocation.lng]);
+  }, [handleLocationClick, selectedLocation.lat, selectedLocation.lng, mapInitKey]);
 
   const getCurrentLocation = () => {
     setIsGettingLocation(true);
@@ -218,8 +219,14 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
             variant="outline"
             className="border-gray-600 text-white hover:bg-gray-700"
             onClick={() => {
+              if (mapRef.current) {
+                mapRef.current.remove();
+                mapRef.current = null;
+              }
+              markerRef.current = null;
               setMapError(false);
-              mapRef.current = null;
+              setLeafletLoaded(false);
+              setMapInitKey((k) => k + 1);
             }}
           >
             Retry

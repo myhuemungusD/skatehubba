@@ -181,12 +181,18 @@ export function AddSpotModal({
             </div>
           )}
 
-          {!isLocationReady && geolocationStatus === "browse" && !geolocationErrorCode && (
-            <div className="flex items-center gap-2 p-2 bg-neutral-800 rounded-md border border-neutral-700">
-              <MapPin className="w-4 h-4 text-gray-400" />
-              <span className="text-sm text-gray-400">Browsing without location. Cannot pin a spot.</span>
-            </div>
-          )}
+          {!isLocationReady &&
+            geolocationStatus === "browse" &&
+            (!geolocationErrorCode || geolocationErrorCode === "unsupported") && (
+              <div className="flex items-center gap-2 p-2 bg-neutral-800 rounded-md border border-neutral-700">
+                <MapPin className="w-4 h-4 text-gray-400" />
+                <span className="text-sm text-gray-400">
+                  {geolocationErrorCode === "unsupported"
+                    ? "Location is not supported by your browser. Enter coordinates manually."
+                    : "Browsing without location. Cannot pin a spot."}
+                </span>
+              </div>
+            )}
 
           {!isLocationReady && (!geolocationStatus || geolocationStatus === "idle" || geolocationStatus === "locating") && (
             <div className="flex items-center gap-2 p-2 bg-orange-900/30 rounded-md border border-orange-700/50">

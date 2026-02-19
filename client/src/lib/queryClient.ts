@@ -10,16 +10,6 @@ const shouldRetry = (failureCount: number, error: unknown): boolean => {
   // Max 3 retries
   if (failureCount >= 3) return false;
 
-  // Network errors should be retried
-  if (error instanceof TypeError && error.message.includes("fetch")) {
-    return true;
-  }
-
-  // Timeout errors should be retried
-  if (error instanceof DOMException && error.name === "AbortError") {
-    return true;
-  }
-
   if (error instanceof ApiError) {
     // Never retry these error types
     const nonRetryableCodes = [
@@ -34,8 +24,8 @@ const shouldRetry = (failureCount: number, error: unknown): boolean => {
       return false;
     }
 
-    // Retry rate limits with exponential backoff (handled by retryDelay)
-    if (error.code === "RATE_LIMIT") {
+    // Transient failures — retry with backoff
+    if (error.code === "RATE_LIMIT" || error.code === "TIMEOUT" || error.code === "NETWORK_ERROR") {
       return true;
     }
 
@@ -59,9 +49,15 @@ const shouldRetry = (failureCount: number, error: unknown): boolean => {
  * For rate limits, uses longer delays.
  */
 const retryDelay = (attemptIndex: number, error: unknown): number => {
-  // Rate limit errors get longer delays
-  if (error instanceof ApiError && error.code === "RATE_LIMIT") {
-    return Math.min(1000 * 2 ** attemptIndex, 30000); // Max 30s
+  if (error instanceof ApiError) {
+    // Rate limits need longer back-off to avoid hammering the server
+    if (error.code === "RATE_LIMIT") {
+      return Math.min(1000 * 2 ** attemptIndex, 30000); // Max 30s
+    }
+    // Transient network/timeout failures — give the network a moment
+    if (error.code === "NETWORK_ERROR" || error.code === "TIMEOUT") {
+      return Math.min(1000 * 2 ** attemptIndex, 15000); // Max 15s
+    }
   }
 
   // Standard exponential backoff: 1s, 2s, 4s

@@ -61,6 +61,7 @@ export function useGeolocation(watch = true) {
         status: "ready",
         error: null,
         errorCode: null,
+        retryCount: 0,
       });
     };
 
