@@ -1,6 +1,6 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Mail } from "lucide-react";
+import { Mail, AtSign } from "lucide-react";
 import { useLocation } from "wouter";
 import { useEmailVerification } from "../../hooks/useEmailVerification";
 import { useToast } from "../../hooks/use-toast";
@@ -56,6 +56,9 @@ export default function ProfileSetup() {
       (usernameStatus === "taken" || usernameStatus === "invalid" || usernameStatus === "checking"))
   );
 
+  const usernameErrorId = errors.username ? "username-error" : undefined;
+  const submitErrorId = submitError ? "submit-error" : undefined;
+
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-white/5 p-6 shadow-2xl backdrop-blur md:p-10">
@@ -71,12 +74,13 @@ export default function ProfileSetup() {
 
         {requiresVerification && (
           <div className="mt-4 flex items-start gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 px-4 py-3">
-            <Mail className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+            <Mail className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" aria-hidden="true" />
             <div className="flex-1">
               <p className="text-sm font-medium text-blue-300">Email verification (optional)</p>
               <p className="text-xs text-neutral-400 mt-1">
-                We sent a verification link to <span className="text-neutral-200">{userEmail}</span>
-                . Some features require a verified email, but you can set up your profile now and
+                We sent a verification link to{" "}
+                <span className="text-neutral-200 break-all">{userEmail ?? "your email"}</span>.
+                Some features require a verified email, but you can set up your profile now and
                 verify later.
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -118,7 +122,31 @@ export default function ProfileSetup() {
           </div>
         )}
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)} noValidate>
+          {userEmail && (
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-neutral-200" id="email-label">
+                Email
+              </label>
+              <div className="relative">
+                <AtSign
+                  className="absolute left-3 top-3.5 h-4 w-4 text-neutral-500"
+                  aria-hidden="true"
+                />
+                <div
+                  className="flex h-12 w-full items-center rounded-lg bg-neutral-900/40 border border-neutral-700/50 pl-10 pr-3 text-sm text-neutral-400 truncate"
+                  aria-labelledby="email-label"
+                  title={userEmail}
+                >
+                  {userEmail}
+                </div>
+              </div>
+              <p className="text-xs text-neutral-500" id="email-hint">
+                This is the email from your account. You can&apos;t change it here.
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <label className="text-sm font-semibold text-neutral-200" htmlFor="username">
               Username
@@ -128,6 +156,11 @@ export default function ProfileSetup() {
                 id="username"
                 data-testid="profile-username"
                 placeholder="skatelegend"
+                autoComplete="username"
+                aria-invalid={
+                  !!errors.username || usernameStatus === "taken" || usernameStatus === "invalid"
+                }
+                aria-describedby={[usernameErrorId, "username-hint"].filter(Boolean).join(" ")}
                 className="h-12 bg-neutral-900/60 border-neutral-700 text-white"
                 {...register("username", {
                   onChange: (event) => {
@@ -136,10 +169,18 @@ export default function ProfileSetup() {
                   },
                 })}
               />
-              <div className="min-w-[140px]">{availabilityBadge}</div>
+              <div className="min-w-[140px]" aria-live="polite">
+                {availabilityBadge}
+              </div>
             </div>
-            <p className="text-xs text-neutral-400">{usernameMessage}</p>
-            {errors.username && <p className="text-xs text-red-400">{errors.username.message}</p>}
+            <p className="text-xs text-neutral-400" id="username-hint">
+              {usernameMessage}
+            </p>
+            {errors.username && (
+              <p className="text-xs text-red-400" id="username-error" role="alert">
+                {errors.username.message}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -148,6 +189,7 @@ export default function ProfileSetup() {
             </label>
             <select
               id="stance"
+              aria-describedby="stance-hint"
               className="h-12 w-full rounded-lg bg-neutral-900/60 border border-neutral-700 text-white px-3"
               {...register("stance")}
             >
@@ -158,7 +200,7 @@ export default function ProfileSetup() {
           </div>
 
           {submitting && (
-            <div className="space-y-2">
+            <div className="space-y-2" role="status" aria-label="Profile creation progress">
               <div className="flex items-center justify-between text-xs text-neutral-400">
                 <span>Uploading profile</span>
                 <span>{uploadProgress}%</span>
@@ -168,7 +210,11 @@ export default function ProfileSetup() {
           )}
 
           {submitError && (
-            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+            <div
+              className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200"
+              id="submit-error"
+              role="alert"
+            >
               {submitError}
             </div>
           )}
@@ -178,6 +224,7 @@ export default function ProfileSetup() {
               type="submit"
               className="h-12 w-full bg-yellow-500 text-black hover:bg-yellow-400 md:w-auto"
               disabled={submitDisabled}
+              aria-describedby={submitErrorId}
               data-testid="profile-submit"
             >
               {submitting ? "Creating profile..." : "Create profile"}

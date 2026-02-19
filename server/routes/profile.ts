@@ -35,14 +35,23 @@ const parseAvatarDataUrl = (dataUrl: string): { buffer: Buffer; contentType: str
 
 const generateUsername = () => `skater${avatarAlphabet()}`;
 
+/** Best-effort username release — never throws. */
+const safeRelease = async (
+  usernameStore: ReturnType<typeof createUsernameStore>,
+  uid: string
+): Promise<void> => {
+  try {
+    await usernameStore.release(uid);
+  } catch (releaseError) {
+    logger.error("[Profile] Failed to release username during rollback", { uid, releaseError });
+  }
+};
+
 router.get("/me", requireFirebaseUid, async (req, res) => {
   const { firebaseUid } = req as FirebaseAuthedRequest;
 
   if (!isDatabaseAvailable()) {
-    return res.status(503).json({
-      code: "database_unavailable",
-      message: "Database is temporarily unavailable. Please try again.",
-    });
+    return Errors.dbUnavailable(res);
   }
 
   try {
@@ -64,7 +73,8 @@ router.get("/me", requireFirebaseUid, async (req, res) => {
         updatedAt: profile.updatedAt.toISOString(),
       },
     });
-  } catch {
+  } catch (error) {
+    logger.error("[Profile] Failed to fetch profile", { uid: firebaseUid, error });
     return Errors.internal(
       res,
       "PROFILE_FETCH_FAILED",
@@ -120,23 +130,50 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
   }
 
   const uid = firebaseUid;
-  const db = getDb();
+
+  let db;
+  try {
+    db = getDb();
+  } catch (error) {
+    logger.error("[Profile] Database connection failed", { uid, error });
+    return Errors.dbUnavailable(res);
+  }
+
   const usernameStore = createUsernameStore(db);
 
-  // Check if profile already exists in PostgreSQL
-  const [existingProfile] = await db
-    .select()
-    .from(onboardingProfiles)
-    .where(eq(onboardingProfiles.uid, uid))
-    .limit(1);
+  // ── Check for existing profile ──────────────────────────────────
+  let existingProfile;
+  try {
+    [existingProfile] = await db
+      .select()
+      .from(onboardingProfiles)
+      .where(eq(onboardingProfiles.uid, uid))
+      .limit(1);
+  } catch (error) {
+    logger.error("[Profile] Failed to check existing profile", { uid, error });
+    return Errors.internal(
+      res,
+      "PROFILE_CREATE_FAILED",
+      "Failed to create profile. Please try again."
+    );
+  }
 
   if (existingProfile) {
     if (existingProfile.username) {
-      const ensured = await usernameStore.ensure(uid, existingProfile.username);
-      if (!ensured) {
-        return Errors.conflict(res, "USERNAME_TAKEN", "That username is already taken.", {
-          field: "username",
-        });
+      try {
+        const ensured = await usernameStore.ensure(uid, existingProfile.username);
+        if (!ensured) {
+          return Errors.conflict(res, "USERNAME_TAKEN", "That username is already taken.", {
+            field: "username",
+          });
+        }
+      } catch (error) {
+        logger.error("[Profile] Failed to ensure username for existing profile", { uid, error });
+        return Errors.internal(
+          res,
+          "PROFILE_CREATE_FAILED",
+          "Failed to create profile. Please try again."
+        );
       }
     }
     return res.status(200).json({
@@ -148,6 +185,7 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
     });
   }
 
+  // ── Determine username ──────────────────────────────────────────
   const shouldSkip = parsed.data.skip === true;
   const requestedUsername = parsed.data.username;
   if (!requestedUsername && !shouldSkip) {
@@ -159,19 +197,32 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
   let reservedUsername = requestedUsername ?? "";
   let reserved = false;
 
-  if (shouldSkip) {
-    for (let attempt = 0; attempt < MAX_USERNAME_GENERATION_ATTEMPTS; attempt += 1) {
-      const candidate = generateUsername();
-      const ok = await usernameStore.reserve(uid, candidate);
-      if (ok) {
-        reservedUsername = candidate;
-        reserved = true;
-        break;
+  try {
+    if (shouldSkip) {
+      for (let attempt = 0; attempt < MAX_USERNAME_GENERATION_ATTEMPTS; attempt += 1) {
+        const candidate = generateUsername();
+        const ok = await usernameStore.reserve(uid, candidate);
+        if (ok) {
+          reservedUsername = candidate;
+          reserved = true;
+          break;
+        }
       }
+    } else if (requestedUsername) {
+      reservedUsername = requestedUsername;
+      reserved = await usernameStore.reserve(uid, reservedUsername);
     }
-  } else if (requestedUsername) {
-    reservedUsername = requestedUsername;
-    reserved = await usernameStore.reserve(uid, reservedUsername);
+  } catch (error) {
+    logger.error("[Profile] Failed to reserve username", {
+      uid,
+      username: requestedUsername,
+      error,
+    });
+    return Errors.internal(
+      res,
+      "PROFILE_CREATE_FAILED",
+      "Failed to create profile. Please try again."
+    );
   }
 
   if (!reserved) {
@@ -180,6 +231,7 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
     });
   }
 
+  // ── Avatar upload + profile insert ──────────────────────────────
   let avatarUrl: string | null = null;
   let uploadedFile: StorageFile | null = null;
 
@@ -187,21 +239,21 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
     if (typeof req.body.avatarBase64 === "string" && req.body.avatarBase64.length > 0) {
       const parsedAvatar = parseAvatarDataUrl(req.body.avatarBase64);
       if (!parsedAvatar) {
-        await usernameStore.release(uid);
+        await safeRelease(usernameStore, uid);
         return Errors.badRequest(res, "INVALID_AVATAR_FORMAT", "Avatar format is invalid.", {
           field: "avatarBase64",
         });
       }
 
       if (!allowedMimeTypes.has(parsedAvatar.contentType)) {
-        await usernameStore.release(uid);
+        await safeRelease(usernameStore, uid);
         return Errors.badRequest(res, "INVALID_AVATAR_TYPE", "Avatar type is not supported.", {
           field: "avatarBase64",
         });
       }
 
       if (parsedAvatar.buffer.byteLength > MAX_AVATAR_BYTES) {
-        await usernameStore.release(uid);
+        await safeRelease(usernameStore, uid);
         return Errors.tooLarge(res, "AVATAR_TOO_LARGE", "Avatar file is too large.");
       }
 
@@ -260,10 +312,15 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
 
     return res.status(201).json({ profile: createdProfile });
   } catch (error) {
+    logger.error("[Profile] Profile creation failed", { uid, username: reservedUsername, error });
     if (uploadedFile) {
-      await uploadedFile.delete({ ignoreNotFound: true });
+      try {
+        await uploadedFile.delete({ ignoreNotFound: true });
+      } catch (deleteError) {
+        logger.error("[Profile] Failed to clean up avatar after error", { uid, deleteError });
+      }
     }
-    await usernameStore.release(uid);
+    await safeRelease(usernameStore, uid);
     return Errors.internal(
       res,
       "PROFILE_CREATE_FAILED",

@@ -121,6 +121,10 @@ export function useProfileSubmit(
             setSubmitError("Your session has expired. Please refresh the page and sign in again.");
           } else if (errorCode === "invalid_csrf_token") {
             setSubmitError("Session token mismatch. Please refresh the page and try again.");
+          } else if (errorCode === "invalid_avatar_format" || errorCode === "invalid_avatar_type") {
+            setSubmitError("Avatar image is invalid. Please use a PNG, JPEG, WebP, or GIF file.");
+          } else if (errorCode === "avatar_too_large") {
+            setSubmitError("Avatar image is too large. Please choose a smaller file.");
           } else if (errorCode === "rate_limited" || error.code === "RATE_LIMIT") {
             setSubmitError("Too many attempts. Wait a minute and try again.");
           } else if (errorCode === "database_unavailable" || errorCode === "service_unavailable") {

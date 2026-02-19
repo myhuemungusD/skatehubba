@@ -5,22 +5,39 @@ import { Button } from "../components/ui/button";
 import { useToast } from "../hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../components/ui/card";
 import { Link, useLocation } from "wouter";
-import { Mail, Lock, Eye, EyeOff, User } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, User, AtSign, Loader2 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
 import { getAuthErrorMessage } from "../lib/firebase/auth-errors";
+import { apiRequest } from "../lib/api/client";
+import { useAuthStore } from "../store/authStore";
+import { useUsernameCheck } from "./profile/hooks/useUsernameCheck";
+import type { ProfileCreatePayload, ProfileCreateResponse } from "./profile/schemas/profileSchemas";
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+const USERNAME_REGEX = /^[a-zA-Z0-9]+$/;
 
 export default function SignupPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [stance, setStance] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreatingProfile, setIsCreatingProfile] = useState(false);
   const { toast } = useToast();
   const auth = useAuth();
   const [, setLocation] = useLocation();
+
+  const {
+    usernameStatus,
+    usernameMessage,
+    availabilityBadge,
+    checkUsernameAvailability,
+    setUsernameStatus,
+    setUsernameMessage,
+  } = useUsernameCheck(username);
 
   const passwordError = useMemo(() => {
     if (!password) return null;
@@ -30,18 +47,60 @@ export default function SignupPage() {
     return null;
   }, [password]);
 
-  const canSubmit =
-    name.trim().length > 0 && email && password.length >= PASSWORD_MIN_LENGTH && !passwordError;
+  const usernameError = useMemo(() => {
+    if (!username) return null;
+    if (username.length < 3) return "Username must be at least 3 characters";
+    if (username.length > 20) return "Username must be at most 20 characters";
+    if (!USERNAME_REGEX.test(username)) return "Only letters and numbers allowed";
+    return null;
+  }, [username]);
 
-  // Redirect if already authenticated
+  const canSubmit =
+    name.trim().length > 0 &&
+    email &&
+    password.length >= PASSWORD_MIN_LENGTH &&
+    !passwordError &&
+    username.length >= 3 &&
+    !usernameError &&
+    usernameStatus !== "taken" &&
+    usernameStatus !== "invalid" &&
+    usernameStatus !== "checking";
+
+  // Redirect if already authenticated with profile
   useEffect(() => {
     if (!auth?.isAuthenticated) return;
     if (auth?.profileStatus === "exists") {
       setLocation("/hub");
-    } else if (auth?.profileStatus === "missing") {
-      setLocation("/profile/setup");
     }
   }, [auth?.isAuthenticated, auth?.profileStatus, setLocation]);
+
+  async function createProfile(profileUsername: string, profileStance?: string) {
+    if (usernameStatus === "unverified" || usernameStatus === "idle") {
+      const result = await checkUsernameAvailability(profileUsername, 2500);
+      if (result === "taken") {
+        setUsernameStatus("taken");
+        setUsernameMessage("That username is already taken.");
+        throw new Error("Username is already taken.");
+      }
+    }
+
+    const payload: ProfileCreatePayload = {
+      username: profileUsername,
+      stance: (profileStance as "regular" | "goofy") || undefined,
+    };
+
+    const response = await apiRequest<ProfileCreateResponse, ProfileCreatePayload>({
+      method: "POST",
+      path: "/api/profile/create",
+      body: payload,
+    });
+
+    useAuthStore.getState().setProfile({
+      ...response.profile,
+      createdAt: new Date(response.profile.createdAt),
+      updatedAt: new Date(response.profile.updatedAt),
+    });
+  }
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -49,12 +108,18 @@ export default function SignupPage() {
     setIsLoading(true);
 
     try {
+      // Step 1: Create account
       await auth?.signUpWithEmail(email, password, name.trim());
+
+      // Step 2: Create profile
+      setIsCreatingProfile(true);
+      await createProfile(username, stance || undefined);
+
       toast({
-        title: "Account Created!",
-        description: "We sent a verification link to your email. Let's set up your profile!",
+        title: "Welcome to SkateHubba!",
+        description: "Your account and profile are ready. Check your email to verify.",
       });
-      setLocation("/profile/setup");
+      setLocation("/hub");
     } catch (err: unknown) {
       toast({
         title: "Registration Failed",
@@ -63,19 +128,40 @@ export default function SignupPage() {
       });
     } finally {
       setIsLoading(false);
+      setIsCreatingProfile(false);
     }
   }
 
   async function handleGoogleSignUp() {
-    setIsLoading(true);
+    if (!username.trim()) {
+      toast({
+        title: "Username required",
+        description: "Pick a username before signing up with Google.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (usernameError) return;
 
+    setIsLoading(true);
     try {
       await auth?.signInWithGoogle();
+
+      const { profileStatus } = useAuthStore.getState();
+      if (profileStatus === "exists") {
+        toast({ title: "Welcome back!", description: "You already have a profile." });
+        setLocation("/hub");
+        return;
+      }
+
+      setIsCreatingProfile(true);
+      await createProfile(username, stance || undefined);
+
       toast({
-        title: "Account Created!",
-        description: "Now let's set up your profile!",
+        title: "Welcome to SkateHubba!",
+        description: "Your account and profile are ready.",
       });
-      setLocation("/profile/setup");
+      setLocation("/hub");
     } catch (err: unknown) {
       toast({
         title: "Google sign-up failed",
@@ -84,6 +170,7 @@ export default function SignupPage() {
       });
     } finally {
       setIsLoading(false);
+      setIsCreatingProfile(false);
     }
   }
 
@@ -172,13 +259,71 @@ export default function SignupPage() {
                 )}
               </div>
 
+              {/* Profile section divider */}
+              <div className="flex items-center gap-3 pt-2">
+                <div className="flex-grow border-t border-gray-700" />
+                <span className="text-xs text-gray-500 uppercase tracking-wider">Profile</span>
+                <div className="flex-grow border-t border-gray-700" />
+              </div>
+
+              {/* Username */}
+              <div className="space-y-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="relative flex-1">
+                    <AtSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                    <Input
+                      placeholder="Username"
+                      type="text"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                      required
+                      autoComplete="username"
+                      className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                      data-testid="input-signup-username"
+                    />
+                  </div>
+                  <div className="min-w-[120px]" aria-live="polite">
+                    {availabilityBadge}
+                  </div>
+                </div>
+                {usernameError && (
+                  <p className="text-xs text-red-400" role="alert">
+                    {usernameError}
+                  </p>
+                )}
+                {usernameMessage && !usernameError && (
+                  <p className="text-xs text-gray-400">{usernameMessage}</p>
+                )}
+              </div>
+
+              {/* Stance */}
+              <div className="space-y-2">
+                <select
+                  value={stance}
+                  onChange={(e) => setStance(e.target.value)}
+                  className="h-10 w-full rounded-md bg-[#181818] border border-gray-600 text-white px-3 text-sm"
+                  data-testid="input-signup-stance"
+                >
+                  <option value="">Select stance (optional)</option>
+                  <option value="regular">Regular</option>
+                  <option value="goofy">Goofy</option>
+                </select>
+              </div>
+
               <Button
                 type="submit"
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white"
                 disabled={isLoading || !canSubmit}
                 data-testid="button-signup-submit"
               >
-                {isLoading ? "Creating Account..." : "Sign Up"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isCreatingProfile ? "Setting up profile..." : "Creating Account..."}
+                  </>
+                ) : (
+                  "Sign Up"
+                )}
               </Button>
             </form>
 
