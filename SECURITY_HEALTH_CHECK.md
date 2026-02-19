@@ -74,8 +74,8 @@ The Content-Security-Policy `scriptSrc` directive included `'unsafe-inline'`, wh
 ### Low Priority
 
 | #   | Issue                                 | Location                                | Recommendation                                                     |
-| --- | ------------------------------------- | --------------------------------------- | ------------------------------------------------------------------ | --- | -------------------- | ------ |
-| 5   | Loose storage MIME matching           | `storage.rules:25-31`                   | Tighten to `image/(jpeg                                            | png | webp)`and`video/(mp4 | webm)` |
+| --- | ------------------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| 5   | Loose storage MIME matching           | `storage.rules:25-31`                   | Tighten to `image/(jpeg\|png\|webp)` and `video/(mp4\|webm)`       |
 | 6   | Helmet not applied in dev             | `server/index.ts:24`                    | Apply CSP in all environments to catch issues early                |
 | 7   | User-agent blocking may reject SDKs   | `server/middleware/security.ts:339-355` | The block on "python" and "curl" may reject legitimate API clients |
 | 8   | Numeric param validation inconsistent | `server/routes.ts` (various)            | Standardize bounds checking on all numeric query params            |

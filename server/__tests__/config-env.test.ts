@@ -61,7 +61,7 @@ describe("config/env — test mode", () => {
 
   it("JWT_SECRET is at least 32 characters", async () => {
     const { env } = await import("../config/env");
-    expect(env.JWT_SECRET!.length).toBeGreaterThanOrEqual(32);
+    expect(env.JWT_SECRET.length).toBeGreaterThanOrEqual(32);
   });
 });
 

@@ -35,9 +35,8 @@ describe("config/env — additional coverage", () => {
   });
 
   /**
-   * Lines 100-105: STRIPE_SECRET_KEY rejects non-sk_ key in production
-   *
-   * In production, if STRIPE_SECRET_KEY doesn't start with "sk_", it should throw.
+   * STRIPE_SECRET_KEY rejects non-sk_ key in production.
+   * The transform throws if the value doesn't start with "sk_".
    */
   it("rejects STRIPE_SECRET_KEY not starting with sk_ in production", async () => {
     delete process.env.VITEST;
@@ -51,25 +50,10 @@ describe("config/env — additional coverage", () => {
   });
 
   /**
-   * Line 160: Non-ZodError rethrow
-   *
-   * The catch block does:
-   *   if (error instanceof z.ZodError) { ... format and throw ... }
-   *   throw error;  // Line 160
-   *
-   * This is reached when envSchema.parse throws something other than ZodError.
-   * The JWT_SECRET transform throws a plain Error ("JWT_SECRET is required in production")
-   * which Zod wraps in a ZodError. To hit the raw rethrow, we need parse() itself
-   * to throw a non-ZodError. We can do this by making the import fail differently.
-   *
-   * Actually, the line 160 is: throw error; in the else branch of:
-   *   catch (error) {
-   *     if (error instanceof z.ZodError) { ... }
-   *     throw error;  // <-- line 160
-   *   }
-   *
-   * We need envSchema.parse() to throw a non-ZodError. One way: mock zod's parse to throw
-   * a generic Error.
+   * Non-ZodError rethrow in validateEnv catch block.
+   * When envSchema.parse() throws something other than ZodError,
+   * the catch block re-throws it as-is. We mock zod's parse to
+   * throw a generic Error to exercise this path.
    */
   it("rethrows non-ZodError from validateEnv", async () => {
     delete process.env.VITEST;
