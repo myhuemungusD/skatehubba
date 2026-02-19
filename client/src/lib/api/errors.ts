@@ -6,6 +6,8 @@ export type ApiErrorCode =
   | "UNAUTHORIZED"
   | "VALIDATION_ERROR"
   | "TOO_FAR"
+  | "TIMEOUT"
+  | "NETWORK_ERROR"
   | "UNKNOWN";
 
 export class ApiError extends Error {
@@ -114,6 +116,10 @@ export const getUserFriendlyMessage = (error: ApiError): string => {
       }
       return "You're too far from this spot. Move closer and try again.";
     }
+    case "TIMEOUT":
+      return "The request took too long. Check your connection and try again.";
+    case "NETWORK_ERROR":
+      return "Network error. Check your connection and try again.";
     default:
       return "Unexpected error. Please try again.";
   }

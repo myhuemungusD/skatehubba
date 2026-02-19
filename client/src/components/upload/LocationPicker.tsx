@@ -38,6 +38,7 @@ const DEFAULT_CENTER: Location = { lat: 34.0522, lng: -118.2437, address: "Los A
 export default function LocationPicker({ onLocationSelect, initialLocation }: LocationPickerProps) {
   const { toast } = useToast();
   const [leafletLoaded, setLeafletLoaded] = useState(false);
+  const [mapError, setMapError] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location>(
     initialLocation || DEFAULT_CENTER
   );
@@ -99,6 +100,7 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
         setLeafletLoaded(true);
       } catch (error) {
         logger.error("Failed to initialize Leaflet map", error);
+        if (isMounted) setMapError(true);
       }
     };
 
@@ -139,9 +141,19 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
       },
       (error) => {
         logger.error("Geolocation error:", error);
+        const isDenied = error.code === error.PERMISSION_DENIED;
+        const isTimeout = error.code === error.TIMEOUT;
         toast({
-          title: "Location access denied",
-          description: "Please enable location services or enter coordinates manually.",
+          title: isDenied
+            ? "Location access denied"
+            : isTimeout
+              ? "Location request timed out"
+              : "Location unavailable",
+          description: isDenied
+            ? "Enable location in your browser settings, then try again."
+            : isTimeout
+              ? "Location took too long to resolve. Move to an open area and retry."
+              : "Could not determine your location. Enter coordinates manually.",
           variant: "destructive",
         });
         setIsGettingLocation(false);
@@ -193,6 +205,29 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
     markerRef.current.setLatLng(markerPosition);
     mapRef.current.setView(markerPosition, mapRef.current.getZoom(), { animate: true });
   }, [markerPosition]);
+
+  if (mapError) {
+    return (
+      <div className="w-full h-[400px] bg-[#232323] rounded-lg flex items-center justify-center border border-red-700">
+        <div className="text-center space-y-3 px-4">
+          <p className="text-red-400 text-sm font-medium">Failed to load map</p>
+          <p className="text-gray-400 text-xs">Check your connection and try again.</p>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="border-gray-600 text-white hover:bg-gray-700"
+            onClick={() => {
+              setMapError(false);
+              mapRef.current = null;
+            }}
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (!leafletLoaded) {
     return (

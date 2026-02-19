@@ -1,7 +1,8 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2, MapPin } from "lucide-react";
+import { AlertCircle, Loader2, MapPin } from "lucide-react";
+import type { GeolocationStatus } from "@/hooks/useGeolocation";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,9 +54,17 @@ interface AddSpotModalProps {
   isOpen: boolean;
   onClose: () => void;
   userLocation: { lat: number; lng: number } | null;
+  geolocationStatus?: GeolocationStatus;
+  geolocationErrorCode?: "denied" | "timeout" | "unavailable" | "unsupported" | null;
 }
 
-export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProps) {
+export function AddSpotModal({
+  isOpen,
+  onClose,
+  userLocation,
+  geolocationStatus,
+  geolocationErrorCode,
+}: AddSpotModalProps) {
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -152,7 +161,34 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
             </div>
           )}
 
-          {!isLocationReady && (
+          {!isLocationReady && geolocationStatus === "browse" && geolocationErrorCode === "denied" && (
+            <div className="flex items-start gap-2 p-2 bg-red-900/30 rounded-md border border-red-700/50">
+              <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+              <span className="text-sm text-red-400">
+                Location access was denied. Enable location in your browser settings and retry.
+              </span>
+            </div>
+          )}
+
+          {!isLocationReady && geolocationStatus === "browse" && (geolocationErrorCode === "timeout" || geolocationErrorCode === "unavailable") && (
+            <div className="flex items-start gap-2 p-2 bg-orange-900/30 rounded-md border border-orange-700/50">
+              <AlertCircle className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
+              <span className="text-sm text-orange-400">
+                {geolocationErrorCode === "timeout"
+                  ? "Location timed out. Move to an open area and retry."
+                  : "Location unavailable. Move to an open area and retry."}
+              </span>
+            </div>
+          )}
+
+          {!isLocationReady && geolocationStatus === "browse" && !geolocationErrorCode && (
+            <div className="flex items-center gap-2 p-2 bg-neutral-800 rounded-md border border-neutral-700">
+              <MapPin className="w-4 h-4 text-gray-400" />
+              <span className="text-sm text-gray-400">Browsing without location. Cannot pin a spot.</span>
+            </div>
+          )}
+
+          {!isLocationReady && (!geolocationStatus || geolocationStatus === "idle" || geolocationStatus === "locating") && (
             <div className="flex items-center gap-2 p-2 bg-orange-900/30 rounded-md border border-orange-700/50">
               <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />
               <span className="text-sm text-orange-400">Getting your location...</span>
