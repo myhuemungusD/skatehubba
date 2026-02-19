@@ -99,7 +99,7 @@ Firebase Auth is the identity provider. The server never stores passwords. Suppo
 | Token | Lifetime | Storage |
 |-------|----------|---------|
 | Firebase ID token | 1 hour (auto-refreshed by SDK) | Client memory |
-| JWT session token | Configured via server | Client localStorage |
+| JWT session token | 24 hours (`server/auth/service.ts`) | Client localStorage |
 | CSRF token | Session-scoped | Cookie (httpOnly=false for JS read) |
 
 ### Authorization
@@ -122,15 +122,17 @@ Firebase Auth is the identity provider. The server never stores passwords. Suppo
 
 ### Storage layout
 
-Firebase Storage is the blob store. Paths are namespaced by environment:
+Firebase Storage is the blob store. Paths are defined in `storage.rules`:
 
 ```
-/env/{prod|staging}/uploads/{userId}/tricks/{clipId}.mp4
-/env/{prod|staging}/uploads/{userId}/profile/{photoId}.jpg
-/env/{prod|staging}/uploads/{userId}/spots/{imageId}.jpg
+/profiles/{userId}/{fileName}          — Profile images (public read, owner write, 5 MB max)
+/spots/{spotId}/{fileName}             — Spot images (public read, auth write, 10 MB max)
+/uploads/{userId}/{path}               — General uploads (auth read, owner write, 50 MB max)
+/videos/{userId}/{gameId}/{roundId}/{fileName} — S.K.A.T.E. trick videos (signed-URL read only, owner write, 100 MB max)
+/public/{path}                         — Static assets (public read, no write)
 ```
 
-Path construction uses `getStoragePath()` from `@skatehubba/config` to enforce namespace isolation.
+Firestore paths are namespaced by environment using `getEnvPath()` from `@skatehubba/config` (e.g. `env/prod/users/...`).
 
 ### Video upload and processing
 

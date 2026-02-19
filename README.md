@@ -159,7 +159,7 @@ pnpm --filter skatehubba-client exec cypress run
 
 `pnpm -w run verify` is the pre-flight check for CI.
 
-See [docs/DEPLOYMENT_RUNBOOK.md](docs/DEPLOYMENT_RUNBOOK.md).
+See [docs/RELEASE.md](docs/RELEASE.md) for environments, deployment pipelines, and secret rotation.
 
 ### Staging (Public Demo)
 

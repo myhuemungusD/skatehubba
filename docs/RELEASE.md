@@ -211,16 +211,21 @@ Secrets are scanned in multiple layers:
 
 ### Staging
 
+Images are tagged with both the git SHA and `latest` in `ghcr.io`. To roll back:
+
 ```bash
 # SSH into staging server
 ssh user@staging-host
-
-# Roll back to previous image
 cd /opt/skatehubba
-docker compose -f docker-compose.staging.yml pull app  # pulls :latest
-# Or specify a specific SHA:
-# docker compose ... run --rm app image:specific-sha
+
+# Option 1: Roll back to a specific commit SHA
+export IMAGE=ghcr.io/myhuemungusD/skatehubba/staging:<commit-sha>
+docker pull $IMAGE
+docker tag $IMAGE ghcr.io/myhuemungusD/skatehubba/staging:latest
 docker compose -f docker-compose.staging.yml up -d --no-deps app
+
+# Option 2: Redeploy by pushing the previous commit to the staging branch
+git push origin <previous-commit>:staging
 ```
 
 ### Production (Vercel)
