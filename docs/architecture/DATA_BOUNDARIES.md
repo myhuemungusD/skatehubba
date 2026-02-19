@@ -21,7 +21,7 @@ If data exists in both places, PostgreSQL wins. Firestore is updated via sync jo
 |-------|--------|-------|
 | `customUsers` | id, email, passwordHash, firstName, lastName, firebaseUid, isEmailVerified, trustLevel, isActive, createdAt | Core identity. Keyed by internal UUID. |
 | `usernames` | uid, username | Unique username reservation. UID is Firebase UID. |
-| `userProfiles` | id (Firebase UID), handle, displayName, bio, photoURL, stance, homeSpot, **xp**, **level**, wins, losses, filmerRepScore, filmerVerified, roles | Extended profile. **XP and level are authoritative here.** |
+| `userProfiles` | id (Firebase UID), handle, displayName, bio, photoURL, stance, homeSpot, **xp**, wins, losses, disputePenalties, filmerRepScore, filmerVerified, roles | Extended profile. **XP is authoritative here. Level is computed: `Math.floor(xp / 500) + 1`.** |
 | `authSessions` | userId, token, expiresAt | Server-side session management. |
 
 ### Spots & Check-ins
@@ -93,7 +93,7 @@ interface FirestoreUserProfile {
   displayName: string;   // Mirrored from userProfiles
   photoURL?: string;     // Mirrored from userProfiles
   xp: number;            // Mirrored from userProfiles.xp
-  level: number;         // Mirrored from userProfiles.level
+  level: number;         // Computed: Math.floor(xp / 500) + 1
   isPro: boolean;        // Derived from subscription status
   role: "skater" | "filmer" | "pro";
   updatedAt: Timestamp;
@@ -109,7 +109,7 @@ When someone asks "where does X live?", this table answers:
 | Field | Authoritative Store | Projection |
 |-------|---------------------|------------|
 | User XP | `userProfiles.xp` (PostgreSQL) | `users.xp` (Firestore) |
-| User Level | `userProfiles.level` (PostgreSQL) | `users.level` (Firestore) |
+| User Level | Computed: `Math.floor(xp / 500) + 1` | `users.level` (Firestore, derived from xp) |
 | User Points | Removed - use XP instead | - |
 | Check-in History | `checkIns` (PostgreSQL) | None |
 | Active Check-in Status | `activeCheckins` (Firestore) | None |
@@ -192,7 +192,6 @@ The `userProfiles` table needs these columns added:
 
 ```sql
 ALTER TABLE user_profiles ADD COLUMN xp INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE user_profiles ADD COLUMN level INTEGER NOT NULL DEFAULT 1;
 ```
 
 After migration, remove the `points` column:
