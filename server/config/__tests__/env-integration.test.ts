@@ -51,13 +51,16 @@ describe("Environment Configuration", () => {
     expect(invalidSecret.length).toBeLessThan(32);
   });
 
-  it("should use fallback JWT_SECRET in development", async () => {
+  it("should require JWT_SECRET in all non-test environments", async () => {
+    // JWT_SECRET is now required — no fallback generation
+    // In test mode (VITEST=true), the test bypass still returns a hardcoded value
     process.env.NODE_ENV = "development";
     process.env.VITEST = "true";
 
     const { env } = await import("../env");
 
     expect(env.JWT_SECRET).toBeTruthy();
+    expect(env.JWT_SECRET.length).toBeGreaterThanOrEqual(32);
   });
 
   it("should allow optional environment variables", () => {

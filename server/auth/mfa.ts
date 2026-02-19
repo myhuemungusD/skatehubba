@@ -48,6 +48,8 @@ const CIPHER_V2_PREFIX = "v2$";
 /**
  * Resolve the MFA encryption base key.
  * Prefers a dedicated MFA_ENCRYPTION_KEY to isolate MFA secrets from JWT signing material.
+ * In production, MFA_ENCRYPTION_KEY is required (enforced by env schema at boot).
+ * In development, falls back to JWT_SECRET with a warning.
  * Result is cached so the fallback warning is emitted at most once.
  */
 let _mfaBaseKey: string | null = null;
@@ -55,17 +57,25 @@ function getMfaBaseKey(): string {
   if (_mfaBaseKey !== null) return _mfaBaseKey;
 
   const dedicated = process.env.MFA_ENCRYPTION_KEY;
-  if (dedicated) {
+  if (dedicated && dedicated.length >= 32) {
     _mfaBaseKey = dedicated;
     return _mfaBaseKey;
   }
 
+  // In production, MFA_ENCRYPTION_KEY should have been enforced at boot by env.ts.
+  // This is a defense-in-depth check — if we somehow reach here, fail hard.
   if (process.env.NODE_ENV === "production") {
-    logger.warn(
-      "MFA_ENCRYPTION_KEY not set — falling back to JWT_SECRET for MFA encryption. " +
-        "Set a dedicated MFA_ENCRYPTION_KEY to separate concerns."
+    throw new Error(
+      "MFA_ENCRYPTION_KEY is required in production but was not set. " +
+        "This should have been caught at startup by env validation."
     );
   }
+
+  // In development, fall back to JWT_SECRET (which is now also guaranteed to be set and >=32 chars)
+  logger.warn(
+    "MFA_ENCRYPTION_KEY not set in development — using JWT_SECRET for MFA encryption. " +
+      "Set a dedicated MFA_ENCRYPTION_KEY for better security isolation."
+  );
   _mfaBaseKey = env.JWT_SECRET;
   return _mfaBaseKey;
 }

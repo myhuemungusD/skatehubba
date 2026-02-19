@@ -1,14 +1,12 @@
 /**
- * Coverage tests for server/config/env.ts — uncovered lines ~64, 100-105, 160
+ * Coverage tests for server/config/env.ts — additional coverage paths
  *
- * Line 64: JWT_SECRET transform throws in production when not set
- * Lines 100-105: STRIPE_SECRET_KEY rejects non-sk_ key in production
- * Line 160: Non-ZodError rethrow in validateEnv
+ * JWT_SECRET: required string throws when missing (any env)
+ * STRIPE_SECRET_KEY: rejects non-sk_ key in production
+ * Non-ZodError rethrow in validateEnv
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { unlinkSync, existsSync } from "fs";
-import { join } from "path";
 
 describe("config/env — additional coverage", () => {
   let originalEnv: NodeJS.ProcessEnv;
@@ -20,28 +18,11 @@ describe("config/env — additional coverage", () => {
 
   afterEach(() => {
     process.env = originalEnv;
-    // Clean up .jwt-secret.dev if created
-    const secretPath = join(process.cwd(), ".jwt-secret.dev");
-    if (existsSync(secretPath)) {
-      try {
-        unlinkSync(secretPath);
-      } catch (e) {
-        // Ignore
-      }
-    }
   });
 
   /**
-   * Line 64: JWT_SECRET transform throws when not set in production
-   *
-   * The transform does:
-   *   if (!val) {
-   *     if (process.env.NODE_ENV === "production") {
-   *       throw new Error("JWT_SECRET is required in production");
-   *     }
-   *   }
-   *
-   * Since this throw happens inside a zod transform, it becomes a ZodError.
+   * JWT_SECRET is a required string with min(32).
+   * Missing in production triggers a ZodError via the required_error.
    */
   it("throws when JWT_SECRET is not set in production", async () => {
     delete process.env.VITEST;
@@ -95,6 +76,7 @@ describe("config/env — additional coverage", () => {
     process.env.NODE_ENV = "development";
     process.env.DATABASE_URL = "mock://dev:dev@localhost:5432/dev";
     process.env.SESSION_SECRET = "a-valid-session-secret-at-least-32-chars-here";
+    process.env.JWT_SECRET = "a-valid-jwt-secret-at-least-32-characters-long-here";
 
     // We'll mock the zod module to make parse throw a non-ZodError
     vi.doMock("zod", async () => {

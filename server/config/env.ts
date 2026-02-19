@@ -1,50 +1,4 @@
 import { z } from "zod";
-import { randomBytes } from "crypto";
-import { readFileSync, writeFileSync, existsSync } from "fs";
-import { join } from "path";
-
-/**
- * Get or generate a persistent JWT secret for development.
- * Generates a cryptographically secure random secret and saves it to .jwt-secret.dev
- * This ensures the secret persists across restarts, preventing MFA secrets from becoming
- * undecryptable and JWT tokens from being invalidated.
- */
-function getOrCreateDevJwtSecret(): string {
-  const secretPath = join(process.cwd(), ".jwt-secret.dev");
-
-  // Try to read existing secret
-  if (existsSync(secretPath)) {
-    try {
-      const secret = readFileSync(secretPath, "utf8").trim();
-      if (secret.length >= 32) {
-        return secret;
-      }
-    } catch (error) {
-      console.warn("Failed to read .jwt-secret.dev, generating new secret");
-    }
-  }
-
-  // Generate new secret
-  const newSecret = randomBytes(32).toString("hex");
-
-  try {
-    writeFileSync(secretPath, newSecret, { mode: 0o600 }); // Owner read/write only
-    console.warn(
-      "⚠️  JWT_SECRET not set - generated and saved to .jwt-secret.dev\n" +
-      "   This file should be added to .gitignore (already done if using our template)\n" +
-      "   For production, set JWT_SECRET in your environment variables.\n" +
-      "   For consistent dev tokens, add JWT_SECRET to your .env file."
-    );
-  } catch (error) {
-    console.error("Failed to save .jwt-secret.dev:", error);
-    console.warn(
-      "⚠️  Using ephemeral JWT_SECRET - will change on restart!\n" +
-      "   MFA and sessions will break on restart."
-    );
-  }
-
-  return newSecret;
-}
 
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
@@ -54,21 +8,16 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   SESSION_SECRET: z.string().min(32, "SESSION_SECRET must be at least 32 characters"),
 
-  // JWT Secret - required in production, persistent random fallback for dev
+  // JWT Secret - required in ALL non-test environments, minimum 32 characters.
+  // No fallback, no auto-generation. Fail-fast at boot if missing.
+  // Generate with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
   JWT_SECRET: z
-    .string()
-    .optional()
-    .transform((val) => {
-      if (!val) {
-        if (process.env.NODE_ENV === "production") {
-          throw new Error("JWT_SECRET is required in production");
-        } else {
-          // Generate and persist a secure random secret for development
-          return getOrCreateDevJwtSecret();
-        }
-      }
-      return val;
-    }),
+    .string({
+      required_error:
+        "JWT_SECRET is required. Set it in your .env file (minimum 32 characters).\n" +
+        "  Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+    })
+    .min(32, "JWT_SECRET must be at least 32 characters for security"),
 
   // Replit environment (optional)
   REPL_ID: z.string().optional(),
@@ -130,7 +79,16 @@ const envSchema = z.object({
   GOOGLE_AI_API_KEY: z.string().optional(),
 
   // MFA encryption key (separate from JWT_SECRET for defense in depth)
-  MFA_ENCRYPTION_KEY: z.string().min(32).optional(),
+  // Required in production to prevent sharing JWT signing material with MFA encryption.
+  MFA_ENCRYPTION_KEY: z
+    .string()
+    .min(32, "MFA_ENCRYPTION_KEY must be at least 32 characters")
+    .optional()
+    .refine((val) => !(process.env.NODE_ENV === "production" && !val), {
+      message:
+        "MFA_ENCRYPTION_KEY is required in production (must be separate from JWT_SECRET).\n" +
+        "  Generate one with: node -e \"console.log(require('crypto').randomBytes(32).toString('hex'))\"",
+    }),
 
   // Admin access (optional, but recommended for production)
   ADMIN_API_KEY: z.string().optional(),
