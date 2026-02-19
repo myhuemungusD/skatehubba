@@ -81,8 +81,12 @@ const db = drizzle(pool, { schema });
   - Online/offline status
   - Last seen timestamp
   
-- ❌ User profiles (moved to Postgres)
-- ❌ Static spot data (moved to Postgres)
+- ✅ `users` collection — display document for UI badges (not the authoritative record)
+  - Client creates on sign-up: `{ uid, displayName, createdAt, updatedAt }`
+  - Server Cloud Function adds/updates: `roles`, `xp`, `isPro`, `role`
+  - Authoritative profile (email, bio, username) stays in PostgreSQL
+- ❌ `spots` — no Firestore collection; PostgreSQL `spots` table is the only store
+- ❌ `usernames` — no Firestore collection; PostgreSQL `usernames` table is the only store
 
 #### 3. Storage (Firebase Storage)
 - User-uploaded media (photos, videos)
@@ -191,15 +195,9 @@ await db.update(games)
 - Spots and check-ins in Postgres
 - Drizzle ORM integration
 
-### 🔄 In Progress
-- Remove Firestore user duplication
-- Update `set-admin.ts` to use Postgres only
-- Add database service layer abstraction
-
-### 📋 Planned
-- Migrate challenge history to Postgres
-- Add Firestore rules restricting user writes
-- Create data migration scripts
+### ✅ Also Completed
+- Removed Firestore user duplication (users, usernames, spots are PostgreSQL-only)
+- Firestore rules no longer include `/users/`, `/usernames/`, or `/spots/` collections
 
 ---
 
