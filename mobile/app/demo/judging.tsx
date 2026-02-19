@@ -1,17 +1,11 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Animated,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRef, useEffect, useState } from "react";
 import { SKATE } from "@/theme";
 import { LetterIndicator } from "@/components/game/LetterIndicator";
-import { DEMO_JUDGING_GAME, DEMO_PLAYERS } from "@/demo/mockData";
+import { DEMO_JUDGING_GAME } from "@/demo/mockData";
 
 /**
  * Demo: Judging Phase Screen
@@ -58,10 +52,7 @@ export default function DemoJudgingScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
-        <TouchableOpacity
-          style={styles.headerButton}
-          onPress={() => router.back()}
-        >
+        <TouchableOpacity style={styles.headerButton} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={SKATE.colors.white} />
         </TouchableOpacity>
 
@@ -109,20 +100,14 @@ export default function DemoJudgingScreen() {
         ]}
       >
         <Text style={styles.judgingTitle}>DID THEY LAND IT?</Text>
-        <Text style={styles.trickName}>
-          Trick: {game.currentSetMove?.trickName}
-        </Text>
-        <Text style={styles.judgingSubtitle}>
-          Both players vote. Tie goes to defender.
-        </Text>
+        <Text style={styles.trickName}>Trick: {game.currentSetMove?.trickName}</Text>
+        <Text style={styles.judgingSubtitle}>Both players vote. Tie goes to defender.</Text>
 
         {/* Video Placeholder */}
         <View style={styles.videoPlaceholder}>
           <Ionicons name="play-circle" size={64} color={SKATE.colors.orange} />
           <Text style={styles.videoPlaceholderText}>Trick Replay</Text>
-          <Text style={styles.videoPlaceholderSub}>
-            Slow-motion replay available
-          </Text>
+          <Text style={styles.videoPlaceholderSub}>Slow-motion replay available</Text>
         </View>
 
         {/* Voting Status */}
@@ -136,9 +121,7 @@ export default function DemoJudgingScreen() {
                   myVote === "landed" ? styles.voteLanded : styles.voteBailed,
                 ]}
               >
-                <Text style={styles.voteBadgeText}>
-                  {myVote.toUpperCase()}
-                </Text>
+                <Text style={styles.voteBadgeText}>{myVote.toUpperCase()}</Text>
               </View>
             ) : (
               <Text style={styles.votePending}>Waiting...</Text>
@@ -151,19 +134,13 @@ export default function DemoJudgingScreen() {
               <View
                 style={[
                   styles.voteBadge,
-                  opponentVote === "landed"
-                    ? styles.voteLanded
-                    : styles.voteBailed,
+                  opponentVote === "landed" ? styles.voteLanded : styles.voteBailed,
                 ]}
               >
-                <Text style={styles.voteBadgeText}>
-                  {opponentVote.toUpperCase()}
-                </Text>
+                <Text style={styles.voteBadgeText}>{opponentVote.toUpperCase()}</Text>
               </View>
             ) : (
-              <Text style={styles.votePending}>
-                {myVote ? "Thinking..." : "Waiting..."}
-              </Text>
+              <Text style={styles.votePending}>{myVote ? "Thinking..." : "Waiting..."}</Text>
             )}
           </View>
         </View>
@@ -176,11 +153,7 @@ export default function DemoJudgingScreen() {
               onPress={() => setMyVote("landed")}
               activeOpacity={0.7}
             >
-              <Ionicons
-                name="checkmark-circle"
-                size={36}
-                color={SKATE.colors.white}
-              />
+              <Ionicons name="checkmark-circle" size={36} color={SKATE.colors.white} />
               <Text style={styles.judgeButtonText}>LANDED</Text>
             </TouchableOpacity>
 
@@ -189,11 +162,7 @@ export default function DemoJudgingScreen() {
               onPress={() => setMyVote("bailed")}
               activeOpacity={0.7}
             >
-              <Ionicons
-                name="close-circle"
-                size={36}
-                color={SKATE.colors.white}
-              />
+              <Ionicons name="close-circle" size={36} color={SKATE.colors.white} />
               <Text style={styles.judgeButtonText}>BAILED</Text>
             </TouchableOpacity>
           </View>
@@ -204,11 +173,7 @@ export default function DemoJudgingScreen() {
                 <Ionicons
                   name={myVote === opponentVote ? "checkmark-done" : "alert-circle"}
                   size={32}
-                  color={
-                    myVote === opponentVote
-                      ? SKATE.colors.neon
-                      : SKATE.colors.gold
-                  }
+                  color={myVote === opponentVote ? SKATE.colors.neon : SKATE.colors.gold}
                 />
                 <Text style={styles.resultText}>
                   {myVote === opponentVote
@@ -219,9 +184,7 @@ export default function DemoJudgingScreen() {
             ) : (
               <View style={styles.waitingVote}>
                 <Ionicons name="hourglass" size={24} color={SKATE.colors.orange} />
-                <Text style={styles.waitingVoteText}>
-                  Waiting for opponent's vote...
-                </Text>
+                <Text style={styles.waitingVoteText}>Waiting for opponent's vote...</Text>
               </View>
             )}
           </View>

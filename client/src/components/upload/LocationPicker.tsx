@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { MapPin, Navigation } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -49,17 +49,20 @@ export default function LocationPicker({ onLocationSelect, initialLocation }: Lo
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
 
-  const handleLocationClick = (lat: number, lng: number) => {
-    const newLocation: Location = {
-      lat,
-      lng,
-      address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-    };
-    setSelectedLocation(newLocation);
-    setManualLat(lat.toFixed(6));
-    setManualLng(lng.toFixed(6));
-    onLocationSelect(newLocation);
-  };
+  const handleLocationClick = useCallback(
+    (lat: number, lng: number) => {
+      const newLocation: Location = {
+        lat,
+        lng,
+        address: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+      };
+      setSelectedLocation(newLocation);
+      setManualLat(lat.toFixed(6));
+      setManualLng(lng.toFixed(6));
+      onLocationSelect(newLocation);
+    },
+    [onLocationSelect]
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;

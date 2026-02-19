@@ -33,12 +33,18 @@ interface CameraRef {
 // react-native-vision-camera requires native code unavailable in Expo Go
 let VisionCamera: React.ComponentType<Record<string, unknown>> | null = null;
 let useCameraDevice: (position: string) => CameraDevice | null = () => null;
-let useCameraPermission: () => { hasPermission: boolean; requestPermission: () => Promise<boolean> } =
-  () => ({ hasPermission: false, requestPermission: async () => false });
-let useMicrophonePermission: () => { hasPermission: boolean; requestPermission: () => Promise<boolean> } =
-  () => ({ hasPermission: false, requestPermission: async () => false });
-let useCameraFormat: (device: CameraDevice | null, filters: Array<Record<string, unknown>>) => CameraFormat | null =
-  () => null;
+let useCameraPermission: () => {
+  hasPermission: boolean;
+  requestPermission: () => Promise<boolean>;
+} = () => ({ hasPermission: false, requestPermission: async () => false });
+let useMicrophonePermission: () => {
+  hasPermission: boolean;
+  requestPermission: () => Promise<boolean>;
+} = () => ({ hasPermission: false, requestPermission: async () => false });
+let useCameraFormat: (
+  device: CameraDevice | null,
+  filters: Array<Record<string, unknown>>
+) => CameraFormat | null = () => null;
 if (!isExpoGo) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -136,6 +142,12 @@ export function TrickRecorder({
     requestMicPermission,
   ]);
 
+  const stopRecording = useCallback(() => {
+    if (cameraRef.current) {
+      cameraRef.current.stopRecording();
+    }
+  }, []);
+
   // Recording timer
   useEffect(() => {
     if (recording) {
@@ -165,7 +177,7 @@ export function TrickRecorder({
       }
       progressAnim.setValue(0);
     };
-  }, [recording, progressAnim]);
+  }, [recording, progressAnim, stopRecording]);
 
   // Clean up on close
   useEffect(() => {
@@ -213,12 +225,6 @@ export function TrickRecorder({
     }
   }, [isSettingTrick, recording]);
 
-  const stopRecording = useCallback(() => {
-    if (cameraRef.current) {
-      cameraRef.current.stopRecording();
-    }
-  }, []);
-
   const handleRetake = useCallback(() => {
     setVideoUri(null);
     setTrickName("");
@@ -265,7 +271,8 @@ export function TrickRecorder({
           <Ionicons name="videocam-off" size={64} color={SKATE.colors.lightGray} />
           <Text style={styles.permissionTitle}>Camera Recording Unavailable</Text>
           <Text style={styles.permissionText}>
-            Trick recording requires a development build. Run "npx expo run:android" or use EAS Build to create a dev build with camera support.
+            Trick recording requires a development build. Run "npx expo run:android" or use EAS
+            Build to create a dev build with camera support.
           </Text>
           <TouchableOpacity
             accessible

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 
@@ -91,13 +92,9 @@ describe("useVideoUrl", () => {
 
   describe("signed URL resolution", () => {
     it("fetches signed URL and returns it", async () => {
-      mockGetVideoUrl.mockResolvedValue(
-        signedUrlResponse("https://signed.url/video.mp4")
-      );
+      mockGetVideoUrl.mockResolvedValue(signedUrlResponse("https://signed.url/video.mp4"));
 
-      const { result } = renderHook(() =>
-        useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1")
-      );
+      const { result } = renderHook(() => useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1"));
 
       // Initially null while loading
       expect(result.current.url).toBeNull();
@@ -115,9 +112,7 @@ describe("useVideoUrl", () => {
     });
 
     it("caches the URL and serves from cache on re-render", async () => {
-      mockGetVideoUrl.mockResolvedValue(
-        signedUrlResponse("https://signed.url/cached.mp4")
-      );
+      mockGetVideoUrl.mockResolvedValue(signedUrlResponse("https://signed.url/cached.mp4"));
 
       const { result, rerender } = renderHook(() =>
         useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1")
@@ -147,11 +142,7 @@ describe("useVideoUrl", () => {
       mockGetVideoUrl.mockRejectedValue(new Error("Permission denied"));
 
       const { result } = renderHook(() =>
-        useVideoUrl(
-          "videos/uid/gid/round_1/abc.mp4",
-          "game-1",
-          "https://fallback.url/clip.mp4"
-        )
+        useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1", "https://fallback.url/clip.mp4")
       );
 
       await waitFor(() => {
@@ -165,9 +156,7 @@ describe("useVideoUrl", () => {
     it("sets generic error message for non-Error exceptions", async () => {
       mockGetVideoUrl.mockRejectedValue("string error");
 
-      const { result } = renderHook(() =>
-        useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1")
-      );
+      const { result } = renderHook(() => useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1"));
 
       await waitFor(() => {
         expect(result.current.error).toBe("Failed to load video");
@@ -179,9 +168,7 @@ describe("useVideoUrl", () => {
     it("returns null url on error when no fallback provided", async () => {
       mockGetVideoUrl.mockRejectedValue(new Error("fail"));
 
-      const { result } = renderHook(() =>
-        useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1")
-      );
+      const { result } = renderHook(() => useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1"));
 
       await waitFor(() => {
         expect(result.current.error).toBe("fail");
@@ -199,9 +186,7 @@ describe("useVideoUrl", () => {
         .mockResolvedValueOnce(signedUrlResponse("https://first.url"))
         .mockResolvedValueOnce(signedUrlResponse("https://second.url"));
 
-      const { result } = renderHook(() =>
-        useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1")
-      );
+      const { result } = renderHook(() => useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1"));
 
       await waitFor(() => {
         expect(result.current.url).toBe("https://first.url");
@@ -223,13 +208,9 @@ describe("useVideoUrl", () => {
 
   describe("cache utilities", () => {
     it("clearUrlCache empties the cache", async () => {
-      mockGetVideoUrl.mockResolvedValue(
-        signedUrlResponse("https://signed.url")
-      );
+      mockGetVideoUrl.mockResolvedValue(signedUrlResponse("https://signed.url"));
 
-      const { result } = renderHook(() =>
-        useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1")
-      );
+      const { result } = renderHook(() => useVideoUrl("videos/uid/gid/round_1/abc.mp4", "game-1"));
 
       await waitFor(() => {
         expect(result.current.url).toBe("https://signed.url");
@@ -254,9 +235,7 @@ describe("useVideoUrl", () => {
         .mockResolvedValueOnce(signedUrlResponse("https://url-b.mp4"));
 
       let storagePath = "videos/uid/gid/round_1/a.mp4";
-      const { result, rerender } = renderHook(() =>
-        useVideoUrl(storagePath, "game-1")
-      );
+      const { result, rerender } = renderHook(() => useVideoUrl(storagePath, "game-1"));
 
       await waitFor(() => {
         expect(result.current.url).toBe("https://url-a.mp4");
@@ -274,16 +253,12 @@ describe("useVideoUrl", () => {
     });
 
     it("switches to fallback when storagePath becomes null", async () => {
-      mockGetVideoUrl.mockResolvedValue(
-        signedUrlResponse("https://signed.url")
-      );
+      mockGetVideoUrl.mockResolvedValue(signedUrlResponse("https://signed.url"));
 
       let storagePath: string | null = "videos/uid/gid/round_1/a.mp4";
       const fallback = "https://legacy.url";
 
-      const { result, rerender } = renderHook(() =>
-        useVideoUrl(storagePath, "game-1", fallback)
-      );
+      const { result, rerender } = renderHook(() => useVideoUrl(storagePath, "game-1", fallback));
 
       await waitFor(() => {
         expect(result.current.url).toBe("https://signed.url");

@@ -1,12 +1,4 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ScrollView,
-  Animated,
-  Image,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Animated } from "react-native";
 import { useRef, useEffect } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,12 +21,7 @@ interface ResultScreenProps {
  * Post-game summary screen showing winner, stats, and trick history.
  * Features dramatic Baker-era victory/defeat aesthetics.
  */
-export function ResultScreen({
-  gameSession,
-  currentUserId,
-  onExit,
-  onRematch,
-}: ResultScreenProps) {
+export function ResultScreen({ gameSession, currentUserId, onExit, onRematch }: ResultScreenProps) {
   const insets = useSafeAreaInsets();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const trophyScale = useRef(new Animated.Value(0)).current;
@@ -48,8 +35,8 @@ export function ResultScreen({
       ? gameSession.player1DisplayName
       : gameSession.player2DisplayName
     : gameSession.winnerId === gameSession.player2Id
-    ? gameSession.player2DisplayName
-    : gameSession.player1DisplayName;
+      ? gameSession.player2DisplayName
+      : gameSession.player1DisplayName;
 
   const loserName =
     gameSession.winnerId === gameSession.player1Id
@@ -91,9 +78,7 @@ export function ResultScreen({
   const landedAttempts = gameSession.moves.filter(
     (m) => m.type === "match" && m.result === "landed"
   ).length;
-  const totalAttempts = gameSession.moves.filter(
-    (m) => m.type === "match"
-  ).length;
+  const totalAttempts = gameSession.moves.filter((m) => m.type === "match").length;
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
@@ -105,15 +90,8 @@ export function ResultScreen({
         showsVerticalScrollIndicator={false}
       >
         {/* Victory/Defeat Banner */}
-        <View
-          style={[
-            styles.banner,
-            isWinner ? styles.bannerWin : styles.bannerLose,
-          ]}
-        >
-          <Animated.View
-            style={[styles.iconContainer, { transform: [{ scale: trophyScale }] }]}
-          >
+        <View style={[styles.banner, isWinner ? styles.bannerWin : styles.bannerLose]}>
+          <Animated.View style={[styles.iconContainer, { transform: [{ scale: trophyScale }] }]}>
             <Ionicons
               name={isWinner ? "trophy" : "sad"}
               size={64}
@@ -126,19 +104,12 @@ export function ResultScreen({
           </Text>
 
           <Text style={styles.subResultText}>
-            {isWinner
-              ? `You defeated ${loserName}!`
-              : `${winnerName} won the battle`}
+            {isWinner ? `You defeated ${loserName}!` : `${winnerName} won the battle`}
           </Text>
         </View>
 
         {/* Final S.K.A.T.E. Status */}
-        <Animated.View
-          style={[
-            styles.statusSection,
-            { transform: [{ translateY: statsSlide }] },
-          ]}
-        >
+        <Animated.View style={[styles.statusSection, { transform: [{ translateY: statsSlide }] }]}>
           <Text style={styles.sectionTitle}>FINAL SCORE</Text>
 
           <View style={styles.playersContainer}>
@@ -152,11 +123,7 @@ export function ResultScreen({
               />
               {gameSession.winnerId === gameSession.player1Id && (
                 <View style={styles.winnerBadge}>
-                  <Ionicons
-                    name="trophy"
-                    size={16}
-                    color={SKATE.colors.gold}
-                  />
+                  <Ionicons name="trophy" size={16} color={SKATE.colors.gold} />
                   <Text style={styles.winnerBadgeText}>WINNER</Text>
                 </View>
               )}
@@ -176,11 +143,7 @@ export function ResultScreen({
               />
               {gameSession.winnerId === gameSession.player2Id && (
                 <View style={styles.winnerBadge}>
-                  <Ionicons
-                    name="trophy"
-                    size={16}
-                    color={SKATE.colors.gold}
-                  />
+                  <Ionicons name="trophy" size={16} color={SKATE.colors.gold} />
                   <Text style={styles.winnerBadgeText}>WINNER</Text>
                 </View>
               )}
@@ -193,16 +156,8 @@ export function ResultScreen({
           <Text style={styles.sectionTitle}>BATTLE STATS</Text>
 
           <View style={styles.statsGrid}>
-            <StatCard
-              icon="layers"
-              label="Rounds"
-              value={totalRounds.toString()}
-            />
-            <StatCard
-              icon="flash"
-              label="Tricks Set"
-              value={`${player1Tricks + player2Tricks}`}
-            />
+            <StatCard icon="layers" label="Rounds" value={totalRounds.toString()} />
+            <StatCard icon="flash" label="Tricks Set" value={`${player1Tricks + player2Tricks}`} />
             <StatCard
               icon="checkmark-circle"
               label="Landed"
@@ -238,9 +193,7 @@ export function ResultScreen({
                     </View>
 
                     <View style={styles.trickContent}>
-                      <Text style={styles.trickName}>
-                        {move.trickName || "Unnamed Trick"}
-                      </Text>
+                      <Text style={styles.trickName}>{move.trickName || "Unnamed Trick"}</Text>
                       <Text style={styles.trickSetter}>
                         Set by{" "}
                         {move.playerId === gameSession.player1Id
@@ -252,9 +205,7 @@ export function ResultScreen({
                     <View
                       style={[
                         styles.resultBadge,
-                        matchMove?.result === "landed"
-                          ? styles.resultLanded
-                          : styles.resultBailed,
+                        matchMove?.result === "landed" ? styles.resultLanded : styles.resultBailed,
                       ]}
                     >
                       <Text style={styles.resultBadgeText}>
@@ -314,10 +265,7 @@ function StatCard({ icon, label, value }: StatCardProps) {
   );
 }
 
-function formatDuration(
-  start: Date | null | undefined,
-  end: Date | null | undefined
-): string {
+function formatDuration(start: Date | null | undefined, end: Date | null | undefined): string {
   if (!start || !end) return "--";
 
   const startDate = start instanceof Date ? start : new Date(start);
