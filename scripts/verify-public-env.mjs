@@ -18,15 +18,14 @@ const strict = (isVercel || isProd) && !allowMissing;
 
 /**
  * Resolve a key by checking EXPO_PUBLIC_ first, then VITE_ fallback.
- * Returns { prefix, value } if found, null if not found.
+ * Returns { prefix, value } if found with a non-empty value, null otherwise.
+ * Trims whitespace so a value of "  " is treated the same as missing.
  */
 function resolveKey(key) {
-  if (process.env[`EXPO_PUBLIC_${key}`]) {
-    return { prefix: "EXPO_PUBLIC_", value: process.env[`EXPO_PUBLIC_${key}`] };
-  }
-  if (process.env[`VITE_${key}`]) {
-    return { prefix: "VITE_", value: process.env[`VITE_${key}`] };
-  }
+  const expoVal = process.env[`EXPO_PUBLIC_${key}`]?.trim();
+  if (expoVal) return { prefix: "EXPO_PUBLIC_", value: expoVal };
+  const viteVal = process.env[`VITE_${key}`]?.trim();
+  if (viteVal) return { prefix: "VITE_", value: viteVal };
   return null;
 }
 

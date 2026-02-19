@@ -104,7 +104,11 @@ const envSchema = z.object({
   ALLOWED_ORIGINS: z.string().optional(),
 
   // Redis (optional — enables caching and session store)
-  REDIS_URL: z.string().url("REDIS_URL must be a valid URL").optional(),
+  // Accepts redis:// and rediss:// (TLS) connection strings
+  REDIS_URL: z
+    .string()
+    .regex(/^rediss?:\/\//, "REDIS_URL must start with redis:// or rediss://")
+    .optional(),
 
   // Cron endpoint protection (recommended in production)
   CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
@@ -112,11 +116,14 @@ const envSchema = z.object({
   // Logging
   LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
 
-  // Firebase App Check enforcement mode
-  APP_CHECK_MODE: z.enum(["enforce", "permissive"]).default("permissive"),
+  // Firebase App Check enforcement mode — must match AppCheckMode in middleware/appCheck.ts
+  // monitor: log only (default, safe for gradual rollout)
+  // warn:    add warning header but allow request
+  // enforce: reject requests without a valid App Check token
+  APP_CHECK_MODE: z.enum(["monitor", "warn", "enforce"]).default("monitor"),
 
-  // Spot check-in radius in metres
-  CHECK_IN_RADIUS_METERS: z.coerce.number().positive().default(100),
+  // Spot check-in radius in metres (service hard cap: 150m)
+  CHECK_IN_RADIUS_METERS: z.coerce.number().positive().max(150, "CHECK_IN_RADIUS_METERS cannot exceed 150m (service hard cap)").default(100),
 });
 
 function validateEnv() {
