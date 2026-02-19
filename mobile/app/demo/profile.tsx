@@ -1,14 +1,7 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-} from "react-native";
-import { useRouter } from "expo-router";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
-import { DEMO_PLAYERS, DEMO_CHALLENGES } from "@/demo/mockData";
+import { DEMO_PLAYERS } from "@/demo/mockData";
 import type { ComponentProps } from "react";
 
 /**
@@ -17,7 +10,6 @@ import type { ComponentProps } from "react";
  * Demonstrates the social/competitive player profile experience.
  */
 export default function DemoProfileScreen() {
-  const router = useRouter();
   const player = DEMO_PLAYERS.me;
 
   const recentBattles = [
@@ -40,9 +32,7 @@ export default function DemoProfileScreen() {
       <View style={styles.profileHeader}>
         <View style={styles.avatarContainer}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {player.displayName.charAt(0)}
-            </Text>
+            <Text style={styles.avatarText}>{player.displayName.charAt(0)}</Text>
           </View>
           <View style={styles.levelBadge}>
             <Text style={styles.levelText}>PRO</Text>
@@ -54,10 +44,7 @@ export default function DemoProfileScreen() {
 
         {/* Action Buttons */}
         <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.challengeButton}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.challengeButton} activeOpacity={0.7}>
             <Ionicons name="videocam" size={20} color={SKATE.colors.white} />
             <Text style={styles.challengeButtonText}>Challenge</Text>
           </TouchableOpacity>
@@ -118,9 +105,7 @@ export default function DemoProfileScreen() {
             <View
               style={[
                 styles.resultIndicator,
-                battle.result === "won"
-                  ? styles.resultWon
-                  : styles.resultLost,
+                battle.result === "won" ? styles.resultWon : styles.resultLost,
               ]}
             >
               <Ionicons
@@ -130,9 +115,7 @@ export default function DemoProfileScreen() {
               />
             </View>
             <View style={styles.battleInfo}>
-              <Text style={styles.battleOpponent}>
-                vs. {battle.opponent}
-              </Text>
+              <Text style={styles.battleOpponent}>vs. {battle.opponent}</Text>
               <Text style={styles.battleDetail}>
                 {battle.tricks} tricks · {battle.date}
               </Text>
@@ -141,10 +124,7 @@ export default function DemoProfileScreen() {
               style={[
                 styles.battleResult,
                 {
-                  color:
-                    battle.result === "won"
-                      ? SKATE.colors.neon
-                      : SKATE.colors.blood,
+                  color: battle.result === "won" ? SKATE.colors.neon : SKATE.colors.blood,
                 },
               ]}
             >
@@ -222,32 +202,16 @@ function AchievementBadge({
   unlocked: boolean;
 }) {
   return (
-    <View
-      style={[
-        styles.achievementCard,
-        !unlocked && styles.achievementLocked,
-      ]}
-    >
+    <View style={[styles.achievementCard, !unlocked && styles.achievementLocked]}>
       <View
         style={[
           styles.achievementIcon,
-          unlocked
-            ? styles.achievementIconUnlocked
-            : styles.achievementIconLocked,
+          unlocked ? styles.achievementIconUnlocked : styles.achievementIconLocked,
         ]}
       >
-        <Ionicons
-          name={icon}
-          size={24}
-          color={unlocked ? SKATE.colors.gold : SKATE.colors.gray}
-        />
+        <Ionicons name={icon} size={24} color={unlocked ? SKATE.colors.gold : SKATE.colors.gray} />
       </View>
-      <Text
-        style={[
-          styles.achievementTitle,
-          !unlocked && styles.achievementTitleLocked,
-        ]}
-      >
+      <Text style={[styles.achievementTitle, !unlocked && styles.achievementTitleLocked]}>
         {title}
       </Text>
       <Text style={styles.achievementDesc}>{description}</Text>

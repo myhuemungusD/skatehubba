@@ -1,12 +1,4 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
-  Image,
-} from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -135,19 +127,22 @@ export default function GameScreen() {
 
   // Track battle joined event
   useEffect(() => {
-    if (gameSession && user?.uid && gameSession.status === "active") {
+    if (gameSession?.status === "active" && user?.uid) {
       logEvent("battle_joined", {
         battle_id: gameId,
-        creator_id: gameSession.player1Id === user.uid ? undefined : gameSession.player1Id,
+        creator_id: gameSession?.player1Id === user.uid ? undefined : gameSession?.player1Id,
       });
     }
   }, [gameSession?.status, gameId, user?.uid, gameSession?.player1Id]);
 
   // Show turn announcements
   useEffect(() => {
-    if (!gameSession || gameSession.status !== "active" || !user?.uid) return;
+    if (gameSession?.status !== "active" || !user?.uid) return;
 
-    const { turnPhase, currentTurn, currentAttacker } = gameSession;
+    const turnPhase = gameSession?.turnPhase;
+    const currentTurn = gameSession?.currentTurn;
+    const currentAttacker = gameSession?.currentAttacker;
+    const trickName = gameSession?.currentSetMove?.trickName;
     const isMe = currentTurn === user.uid;
     const iAmAttacker = currentAttacker === user.uid;
 
@@ -167,9 +162,7 @@ export default function GameScreen() {
       overlay = {
         type: "turn_start",
         title: "YOUR TURN",
-        subtitle: gameSession.currentSetMove?.trickName
-          ? `Match: ${gameSession.currentSetMove.trickName}`
-          : "Match the trick!",
+        subtitle: trickName ? `Match: ${trickName}` : "Match the trick!",
         playerId: user.uid,
         letter: null,
         autoDismissMs: 2500,
@@ -209,13 +202,17 @@ export default function GameScreen() {
 
   // Announce new letters
   useEffect(() => {
-    if (!gameSession || !user?.uid) return;
+    if (!gameSession?.player1Id || !user?.uid) return;
 
     const myLetters =
-      gameSession.player1Id === user.uid ? gameSession.player1Letters : gameSession.player2Letters;
+      gameSession?.player1Id === user.uid
+        ? (gameSession?.player1Letters ?? [])
+        : (gameSession?.player2Letters ?? []);
 
     const opponentLetters =
-      gameSession.player1Id === user.uid ? gameSession.player2Letters : gameSession.player1Letters;
+      gameSession?.player1Id === user.uid
+        ? (gameSession?.player2Letters ?? [])
+        : (gameSession?.player1Letters ?? []);
 
     // Check for new letter (compare with last announced)
     const allLetters = [...myLetters, ...opponentLetters];
@@ -600,8 +597,8 @@ export default function GameScreen() {
           <Text style={styles.judgingSubtitle}>Both players vote. Tie goes to defender.</Text>
 
           {/* Show the match attempt video with slow-mo replay option */}
-          {latestMatchMove && (
-            matchMoveVideo.isLoading ? (
+          {latestMatchMove &&
+            (matchMoveVideo.isLoading ? (
               <ActivityIndicator color={SKATE.colors.orange} style={styles.judgingVideo} />
             ) : matchMoveVideo.url ? (
               <VideoErrorBoundary>
@@ -613,8 +610,7 @@ export default function GameScreen() {
                   style={styles.judgingVideo}
                 />
               </VideoErrorBoundary>
-            ) : null
-          )}
+            ) : null)}
 
           {/* Voting status */}
           <View style={styles.votingStatus}>

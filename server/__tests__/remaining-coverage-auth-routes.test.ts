@@ -336,6 +336,82 @@ describe("login routes — uncovered lines", () => {
   });
 
   /**
+   * Lines 69-70: Account lockout response
+   */
+  it("returns 429 when account is locked out (lines 69-70)", async () => {
+    const { LockoutService } = await import("../auth/lockout");
+    (LockoutService.checkLockout as any).mockResolvedValue({
+      isLocked: true,
+      failedAttempts: 5,
+      unlockAt: new Date(Date.now() + 900000),
+    });
+    (LockoutService.getLockoutMessage as any).mockReturnValue(
+      "Account locked. Try again in 15 minutes."
+    );
+
+    mockFindUserByFirebaseUid.mockResolvedValue(null);
+    mockCreateUser.mockResolvedValue({
+      user: {
+        id: "u-locked",
+        email: "locked@example.com",
+        firstName: "Locked",
+        lastName: "User",
+        isEmailVerified: false,
+        createdAt: new Date(),
+      },
+      emailToken: "token123",
+    });
+    mockCreateSession.mockResolvedValue({ token: "jwt", session: { id: "s1" } });
+
+    const req = createMockReq({
+      headers: { authorization: "Bearer mock-token" },
+      body: {},
+    });
+    const res = createMockRes();
+
+    await app.execute("POST", "/api/auth/login", req, res);
+
+    expect(res._statusCode).toBe(429);
+    expect(res._jsonData).toHaveProperty("code", "ACCOUNT_LOCKED");
+  });
+
+  /**
+   * Lines 111-112: Email verification sync when Firebase says verified but DB doesn't
+   * Must use a real (non-mock) token so it goes through admin.auth().verifyIdToken
+   * which returns email_verified: true from the mock.
+   */
+  it("syncs email verification from Firebase to DB (lines 111-112)", async () => {
+    // User exists but isEmailVerified is false in our DB
+    mockFindUserByFirebaseUid.mockResolvedValue({
+      id: "u-sync",
+      email: "sync@example.com",
+      firstName: "Sync",
+      lastName: "User",
+      isEmailVerified: false, // DB says not verified
+      createdAt: new Date(),
+    });
+    mockVerifyEmailByUserId.mockResolvedValue(undefined);
+    mockCreateSession.mockResolvedValue({ token: "jwt-sync", session: { id: "s2" } });
+    mockUpdateLastLogin.mockResolvedValue(undefined);
+
+    const { LockoutService } = await import("../auth/lockout");
+    (LockoutService.checkLockout as any).mockResolvedValue({ isLocked: false, failedAttempts: 0 });
+    (LockoutService.recordAttempt as any).mockResolvedValue(undefined);
+
+    // Use a real (non-mock) token so verifyIdToken is called, returning email_verified: true
+    const req = createMockReq({
+      headers: { authorization: "Bearer real-firebase-id-token" },
+      body: {},
+    });
+    const res = createMockRes();
+
+    await app.execute("POST", "/api/auth/login", req, res);
+
+    expect(res._statusCode).toBe(200);
+    expect(mockVerifyEmailByUserId).toHaveBeenCalledWith("u-sync");
+  });
+
+  /**
    * Lines 155-157: Outer catch block — returns 500
    */
   it("returns 500 on outer exception (lines 155-157)", async () => {
