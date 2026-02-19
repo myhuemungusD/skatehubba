@@ -25,17 +25,17 @@ export const landingContent = {
   trustIndicators: [
     {
       icon: Shield,
-      text: "Enterprise-grade Security",
+      text: "Secure Sign-In",
       color: "text-emerald-400",
     },
     {
       icon: Zap,
-      text: "Real-time Infrastructure",
+      text: "Real-time Battles",
       color: "text-amber-400",
     },
     {
       icon: Globe2,
-      text: "Global Community",
+      text: "Growing Beta Community",
       color: "text-sky-400",
     },
   ],
@@ -56,9 +56,9 @@ export const landingContent = {
     },
     {
       icon: TrendingUp,
-      title: "Performance Analytics",
+      title: "Community Leaderboards",
       description:
-        "Advanced statistics track your progression. Compare rankings and identify areas for improvement.",
+        "Track your rank among skaters in the community. Climb the leaderboard through battles and spot check-ins.",
       iconColor: "text-emerald-500",
     },
   ],
