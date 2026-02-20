@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build",
-  "outputDirectory": "client/dist",
+  "outputDirectory": "dist",
   "framework": "vite",
   "functions": {
     "api/index.ts": {
