@@ -30,11 +30,14 @@ function resolveKey(key) {
 }
 
 /**
- * Check if the bare (unprefixed) key is set — used only for diagnostics.
- * These vars are NOT bundled by Vite and will never reach the browser.
+ * Check if the bare (unprefixed) key is set to a non-empty value — used only
+ * for diagnostics. These vars are NOT bundled by Vite and will never reach the
+ * browser. We require a non-empty value so that `KEY=` (empty string) does not
+ * trigger a misleading "rename it" suggestion.
  */
 function hasUnprefixed(key) {
-  return process.env[key] !== undefined;
+  const val = process.env[key];
+  return val !== undefined && val.trim().length > 0;
 }
 
 /**
@@ -132,6 +135,12 @@ if (missing.length > 0) {
     console.warn(
       "⚠️  Non-strict mode: continuing despite missing vars. Build may fail at runtime.\n"
     );
+    // Still print server-var diagnostics when running on Vercel — the server
+    // function needs these vars regardless of whether the client-side check is
+    // in strict mode.
+    if (isVercel) {
+      printServerVarChecklist();
+    }
   }
 } else {
   console.log("✅ Public env check passed:");

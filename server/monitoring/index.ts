@@ -256,6 +256,10 @@ export function registerMonitoringRoutes(app: Express) {
       timestamp: new Date().toISOString(),
       vercelEnv: process.env.VERCEL_ENV ?? null,
       nodeEnv: process.env.NODE_ENV ?? null,
+      // Which branch/commit is actually deployed — critical for debugging
+      // "I set the var but it's still missing" (wrong branch or stale deploy).
+      gitBranch: process.env.VERCEL_GIT_COMMIT_REF ?? null,
+      gitSha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
       serverRequired: serverRequiredResults,
       firebaseAdmin: checkVars(firebaseAdmin),
       firebaseClient: checkVars(firebaseClient),
