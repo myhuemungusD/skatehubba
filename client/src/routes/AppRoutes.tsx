@@ -80,11 +80,9 @@ function RootRedirect() {
       // Wait for profile status to resolve before redirecting
       if (profileStatus === "unknown") return;
 
-      if (profileStatus === "missing") {
-        setLocation("/profile/setup", { replace: true });
-      } else {
-        setLocation("/hub", { replace: true });
-      }
+      // Send all authenticated users to /hub - it supports allowMissingProfile
+      // so the app is accessible even when the profile API is unavailable
+      setLocation("/hub", { replace: true });
     } else {
       setLocation("/auth", { replace: true });
     }
