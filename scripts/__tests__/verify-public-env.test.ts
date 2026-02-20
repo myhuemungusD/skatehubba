@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { execFileSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 const SCRIPT = path.join(process.cwd(), "scripts", "verify-public-env.mjs");
@@ -49,20 +49,15 @@ function run(env: NodeJS.ProcessEnv): { stdout: string; stderr: string; exitCode
     ...env,
   };
 
-  try {
-    const stdout = execFileSync("node", [SCRIPT], {
-      env: scriptEnv,
-      encoding: "utf-8",
-    });
-    return { stdout, stderr: "", exitCode: 0 };
-  } catch (err: unknown) {
-    const e = err as { stdout?: string; stderr?: string; status?: number };
-    return {
-      stdout: e.stdout ?? "",
-      stderr: e.stderr ?? "",
-      exitCode: e.status ?? 1,
-    };
-  }
+  const result = spawnSync("node", [SCRIPT], {
+    env: scriptEnv,
+    encoding: "utf-8",
+  });
+  return {
+    stdout: result.stdout ?? "",
+    stderr: result.stderr ?? "",
+    exitCode: result.status ?? 1,
+  };
 }
 
 // =============================================================================
