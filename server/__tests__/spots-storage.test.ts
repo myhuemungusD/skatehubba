@@ -347,6 +347,12 @@ describe("SpotStorage", () => {
       const result = await spotStorage.verifySpot(999);
       expect(result).toBeNull();
     });
+
+    it("should throw when db is null", async () => {
+      mockDb = null;
+      const storage = new SpotStorage();
+      await expect(storage.verifySpot(1)).rejects.toThrow("Database not available");
+    });
   });
 
   describe("getSpotsByUser", () => {

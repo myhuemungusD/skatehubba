@@ -860,34 +860,12 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
 
   describe("Idempotency", () => {
     it("skips upgrade when payment intent already consumed", async () => {
-      // Override selectCallCount so the first .for("update") returns an existing consumed record
-      selectCallCount = 0;
-      mockDbReturns.selectResult = [
-        { accountTier: "free", email: "user@test.com", firstName: "John" },
-      ];
+      // Set selectCallCount = 1 so the first .for("update") call increments it to 2
+      // (not === 1), causing the mock to return mockDbReturns.selectResult instead of [].
+      // This simulates finding an existing consumed payment intent record.
+      selectCallCount = 1;
+      mockDbReturns.selectResult = [{ id: 42 }];
 
-      // Override the mock so the first .for() call returns consumed = exists
-      // This requires us to set selectCallCount = -1 so the first for() call
-      // reaches the selectCallCount === 1 branch returning []
-      // We need the first .for() call (consumed check) to return a record
-      // The mock in createMockDb returns [] when selectCallCount === 1
-
-      // Simplest approach: create a fresh event and make the db transaction
-      // see that the consumed record already exists
-      // Actually the mock is: selectCallCount === 1 → [] (not consumed), selectCallCount > 1 → selectResult
-      // We want selectCallCount === 1 → [{ id: 1 }] (already consumed)
-
-      // Set selectCallCount to 0 first (already done), then the .for() mock will
-      // increment it. If we start at selectCallCount = 0, first for() call
-      // makes it 1 → returns []. We need it to return [{id: 1}] instead.
-
-      // Since we can't easily change the closure, we test this path differently:
-      // Just verify the already-premium check (line 220-222) works as expected
-      // which is tested above. The idempotency path (lines 202-204) is covered
-      // when an existing consumed record is found, which we can't easily test
-      // with the current mock setup without restructuring.
-
-      // Instead, test the subscription event types which are simple no-ops
       const session = {
         id: "cs_consumed",
         metadata: { userId: "user-consumed", type: "premium_upgrade" },
