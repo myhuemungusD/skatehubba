@@ -19,9 +19,12 @@ mockDbChain.returning = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
 
 const mockIsDatabaseAvailable = vi.fn().mockReturnValue(true);
+const mockGetDbFn = vi.fn();
+const mockSaveFn = vi.fn().mockResolvedValue(undefined);
+const mockDeleteFn = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("../db", () => ({
-  getDb: () => mockDbChain,
+  getDb: (...args: any[]) => mockGetDbFn(...args),
   isDatabaseAvailable: () => mockIsDatabaseAvailable(),
 }));
 
@@ -31,8 +34,8 @@ vi.mock("../admin", () => ({
       bucket: (name?: string) => ({
         name: name || "test-bucket",
         file: () => ({
-          save: vi.fn().mockResolvedValue(undefined),
-          delete: vi.fn().mockResolvedValue(undefined),
+          save: (...args: any[]) => mockSaveFn(...args),
+          delete: (...args: any[]) => mockDeleteFn(...args),
         }),
       }),
     }),
@@ -189,6 +192,9 @@ describe("Profile Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockIsDatabaseAvailable.mockReturnValue(true);
+    mockGetDbFn.mockReturnValue(mockDbChain);
+    mockSaveFn.mockResolvedValue(undefined);
+    mockDeleteFn.mockResolvedValue(undefined);
     mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
   });
 
@@ -221,6 +227,15 @@ describe("Profile Routes", () => {
       await callHandler("GET /me", req, res);
       expect(res.status).toHaveBeenCalledWith(503);
     });
+
+    it("should return 500 when db query throws", async () => {
+      mockDbChain.then = (_resolve: any, reject: any) =>
+        Promise.reject(new Error("DB error")).then(undefined, reject);
+      const req = createReq();
+      const res = createRes();
+      await callHandler("GET /me", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
   });
 
   describe("GET /username-check", () => {
@@ -252,6 +267,14 @@ describe("Profile Routes", () => {
       await callHandler("GET /username-check", req, res);
       expect(res.json).toHaveBeenCalledWith({ available: true });
     });
+
+    it("should return 503 when availability check throws", async () => {
+      mockIsAvailable.mockRejectedValue(new Error("DB error"));
+      const req = createReq({ query: { username: "testuser" } });
+      const res = createRes();
+      await callHandler("GET /username-check", req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+    });
   });
 
   describe("POST /create", () => {
@@ -261,6 +284,32 @@ describe("Profile Routes", () => {
       const res = createRes();
       await callHandler("POST /create", req, res);
       expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    it("should return 400 when profile body fails validation", async () => {
+      const req = createReq({ body: null });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 503 when getDb throws", async () => {
+      mockGetDbFn.mockImplementation(() => {
+        throw new Error("No DB connection");
+      });
+      const req = createReq({ body: { username: "newuser", stance: "regular" } });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+    });
+
+    it("should return 500 when db select throws during profile check", async () => {
+      mockDbChain.then = (_resolve: any, reject: any) =>
+        Promise.reject(new Error("DB select failed")).then(undefined, reject);
+      const req = createReq({ body: { username: "newuser", stance: "regular" } });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
 
     it("should return existing profile if one exists", async () => {
@@ -279,6 +328,38 @@ describe("Profile Routes", () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
+    it("should return 409 when existing profile username cannot be ensured", async () => {
+      const now = new Date();
+      const existingProfile = {
+        uid: "test-uid",
+        username: "existing-username",
+        createdAt: now,
+        updatedAt: now,
+      };
+      mockDbChain.then = (resolve: any) => Promise.resolve([existingProfile]).then(resolve);
+      mockEnsure.mockResolvedValue(false);
+      const req = createReq({ body: { username: "newuser", stance: "regular" } });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(409);
+    });
+
+    it("should return 500 when ensure throws for existing profile", async () => {
+      const now = new Date();
+      const existingProfile = {
+        uid: "test-uid",
+        username: "existing-username",
+        createdAt: now,
+        updatedAt: now,
+      };
+      mockDbChain.then = (resolve: any) => Promise.resolve([existingProfile]).then(resolve);
+      mockEnsure.mockRejectedValue(new Error("Ensure failed"));
+      const req = createReq({ body: { username: "newuser", stance: "regular" } });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+
     it("should return 400 when no username and not skipping", async () => {
       const req = createReq({ body: { stance: "regular" } });
       const res = createRes();
@@ -292,6 +373,14 @@ describe("Profile Routes", () => {
       const res = createRes();
       await callHandler("POST /create", req, res);
       expect(res.status).toHaveBeenCalledWith(409);
+    });
+
+    it("should return 500 when reserve throws", async () => {
+      mockReserve.mockRejectedValue(new Error("Reserve failed"));
+      const req = createReq({ body: { username: "newuser", stance: "regular" } });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
 
     it("should create profile with reserved username", async () => {
@@ -327,7 +416,7 @@ describe("Profile Routes", () => {
       expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    it("should handle avatar with invalid MIME type", async () => {
+    it("should handle avatar with invalid MIME type (non-image prefix)", async () => {
       mockReserve.mockResolvedValue(true);
       const req = createReq({
         body: {
@@ -339,6 +428,23 @@ describe("Profile Routes", () => {
       const res = createRes();
       await callHandler("POST /create", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 400 when avatar MIME type is image/tiff (not in allowed set)", async () => {
+      mockReserve.mockResolvedValue(true);
+      const req = createReq({
+        body: {
+          username: "newuser",
+          stance: "regular",
+          avatarBase64: "data:image/tiff;base64,dGVzdA==",
+        },
+      });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "INVALID_AVATAR_TYPE" })
+      );
     });
 
     it("should handle avatar that is too large", async () => {
@@ -365,6 +471,42 @@ describe("Profile Routes", () => {
       await callHandler("POST /create", req, res);
       expect(res.status).toHaveBeenCalledWith(500);
       expect(mockRelease).toHaveBeenCalled();
+    });
+
+    it("should log error when release throws during creation rollback", async () => {
+      mockReserve.mockResolvedValue(true);
+      mockCreateProfileWithRollback.mockRejectedValue(new Error("DB error"));
+      mockRelease.mockRejectedValue(new Error("Release failed"));
+      const logger = await import("../logger");
+      const req = createReq({ body: { username: "newuser", stance: "regular" } });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(logger.default.error).toHaveBeenCalledWith(
+        "[Profile] Failed to release username during rollback",
+        expect.any(Object)
+      );
+    });
+
+    it("should log error when avatar file delete fails after creation error", async () => {
+      mockReserve.mockResolvedValue(true);
+      mockDeleteFn.mockRejectedValue(new Error("Delete failed"));
+      mockCreateProfileWithRollback.mockRejectedValue(new Error("DB error"));
+      const logger = await import("../logger");
+      const req = createReq({
+        body: {
+          username: "newuser",
+          stance: "regular",
+          avatarBase64: "data:image/png;base64,dGVzdA==",
+        },
+      });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(logger.default.error).toHaveBeenCalledWith(
+        "[Profile] Failed to clean up avatar after error",
+        expect.any(Object)
+      );
     });
   });
 });

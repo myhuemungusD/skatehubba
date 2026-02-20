@@ -148,6 +148,13 @@ describe("verify-public-env — strict mode", () => {
     expect(exitCode).toBe(0);
   });
 
+  it("still prints server-var checklist in non-strict Vercel mode (ALLOW_MISSING_PUBLIC_ENV=true)", () => {
+    // Bug fix: the non-strict path was silently skipping printServerVarChecklist()
+    // even when isVercel=true. Server vars are needed regardless of client strictness.
+    const { stdout } = run({ VERCEL: "1", ALLOW_MISSING_PUBLIC_ENV: "true" });
+    expect(stdout).toContain("── Server-side vars");
+  });
+
   it("exits 0 in strict mode when all vars are correctly set", () => {
     const { exitCode } = run({ VERCEL: "1", ...ALL_REQUIRED_EXPO });
     expect(exitCode).toBe(0);
@@ -179,6 +186,15 @@ describe("verify-public-env — rename suggestions", () => {
   it("still exits 1 in strict mode even with rename suggestion present", () => {
     const { exitCode } = run({ VERCEL: "1", FIREBASE_API_KEY: "abc" });
     expect(exitCode).toBe(1);
+  });
+
+  it("does NOT show rename suggestion when bare var is set to empty string", () => {
+    // Bug fix: hasUnprefixed() used to return true for KEY="" because it only
+    // checked !== undefined. Now it requires a non-empty trimmed value.
+    const { stderr } = run({ FIREBASE_API_KEY: "" });
+    expect(stderr).not.toContain('Found "FIREBASE_API_KEY" (no prefix)');
+    // Should appear as (not set) since both the prefixed and bare variants are empty.
+    expect(stderr).toContain("(not set)");
   });
 });
 
