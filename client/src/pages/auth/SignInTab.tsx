@@ -88,7 +88,7 @@ export function SignInTab({
               Email
             </Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Mail aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 id="signin-email"
                 type="email"
@@ -117,7 +117,7 @@ export function SignInTab({
               </button>
             </div>
             <div className="relative">
-              <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Lock aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
               <Input
                 id="signin-password"
                 type={showPassword ? "text" : "password"}
@@ -128,9 +128,14 @@ export function SignInTab({
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                className="absolute right-3 top-3 p-1 text-gray-400 hover:text-gray-300"
               >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {showPassword ? (
+                  <EyeOff aria-hidden="true" className="h-4 w-4" />
+                ) : (
+                  <Eye aria-hidden="true" className="h-4 w-4" />
+                )}
               </button>
             </div>
             {form.formState.errors.password && (
@@ -144,6 +149,7 @@ export function SignInTab({
               id="rememberMe"
               checked={rememberMe}
               onCheckedChange={(checked) => setRememberMe(checked === true)}
+              aria-label="Keep me signed in"
               className="border-gray-500 data-[state=checked]:bg-orange-500 data-[state=checked]:border-orange-500"
             />
             <Label htmlFor="rememberMe" className="text-sm text-gray-300 cursor-pointer">

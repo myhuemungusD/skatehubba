@@ -110,10 +110,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-neutral-950 text-white flex flex-col">
       <EmailVerificationBanner />
       {/* Mobile top bar with notification bell */}
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/95 px-4 py-2 backdrop-blur-sm">
+      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/95 px-4 py-2 backdrop-blur-sm">
         <span className="text-lg font-bold text-yellow-400">SkateHubba</span>
         <NotificationBell />
-      </div>
+      </header>
       <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="mx-auto w-full max-w-md px-4 pt-4">{children}</div>
       </main>
