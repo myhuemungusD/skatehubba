@@ -40,7 +40,7 @@ vi.mock("../config/env", () => ({
 // Import after mocking
 const { SECURITY_CONFIG, generateSecureToken, secureCompare, isValidIP, validateEnvironment } =
   await import("../security");
-const { env } = (await import("../config/env")) as { env: Record<string, unknown> };
+const { env } = (await import("../config/env")) as unknown as { env: Record<string, string | undefined> };
 
 // =============================================================================
 // SECURITY CONFIGURATION TESTS
