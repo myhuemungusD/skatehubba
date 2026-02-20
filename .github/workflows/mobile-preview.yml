@@ -58,7 +58,7 @@ jobs:
 
       - name: Comment PR with Build Link
         if: env.EXPO_TOKEN != ''
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const { data: comments } = await github.rest.issues.listComments({
