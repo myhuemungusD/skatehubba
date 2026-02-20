@@ -62,15 +62,8 @@ export default function AuthPage() {
   useEffect(() => {
     if (!auth?.isAuthenticated || auth?.profileStatus === "unknown") return;
 
-    if (auth.profileStatus === "exists") {
+    if (auth.profileStatus === "exists" || auth.profileStatus === "missing") {
       setLocation(getNextUrl());
-    } else if (auth.profileStatus === "missing" && activeTab === "signin") {
-      const nextUrl = getNextUrl();
-      const setupUrl =
-        nextUrl !== "/hub"
-          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
-          : "/profile/setup";
-      setLocation(setupUrl);
     }
   }, [auth?.isAuthenticated, auth?.profileStatus, activeTab, setLocation]);
 
@@ -87,15 +80,8 @@ export default function AuthPage() {
   // (the hook value may be stale since we're inside an async handler).
   const redirectAfterSignIn = useCallback(() => {
     const { profileStatus } = useAuthStore.getState();
-    if (profileStatus === "exists") {
+    if (profileStatus === "exists" || profileStatus === "missing") {
       setLocation(getNextUrl());
-    } else if (profileStatus === "missing") {
-      const nextUrl = getNextUrl();
-      const setupUrl =
-        nextUrl !== "/hub"
-          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
-          : "/profile/setup";
-      setLocation(setupUrl);
     } else {
       // Fallback: profile status couldn't be determined, go to hub
       // and let the protected route handle it
