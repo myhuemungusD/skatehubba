@@ -209,9 +209,10 @@ export function SpotDetailModal({
               )}
               <button
                 onClick={onClose}
+                aria-label="Close"
                 className="absolute top-3 right-3 p-2 rounded-full bg-black/50 hover:bg-black/70 transition"
               >
-                <X className="w-5 h-5" />
+                <X aria-hidden="true" className="w-5 h-5" />
               </button>
 
               {/* Tier Badge */}
@@ -321,9 +322,11 @@ export function SpotDetailModal({
                         onMouseEnter={() => setHoverRating(star)}
                         onMouseLeave={() => setHoverRating(0)}
                         disabled={rateMutation.isPending}
+                        aria-label={`Rate ${star} star${star !== 1 ? "s" : ""}`}
                         className="p-1 transition-transform hover:scale-110 disabled:opacity-50"
                       >
                         <Star
+                          aria-hidden="true"
                           className={`w-8 h-8 ${
                             star <= (hoverRating || userRating)
                               ? "fill-yellow-400 text-yellow-400"
@@ -358,9 +361,10 @@ export function SpotDetailModal({
                   <Button
                     variant="outline"
                     onClick={handleShare}
+                    aria-label="Share spot"
                     className="border-neutral-700 text-white hover:bg-neutral-800"
                   >
-                    <Share2 className="w-4 h-4" />
+                    <Share2 aria-hidden="true" className="w-4 h-4" />
                   </Button>
                 )}
 

@@ -65,10 +65,11 @@ export function FeedbackButton() {
               onClick={() => setIsOpen(true)}
               variant="outline"
               size="icon"
+              aria-label="Send Feedback"
               className="fixed bottom-20 right-6 rounded-full w-12 h-12 shadow-lg bg-neutral-800 border-orange-500/50 hover:bg-orange-500/20 hover:border-orange-500 z-40"
               data-testid="button-open-feedback"
             >
-              <MessageSquare className="w-5 h-5 text-orange-500" />
+              <MessageSquare aria-hidden="true" className="w-5 h-5 text-orange-500" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left" className="bg-neutral-800 text-white border-gray-700">
