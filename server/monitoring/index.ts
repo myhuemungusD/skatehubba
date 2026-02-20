@@ -216,6 +216,62 @@ export function registerMonitoringRoutes(app: Express) {
     res.status(httpStatus).json(health);
   });
 
+  // Environment diagnostics — reports which server-side vars are present/missing.
+  // No auth required (diagnostic tool); values are never exposed, only boolean presence.
+  // Returns 503 if required vars are missing or DB is down.
+  app.get("/api/health/env", async (_req, res) => {
+    const serverRequired = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET"];
+    const firebaseAdmin = ["FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"];
+    const firebaseClient = [
+      "EXPO_PUBLIC_FIREBASE_API_KEY",
+      "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
+      "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
+      "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
+      "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
+      "EXPO_PUBLIC_FIREBASE_APP_ID",
+    ];
+
+    const checkVars = (names: string[]) =>
+      names.map((name) => ({
+        name,
+        set: typeof process.env[name] === "string" && process.env[name]!.trim().length > 0,
+      }));
+
+    const dbHealth = await checkDatabase();
+
+    // Firebase Admin SDK initialization status
+    let firebaseAdminStatus: "initialized" | "not_initialized" | "error" = "not_initialized";
+    try {
+      const adminModule = await import("firebase-admin");
+      firebaseAdminStatus = adminModule.default.apps.length > 0 ? "initialized" : "not_initialized";
+    } catch {
+      firebaseAdminStatus = "error";
+    }
+
+    const serverRequiredResults = checkVars(serverRequired);
+    const allRequiredSet = serverRequiredResults.every((v) => v.set);
+    const httpStatus = allRequiredSet && dbHealth.status === "up" ? 200 : 503;
+
+    res.status(httpStatus).json({
+      timestamp: new Date().toISOString(),
+      vercelEnv: process.env.VERCEL_ENV ?? null,
+      nodeEnv: process.env.NODE_ENV ?? null,
+      // Which branch/commit is actually deployed — critical for debugging
+      // "I set the var but it's still missing" (wrong branch or stale deploy).
+      gitBranch: process.env.VERCEL_GIT_COMMIT_REF ?? null,
+      gitSha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+      serverRequired: serverRequiredResults,
+      firebaseAdmin: checkVars(firebaseAdmin),
+      firebaseClient: checkVars(firebaseClient),
+      database: {
+        status: dbHealth.status,
+        latencyMs: dbHealth.latencyMs,
+        detail: dbHealth.detail,
+      },
+      firebaseAdminSdk: firebaseAdminStatus,
+    });
+  });
+
   // Admin-only system status (metrics + health + process info)
   app.get("/api/admin/system-status", authenticateUser, requireAdmin, async (_req, res) => {
     const health = await runHealthCheck();

@@ -346,5 +346,37 @@ describe("OSM Discovery Service", () => {
       const fetchBody = decodeURIComponent(mockFetch.mock.calls[0][1]?.body as string);
       expect(fetchBody).toContain(`around:${MIN_RADIUS_METERS}`);
     });
+
+    // ── Invalid coordinate guard (lines 95-97) ──────────────────────────────
+
+    it("returns empty array and logs warning for latitude > 90", async () => {
+      const logger = await import("../logger");
+      const result = await discoverSkateparks(91, 0);
+      expect(result).toEqual([]);
+      expect(logger.default.warn).toHaveBeenCalledWith(
+        "Invalid coordinates for OSM discovery",
+        expect.objectContaining({ lat: 91, lng: 0 })
+      );
+      // Overpass should not be queried for invalid coords
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("returns empty array for latitude < -90", async () => {
+      const result = await discoverSkateparks(-91, 0);
+      expect(result).toEqual([]);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("returns empty array for longitude > 180", async () => {
+      const result = await discoverSkateparks(0, 181);
+      expect(result).toEqual([]);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("returns empty array for longitude < -180", async () => {
+      const result = await discoverSkateparks(0, -181);
+      expect(result).toEqual([]);
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
   });
 });

@@ -18,37 +18,187 @@ const strict = (isVercel || isProd) && !allowMissing;
 
 /**
  * Resolve a key by checking EXPO_PUBLIC_ first, then VITE_ fallback.
- * Returns the resolved value or undefined.
+ * Returns { prefix, value } if found with a non-empty value, null otherwise.
+ * Trims whitespace so a value of "  " is treated the same as missing.
  */
 function resolveKey(key) {
-  return process.env[`EXPO_PUBLIC_${key}`] || process.env[`VITE_${key}`];
+  const expoVal = process.env[`EXPO_PUBLIC_${key}`]?.trim();
+  if (expoVal) return { prefix: "EXPO_PUBLIC_", value: expoVal };
+  const viteVal = process.env[`VITE_${key}`]?.trim();
+  if (viteVal) return { prefix: "VITE_", value: viteVal };
+  return null;
 }
 
-const missing = REQUIRED_KEYS.filter((key) => !resolveKey(key));
+/**
+ * Check if the bare (unprefixed) key is set to a non-empty value — used only
+ * for diagnostics. These vars are NOT bundled by Vite and will never reach the
+ * browser. We require a non-empty value so that `KEY=` (empty string) does not
+ * trigger a misleading "rename it" suggestion.
+ */
+function hasUnprefixed(key) {
+  const val = process.env[key];
+  return val !== undefined && val.trim().length > 0;
+}
+
+/**
+ * Mask a value for safe display: show first 4 chars + "..." to confirm it's
+ * real and not an empty/placeholder string, without leaking the full secret.
+ */
+function maskValue(val) {
+  if (!val || val.length < 5) return "****";
+  return val.substring(0, 4) + "...";
+}
+
+/**
+ * Check if a server-side env var is set (non-empty).
+ */
+function isServerVarSet(name) {
+  return typeof process.env[name] === "string" && process.env[name].trim().length > 0;
+}
+
+const results = REQUIRED_KEYS.map((key) => ({
+  key,
+  resolved: resolveKey(key),
+  hasUnprefixed: hasUnprefixed(key),
+}));
+
+const missing = results.filter((r) => !r.resolved);
+const found = results.filter((r) => r.resolved);
+
+// ── Vercel environment context ────────────────────────────────────────────────
+// Always print this so build logs make the environment crystal-clear.
+console.log("\n── Vercel Build Environment ─────────────────────────────────");
+console.log(`  VERCEL:     ${process.env.VERCEL || "(not set)"}`);
+console.log(`  VERCEL_ENV: ${process.env.VERCEL_ENV || "(not set)"}`);
+console.log(`  NODE_ENV:   ${process.env.NODE_ENV || "(not set)"}`);
+console.log(`  strict:     ${strict}  (allowMissing=${allowMissing})`);
+
+if (isVercel) {
+  const vercelEnv = process.env.VERCEL_ENV || "unknown";
+  console.log("");
+  console.log(`  Vercel is building for the "${vercelEnv}" environment.`);
+  if (vercelEnv === "preview") {
+    console.log("");
+    console.log("  *** IMPORTANT: PR/branch deploys use the \"preview\" environment. ***");
+    console.log("  Vars set for \"Production\" ONLY will NOT be available here.");
+    console.log("  In Vercel → Project → Settings → Environment Variables,");
+    console.log("  ensure each var has the \"Preview\" checkbox enabled.");
+  } else if (vercelEnv === "production") {
+    console.log("  Ensure each var has the \"Production\" checkbox enabled in Vercel.");
+  }
+}
+console.log("");
 
 if (missing.length > 0) {
-  console.error("\n\u274C Missing required public env vars for web build:");
-  missing.forEach((key) =>
-    console.error(`  - EXPO_PUBLIC_${key} (or VITE_${key})`)
-  );
+  console.error("❌ Missing required public env vars for web build:\n");
 
-  console.error("\nSet these in Vercel (Project \u2192 Settings \u2192 Environment Variables).\n");
+  let hasRenameSuggestions = false;
 
-  if (strict) {
-    process.exit(1);
-  } else {
-    console.warn("\u26A0\uFE0F  Non-strict mode: continuing despite missing vars. Build may fail at runtime.\n");
-  }
-} else {
-  console.log("\u2705 Public env check passed:");
-  REQUIRED_KEYS.forEach((key) => {
-    const prefix = process.env[`EXPO_PUBLIC_${key}`] ? "EXPO_PUBLIC_" : "VITE_";
-    console.log(`  - ${prefix}${key}`);
-  });
-  OPTIONAL_KEYS.forEach((key) => {
-    if (resolveKey(key)) {
-      const prefix = process.env[`EXPO_PUBLIC_${key}`] ? "EXPO_PUBLIC_" : "VITE_";
-      console.log(`  - ${prefix}${key} (optional)`);
+  missing.forEach(({ key, hasUnprefixed: unprefixed }) => {
+    if (unprefixed) {
+      console.error(`  ✗ EXPO_PUBLIC_${key}`);
+      console.error(
+        `    → Found "${key}" (no prefix). Rename it to "EXPO_PUBLIC_${key}" in Vercel.`
+      );
+      console.error(
+        `    → Without the prefix, Vite won't bundle this value into the client build.`
+      );
+      hasRenameSuggestions = true;
+    } else {
+      console.error(`  ✗ EXPO_PUBLIC_${key}  (not set)`);
     }
   });
+
+  console.error("");
+
+  if (hasRenameSuggestions) {
+    console.error(
+      "ℹ  The EXPO_PUBLIC_ prefix is required so Vite includes these values in the"
+    );
+    console.error(
+      "   browser bundle. Variables without it are server-side only and never reach the client."
+    );
+    console.error("");
+  }
+
+  console.error(
+    "Set these in Vercel → Project → Settings → Environment Variables.\n"
+  );
+
+  if (strict) {
+    // ── Server-side var check (informational, runs before exit) ──────────────
+    if (isVercel) {
+      printServerVarChecklist();
+    }
+    process.exit(1);
+  } else {
+    console.warn(
+      "⚠️  Non-strict mode: continuing despite missing vars. Build may fail at runtime.\n"
+    );
+    // Still print server-var diagnostics when running on Vercel — the server
+    // function needs these vars regardless of whether the client-side check is
+    // in strict mode.
+    if (isVercel) {
+      printServerVarChecklist();
+    }
+  }
+} else {
+  console.log("✅ Public env check passed:");
+  found.forEach(({ key, resolved }) => {
+    console.log(`  ✓ ${resolved.prefix}${key} = ${maskValue(resolved.value)}`);
+  });
+  OPTIONAL_KEYS.forEach((key) => {
+    const resolved = resolveKey(key);
+    if (resolved) {
+      console.log(`  ✓ ${resolved.prefix}${key} (optional) = ${maskValue(resolved.value)}`);
+    }
+  });
+
+  // ── Server-side var check (informational) ────────────────────────────────
+  if (isVercel) {
+    printServerVarChecklist();
+  }
+}
+
+/**
+ * Print a checklist of server-side env vars required for the API serverless
+ * function. Missing server vars won't fail the BUILD but will crash the API
+ * at runtime — every /api request will return 500 and logins/profile creation
+ * will fail.
+ */
+function printServerVarChecklist() {
+  const serverRequired = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET"];
+  const firebaseAdmin = ["FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"];
+
+  const serverMissing = serverRequired.filter((k) => !isServerVarSet(k));
+  const adminMissing = firebaseAdmin.filter((k) => !isServerVarSet(k));
+
+  console.log("\n── Server-side vars (required for API serverless function) ──");
+  serverRequired.forEach((k) => {
+    const set = isServerVarSet(k);
+    console.log(`  ${set ? "✓" : "✗"} ${k}${set ? "" : "  ← NOT SET"}`);
+  });
+
+  console.log("\n── Firebase Admin vars (required for auth to work) ──────────");
+  firebaseAdmin.forEach((k) => {
+    const set = isServerVarSet(k);
+    console.log(`  ${set ? "✓" : "✗"} ${k}${set ? "" : "  ← NOT SET"}`);
+  });
+
+  if (serverMissing.length > 0) {
+    console.error(`
+  ⚠️  ${serverMissing.length} required server var(s) missing: ${serverMissing.join(", ")}
+     The API serverless function will CRASH on cold start.
+     Every /api route (login, profile creation, etc.) will return 500.
+     Set these in Vercel → Project → Settings → Environment Variables.`);
+  }
+
+  if (adminMissing.length > 0) {
+    console.warn(`
+  ⚠️  ${adminMissing.length} Firebase Admin var(s) missing: ${adminMissing.join(", ")}
+     Auth token verification will fail — users cannot log in.
+     Get these from Firebase Console → Project Settings → Service Accounts.`);
+  }
+
+  console.log("");
 }
