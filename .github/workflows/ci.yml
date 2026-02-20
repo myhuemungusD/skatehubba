@@ -64,12 +64,21 @@ jobs:
       - name: Build
         env:
           ALLOW_MISSING_PUBLIC_ENV: "true"
+          EXPO_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+          EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+          EXPO_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+          EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: ci-placeholder.appspot.com
+          EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+          EXPO_PUBLIC_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000"
         run: pnpm run build
 
       - name: Test with Coverage
         env:
           EXPO_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+          EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
           EXPO_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+          EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: ci-placeholder.appspot.com
+          EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
           EXPO_PUBLIC_FIREBASE_APP_ID: "1:000000000000:web:placeholder"
         run: pnpm vitest run --coverage
         
@@ -116,6 +125,12 @@ jobs:
       - name: Build Client
         env:
           ALLOW_MISSING_PUBLIC_ENV: "true"
+          EXPO_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+          EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN: ci-placeholder.firebaseapp.com
+          EXPO_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+          EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET: ci-placeholder.appspot.com
+          EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
+          EXPO_PUBLIC_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000"
         run: pnpm -C client build
 
       - name: Check bundle size budgets
