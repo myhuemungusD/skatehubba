@@ -167,11 +167,16 @@ if (missing.length > 0) {
  * will fail.
  */
 function printServerVarChecklist() {
-  const serverRequired = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET"];
-  const firebaseAdmin = ["FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"];
+  const serverRequired = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET", "MFA_ENCRYPTION_KEY"];
+  // FIREBASE_ADMIN_KEY (full service-account JSON) is the easiest option.
+  // Alternatively, set all three individual vars below.
+  const firebaseAdmin = ["FIREBASE_ADMIN_KEY", "FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"];
 
   const serverMissing = serverRequired.filter((k) => !isServerVarSet(k));
-  const adminMissing = firebaseAdmin.filter((k) => !isServerVarSet(k));
+  // Firebase admin is OK if the combined key OR all three individual vars are set.
+  const hasAdminKey = isServerVarSet("FIREBASE_ADMIN_KEY");
+  const hasIndividualVars = ["FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"].every(isServerVarSet);
+  const firebaseAdminOk = hasAdminKey || hasIndividualVars;
 
   console.log("\n── Server-side vars (required for API serverless function) ──");
   serverRequired.forEach((k) => {
@@ -180,10 +185,16 @@ function printServerVarChecklist() {
   });
 
   console.log("\n── Firebase Admin vars (required for auth to work) ──────────");
+  console.log("  Use FIREBASE_ADMIN_KEY (full JSON) OR all three individual vars:");
   firebaseAdmin.forEach((k) => {
     const set = isServerVarSet(k);
     console.log(`  ${set ? "✓" : "✗"} ${k}${set ? "" : "  ← NOT SET"}`);
   });
+  if (firebaseAdminOk) {
+    console.log("  → Firebase Admin credentials: OK");
+  } else {
+    console.log("  → Firebase Admin credentials: MISSING (set FIREBASE_ADMIN_KEY or the three individual vars)");
+  }
 
   if (serverMissing.length > 0) {
     console.error(`
@@ -193,10 +204,12 @@ function printServerVarChecklist() {
      Set these in Vercel → Project → Settings → Environment Variables.`);
   }
 
-  if (adminMissing.length > 0) {
+  if (!firebaseAdminOk) {
     console.warn(`
-  ⚠️  ${adminMissing.length} Firebase Admin var(s) missing: ${adminMissing.join(", ")}
-     Auth token verification will fail — users cannot log in.
+  ⚠️  Firebase Admin credentials not configured.
+     Auth token verification will fail — users cannot log in or create profiles.
+     Option A (recommended): Set FIREBASE_ADMIN_KEY to the full service account JSON.
+     Option B: Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY.
      Get these from Firebase Console → Project Settings → Service Accounts.`);
   }
 
