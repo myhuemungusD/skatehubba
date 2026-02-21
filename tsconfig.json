@@ -20,7 +20,9 @@
     "paths": {
       "@/*": ["./client/src/*"],
       "@shared/*": ["./packages/shared/*"],
-      "@shared": ["./packages/shared/index"]
+      "@shared": ["./packages/shared/index"],
+      "drizzle-orm": ["./node_modules/drizzle-orm"],
+      "drizzle-orm/*": ["./node_modules/drizzle-orm/*"]
     }
   },
   "include": ["client/src", "server", "packages"],
