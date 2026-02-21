@@ -219,3 +219,75 @@ describe("verify-public-env — whitespace and empty values", () => {
     expect(stderr).toContain("(not set)");
   });
 });
+
+// =============================================================================
+// Server-side checklist — MFA_ENCRYPTION_KEY and FIREBASE_ADMIN_KEY (Vercel mode)
+// =============================================================================
+
+describe("verify-public-env — server var checklist (Vercel mode)", () => {
+  it("lists MFA_ENCRYPTION_KEY in server-side vars section", () => {
+    const { stdout } = run({ VERCEL: "1", ALLOW_MISSING_PUBLIC_ENV: "true" });
+    expect(stdout).toContain("MFA_ENCRYPTION_KEY");
+  });
+
+  it("marks MFA_ENCRYPTION_KEY as NOT SET when absent", () => {
+    const { stdout } = run({ VERCEL: "1", ALLOW_MISSING_PUBLIC_ENV: "true" });
+    expect(stdout).toContain("MFA_ENCRYPTION_KEY  ← NOT SET");
+  });
+
+  it("marks MFA_ENCRYPTION_KEY as set when present", () => {
+    const { stdout } = run({
+      VERCEL: "1",
+      ALLOW_MISSING_PUBLIC_ENV: "true",
+      DATABASE_URL: "postgresql://host/db",
+      SESSION_SECRET: "s".repeat(32),
+      JWT_SECRET: "j".repeat(32),
+      MFA_ENCRYPTION_KEY: "m".repeat(32),
+    });
+    // Should show checkmark (✓) and no "← NOT SET" for MFA_ENCRYPTION_KEY
+    const lines = stdout.split("\n").filter((l) => l.includes("MFA_ENCRYPTION_KEY"));
+    expect(lines.length).toBeGreaterThan(0);
+    expect(lines[0]).toContain("✓");
+    expect(lines[0]).not.toContain("← NOT SET");
+  });
+
+  it("shows Firebase Admin credentials OK when FIREBASE_ADMIN_KEY is set", () => {
+    const { stdout } = run({
+      VERCEL: "1",
+      ALLOW_MISSING_PUBLIC_ENV: "true",
+      FIREBASE_ADMIN_KEY: '{"type":"service_account","project_id":"test"}',
+    });
+    expect(stdout).toContain("Firebase Admin credentials: OK");
+  });
+
+  it("shows Firebase Admin credentials MISSING when neither FIREBASE_ADMIN_KEY nor individual vars are set", () => {
+    const { stdout } = run({ VERCEL: "1", ALLOW_MISSING_PUBLIC_ENV: "true" });
+    expect(stdout).toContain("Firebase Admin credentials: MISSING");
+  });
+
+  it("shows Firebase Admin credentials OK when all three individual vars are set", () => {
+    const { stdout } = run({
+      VERCEL: "1",
+      ALLOW_MISSING_PUBLIC_ENV: "true",
+      FIREBASE_PROJECT_ID: "my-project",
+      FIREBASE_CLIENT_EMAIL: "svc@my-project.iam.gserviceaccount.com",
+      FIREBASE_PRIVATE_KEY: "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----",
+    });
+    expect(stdout).toContain("Firebase Admin credentials: OK");
+  });
+
+  it("emits a warning when Firebase Admin credentials are not configured", () => {
+    // stderr receives console.warn output
+    const { stderr } = run({ VERCEL: "1", ALLOW_MISSING_PUBLIC_ENV: "true" });
+    expect(stderr).toContain("Firebase Admin credentials not configured");
+  });
+
+  it("does not emit Firebase Admin warning when FIREBASE_ADMIN_KEY is set", () => {
+    const { stderr } = run({
+      VERCEL: "1",
+      ALLOW_MISSING_PUBLIC_ENV: "true",
+      FIREBASE_ADMIN_KEY: '{"type":"service_account"}',
+    });
+    expect(stderr).not.toContain("Firebase Admin credentials not configured");
+  });
+});
