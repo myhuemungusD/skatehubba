@@ -8,6 +8,7 @@
 import { games, gameTurns } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { TURN_DEADLINE_MS, SKATE_LETTERS, isGameOver } from "../routes/games-shared";
+import type { Database } from "../db";
 
 // ============================================================================
 // Types
@@ -67,10 +68,7 @@ export type JudgeTurnResult = TxError | JudgeTurnSuccess;
  * Submit a trick (set) or response video within a transaction.
  * Validates game state, creates the turn record, and advances game phase.
  */
-export async function submitTurn(
-  tx: Parameters<Parameters<ReturnType<typeof import("../db").getDb>["transaction"]>[0]>[0],
-  input: SubmitTurnInput
-): Promise<SubmitTurnResult> {
+export async function submitTurn(tx: Database, input: SubmitTurnInput): Promise<SubmitTurnResult> {
   const { gameId, playerId, trickDescription, videoUrl, videoDurationMs, thumbnailUrl } = input;
 
   // Lock game row to prevent concurrent turn submissions
@@ -187,7 +185,7 @@ export async function submitTurn(
  * and determines role swaps.
  */
 export async function judgeTurn(
-  tx: Parameters<Parameters<ReturnType<typeof import("../db").getDb>["transaction"]>[0]>[0],
+  tx: Database,
   turnId: number,
   playerId: string,
   result: "landed" | "missed",
@@ -244,6 +242,11 @@ export async function judgeTurn(
   let newOffensiveId: string;
   let newDefensiveId: string;
 
+  // Active games must have both role IDs set; guard against corrupt state.
+  if (!game.offensivePlayerId || !game.defensivePlayerId) {
+    return { ok: false, status: 500, error: "Game is missing player role assignments" };
+  }
+
   if (result === "missed") {
     // BAIL: defensive player gets a letter, roles STAY the same
     if (isPlayer1) {
@@ -251,12 +254,12 @@ export async function judgeTurn(
     } else {
       newPlayer2Letters += SKATE_LETTERS[newPlayer2Letters.length] || "";
     }
-    newOffensiveId = game.offensivePlayerId!;
-    newDefensiveId = game.defensivePlayerId!;
+    newOffensiveId = game.offensivePlayerId;
+    newDefensiveId = game.defensivePlayerId;
   } else {
     // LAND: roles swap
-    newOffensiveId = game.defensivePlayerId!;
-    newDefensiveId = game.offensivePlayerId!;
+    newOffensiveId = game.defensivePlayerId;
+    newDefensiveId = game.offensivePlayerId;
   }
 
   // Check for game over

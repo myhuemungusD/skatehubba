@@ -1,6 +1,17 @@
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { View, StyleSheet } from "react-native";
+import type React from "react";
+
+// tabBarTestID is a valid BottomTabNavigationOptions prop but not yet reflected
+// in expo-router's Tabs.Screen option types. This helper merges it in so the
+// type-checker accepts the prop without needing per-line suppression comments.
+type TabScreenOptions = React.ComponentProps<typeof Tabs.Screen>["options"] & {
+  tabBarTestID?: string;
+};
+function opts(o: TabScreenOptions): TabScreenOptions {
+  return o;
+}
 
 export default function TabLayout() {
   return (
@@ -23,47 +34,52 @@ export default function TabLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{
+        options={opts({
           title: "SkateHubba",
           tabBarLabel: "Hub",
+          tabBarTestID: "tab-hub",
           tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
-        }}
+        })}
       />
       <Tabs.Screen
         name="map"
-        options={{
+        options={opts({
           title: "Spots",
           tabBarLabel: "Map",
+          tabBarTestID: "tab-map",
           tabBarIcon: ({ color, size }) => <Ionicons name="map" size={size} color={color} />,
-        }}
+        })}
       />
       <Tabs.Screen
         name="challenges"
-        options={{
+        options={opts({
           title: "Play S.K.A.T.E.",
           tabBarLabel: "Play",
+          tabBarTestID: "tab-play",
           tabBarIcon: ({ color, size, focused }) => (
             <View style={[styles.playButton, focused && styles.playButtonActive]}>
               <Ionicons name="play" size={size} color={focused ? "#fff" : color} />
             </View>
           ),
-        }}
+        })}
       />
       <Tabs.Screen
         name="shop"
-        options={{
+        options={opts({
           title: "Shop",
           tabBarLabel: "Shop",
+          tabBarTestID: "tab-shop",
           tabBarIcon: ({ color, size }) => <Ionicons name="cart" size={size} color={color} />,
-        }}
+        })}
       />
       <Tabs.Screen
         name="closet"
-        options={{
+        options={opts({
           title: "My Closet",
           tabBarLabel: "Closet",
+          tabBarTestID: "tab-closet",
           tabBarIcon: ({ color, size }) => <Ionicons name="shirt" size={size} color={color} />,
-        }}
+        })}
       />
       {/* Hidden screens - accessible via navigation but not in tab bar */}
       <Tabs.Screen
