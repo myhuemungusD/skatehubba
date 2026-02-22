@@ -241,12 +241,7 @@ test.describe("Input Validation", () => {
     expect(res.status()).toBeLessThan(500);
   });
 
-  test("POST /api/auth/login rejects missing token", async ({ request }) => {
-    const res = await postBypassCsrf(request, "/api/auth/login");
-    // 400 (bad request) or 401 (no valid token) — not 500
-    expect(res.status()).toBeGreaterThanOrEqual(400);
-    expect(res.status()).toBeLessThan(500);
-  });
+  // NOTE: Auth/login validation is covered exhaustively in auth-smoke.spec.ts
 });
 
 // =============================================================================
