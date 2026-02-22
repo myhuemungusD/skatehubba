@@ -18,9 +18,32 @@ let pool: pg.Pool | null = null;
 
 try {
   if (env.DATABASE_URL && env.DATABASE_URL !== "postgresql://dummy:dummy@localhost:5432/dummy") {
-    pool = new Pool({ connectionString: env.DATABASE_URL });
+    pool = new Pool({
+      connectionString: env.DATABASE_URL,
+      max: env.DB_POOL_MAX,
+      idleTimeoutMillis: env.DB_POOL_IDLE_TIMEOUT_MS,
+      connectionTimeoutMillis: env.DB_POOL_CONNECTION_TIMEOUT_MS,
+    });
+
+    // Prevent unhandled rejections from idle clients disconnecting
+    pool.on("error", (err) => {
+      logger.error("Unexpected error on idle database client", {
+        error: err.message,
+      });
+    });
+
+    // Apply connection-level settings (e.g. statement_timeout) to every new connection
+    pool.on("connect", (client) => {
+      client.query(`SET statement_timeout = '${env.DB_STATEMENT_TIMEOUT_MS}'`);
+    });
+
     db = drizzle(pool, { schema });
-    logger.info("Database connection pool created");
+    logger.info("Database connection pool created", {
+      max: env.DB_POOL_MAX,
+      idleTimeoutMillis: env.DB_POOL_IDLE_TIMEOUT_MS,
+      connectionTimeoutMillis: env.DB_POOL_CONNECTION_TIMEOUT_MS,
+      statementTimeoutMs: env.DB_STATEMENT_TIMEOUT_MS,
+    });
   }
 } catch (error) {
   logger.warn("Database connection setup failed", {
