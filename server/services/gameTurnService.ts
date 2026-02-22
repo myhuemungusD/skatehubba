@@ -8,6 +8,7 @@
 import { games, gameTurns } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { TURN_DEADLINE_MS, SKATE_LETTERS, isGameOver } from "../routes/games-shared";
+import type { Database } from "../db";
 
 // ============================================================================
 // Types
@@ -67,10 +68,7 @@ export type JudgeTurnResult = TxError | JudgeTurnSuccess;
  * Submit a trick (set) or response video within a transaction.
  * Validates game state, creates the turn record, and advances game phase.
  */
-export async function submitTurn(
-  tx: Parameters<Parameters<ReturnType<typeof import("../db").getDb>["transaction"]>[0]>[0],
-  input: SubmitTurnInput
-): Promise<SubmitTurnResult> {
+export async function submitTurn(tx: Database, input: SubmitTurnInput): Promise<SubmitTurnResult> {
   const { gameId, playerId, trickDescription, videoUrl, videoDurationMs, thumbnailUrl } = input;
 
   // Lock game row to prevent concurrent turn submissions
@@ -187,7 +185,7 @@ export async function submitTurn(
  * and determines role swaps.
  */
 export async function judgeTurn(
-  tx: Parameters<Parameters<ReturnType<typeof import("../db").getDb>["transaction"]>[0]>[0],
+  tx: Database,
   turnId: number,
   playerId: string,
   result: "landed" | "missed",
