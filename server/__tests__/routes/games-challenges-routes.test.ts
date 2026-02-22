@@ -107,31 +107,35 @@ const mockDbReturns = {
   updateResult: [] as any[],
 };
 
-let mockIsDatabaseAvailable = true;
+let shouldGetDbThrow = false;
 
 vi.mock("../../db", () => ({
-  getDb: () => ({
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
+  getDb: () => {
+    if (shouldGetDbThrow) throw new Error("Database not configured");
+    return {
+      select: vi.fn().mockReturnValue({
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
+          }),
         }),
       }),
-    }),
-    insert: vi.fn().mockReturnValue({
-      values: vi.fn().mockReturnValue({
-        returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.insertResult)),
-      }),
-    }),
-    update: vi.fn().mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
+      insert: vi.fn().mockReturnValue({
+        values: vi.fn().mockReturnValue({
+          returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.insertResult)),
         }),
       }),
-    }),
-  }),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable,
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            returning: vi
+              .fn()
+              .mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
+          }),
+        }),
+      }),
+    };
+  },
   getUserDisplayName: vi.fn().mockResolvedValue("TestPlayer"),
 }));
 
@@ -184,7 +188,7 @@ describe("Game Challenge Routes", () => {
     mockDbReturns.selectResult = [];
     mockDbReturns.insertResult = [];
     mockDbReturns.updateResult = [];
-    mockIsDatabaseAvailable = true;
+    shouldGetDbThrow = false;
   });
 
   // ===========================================================================
@@ -263,18 +267,18 @@ describe("Game Challenge Routes", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
       const req = mockRequest({ body: { opponentId: "opponent-1" } });
       const res = mockResponse();
 
       await callRoute("POST", "/create", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: "DATABASE_UNAVAILABLE",
-          message: "Database unavailable. Please try again shortly.",
+          error: "GAME_CREATE_FAILED",
+          message: "Failed to create game.",
         })
       );
     });
@@ -424,8 +428,8 @@ describe("Game Challenge Routes", () => {
       );
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
       const req = mockRequest({
         params: { id: "game-1" },
         body: { accept: true },
@@ -434,7 +438,13 @@ describe("Game Challenge Routes", () => {
 
       await callRoute("POST", "/:id/respond", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: "GAME_RESPOND_FAILED",
+          message: "Failed to respond to game.",
+        })
+      );
     });
 
     it("returns 400 for invalid request body", async () => {

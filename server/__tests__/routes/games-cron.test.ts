@@ -16,11 +16,21 @@ mockDbChain.update = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
 
-const mockIsDatabaseAvailable = vi.fn().mockReturnValue(true);
+let shouldGetDbThrow = false;
+
+class MockDatabaseUnavailableError extends Error {
+  constructor() {
+    super("Database not configured");
+    this.name = "DatabaseUnavailableError";
+  }
+}
 
 vi.mock("../../db", () => ({
-  getDb: () => mockDbChain,
-  isDatabaseAvailable: () => mockIsDatabaseAvailable(),
+  getDb: () => {
+    if (shouldGetDbThrow) throw new MockDatabaseUnavailableError();
+    return mockDbChain;
+  },
+  DatabaseUnavailableError: MockDatabaseUnavailableError,
 }));
 
 vi.mock("@shared/schema", () => ({
@@ -75,14 +85,13 @@ describe("Games Cron", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockDeadlineWarningsSent.clear();
-    mockIsDatabaseAvailable.mockReturnValue(true);
+    shouldGetDbThrow = false;
   });
 
   describe("forfeitExpiredGames", () => {
-    it("should return { forfeited: 0 } when db is unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
-      const result = await forfeitExpiredGames();
-      expect(result).toEqual({ forfeited: 0 });
+    it("should throw when db is unavailable", async () => {
+      shouldGetDbThrow = true;
+      await expect(forfeitExpiredGames()).rejects.toThrow("Database not configured");
     });
 
     it("should return { forfeited: 0 } when no expired games", async () => {
@@ -163,10 +172,9 @@ describe("Games Cron", () => {
   });
 
   describe("notifyDeadlineWarnings", () => {
-    it("should return { notified: 0 } when db is unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
-      const result = await notifyDeadlineWarnings();
-      expect(result).toEqual({ notified: 0 });
+    it("should throw when db is unavailable", async () => {
+      shouldGetDbThrow = true;
+      await expect(notifyDeadlineWarnings()).rejects.toThrow("Database not configured");
     });
 
     it("should return { notified: 0 } when no urgent games", async () => {

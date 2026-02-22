@@ -18,14 +18,12 @@ mockDbChain.values = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.returning = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
 
-const mockIsDatabaseAvailable = vi.fn().mockReturnValue(true);
 const mockGetDbFn = vi.fn();
 const mockSaveFn = vi.fn().mockResolvedValue(undefined);
 const mockDeleteFn = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("../../db", () => ({
   getDb: (...args: any[]) => mockGetDbFn(...args),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable(),
 }));
 
 vi.mock("../../admin", () => ({
@@ -191,7 +189,6 @@ async function callHandler(routeKey: string, req: any, res: any) {
 describe("Profile Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
     mockGetDbFn.mockReturnValue(mockDbChain);
     mockSaveFn.mockResolvedValue(undefined);
     mockDeleteFn.mockResolvedValue(undefined);
@@ -220,12 +217,14 @@ describe("Profile Routes", () => {
       expect(res.status).toHaveBeenCalledWith(404);
     });
 
-    it("should return 503 when db unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("should return 500 when db unavailable (getDb throws, caught by route)", async () => {
+      mockGetDbFn.mockImplementation(() => {
+        throw new Error("Database not configured");
+      });
       const req = createReq();
       const res = createRes();
       await callHandler("GET /me", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
 
     it("should return 500 when db query throws", async () => {
@@ -247,7 +246,9 @@ describe("Profile Routes", () => {
     });
 
     it("should return 503 when db unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+      mockGetDbFn.mockImplementation(() => {
+        throw new Error("Database not configured");
+      });
       const req = createReq({ query: { username: "testuser" } });
       const res = createRes();
       await callHandler("GET /username-check", req, res);
@@ -278,12 +279,15 @@ describe("Profile Routes", () => {
   });
 
   describe("POST /create", () => {
-    it("should return 503 when db unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("should throw when db unavailable (global handler returns 503)", async () => {
+      mockGetDbFn.mockImplementation(() => {
+        throw new Error("Database not configured");
+      });
       const req = createReq({ body: { username: "newuser", stance: "regular" } });
       const res = createRes();
-      await callHandler("POST /create", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      await expect(callHandler("POST /create", req, res)).rejects.toThrow(
+        "Database not configured"
+      );
     });
 
     it("should return 400 when profile body fails validation", async () => {
@@ -293,14 +297,13 @@ describe("Profile Routes", () => {
       expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    it("should return 503 when getDb throws", async () => {
+    it("should throw when getDb throws (global handler returns 503)", async () => {
       mockGetDbFn.mockImplementation(() => {
         throw new Error("No DB connection");
       });
       const req = createReq({ body: { username: "newuser", stance: "regular" } });
       const res = createRes();
-      await callHandler("POST /create", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      await expect(callHandler("POST /create", req, res)).rejects.toThrow("No DB connection");
     });
 
     it("should return 500 when db select throws during profile check", async () => {

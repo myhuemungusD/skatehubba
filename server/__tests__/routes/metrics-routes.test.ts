@@ -18,6 +18,11 @@ vi.mock("../../db", () => ({
   get db() {
     return mockDb;
   },
+  getDb: () => {
+    if (!mockDb) throw new Error("Database not configured");
+    return mockDb;
+  },
+  isDatabaseAvailable: vi.fn(() => true),
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -153,12 +158,12 @@ describe("Metrics Routes", () => {
       expect(res.json).toHaveBeenCalledWith({ wab: 0, au: 0, wab_per_au: 0 });
     });
 
-    it("should return 503 when db is null", async () => {
+    it("should return 500 when db is null (getDb throws)", async () => {
       mockDb = null;
       const req = createReq();
       const res = createRes();
       await callHandler("GET /wab-au", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
 
     it("should return 500 on db error", async () => {
@@ -180,12 +185,12 @@ describe("Metrics Routes", () => {
       expect(res.json).toHaveBeenCalledWith(rows);
     });
 
-    it("should return 503 when db is null", async () => {
+    it("should return 500 when db is null (getDb throws)", async () => {
       mockDb = null;
       const req = createReq();
       const res = createRes();
       await callHandler("GET /wab-au/trend", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
 
     it("should return 500 on error", async () => {
@@ -267,12 +272,12 @@ describe("Metrics Routes", () => {
       expect(res.json).toHaveBeenCalledWith(data);
     });
 
-    it("should return 503 when db is null", async () => {
+    it("should return 500 when db is null (getDb throws)", async () => {
       mockDb = null;
       const req = createReq();
       const res = createRes();
       await callHandler("GET /retention", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
   });
 });

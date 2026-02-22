@@ -15,7 +15,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 vi.mock("../db", () => ({
   getDb: vi.fn(),
-  isDatabaseAvailable: vi.fn(),
 }));
 
 vi.mock("../middleware/cronAuth", () => ({
@@ -61,7 +60,7 @@ vi.mock("express", () => ({
 
 await import("../routes/cron");
 
-const { getDb, isDatabaseAvailable } = await import("../db");
+const { getDb } = await import("../db");
 const { verifyCronSecret } = await import("../middleware/cronAuth");
 const { forfeitExpiredGames, notifyDeadlineWarnings } = await import("../routes/games");
 const logger = (await import("../logger")).default;
@@ -187,7 +186,6 @@ describe("POST /api/cron/cleanup-sessions", () => {
 
   it("should cleanup expired sessions and return deleted count", async () => {
     vi.mocked(verifyCronSecret).mockReturnValue(true);
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
 
     const mockDb = {
       delete: vi.fn().mockReturnValue({
@@ -215,21 +213,22 @@ describe("POST /api/cron/cleanup-sessions", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "Unauthorized" });
   });
 
-  it("should return 503 when db is unavailable", async () => {
+  it("should return 500 when db is unavailable", async () => {
     vi.mocked(verifyCronSecret).mockReturnValue(true);
-    vi.mocked(isDatabaseAvailable).mockReturnValue(false);
+    vi.mocked(getDb).mockImplementation(() => {
+      throw new Error("Database not configured");
+    });
 
     const req = mockReq({ headers: { authorization: "Bearer secret" } });
     const res = mockRes();
     await callHandler("POST /cleanup-sessions", req, res);
 
-    expect(res.status).toHaveBeenCalledWith(503);
-    expect(res.json).toHaveBeenCalledWith({ error: "Database unavailable" });
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: "Failed to cleanup sessions" });
   });
 
   it("should return 500 when db.delete throws", async () => {
     vi.mocked(verifyCronSecret).mockReturnValue(true);
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockReturnValue({
       delete: vi.fn().mockReturnValue({
         where: vi.fn().mockRejectedValue(new Error("DB fail")),
@@ -246,7 +245,6 @@ describe("POST /api/cron/cleanup-sessions", () => {
 
   it("should default deleted count to 0 when rowCount is undefined", async () => {
     vi.mocked(verifyCronSecret).mockReturnValue(true);
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockReturnValue({
       delete: vi.fn().mockReturnValue({
         where: vi.fn().mockResolvedValue({}),

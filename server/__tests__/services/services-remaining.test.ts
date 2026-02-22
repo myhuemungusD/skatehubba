@@ -1916,10 +1916,10 @@ describe("Monitoring — version fallback and admin system status", () => {
     }));
 
     vi.doMock("../../db", () => ({
-      isDatabaseAvailable: () => true,
       getDb: () => ({
         execute: vi.fn().mockResolvedValue("ok"),
       }),
+      isDatabaseAvailable: vi.fn(() => true),
     }));
 
     vi.doMock("../../redis", () => ({
@@ -1990,10 +1990,10 @@ describe("Monitoring — version fallback and admin system status", () => {
     }));
 
     vi.doMock("../../db", () => ({
-      isDatabaseAvailable: () => true,
       getDb: () => ({
         execute: vi.fn().mockResolvedValue("ok"),
       }),
+      isDatabaseAvailable: vi.fn(() => true),
     }));
 
     vi.doMock("../../redis", () => ({

@@ -12,7 +12,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../db", () => ({
   getDb: vi.fn(),
-  isDatabaseAvailable: vi.fn(),
 }));
 
 vi.mock("../auth/middleware", () => ({
@@ -66,7 +65,7 @@ vi.mock("express", () => ({
 
 await import("../routes/matchmaking");
 
-const { getDb, isDatabaseAvailable } = await import("../db");
+const { getDb } = await import("../db");
 const { sendQuickMatchNotification } = await import("../services/notificationService");
 const logger = (await import("../logger")).default;
 
@@ -120,7 +119,6 @@ describe("POST /api/matchmaking/quick-match", () => {
 
   it("should find a match and send notification", async () => {
     const opponents = [{ id: "opponent1", firstName: "Opponent", pushToken: "expo-token-1" }];
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockReturnValue(buildMatchmakingDb(opponents) as any);
     vi.mocked(sendQuickMatchNotification).mockResolvedValue(undefined);
 
@@ -146,7 +144,6 @@ describe("POST /api/matchmaking/quick-match", () => {
 
   it("should return 404 when no eligible opponents (only current user)", async () => {
     const users = [{ id: "user1", firstName: "Test", pushToken: "tok" }];
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockReturnValue(buildMatchmakingDb(users) as any);
 
     const req = mockReq();
@@ -161,7 +158,6 @@ describe("POST /api/matchmaking/quick-match", () => {
 
   it("should return 404 when opponents have no push tokens", async () => {
     const users = [{ id: "other", firstName: "NoPush", pushToken: null }];
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockReturnValue(buildMatchmakingDb(users) as any);
 
     const req = mockReq();
@@ -180,19 +176,20 @@ describe("POST /api/matchmaking/quick-match", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "Authentication required" });
   });
 
-  it("should return 503 when db is unavailable", async () => {
-    vi.mocked(isDatabaseAvailable).mockReturnValue(false);
+  it("should return 500 when db is unavailable", async () => {
+    vi.mocked(getDb).mockImplementation(() => {
+      throw new Error("Database not configured");
+    });
 
     const req = mockReq();
     const res = mockRes();
     await callHandler("POST /quick-match", req, res);
 
-    expect(res.status).toHaveBeenCalledWith(503);
-    expect(res.json).toHaveBeenCalledWith({ error: "Service unavailable" });
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: "Failed to find match" });
   });
 
   it("should return 500 on unexpected error", async () => {
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockImplementation(() => {
       throw new Error("boom");
     });
@@ -208,7 +205,6 @@ describe("POST /api/matchmaking/quick-match", () => {
 
   it("should return 500 when sendQuickMatchNotification throws", async () => {
     const opponents = [{ id: "opponent1", firstName: "Opponent", pushToken: "expo-token-1" }];
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockReturnValue(buildMatchmakingDb(opponents) as any);
     vi.mocked(sendQuickMatchNotification).mockRejectedValue(new Error("Push service down"));
 

@@ -18,9 +18,38 @@ let pool: pg.Pool | null = null;
 
 try {
   if (env.DATABASE_URL && env.DATABASE_URL !== "postgresql://dummy:dummy@localhost:5432/dummy") {
-    pool = new Pool({ connectionString: env.DATABASE_URL });
+    pool = new Pool({
+      connectionString: env.DATABASE_URL,
+      max: env.DB_POOL_MAX,
+      idleTimeoutMillis: env.DB_POOL_IDLE_TIMEOUT_MS,
+      connectionTimeoutMillis: env.DB_POOL_CONNECTION_TIMEOUT_MS,
+    });
+
+    // Prevent unhandled rejections from idle clients disconnecting
+    pool.on("error", (err) => {
+      logger.error("Unexpected error on idle database client", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
+
+    // Apply connection-level settings (e.g. statement_timeout) to every new connection
+    pool.on("connect", (client) => {
+      client
+        .query(`SET statement_timeout = '${env.DB_STATEMENT_TIMEOUT_MS}'`)
+        .catch((err: unknown) => {
+          logger.error("Failed to set statement_timeout on new connection", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+    });
+
     db = drizzle(pool, { schema });
-    logger.info("Database connection pool created");
+    logger.info("Database connection pool created", {
+      max: env.DB_POOL_MAX,
+      idleTimeoutMillis: env.DB_POOL_IDLE_TIMEOUT_MS,
+      connectionTimeoutMillis: env.DB_POOL_CONNECTION_TIMEOUT_MS,
+      statementTimeoutMs: env.DB_STATEMENT_TIMEOUT_MS,
+    });
   }
 } catch (error) {
   logger.warn("Database connection setup failed", {
@@ -31,19 +60,34 @@ try {
 }
 
 /**
+ * Error thrown when the database is not configured or unavailable.
+ * The global error handler maps this to a 503 response.
+ */
+export class DatabaseUnavailableError extends Error {
+  constructor() {
+    super("Database not configured");
+    this.name = "DatabaseUnavailableError";
+  }
+}
+
+/**
  * Get database instance with null check.
- * Throws if database is not configured.
+ * Throws {@link DatabaseUnavailableError} if database is not configured.
  * Use this in routes/services that require database access.
  */
 export function getDb(): Database {
   if (!db) {
-    throw new Error("Database not configured");
+    throw new DatabaseUnavailableError();
   }
   return db;
 }
 
 /**
  * Check if database is available without throwing.
+ *
+ * **Only use in health-check / monitoring code.**
+ * Route handlers should call {@link getDb} and let the global error handler
+ * return 503 automatically.
  */
 export function isDatabaseAvailable(): boolean {
   return db !== null;
@@ -77,16 +121,10 @@ export { db, pool };
 export type { Database };
 
 /**
- * Helper to assert database is available.
- * Use this when you need guaranteed database access.
+ * Alias for {@link getDb} — kept for call-sites that prefer the name.
  * @throws Error if database is not configured
  */
-export function requireDb(): Database {
-  if (!db) {
-    throw new Error("Database not configured");
-  }
-  return db;
-}
+export const requireDb = getDb;
 
 export async function initializeDatabase() {
   if (!db) {
@@ -97,10 +135,8 @@ export async function initializeDatabase() {
   try {
     logger.info("Initializing database...");
 
-    await db.select().from(schema.tutorialSteps).limit(1);
-    logger.info("Database connection successful");
-
     const existingSteps = await db.select().from(schema.tutorialSteps).limit(1);
+    logger.info("Database connection successful");
 
     if (existingSteps.length === 0) {
       logger.info("Seeding tutorial steps...");

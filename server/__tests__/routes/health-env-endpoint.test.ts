@@ -29,17 +29,20 @@ vi.mock("../../config/env", () => ({
   env: { DATABASE_URL: "mock://test", NODE_ENV: "test" },
 }));
 
-let mockDbAvailable = true;
 let mockDbQueryError: Error | null = null;
+let mockGetDbShouldThrow = false;
 
 vi.mock("../../db", () => ({
-  isDatabaseAvailable: () => mockDbAvailable,
-  getDb: () => ({
-    execute: async () => {
-      if (mockDbQueryError) throw mockDbQueryError;
-      return "ok";
-    },
-  }),
+  getDb: () => {
+    if (mockGetDbShouldThrow) throw new Error("Database not configured");
+    return {
+      execute: async () => {
+        if (mockDbQueryError) throw mockDbQueryError;
+        return "ok";
+      },
+    };
+  },
+  isDatabaseAvailable: () => !mockGetDbShouldThrow,
 }));
 
 vi.mock("../../redis", () => ({ getRedisClient: () => null }));
@@ -148,7 +151,7 @@ beforeEach(() => {
     savedEnv[key] = process.env[key];
     delete process.env[key];
   }
-  mockDbAvailable = true;
+  mockGetDbShouldThrow = false;
   mockDbQueryError = null;
   mockFirebaseAdmin.default = { apps: [] };
 });
@@ -192,7 +195,7 @@ describe("/api/health/env — HTTP status", () => {
 
   it("returns 503 when DB is down even if all required vars are set", async () => {
     Object.assign(process.env, REQUIRED_VALS);
-    mockDbAvailable = false;
+    mockGetDbShouldThrow = true;
     const routes = buildRoutes();
     const res = makeMockRes();
 

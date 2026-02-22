@@ -8,7 +8,7 @@ import {
   validateEventProps,
 } from "../../packages/shared/analytics-events";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
-import { db } from "../db";
+import { getDb } from "../db";
 import { analyticsEvents } from "../../packages/shared/schema-analytics";
 import logger from "../logger";
 import { validateBody } from "../middleware/validation";
@@ -50,17 +50,8 @@ analyticsRouter.post(
       return Errors.badRequest(res, "INVALID_PROPERTIES", "Event properties failed validation.");
     }
 
-    // Check if DB is available
-    if (!db) {
-      logger.warn("[Analytics] Database not configured, dropping event", {
-        uid,
-        event_name: ev.event_name,
-      });
-      // Return success to not break client - just log the drop
-      return res.status(204).send();
-    }
-
     try {
+      const db = getDb();
       await db
         .insert(analyticsEvents)
         .values({
@@ -82,7 +73,8 @@ analyticsRouter.post(
         event_id: ev.event_id,
         error: dbError,
       });
-      return Errors.internal(res, "EVENT_INSERT_FAILED", "Failed to store analytics event.");
+      // Analytics is fire-and-forget — return 204 to not break the client
+      return res.status(204).send();
     }
   }
 );
@@ -111,14 +103,6 @@ analyticsRouter.post(
     }
 
     const batch = body as AnalyticsBatch;
-
-    if (!db) {
-      logger.warn("[Analytics] Database not configured, dropping batch", {
-        uid,
-        count: batch.length,
-      });
-      return res.status(204).send();
-    }
 
     const validEvents: Array<{
       eventId: string;
@@ -157,6 +141,7 @@ analyticsRouter.post(
 
     if (validEvents.length > 0) {
       try {
+        const db = getDb();
         await db.insert(analyticsEvents).values(validEvents).onConflictDoNothing();
       } catch (dbError) {
         logger.error("[Analytics] Batch insert failed", {
@@ -164,7 +149,12 @@ analyticsRouter.post(
           count: validEvents.length,
           error: dbError,
         });
-        return Errors.internal(res, "BATCH_INSERT_FAILED", "Failed to store analytics batch.");
+        // Analytics is fire-and-forget — return partial success
+        return res.status(200).json({
+          accepted: 0,
+          rejected: validEvents.length + errors.length,
+          errors: errors.length > 0 ? errors : undefined,
+        });
       }
     }
 

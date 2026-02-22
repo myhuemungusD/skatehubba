@@ -184,14 +184,13 @@ describe("Spots Routes", () => {
       expect(res.json).toHaveBeenCalledWith(spotsData);
     });
 
-    it("should return empty array on error", async () => {
+    it("should return empty array on error (circuit breaker fallback)", async () => {
       vi.mocked(spotStorage.getAllSpots).mockRejectedValue(new Error("DB down"));
 
       const res = mockRes();
       await callHandler("GET /", mockReq(), res);
 
       expect(res.json).toHaveBeenCalledWith([]);
-      expect(logger.error).toHaveBeenCalled();
     });
   });
 
@@ -290,20 +289,17 @@ describe("Spots Routes", () => {
       });
     });
 
-    it("should return existing spots when discovery throws", async () => {
+    it("should return empty discovery result when discovery throws (circuit breaker fallback)", async () => {
       vi.mocked(isAreaCached).mockResolvedValue(false);
       vi.mocked(discoverSkateparks).mockRejectedValue(new Error("OSM timeout"));
-      const existingSpots = [{ id: 5, name: "Old Park" }];
-      vi.mocked(spotStorage.getAllSpots).mockResolvedValue(existingSpots as any);
 
       const res = mockRes();
       await callHandler("GET /discover", mockReq({ query: { lat: "40.7", lng: "-74.0" } }), res);
 
-      expect(logger.error).toHaveBeenCalled();
       expect(res.json).toHaveBeenCalledWith({
         discovered: 0,
         added: 0,
-        spots: existingSpots,
+        spots: [],
       });
     });
   });

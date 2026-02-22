@@ -26,7 +26,6 @@ const {
   mockLockoutDelete,
   mockLockoutWhere,
   mockMonitoringExecute,
-  mockIsDatabaseAvailable,
 } = vi.hoisted(() => {
   const mockSelectResult = vi.fn();
   const mockInsertResult = vi.fn();
@@ -34,7 +33,6 @@ const {
   const mockLockoutDelete = vi.fn();
   const mockLockoutWhere = vi.fn();
   const mockMonitoringExecute = vi.fn();
-  const mockIsDatabaseAvailable = vi.fn(() => true);
 
   // Track which mock mode is active
   const mockDbMode = { current: "filmer" as "filmer" | "lockout" | "monitoring" };
@@ -69,7 +67,6 @@ const {
     mockLockoutDelete,
     mockLockoutWhere,
     mockMonitoringExecute,
-    mockIsDatabaseAvailable,
   };
 });
 
@@ -124,7 +121,7 @@ vi.mock("../../db", () => ({
     // "filmer" mode
     return chainMock;
   }),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable(),
+  isDatabaseAvailable: vi.fn(() => true),
 }));
 
 vi.mock("@shared/schema", () => ({
@@ -546,7 +543,6 @@ describe("monitoring — percentile empty array and admin system-status", () => 
     vi.clearAllMocks();
     mockDbMode.current = "monitoring";
     mockMonitoringExecute.mockResolvedValue("ok");
-    mockIsDatabaseAvailable.mockReturnValue(true);
 
     const mod = await import("../../monitoring/index");
     registerMonitoringRoutes = mod.registerMonitoringRoutes;

@@ -36,7 +36,7 @@ function processData<T extends { value: string }>(data: T[]) {
 
 // ✅ GOOD: Use 'unknown' when type is truly unknown
 function handleUnknownData(data: unknown) {
-  if (typeof data === 'object' && data !== null) {
+  if (typeof data === "object" && data !== null) {
     // Type narrowing before use
   }
 }
@@ -56,7 +56,7 @@ export interface SpotCheckin {
 }
 
 // ✅ Use Zod schemas as source of truth
-import { z } from 'zod';
+import { z } from "zod";
 
 export const SpotCheckinSchema = z.object({
   userId: z.string().min(1),
@@ -191,10 +191,10 @@ router.post("/api/endpoint", async (req, res) => {
     return Errors.notFound(res, "RESOURCE_NOT_FOUND", "Spot not found");
   }
 
-  // Database errors
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
+  // Database errors are handled automatically — getDb() throws
+  // DatabaseUnavailableError which the global error handler maps to 503.
+  // No manual check needed.
+  const db = getDb();
 });
 ```
 
@@ -269,10 +269,7 @@ router.post("/api/spots", validateBody(createSpotSchema), async (req, res) => {
 
 ```typescript
 // ✅ Use Drizzle ORM parameterized queries
-const spots = await db
-  .select()
-  .from(spots)
-  .where(eq(spots.userId, userId)); // Parameterized automatically
+const spots = await db.select().from(spots).where(eq(spots.userId, userId)); // Parameterized automatically
 
 // ❌ NEVER concatenate SQL strings
 const query = `SELECT * FROM spots WHERE user_id = '${userId}'`; // SQL injection!
@@ -378,20 +375,20 @@ if (cachedValue) {
 
 ```typescript
 // user-service.test.ts
-import { describe, it, expect, beforeEach } from 'vitest';
-import { createUser } from './user-service';
+import { describe, it, expect, beforeEach } from "vitest";
+import { createUser } from "./user-service";
 
-describe('createUser', () => {
-  it('should create user with valid data', async () => {
-    const user = await createUser({ username: 'skater42', email: 'test@example.com' });
-    expect(user.username).toBe('skater42');
+describe("createUser", () => {
+  it("should create user with valid data", async () => {
+    const user = await createUser({ username: "skater42", email: "test@example.com" });
+    expect(user.username).toBe("skater42");
   });
 
-  it('should throw error for duplicate username', async () => {
-    await createUser({ username: 'skater42', email: 'test1@example.com' });
-    await expect(
-      createUser({ username: 'skater42', email: 'test2@example.com' })
-    ).rejects.toThrow('Username already taken');
+  it("should throw error for duplicate username", async () => {
+    await createUser({ username: "skater42", email: "test1@example.com" });
+    await expect(createUser({ username: "skater42", email: "test2@example.com" })).rejects.toThrow(
+      "Username already taken"
+    );
   });
 });
 ```
@@ -400,15 +397,15 @@ describe('createUser', () => {
 
 ```typescript
 // Suffix: .integration.test.ts
-describe('Spot Check-in Flow (Integration)', () => {
+describe("Spot Check-in Flow (Integration)", () => {
   beforeEach(async () => {
     await cleanDatabase();
     await seedTestData();
   });
 
-  it('should complete full check-in workflow', async () => {
+  it("should complete full check-in workflow", async () => {
     const spot = await createSpot(testSpotData);
-    const checkin = await createCheckin({ userId: 'user_123', spotId: spot.id });
+    const checkin = await createCheckin({ userId: "user_123", spotId: spot.id });
     expect(checkin.verified).toBe(false);
 
     const verified = await verifyCheckin(checkin.id, { latitude: spot.lat, longitude: spot.lng });
@@ -441,7 +438,7 @@ const spot = SpotFactory.build({ name: "Downtown Plaza" });
 
 ### JSDoc for Public APIs
 
-```typescript
+````typescript
 /**
  * Create a filmer request for a check-in
  *
@@ -469,7 +466,7 @@ const spot = SpotFactory.build({ name: "Downtown Plaza" });
 export const createFilmerRequest = async (input: CreateFilmerRequestInput) => {
   // Implementation
 };
-```
+````
 
 ### README Files
 
@@ -610,7 +607,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 };
 ```

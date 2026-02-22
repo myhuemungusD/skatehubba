@@ -287,10 +287,10 @@ describe("Monitoring — percentile and version coverage", () => {
     }));
 
     vi.doMock("../../db", () => ({
-      isDatabaseAvailable: () => true,
       getDb: () => ({
         execute: vi.fn().mockResolvedValue("ok"),
       }),
+      isDatabaseAvailable: vi.fn(() => true),
     }));
 
     vi.doMock("../../redis", () => ({

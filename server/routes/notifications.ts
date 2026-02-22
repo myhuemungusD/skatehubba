@@ -12,7 +12,7 @@
 
 import { Router } from "express";
 import { z } from "zod";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import {
   customUsers,
@@ -37,10 +37,6 @@ const pushTokenSchema = z.object({
 });
 
 router.post("/push-token", async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const parsed = pushTokenSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
@@ -69,10 +65,6 @@ router.post("/push-token", async (req, res) => {
 // ============================================================================
 
 router.delete("/push-token", async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const userId = req.currentUser!.id;
 
   try {
@@ -94,10 +86,6 @@ router.delete("/push-token", async (req, res) => {
 // ============================================================================
 
 router.get("/preferences", async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const userId = req.currentUser!.id;
 
   try {
@@ -148,10 +136,6 @@ const preferencesSchema = z.object({
 });
 
 router.put("/preferences", async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const parsed = preferencesSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
@@ -196,10 +180,6 @@ router.put("/preferences", async (req, res) => {
 // ============================================================================
 
 router.get("/unread-count", async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const userId = req.currentUser!.id;
 
   try {
@@ -221,10 +201,6 @@ router.get("/unread-count", async (req, res) => {
 // ============================================================================
 
 router.get("/", async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const userId = req.currentUser!.id;
   const limit = Math.min(parseInt(String(req.query.limit)) || 20, 50);
   const offset = parseInt(String(req.query.offset)) || 0;
@@ -261,10 +237,6 @@ router.get("/", async (req, res) => {
 // ============================================================================
 
 router.post("/:id/read", async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const userId = req.currentUser!.id;
   const notificationId = parseInt(req.params.id, 10);
 
@@ -296,10 +268,6 @@ router.post("/:id/read", async (req, res) => {
 // ============================================================================
 
 router.post("/read-all", async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const userId = req.currentUser!.id;
 
   try {

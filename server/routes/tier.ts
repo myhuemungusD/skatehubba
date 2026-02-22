@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { requirePaidOrPro } from "../middleware/requirePaidOrPro";
 import { customUsers, consumedPaymentIntents } from "@shared/schema";
@@ -51,10 +51,6 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, proAwardLimiter, a
 
   if (userId === awarder.id) {
     return Errors.badRequest(res, "SELF_AWARD", "You can't award Pro to yourself.");
-  }
-
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
   }
 
   try {
@@ -260,10 +256,6 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
     return Errors.conflict(res, "ALREADY_PREMIUM", "You already have Premium.", {
       currentTier: "premium",
     });
-  }
-
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
   }
 
   try {

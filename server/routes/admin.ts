@@ -3,7 +3,7 @@ import { z } from "zod";
 import { eq, desc, and, count, ilike, or, inArray, gte, lte } from "drizzle-orm";
 import { authenticateUser, requireAdmin } from "../auth/middleware";
 import { enforceAdminRateLimit, enforceNotBanned } from "../middleware/trustSafety";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import {
   customUsers,
   moderationProfiles,
@@ -34,10 +34,6 @@ const adminMiddleware = [
 // ─── Dashboard Overview Stats ─────────────────────────────────────────────────
 
 adminRouter.get("/stats", ...adminMiddleware, async (_req, res) => {
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   try {
     const db = getDb();
 
@@ -80,10 +76,6 @@ adminRouter.get("/stats", ...adminMiddleware, async (_req, res) => {
 // ─── User Management ──────────────────────────────────────────────────────────
 
 adminRouter.get("/users", ...adminMiddleware, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   try {
     const db = getDb();
     const search = typeof req.query.search === "string" ? req.query.search : undefined;
@@ -194,10 +186,6 @@ adminRouter.patch(
     const { userId } = req.params;
     const { trustLevel } = parsed.data;
 
-    if (!isDatabaseAvailable()) {
-      return Errors.dbUnavailable(res);
-    }
-
     try {
       const db = getDb();
       const now = new Date();
@@ -265,10 +253,6 @@ adminRouter.patch(
     const { reportId } = req.params;
     const { status } = parsed.data;
 
-    if (!isDatabaseAvailable()) {
-      return Errors.dbUnavailable(res);
-    }
-
     try {
       const db = getDb();
 
@@ -299,10 +283,6 @@ adminRouter.patch(
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 
 adminRouter.get("/audit-logs", ...adminMiddleware, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   try {
     const db = getDb();
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -370,10 +350,6 @@ adminRouter.get("/audit-logs", ...adminMiddleware, async (req, res) => {
 // ─── Mod Actions History ──────────────────────────────────────────────────────
 
 adminRouter.get("/mod-actions", ...adminMiddleware, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   try {
     const db = getDb();
     const page = Math.max(1, Number(req.query.page) || 1);
@@ -423,10 +399,6 @@ adminRouter.patch(
 
     const { userId } = req.params;
     const { accountTier } = parsed.data;
-
-    if (!isDatabaseAvailable()) {
-      return Errors.dbUnavailable(res);
-    }
 
     try {
       const db = getDb();

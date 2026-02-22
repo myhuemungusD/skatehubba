@@ -40,11 +40,9 @@ vi.mock("../../logger", () => ({
 }));
 
 const mockGetDb = vi.fn();
-const mockIsDatabaseAvailable = vi.fn();
 
 vi.mock("../../db", () => ({
   getDb: () => mockGetDb(),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable(),
 }));
 
 vi.mock("@shared/schema", () => {
@@ -139,7 +137,9 @@ describe("Notification Service", () => {
     vi.clearAllMocks();
     mockIsExpoPushToken.mockReturnValue(true);
     mockSendPushNotificationsAsync.mockResolvedValue([{ status: "ok" }]);
-    mockIsDatabaseAvailable.mockReturnValue(false);
+    mockGetDb.mockImplementation(() => {
+      throw new Error("Database not configured");
+    });
   });
 
   // ==========================================================================
@@ -311,7 +311,6 @@ describe("Notification Service", () => {
   describe("notifyUser", () => {
     it("skips notification when user has opted out of game notifications", async () => {
       // Database returns prefs with gameNotifications = false
-      mockIsDatabaseAvailable.mockReturnValue(true);
       const mockDb = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
@@ -348,10 +347,12 @@ describe("Notification Service", () => {
     });
 
     it("uses default preferences when database is unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+      mockGetDb.mockImplementation(() => {
+        throw new Error("Database not configured");
+      });
 
       // notifyUser should proceed with default prefs (all enabled)
-      // But push/email sub-functions also check isDatabaseAvailable, so they'll no-op
+      // But push/email sub-functions also check getDb, so they'll no-op
       await notifyUser({
         userId: "user-2",
         type: "challenge_received",
@@ -367,7 +368,6 @@ describe("Notification Service", () => {
     });
 
     it("handles errors gracefully without throwing", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(true);
       mockGetDb.mockImplementation(() => {
         throw new Error("DB exploded");
       });
@@ -385,7 +385,6 @@ describe("Notification Service", () => {
     });
 
     it("skips when challenge notifications are disabled", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(true);
       const mockDb = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
@@ -421,7 +420,6 @@ describe("Notification Service", () => {
     });
 
     it("skips when result notifications are disabled for game_over", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(true);
       const mockDb = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),
@@ -457,7 +455,6 @@ describe("Notification Service", () => {
     });
 
     it("suppresses push and email during quiet hours but still persists in-app", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(true);
       const mockDb = {
         select: vi.fn().mockReturnThis(),
         from: vi.fn().mockReturnThis(),

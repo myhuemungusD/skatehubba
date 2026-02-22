@@ -85,7 +85,6 @@ vi.mock("../../db", () => ({
     }),
     execute: vi.fn().mockResolvedValue(undefined),
   }),
-  isDatabaseAvailable: () => false,
 }));
 
 vi.mock("drizzle-orm", () => ({

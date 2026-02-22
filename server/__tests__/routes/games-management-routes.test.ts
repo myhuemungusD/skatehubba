@@ -91,7 +91,6 @@ vi.mock("@shared/schema", () => ({
 }));
 
 // ---- Thenable chain mock ----
-let mockIsDatabaseAvailable = true;
 let shouldDbThrow = false;
 let resultQueue: any[] = [];
 
@@ -140,12 +139,14 @@ function makeChain(): any {
 }
 
 vi.mock("../../db", () => ({
-  getDb: () => ({
-    select: vi.fn().mockImplementation(() => makeChain()),
-    update: vi.fn().mockImplementation(() => makeChain()),
-    insert: vi.fn().mockImplementation(() => makeChain()),
-  }),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable,
+  getDb: () => {
+    if (shouldDbThrow) throw new Error("Database not configured");
+    return {
+      select: vi.fn().mockImplementation(() => makeChain()),
+      update: vi.fn().mockImplementation(() => makeChain()),
+      insert: vi.fn().mockImplementation(() => makeChain()),
+    };
+  },
 }));
 
 // =============================================================================
@@ -194,7 +195,6 @@ async function callRoute(method: string, path: string, req: any, res: any) {
 describe("Game Management Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable = true;
     shouldDbThrow = false;
     resultQueue = [];
   });
@@ -310,14 +310,17 @@ describe("Game Management Routes", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Game not found" }));
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldDbThrow = true;
       const req = mockRequest({ params: { id: "game-1" } });
       const res = mockResponse();
 
       await callRoute("POST", "/:id/forfeit", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to forfeit game" })
+      );
     });
 
     it("returns 500 when db throws", async () => {
@@ -416,14 +419,17 @@ describe("Game Management Routes", () => {
       expect(result.total).toBe(0);
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldDbThrow = true;
       const req = mockRequest();
       const res = mockResponse();
 
       await callRoute("GET", "/my-games", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to fetch games" })
+      );
     });
 
     it("returns 500 when db throws", async () => {
@@ -622,14 +628,17 @@ describe("Game Management Routes", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Game not found" }));
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldDbThrow = true;
       const req = mockRequest({ params: { id: "game-1" } });
       const res = mockResponse();
 
       await callRoute("GET", "/:id", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to fetch game" })
+      );
     });
 
     it("returns 500 when db throws", async () => {
