@@ -28,13 +28,19 @@ try {
     // Prevent unhandled rejections from idle clients disconnecting
     pool.on("error", (err) => {
       logger.error("Unexpected error on idle database client", {
-        error: err.message,
+        error: err instanceof Error ? err.message : String(err),
       });
     });
 
     // Apply connection-level settings (e.g. statement_timeout) to every new connection
     pool.on("connect", (client) => {
-      client.query(`SET statement_timeout = '${env.DB_STATEMENT_TIMEOUT_MS}'`);
+      client
+        .query(`SET statement_timeout = '${env.DB_STATEMENT_TIMEOUT_MS}'`)
+        .catch((err: unknown) => {
+          logger.error("Failed to set statement_timeout on new connection", {
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
     });
 
     db = drizzle(pool, { schema });
@@ -100,16 +106,10 @@ export { db, pool };
 export type { Database };
 
 /**
- * Helper to assert database is available.
- * Use this when you need guaranteed database access.
+ * Alias for {@link getDb} — kept for call-sites that prefer the name.
  * @throws Error if database is not configured
  */
-export function requireDb(): Database {
-  if (!db) {
-    throw new Error("Database not configured");
-  }
-  return db;
-}
+export const requireDb = getDb;
 
 export async function initializeDatabase() {
   if (!db) {
@@ -120,10 +120,8 @@ export async function initializeDatabase() {
   try {
     logger.info("Initializing database...");
 
-    await db.select().from(schema.tutorialSteps).limit(1);
-    logger.info("Database connection successful");
-
     const existingSteps = await db.select().from(schema.tutorialSteps).limit(1);
+    logger.info("Database connection successful");
 
     if (existingSteps.length === 0) {
       logger.info("Seeding tutorial steps...");
