@@ -3,8 +3,12 @@
  *
  * Single source of truth for Firebase initialization.
  *
- * ENTERPRISE CONFIG: Uses @skatehubba/config for universal env vars
- * that work across web (Vite) and mobile (Metro/Expo).
+ * Reads env vars via import.meta.env directly rather than the cross-platform
+ * @skatehubba/config adapter. The adapter checks globalThis.import?.meta?.env,
+ * but `import` is a JS keyword — not a globalThis property — so that path is
+ * always undefined in browsers. Vite only statically replaces direct
+ * import.meta.env.* references at build time, making this the only reliable
+ * approach for browser bundles.
  *
  * @see https://firebase.google.com/docs/projects/api-keys
  * @module lib/firebase/config
@@ -22,15 +26,7 @@ import { getFirestore, type Firestore } from "firebase/firestore";
 import { getStorage, type FirebaseStorage } from "firebase/storage";
 import { getFunctions, type Functions } from "firebase/functions";
 
-// Import from enterprise config package
-import {
-  getFirebaseConfig as getSharedFirebaseConfig,
-  assertEnvWiring,
-  getAppEnv,
-  getEnvBanner,
-  isProd,
-  isStaging,
-} from "@skatehubba/config";
+import { assertEnvWiring, getAppEnv, getEnvBanner, isProd, isStaging } from "@skatehubba/config";
 import { logger } from "../logger";
 
 // ============================================================================
@@ -48,11 +44,47 @@ export interface FirebaseConfig {
 }
 
 // ============================================================================
-// Config Resolution (via @skatehubba/config)
+// Config Resolution
+// Uses import.meta.env directly — Vite statically replaces these at build time
+// with the values of EXPO_PUBLIC_FIREBASE_* from the build environment.
 // ============================================================================
 
 function getFirebaseConfig(): FirebaseConfig {
-  return getSharedFirebaseConfig();
+  const apiKey = import.meta.env.EXPO_PUBLIC_FIREBASE_API_KEY as string | undefined;
+  const authDomain = import.meta.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN as string | undefined;
+  const projectId = import.meta.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID as string | undefined;
+  const storageBucket = import.meta.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET as string | undefined;
+  const messagingSenderId = import.meta.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID as
+    | string
+    | undefined;
+  const appId = import.meta.env.EXPO_PUBLIC_FIREBASE_APP_ID as string | undefined;
+  const measurementId = import.meta.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID as
+    | string
+    | undefined;
+
+  if (!apiKey || !projectId || !appId) {
+    const missing = (
+      [
+        !apiKey && "EXPO_PUBLIC_FIREBASE_API_KEY",
+        !projectId && "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
+        !appId && "EXPO_PUBLIC_FIREBASE_APP_ID",
+      ] as (string | false)[]
+    ).filter(Boolean) as string[];
+    throw new Error(
+      `[Firebase] Missing required environment variables: ${missing.join(", ")}. ` +
+        "Set these in Vercel → Project → Settings → Environment Variables and redeploy."
+    );
+  }
+
+  return {
+    apiKey,
+    authDomain: authDomain || `${projectId}.firebaseapp.com`,
+    projectId,
+    storageBucket: storageBucket || `${projectId}.firebasestorage.app`,
+    messagingSenderId: messagingSenderId || "",
+    appId,
+    measurementId,
+  };
 }
 
 // ============================================================================
@@ -74,31 +106,21 @@ function initFirebase() {
     assertEnvWiring();
   } catch (error) {
     logger.error("[Firebase] Environment mismatch detected!", error);
-    // In production, fail hard. In dev, just warn.
     if (isProd()) {
       throw error;
     }
   }
 
-  const config = getFirebaseConfig();
-
-  // Guard: detect CI placeholder baked into bundle at build time.
-  // This happens when EXPO_PUBLIC_FIREBASE_* vars are missing from the
-  // deployment build environment (e.g. Vercel project settings).
-  if (config.apiKey === "CI_PLACEHOLDER" || config.projectId === "ci-placeholder") {
-    const msg =
-      "[Firebase] App was built without Firebase environment variables. " +
-      "Add EXPO_PUBLIC_FIREBASE_API_KEY and all other EXPO_PUBLIC_FIREBASE_* variables " +
-      "to your deployment environment (e.g. Vercel project settings) and redeploy. " +
-      "See .env.example for the full list of required variables.";
-    logger.error(msg);
-    // Don't throw — throwing here crashes the module and gives a worse error.
-    // Firebase SDK will surface auth/api-key-not-valid, which auth-errors.ts maps
-    // to a helpful user-facing message.
+  let config: FirebaseConfig;
+  try {
+    config = getFirebaseConfig();
+  } catch (error) {
+    logger.error(error instanceof Error ? error.message : "[Firebase] Failed to load config");
+    // Don't throw — auth operations will surface auth/api-key-not-valid which
+    // auth-errors.ts maps to a user-friendly message.
     return;
   }
 
-  // Log environment info in dev
   if (!isProd()) {
     const banner = getEnvBanner();
     logger.log(`[Firebase] ${banner}`);
