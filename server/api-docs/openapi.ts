@@ -7,7 +7,7 @@
  */
 
 import { apiDocumentation } from "./index";
-import type { APIEndpoint, APICategory } from "./types";
+import type { APIEndpoint } from "./types";
 
 interface OpenAPISpec {
   openapi: string;

@@ -19,7 +19,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { getDb, isDatabaseAvailable, getUserDisplayName } from "../db";
 import { authenticateUser } from "../auth/middleware";
-import { trickClips, clipViews, usernames, customUsers } from "@shared/schema";
+import { trickClips, clipViews } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
 import logger from "../logger";
 import { generateUploadUrls, UPLOAD_LIMITS } from "../services/storageService";
