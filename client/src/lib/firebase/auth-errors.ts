@@ -42,6 +42,14 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   "auth/expired-action-code": "This link has expired. Please request a new one.",
   "auth/invalid-action-code": "This link is invalid or has already been used.",
 
+  // Configuration errors
+  "auth/api-key-not-valid":
+    "Firebase is not configured correctly. The app was likely deployed without the required " +
+    "EXPO_PUBLIC_FIREBASE_* environment variables. Please contact support.",
+  "auth/invalid-api-key":
+    "Firebase is not configured correctly. The app was likely deployed without the required " +
+    "EXPO_PUBLIC_FIREBASE_* environment variables. Please contact support.",
+
   // Network / generic errors
   "auth/network-request-failed": "Network error. Check your connection and try again.",
   "auth/internal-error": "Something went wrong on our end. Please try again.",
@@ -76,12 +84,25 @@ function extractFirebaseErrorCode(error: unknown): string | null {
 /**
  * Convert a Firebase Auth error into a user-friendly message.
  * Falls back to a generic message if the error code is unrecognized.
+ *
+ * Firebase sometimes appends extra text to error codes (e.g. the actual code
+ * is "auth/api-key-not-valid.-please-pass-a-valid-api-key." not just the short
+ * "auth/api-key-not-valid"), so we also try a prefix match on the base slug.
  */
 export function getAuthErrorMessage(error: unknown): string {
   const code = extractFirebaseErrorCode(error);
 
-  if (code && AUTH_ERROR_MESSAGES[code]) {
-    return AUTH_ERROR_MESSAGES[code];
+  if (code) {
+    // Exact match first
+    if (AUTH_ERROR_MESSAGES[code]) {
+      return AUTH_ERROR_MESSAGES[code];
+    }
+    // Prefix match: strip everything after the first '.' following 'auth/'
+    // e.g. "auth/api-key-not-valid.-please-pass-a-valid-api-key." → "auth/api-key-not-valid"
+    const shortCode = code.replace(/^(auth\/[a-z-]+)\..*$/, "$1");
+    if (shortCode !== code && AUTH_ERROR_MESSAGES[shortCode]) {
+      return AUTH_ERROR_MESSAGES[shortCode];
+    }
   }
 
   // Fallback: if the error has a readable message that isn't a raw Firebase string
