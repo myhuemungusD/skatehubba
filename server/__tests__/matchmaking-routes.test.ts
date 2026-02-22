@@ -205,4 +205,19 @@ describe("POST /api/matchmaking/quick-match", () => {
     expect(res.json).toHaveBeenCalledWith({ error: "Failed to find match" });
     expect(logger.error).toHaveBeenCalled();
   });
+
+  it("should return 500 when sendQuickMatchNotification throws", async () => {
+    const opponents = [{ id: "opponent1", firstName: "Opponent", pushToken: "expo-token-1" }];
+    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
+    vi.mocked(getDb).mockReturnValue(buildMatchmakingDb(opponents) as any);
+    vi.mocked(sendQuickMatchNotification).mockRejectedValue(new Error("Push service down"));
+
+    const req = mockReq();
+    const res = mockRes();
+    await callHandler("POST /quick-match", req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: "Failed to find match" });
+    expect(logger.error).toHaveBeenCalled();
+  });
 });

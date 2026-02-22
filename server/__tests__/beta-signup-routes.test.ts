@@ -68,6 +68,8 @@ vi.mock("express", () => ({
 await import("../routes/betaSignup");
 
 const { getDb } = await import("../db");
+const { hashIp } = await import("../utils/ip");
+const { env } = await import("../config/env");
 
 // ============================================================================
 // Helpers
@@ -211,5 +213,42 @@ describe("POST /api/beta-signup", () => {
 
     expect(res.status).toHaveBeenCalledWith(500);
     expect(res.json).toHaveBeenCalledWith({ ok: false, error: "SERVER_ERROR" });
+  });
+
+  it("should pass hashed IP to database insert for new signups", async () => {
+    const db = buildMockDb({ selectResult: [] });
+    vi.mocked(getDb).mockReturnValue(db as any);
+
+    const req = mockReq({
+      body: { email: "hash@test.com", platform: "ios" },
+      headers: { "x-forwarded-for": "1.2.3.4" },
+    });
+    const res = mockRes();
+    await callHandler("POST /", req, res);
+
+    expect(hashIp).toHaveBeenCalled();
+    const insertValues = db.insert.mock.results[0]?.value.values.mock.calls[0][0];
+    expect(insertValues).toHaveProperty("ipHash", "hashed-ip");
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it("should omit ipHash when IP_HASH_SALT is empty", async () => {
+    const originalSalt = env.IP_HASH_SALT;
+    (env as any).IP_HASH_SALT = "";
+
+    const db = buildMockDb({ selectResult: [] });
+    vi.mocked(getDb).mockReturnValue(db as any);
+
+    const req = mockReq({
+      body: { email: "nosalt@test.com", platform: "android" },
+    });
+    const res = mockRes();
+    await callHandler("POST /", req, res);
+
+    const insertValues = db.insert.mock.results[0]?.value.values.mock.calls[0][0];
+    expect(insertValues).not.toHaveProperty("ipHash");
+    expect(res.status).toHaveBeenCalledWith(200);
+
+    (env as any).IP_HASH_SALT = originalSalt;
   });
 });

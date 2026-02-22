@@ -75,13 +75,18 @@ describe("GET /api/stats", () => {
     vi.clearAllMocks();
   });
 
-  it("should return aggregated stats", async () => {
+  it("should return aggregated stats with distinct counts per table", async () => {
     vi.mocked(isDatabaseAvailable).mockReturnValue(true);
 
+    const { customUsers, spots, games } = await import("@shared/schema");
+    const fromMock = vi.fn().mockImplementation((table: any) => {
+      if (table === customUsers) return Promise.resolve([{ count: 10 }]);
+      if (table === spots) return Promise.resolve([{ count: 25 }]);
+      if (table === games) return Promise.resolve([{ count: 7 }]);
+      return Promise.resolve([{ count: 0 }]);
+    });
     const mockDb = {
-      select: vi.fn().mockReturnValue({
-        from: vi.fn().mockResolvedValue([{ count: 42 }]),
-      }),
+      select: vi.fn().mockReturnValue({ from: fromMock }),
     };
     vi.mocked(getDb).mockReturnValue(mockDb as any);
 
@@ -89,10 +94,13 @@ describe("GET /api/stats", () => {
     const res = mockRes();
     await callHandler("GET /", req, res);
 
+    expect(fromMock).toHaveBeenCalledWith(customUsers);
+    expect(fromMock).toHaveBeenCalledWith(spots);
+    expect(fromMock).toHaveBeenCalledWith(games);
     expect(res.json).toHaveBeenCalledWith({
-      totalUsers: 42,
-      totalSpots: 42,
-      totalBattles: 42,
+      totalUsers: 10,
+      totalSpots: 25,
+      totalBattles: 7,
     });
   });
 

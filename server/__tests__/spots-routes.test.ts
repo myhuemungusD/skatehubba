@@ -75,15 +75,7 @@ vi.mock("../middleware/validation", () => ({
 }));
 
 vi.mock("../utils/ip", () => ({
-  getClientIp: vi.fn((req: any) => {
-    const fwd = req.headers?.["x-forwarded-for"];
-    if (typeof fwd === "string") return fwd.split(",")[0]?.trim();
-    if (Array.isArray(fwd) && fwd.length > 0) return fwd[0];
-    const realIp = req.headers?.["x-real-ip"];
-    if (typeof realIp === "string") return realIp;
-    if (Array.isArray(realIp)) return realIp[0];
-    return req.ip || null;
-  }),
+  getClientIp: vi.fn(() => "127.0.0.1"),
 }));
 
 vi.mock("@shared/schema", () => ({
@@ -591,98 +583,6 @@ describe("Spots Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith({ message: "Authentication required" });
-    });
-  });
-
-  // --------------------------------------------------------------------------
-  // getClientIp (tested indirectly through POST /api/spots audit logs)
-  // --------------------------------------------------------------------------
-  describe("getClientIp (via POST /api/spots audit logs)", () => {
-    it("should extract IP from x-forwarded-for string header", async () => {
-      vi.mocked(spotStorage.checkDuplicate).mockResolvedValue(false);
-      vi.mocked(spotStorage.createSpot).mockResolvedValue({ id: 1, lat: 0, lng: 0 } as any);
-
-      const res = mockRes();
-      await callHandler(
-        "POST /",
-        mockReq({
-          body: { name: "Spot", lat: 0, lng: 0 },
-          headers: { "x-forwarded-for": "203.0.113.1, 10.0.0.1" },
-        }),
-        res
-      );
-
-      expect(logAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ ip: "203.0.113.1" }));
-    });
-
-    it("should extract IP from x-forwarded-for array header", async () => {
-      vi.mocked(spotStorage.checkDuplicate).mockResolvedValue(false);
-      vi.mocked(spotStorage.createSpot).mockResolvedValue({ id: 2, lat: 0, lng: 0 } as any);
-
-      const res = mockRes();
-      await callHandler(
-        "POST /",
-        mockReq({
-          body: { name: "Spot2", lat: 0, lng: 0 },
-          headers: { "x-forwarded-for": ["198.51.100.1", "10.0.0.2"] },
-        }),
-        res
-      );
-
-      expect(logAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ ip: "198.51.100.1" }));
-    });
-
-    it("should fall back to x-real-ip header", async () => {
-      vi.mocked(spotStorage.checkDuplicate).mockResolvedValue(false);
-      vi.mocked(spotStorage.createSpot).mockResolvedValue({ id: 3, lat: 0, lng: 0 } as any);
-
-      const res = mockRes();
-      await callHandler(
-        "POST /",
-        mockReq({
-          body: { name: "Spot3", lat: 0, lng: 0 },
-          headers: { "x-real-ip": "192.0.2.1" },
-        }),
-        res
-      );
-
-      expect(logAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ ip: "192.0.2.1" }));
-    });
-
-    it("should fall back to req.ip when no forwarded headers", async () => {
-      vi.mocked(spotStorage.checkDuplicate).mockResolvedValue(false);
-      vi.mocked(spotStorage.createSpot).mockResolvedValue({ id: 5, lat: 0, lng: 0 } as any);
-
-      const res = mockRes();
-      await callHandler(
-        "POST /",
-        mockReq({
-          body: { name: "Spot5", lat: 0, lng: 0 },
-          headers: {},
-          ip: "127.0.0.1",
-        }),
-        res
-      );
-
-      expect(logAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ ip: "127.0.0.1" }));
-    });
-
-    it("should return null when no IP info is available", async () => {
-      vi.mocked(spotStorage.checkDuplicate).mockResolvedValue(false);
-      vi.mocked(spotStorage.createSpot).mockResolvedValue({ id: 6, lat: 0, lng: 0 } as any);
-
-      const res = mockRes();
-      await callHandler(
-        "POST /",
-        mockReq({
-          body: { name: "Spot6", lat: 0, lng: 0 },
-          headers: {},
-          ip: undefined,
-        }),
-        res
-      );
-
-      expect(logAuditEvent).toHaveBeenCalledWith(expect.objectContaining({ ip: null }));
     });
   });
 });

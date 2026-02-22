@@ -42,6 +42,11 @@ vi.mock("express", () => ({
 await import("../routes/posts");
 
 const { createPost } = await import("../services/moderationStore");
+const { enforceTrustAction } = await import("../middleware/trustSafety");
+
+// Capture enforceTrustAction call info before clearAllMocks resets it
+const enforceTrustActionCallArgs = vi.mocked(enforceTrustAction).mock.calls.map((c) => [...c]);
+const enforceTrustActionReturnedMw = vi.mocked(enforceTrustAction).mock.results.map((r) => r.value);
 
 // ============================================================================
 // Helpers
@@ -136,5 +141,13 @@ describe("POST /api/posts", () => {
     await callHandler("POST /", req, res);
 
     expect(res.status).toHaveBeenCalledWith(401);
+  });
+
+  it("should register enforceTrustAction middleware with 'post' argument", () => {
+    // enforceTrustAction is called at module load time; captured before clearAllMocks
+    expect(enforceTrustActionCallArgs).toContainEqual(["post"]);
+    // Verify the returned middleware is in the route handler chain
+    const handlers = routeHandlers["POST /"];
+    expect(handlers).toContain(enforceTrustActionReturnedMw[0]);
   });
 });
