@@ -45,6 +45,7 @@ vi.mock("pg", () => {
     connect = vi.fn();
     end = vi.fn();
     query = vi.fn();
+    on = vi.fn();
   }
   return { default: { Pool: MockPool } };
 });
@@ -53,6 +54,10 @@ vi.mock("../../config/env", () => ({
   env: {
     DATABASE_URL: "mock-db://test",
     NODE_ENV: "production",
+    DB_POOL_MAX: 20,
+    DB_POOL_IDLE_TIMEOUT_MS: 30000,
+    DB_POOL_CONNECTION_TIMEOUT_MS: 5000,
+    DB_STATEMENT_TIMEOUT_MS: 30000,
   },
 }));
 

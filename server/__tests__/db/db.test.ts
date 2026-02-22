@@ -47,7 +47,7 @@ vi.mock("drizzle-orm/node-postgres", () => ({
 
 vi.mock("pg", () => ({
   default: {
-    Pool: vi.fn(() => ({})),
+    Pool: vi.fn(() => ({ on: vi.fn() })),
   },
 }));
 

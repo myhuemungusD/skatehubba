@@ -29,6 +29,10 @@ vi.mock("../../config/env", () => ({
   env: {
     DATABASE_URL: "mock-database-url-for-testing",
     NODE_ENV: "test",
+    DB_POOL_MAX: 20,
+    DB_POOL_IDLE_TIMEOUT_MS: 30000,
+    DB_POOL_CONNECTION_TIMEOUT_MS: 5000,
+    DB_STATEMENT_TIMEOUT_MS: 30000,
   },
 }));
 
@@ -58,6 +62,7 @@ vi.mock("drizzle-orm/node-postgres", () => ({
 vi.mock("pg", () => {
   const MockPool = vi.fn(function (this: any) {
     this.end = vi.fn();
+    this.on = vi.fn();
     return this;
   });
   return { default: { Pool: MockPool } };
