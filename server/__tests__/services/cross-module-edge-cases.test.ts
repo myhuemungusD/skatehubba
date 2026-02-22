@@ -7,7 +7,7 @@
  * 4. server/monitoring/index.ts — percentile with empty array, npm_package_version undefined
  * 5. server/db.ts              — getUserDisplayName fallback to "Skater"
  * 6. server/logger.ts          — redact skips falsy values, maskIfSensitive non-sensitive
- * 7. server/routes.ts          — verifyCronSecret with no CRON_SECRET configured
+ * 7. server/middleware/cronAuth.ts — verifyCronSecret with no CRON_SECRET configured
  * 8. client/src/lib/api/errors.ts — extractCode nested error object, extractMessage fallback
  */
 
@@ -362,16 +362,16 @@ describe("Monitoring — percentile and version coverage", () => {
 // test files to avoid conflicts with module-level vi.mock() from other files.
 
 // ===========================================================================
-// 7. routes.ts — verifyCronSecret with no CRON_SECRET
+// 7. middleware/cronAuth.ts — verifyCronSecret with no CRON_SECRET
 // ===========================================================================
 
-describe("routes.ts — verifyCronSecret with no CRON_SECRET", () => {
+describe("verifyCronSecret with no CRON_SECRET", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
   });
 
-  it("returns 401 when CRON_SECRET is not configured", async () => {
+  it("returns false when CRON_SECRET is not configured", async () => {
     // Save and clear CRON_SECRET
     const origCronSecret = process.env.CRON_SECRET;
     delete process.env.CRON_SECRET;
@@ -387,184 +387,15 @@ describe("routes.ts — verifyCronSecret with no CRON_SECRET", () => {
       })),
     }));
 
-    vi.doMock("../../config/env", () => ({
-      env: { NODE_ENV: "test", IP_HASH_SALT: "salt" },
-    }));
+    const { verifyCronSecret } = await import("../../middleware/cronAuth");
+    const logger = (await import("../../logger")).default;
 
-    vi.doMock("../../db", () => ({
-      getDb: vi.fn(),
-      isDatabaseAvailable: () => false,
-    }));
+    const result = verifyCronSecret("Bearer some-secret");
 
-    vi.doMock("../../auth/routes", () => ({
-      setupAuthRoutes: vi.fn(),
-    }));
-
-    vi.doMock("../../storage/spots", () => ({
-      spotStorage: {},
-    }));
-
-    vi.doMock("@shared/schema", () => ({
-      customUsers: {},
-      spots: {},
-      games: {},
-      betaSignups: {},
-      insertSpotSchema: {},
-    }));
-
-    vi.doMock("drizzle-orm", () => ({
-      ilike: vi.fn(),
-      or: vi.fn(),
-      eq: vi.fn(),
-      and: vi.fn(),
-      count: vi.fn(),
-      sql: vi.fn(),
-    }));
-
-    vi.doMock("../../middleware/security", () => ({
-      checkInIpLimiter: vi.fn((_r: any, _s: any, n: Function) => n()),
-      perUserCheckInLimiter: vi.fn((_r: any, _s: any, n: Function) => n()),
-      perUserSpotWriteLimiter: vi.fn((_r: any, _s: any, n: Function) => n()),
-      publicWriteLimiter: vi.fn((_r: any, _s: any, n: Function) => n()),
-      quickMatchLimiter: vi.fn((_r: any, _s: any, n: Function) => n()),
-      spotRatingLimiter: vi.fn((_r: any, _s: any, n: Function) => n()),
-      spotDiscoveryLimiter: vi.fn((_r: any, _s: any, n: Function) => n()),
-    }));
-
-    vi.doMock("../../middleware/csrf", () => ({
-      requireCsrfToken: vi.fn((_r: any, _s: any, n: Function) => n()),
-    }));
-
-    vi.doMock("../../middleware/trustSafety", () => ({
-      enforceTrustAction: vi.fn(() => (_r: any, _s: any, n: Function) => n()),
-    }));
-
-    vi.doMock("@shared/validation/betaSignup", () => ({
-      BetaSignupInput: {},
-    }));
-
-    vi.doMock("../../auth/middleware", () => ({
-      authenticateUser: vi.fn((_r: any, _s: any, n: Function) => n()),
-      requireEmailVerification: vi.fn((_r: any, _s: any, n: Function) => n()),
-    }));
-
-    vi.doMock("../../services/spotService", () => ({
-      verifyAndCheckIn: vi.fn(),
-    }));
-
-    vi.doMock("../../services/osmDiscovery", () => ({
-      discoverSkateparks: vi.fn(),
-      isAreaCached: vi.fn(),
-    }));
-
-    vi.doMock("../../routes/analytics", () => ({
-      analyticsRouter: { use: vi.fn() },
-    }));
-
-    vi.doMock("../../routes/metrics", () => ({
-      metricsRouter: { use: vi.fn() },
-    }));
-
-    vi.doMock("../../middleware/validation", () => ({
-      validateBody: vi.fn(() => (_r: any, _s: any, n: Function) => n()),
-    }));
-
-    vi.doMock("@shared/validation/spotCheckIn", () => ({
-      SpotCheckInSchema: {},
-    }));
-
-    vi.doMock("../../services/auditLog", () => ({
-      logAuditEvent: vi.fn(),
-    }));
-
-    vi.doMock("../../services/replayProtection", () => ({
-      verifyReplayProtection: vi.fn(),
-    }));
-
-    vi.doMock("../../routes/moderation", () => ({
-      moderationRouter: { use: vi.fn() },
-    }));
-
-    vi.doMock("../../routes/admin", () => ({
-      adminRouter: { use: vi.fn() },
-    }));
-
-    vi.doMock("../../services/moderationStore", () => ({
-      createPost: vi.fn(),
-    }));
-
-    vi.doMock("../../services/notificationService", () => ({
-      sendQuickMatchNotification: vi.fn(),
-    }));
-
-    vi.doMock("../../routes/profile", () => ({
-      profileRouter: { use: vi.fn() },
-    }));
-
-    vi.doMock("../../routes/games", () => ({
-      gamesRouter: { use: vi.fn() },
-      forfeitExpiredGames: vi.fn(),
-      notifyDeadlineWarnings: vi.fn(),
-    }));
-
-    vi.doMock("../../routes/trickmint", () => ({
-      trickmintRouter: { use: vi.fn() },
-    }));
-
-    vi.doMock("../../routes/tier", () => ({
-      tierRouter: { use: vi.fn() },
-    }));
-
-    vi.doMock("../../routes/stripeWebhook", () => ({
-      stripeWebhookRouter: { use: vi.fn() },
-    }));
-
-    vi.doMock("../../middleware/requirePaidOrPro", () => ({
-      requirePaidOrPro: vi.fn((_r: any, _s: any, n: Function) => n()),
-    }));
-
-    vi.doMock("../../routes/notifications", () => ({
-      notificationsRouter: { use: vi.fn() },
-    }));
-
-    vi.doMock("../../routes/remoteSkate", () => ({
-      remoteSkateRouter: { use: vi.fn() },
-    }));
-
-    vi.doMock("../../middleware/bandwidth", () => ({
-      bandwidthDetection: vi.fn((_r: any, _s: any, n: Function) => n()),
-    }));
-
-    const { registerRoutes } = await import("../../routes");
-
-    // Build a minimal express-like app to capture route handlers
-    const postRoutes: Record<string, Function> = {};
-    const app: any = {
-      get: vi.fn((path: string, ...args: Function[]) => {
-        // store last handler
-      }),
-      post: vi.fn((path: string, ...args: Function[]) => {
-        postRoutes[path] = args[args.length - 1];
-      }),
-      use: vi.fn(),
-    };
-
-    await registerRoutes(app);
-
-    // Call the forfeit-expired-games cron endpoint with no CRON_SECRET
-    const cronHandler = postRoutes["/api/cron/forfeit-expired-games"];
-    expect(cronHandler).toBeDefined();
-
-    const req: any = { headers: { authorization: "Bearer some-secret" } };
-    const res: any = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn().mockReturnThis(),
-    };
-
-    await cronHandler(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ error: "Unauthorized" });
+    expect(result).toBe(false);
+    expect(logger.warn).toHaveBeenCalledWith(
+      "[Cron] CRON_SECRET not configured — rejecting request"
+    );
 
     // Restore
     if (origCronSecret !== undefined) {
