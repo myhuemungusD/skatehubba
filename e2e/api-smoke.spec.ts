@@ -33,7 +33,7 @@ async function postBypassCsrf(
     data: data ?? {},
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Bearer __smoke_test__",
+      Authorization: "Bearer __e2e_csrf_bypass_not_a_real_token__",
     },
   });
 }
