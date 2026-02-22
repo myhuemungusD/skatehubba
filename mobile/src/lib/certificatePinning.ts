@@ -70,7 +70,7 @@ export function initCertificatePinning(): void {
 
   if (cachedConfig.enabled) {
     const domainNames = cachedConfig.domains.map((d: PinnedDomain) => d.hostname).join(", ");
-    console.log(`[CertPinning] Active for: ${domainNames}`);
+    console.warn(`[CertPinning] Active for: ${domainNames}`);
     checkPinExpiration(cachedConfig);
   } else if (typeof __DEV__ !== "undefined" && !__DEV__) {
     // Warn in non-dev builds if pinning is disabled
@@ -314,7 +314,7 @@ function checkPinExpiration(config: CertificatePinningConfig): void {
         `(${config.pinExpiration}). Schedule pin rotation.`
     );
   } else if (daysUntilExpiry <= 90) {
-    console.log(
+    console.warn(
       `[CertPinning] Pin expiration: ${config.pinExpiration} ` +
         `(${daysUntilExpiry} days remaining)`
     );

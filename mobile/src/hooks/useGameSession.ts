@@ -173,6 +173,7 @@ async function uploadWithRetry(
     } catch (error) {
       lastError = error as Error;
       if (attempt < MAX_RETRIES) {
+        // eslint-disable-next-line no-console
         console.log(`[Upload] Retry ${attempt + 1}/${MAX_RETRIES} after error`);
         await sleep(RETRY_DELAYS[attempt]);
         onProgress(0); // Reset progress for retry
