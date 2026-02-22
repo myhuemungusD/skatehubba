@@ -42,6 +42,14 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   "auth/expired-action-code": "This link has expired. Please request a new one.",
   "auth/invalid-action-code": "This link is invalid or has already been used.",
 
+  // Configuration errors
+  "auth/api-key-not-valid":
+    "Firebase is not configured correctly. The app was likely deployed without the required " +
+    "EXPO_PUBLIC_FIREBASE_* environment variables. Please contact support.",
+  "auth/invalid-api-key":
+    "Firebase is not configured correctly. The app was likely deployed without the required " +
+    "EXPO_PUBLIC_FIREBASE_* environment variables. Please contact support.",
+
   // Network / generic errors
   "auth/network-request-failed": "Network error. Check your connection and try again.",
   "auth/internal-error": "Something went wrong on our end. Please try again.",

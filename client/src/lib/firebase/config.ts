@@ -82,6 +82,22 @@ function initFirebase() {
 
   const config = getFirebaseConfig();
 
+  // Guard: detect CI placeholder baked into bundle at build time.
+  // This happens when EXPO_PUBLIC_FIREBASE_* vars are missing from the
+  // deployment build environment (e.g. Vercel project settings).
+  if (config.apiKey === "CI_PLACEHOLDER" || config.projectId === "ci-placeholder") {
+    const msg =
+      "[Firebase] App was built without Firebase environment variables. " +
+      "Add EXPO_PUBLIC_FIREBASE_API_KEY and all other EXPO_PUBLIC_FIREBASE_* variables " +
+      "to your deployment environment (e.g. Vercel project settings) and redeploy. " +
+      "See .env.example for the full list of required variables.";
+    logger.error(msg);
+    // Don't throw — throwing here crashes the module and gives a worse error.
+    // Firebase SDK will surface auth/api-key-not-valid, which auth-errors.ts maps
+    // to a helpful user-facing message.
+    return;
+  }
+
   // Log environment info in dev
   if (!isProd()) {
     const banner = getEnvBanner();

@@ -17,6 +17,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useAuthStore } from "../store/authStore";
 import { logger } from "../lib/logger";
 import { setAuthPersistence } from "../lib/firebase";
+import { getAuthErrorMessage } from "../lib/firebase/auth-errors";
 import { isEmbeddedBrowser } from "./auth/authSchemas";
 import { SignInTab } from "./auth/SignInTab";
 import { SignUpTab } from "./auth/SignUpTab";
@@ -108,7 +109,7 @@ export default function AuthPage() {
       });
       redirectAfterSignIn();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Google sign in failed";
+      const message = getAuthErrorMessage(error);
       toast({
         title: "Google Sign In Failed",
         description: message,
