@@ -187,7 +187,7 @@ const mockDb = {
 const mockGetDb = vi.fn(() => mockDb);
 
 vi.mock("../../db", () => ({
-  getDb: (...args: any[]) => mockGetDb(...args),
+  getDb: () => mockGetDb(),
 }));
 
 // -- Stripe mock (using vi.hoisted to ensure availability in factory) ---------
