@@ -92,7 +92,7 @@ export function createMockDb(defaultResult: unknown = []): { db: MockDb; chain: 
   ] as const;
 
   for (const method of methods) {
-    (chain as Record<string, unknown>)[method] = vi.fn(self);
+    (chain as unknown as Record<string, unknown>)[method] = vi.fn(self);
   }
 
   // Terminal `.then()` — makes the chain thenable (awaitable)
