@@ -1,13 +1,12 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, Navigation as NavigationIcon, Plus, Eye, Search, Loader2 } from "lucide-react";
-import { type Spot, SPOT_TYPES } from "@shared/schema";
+import { MapPin, Navigation as NavigationIcon, Plus, Eye, Loader2 } from "lucide-react";
+import { type Spot } from "@shared/schema";
 import { AddSpotModal } from "../components/map/AddSpotModal";
 import { SpotDetailModal } from "../components/map/SpotDetailModal";
 import { SpotMap } from "../components/SpotMap";
 import { Button } from "../components/ui/button";
 import { Card, CardContent } from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
 import { useToast } from "../hooks/use-toast";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useAccountTier } from "../hooks/useAccountTier";
@@ -51,8 +50,6 @@ export default function MapPage() {
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
 
   // Handle return from Stripe Checkout
   useEffect(() => {
@@ -191,28 +188,10 @@ export default function MapPage() {
     });
   }, [spots, userLocation]);
 
-  // Filter spots based on search and type
-  const filteredSpots = useMemo(() => {
-    let result = spotsWithDistance;
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (s) => s.name.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q)
-      );
-    }
-
-    if (activeTypeFilter) {
-      result = result.filter((s) => s.spotType === activeTypeFilter);
-    }
-
-    return result;
-  }, [spotsWithDistance, searchQuery, activeTypeFilter]);
-
   // Pre-compute check-in count to avoid .filter() in render
   const checkInRangeCount = useMemo(() => {
-    return filteredSpots.filter((s) => s.proximity === "here").length;
-  }, [filteredSpots]);
+    return spotsWithDistance.filter((s) => s.proximity === "here").length;
+  }, [spotsWithDistance]);
 
   // Selected spot from existing data - avoids redundant API fetch in modal
   const selectedSpot = useMemo<SpotWithDistance | null>(() => {
@@ -286,11 +265,11 @@ export default function MapPage() {
     }
 
     if (geolocation.status === "ready") {
-      if (filteredSpots.length === 0 && !searchQuery && !activeTypeFilter) {
+      if (spotsWithDistance.length === 0) {
         return (
           <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-            <Search className="w-3 h-3" />
-            No spots nearby yet. Drop a pin to add one!
+            <MapPin className="w-3 h-3" />
+            No spots nearby yet. Add one!
           </p>
         );
       }
@@ -322,10 +301,8 @@ export default function MapPage() {
     isSpotsLoading,
     isUsingDemoSpots,
     geolocation.status,
-    filteredSpots.length,
+    spotsWithDistance.length,
     checkInRangeCount,
-    searchQuery,
-    activeTypeFilter,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -345,7 +322,7 @@ export default function MapPage() {
           </div>
         ) : (
           <SpotMap
-            spots={filteredSpots}
+            spots={spotsWithDistance}
             userLocation={userLocation}
             selectedSpotId={selectedSpotId}
             onSelectSpot={handleSelectSpot}
@@ -377,53 +354,17 @@ export default function MapPage() {
         {/* Floating Header */}
         <header className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none">
           <Card className="bg-black/80 border-gray-600 backdrop-blur-md pointer-events-auto">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-2xl font-bold text-[#fafafa] flex items-center gap-2">
-                    <MapPin className="w-6 h-6 text-[#ff6a00]" aria-hidden="true" />
+                  <h1 className="text-xl font-bold text-[#fafafa] flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-[#ff6a00]" aria-hidden="true" />
                     Skate Spots
                     {!isSpotsLoading && spots.length > 0 && (
                       <span className="text-sm font-normal text-gray-500">({spots.length})</span>
                     )}
                   </h1>
                   {renderStatusMessage()}
-                </div>
-              </div>
-
-              {/* Search and Filters */}
-              <div className="space-y-3">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search spots..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-10 pl-9 pr-4 rounded-lg bg-neutral-900/50 border border-gray-700 text-white placeholder:text-gray-500 focus:outline-none focus:border-[#ff6a00] focus:ring-1 focus:ring-[#ff6a00] transition-all text-sm"
-                    data-testid="input-spot-search"
-                  />
-                </div>
-
-                <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-1 px-1">
-                  <Badge
-                    variant={activeTypeFilter === null ? "default" : "outline"}
-                    className={`cursor-pointer whitespace-nowrap ${activeTypeFilter === null ? "bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90" : "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"}`}
-                    onClick={() => setActiveTypeFilter(null)}
-                  >
-                    All
-                  </Badge>
-                  {SPOT_TYPES.map((type) => (
-                    <Badge
-                      key={type}
-                      variant={activeTypeFilter === type ? "default" : "outline"}
-                      className={`cursor-pointer whitespace-nowrap capitalize ${activeTypeFilter === type ? "bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90" : "text-gray-400 border-gray-700 hover:text-white hover:border-gray-500"}`}
-                      onClick={() => setActiveTypeFilter(type === activeTypeFilter ? null : type)}
-                      data-testid={`filter-${type}`}
-                    >
-                      {type.replace("-", " ")}
-                    </Badge>
-                  ))}
                 </div>
               </div>
             </CardContent>

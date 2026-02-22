@@ -2,8 +2,9 @@ import logger from "../logger";
 import { getRedisClient } from "../redis";
 
 /**
- * Service that discovers skateparks near a location using OpenStreetMap's Overpass API.
- * This is a free, no-API-key-required data source for real-world skatepark locations.
+ * Service that discovers skateparks and skate shops near a location using
+ * OpenStreetMap's Overpass API. This is a free, no-API-key-required data
+ * source for real-world skatepark and skate shop locations.
  */
 
 interface OverpassElement {
@@ -22,7 +23,7 @@ interface OverpassResponse {
 export interface DiscoveredSpot {
   name: string;
   description: string;
-  spotType: "park" | "bowl" | "street";
+  spotType: "park" | "bowl" | "street" | "other";
   lat: number;
   lng: number;
   address: string;
@@ -82,8 +83,9 @@ export async function isAreaCached(lat: number, lng: number): Promise<boolean> {
 }
 
 /**
- * Query OpenStreetMap Overpass API for skateparks near a lat/lng.
- * Searches for leisure=pitch+sport=skateboard and leisure=skatepark within a radius.
+ * Query OpenStreetMap Overpass API for skateparks and skate shops near a lat/lng.
+ * Searches for leisure=pitch+sport=skateboard, leisure=skatepark, and
+ * shop=sports+sport=skateboard within a radius.
  * Results are cached per grid cell to avoid repeated API calls.
  */
 export async function discoverSkateparks(
@@ -104,7 +106,7 @@ export async function discoverSkateparks(
     logger.info(`Skipping OSM discovery - area already cached for (${lat}, ${lng})`);
     return [];
   }
-  // Overpass QL query: find skateparks (nodes, ways, relations) within radius
+  // Overpass QL query: find skateparks and skate shops within radius
   const query = `
     [out:json][timeout:10];
     (
@@ -116,6 +118,10 @@ export async function discoverSkateparks(
       relation["leisure"="skatepark"](around:${radiusMeters},${lat},${lng});
       node["sport"="skateboard"](around:${radiusMeters},${lat},${lng});
       way["sport"="skateboard"](around:${radiusMeters},${lat},${lng});
+      node["shop"="sports"]["sport"="skateboard"](around:${radiusMeters},${lat},${lng});
+      way["shop"="sports"]["sport"="skateboard"](around:${radiusMeters},${lat},${lng});
+      node["shop"="skateboard"](around:${radiusMeters},${lat},${lng});
+      way["shop"="skateboard"](around:${radiusMeters},${lat},${lng});
     );
     out center tags;
   `;
@@ -155,7 +161,9 @@ export async function discoverSkateparks(
       if (!elLat || !elLng) continue;
 
       const tags = el.tags ?? {};
-      const name = tags.name || tags["name:en"] || "Skatepark";
+      const isShop = tags.shop === "skateboard" || (tags.shop === "sports" && tags.sport === "skateboard");
+      const defaultName = isShop ? "Skate Shop" : "Skatepark";
+      const name = tags.name || tags["name:en"] || defaultName;
 
       // Skip unnamed nodes that are just sport=skateboard tags on random things
       if (name === "Skatepark" && !tags.leisure) continue;
@@ -188,7 +196,7 @@ export async function discoverSkateparks(
       discoveryCacheFallback.set(cacheKey, Date.now());
     }
 
-    logger.info(`Discovered ${results.length} skateparks from OSM near (${lat}, ${lng})`);
+    logger.info(`Discovered ${results.length} spots (parks/shops) from OSM near (${lat}, ${lng})`);
     return results;
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
@@ -204,6 +212,7 @@ export async function discoverSkateparks(
 
 function buildDescription(tags: Record<string, string>): string {
   const parts: string[] = [];
+  const isShop = tags.shop === "skateboard" || (tags.shop === "sports" && tags.sport === "skateboard");
 
   if (tags.description) return tags.description;
 
@@ -213,10 +222,13 @@ function buildDescription(tags: Record<string, string>): string {
   if (tags.opening_hours) parts.push(`Hours: ${tags.opening_hours}`);
   if (tags.wheelchair === "yes") parts.push("Wheelchair accessible");
   if (tags.covered === "yes") parts.push("Covered/indoor");
+  if (tags.phone) parts.push(`Phone: ${tags.phone}`);
+  if (tags.website) parts.push(`Website: ${tags.website}`);
 
+  const label = isShop ? "Skate shop" : "Skatepark";
   return parts.length > 0
-    ? `Skatepark discovered from OpenStreetMap. ${parts.join(". ")}.`
-    : "Skatepark discovered from OpenStreetMap.";
+    ? `${label} discovered from OpenStreetMap. ${parts.join(". ")}.`
+    : `${label} discovered from OpenStreetMap.`;
 }
 
 function buildAddress(tags: Record<string, string>): string {
@@ -231,7 +243,10 @@ function buildAddress(tags: Record<string, string>): string {
   return parts.join(", ");
 }
 
-function inferSpotType(tags: Record<string, string>): "park" | "bowl" | "street" {
+function inferSpotType(tags: Record<string, string>): "park" | "bowl" | "street" | "other" {
+  const isShop = tags.shop === "skateboard" || (tags.shop === "sports" && tags.sport === "skateboard");
+  if (isShop) return "other";
+
   const name = (tags.name || "").toLowerCase();
   if (name.includes("bowl")) return "bowl";
   if (tags.leisure === "skatepark" || tags.leisure === "pitch") return "park";

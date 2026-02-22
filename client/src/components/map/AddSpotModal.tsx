@@ -1,7 +1,7 @@
-import type { FormEvent } from "react";
-import { useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import { useRef, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { AlertCircle, Loader2, MapPin } from "lucide-react";
+import { AlertCircle, Camera, Loader2, MapPin, X } from "lucide-react";
 import type { GeolocationStatus } from "@/hooks/useGeolocation";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,31 +24,31 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { insertSpotSchema, SPOT_TYPES, SPOT_TIERS, type InsertSpot } from "@shared/schema";
+import { insertSpotSchema, SPOT_TIERS, type InsertSpot } from "@shared/schema";
 
-const SPOT_TYPE_LABELS: Record<string, string> = {
-  rail: " Rail",
-  ledge: " Ledge",
-  stairs: " Stairs",
-  gap: " Gap",
-  bank: " Bank",
-  "manual-pad": " Manual Pad",
-  flat: " Flat Ground",
-  bowl: " Bowl",
-  "mini-ramp": " Mini Ramp",
-  vert: " Vert",
-  diy: " DIY",
-  park: " Skate Park",
-  street: " Street",
-  other: " Other",
-};
+// Street spot types only — parks, bowls, ramps are pre-loaded from OSM
+const STREET_SPOT_TYPES = [
+  { value: "rail", label: "Rail" },
+  { value: "ledge", label: "Ledge" },
+  { value: "stairs", label: "Stairs" },
+  { value: "gap", label: "Gap" },
+  { value: "bank", label: "Bank" },
+  { value: "manual-pad", label: "Manual Pad" },
+  { value: "flat", label: "Flat Ground" },
+  { value: "diy", label: "DIY" },
+  { value: "street", label: "Street" },
+  { value: "other", label: "Other" },
+] as const;
 
 const TIER_LABELS: Record<string, string> = {
-  bronze: " Bronze - Local spot",
-  silver: " Silver - Worth the trip",
-  gold: " Gold - Must skate",
-  legendary: " Legendary - Iconic",
+  bronze: "Bronze - Local spot",
+  silver: "Silver - Worth the trip",
+  gold: "Gold - Must skate",
+  legendary: "Legendary - Iconic",
 };
+
+const MAX_IMAGES = 3;
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 
 interface AddSpotModalProps {
   isOpen: boolean;
@@ -66,10 +66,12 @@ export function AddSpotModal({
   geolocationErrorCode,
 }: AddSpotModalProps) {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [spotType, setSpotType] = useState<string>("street");
   const [tier, setTier] = useState<string>("bronze");
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const isLocationReady = Boolean(userLocation && userLocation.lat !== 0 && userLocation.lng !== 0);
 
@@ -81,8 +83,8 @@ export function AddSpotModal({
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["/api/spots"] });
       toast({
-        title: " Spot Saved!",
-        description: "Your spot is now live on the map. Thanks for contributing!",
+        title: "Spot Saved!",
+        description: "Your spot is now live on the map.",
       });
       handleClose();
     },
@@ -100,7 +102,57 @@ export function AddSpotModal({
     setDescription("");
     setSpotType("street");
     setTier("bronze");
+    setImagePreviews([]);
     onClose();
+  };
+
+  const handleImageSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const remaining = MAX_IMAGES - imagePreviews.length;
+    if (remaining <= 0) {
+      toast({
+        title: "Max images reached",
+        description: `You can upload up to ${MAX_IMAGES} images.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const filesToProcess = Array.from(files).slice(0, remaining);
+
+    for (const file of filesToProcess) {
+      if (file.size > MAX_IMAGE_SIZE_BYTES) {
+        toast({
+          title: "Image too large",
+          description: `${file.name} exceeds 5 MB. Pick a smaller image.`,
+          variant: "destructive",
+        });
+        continue;
+      }
+
+      if (!file.type.startsWith("image/")) {
+        continue;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setImagePreviews((prev) => {
+          if (prev.length >= MAX_IMAGES) return prev;
+          return [...prev, result];
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Reset input so the same file can be selected again
+    event.target.value = "";
+  };
+
+  const removeImage = (index: number) => {
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -128,7 +180,7 @@ export function AddSpotModal({
     const payload = insertSpotSchema.parse({
       name: trimmedName,
       description: description.trim() || undefined,
-      spotType: spotType as (typeof SPOT_TYPES)[number],
+      spotType: spotType as "street" | "rail" | "ledge" | "stairs" | "gap" | "bank" | "manual-pad" | "flat" | "diy" | "other",
       tier: tier as (typeof SPOT_TIERS)[number],
       lat: userLocation.lat,
       lng: userLocation.lng,
@@ -143,10 +195,10 @@ export function AddSpotModal({
         <DialogHeader>
           <DialogTitle className="text-[#ff6a00] flex items-center gap-2">
             <MapPin className="w-5 h-5" />
-            Add New Spot
+            Add Street Spot
           </DialogTitle>
           <DialogDescription className="text-gray-400">
-            Add a spot at your current location. Fill in the details below.
+            Pinned at your current location.
           </DialogDescription>
         </DialogHeader>
 
@@ -188,7 +240,7 @@ export function AddSpotModal({
                 <MapPin className="w-4 h-4 text-gray-400" />
                 <span className="text-sm text-gray-400">
                   {geolocationErrorCode === "unsupported"
-                    ? "Location is not supported by your browser. Enter coordinates manually."
+                    ? "Location is not supported by your browser."
                     : "Browsing without location. Cannot pin a spot."}
                 </span>
               </div>
@@ -210,7 +262,7 @@ export function AddSpotModal({
               id="spot-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="e.g., Love Park, Hollywood High"
+              placeholder="e.g., Hollywood High 16, Love Park ledge"
               className="bg-neutral-800 border-neutral-700 text-white placeholder:text-gray-500"
               data-testid="input-spot-name"
               autoFocus
@@ -218,19 +270,19 @@ export function AddSpotModal({
             />
           </div>
 
-          {/* Spot Type */}
+          {/* Spot Type - street types only */}
           <div className="space-y-2">
             <Label htmlFor="spot-type" className="text-gray-300">
               Spot Type
             </Label>
             <Select value={spotType} onValueChange={setSpotType}>
               <SelectTrigger className="bg-neutral-800 border-neutral-700 text-white">
-                <SelectValue placeholder="Select spot type" />
+                <SelectValue placeholder="What kind of spot?" />
               </SelectTrigger>
               <SelectContent className="bg-neutral-800 border-neutral-700">
-                {SPOT_TYPES.map((type) => (
-                  <SelectItem key={type} value={type} className="text-white hover:bg-neutral-700">
-                    {SPOT_TYPE_LABELS[type] || type}
+                {STREET_SPOT_TYPES.map((type) => (
+                  <SelectItem key={type.value} value={type.value} className="text-white hover:bg-neutral-700">
+                    {type.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -265,12 +317,58 @@ export function AddSpotModal({
               id="spot-description"
               value={description}
               onChange={(event) => setDescription(event.target.value)}
-              placeholder="What makes this spot special? Any tips for other skaters?"
+              placeholder="Waxed ledge, security kicks you out after 6pm..."
               className="bg-neutral-800 border-neutral-700 text-white placeholder:text-gray-500 resize-none"
               rows={3}
               maxLength={1000}
             />
-            <p className="text-xs text-gray-500">{description.length}/1000</p>
+          </div>
+
+          {/* Image Upload */}
+          <div className="space-y-2">
+            <Label className="text-gray-300">
+              Photos ({imagePreviews.length}/{MAX_IMAGES})
+            </Label>
+
+            {/* Image Previews */}
+            {imagePreviews.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {imagePreviews.map((src, i) => (
+                  <div key={i} className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-neutral-700">
+                    <img src={src} alt={`Spot photo ${i + 1}`} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(i)}
+                      className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center"
+                    >
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Add Photo Button */}
+            {imagePreviews.length < MAX_IMAGES && (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full p-3 border border-dashed border-neutral-700 rounded-lg bg-neutral-800/30 text-center hover:border-[#ff6a00]/50 hover:bg-neutral-800/50 transition-colors"
+              >
+                <Camera className="w-6 h-6 mx-auto mb-1 text-gray-400" />
+                <p className="text-sm text-gray-400">Tap to add a photo</p>
+              </button>
+            )}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImageSelect}
+              className="hidden"
+              capture="environment"
+            />
           </div>
 
           <DialogFooter className="gap-2 sm:gap-0 pt-2">
@@ -294,7 +392,7 @@ export function AddSpotModal({
                   Saving...
                 </span>
               ) : (
-                " Save Spot"
+                "Save Spot"
               )}
             </Button>
           </DialogFooter>
