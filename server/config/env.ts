@@ -123,8 +123,15 @@ const envSchema = z.object({
   APP_CHECK_MODE: z.enum(["monitor", "warn", "enforce"]).default("monitor"),
 
   // Spot check-in radius in metres (service hard cap: 150m)
-  CHECK_IN_RADIUS_METERS: z.coerce.number().positive().max(150, "CHECK_IN_RADIUS_METERS cannot exceed 150m (service hard cap)").default(100),
+  CHECK_IN_RADIUS_METERS: z.coerce
+    .number()
+    .positive()
+    .max(150, "CHECK_IN_RADIUS_METERS cannot exceed 150m (service hard cap)")
+    .default(100),
 });
+
+/** Errors collected during env validation (empty = all good). */
+export let envErrors: string[] = [];
 
 function validateEnv() {
   // Skip validation in test mode - unit tests shouldn't require DB secrets
@@ -139,15 +146,45 @@ function validateEnv() {
     } as z.infer<typeof envSchema>;
   }
 
-  try {
-    return envSchema.parse(process.env);
-  } catch (error) {
-    if (error instanceof z.ZodError) {
-      const missing = error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("\n");
-      throw new Error(`Environment validation failed:\n${missing}`);
-    }
-    throw error;
+  // In serverless (Vercel), crashing at module-load time means EVERY route
+  // returns a blank 500 — including health/diagnostic endpoints.  Parse
+  // with safeParse so the app can still boot and report what's wrong.
+  const result = envSchema.safeParse(process.env);
+
+  if (result.success) {
+    envErrors = [];
+    return result.data;
   }
+
+  envErrors = result.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`);
+  const summary = `Environment validation failed:\n${envErrors.join("\n")}`;
+
+  // Standalone server (server/index.ts): fail fast so the developer
+  // sees the error immediately in their terminal.
+  const isVercel = !!process.env.VERCEL;
+  if (!isVercel) {
+    throw new Error(summary);
+  }
+
+  // Vercel serverless: log the error but return partial config so health
+  // and diagnostic endpoints still respond instead of blank 500s.
+  console.error(`[env] ${summary}`);
+  console.error(
+    "[env] The app will boot in degraded mode. Routes that need missing vars will return 503."
+  );
+
+  // Return sensible defaults for required fields so downstream imports
+  // don't crash on undefined access.  Optional fields get passthrough values.
+  return {
+    NODE_ENV: (process.env.NODE_ENV as "development" | "production" | "test") ?? "production",
+    PORT: process.env.PORT ?? "3001",
+    DATABASE_URL: process.env.DATABASE_URL ?? "",
+    SESSION_SECRET: process.env.SESSION_SECRET ?? "missing-will-fail-at-runtime",
+    JWT_SECRET: process.env.JWT_SECRET ?? "missing-will-fail-at-runtime",
+    LOG_LEVEL: "info",
+    APP_CHECK_MODE: "monitor",
+    CHECK_IN_RADIUS_METERS: 100,
+  } as z.infer<typeof envSchema>;
 }
 
 export const env = validateEnv();

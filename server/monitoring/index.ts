@@ -14,6 +14,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { isDatabaseAvailable, getDb } from "../db";
 import { getRedisClient } from "../redis";
+import { envErrors } from "../config/env";
 import logger from "../logger";
 import { sql } from "drizzle-orm";
 import { checkFfmpegAvailable } from "../services/videoTranscoder";
@@ -226,7 +227,12 @@ export function registerMonitoringRoutes(app: Express) {
     // Required in production only (env.ts enforces this at startup).
     const serverProductionRequired = ["MFA_ENCRYPTION_KEY"];
     // FIREBASE_ADMIN_KEY (full service-account JSON) OR all three individual vars — either works.
-    const firebaseAdmin = ["FIREBASE_ADMIN_KEY", "FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"];
+    const firebaseAdmin = [
+      "FIREBASE_ADMIN_KEY",
+      "FIREBASE_PROJECT_ID",
+      "FIREBASE_CLIENT_EMAIL",
+      "FIREBASE_PRIVATE_KEY",
+    ];
     const firebaseClient = [
       "EXPO_PUBLIC_FIREBASE_API_KEY",
       "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
@@ -271,6 +277,8 @@ export function registerMonitoringRoutes(app: Express) {
       // "I set the var but it's still missing" (wrong branch or stale deploy).
       gitBranch: process.env.VERCEL_GIT_COMMIT_REF ?? null,
       gitSha: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? null,
+      // Validation errors collected at startup (empty = all env vars valid)
+      envValidationErrors: envErrors.length > 0 ? envErrors : undefined,
       serverRequired: serverRequiredResults,
       serverProductionRequired: serverProductionResults,
       firebaseAdmin: checkVars(firebaseAdmin),
