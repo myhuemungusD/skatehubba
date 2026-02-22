@@ -26,6 +26,7 @@ export default function TabLayout() {
         options={{
           title: "SkateHubba",
           tabBarLabel: "Hub",
+          tabBarTestID: "tab-hub",
           tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
         }}
       />
@@ -34,6 +35,7 @@ export default function TabLayout() {
         options={{
           title: "Spots",
           tabBarLabel: "Map",
+          tabBarTestID: "tab-map",
           tabBarIcon: ({ color, size }) => <Ionicons name="map" size={size} color={color} />,
         }}
       />
@@ -42,6 +44,7 @@ export default function TabLayout() {
         options={{
           title: "Play S.K.A.T.E.",
           tabBarLabel: "Play",
+          tabBarTestID: "tab-play",
           tabBarIcon: ({ color, size, focused }) => (
             <View style={[styles.playButton, focused && styles.playButtonActive]}>
               <Ionicons name="play" size={size} color={focused ? "#fff" : color} />
@@ -54,6 +57,7 @@ export default function TabLayout() {
         options={{
           title: "Shop",
           tabBarLabel: "Shop",
+          tabBarTestID: "tab-shop",
           tabBarIcon: ({ color, size }) => <Ionicons name="cart" size={size} color={color} />,
         }}
       />
@@ -62,6 +66,7 @@ export default function TabLayout() {
         options={{
           title: "My Closet",
           tabBarLabel: "Closet",
+          tabBarTestID: "tab-closet",
           tabBarIcon: ({ color, size }) => <Ionicons name="shirt" size={size} color={color} />,
         }}
       />

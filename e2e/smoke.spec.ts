@@ -1,8 +1,34 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/** Assert the React error boundary is NOT showing on the current page. */
+async function expectNoErrorBoundary(page: Page) {
+  await expect(
+    page.locator('text="Oops! Something went wrong"'),
+  ).not.toBeVisible();
+  await expect(
+    page.locator('text="Configuration Required"'),
+  ).not.toBeVisible();
+}
+
+/** Filter out known harmless console errors (React DevTools promotions). */
+function filterConsoleNoise(errors: string[]): string[] {
+  return errors.filter(
+    (e) =>
+      !e.includes("React DevTools") &&
+      !e.includes("Download the React DevTools"),
+  );
+}
+
+// =============================================================================
+// 1. Core App Smoke Tests
+// =============================================================================
 
 test.describe("Production Smoke Test", () => {
   test("should load without error boundary", async ({ page }) => {
-    // Capture console errors
     const errors: string[] = [];
     page.on("console", (msg) => {
       if (msg.type() === "error") {
@@ -10,29 +36,11 @@ test.describe("Production Smoke Test", () => {
       }
     });
 
-    // Navigate to app
     await page.goto("/");
-
-    // Wait for app to hydrate
     await page.waitForLoadState("networkidle");
 
-    // Check error boundary is NOT visible
-    const errorBoundary = page.locator('text="Oops! Something went wrong"');
-    await expect(errorBoundary).not.toBeVisible();
-
-    // Check configuration error is NOT visible
-    const configError = page.locator('text="Configuration Required"');
-    await expect(configError).not.toBeVisible();
-
-    // Verify no unexpected console errors (filter known noise)
-    const unexpectedErrors = errors.filter(
-      (e) =>
-        !e.includes("React DevTools") &&
-        !e.includes("Download the React DevTools"),
-    );
-    expect(unexpectedErrors).toHaveLength(0);
-
-    // Verify app rendered something meaningful
+    await expectNoErrorBoundary(page);
+    expect(filterConsoleNoise(errors)).toHaveLength(0);
     await expect(page.locator("body")).not.toBeEmpty();
   });
 
@@ -53,21 +61,13 @@ test.describe("Production Smoke Test", () => {
   });
 
   test("should contain client-rendered content", async ({ page }) => {
-    // A broken Vite build could still serve an HTML shell that passes the
-    // other smoke checks. Verify the page contains a Vite-injected root
-    // and at least one React-rendered element to prove the client bundle
-    // actually loaded and executed.
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    // Vite apps mount into #root
     const root = page.locator("#root");
     await expect(root).toBeAttached();
-
-    // The root must have child content rendered by React (not an empty div)
     await expect(root).not.toBeEmpty();
 
-    // Verify a known client-side element exists (the app shell / nav)
     const clientElement = page.locator(
       '[data-testid="app-shell"], nav, [role="navigation"]',
     );
@@ -86,7 +86,6 @@ test.describe("Production Smoke Test", () => {
     await page.goto("/");
     await page.waitForLoadState("networkidle");
 
-    // Filter out expected failures (e.g. optional service worker, analytics)
     const criticalFailures = failedRequests.filter(
       (r) =>
         !r.includes("service-worker") &&
@@ -95,5 +94,122 @@ test.describe("Production Smoke Test", () => {
     );
 
     expect(criticalFailures).toHaveLength(0);
+  });
+});
+
+// =============================================================================
+// 2. Public Route Smoke Tests
+// =============================================================================
+
+test.describe("Public Route Smoke Tests", () => {
+  test("auth page renders sign-in form", async ({ page }) => {
+    await page.goto("/auth");
+    await page.waitForLoadState("networkidle");
+
+    await expectNoErrorBoundary(page);
+
+    // Proves the auth bundle loaded and rendered an interactive element.
+    const authContent = page.locator(
+      'input[type="email"], input[type="password"], [data-testid="auth-email"], [data-testid="google-signin"], button:has-text("Sign")',
+    );
+    await expect(authContent.first()).toBeVisible();
+  });
+
+  const publicPages = [
+    { path: "/landing", label: "landing" },
+    { path: "/privacy", label: "privacy" },
+    { path: "/terms", label: "terms" },
+    { path: "/specs", label: "specs" },
+    { path: "/demo", label: "demo" },
+  ];
+
+  for (const { path, label } of publicPages) {
+    test(`${label} page (${path}) loads without error`, async ({ page }) => {
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+
+      await expectNoErrorBoundary(page);
+      await expect(page.locator("#root")).not.toBeEmpty();
+    });
+  }
+});
+
+// =============================================================================
+// 3. Legacy Route Redirect Smoke Tests
+// =============================================================================
+
+test.describe("Legacy Route Redirects", () => {
+  // Unauthenticated users hitting protected legacy routes get redirected to
+  // /auth (via ProtectedRoute). The key assertion is that the app doesn't
+  // crash and the user ends up on a working page, not a blank screen.
+
+  const legacyRoutes = [
+    "/home",
+    "/feed",
+    "/dashboard",
+    "/game",
+    "/skate-game",
+    "/closet",
+    "/settings",
+    "/showcase",
+  ];
+
+  for (const route of legacyRoutes) {
+    test(`${route} does not crash`, async ({ page }) => {
+      const errors: string[] = [];
+      page.on("console", (msg) => {
+        if (msg.type() === "error") errors.push(msg.text());
+      });
+
+      await page.goto(route);
+      await page.waitForLoadState("networkidle");
+
+      await expectNoErrorBoundary(page);
+      await expect(page.locator("#root")).not.toBeEmpty();
+      expect(filterConsoleNoise(errors)).toHaveLength(0);
+    });
+  }
+});
+
+// =============================================================================
+// 4. SEO & Meta Tags
+// =============================================================================
+
+test.describe("SEO & Meta Tags", () => {
+  test("viewport meta tag is present", async ({ page }) => {
+    await page.goto("/");
+    const viewport = page.locator('meta[name="viewport"]');
+    await expect(viewport).toBeAttached();
+    const content = await viewport.getAttribute("content");
+    expect(content).toContain("width=");
+  });
+
+  test("meta description is present", async ({ page }) => {
+    await page.goto("/");
+    const desc = page.locator('meta[name="description"]');
+    await expect(desc).toBeAttached();
+    const content = await desc.getAttribute("content");
+    expect(content).toBeTruthy();
+    expect(content!.length).toBeGreaterThan(10);
+  });
+
+  test("charset is declared", async ({ page }) => {
+    await page.goto("/");
+    const charset = page.locator(
+      'meta[charset], meta[http-equiv="Content-Type"]',
+    );
+    await expect(charset.first()).toBeAttached();
+  });
+
+  test("structured data (JSON-LD) is present", async ({ page }) => {
+    await page.goto("/");
+    await page.waitForLoadState("networkidle");
+
+    const jsonLd = page.locator('script[type="application/ld+json"]');
+    const count = await jsonLd.count();
+    expect(count).toBeGreaterThan(0);
+
+    const text = await jsonLd.first().textContent();
+    expect(() => JSON.parse(text || "")).not.toThrow();
   });
 });
