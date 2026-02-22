@@ -90,8 +90,7 @@ export async function recordClipView(
   } catch (error: unknown) {
     // If the error is a unique constraint violation, the user already viewed —
     // silently skip. PostgreSQL error code 23505 = unique_violation.
-    const pgError = error as { code?: string };
-    if (pgError.code === "23505") {
+    if (error instanceof Error && "code" in error && (error as { code: string }).code === "23505") {
       return;
     }
     logger.error("[TrickMint] View recording failed", {
@@ -229,13 +228,14 @@ router.post("/confirm-upload", authenticateUser, async (req, res) => {
       return res.status(400).json({ error: result.error });
     }
 
+    const clip = result.clip;
     logger.info("[TrickMint] Upload confirmed", {
-      clipId: result.clip!.id,
+      clipId: clip?.id,
       userId,
       trickName,
     });
 
-    res.status(201).json({ clip: result.clip });
+    res.status(201).json({ clip });
   } catch (error) {
     logger.error("[TrickMint] Confirm upload failed", { userId, error });
     res.status(500).json({ error: "Failed to confirm upload" });
@@ -291,13 +291,14 @@ router.post("/submit", authenticateUser, async (req, res) => {
       return res.status(400).json({ error: result.error });
     }
 
+    const clip = result.clip;
     logger.info("[TrickMint] Direct upload submitted", {
-      clipId: result.clip!.id,
+      clipId: clip?.id,
       userId,
       trickName,
     });
 
-    res.status(201).json({ clip: result.clip });
+    res.status(201).json({ clip });
   } catch (error) {
     logger.error("[TrickMint] Direct submit failed", { userId, error });
     res.status(500).json({ error: "Failed to submit clip" });

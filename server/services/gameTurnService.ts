@@ -242,6 +242,11 @@ export async function judgeTurn(
   let newOffensiveId: string;
   let newDefensiveId: string;
 
+  // Active games must have both role IDs set; guard against corrupt state.
+  if (!game.offensivePlayerId || !game.defensivePlayerId) {
+    return { ok: false, status: 500, error: "Game is missing player role assignments" };
+  }
+
   if (result === "missed") {
     // BAIL: defensive player gets a letter, roles STAY the same
     if (isPlayer1) {
@@ -249,12 +254,12 @@ export async function judgeTurn(
     } else {
       newPlayer2Letters += SKATE_LETTERS[newPlayer2Letters.length] || "";
     }
-    newOffensiveId = game.offensivePlayerId!;
-    newDefensiveId = game.defensivePlayerId!;
+    newOffensiveId = game.offensivePlayerId;
+    newDefensiveId = game.defensivePlayerId;
   } else {
     // LAND: roles swap
-    newOffensiveId = game.defensivePlayerId!;
-    newDefensiveId = game.offensivePlayerId!;
+    newOffensiveId = game.defensivePlayerId;
+    newDefensiveId = game.offensivePlayerId;
   }
 
   // Check for game over
