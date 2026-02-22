@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 const isDevelopment = import.meta.env.DEV;
 
 export type LogLevel = "log" | "info" | "warn" | "error" | "debug";

@@ -135,6 +135,7 @@ export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): Fire
   const config = buildConfigFromEnv();
 
   if (config) {
+    // eslint-disable-next-line no-console
     console.log(`[Firebase] Using env-provided config for ${env}`);
     return config;
   }

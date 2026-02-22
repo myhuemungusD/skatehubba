@@ -75,6 +75,7 @@ export function initAppCheck(firebaseApp: FirebaseApp): void {
         isTokenAutoRefreshEnabled: false,
       });
 
+      // eslint-disable-next-line no-console
       console.log("[AppCheck] Initialized with debug provider");
     } else {
       // Production and staging: use a custom provider that integrates
@@ -107,6 +108,7 @@ export function initAppCheck(firebaseApp: FirebaseApp): void {
         isTokenAutoRefreshEnabled: true,
       });
 
+      // eslint-disable-next-line no-console
       console.log(`[AppCheck] Initialized for ${env}`);
     }
   } catch (error) {

@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /**
  * Firebase Cloud Functions
  *
