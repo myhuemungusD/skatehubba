@@ -45,6 +45,7 @@ export default function ProfileSetup() {
 
   const {
     submitting,
+    uploadProgress,
     submitError,
     failCount,
     onSubmit,
@@ -207,8 +208,12 @@ export default function ProfileSetup() {
           </div>
 
           {submitting && (
-            <div className="space-y-2" role="status" aria-label="Profile creation in progress">
-              <Progress value={undefined} className="h-2 bg-neutral-800" />
+            <div className="space-y-2" role="status" aria-label="Profile creation progress">
+              <div className="flex items-center justify-between text-xs text-neutral-400">
+                <span>Uploading profile</span>
+                <span>{uploadProgress}%</span>
+              </div>
+              <Progress value={uploadProgress} className="h-2 bg-neutral-800" />
             </div>
           )}
 

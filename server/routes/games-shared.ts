@@ -3,7 +3,7 @@
  */
 
 import { z } from "zod";
-import { getUserDisplayName as getUserDisplayNameFromDb } from "../db";
+import { getDb, getUserDisplayName as getUserDisplayNameFromDb } from "../db";
 import { SKATE_LETTERS_TO_LOSE } from "../config/constants";
 
 // ============================================================================

@@ -153,13 +153,6 @@ export function createApp(): express.Express {
   // Monitoring: health checks, readiness probes, system status
   registerMonitoringRoutes(app);
 
-  // API 404 catch-all — registered after all /api routes so unmatched API
-  // requests return structured JSON instead of falling through to the SPA
-  // HTML catch-all. Must come before the global error handler.
-  app.use("/api", (_req, res) => {
-    res.status(404).json({ error: "Not found" });
-  });
-
   // Global error handler — catches any unhandled Express errors from all routes
   // including non-MVP systems (Stripe, TrickMint, games, battles) so they never
   // cascade or crash the server during the demo.

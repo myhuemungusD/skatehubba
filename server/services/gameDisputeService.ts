@@ -8,7 +8,6 @@
 import { games, gameTurns, gameDisputes, userProfiles } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import { TURN_DEADLINE_MS } from "../routes/games-shared";
-import type { Database } from "../db";
 
 // ============================================================================
 // Types
@@ -41,7 +40,7 @@ export type ResolveDisputeResult = TxError | ResolveDisputeSuccess;
  * marks the dispute as used, and creates the dispute record.
  */
 export async function fileDispute(
-  tx: Database,
+  tx: Parameters<Parameters<ReturnType<typeof import("../db").getDb>["transaction"]>[0]>[0],
   gameId: string,
   playerId: string,
   turnId: number
@@ -104,7 +103,7 @@ export async function fileDispute(
  * and if overturned to LAND, reverses the letter and swaps roles.
  */
 export async function resolveDispute(
-  tx: Database,
+  tx: Parameters<Parameters<ReturnType<typeof import("../db").getDb>["transaction"]>[0]>[0],
   disputeId: number,
   playerId: string,
   finalResult: "landed" | "missed"

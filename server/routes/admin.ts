@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { eq, desc, and, count, ilike, or, inArray, gte, lte } from "drizzle-orm";
+import { eq, desc, and, sql, count, ilike, or, inArray, gte, lte } from "drizzle-orm";
 import { authenticateUser, requireAdmin } from "../auth/middleware";
 import { enforceAdminRateLimit, enforceNotBanned } from "../middleware/trustSafety";
 import { getDb, isDatabaseAvailable } from "../db";
@@ -15,12 +15,7 @@ import {
 import logger from "../logger";
 import { Errors } from "../utils/apiError";
 import { auditMiddleware } from "../middleware/auditLog";
-import {
-  DEFAULT_PAGE_SIZE,
-  MAX_PAGE_SIZE,
-  DEFAULT_AUDIT_PAGE_SIZE,
-  MAX_AUDIT_PAGE_SIZE,
-} from "../config/constants";
+import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, DEFAULT_AUDIT_PAGE_SIZE, MAX_AUDIT_PAGE_SIZE } from "../config/constants";
 
 export const adminRouter = Router();
 
@@ -88,10 +83,7 @@ adminRouter.get("/users", ...adminMiddleware, async (req, res) => {
     const db = getDb();
     const search = typeof req.query.search === "string" ? req.query.search : undefined;
     const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(
-      MAX_PAGE_SIZE,
-      Math.max(1, Number(req.query.limit) || DEFAULT_PAGE_SIZE)
-    );
+    const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(req.query.limit) || DEFAULT_PAGE_SIZE));
     const offset = (page - 1) * limit;
 
     // Escape SQL LIKE wildcards to prevent wildcard injection
@@ -176,70 +168,60 @@ const trustLevelSchema = z.object({
   trustLevel: z.number().int().min(0).max(2),
 });
 
-adminRouter.patch(
-  "/users/:userId/trust-level",
-  ...adminMiddleware,
-  auditMiddleware("admin.role_change"),
-  async (req, res) => {
-    const parsed = trustLevelSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return Errors.validation(
-        res,
-        parsed.error.flatten(),
-        "INVALID_TRUST_LEVEL",
-        "Invalid trust level."
-      );
+adminRouter.patch("/users/:userId/trust-level", ...adminMiddleware, auditMiddleware("admin.role_change"), async (req, res) => {
+  const parsed = trustLevelSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return Errors.validation(res, parsed.error.flatten(), "INVALID_TRUST_LEVEL", "Invalid trust level.");
+  }
+
+  const { userId } = req.params;
+  const { trustLevel } = parsed.data;
+
+  if (!isDatabaseAvailable()) {
+    return Errors.dbUnavailable(res);
+  }
+
+  try {
+    const db = getDb();
+    const now = new Date();
+
+    // Update trust level on the customUsers table
+    const [updated] = await db
+      .update(customUsers)
+      .set({ trustLevel, updatedAt: now })
+      .where(eq(customUsers.id, userId))
+      .returning({ id: customUsers.id });
+
+    if (!updated) {
+      return Errors.notFound(res, "USER_NOT_FOUND", "User not found.");
     }
 
-    const { userId } = req.params;
-    const { trustLevel } = parsed.data;
-
-    if (!isDatabaseAvailable()) {
-      return Errors.dbUnavailable(res);
-    }
-
-    try {
-      const db = getDb();
-      const now = new Date();
-
-      // Update trust level on the customUsers table
-      const [updated] = await db
-        .update(customUsers)
-        .set({ trustLevel, updatedAt: now })
-        .where(eq(customUsers.id, userId))
-        .returning({ id: customUsers.id });
-
-      if (!updated) {
-        return Errors.notFound(res, "USER_NOT_FOUND", "User not found.");
-      }
-
-      // Also upsert the moderation profile
-      await db
-        .insert(moderationProfiles)
-        .values({
-          userId,
-          trustLevel,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: moderationProfiles.userId,
-          set: { trustLevel, updatedAt: now },
-        });
-
-      logger.info("[Admin] Trust level updated", {
+    // Also upsert the moderation profile
+    await db
+      .insert(moderationProfiles)
+      .values({
         userId,
         trustLevel,
-        adminId: req.currentUser?.id,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoUpdate({
+        target: moderationProfiles.userId,
+        set: { trustLevel, updatedAt: now },
       });
 
-      return res.json({ success: true, userId, trustLevel });
-    } catch (error) {
-      logger.error("[Admin] Trust level update failed", { error });
-      return Errors.internal(res, "UPDATE_FAILED", "Database update failed.");
-    }
+    logger.info("[Admin] Trust level updated", {
+      userId,
+      trustLevel,
+      adminId: req.currentUser?.id,
+    });
+
+    return res.json({ success: true, userId, trustLevel });
+  } catch (error) {
+    logger.error("[Admin] Trust level update failed", { error });
+    return Errors.internal(res, "UPDATE_FAILED", "Database update failed.");
   }
-);
+});
 
 // ─── Update Report Status ─────────────────────────────────────────────────────
 
@@ -247,54 +229,44 @@ const reportStatusSchema = z.object({
   status: z.enum(["queued", "reviewing", "resolved", "dismissed", "escalated"]),
 });
 
-adminRouter.patch(
-  "/reports/:reportId/status",
-  ...adminMiddleware,
-  auditMiddleware("content.moderate"),
-  async (req, res) => {
-    const parsed = reportStatusSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return Errors.validation(
-        res,
-        parsed.error.flatten(),
-        "INVALID_STATUS",
-        "Invalid report status."
-      );
-    }
-
-    const { reportId } = req.params;
-    const { status } = parsed.data;
-
-    if (!isDatabaseAvailable()) {
-      return Errors.dbUnavailable(res);
-    }
-
-    try {
-      const db = getDb();
-
-      const [updated] = await db
-        .update(moderationReports)
-        .set({ status })
-        .where(eq(moderationReports.id, reportId))
-        .returning({ id: moderationReports.id });
-
-      if (!updated) {
-        return Errors.notFound(res, "REPORT_NOT_FOUND", "Report not found.");
-      }
-
-      logger.info("[Admin] Report status updated", {
-        reportId,
-        status,
-        adminId: req.currentUser?.id,
-      });
-
-      return res.json({ success: true, reportId, status });
-    } catch (error) {
-      logger.error("[Admin] Report status update failed", { error });
-      return Errors.internal(res, "UPDATE_FAILED", "Database update failed.");
-    }
+adminRouter.patch("/reports/:reportId/status", ...adminMiddleware, auditMiddleware("content.moderate"), async (req, res) => {
+  const parsed = reportStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return Errors.validation(res, parsed.error.flatten(), "INVALID_STATUS", "Invalid report status.");
   }
-);
+
+  const { reportId } = req.params;
+  const { status } = parsed.data;
+
+  if (!isDatabaseAvailable()) {
+    return Errors.dbUnavailable(res);
+  }
+
+  try {
+    const db = getDb();
+
+    const [updated] = await db
+      .update(moderationReports)
+      .set({ status })
+      .where(eq(moderationReports.id, reportId))
+      .returning({ id: moderationReports.id });
+
+    if (!updated) {
+      return Errors.notFound(res, "REPORT_NOT_FOUND", "Report not found.");
+    }
+
+    logger.info("[Admin] Report status updated", {
+      reportId,
+      status,
+      adminId: req.currentUser?.id,
+    });
+
+    return res.json({ success: true, reportId, status });
+  } catch (error) {
+    logger.error("[Admin] Report status update failed", { error });
+    return Errors.internal(res, "UPDATE_FAILED", "Database update failed.");
+  }
+});
 
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 
@@ -306,10 +278,7 @@ adminRouter.get("/audit-logs", ...adminMiddleware, async (req, res) => {
   try {
     const db = getDb();
     const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(
-      MAX_AUDIT_PAGE_SIZE,
-      Math.max(1, Number(req.query.limit) || DEFAULT_AUDIT_PAGE_SIZE)
-    );
+    const limit = Math.min(MAX_AUDIT_PAGE_SIZE, Math.max(1, Number(req.query.limit) || DEFAULT_AUDIT_PAGE_SIZE));
     const offset = (page - 1) * limit;
     const eventType = typeof req.query.eventType === "string" ? req.query.eventType : undefined;
     const userId = typeof req.query.userId === "string" ? req.query.userId : undefined;
@@ -377,10 +346,7 @@ adminRouter.get("/mod-actions", ...adminMiddleware, async (req, res) => {
   try {
     const db = getDb();
     const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(
-      MAX_AUDIT_PAGE_SIZE,
-      Math.max(1, Number(req.query.limit) || DEFAULT_AUDIT_PAGE_SIZE)
-    );
+    const limit = Math.min(MAX_AUDIT_PAGE_SIZE, Math.max(1, Number(req.query.limit) || DEFAULT_AUDIT_PAGE_SIZE));
     const offset = (page - 1) * limit;
 
     const [actions, [totalRow]] = await Promise.all([
@@ -406,57 +372,47 @@ const tierOverrideSchema = z.object({
   accountTier: z.enum(["free", "pro", "premium"]),
 });
 
-adminRouter.patch(
-  "/users/:userId/tier",
-  ...adminMiddleware,
-  auditMiddleware("admin.config_change"),
-  async (req, res) => {
-    const parsed = tierOverrideSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return Errors.validation(
-        res,
-        parsed.error.flatten(),
-        "INVALID_TIER",
-        "Invalid account tier."
-      );
-    }
-
-    const { userId } = req.params;
-    const { accountTier } = parsed.data;
-
-    if (!isDatabaseAvailable()) {
-      return Errors.dbUnavailable(res);
-    }
-
-    try {
-      const db = getDb();
-      const now = new Date();
-
-      const [updated] = await db
-        .update(customUsers)
-        .set({
-          accountTier,
-          updatedAt: now,
-          ...(accountTier === "premium" ? { premiumPurchasedAt: now } : {}),
-          ...(accountTier === "free" ? { proAwardedBy: null, premiumPurchasedAt: null } : {}),
-        })
-        .where(eq(customUsers.id, userId))
-        .returning({ id: customUsers.id });
-
-      if (!updated) {
-        return Errors.notFound(res, "USER_NOT_FOUND", "User not found.");
-      }
-
-      logger.info("[Admin] Tier override applied", {
-        userId,
-        accountTier,
-        adminId: req.currentUser?.id,
-      });
-
-      return res.json({ success: true, userId, accountTier });
-    } catch (error) {
-      logger.error("[Admin] Tier override failed", { error });
-      return Errors.internal(res, "UPDATE_FAILED", "Database update failed.");
-    }
+adminRouter.patch("/users/:userId/tier", ...adminMiddleware, auditMiddleware("admin.config_change"), async (req, res) => {
+  const parsed = tierOverrideSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return Errors.validation(res, parsed.error.flatten(), "INVALID_TIER", "Invalid account tier.");
   }
-);
+
+  const { userId } = req.params;
+  const { accountTier } = parsed.data;
+
+  if (!isDatabaseAvailable()) {
+    return Errors.dbUnavailable(res);
+  }
+
+  try {
+    const db = getDb();
+    const now = new Date();
+
+    const [updated] = await db
+      .update(customUsers)
+      .set({
+        accountTier,
+        updatedAt: now,
+        ...(accountTier === "premium" ? { premiumPurchasedAt: now } : {}),
+        ...(accountTier === "free" ? { proAwardedBy: null, premiumPurchasedAt: null } : {}),
+      })
+      .where(eq(customUsers.id, userId))
+      .returning({ id: customUsers.id });
+
+    if (!updated) {
+      return Errors.notFound(res, "USER_NOT_FOUND", "User not found.");
+    }
+
+    logger.info("[Admin] Tier override applied", {
+      userId,
+      accountTier,
+      adminId: req.currentUser?.id,
+    });
+
+    return res.json({ success: true, userId, accountTier });
+  } catch (error) {
+    logger.error("[Admin] Tier override failed", { error });
+    return Errors.internal(res, "UPDATE_FAILED", "Database update failed.");
+  }
+});

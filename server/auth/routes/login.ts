@@ -37,8 +37,7 @@ export function setupLoginRoutes(app: Express) {
         // Handle mock tokens ONLY in development/test mode (no Firebase configured)
         // SECURITY: Mock tokens are blocked in staging and production
         const isMockToken = idToken === "mock-google-token" || idToken === "mock-token";
-        const isDevelopment =
-          process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+        const isDevelopment = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 
         if (isMockToken && isDevelopment) {
           // Use deterministic UIDs so that subsequent logins find the existing user
@@ -81,7 +80,10 @@ export function setupLoginRoutes(app: Express) {
 
         // Find or create user record
         let user = await AuthService.findUserByFirebaseUid(uid);
+        let isNewUser = false;
+
         if (!user) {
+          isNewUser = true;
           const userFirstName = firstName || decoded.name?.split(" ")[0] || "User";
           // Create new user from Firebase token data
           // Only auto-verify if the Firebase token confirms email_verified (e.g. Google OAuth)
