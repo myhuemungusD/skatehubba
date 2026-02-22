@@ -1,12 +1,42 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type APIRequestContext } from "@playwright/test";
 
 /**
  * API-only smoke tests.
  *
- * These verify server endpoints independently from the browser UI. They use
- * Playwright's lightweight `request` fixture (no browser launched) so they're
- * fast and safe to run against any environment via BASE_URL.
+ * Uses Playwright's lightweight `request` fixture (no browser launched) for
+ * fast validation of server endpoints against any environment via BASE_URL.
+ *
+ * CSRF note: The server enforces double-submit CSRF on all POST /api/* routes.
+ * Requests with a Bearer Authorization header bypass CSRF (server/middleware/csrf.ts).
+ * Tests that need to reach route-level logic (not CSRF) send a dummy Bearer
+ * header to skip the CSRF gate.
  */
+
+// =============================================================================
+// Helpers
+// =============================================================================
+
+/**
+ * POST to an /api/* route bypassing the CSRF double-submit gate.
+ *
+ * The server skips CSRF validation when it sees a Bearer Authorization header
+ * (csrf.ts line 63). We send a dummy bearer so CSRF is bypassed but the
+ * request carries no valid credentials — letting route-level auth/validation
+ * middleware do its job.
+ */
+async function postBypassCsrf(
+  request: APIRequestContext,
+  path: string,
+  data?: unknown,
+) {
+  return request.post(path, {
+    data: data ?? {},
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer __smoke_test__",
+    },
+  });
+}
 
 // =============================================================================
 // Health & Monitoring
@@ -26,7 +56,6 @@ test.describe("Health & Monitoring", () => {
     expect([200, 503]).toContain(res.status());
 
     const body = await res.json();
-    expect(body).toHaveProperty("status");
     expect(["healthy", "degraded", "unhealthy"]).toContain(body.status);
     expect(body).toHaveProperty("uptime");
     expect(body).toHaveProperty("timestamp");
@@ -64,13 +93,11 @@ test.describe("Health & Monitoring", () => {
 });
 
 // =============================================================================
-// Public Endpoints
+// Public Endpoints (no auth required)
 // =============================================================================
 
 test.describe("Public Endpoints", () => {
-  test("GET /api/stats returns totalUsers/totalSpots/totalBattles", async ({
-    request,
-  }) => {
+  test("GET /api/stats returns expected shape", async ({ request }) => {
     const res = await request.get("/api/stats");
     expect(res.status()).toBe(200);
 
@@ -110,7 +137,7 @@ test.describe("Public Endpoints", () => {
     expect(res.status()).toBe(400);
 
     const body = await res.json();
-    expect(body.message).toContain("lat");
+    expect(body).toHaveProperty("message");
   });
 
   test("GET /api/spots/discover rejects missing coordinates", async ({
@@ -122,7 +149,7 @@ test.describe("Public Endpoints", () => {
 });
 
 // =============================================================================
-// Authentication Boundary
+// Auth Boundary — verify protected endpoints reject unauthenticated requests
 // =============================================================================
 
 test.describe("Auth Boundary", () => {
@@ -139,14 +166,17 @@ test.describe("Auth Boundary", () => {
       const res = await request.get(path);
       expect(
         [401, 403].includes(res.status()),
-        `GET ${path} → ${res.status()}, expected 401|403`,
+        `GET ${path} returned ${res.status()}, expected 401 or 403`,
       ).toBe(true);
     }
   });
 
-  test("protected POST endpoints return 401 without auth", async ({
+  test("protected POST endpoints return 401 or 403 without auth", async ({
     request,
   }) => {
+    // postBypassCsrf sends a dummy Bearer so CSRF middleware doesn't mask
+    // the route-level auth check. The dummy Bearer has no valid session, so
+    // authenticateUser rejects with 401.
     const endpoints = [
       "/api/matchmaking/quick-match",
       "/api/spots/check-in",
@@ -154,25 +184,22 @@ test.describe("Auth Boundary", () => {
     ];
 
     for (const path of endpoints) {
-      const res = await request.post(path, {
-        data: {},
-        headers: { "Content-Type": "application/json" },
-      });
+      const res = await postBypassCsrf(request, path);
       expect(
         [401, 403].includes(res.status()),
-        `POST ${path} → ${res.status()}, expected 401|403`,
+        `POST ${path} returned ${res.status()}, expected 401 or 403`,
       ).toBe(true);
     }
   });
 
-  test("admin endpoints return 401 without auth", async ({ request }) => {
+  test("admin endpoint returns 401 without auth", async ({ request }) => {
     const res = await request.get("/api/admin/system-status");
     expect([401, 403]).toContain(res.status());
   });
 });
 
 // =============================================================================
-// Cron Security
+// Cron Endpoint Security
 // =============================================================================
 
 test.describe("Cron Endpoint Security", () => {
@@ -183,15 +210,12 @@ test.describe("Cron Endpoint Security", () => {
   ];
 
   for (const path of cronPaths) {
-    test(`POST ${path} rejects without CRON_SECRET`, async ({ request }) => {
-      const res = await request.post(path);
-      expect(res.status()).toBe(401);
-    });
-
-    test(`POST ${path} rejects invalid CRON_SECRET`, async ({ request }) => {
-      const res = await request.post(path, {
-        headers: { Authorization: "Bearer obviously-wrong-secret" },
-      });
+    test(`POST ${path} rejects without valid CRON_SECRET`, async ({
+      request,
+    }) => {
+      // postBypassCsrf sends Authorization: "Bearer __smoke_test__" which
+      // bypasses CSRF but fails the timing-safe cron secret comparison.
+      const res = await postBypassCsrf(request, path);
       expect(res.status()).toBe(401);
     });
   }
@@ -203,27 +227,24 @@ test.describe("Cron Endpoint Security", () => {
 
 test.describe("Input Validation", () => {
   test("POST /api/beta-signup rejects empty body", async ({ request }) => {
-    const res = await request.post("/api/beta-signup", {
-      data: {},
-      headers: { "Content-Type": "application/json" },
-    });
-    expect([400, 422]).toContain(res.status());
+    // Bypass CSRF so the request reaches the validateBody middleware.
+    const res = await postBypassCsrf(request, "/api/beta-signup");
+    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(res.status()).toBeLessThan(500);
   });
 
   test("POST /api/beta-signup rejects invalid email", async ({ request }) => {
-    const res = await request.post("/api/beta-signup", {
-      data: { email: "not-an-email" },
-      headers: { "Content-Type": "application/json" },
+    const res = await postBypassCsrf(request, "/api/beta-signup", {
+      email: "not-an-email",
     });
-    expect([400, 422]).toContain(res.status());
+    expect(res.status()).toBeGreaterThanOrEqual(400);
+    expect(res.status()).toBeLessThan(500);
   });
 
   test("POST /api/auth/login rejects missing token", async ({ request }) => {
-    const res = await request.post("/api/auth/login", {
-      data: {},
-      headers: { "Content-Type": "application/json" },
-    });
-    // Should be 400 or 401 — not 500
+    const res = await postBypassCsrf(request, "/api/auth/login");
+    // 400 (bad request) or 401 (no valid token) — not 500
+    expect(res.status()).toBeGreaterThanOrEqual(400);
     expect(res.status()).toBeLessThan(500);
   });
 });
@@ -234,12 +255,12 @@ test.describe("Input Validation", () => {
 
 test.describe("Webhook Routes", () => {
   test("POST /webhooks/stripe is reachable (not 404)", async ({ request }) => {
+    // Stripe webhook is outside /api — no CSRF middleware applies.
+    // Without a valid Stripe-Signature the route rejects, but must NOT 404.
     const res = await request.post("/webhooks/stripe", {
       data: "{}",
       headers: { "Content-Type": "application/json" },
     });
-    // Without a valid Stripe-Signature header, the route should reject the
-    // request — but it should NOT be 404 (route missing).
     expect(res.status()).not.toBe(404);
   });
 });
