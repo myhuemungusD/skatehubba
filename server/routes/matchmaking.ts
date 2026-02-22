@@ -2,7 +2,7 @@ import { Router } from "express";
 import crypto from "node:crypto";
 import { customUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { quickMatchLimiter } from "../middleware/security";
 import { sendQuickMatchNotification } from "../services/notificationService";
@@ -17,10 +17,6 @@ router.post("/quick-match", authenticateUser, quickMatchLimiter, async (req, res
 
   if (!currentUserId) {
     return res.status(401).json({ error: "Authentication required" });
-  }
-
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Service unavailable" });
   }
 
   try {

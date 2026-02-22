@@ -3,7 +3,7 @@ import { customAlphabet } from "nanoid";
 import { profileCreateSchema, usernameSchema } from "@shared/validation/profile";
 import { admin } from "../admin";
 import { env } from "../config/env";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { onboardingProfiles } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
@@ -50,10 +50,6 @@ const safeRelease = async (
 router.get("/me", requireFirebaseUid, async (req, res) => {
   const { firebaseUid } = req as FirebaseAuthedRequest;
 
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   try {
     const db = getDb();
     const [profile] = await db
@@ -84,10 +80,6 @@ router.get("/me", requireFirebaseUid, async (req, res) => {
 });
 
 router.get("/username-check", usernameCheckLimiter, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   const raw = Array.isArray(req.query.username) ? req.query.username[0] : req.query.username;
   const parsed = usernameSchema.safeParse(raw);
 
@@ -115,9 +107,6 @@ router.get("/username-check", usernameCheckLimiter, async (req, res) => {
 
 router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res) => {
   const { firebaseUid } = req as FirebaseAuthedRequest;
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
 
   const parsed = profileCreateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -131,14 +120,7 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
 
   const uid = firebaseUid;
 
-  let db;
-  try {
-    db = getDb();
-  } catch (error) {
-    logger.error("[Profile] Database connection failed", { uid, error });
-    return Errors.dbUnavailable(res);
-  }
-
+  const db = getDb();
   const usernameStore = createUsernameStore(db);
 
   // ── Check for existing profile ──────────────────────────────────

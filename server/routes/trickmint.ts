@@ -17,7 +17,7 @@
 
 import { Router } from "express";
 import { z } from "zod";
-import { getDb, isDatabaseAvailable, getUserDisplayName } from "../db";
+import { getDb, getUserDisplayName } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { trickClips, clipViews } from "@shared/schema";
 import { eq, and, desc, sql } from "drizzle-orm";
@@ -182,10 +182,6 @@ router.post("/request-upload", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.post("/confirm-upload", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const parsed = confirmUploadSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
@@ -247,10 +243,6 @@ router.post("/confirm-upload", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.post("/submit", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const parsed = submitDirectSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
@@ -310,10 +302,6 @@ router.post("/submit", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.get("/my-clips", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const parsed = paginationSchema.safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid pagination" });
@@ -355,10 +343,6 @@ router.get("/my-clips", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.get("/feed", authenticateUser, feedCache(30), async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const parsed = paginationSchema.safeParse(req.query);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid pagination" });
@@ -402,10 +386,6 @@ router.get("/feed", authenticateUser, feedCache(30), async (req, res) => {
 // ============================================================================
 
 router.get("/:id", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const clipId = parseInt(req.params.id, 10);
   if (isNaN(clipId)) {
     return res.status(400).json({ error: "Invalid clip ID" });
@@ -440,10 +420,6 @@ router.get("/:id", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.delete("/:id", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const clipId = parseInt(req.params.id, 10);
   if (isNaN(clipId)) {
     return res.status(400).json({ error: "Invalid clip ID" });

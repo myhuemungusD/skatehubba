@@ -8,7 +8,7 @@
  *   });
  *
  * To trigger this, we need:
- * 1. isDatabaseAvailable() returns true
+ * 1. getDb() returns a db instance
  * 2. getDb().execute() throws an error
  */
 
@@ -39,7 +39,6 @@ vi.mock("../../logger", () => ({
 }));
 
 vi.mock("../../db", () => ({
-  isDatabaseAvailable: () => true,
   getDb: () => ({
     execute: vi.fn().mockRejectedValue(new Error("Database write failed")),
   }),
@@ -88,7 +87,6 @@ describe("AuditLogger — line 173 (DB write failure)", () => {
     vi.resetModules();
 
     vi.doMock("../../db", () => ({
-      isDatabaseAvailable: () => true,
       getDb: () => ({
         execute: vi.fn().mockRejectedValue("string error"),
       }),

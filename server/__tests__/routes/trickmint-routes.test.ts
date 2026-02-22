@@ -22,12 +22,11 @@ mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.delete = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
 
-const mockIsDatabaseAvailable = vi.fn().mockReturnValue(true);
 const mockGetUserDisplayName = vi.fn().mockResolvedValue("TestUser");
+let mockGetDb: () => any;
 
 vi.mock("../../db", () => ({
-  getDb: () => mockDbChain,
-  isDatabaseAvailable: () => mockIsDatabaseAvailable(),
+  getDb: () => mockGetDb(),
   getUserDisplayName: (...args: any[]) => mockGetUserDisplayName(...args),
 }));
 
@@ -167,7 +166,7 @@ async function callHandler(routeKey: string, req: any, res: any) {
 describe("Trickmint Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
+    mockGetDb = () => mockDbChain;
   });
 
   describe("POST /request-upload", () => {
@@ -224,14 +223,16 @@ describe("Trickmint Routes", () => {
       expect(res.status).toHaveBeenCalledWith(201);
     });
 
-    it("should return 503 when db is unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("should return 500 when db is unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq({
         body: { trickName: "Kickflip", videoPath: "trickmint/user-1/abc.webm" },
       });
       const res = createRes();
       await callHandler("POST /confirm-upload", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
 
     it("should return 403 when path does not belong to user", async () => {
@@ -275,8 +276,10 @@ describe("Trickmint Routes", () => {
       expect(res.status).toHaveBeenCalledWith(201);
     });
 
-    it("should return 503 when db unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("should return 500 when db unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq({
         body: {
           trickName: "Heelflip",
@@ -285,7 +288,7 @@ describe("Trickmint Routes", () => {
       });
       const res = createRes();
       await callHandler("POST /submit", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
 
     it("should return 400 for invalid URL", async () => {
@@ -316,12 +319,14 @@ describe("Trickmint Routes", () => {
       );
     });
 
-    it("should return 503 when db unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("should return 500 when db unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq({ query: {} });
       const res = createRes();
       await callHandler("GET /my-clips", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
   });
 

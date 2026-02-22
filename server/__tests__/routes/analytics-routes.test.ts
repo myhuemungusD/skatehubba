@@ -23,6 +23,11 @@ vi.mock("../../db", () => ({
   get db() {
     return mockDb;
   },
+  getDb: () => {
+    if (!mockDb) throw new Error("Database not configured");
+    return mockDb;
+  },
+  isDatabaseAvailable: vi.fn(() => true),
 }));
 
 vi.mock("../../logger", () => ({
@@ -176,7 +181,7 @@ describe("Analytics Routes", () => {
       expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    it("should return 500 on db insert error", async () => {
+    it("should return 204 on db insert error (fire-and-forget)", async () => {
       mockOnConflictDoNothing.mockRejectedValue(new Error("DB error"));
       const req = createReq({
         body: {
@@ -188,7 +193,7 @@ describe("Analytics Routes", () => {
       });
       const res = createRes();
       await callHandler("POST /events", req, res);
-      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.status).toHaveBeenCalledWith(204);
     });
   });
 
@@ -239,7 +244,7 @@ describe("Analytics Routes", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ accepted: 1, rejected: 1 }));
     });
 
-    it("should return 204 when db is null", async () => {
+    it("should return 200 with rejected counts when db is null (fire-and-forget)", async () => {
       mockDb = null;
       const req = createReq({
         body: [
@@ -253,7 +258,8 @@ describe("Analytics Routes", () => {
       });
       const res = createRes();
       await callHandler("POST /events/batch", req, res);
-      expect(res.status).toHaveBeenCalledWith(204);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ accepted: 0, rejected: 1 }));
     });
 
     it("should return 400 for non-array body", async () => {
@@ -263,7 +269,7 @@ describe("Analytics Routes", () => {
       expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    it("should return 500 on batch db insert error", async () => {
+    it("should return 200 with rejected counts on batch db insert error (fire-and-forget)", async () => {
       mockOnConflictDoNothing.mockRejectedValue(new Error("DB error"));
       const req = createReq({
         body: [
@@ -277,7 +283,8 @@ describe("Analytics Routes", () => {
       });
       const res = createRes();
       await callHandler("POST /events/batch", req, res);
-      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ accepted: 0, rejected: 1 }));
     });
   });
 });

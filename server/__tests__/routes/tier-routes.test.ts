@@ -107,8 +107,6 @@ const mockDbReturns = {
   updateResult: [] as any[],
 };
 
-let mockIsDatabaseAvailable = true;
-
 // Mutable mock functions so individual tests can override behaviour
 const mockSelect = vi.fn();
 const mockInsert = vi.fn();
@@ -186,9 +184,10 @@ const mockDb = {
   transaction: mockTransaction,
 };
 
+const mockGetDb = vi.fn(() => mockDb);
+
 vi.mock("../../db", () => ({
-  getDb: () => mockDb,
-  isDatabaseAvailable: () => mockIsDatabaseAvailable,
+  getDb: (...args: any[]) => mockGetDb(...args),
 }));
 
 // -- Stripe mock (using vi.hoisted to ensure availability in factory) ---------
@@ -269,7 +268,7 @@ describe("Tier Routes", () => {
     mockDbReturns.selectResult = [];
     mockDbReturns.countResult = [{ value: 0 }];
     mockDbReturns.updateResult = [];
-    mockIsDatabaseAvailable = true;
+    mockGetDb.mockImplementation(() => mockDb);
     resetDbChains();
     process.env = { ...originalEnv, STRIPE_SECRET_KEY: "sk_test_fake123" };
   });
@@ -399,8 +398,10 @@ describe("Tier Routes", () => {
       );
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable (getDb throws, caught by route)", async () => {
+      mockGetDb.mockImplementation(() => {
+        throw new Error("Database not configured");
+      });
 
       const req = mockRequest({
         body: { userId: "target-1" },
@@ -410,11 +411,10 @@ describe("Tier Routes", () => {
 
       await callRoute("POST", "/award-pro", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: "DATABASE_UNAVAILABLE",
-          message: "Database unavailable. Please try again shortly.",
+          error: "PRO_AWARD_FAILED",
         })
       );
     });
@@ -768,8 +768,17 @@ describe("Tier Routes", () => {
       );
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable (getDb throws after stripe succeeds)", async () => {
+      mockGetDb.mockImplementation(() => {
+        throw new Error("Database not configured");
+      });
+
+      // Stripe must succeed so the route reaches getDb()
+      mockStripePaymentIntentsRetrieve.mockResolvedValue({
+        status: "succeeded",
+        amount: 999,
+        metadata: { userId: "user-1" },
+      });
 
       const req = mockRequest({
         body: { paymentIntentId: "pi_test_123" },
@@ -778,11 +787,10 @@ describe("Tier Routes", () => {
 
       await callRoute("POST", "/purchase-premium", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: "DATABASE_UNAVAILABLE",
-          message: "Database unavailable. Please try again shortly.",
+          error: "PURCHASE_FAILED",
         })
       );
     });

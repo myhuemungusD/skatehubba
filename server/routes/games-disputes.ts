@@ -4,7 +4,7 @@
  */
 
 import { Router } from "express";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
@@ -18,10 +18,6 @@ const router = Router();
 // ============================================================================
 
 router.post("/:id/dispute", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const parsed = disputeSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
@@ -76,10 +72,6 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.post("/disputes/:disputeId/resolve", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const parsed = resolveDisputeSchema.safeParse({
     ...req.body,
     disputeId: parseInt(req.params.disputeId, 10),

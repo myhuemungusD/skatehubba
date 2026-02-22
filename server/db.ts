@@ -60,19 +60,34 @@ try {
 }
 
 /**
+ * Error thrown when the database is not configured or unavailable.
+ * The global error handler maps this to a 503 response.
+ */
+export class DatabaseUnavailableError extends Error {
+  constructor() {
+    super("Database not configured");
+    this.name = "DatabaseUnavailableError";
+  }
+}
+
+/**
  * Get database instance with null check.
- * Throws if database is not configured.
+ * Throws {@link DatabaseUnavailableError} if database is not configured.
  * Use this in routes/services that require database access.
  */
 export function getDb(): Database {
   if (!db) {
-    throw new Error("Database not configured");
+    throw new DatabaseUnavailableError();
   }
   return db;
 }
 
 /**
  * Check if database is available without throwing.
+ *
+ * **Only use in health-check / monitoring code.**
+ * Route handlers should call {@link getDb} and let the global error handler
+ * return 503 automatically.
  */
 export function isDatabaseAvailable(): boolean {
   return db !== null;

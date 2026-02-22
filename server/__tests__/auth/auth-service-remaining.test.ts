@@ -49,7 +49,6 @@ vi.mock("../../db", () => ({
     update: vi.fn().mockReturnValue({ set: mockSet }),
     delete: vi.fn().mockReturnValue({ where: mockWhere }),
   }),
-  isDatabaseAvailable: () => false,
 }));
 
 vi.mock("../../../packages/shared/schema/index", () => ({

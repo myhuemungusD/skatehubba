@@ -248,7 +248,6 @@ describe("admin routes — null count fallbacks", () => {
 
     vi.doMock("../../db", () => ({
       getDb: () => mockDbChain,
-      isDatabaseAvailable: () => true,
     }));
     vi.doMock("@shared/schema", () => ({
       customUsers: {

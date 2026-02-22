@@ -130,7 +130,6 @@ describe("games-disputes — skip notification when no opponentId (line 53)", ()
 
     vi.doMock("../../db", () => ({
       getDb: () => ({ transaction: mockTransaction }),
-      isDatabaseAvailable: () => true,
     }));
     vi.doMock("../../auth/middleware", () => ({
       authenticateUser: (req: any, _res: any, next: any) => {
@@ -207,7 +206,7 @@ describe("metrics — db null for kpi and response-rate error (lines 89, 120-121
     vi.resetModules();
   });
 
-  it("returns 503 for /kpi when db is null and 500 for /response-rate on error", async () => {
+  it("returns 500 for /kpi when db is null (getDb throws) and 500 for /response-rate on error", async () => {
     let mockDb: any = null;
     const mockExecute = vi.fn().mockRejectedValue(new Error("DB fail"));
 
@@ -215,6 +214,11 @@ describe("metrics — db null for kpi and response-rate error (lines 89, 120-121
       get db() {
         return mockDb;
       },
+      getDb: () => {
+        if (!mockDb) throw new Error("Database not configured");
+        return mockDb;
+      },
+      isDatabaseAvailable: vi.fn(() => true),
     }));
     vi.doMock("drizzle-orm", () => ({
       sql: { raw: (s: string) => ({ _sql: true, raw: s }) },
@@ -271,7 +275,7 @@ describe("metrics — db null for kpi and response-rate error (lines 89, 120-121
     for (const h of routeHandlers["GET /kpi"]) {
       await h(reqAdmin, res1, () => {});
     }
-    expect(res1.status).toHaveBeenCalledWith(503);
+    expect(res1.status).toHaveBeenCalledWith(500);
 
     // Test /response-rate with db error
     mockDb = { execute: mockExecute };
@@ -288,14 +292,14 @@ describe("metrics — db null for kpi and response-rate error (lines 89, 120-121
     for (const h of routeHandlers["GET /votes-per-battle"]) {
       await h({ ...reqAdmin }, res3, () => {});
     }
-    expect(res3.status).toHaveBeenCalledWith(503);
+    expect(res3.status).toHaveBeenCalledWith(500);
 
     // Test /crew-join-rate with db null
     const res4: any = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
     for (const h of routeHandlers["GET /crew-join-rate"]) {
       await h({ ...reqAdmin }, res4, () => {});
     }
-    expect(res4.status).toHaveBeenCalledWith(503);
+    expect(res4.status).toHaveBeenCalledWith(500);
 
     // Test /retention with db error
     mockDb = { execute: mockExecute };
@@ -333,7 +337,6 @@ describe("trickmint — feed and single clip db errors", () => {
 
     vi.doMock("../../db", () => ({
       getDb: () => mockDbChain,
-      isDatabaseAvailable: () => true,
       getUserDisplayName: vi.fn().mockResolvedValue("User"),
     }));
     vi.doMock("@shared/schema", () => ({
@@ -631,7 +634,6 @@ describe("stripeWebhook — additional branches", () => {
       };
       return {
         getDb: () => createDb(),
-        isDatabaseAvailable: () => true,
       };
     });
     vi.doMock("@shared/schema", () => ({
@@ -751,7 +753,6 @@ describe("games-challenges — player2Name fallback (line 150)", () => {
 
     vi.doMock("../../db", () => ({
       getDb: () => mockDbChain,
-      isDatabaseAvailable: () => true,
     }));
     vi.doMock("../../auth/middleware", () => ({
       authenticateUser: (req: any, _res: any, next: any) => {

@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { authSessions } from "@shared/schema";
 import { lt } from "drizzle-orm";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { verifyCronSecret } from "../middleware/cronAuth";
 import { forfeitExpiredGames, notifyDeadlineWarnings } from "./games";
 import logger from "../logger";
@@ -44,10 +44,6 @@ router.post("/deadline-warnings", async (req, res) => {
 router.post("/cleanup-sessions", async (req, res) => {
   if (!verifyCronSecret(req.headers.authorization)) {
     return res.status(401).json({ error: "Unauthorized" });
-  }
-
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
   }
 
   try {

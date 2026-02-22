@@ -13,8 +13,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks — declared before any application imports
 // ============================================================================
 
-const mockIsDatabaseAvailable = vi.fn().mockReturnValue(true);
 const mockTransaction = vi.fn();
+let shouldGetDbThrow = false;
 
 function createDbChain() {
   const chain: any = {};
@@ -33,11 +33,13 @@ function createDbChain() {
 }
 
 vi.mock("../../db", () => ({
-  getDb: () => ({
-    ...createDbChain(),
-    transaction: mockTransaction,
-  }),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable(),
+  getDb: () => {
+    if (shouldGetDbThrow) throw new Error("Database not configured");
+    return {
+      ...createDbChain(),
+      transaction: mockTransaction,
+    };
+  },
 }));
 
 vi.mock("../../auth/middleware", () => ({
@@ -176,7 +178,7 @@ async function callHandler(routeKey: string, req: any, res: any) {
 describe("Game Dispute Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
+    shouldGetDbThrow = false;
   });
 
   // ==========================================================================
@@ -184,16 +186,16 @@ describe("Game Dispute Routes", () => {
   // ==========================================================================
 
   describe("POST /:id/dispute", () => {
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
 
       const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
       const res = createRes();
 
       await callHandler("POST /:id/dispute", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
-      expect(res.json).toHaveBeenCalledWith({ error: "Database unavailable" });
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: "Failed to file dispute" });
     });
 
     it("returns 400 for invalid body", async () => {
@@ -613,8 +615,8 @@ describe("Game Dispute Routes", () => {
   // ==========================================================================
 
   describe("POST /disputes/:disputeId/resolve", () => {
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
 
       const req = createReq({
         params: { disputeId: "1" },
@@ -624,8 +626,8 @@ describe("Game Dispute Routes", () => {
 
       await callHandler("POST /disputes/:disputeId/resolve", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
-      expect(res.json).toHaveBeenCalledWith({ error: "Database unavailable" });
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: "Failed to resolve dispute" });
     });
 
     it("returns 400 for invalid body", async () => {

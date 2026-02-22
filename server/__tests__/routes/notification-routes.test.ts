@@ -105,10 +105,10 @@ const mockDbReturns = {
   updateResult: [] as any[],
 };
 
-let mockIsDatabaseAvailable = true;
+let shouldGetDbThrow = false;
 
-vi.mock("../../db", () => ({
-  getDb: () => ({
+function createMockDb() {
+  return {
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
         where: vi.fn().mockReturnValue({
@@ -133,8 +133,14 @@ vi.mock("../../db", () => ({
         }),
       }),
     }),
-  }),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable,
+  };
+}
+
+vi.mock("../../db", () => ({
+  getDb: () => {
+    if (shouldGetDbThrow) throw new Error("Database not configured");
+    return createMockDb();
+  },
 }));
 
 // =============================================================================
@@ -189,7 +195,7 @@ describe("Notification Routes", () => {
     mockDbReturns.selectResult = [];
     mockDbReturns.insertResult = [];
     mockDbReturns.updateResult = [];
-    mockIsDatabaseAvailable = true;
+    shouldGetDbThrow = false;
   });
 
   // ===========================================================================
@@ -225,16 +231,16 @@ describe("Notification Routes", () => {
       expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
       const req = mockRequest({ body: { token: "valid-token" } });
       const res = mockResponse();
 
       await callRoute("POST", "/push-token", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Database unavailable" })
+        expect.objectContaining({ error: "Failed to register push token" })
       );
     });
   });
@@ -253,14 +259,17 @@ describe("Notification Routes", () => {
       expect(res.json).toHaveBeenCalledWith({ success: true });
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
       const req = mockRequest();
       const res = mockResponse();
 
       await callRoute("DELETE", "/push-token", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to remove push token" })
+      );
     });
   });
 
@@ -332,14 +341,17 @@ describe("Notification Routes", () => {
       );
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
       const req = mockRequest();
       const res = mockResponse();
 
       await callRoute("GET", "/preferences", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to get preferences" })
+      );
     });
   });
 
@@ -392,14 +404,17 @@ describe("Notification Routes", () => {
       expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
       const req = mockRequest({ body: { pushEnabled: true } });
       const res = mockResponse();
 
       await callRoute("PUT", "/preferences", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to update preferences" })
+      );
     });
   });
 
@@ -408,14 +423,17 @@ describe("Notification Routes", () => {
   // ===========================================================================
 
   describe("GET /unread-count", () => {
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
       const req = mockRequest();
       const res = mockResponse();
 
       await callRoute("GET", "/unread-count", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to get unread count" })
+      );
     });
   });
 
@@ -424,14 +442,17 @@ describe("Notification Routes", () => {
   // ===========================================================================
 
   describe("GET / (list notifications)", () => {
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
       const req = mockRequest({ query: {} });
       const res = mockResponse();
 
       await callRoute("GET", "/", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to list notifications" })
+      );
     });
   });
 
@@ -477,14 +498,17 @@ describe("Notification Routes", () => {
       );
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
       const req = mockRequest({ params: { id: "42" } });
       const res = mockResponse();
 
       await callRoute("POST", "/:id/read", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to mark as read" })
+      );
     });
   });
 
@@ -502,14 +526,17 @@ describe("Notification Routes", () => {
       expect(res.json).toHaveBeenCalledWith({ success: true });
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
       const req = mockRequest();
       const res = mockResponse();
 
       await callRoute("POST", "/read-all", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to mark all as read" })
+      );
     });
   });
 });

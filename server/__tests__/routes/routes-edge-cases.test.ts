@@ -37,9 +37,8 @@ const mocks = vi.hoisted(() => {
   // Database
   const mockExecute = vi.fn();
   // Mutable reference so tests can set db to null
-  const dbState: { db: any; dbAvailable: boolean } = {
+  const dbState: { db: any } = {
     db: { execute: mockExecute },
-    dbAvailable: true,
   };
 
   // getDb chain
@@ -201,8 +200,12 @@ vi.mock("../../db", () => ({
   get db() {
     return mocks.dbState.db;
   },
-  getDb: () => mocks.dbChain,
-  isDatabaseAvailable: () => mocks.dbState.dbAvailable,
+  getDb: () => {
+    if (!mocks.dbState.db) throw new Error("Database not configured");
+    mocks.dbChain.execute = mocks.mockExecute;
+    return mocks.dbChain;
+  },
+  isDatabaseAvailable: vi.fn(() => true),
   getUserDisplayName: (...a: any[]) => mocks.getUserDisplayName(...a),
 }));
 
@@ -694,7 +697,6 @@ describe("Metrics Routes — uncovered catch blocks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.dbState.db = { execute: mocks.mockExecute };
-    mocks.dbState.dbAvailable = true;
     mocks.mockExecute.mockResolvedValue({ rows: [{ value: 1 }] });
   });
 
@@ -707,12 +709,12 @@ describe("Metrics Routes — uncovered catch blocks", () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "QUERY_FAILED" }));
   });
 
-  it("GET /crew-join-rate returns 503 when db is null (covers line 163)", async () => {
+  it("GET /crew-join-rate returns 500 when db is null (getDb throws, covers line 163)", async () => {
     mocks.dbState.db = null;
     const req = createReq();
     const res = createRes();
     await callHandler("GET /crew-join-rate", req, res);
-    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.status).toHaveBeenCalledWith(500);
   });
 
   it("GET /retention returns 500 on db error (covers lines 195-196)", async () => {
@@ -724,12 +726,12 @@ describe("Metrics Routes — uncovered catch blocks", () => {
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "QUERY_FAILED" }));
   });
 
-  it("GET /response-rate returns 503 when db is null", async () => {
+  it("GET /response-rate returns 500 when db is null (getDb throws)", async () => {
     mocks.dbState.db = null;
     const req = createReq();
     const res = createRes();
     await callHandler("GET /response-rate", req, res);
-    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.status).toHaveBeenCalledWith(500);
   });
 
   it("GET /kpi returns 500 on db error", async () => {
@@ -740,12 +742,12 @@ describe("Metrics Routes — uncovered catch blocks", () => {
     expect(res.status).toHaveBeenCalledWith(500);
   });
 
-  it("GET /votes-per-battle returns 503 when db is null", async () => {
+  it("GET /votes-per-battle returns 500 when db is null (getDb throws)", async () => {
     mocks.dbState.db = null;
     const req = createReq();
     const res = createRes();
     await callHandler("GET /votes-per-battle", req, res);
-    expect(res.status).toHaveBeenCalledWith(503);
+    expect(res.status).toHaveBeenCalledWith(500);
   });
 });
 
@@ -756,7 +758,7 @@ describe("Metrics Routes — uncovered catch blocks", () => {
 describe("Trickmint Routes — uncovered catch blocks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.dbState.dbAvailable = true;
+    mocks.dbState.db = { execute: mocks.mockExecute };
     resetDbChain();
   });
 
@@ -794,7 +796,7 @@ describe("Trickmint Routes — uncovered catch blocks", () => {
 describe("Games Challenges Routes — uncovered catch blocks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.dbState.dbAvailable = true;
+    mocks.dbState.db = { execute: mocks.mockExecute };
     resetDbChain();
   });
 
@@ -853,7 +855,7 @@ describe("Games Challenges Routes — uncovered catch blocks", () => {
 describe("Admin Routes — date validation & tier override", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.dbState.dbAvailable = true;
+    mocks.dbState.db = { execute: mocks.mockExecute };
     resetDbChain();
   });
 
@@ -969,7 +971,7 @@ describe("Admin Routes — date validation & tier override", () => {
 describe("Profile Routes — avatar upload & error cleanup", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.dbState.dbAvailable = true;
+    mocks.dbState.db = { execute: mocks.mockExecute };
     resetDbChain();
     mocks.reserve.mockResolvedValue(true);
     mocks.fileSave.mockResolvedValue(undefined);

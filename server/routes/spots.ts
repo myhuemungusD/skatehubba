@@ -20,21 +20,15 @@ import { logAuditEvent } from "../services/auditLog";
 import { verifyReplayProtection } from "../services/replayProtection";
 import { SpotCheckInSchema, type SpotCheckInRequest } from "@shared/validation/spotCheckIn";
 import { getClientIp } from "../utils/ip";
+import { spotDiscoveryBreaker } from "../utils/circuitBreaker";
 import logger from "../logger";
 
 const router = Router();
 
 // GET /api/spots — list all spots
 router.get("/", async (_req, res) => {
-  try {
-    const spots = await spotStorage.getAllSpots();
-    res.json(spots);
-  } catch (error) {
-    logger.error("Failed to fetch spots", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    res.json([]);
-  }
+  const spots = await spotDiscoveryBreaker.execute(() => spotStorage.getAllSpots(), []);
+  res.json(spots);
 });
 
 // GET /api/spots/discover — discover skateparks near user's location from OpenStreetMap
@@ -46,13 +40,19 @@ router.get("/discover", spotDiscoveryLimiter, async (req, res) => {
     return res.status(400).json({ message: "Valid lat and lng query parameters are required" });
   }
 
-  // Fast path: if we already discovered for this area, just return existing spots
-  if (await isAreaCached(lat, lng)) {
-    const allSpots = await spotStorage.getAllSpots();
-    return res.json({ discovered: 0, added: 0, cached: true, spots: allSpots });
-  }
+  const EMPTY_DISCOVERY = {
+    discovered: 0,
+    added: 0,
+    spots: [] as Awaited<ReturnType<typeof spotStorage.getAllSpots>>,
+  };
 
-  try {
+  const result = await spotDiscoveryBreaker.execute(async () => {
+    // Fast path: if we already discovered for this area, just return existing spots
+    if (await isAreaCached(lat, lng)) {
+      const allSpots = await spotStorage.getAllSpots();
+      return { discovered: 0, added: 0, cached: true, spots: allSpots };
+    }
+
     const discovered = await discoverSkateparks(lat, lng);
     let added = 0;
 
@@ -80,15 +80,10 @@ router.get("/discover", spotDiscoveryLimiter, async (req, res) => {
 
     // Return all spots (including newly added ones)
     const allSpots = await spotStorage.getAllSpots();
-    return res.json({ discovered: discovered.length, added, spots: allSpots });
-  } catch (error) {
-    logger.error("Spot discovery failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    // Still return existing spots even if discovery failed
-    const allSpots = await spotStorage.getAllSpots();
-    return res.json({ discovered: 0, added: 0, spots: allSpots });
-  }
+    return { discovered: discovered.length, added, spots: allSpots };
+  }, EMPTY_DISCOVERY);
+
+  return res.json(result);
 });
 
 // GET /api/spots/:spotId — get a single spot

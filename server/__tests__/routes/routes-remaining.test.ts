@@ -31,12 +31,10 @@ mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.delete = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
 
-const mockIsDatabaseAvailable = vi.fn().mockReturnValue(true);
 const mockGetUserDisplayName = vi.fn().mockResolvedValue("TestUser");
 
 vi.mock("../../db", () => ({
   getDb: () => mockDbChain,
-  isDatabaseAvailable: () => mockIsDatabaseAvailable(),
   getUserDisplayName: (...args: any[]) => mockGetUserDisplayName(...args),
   db: null, // metrics.ts imports `db` directly
 }));
@@ -321,7 +319,6 @@ function resetDbChain() {
 describe("Trickmint — withPreferredVideoUrl uncovered branches", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
     resetDbChain();
   });
 
@@ -451,7 +448,6 @@ describe("Trickmint — withPreferredVideoUrl uncovered branches", () => {
 describe("Trickmint — incrementViewsWithRetry uncovered branches (lines 85-94)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
     resetDbChain();
   });
 
@@ -583,7 +579,6 @@ describe("Filmer — parseCheckInId non-finite branch", () => {
 describe("Games-cron — additional branch coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
     resetDbChain();
     mockDeadlineWarningsSent.clear();
   });
@@ -972,7 +967,6 @@ describe("Metrics — DB error branch logic", () => {
 describe("Trickmint — additional error paths", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
     resetDbChain();
   });
 

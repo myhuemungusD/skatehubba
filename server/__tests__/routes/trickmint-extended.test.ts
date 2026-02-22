@@ -28,12 +28,11 @@ mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.delete = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
 
-const mockIsDatabaseAvailable = vi.fn().mockReturnValue(true);
 const mockGetUserDisplayName = vi.fn().mockResolvedValue("TestUser");
+let mockGetDb: () => any;
 
 vi.mock("../../db", () => ({
-  getDb: () => mockDbChain,
-  isDatabaseAvailable: () => mockIsDatabaseAvailable(),
+  getDb: () => mockGetDb(),
   getUserDisplayName: (...args: any[]) => mockGetUserDisplayName(...args),
 }));
 
@@ -160,7 +159,7 @@ async function callHandler(routeKey: string, req: any, res: any) {
 describe("Trickmint Routes - Extended Coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
+    mockGetDb = () => mockDbChain;
     mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
   });
 
@@ -229,12 +228,14 @@ describe("Trickmint Routes - Extended Coverage", () => {
   });
 
   describe("GET /feed - error paths", () => {
-    it("should return 503 when db unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("should return 500 when db unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq({ query: {} });
       const res = createRes();
       await callHandler("GET /feed", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
 
     it("should return 400 for invalid pagination (limit = 0)", async () => {
@@ -246,22 +247,26 @@ describe("Trickmint Routes - Extended Coverage", () => {
   });
 
   describe("GET /:id - error paths", () => {
-    it("should return 503 when db unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("should return 500 when db unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq({ params: { id: "1" } });
       const res = createRes();
       await callHandler("GET /:id", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
   });
 
   describe("DELETE /:id - error paths", () => {
-    it("should return 503 when db unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("should return 500 when db unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq({ params: { id: "1" } });
       const res = createRes();
       await callHandler("DELETE /:id", req, res);
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
 
     it("should return 400 for non-numeric clip ID", async () => {

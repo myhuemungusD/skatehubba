@@ -13,10 +13,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mocks — declared before any application imports
 // ============================================================================
 
-const mockIsDatabaseAvailable = vi.fn().mockReturnValue(true);
 const mockTransaction = vi.fn();
 const mockOuterSelect = vi.fn();
 const mockSendGameNotification = vi.fn().mockResolvedValue(undefined);
+let shouldGetDbThrow = false;
 
 // Capture route registrations via the Router mock
 const capturedRoutes: any[] = [];
@@ -35,11 +35,13 @@ vi.mock("express", () => ({
 }));
 
 vi.mock("../../db", () => ({
-  getDb: () => ({
-    select: mockOuterSelect,
-    transaction: mockTransaction,
-  }),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable(),
+  getDb: () => {
+    if (shouldGetDbThrow) throw new Error("Database not configured");
+    return {
+      select: mockOuterSelect,
+      transaction: mockTransaction,
+    };
+  },
 }));
 
 vi.mock("../../auth/middleware", () => ({
@@ -300,7 +302,7 @@ const judgeGameBase = {
 describe("Game Turn Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
+    shouldGetDbThrow = false;
     setupOuterSelect([]);
   });
 
@@ -309,16 +311,16 @@ describe("Game Turn Routes", () => {
   // ==========================================================================
 
   describe("POST /:id/turns", () => {
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
 
       const req = createReq({ params: { id: "game-1" }, body: validTurnBody });
       const res = createRes();
 
       await callHandler("post", "/:id/turns", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
-      expect(res.json).toHaveBeenCalledWith({ error: "Database unavailable" });
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: "Failed to submit turn" });
     });
 
     it("returns 400 for invalid body", async () => {
@@ -585,8 +587,8 @@ describe("Game Turn Routes", () => {
   // ==========================================================================
 
   describe("POST /turns/:turnId/judge", () => {
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable.mockReturnValue(false);
+    it("returns 500 when database is unavailable", async () => {
+      shouldGetDbThrow = true;
 
       const req = createReq({
         params: { turnId: "1" },
@@ -596,8 +598,8 @@ describe("Game Turn Routes", () => {
 
       await callHandler("post", "/turns/:turnId/judge", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
-      expect(res.json).toHaveBeenCalledWith({ error: "Database unavailable" });
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ error: "Failed to judge turn" });
     });
 
     it("returns 400 for invalid body", async () => {

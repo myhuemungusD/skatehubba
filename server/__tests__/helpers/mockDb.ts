@@ -146,7 +146,6 @@ export function createMockDbModule(defaultResult: unknown = []) {
     dbModule: {
       getDb: () => db,
       db,
-      isDatabaseAvailable: () => true,
     },
     chain,
   };

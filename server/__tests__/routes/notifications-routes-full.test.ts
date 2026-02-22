@@ -97,7 +97,6 @@ vi.mock("@shared/schema", () => ({
 }));
 
 // ---- DB mock with sequential results queue ----
-let mockIsDatabaseAvailable = true;
 let shouldDbThrow = false;
 
 // Queue of results: each call that resolves (from any terminal chain method) shifts one off
@@ -153,12 +152,14 @@ function makeChain(): any {
 }
 
 vi.mock("../../db", () => ({
-  getDb: () => ({
-    select: vi.fn().mockImplementation(() => makeChain()),
-    update: vi.fn().mockImplementation(() => makeChain()),
-    insert: vi.fn().mockImplementation(() => makeChain()),
-  }),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable,
+  getDb: () => {
+    if (shouldDbThrow) throw new Error("Database not configured");
+    return {
+      select: vi.fn().mockImplementation(() => makeChain()),
+      update: vi.fn().mockImplementation(() => makeChain()),
+      insert: vi.fn().mockImplementation(() => makeChain()),
+    };
+  },
 }));
 
 // =============================================================================
@@ -208,7 +209,6 @@ async function callRoute(method: string, path: string, req: any, res: any) {
 describe("Notification Routes — extended coverage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable = true;
     shouldDbThrow = false;
     resultQueue = [];
   });

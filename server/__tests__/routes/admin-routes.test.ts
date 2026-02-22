@@ -121,8 +121,8 @@ vi.mock("@shared/schema", () => ({
   orders: {},
 }));
 
-let mockIsDatabaseAvailable = true;
 let mockDbInstance: any;
+let mockGetDb: () => any;
 
 function createMockDbChain() {
   const chain: any = {};
@@ -154,8 +154,7 @@ function createMockDbChain() {
 }
 
 vi.mock("../../db", () => ({
-  getDb: () => mockDbInstance,
-  isDatabaseAvailable: () => mockIsDatabaseAvailable,
+  getDb: () => mockGetDb(),
 }));
 
 // Import real Errors and sendError so status codes flow through res.status().json()
@@ -216,8 +215,8 @@ async function callHandler(method: string, path: string, req: any, res: any) {
 describe("Admin Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable = true;
     mockDbInstance = createMockDbChain();
+    mockGetDb = () => mockDbInstance;
   });
 
   // ===========================================================================
@@ -225,18 +224,20 @@ describe("Admin Routes", () => {
   // ===========================================================================
 
   describe("GET /stats", () => {
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq();
       const res = createRes();
 
       await callHandler("GET", "/stats", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: "DATABASE_UNAVAILABLE",
-          message: "Database unavailable. Please try again shortly.",
+          error: "QUERY_FAILED",
+          message: "Database query failed.",
         })
       );
     });
@@ -462,16 +463,21 @@ describe("Admin Routes", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ users: [], total: 0 }));
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq();
       const res = createRes();
 
       await callHandler("GET", "/users", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+        expect.objectContaining({
+          error: "QUERY_FAILED",
+          message: "Database query failed.",
+        })
       );
     });
 
@@ -600,8 +606,10 @@ describe("Admin Routes", () => {
       );
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq({
         params: { userId: "target-1" },
         body: { trustLevel: 1 },
@@ -610,9 +618,12 @@ describe("Admin Routes", () => {
 
       await callHandler("PATCH", "/users/:userId/trust-level", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+        expect.objectContaining({
+          error: "UPDATE_FAILED",
+          message: "Database update failed.",
+        })
       );
     });
 
@@ -742,8 +753,10 @@ describe("Admin Routes", () => {
       );
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq({
         params: { reportId: "report-1" },
         body: { status: "queued" },
@@ -752,9 +765,12 @@ describe("Admin Routes", () => {
 
       await callHandler("PATCH", "/reports/:reportId/status", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+        expect.objectContaining({
+          error: "UPDATE_FAILED",
+          message: "Database update failed.",
+        })
       );
     });
 
@@ -866,16 +882,21 @@ describe("Admin Routes", () => {
       );
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq();
       const res = createRes();
 
       await callHandler("GET", "/audit-logs", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+        expect.objectContaining({
+          error: "QUERY_FAILED",
+          message: "Database query failed.",
+        })
       );
     });
 
@@ -974,16 +995,21 @@ describe("Admin Routes", () => {
       );
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq();
       const res = createRes();
 
       await callHandler("GET", "/mod-actions", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+        expect.objectContaining({
+          error: "QUERY_FAILED",
+          message: "Database query failed.",
+        })
       );
     });
 
@@ -1134,8 +1160,10 @@ describe("Admin Routes", () => {
       );
     });
 
-    it("returns 503 when database is unavailable", async () => {
-      mockIsDatabaseAvailable = false;
+    it("returns 500 when database is unavailable", async () => {
+      mockGetDb = () => {
+        throw new Error("Database not configured");
+      };
       const req = createReq({
         params: { userId: "target-1" },
         body: { accountTier: "pro" },
@@ -1144,9 +1172,12 @@ describe("Admin Routes", () => {
 
       await callHandler("PATCH", "/users/:userId/tier", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+        expect.objectContaining({
+          error: "UPDATE_FAILED",
+          message: "Database update failed.",
+        })
       );
     });
 

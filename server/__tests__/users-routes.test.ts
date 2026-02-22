@@ -14,7 +14,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../db", () => ({
   getDb: vi.fn(),
-  isDatabaseAvailable: vi.fn(),
 }));
 
 vi.mock("../auth/middleware", () => ({
@@ -43,6 +42,19 @@ vi.mock("drizzle-orm", () => ({
   }),
 }));
 
+// Mock the circuit breaker to execute the function directly with fallback support
+vi.mock("../utils/circuitBreaker", () => ({
+  userDiscoveryBreaker: {
+    execute: vi.fn(async (fn: () => Promise<any>, fallback: any) => {
+      try {
+        return await fn();
+      } catch {
+        return fallback;
+      }
+    }),
+  },
+}));
+
 // Capture route handlers via mock Router
 const routeHandlers: Record<string, any[]> = {};
 
@@ -60,7 +72,7 @@ vi.mock("express", () => ({
 
 await import("../routes/users");
 
-const { getDb, isDatabaseAvailable } = await import("../db");
+const { getDb } = await import("../db");
 
 // ============================================================================
 // Helpers
@@ -114,7 +126,6 @@ describe("GET /api/users/search", () => {
 
   it("should return mapped user results for valid query", async () => {
     const dbResults = [{ id: "u1", firstName: "John", lastName: "Doe" }];
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "John" } });
@@ -146,8 +157,10 @@ describe("GET /api/users/search", () => {
     expect(res.json).toHaveBeenCalledWith([]);
   });
 
-  it("should return empty array when db is unavailable", async () => {
-    vi.mocked(isDatabaseAvailable).mockReturnValue(false);
+  it("should return empty array when db is unavailable (circuit breaker fallback)", async () => {
+    vi.mocked(getDb).mockImplementation(() => {
+      throw new Error("Database not configured");
+    });
 
     const req = mockReq({ query: { q: "Test" } });
     const res = mockRes();
@@ -156,8 +169,7 @@ describe("GET /api/users/search", () => {
     expect(res.json).toHaveBeenCalledWith([]);
   });
 
-  it("should return empty array on db error", async () => {
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
+  it("should return empty array on db error (circuit breaker fallback)", async () => {
     vi.mocked(getDb).mockImplementation(() => {
       throw new Error("fail");
     });
@@ -171,7 +183,6 @@ describe("GET /api/users/search", () => {
 
   it("should handle user with only firstName (no lastName)", async () => {
     const dbResults = [{ id: "u2", firstName: "Solo", lastName: null }];
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "Solo" } });
@@ -183,7 +194,6 @@ describe("GET /api/users/search", () => {
 
   it("should handle user with no name at all", async () => {
     const dbResults = [{ id: "u3", firstName: null, lastName: null }];
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "noname" } });
@@ -209,7 +219,6 @@ describe("GET /api/users", () => {
 
   it("should return users list", async () => {
     const dbResults = [{ id: "u1", displayName: "Alice", photoURL: null }];
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     vi.mocked(getDb).mockReturnValue({
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockReturnValue({
@@ -227,8 +236,10 @@ describe("GET /api/users", () => {
     expect(res.json).toHaveBeenCalledWith(dbResults);
   });
 
-  it("should return empty array when db unavailable", async () => {
-    vi.mocked(isDatabaseAvailable).mockReturnValue(false);
+  it("should return empty array when db unavailable (circuit breaker fallback)", async () => {
+    vi.mocked(getDb).mockImplementation(() => {
+      throw new Error("Database not configured");
+    });
 
     const req = mockReq();
     const res = mockRes();
@@ -237,8 +248,7 @@ describe("GET /api/users", () => {
     expect(res.json).toHaveBeenCalledWith([]);
   });
 
-  it("should return empty array on error", async () => {
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
+  it("should return empty array on error (circuit breaker fallback)", async () => {
     vi.mocked(getDb).mockImplementation(() => {
       throw new Error("fail");
     });

@@ -32,7 +32,6 @@ vi.mock("../../db", () => ({
     set: vi.fn().mockReturnThis(),
     delete: vi.fn().mockReturnThis(),
   }),
-  isDatabaseAvailable: () => false,
 }));
 
 // Import after mocking

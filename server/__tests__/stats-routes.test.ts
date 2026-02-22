@@ -12,7 +12,6 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../db", () => ({
   getDb: vi.fn(),
-  isDatabaseAvailable: vi.fn(),
 }));
 
 vi.mock("@shared/schema", () => ({
@@ -23,6 +22,19 @@ vi.mock("@shared/schema", () => ({
 
 vi.mock("drizzle-orm", () => ({
   count: vi.fn(() => "count_agg"),
+}));
+
+// Mock the circuit breaker to execute the function directly with fallback support
+vi.mock("../utils/circuitBreaker", () => ({
+  statsBreaker: {
+    execute: vi.fn(async (fn: () => Promise<any>, fallback: any) => {
+      try {
+        return await fn();
+      } catch {
+        return fallback;
+      }
+    }),
+  },
 }));
 
 // Capture route handlers via mock Router
@@ -42,7 +54,7 @@ vi.mock("express", () => ({
 
 await import("../routes/stats");
 
-const { getDb, isDatabaseAvailable } = await import("../db");
+const { getDb } = await import("../db");
 
 // ============================================================================
 // Helpers
@@ -76,8 +88,6 @@ describe("GET /api/stats", () => {
   });
 
   it("should return aggregated stats with distinct counts per table", async () => {
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
-
     const { customUsers, spots, games } = await import("@shared/schema");
     const fromMock = vi.fn().mockImplementation((table: any) => {
       if (table === customUsers) return Promise.resolve([{ count: 10 }]);
@@ -104,8 +114,10 @@ describe("GET /api/stats", () => {
     });
   });
 
-  it("should return zero stats when db is unavailable", async () => {
-    vi.mocked(isDatabaseAvailable).mockReturnValue(false);
+  it("should return zero stats when db is unavailable (circuit breaker fallback)", async () => {
+    vi.mocked(getDb).mockImplementation(() => {
+      throw new Error("Database not configured");
+    });
 
     const req = mockReq();
     const res = mockRes();
@@ -118,8 +130,7 @@ describe("GET /api/stats", () => {
     });
   });
 
-  it("should return zero stats on error", async () => {
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
+  it("should return zero stats on error (circuit breaker fallback)", async () => {
     vi.mocked(getDb).mockImplementation(() => {
       throw new Error("kaboom");
     });
@@ -136,7 +147,6 @@ describe("GET /api/stats", () => {
   });
 
   it("should handle empty count results gracefully", async () => {
-    vi.mocked(isDatabaseAvailable).mockReturnValue(true);
     const mockDb = {
       select: vi.fn().mockReturnValue({
         from: vi.fn().mockResolvedValue([{}]),
