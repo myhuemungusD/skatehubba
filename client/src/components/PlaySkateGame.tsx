@@ -87,22 +87,36 @@ export default function PlaySkateGame({ spotId, userToken }: PlaySkateGameProps)
   const myLetters = game.letters?.[myIdx] || "";
 
   return (
-    <div className="bg-black text-white p-6 rounded-xl">
+    <div className="bg-black text-white p-6 rounded-xl" role="region" aria-label="S.K.A.T.E. game">
       <h2 className="text-2xl mb-4">Play S.K.A.T.E. ({game.players?.length || 0}/4)</h2>
       {game.status === "ended" ? (
-        <h1 className="text-4xl">WINNER!</h1>
+        <h1 className="text-4xl" role="status" aria-live="polite">
+          WINNER!
+        </h1>
       ) : (
         <>
-          <p>
-            Your letters: <span className="text-4xl text-red-600">{myLetters || ""}</span>
+          <p aria-live="polite">
+            Your letters:{" "}
+            <span className="text-4xl text-red-600" aria-label={`Letters: ${myLetters || "none"}`}>
+              {myLetters || ""}
+            </span>
           </p>
+          <label htmlFor="trick-input" className="sr-only">
+            Trick name
+          </label>
           <input
+            id="trick-input"
             placeholder="kickflip boardslide"
             className="bg-gray-900 p-3 rounded w-full my-4"
             value={trick}
             onChange={(e) => setTrick(e.target.value)}
+            aria-label="Enter trick name"
           />
-          <button onClick={sendClip} className="bg-success px-8 py-4 rounded text-xl">
+          <button
+            onClick={sendClip}
+            className="bg-success px-8 py-4 rounded text-xl"
+            aria-label="Submit trick clip"
+          >
             LAND IT
           </button>
         </>
