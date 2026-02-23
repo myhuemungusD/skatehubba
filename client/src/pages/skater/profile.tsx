@@ -92,7 +92,7 @@ export default function SkaterProfile() {
                 @{handle}
               </p>
               <p className="text-sm text-neutral-300" data-testid="profile-stats">
-                {profile.stance} {profile.homeSpot} W/L {profile.wins ?? 0}/{profile.losses ?? 0}
+                {profile.stance} {profile.homeSpot ? `· ${profile.homeSpot}` : ""}
               </p>
             </div>
           </div>
@@ -113,6 +113,35 @@ export default function SkaterProfile() {
             {profile.bio}
           </p>
         )}
+      </section>
+
+      {/* Stats */}
+      <section className="mx-auto w-full max-w-6xl px-4 pt-8">
+        <h2 className="mb-4 text-lg font-semibold uppercase tracking-wide text-orange-400">
+          S.K.A.T.E. Record
+        </h2>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Card className="bg-neutral-900 border-neutral-700 p-4 text-center">
+            <p className="text-2xl font-bold text-green-400">{profile.wins ?? 0}</p>
+            <p className="text-xs text-neutral-400 uppercase tracking-wide">Wins</p>
+          </Card>
+          <Card className="bg-neutral-900 border-neutral-700 p-4 text-center">
+            <p className="text-2xl font-bold text-red-400">{profile.losses ?? 0}</p>
+            <p className="text-xs text-neutral-400 uppercase tracking-wide">Losses</p>
+          </Card>
+          <Card className="bg-neutral-900 border-neutral-700 p-4 text-center">
+            <p className="text-2xl font-bold text-yellow-300">
+              {(profile.wins ?? 0) + (profile.losses ?? 0) > 0
+                ? `${Math.round(((profile.wins ?? 0) / ((profile.wins ?? 0) + (profile.losses ?? 0))) * 100)}%`
+                : "0%"}
+            </p>
+            <p className="text-xs text-neutral-400 uppercase tracking-wide">Win Rate</p>
+          </Card>
+          <Card className="bg-neutral-900 border-neutral-700 p-4 text-center">
+            <p className="text-2xl font-bold text-orange-400">{(profile.xp ?? 0).toLocaleString()}</p>
+            <p className="text-xs text-neutral-400 uppercase tracking-wide">XP</p>
+          </Card>
+        </div>
       </section>
 
       {/* Closet - Coming Soon */}

@@ -7,6 +7,12 @@ import { SKATE } from "@/theme";
 import { LeaderboardSkeleton } from "@/components/common/Skeleton";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
+function winRate(wins: number, losses: number): string {
+  const total = wins + losses;
+  if (total === 0) return "0%";
+  return `${Math.round((wins / total) * 100)}%`;
+}
+
 function LeaderboardScreenContent() {
   const { data: leaderboard, isLoading } = useQuery({
     queryKey: ["/api/leaderboard"],
@@ -41,11 +47,11 @@ function LeaderboardScreenContent() {
         <View style={styles.info}>
           <Text style={styles.name}>{item.displayName}</Text>
           <Text style={styles.stats}>
-            {item.totalPoints} pts · {item.spotsUnlocked} spots
+            {item.wins}W - {item.losses}L · {winRate(item.wins, item.losses)}
           </Text>
         </View>
 
-        <Text style={styles.points}>{item.totalPoints}</Text>
+        <Text style={styles.points}>{item.wins}W</Text>
       </View>
     );
   };
@@ -63,7 +69,7 @@ function LeaderboardScreenContent() {
           ListHeaderComponent={
             <View style={styles.header}>
               <Text testID="leaderboard-header" style={styles.headerText}>
-                Top Skaters
+                S.K.A.T.E. Leaderboard
               </Text>
             </View>
           }
