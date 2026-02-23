@@ -200,6 +200,20 @@ migrate_up() {
 
     init_migrations_table
 
+    # Abort if duplicate sequence numbers are detected
+    local dup_prev_num=""
+    for dup_file in "$MIGRATIONS_DIR"/[0-9][0-9][0-9][0-9]_*.sql; do
+        [ -e "$dup_file" ] || continue
+        [[ "$dup_file" == *"_down.sql" ]] && continue
+        local dup_num
+        dup_num=$(basename "$dup_file" | cut -d'_' -f1)
+        if [ "$dup_num" = "$dup_prev_num" ]; then
+            print_error "Duplicate migration sequence number $dup_num detected. Run './migrate.sh validate' for details."
+            exit 1
+        fi
+        dup_prev_num="$dup_num"
+    done
+
     if [ -z "$migration_number" ]; then
         # Run all pending migrations
         print_info "Running all pending migrations..."
@@ -375,12 +389,36 @@ validate_migrations() {
 
     local errors=0
 
-    # Check for gaps in migration numbers
+    # Check for duplicate sequence numbers (forward migrations only)
+    local dup_prev_num=""
+    local dup_prev_file=""
+    for migration_file in "$MIGRATIONS_DIR"/[0-9][0-9][0-9][0-9]_*.sql; do
+        [ -e "$migration_file" ] || continue
+        [[ "$migration_file" == *"_down.sql" ]] && continue
+
+        local dup_num
+        dup_num=$(basename "$migration_file" | cut -d'_' -f1)
+
+        if [ "$dup_num" = "$dup_prev_num" ]; then
+            print_error "Duplicate migration sequence number $dup_num: $(basename "$dup_prev_file") and $(basename "$migration_file")"
+            ((errors++))
+        fi
+
+        dup_prev_num="$dup_num"
+        dup_prev_file="$migration_file"
+    done
+
+    # Check for gaps in migration numbers (forward migrations only, deduplicated)
     local prev_num=0
     for migration_file in "$MIGRATIONS_DIR"/[0-9][0-9][0-9][0-9]_*.sql; do
         [ -e "$migration_file" ] || continue
+        [[ "$migration_file" == *"_down.sql" ]] && continue
 
-        local num=$(basename "$migration_file" | cut -d'_' -f1 | sed 's/^0*//')
+        local num
+        num=$(basename "$migration_file" | cut -d'_' -f1 | sed 's/^0*//')
+
+        # Skip duplicate numbers (already reported above)
+        [ "$num" -eq "$prev_num" ] 2>/dev/null && continue
 
         if [ "$num" -ne $((prev_num + 1)) ] && [ $prev_num -ne 0 ]; then
             print_error "Gap in migration sequence: $prev_num -> $num"
