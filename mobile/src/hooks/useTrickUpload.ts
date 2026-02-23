@@ -36,60 +36,65 @@ export function useTrickUpload() {
       const response = await fetch(uri);
       const blob = await response.blob();
 
-      // Upload to Firebase Storage
+      // Upload to Firebase Storage — wrap in Promise so finally waits for completion
       const timestamp = Date.now();
       const videoPath = `trickmint/${auth.currentUser.uid}/${timestamp}.mp4`;
       const storageRef = ref(storage, videoPath);
       const uploadTask = uploadBytesResumable(storageRef, blob);
 
-      // Monitor upload progress
-      uploadTask.on(
-        "state_changed",
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(progress);
-        },
-        (error) => {
-          console.error("Upload error:", error);
-          showMessage({
-            message: "Upload Failed",
-            description: "Unable to upload video. Please try again.",
-            type: "danger",
-            duration: 3000,
-          });
-          setIsUploading(false);
-        },
-        async () => {
-          // Upload completed successfully
-          const videoUrl = await getDownloadURL(uploadTask.snapshot.ref);
-
-          // Submit to server
-          const data = await apiRequest<{ clip?: unknown }>("/api/trickmint/submit", {
-            method: "POST",
-            body: JSON.stringify({
-              trickName: trickName.trim(),
-              description: description.trim() || undefined,
-              videoUrl,
-              videoDurationMs: durationMs,
-              fileSizeBytes: blob.size,
-              mimeType: blob.type || "video/mp4",
-              isPublic,
-            }),
-          });
-
-          if (data.clip) {
+      await new Promise<void>((resolve, reject) => {
+        uploadTask.on(
+          "state_changed",
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(progress);
+          },
+          (error) => {
+            console.error("Upload error:", error);
             showMessage({
-              message: "✅ Trick Uploaded!",
-              description: "Your clip is now live.",
-              type: "success",
-              duration: 2000,
+              message: "Upload Failed",
+              description: "Unable to upload video. Please try again.",
+              type: "danger",
+              duration: 3000,
             });
-            queryClient.invalidateQueries({ queryKey: ["trickmint"] });
-          } else {
-            throw new Error("Upload failed");
+            reject(error);
+          },
+          async () => {
+            try {
+              const videoUrl = await getDownloadURL(uploadTask.snapshot.ref);
+
+              // Submit to server
+              const data = await apiRequest<{ clip?: unknown }>("/api/trickmint/submit", {
+                method: "POST",
+                body: JSON.stringify({
+                  trickName: trickName.trim(),
+                  description: description.trim() || undefined,
+                  videoUrl,
+                  videoDurationMs: durationMs,
+                  fileSizeBytes: blob.size,
+                  mimeType: blob.type || "video/mp4",
+                  isPublic,
+                }),
+              });
+
+              if (data.clip) {
+                showMessage({
+                  message: "✅ Trick Uploaded!",
+                  description: "Your clip is now live.",
+                  type: "success",
+                  duration: 2000,
+                });
+                queryClient.invalidateQueries({ queryKey: ["trickmint"] });
+                resolve();
+              } else {
+                reject(new Error("Upload failed"));
+              }
+            } catch (e) {
+              reject(e);
+            }
           }
-        }
-      );
+        );
+      });
     } catch (error) {
       showMessage({
         message: "Upload Failed",

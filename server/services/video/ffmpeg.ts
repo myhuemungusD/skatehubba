@@ -37,10 +37,10 @@ export async function transcodeVideo(
     "-maxrate",
     opts.targetBitrate,
     "-bufsize",
-    `${parseInt(opts.targetBitrate) * 2}M`,
+    `${parseInt(opts.targetBitrate) * 2}k`,
     // Scale down if exceeds max dimensions, preserve aspect ratio
     "-vf",
-    `scale='min(${opts.maxWidth},iw)':min'(${opts.maxHeight},ih)':force_original_aspect_ratio=decrease`,
+    `scale='min(${opts.maxWidth},iw)':'min(${opts.maxHeight},ih)':force_original_aspect_ratio=decrease`,
     // Duration limit
     "-t",
     String(opts.maxDurationMs / 1000),

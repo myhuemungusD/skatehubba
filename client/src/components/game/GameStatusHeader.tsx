@@ -13,7 +13,6 @@ interface GameStatusHeaderProps {
   opponentName: string;
   turnPhase: string | null;
   isOffensive: boolean;
-  isDefensive: boolean;
   onBack: () => void;
   onForfeit: () => void;
   forfeitPending: boolean;

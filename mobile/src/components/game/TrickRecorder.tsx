@@ -291,7 +291,7 @@ export function TrickRecorder({
           isUploading={isUploading}
           uploadProgress={uploadProgress}
           isSettingTrick={isSettingTrick}
-          onStartRecording={() => startRecording(recording)}
+          onStartRecording={() => startRecording()}
           onStopRecording={stopRecording}
           onRetake={handleRetake}
           onSubmit={handleSubmit}

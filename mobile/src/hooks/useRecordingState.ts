@@ -67,38 +67,29 @@ export function useRecordingState({ onVideoReady }: UseRecordingStateParams) {
     };
   }, [recording, progressAnim, stopRecording]);
 
-  const startRecording = useCallback(
-    async (isActive: boolean) => {
-      if (!cameraRef.current) return;
+  const startRecording = useCallback(async () => {
+    if (!cameraRef.current) return;
 
-      try {
-        setRecording(true);
-        cameraRef.current.startRecording({
-          onRecordingFinished: (video: VideoFile) => {
-            setRecording(false);
-            onVideoReady(video.path);
-          },
-          onRecordingError: (error: unknown) => {
-            console.error("[TrickRecorder] Recording error:", error);
-            setRecording(false);
-            Alert.alert("Recording Failed", "Please try again.");
-          },
-        });
-
-        // Auto-stop after max duration
-        setTimeout(() => {
-          if (cameraRef.current && isActive) {
-            cameraRef.current.stopRecording();
-          }
-        }, MAX_RECORDING_DURATION * 1000);
-      } catch (error) {
-        console.error("[TrickRecorder] Failed to start recording:", error);
-        setRecording(false);
-        Alert.alert("Recording Failed", "Please try again.");
-      }
-    },
-    [onVideoReady]
-  );
+    try {
+      setRecording(true);
+      cameraRef.current.startRecording({
+        onRecordingFinished: (video: VideoFile) => {
+          setRecording(false);
+          onVideoReady(video.path);
+        },
+        onRecordingError: (error: unknown) => {
+          console.error("[TrickRecorder] Recording error:", error);
+          setRecording(false);
+          Alert.alert("Recording Failed", "Please try again.");
+        },
+      });
+      // Auto-stop is handled by the timer useEffect above
+    } catch (error) {
+      console.error("[TrickRecorder] Failed to start recording:", error);
+      setRecording(false);
+      Alert.alert("Recording Failed", "Please try again.");
+    }
+  }, [onVideoReady]);
 
   return {
     cameraRef,

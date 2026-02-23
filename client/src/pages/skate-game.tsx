@@ -165,7 +165,6 @@ export default function SkateGamePage() {
           opponentName={opponentName}
           turnPhase={turnPhase}
           isOffensive={isOffensive}
-          isDefensive={isDefensive}
           onBack={handleBackToLobby}
           onForfeit={handleForfeit}
           forfeitPending={forfeitGame.isPending}

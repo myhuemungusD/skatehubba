@@ -174,11 +174,11 @@ export async function castVote(input: {
       const opponentVoted = updatedVotes.some((v) => v.odv === state.opponentId);
       const bothVoted = creatorVoted && opponentVoted;
 
-      if (bothVoted) {
+      if (bothVoted && state.opponentId) {
         const { winnerId, scores } = calculateWinner(
           updatedVotes,
           state.creatorId,
-          state.opponentId!
+          state.opponentId
         );
 
         await tx
