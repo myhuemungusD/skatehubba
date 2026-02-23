@@ -230,25 +230,29 @@ export function AddSpotModal({
             </div>
           )}
 
-          {!isLocationReady && geolocationStatus === "browse" && geolocationErrorCode === "denied" && (
-            <div className="flex items-start gap-2 p-2 bg-red-900/30 rounded-md border border-red-700/50">
-              <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
-              <span className="text-sm text-red-400">
-                Location access was denied. Enable location in your browser settings and retry.
-              </span>
-            </div>
-          )}
+          {!isLocationReady &&
+            geolocationStatus === "browse" &&
+            geolocationErrorCode === "denied" && (
+              <div className="flex items-start gap-2 p-2 bg-red-900/30 rounded-md border border-red-700/50">
+                <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                <span className="text-sm text-red-400">
+                  Location access was denied. Enable location in your browser settings and retry.
+                </span>
+              </div>
+            )}
 
-          {!isLocationReady && geolocationStatus === "browse" && (geolocationErrorCode === "timeout" || geolocationErrorCode === "unavailable") && (
-            <div className="flex items-start gap-2 p-2 bg-orange-900/30 rounded-md border border-orange-700/50">
-              <AlertCircle className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
-              <span className="text-sm text-orange-400">
-                {geolocationErrorCode === "timeout"
-                  ? "Location timed out. Move to an open area and retry."
-                  : "Location unavailable. Move to an open area and retry."}
-              </span>
-            </div>
-          )}
+          {!isLocationReady &&
+            geolocationStatus === "browse" &&
+            (geolocationErrorCode === "timeout" || geolocationErrorCode === "unavailable") && (
+              <div className="flex items-start gap-2 p-2 bg-orange-900/30 rounded-md border border-orange-700/50">
+                <AlertCircle className="w-4 h-4 text-orange-400 mt-0.5 shrink-0" />
+                <span className="text-sm text-orange-400">
+                  {geolocationErrorCode === "timeout"
+                    ? "Location timed out. Move to an open area and retry."
+                    : "Location unavailable. Move to an open area and retry."}
+                </span>
+              </div>
+            )}
 
           {!isLocationReady &&
             geolocationStatus === "browse" &&
@@ -263,12 +267,15 @@ export function AddSpotModal({
               </div>
             )}
 
-          {!isLocationReady && (!geolocationStatus || geolocationStatus === "idle" || geolocationStatus === "locating") && (
-            <div className="flex items-center gap-2 p-2 bg-orange-900/30 rounded-md border border-orange-700/50">
-              <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />
-              <span className="text-sm text-orange-400">Getting your location...</span>
-            </div>
-          )}
+          {!isLocationReady &&
+            (!geolocationStatus ||
+              geolocationStatus === "idle" ||
+              geolocationStatus === "locating") && (
+              <div className="flex items-center gap-2 p-2 bg-orange-900/30 rounded-md border border-orange-700/50">
+                <Loader2 className="w-4 h-4 text-orange-400 animate-spin" />
+                <span className="text-sm text-orange-400">Getting your location...</span>
+              </div>
+            )}
 
           {/* Spot Name */}
           <div className="space-y-2">
@@ -298,7 +305,11 @@ export function AddSpotModal({
               </SelectTrigger>
               <SelectContent className="bg-neutral-800 border-neutral-700">
                 {STREET_SPOT_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value} className="text-white hover:bg-neutral-700">
+                  <SelectItem
+                    key={type.value}
+                    value={type.value}
+                    className="text-white hover:bg-neutral-700"
+                  >
                     {type.label}
                   </SelectItem>
                 ))}
@@ -351,8 +362,15 @@ export function AddSpotModal({
             {imagePreviews.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-1">
                 {imagePreviews.map((img) => (
-                  <div key={img.id} className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-neutral-700">
-                    <img src={img.dataUrl} alt="Spot photo" className="w-full h-full object-cover" />
+                  <div
+                    key={img.id}
+                    className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-neutral-700"
+                  >
+                    <img
+                      src={img.dataUrl}
+                      alt="Spot preview"
+                      className="w-full h-full object-cover"
+                    />
                     <button
                       type="button"
                       onClick={() => removeImage(img.id)}

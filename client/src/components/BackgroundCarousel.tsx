@@ -7,7 +7,7 @@ export default function Background({ className = "", children }: BackgroundProps
   return (
     <div className={`relative min-h-screen overflow-hidden ${className}`}>
       {/* Optimized Responsive Background */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0" aria-hidden="true">
         <picture>
           <source
             media="(min-width: 1024px)"

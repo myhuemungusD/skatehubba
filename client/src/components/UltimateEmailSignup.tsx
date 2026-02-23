@@ -107,8 +107,12 @@ export default function UltimateEmailSignup({
   if (state.status === "success" && variant === "hero") {
     return (
       <div className={`${styles.container} ${className}`}>
-        <div className="bg-success/20 border border-success rounded-xl p-6 text-center">
-          <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" />
+        <div
+          className="bg-success/20 border border-success rounded-xl p-6 text-center"
+          role="status"
+          aria-live="polite"
+        >
+          <CheckCircle className="h-12 w-12 text-success mx-auto mb-4" aria-hidden="true" />
           <h3 className="text-success font-bold text-xl mb-2">You're In! </h3>
           <p className="text-success/90 mb-4">Get ready for updates, drops & exclusive sessions.</p>
           <button
@@ -116,7 +120,7 @@ export default function UltimateEmailSignup({
             className="text-orange-400 hover:text-orange-300 text-sm flex items-center justify-center gap-2 mx-auto"
             data-testid="button-subscribe-another"
           >
-            Subscribe another email <ArrowRight className="h-4 w-4" />
+            Subscribe another email <ArrowRight className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -139,7 +143,7 @@ export default function UltimateEmailSignup({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className={styles.form}>
+      <form onSubmit={handleSubmit} className={styles.form} aria-label="Beta signup">
         <Input
           type="email"
           placeholder="Enter your email"
@@ -148,13 +152,19 @@ export default function UltimateEmailSignup({
           className={`${styles.input} ${variant === "inline" ? "flex-1" : ""}`}
           disabled={state.status === "submitting"}
           required
+          aria-label="Email address"
           data-testid="input-email"
         />
 
-        <div className="grid grid-cols-2 gap-3">
+        <fieldset
+          className="grid grid-cols-2 gap-3"
+          role="radiogroup"
+          aria-label="Select your platform"
+        >
           <button
             type="button"
             onClick={() => setPlatform("ios")}
+            aria-pressed={platform === "ios"}
             className={`h-11 rounded-lg border text-sm font-semibold transition ${
               platform === "ios"
                 ? "border-orange-400 bg-orange-500/20 text-orange-200"
@@ -166,6 +176,7 @@ export default function UltimateEmailSignup({
           <button
             type="button"
             onClick={() => setPlatform("android")}
+            aria-pressed={platform === "android"}
             className={`h-11 rounded-lg border text-sm font-semibold transition ${
               platform === "android"
                 ? "border-orange-400 bg-orange-500/20 text-orange-200"
@@ -174,7 +185,7 @@ export default function UltimateEmailSignup({
           >
             Android
           </button>
-        </div>
+        </fieldset>
 
         <Button
           type="submit"
@@ -184,7 +195,10 @@ export default function UltimateEmailSignup({
         >
           {state.status === "submitting" ? (
             <span className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <div
+                className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"
+                aria-hidden="true"
+              />
               Signing up...
             </span>
           ) : (
@@ -194,19 +208,28 @@ export default function UltimateEmailSignup({
       </form>
 
       {state.status === "error" && (
-        <p className="text-red-400 text-sm text-center" data-testid="text-validation-error">
+        <p
+          className="text-red-400 text-sm text-center"
+          role="alert"
+          data-testid="text-validation-error"
+        >
           {state.message}
         </p>
       )}
 
       {state.status === "offline" && (
-        <p className="text-yellow-300 text-sm text-center" data-testid="text-offline">
+        <p className="text-yellow-300 text-sm text-center" role="alert" data-testid="text-offline">
           You appear offline. Reconnect to join the beta.
         </p>
       )}
 
       {state.status === "success" && variant !== "hero" && (
-        <p className="text-success text-sm text-center" data-testid="text-success">
+        <p
+          className="text-success text-sm text-center"
+          role="status"
+          aria-live="polite"
+          data-testid="text-success"
+        >
           You're on the list. We'll keep you posted.
         </p>
       )}

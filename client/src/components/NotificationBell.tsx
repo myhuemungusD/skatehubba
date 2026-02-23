@@ -110,14 +110,11 @@ export default function NotificationBell() {
   });
 
   // Close on outside click
-  const handleClickOutside = useCallback(
-    (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    },
-    []
-  );
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      setIsOpen(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -134,8 +131,10 @@ export default function NotificationBell() {
         onClick={() => setIsOpen(!isOpen)}
         className="relative rounded-lg p-2 text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors"
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ""}`}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
       >
-        <Bell className="h-5 w-5" />
+        <Bell className="h-5 w-5" aria-hidden="true" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-orange-500 px-1 text-[10px] font-bold text-white">
             {unreadCount > 99 ? "99+" : unreadCount}
@@ -144,7 +143,11 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 top-full mt-2 w-[calc(100vw-32px)] sm:w-80 max-h-[420px] rounded-lg border border-neutral-800 bg-neutral-900 shadow-xl z-50 flex flex-col overflow-hidden">
+        <div
+          className="absolute left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 top-full mt-2 w-[calc(100vw-32px)] sm:w-80 max-h-[420px] rounded-lg border border-neutral-800 bg-neutral-900 shadow-xl z-50 flex flex-col overflow-hidden"
+          role="menu"
+          aria-label="Notifications"
+        >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
             <h3 className="text-sm font-semibold text-white">Notifications</h3>
@@ -153,17 +156,18 @@ export default function NotificationBell() {
                 onClick={() => markAllReadMutation.mutate()}
                 className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors"
                 disabled={markAllReadMutation.isPending}
+                aria-label="Mark all notifications as read"
               >
-                <CheckCheck className="h-3 w-3" />
+                <CheckCheck className="h-3 w-3" aria-hidden="true" />
                 Mark all read
               </button>
             )}
           </div>
 
           {/* Notification list */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto" role="list" aria-label="Notification list">
             {items.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-neutral-500">
+              <div className="px-4 py-8 text-center text-sm text-neutral-500" role="status">
                 No notifications yet
               </div>
             ) : (
@@ -179,9 +183,7 @@ export default function NotificationBell() {
                     !item.isRead ? "bg-neutral-800/30" : ""
                   }`}
                 >
-                  <div className="mt-0.5 flex-shrink-0">
-                    {getNotificationIcon(item.type)}
-                  </div>
+                  <div className="mt-0.5 flex-shrink-0">{getNotificationIcon(item.type)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span
@@ -192,12 +194,13 @@ export default function NotificationBell() {
                         {item.title}
                       </span>
                       {!item.isRead && (
-                        <span className="flex-shrink-0 h-2 w-2 rounded-full bg-orange-500" />
+                        <span
+                          className="flex-shrink-0 h-2 w-2 rounded-full bg-orange-500"
+                          aria-label="Unread"
+                        />
                       )}
                     </div>
-                    <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">
-                      {item.body}
-                    </p>
+                    <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{item.body}</p>
                     <span className="text-[10px] text-neutral-600 mt-1 block">
                       {timeAgo(item.createdAt)}
                     </span>
