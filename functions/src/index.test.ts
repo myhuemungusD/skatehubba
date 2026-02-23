@@ -98,13 +98,7 @@ vi.mock("firebase-functions", () => ({
     onCall: vi.fn((handler: any) => handler),
   },
   config: () => ({}),
-  logger: {
-    log: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-    debug: vi.fn(),
-  },
+  logger: mocks.logger,
   storage: {
     object: () => ({
       onFinalize: vi.fn((handler: any) => handler),
