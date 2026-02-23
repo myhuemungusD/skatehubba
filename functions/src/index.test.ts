@@ -1847,11 +1847,7 @@ describe("SkateHubba Cloud Functions", () => {
       );
       expect(mocks.logger.log).toHaveBeenCalledWith(
         "[TransactionMonitor]",
-        expect.stringContaining('"transaction":"submitTrick"')
-      );
-      expect(mocks.logger.log).toHaveBeenCalledWith(
-        "[TransactionMonitor]",
-        expect.stringContaining('"gameId":"g1"')
+        expect.objectContaining({ transaction: "submitTrick", gameId: "g1" })
       );
     });
 
@@ -1891,8 +1887,8 @@ describe("SkateHubba Cloud Functions", () => {
         ctx
       );
       expect(mocks.logger.warn).toHaveBeenCalledWith(
-        expect.stringContaining("[TransactionMonitor] Contention detected"),
-        expect.stringContaining('"retried":true')
+        "[TransactionMonitor] Contention detected:",
+        expect.objectContaining({ retried: true })
       );
     });
   });

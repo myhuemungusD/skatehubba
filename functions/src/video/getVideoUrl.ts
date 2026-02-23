@@ -11,6 +11,7 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { checkRateLimit } from "../shared/rateLimiter";
 import { verifyAppCheck } from "../shared/security";
+import { STORAGE_PATH_RE } from "../shared/validation";
 
 interface GetVideoUrlRequest {
   gameId: string;
@@ -70,8 +71,6 @@ export const getVideoUrl = functions.https.onCall(
     // Validate storagePath format after authorization checks.
     // Must match videos/{uid}/{gameId}/{roundId}/{filename}.{ext}
     // Reject path traversal, null bytes, and malformed paths.
-    const STORAGE_PATH_RE =
-      /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/round_[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
     if (
       !storagePath.startsWith("videos/") ||
       storagePath.includes("..") ||

@@ -57,10 +57,18 @@ vi.mock("firebase-functions", () => ({
 }));
 
 vi.mock("firebase-admin", () => {
+  const firestoreFn = Object.assign(
+    vi.fn(() => mocks.firestoreInstance),
+    {
+      Timestamp: {
+        fromMillis: vi.fn((ms: number) => ({ toMillis: () => ms })),
+      },
+    }
+  );
   const mod = {
     apps: [{ name: "mock" }],
     initializeApp: vi.fn(),
-    firestore: vi.fn(() => mocks.firestoreInstance),
+    firestore: firestoreFn,
   };
   return { ...mod, default: mod };
 });
@@ -91,7 +99,11 @@ describe("checkRateLimit (Firestore-based)", () => {
     expect(mocks.collectionRef.doc).toHaveBeenCalledWith("user-new");
     expect(mocks.transaction.set).toHaveBeenCalledWith(
       mocks.docRef,
-      expect.objectContaining({ count: 1, resetAt: expect.any(Number) })
+      expect.objectContaining({
+        count: 1,
+        resetAt: expect.any(Number),
+        expiresAt: expect.anything(),
+      })
     );
   });
 
@@ -105,7 +117,11 @@ describe("checkRateLimit (Firestore-based)", () => {
 
     expect(mocks.transaction.set).toHaveBeenCalledWith(
       mocks.docRef,
-      expect.objectContaining({ count: 1, resetAt: expect.any(Number) })
+      expect.objectContaining({
+        count: 1,
+        resetAt: expect.any(Number),
+        expiresAt: expect.anything(),
+      })
     );
   });
 

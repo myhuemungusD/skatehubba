@@ -39,9 +39,9 @@ export async function monitoredTransaction<T>(
   };
 
   if (attempts > 1) {
-    functions.logger.warn("[TransactionMonitor] Contention detected:", JSON.stringify(logData));
+    functions.logger.warn("[TransactionMonitor] Contention detected:", logData);
   } else {
-    functions.logger.log("[TransactionMonitor]", JSON.stringify(logData));
+    functions.logger.log("[TransactionMonitor]", logData);
   }
 
   return result;

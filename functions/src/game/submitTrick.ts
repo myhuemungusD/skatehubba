@@ -10,6 +10,7 @@ import * as crypto from "crypto";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { monitoredTransaction } from "../shared/monitoredTransaction";
+import { STORAGE_PATH_RE } from "../shared/validation";
 import { VOTE_TIMEOUT_MS } from "./constants";
 import { SubmitTrickRequest, SubmitTrickResponse } from "./types";
 
@@ -33,8 +34,6 @@ export const submitTrick = functions.https.onCall(
 
     // Validate storagePath format when provided
     if (storagePath) {
-      const STORAGE_PATH_RE =
-        /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/round_[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
       if (
         !STORAGE_PATH_RE.test(storagePath) ||
         storagePath.includes("..") ||
