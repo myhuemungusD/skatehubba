@@ -1,16 +1,13 @@
 /**
  * Game Module - S.K.A.T.E. Game Logic
- * 
+ *
  * Exports all game-related functionality including:
  * - GameService (FSM engine)
  * - Types and interfaces
  * - Helper utilities
  */
 
-export { 
-  GameService, 
-  default 
-} from './GameService';
+export { GameService, default } from "./GameService";
 
 export type {
   GameStatus,
@@ -20,5 +17,5 @@ export type {
   GameState,
   GameDocument,
   QueueEntry,
-  GameAction
-} from './GameService';
+  GameAction,
+} from "./types";
