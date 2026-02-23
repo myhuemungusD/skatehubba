@@ -202,18 +202,12 @@ describe("demo-data", () => {
       }
     });
 
-    it("every entry has positive xp", () => {
+    it("every entry has numeric wins and losses", () => {
       for (const entry of DEMO_LEADERBOARD) {
-        expect(entry.xp).toBeTypeOf("number");
-        expect(entry.xp!).toBeGreaterThan(0);
-      }
-    });
-
-    it("every entry has positive numeric stats", () => {
-      for (const entry of DEMO_LEADERBOARD) {
-        expect(entry.totalCheckIns).toBeGreaterThan(0);
-        expect(entry.spotsVisited).toBeGreaterThan(0);
-        expect(entry.streak).toBeGreaterThan(0);
+        expect(entry.wins).toBeTypeOf("number");
+        expect(entry.wins).toBeGreaterThanOrEqual(0);
+        expect(entry.losses).toBeTypeOf("number");
+        expect(entry.losses).toBeGreaterThanOrEqual(0);
       }
     });
 
@@ -228,9 +222,9 @@ describe("demo-data", () => {
       expect(ranks).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     });
 
-    it("xp values are in descending order (higher ranked = more xp)", () => {
+    it("wins are in descending order (higher ranked = more wins)", () => {
       for (let i = 1; i < DEMO_LEADERBOARD.length; i++) {
-        expect(DEMO_LEADERBOARD[i].xp!).toBeLessThan(DEMO_LEADERBOARD[i - 1].xp!);
+        expect(DEMO_LEADERBOARD[i].wins).toBeLessThanOrEqual(DEMO_LEADERBOARD[i - 1].wins);
       }
     });
 
