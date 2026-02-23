@@ -69,7 +69,15 @@ module.exports = {
       [
         "expo-build-properties",
         {
-          android: { compileSdkVersion: 36, targetSdkVersion: 36, minSdkVersion: 24 }
+          android: {
+            compileSdkVersion: 36,
+            targetSdkVersion: 36,
+            minSdkVersion: 24,
+            jsEngine: "hermes",
+          },
+          ios: {
+            jsEngine: "hermes",
+          },
         }
       ],
       [
