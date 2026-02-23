@@ -5,13 +5,7 @@
  * All mutations use atomic Firestore transactions.
  */
 
-import {
-  collection,
-  doc,
-  runTransaction,
-  serverTimestamp,
-  increment,
-} from "firebase/firestore";
+import { doc, runTransaction, serverTimestamp, increment } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { COLLECTIONS, MAX_LETTERS } from "./constants";
 import type { GameAction, GameDocument } from "./types";

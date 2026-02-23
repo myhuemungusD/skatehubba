@@ -21,10 +21,7 @@ export type BaseAuthStore = BaseAuthState & BaseAuthActions;
  * @param onSignOut - Optional platform-specific cleanup run after Firebase sign-out
  *   (e.g. clearing analytics sessions or offline caches).
  */
-export function createBaseAuthStore(
-  auth: Auth,
-  onSignOut?: () => Promise<void>,
-) {
+export function createBaseAuthStore(auth: Auth, onSignOut?: () => Promise<void>) {
   let unsubscribe: (() => void) | null = null;
 
   return create<BaseAuthStore>((set) => ({
@@ -45,7 +42,7 @@ export function createBaseAuthStore(
         if (onSignOut) await onSignOut();
         set({ user: null });
       } catch (error) {
-        if (typeof __DEV__ !== "undefined" && __DEV__) {
+        if (process.env.NODE_ENV !== "production") {
           console.error("[AuthStore] Sign out failed", error);
         }
       }
