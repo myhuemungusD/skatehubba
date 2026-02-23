@@ -251,4 +251,30 @@ describe("videoTranscoder - uncovered paths", () => {
       );
     });
   });
+
+  // ==========================================================================
+  // Line 441: rm(workDir, ...).catch(() => {}) — cleanup catch callback
+  // ==========================================================================
+
+  describe("processVideoJob - finally cleanup catch (line 441)", () => {
+    it("silently catches rm failure during cleanup", async () => {
+      mockSuccessfulProbe();
+
+      // generateThumbnail call
+      mockExecFileAsync.mockResolvedValueOnce({ stdout: "" });
+
+      const mockDb = createMockDb();
+      mockGetDb.mockReturnValue(mockDb);
+
+      // Make rm reject to trigger the .catch(() => {}) callback
+      mockRm.mockRejectedValueOnce(new Error("ENOENT: temp dir already gone"));
+
+      const result = await processVideoJob(1, "/tmp/video.webm");
+
+      // processVideoJob still succeeds despite rm failure
+      expect(result.success).toBe(true);
+      // rm was called and failed silently
+      expect(mockRm).toHaveBeenCalled();
+    });
+  });
 });

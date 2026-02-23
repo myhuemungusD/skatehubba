@@ -186,6 +186,38 @@ describe("OSM Discovery Service", () => {
       expect(results).toEqual([]);
     });
 
+    it("should abort fetch when request exceeds 12s timeout", async () => {
+      // Capture the setTimeout callback so we can invoke it directly
+      let timeoutCallback: (() => void) | null = null;
+      const origSetTimeout = globalThis.setTimeout;
+      const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: any, ms: number) => {
+        if (ms === 12000) {
+          timeoutCallback = fn;
+        }
+        return origSetTimeout(fn, ms);
+      }) as typeof setTimeout);
+
+      // Make fetch hang indefinitely but respect abort signal
+      mockFetch.mockImplementation((_url: string, opts: any) => {
+        return new Promise((_resolve, reject) => {
+          if (opts?.signal) {
+            opts.signal.addEventListener("abort", () => {
+              const err = new Error("The operation was aborted");
+              err.name = "AbortError";
+              reject(err);
+            });
+          }
+          // Invoke the timeout callback to simulate timeout firing
+          expect(timeoutCallback).not.toBeNull();
+          timeoutCallback!();
+        });
+      });
+
+      const results = await discoverSkateparks(42.0, 42.0);
+      expect(results).toEqual([]);
+      spy.mockRestore();
+    });
+
     it("should return empty for cached area", async () => {
       // First call populates cache
       mockFetch.mockResolvedValue({

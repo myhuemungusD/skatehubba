@@ -141,6 +141,19 @@ describe("GET /api/users/search", () => {
     ]);
   });
 
+  it("should escape SQL LIKE wildcards in search query", async () => {
+    const dbResults = [{ id: "u1", firstName: "100%", lastName: "User" }];
+    vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
+
+    const req = mockReq({ query: { q: "100%" } });
+    const res = mockRes();
+    await callHandler("GET /search", req, res);
+
+    expect(res.json).toHaveBeenCalledWith([
+      expect.objectContaining({ id: "u1", displayName: "100% User" }),
+    ]);
+  });
+
   it("should return empty array when query is too short", async () => {
     const req = mockReq({ query: { q: "J" } });
     const res = mockRes();

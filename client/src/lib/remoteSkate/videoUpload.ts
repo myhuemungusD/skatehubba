@@ -93,17 +93,6 @@ function readVideoDuration(file: File): Promise<number> {
       video.remove();
     };
 
-    video.onloadedmetadata = () => {
-      const durationMs = Math.round(video.duration * 1000);
-      cleanup();
-
-      if (!isFinite(video.duration) || video.duration <= 0) {
-        reject(new Error("Could not determine video duration. Please try a different file."));
-        return;
-      }
-      resolve(durationMs);
-    };
-
     video.onerror = () => {
       cleanup();
       reject(new Error("Could not read video metadata. The file may be corrupt or unsupported."));

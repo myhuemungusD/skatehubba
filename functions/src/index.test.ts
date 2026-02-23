@@ -175,6 +175,16 @@ import {
   processVoteTimeouts,
 } from "./index";
 
+import * as functions from "firebase-functions";
+
+const mockLogger = functions.logger as unknown as {
+  log: ReturnType<typeof vi.fn>;
+  info: ReturnType<typeof vi.fn>;
+  warn: ReturnType<typeof vi.fn>;
+  error: ReturnType<typeof vi.fn>;
+  debug: ReturnType<typeof vi.fn>;
+};
+
 // ============================================================================
 // Test helpers
 // ============================================================================
