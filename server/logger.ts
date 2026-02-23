@@ -1,5 +1,9 @@
-/* eslint-disable no-console */
 import { inspect } from "node:util";
+import { hostname } from "node:os";
+
+const HOST = hostname();
+const PID = process.pid;
+const JSON_MODE = process.env.NODE_ENV === "production";
 
 type LogLevel = "debug" | "info" | "warn" | "error" | "fatal";
 
@@ -60,12 +64,26 @@ class Logger {
     const timestamp = new Date().toISOString();
     const payload = { ...this.bindings, ...context };
     const sanitized = this.redact(payload);
-    const serialized =
-      Object.keys(sanitized).length > 0
-        ? ` ${inspect(sanitized, { depth: 5, compact: true })}`
-        : "";
 
-    const line = `[${timestamp}] [${level.toUpperCase()}] ${message}${serialized}`;
+    let line: string;
+    if (JSON_MODE) {
+      const entry = {
+        timestamp,
+        level: this.levelOrder[level],
+        levelName: level,
+        message,
+        hostname: HOST,
+        pid: PID,
+        ...sanitized,
+      };
+      line = JSON.stringify(entry);
+    } else {
+      const serialized =
+        Object.keys(sanitized).length > 0
+          ? ` ${inspect(sanitized, { depth: 5, compact: true })}`
+          : "";
+      line = `[${timestamp}] [${level.toUpperCase()}] ${message}${serialized}`;
+    }
 
     switch (level) {
       case "debug":
