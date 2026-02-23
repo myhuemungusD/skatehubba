@@ -4,7 +4,6 @@
  * Helper functions for locating and validating orders from Stripe event data.
  */
 
-import { logger } from "firebase-functions/v2";
 import Stripe from "stripe";
 import { DocumentReference } from "firebase-admin/firestore";
 import { getAdminDb } from "../../firebaseAdmin";
