@@ -404,7 +404,7 @@ describe("client", () => {
       // Capture the timeout callback for the abort controller
       let timeoutCallback: (() => void) | null = null;
       const origSetTimeout = globalThis.setTimeout;
-      vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: any, ms: number) => {
+      const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: any, ms: number) => {
         if (ms === 5000) {
           timeoutCallback = fn;
         }
@@ -421,9 +421,8 @@ describe("client", () => {
             });
           }
           // Invoke the timeout callback to simulate time passing
-          if (timeoutCallback) {
-            timeoutCallback();
-          }
+          expect(timeoutCallback).not.toBeNull();
+          timeoutCallback!();
         });
       });
 
@@ -431,7 +430,7 @@ describe("client", () => {
         apiRequestRaw({ method: "GET", path: "/api/slow", timeout: 5000 })
       ).rejects.toThrow("The request took too long. Check your connection and try again.");
 
-      vi.restoreAllMocks();
+      spy.mockRestore();
     });
 
     it("wraps network fetch errors in ApiError with NETWORK_ERROR code", async () => {

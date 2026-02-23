@@ -267,7 +267,7 @@ describe("videoTranscoder - uncovered paths", () => {
       mockGetDb.mockReturnValue(mockDb);
 
       // Make rm reject to trigger the .catch(() => {}) callback
-      mockRm.mockRejectedValue(new Error("ENOENT: temp dir already gone"));
+      mockRm.mockRejectedValueOnce(new Error("ENOENT: temp dir already gone"));
 
       const result = await processVideoJob(1, "/tmp/video.webm");
 

@@ -190,7 +190,7 @@ describe("OSM Discovery Service", () => {
       // Capture the setTimeout callback so we can invoke it directly
       let timeoutCallback: (() => void) | null = null;
       const origSetTimeout = globalThis.setTimeout;
-      vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: any, ms: number) => {
+      const spy = vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: any, ms: number) => {
         if (ms === 12000) {
           timeoutCallback = fn;
         }
@@ -208,15 +208,14 @@ describe("OSM Discovery Service", () => {
             });
           }
           // Invoke the timeout callback to simulate timeout firing
-          if (timeoutCallback) {
-            timeoutCallback();
-          }
+          expect(timeoutCallback).not.toBeNull();
+          timeoutCallback!();
         });
       });
 
       const results = await discoverSkateparks(42.0, 42.0);
       expect(results).toEqual([]);
-      vi.restoreAllMocks();
+      spy.mockRestore();
     });
 
     it("should return empty for cached area", async () => {
