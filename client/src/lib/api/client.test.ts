@@ -400,6 +400,40 @@ describe("client", () => {
       expect(clearTimeoutSpy).toHaveBeenCalled();
     });
 
+    it("fires setTimeout callback to abort when request takes too long", async () => {
+      // Capture the timeout callback for the abort controller
+      let timeoutCallback: (() => void) | null = null;
+      const origSetTimeout = globalThis.setTimeout;
+      vi.spyOn(globalThis, "setTimeout").mockImplementation(((fn: any, ms: number) => {
+        if (ms === 5000) {
+          timeoutCallback = fn;
+        }
+        return origSetTimeout(fn, ms);
+      }) as typeof setTimeout);
+
+      // Make fetch hang but respect abort signal
+      vi.mocked(globalThis.fetch).mockImplementation((_url, opts) => {
+        return new Promise((_resolve, reject) => {
+          const signal = (opts as any)?.signal;
+          if (signal) {
+            signal.addEventListener("abort", () => {
+              reject(new DOMException("The operation was aborted", "AbortError"));
+            });
+          }
+          // Invoke the timeout callback to simulate time passing
+          if (timeoutCallback) {
+            timeoutCallback();
+          }
+        });
+      });
+
+      await expect(
+        apiRequestRaw({ method: "GET", path: "/api/slow", timeout: 5000 })
+      ).rejects.toThrow("The request took too long. Check your connection and try again.");
+
+      vi.restoreAllMocks();
+    });
+
     it("wraps network fetch errors in ApiError with NETWORK_ERROR code", async () => {
       const networkError = new TypeError("Failed to fetch");
       vi.mocked(globalThis.fetch).mockRejectedValue(networkError);

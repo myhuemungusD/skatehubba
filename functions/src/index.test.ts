@@ -89,6 +89,13 @@ vi.mock("firebase-functions", () => ({
     onCall: vi.fn((handler: any) => handler),
   },
   config: () => ({}),
+  logger: {
+    log: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
   storage: {
     object: () => ({
       onFinalize: vi.fn((handler: any) => handler),
@@ -164,6 +171,16 @@ import {
   validateChallengeVideo,
   processVoteTimeouts,
 } from "./index";
+
+import * as functions from "firebase-functions";
+
+const mockLogger = functions.logger as unknown as {
+  log: ReturnType<typeof vi.fn>;
+  info: ReturnType<typeof vi.fn>;
+  warn: ReturnType<typeof vi.fn>;
+  error: ReturnType<typeof vi.fn>;
+  debug: ReturnType<typeof vi.fn>;
+};
 
 // ============================================================================
 // Test helpers
@@ -325,7 +342,7 @@ describe("SkateHubba Cloud Functions", () => {
       const uid = freshUid("ac-warn");
       const ctx = makeContext({ uid, roles: ["admin"], app: false });
       await (manageUserRole as any)({ targetUid: "tgt", role: "moderator", action: "grant" }, ctx);
-      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[Security]"), uid);
+      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("[Security]"), uid);
     });
 
     it("does not warn when App Check token is present", async () => {
@@ -333,7 +350,7 @@ describe("SkateHubba Cloud Functions", () => {
       const uid = freshUid("ac-ok");
       const ctx = makeContext({ uid, roles: ["admin"], app: true });
       await (manageUserRole as any)({ targetUid: "tgt", role: "moderator", action: "grant" }, ctx);
-      expect(console.warn).not.toHaveBeenCalledWith(
+      expect(mockLogger.warn).not.toHaveBeenCalledWith(
         expect.stringContaining("[Security]"),
         expect.anything()
       );
@@ -1755,7 +1772,7 @@ describe("SkateHubba Cloud Functions", () => {
           bucket: "b",
         })
       ).resolves.not.toThrow();
-      expect(console.error).toHaveBeenCalledWith(
+      expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining("[validateChallengeVideo]"),
         expect.anything(),
         expect.anything()
@@ -1811,11 +1828,11 @@ describe("SkateHubba Cloud Functions", () => {
         { gameId: "g1", clipUrl: "u", trickName: null, isSetTrick: true, idempotencyKey: "k-log1" },
         ctx
       );
-      expect(console.log).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
         "[TransactionMonitor]",
         expect.stringContaining('"transaction":"submitTrick"')
       );
-      expect(console.log).toHaveBeenCalledWith(
+      expect(mockLogger.log).toHaveBeenCalledWith(
         "[TransactionMonitor]",
         expect.stringContaining('"gameId":"g1"')
       );
@@ -1856,7 +1873,7 @@ describe("SkateHubba Cloud Functions", () => {
         },
         ctx
       );
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining("[TransactionMonitor] Contention detected"),
         expect.stringContaining('"retried":true')
       );
@@ -2008,7 +2025,7 @@ describe("SkateHubba Cloud Functions", () => {
       await (processVoteTimeouts as any)();
 
       // Should log the error but not crash
-      expect(console.error).toHaveBeenCalledWith(
+      expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining("[VoteReminder] Failed to send notification"),
         expect.anything()
       );
@@ -2122,7 +2139,7 @@ describe("SkateHubba Cloud Functions", () => {
 
       await (processVoteTimeouts as any)();
 
-      expect(console.error).toHaveBeenCalledWith(
+      expect(mockLogger.error).toHaveBeenCalledWith(
         expect.stringContaining("[VoteTimeout] Failed to notify"),
         expect.anything()
       );

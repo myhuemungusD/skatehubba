@@ -438,6 +438,42 @@ describe("Admin Routes", () => {
       );
     });
 
+    it("escapes SQL LIKE wildcards in search parameter", async () => {
+      let selectCall = 0;
+      mockDbInstance.select.mockImplementation(() => {
+        selectCall++;
+        const c: any = {};
+        c.from = vi.fn().mockReturnValue(c);
+        c.where = vi.fn().mockReturnValue(c);
+        c.orderBy = vi.fn().mockReturnValue(c);
+        c.limit = vi.fn().mockReturnValue(c);
+        c.offset = vi.fn().mockReturnValue(c);
+        if (selectCall <= 2) {
+          c.then =
+            selectCall === 1
+              ? (resolve: any) => resolve([])
+              : (resolve: any) => resolve([{ value: 0 }]);
+        } else {
+          c.then = (resolve: any) => resolve([]);
+        }
+        return c;
+      });
+
+      // Search with SQL wildcards that need escaping
+      const req = createReq({ query: { search: "100%_test", page: "1" } });
+      const res = createRes();
+
+      await callHandler("GET", "/users", req, res);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          users: [],
+          total: 0,
+          page: 1,
+        })
+      );
+    });
+
     it("returns empty list when no users match", async () => {
       let selectCall = 0;
       mockDbInstance.select.mockImplementation(() => {
