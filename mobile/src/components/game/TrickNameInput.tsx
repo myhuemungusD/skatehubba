@@ -35,7 +35,6 @@ export function TrickNameInput({
           placeholderTextColor={SKATE.colors.gray}
           value={trickName}
           onChangeText={onChangeTrickName}
-          autoFocus
           maxLength={50}
           returnKeyType="done"
           onSubmitEditing={onConfirm}

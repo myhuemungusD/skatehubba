@@ -54,8 +54,14 @@ export function RespondTrickPhase({
       )}
 
       <div>
-        <label className="block text-sm font-medium text-neutral-300 mb-2">Your Response</label>
+        <label
+          htmlFor="respond-trick-input"
+          className="block text-sm font-medium text-neutral-300 mb-2"
+        >
+          Your Response
+        </label>
         <Input
+          id="respond-trick-input"
           placeholder="Describe your attempt..."
           value={trickDescription}
           onChange={(e) => onTrickDescriptionChange(e.target.value)}

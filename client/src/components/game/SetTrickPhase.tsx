@@ -26,8 +26,14 @@ export function SetTrickPhase({
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-neutral-300 mb-2">Trick Name</label>
+          <label
+            htmlFor="set-trick-name"
+            className="block text-sm font-medium text-neutral-300 mb-2"
+          >
+            Trick Name
+          </label>
           <Input
+            id="set-trick-name"
             placeholder="Kickflip, Heelflip, Tre Flip..."
             value={trickDescription}
             onChange={(e) => onTrickDescriptionChange(e.target.value)}
