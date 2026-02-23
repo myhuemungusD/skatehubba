@@ -94,6 +94,7 @@ export function assertEnvWiring(): void {
   }
 
   // Log successful validation
+  // eslint-disable-next-line no-console
   console.log(`✅ Environment wiring validated: ${env}`);
 }
 

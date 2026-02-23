@@ -80,7 +80,7 @@ const mockDbReturns = {
 // Track calls to differentiate between tx queries (consumed check, user check) and post-tx queries (email lookup)
 let selectCallCount = 0;
 
-let mockIsDatabaseAvailable = true;
+let mockGetDbShouldThrow = false;
 
 function createMockDb() {
   const db: any = {
@@ -116,8 +116,10 @@ function createMockDb() {
 }
 
 vi.mock("../../db", () => ({
-  getDb: () => createMockDb(),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable,
+  getDb: () => {
+    if (mockGetDbShouldThrow) throw new Error("Database not configured");
+    return createMockDb();
+  },
 }));
 
 // Mock Stripe
@@ -179,7 +181,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
     // Reset mock returns
     mockDbReturns.selectResult = [];
     mockDbReturns.updateResult = [];
-    mockIsDatabaseAvailable = true;
+    mockGetDbShouldThrow = false;
     selectCallCount = 0;
     mockRedisClient = null; // Default: no Redis (falls back to in-memory)
 
@@ -466,7 +468,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
     });
 
     it("returns 500 when database is unavailable (so Stripe retries)", async () => {
-      mockIsDatabaseAvailable = false;
+      mockGetDbShouldThrow = true;
 
       const session: Stripe.Checkout.Session = {
         id: "cs_test_123",
@@ -498,7 +500,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       expect(res.status).toHaveBeenCalledWith(500);
 
       // Restore for other tests
-      mockIsDatabaseAvailable = true;
+      mockGetDbShouldThrow = false;
     });
 
     it("logs error when user not found", async () => {

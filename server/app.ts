@@ -18,6 +18,7 @@ import { requestTracing } from "./middleware/requestTracing.ts";
 import { metricsMiddleware, registerMonitoringRoutes } from "./monitoring/index.ts";
 import { DEV_ORIGINS, BODY_PARSE_LIMIT } from "./config/server.ts";
 import { registerRoutes } from "./routes.ts";
+import { DatabaseUnavailableError } from "./db.ts";
 import swaggerUi from "swagger-ui-express";
 import { generateOpenAPISpec } from "./api-docs/index.ts";
 
@@ -165,12 +166,19 @@ export function createApp(): express.Express {
   // cascade or crash the server during the demo.
   // Must be registered last, after all routes and middleware.
   app.use(
-    (
-      err: Error,
-      _req: express.Request,
-      res: express.Response,
-      _next: express.NextFunction
-    ) => {
+    (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      // Database not configured → 503 Service Unavailable
+      if (err instanceof DatabaseUnavailableError) {
+        logger.warn("[App] Database unavailable", { route: _req.path });
+        if (!res.headersSent) {
+          res.status(503).json({
+            error: "DATABASE_UNAVAILABLE",
+            message: "Database unavailable. Please try again shortly.",
+          });
+        }
+        return;
+      }
+
       logger.error("[App] Unhandled route error", {
         name: err?.name,
         message: err?.message,

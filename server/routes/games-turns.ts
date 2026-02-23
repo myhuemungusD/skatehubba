@@ -4,7 +4,7 @@
  */
 
 import { Router } from "express";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { gameTurns } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -20,10 +20,6 @@ const router = Router();
 // ============================================================================
 
 router.post("/:id/turns", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const parsed = submitTurnSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
@@ -88,10 +84,6 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const parsed = judgeTurnSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });

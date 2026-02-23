@@ -53,7 +53,8 @@ export default defineConfig({
         'client/src/lib/game/index.ts',
         'client/src/lib/remoteSkate/index.ts',
         // Test setup/mock helpers — not production code
-        'server/__tests__/game-critical-paths/mockSetup.ts',
+        'server/__tests__/services/game-critical-paths/mockSetup.ts',
+        'server/__tests__/helpers/**',
       ],
       thresholds: {
         statements: 98,

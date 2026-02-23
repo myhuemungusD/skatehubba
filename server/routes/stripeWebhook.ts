@@ -1,6 +1,6 @@
 import { Router, type Request, type Response } from "express";
 import type Stripe from "stripe";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { customUsers, consumedPaymentIntents } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
@@ -67,7 +67,9 @@ router.post("/", async (req: Request, res: Response) => {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!stripeSecretKey || !webhookSecret) {
-    logger.error("Stripe webhook secrets not configured (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET)");
+    logger.error(
+      "Stripe webhook secrets not configured (STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET)"
+    );
     return res.status(500).send("Stripe not configured");
   }
 
@@ -179,11 +181,6 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     return;
   }
 
-  if (!isDatabaseAvailable()) {
-    // Throw so the error propagates and Stripe will retry the webhook
-    throw new Error("Database unavailable — cannot process premium upgrade");
-  }
-
   const db = getDb();
 
   // Use transaction with deduplication to prevent race conditions
@@ -262,9 +259,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
         day: "numeric",
       }),
       transactionId: session.id,
-    }).catch((err) =>
-      logger.error("Failed to send payment receipt email", { error: String(err) })
-    );
+    }).catch((err) => logger.error("Failed to send payment receipt email", { error: String(err) }));
 
     notifyUser({
       userId,
@@ -272,9 +267,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
       title: "Premium Activated",
       body: "Your Premium upgrade is confirmed. All features unlocked.",
       data: { sessionId: session.id },
-    }).catch((err) =>
-      logger.error("Failed to send premium notification", { error: String(err) })
-    );
+    }).catch((err) => logger.error("Failed to send premium notification", { error: String(err) }));
   }
 }
 

@@ -30,6 +30,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
   // Push notifications only work on physical devices
   if (!Device.isDevice) {
     if (__DEV__) {
+      // eslint-disable-next-line no-console
       console.log("[Push] Skipping registration — not a physical device");
     }
     return null;
@@ -47,6 +48,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
   if (finalStatus !== "granted") {
     if (__DEV__) {
+      // eslint-disable-next-line no-console
       console.log("[Push] Permission not granted:", finalStatus);
     }
     return null;

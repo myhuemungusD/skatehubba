@@ -124,6 +124,12 @@ const envSchema = z.object({
 
   // Spot check-in radius in metres (service hard cap: 150m)
   CHECK_IN_RADIUS_METERS: z.coerce.number().positive().max(150, "CHECK_IN_RADIUS_METERS cannot exceed 150m (service hard cap)").default(100),
+
+  // Database pool tuning (all optional with safe defaults)
+  DB_POOL_MAX: z.coerce.number().int().positive().default(20),
+  DB_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().nonnegative().default(30000),
+  DB_POOL_CONNECTION_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
 });
 
 function validateEnv() {

@@ -20,9 +20,14 @@ export default tseslint.config(
       "**/*.test.ts",
       "**/*.test.tsx",
       "**/e2e/**",
+      "scripts/**",
+      "migrations/**",
+      "benchmarks/**",
       "**/tailwind.config.ts",
       "**/.detoxrc.js",
       "**/.next/**",
+      "**/__tests__/**/helpers/**",
+      "**/__tests__/**/mockSetup.ts",
     ],
   },
 
@@ -73,7 +78,7 @@ export default tseslint.config(
       "react-hooks/exhaustive-deps": "warn",
 
       // General quality
-      "no-console": "off",
+      "no-console": ["error", { allow: ["warn", "error"] }],
       "prefer-const": "error",
       "no-var": "error",
     },
@@ -83,7 +88,7 @@ export default tseslint.config(
   {
     files: ["**/*.spec.ts", "**/*.spec.tsx", "**/*.test.ts", "**/*.test.tsx"],
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
       "no-console": "off",
     },
   },

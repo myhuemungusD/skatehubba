@@ -1,17 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Use vi.hoisted for mocks referenced inside vi.mock factories
-const {
-  mockSendPush,
-  mockIsExpoPushToken,
-  mockGetDb,
-  mockIsDatabaseAvailable,
-  mockSendGameEventEmail,
-} = vi.hoisted(() => ({
+const { mockSendPush, mockIsExpoPushToken, mockGetDb, mockSendGameEventEmail } = vi.hoisted(() => ({
   mockSendPush: vi.fn(),
   mockIsExpoPushToken: vi.fn(),
   mockGetDb: vi.fn(),
-  mockIsDatabaseAvailable: vi.fn(),
   mockSendGameEventEmail: vi.fn(),
 }));
 
@@ -39,7 +32,6 @@ vi.mock("../logger", () => ({
 
 vi.mock("../db", () => ({
   getDb: () => mockGetDb(),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable(),
 }));
 
 vi.mock("@shared/schema", () => {
@@ -257,7 +249,6 @@ describe("notifyUser - uncovered paths", () => {
     vi.clearAllMocks();
     mockIsExpoPushToken.mockReturnValue(true);
     mockSendPush.mockResolvedValue([{ status: "ok" }]);
-    mockIsDatabaseAvailable.mockReturnValue(true);
   });
 
   /**

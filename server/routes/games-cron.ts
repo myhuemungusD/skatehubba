@@ -3,7 +3,7 @@
  * Handles auto-forfeit and deadline warnings
  */
 
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb, DatabaseUnavailableError } from "../db";
 import { games } from "@shared/schema";
 import { eq, and, lt } from "drizzle-orm";
 import logger from "../logger";
@@ -19,10 +19,6 @@ import {
 // ============================================================================
 
 export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
-  if (!isDatabaseAvailable()) {
-    return { forfeited: 0 };
-  }
-
   try {
     const db = getDb();
     const now = new Date();
@@ -69,6 +65,7 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
 
     return { forfeited: forfeitedCount };
   } catch (error) {
+    if (error instanceof DatabaseUnavailableError) throw error;
     logger.error("[Games] Failed to forfeit expired games", { error });
     return { forfeited: 0 };
   }
@@ -81,10 +78,6 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
 export async function notifyDeadlineWarnings(): Promise<{
   notified: number;
 }> {
-  if (!isDatabaseAvailable()) {
-    return { notified: 0 };
-  }
-
   try {
     const db = getDb();
     const now = new Date();
@@ -126,6 +119,7 @@ export async function notifyDeadlineWarnings(): Promise<{
 
     return { notified: notifiedCount };
   } catch (error) {
+    if (error instanceof DatabaseUnavailableError) throw error;
     logger.error("[Games] Failed to send deadline warnings", { error });
     return { notified: 0 };
   }
