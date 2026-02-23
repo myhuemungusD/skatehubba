@@ -64,3 +64,78 @@ describe("Logger", () => {
     }
   });
 });
+
+describe("Logger JSON mode", () => {
+  const originalEnv = process.env.NODE_ENV;
+
+  afterEach(() => {
+    process.env.NODE_ENV = originalEnv;
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  it("outputs JSON in production mode with required aggregation fields", async () => {
+    process.env.NODE_ENV = "production";
+    vi.resetModules();
+    const { default: logger } = await import("./logger");
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    logger.info("server started", { port: 3000 });
+
+    expect(spy).toHaveBeenCalledOnce();
+    const parsed = JSON.parse(spy.mock.calls[0][0]);
+    expect(parsed.message).toBe("server started");
+    expect(parsed.levelName).toBe("info");
+    expect(parsed.level).toBe(20);
+    expect(parsed.hostname).toEqual(expect.any(String));
+    expect(parsed.pid).toEqual(expect.any(Number));
+    expect(parsed.timestamp).toEqual(expect.any(String));
+    expect(parsed.port).toBe(3000);
+  });
+
+  it("outputs human-readable text in development mode", async () => {
+    process.env.NODE_ENV = "development";
+    vi.resetModules();
+    const { default: logger } = await import("./logger");
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    logger.info("hello");
+
+    expect(spy).toHaveBeenCalledOnce();
+    const output = spy.mock.calls[0][0];
+    expect(output).toMatch(/^\[.*\] \[INFO\] hello/);
+    expect(() => JSON.parse(output)).toThrow();
+  });
+
+  it("includes requestId from child logger in JSON output", async () => {
+    process.env.NODE_ENV = "production";
+    vi.resetModules();
+    const { createChildLogger } = await import("./logger");
+    const child = createChildLogger({ requestId: "req-abc-123" });
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    child.info("request completed", { status: 200 });
+
+    expect(spy).toHaveBeenCalledOnce();
+    const parsed = JSON.parse(spy.mock.calls[0][0]);
+    expect(parsed.requestId).toBe("req-abc-123");
+    expect(parsed.status).toBe(200);
+    expect(parsed.hostname).toEqual(expect.any(String));
+    expect(parsed.pid).toEqual(expect.any(Number));
+  });
+
+  it("redacts sensitive data in JSON mode", async () => {
+    process.env.NODE_ENV = "production";
+    vi.resetModules();
+    const { default: logger } = await import("./logger");
+    const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    logger.warn("auth failure", { password: "secret123", token: "tok_live" });
+
+    expect(spy).toHaveBeenCalledOnce();
+    const parsed = JSON.parse(spy.mock.calls[0][0]);
+    expect(parsed.password).toBe("***");
+    expect(parsed.token).toBe("***");
+    expect(parsed.message).toBe("auth failure");
+  });
+});
