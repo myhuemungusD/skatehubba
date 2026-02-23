@@ -58,6 +58,14 @@ const mocks = vi.hoisted(() => {
 
   const ffprobeFn = vi.fn();
 
+  const logger = {
+    log: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  };
+
   return {
     transaction,
     runTransaction,
@@ -70,6 +78,7 @@ const mocks = vi.hoisted(() => {
     bucket,
     storageInstance,
     ffprobeFn,
+    logger,
   };
 });
 
@@ -342,7 +351,7 @@ describe("SkateHubba Cloud Functions", () => {
       const uid = freshUid("ac-warn");
       const ctx = makeContext({ uid, roles: ["admin"], app: false });
       await (manageUserRole as any)({ targetUid: "tgt", role: "moderator", action: "grant" }, ctx);
-      expect(mockLogger.warn).toHaveBeenCalledWith(expect.stringContaining("[Security]"), uid);
+      expect(mocks.logger.warn).toHaveBeenCalledWith(expect.stringContaining("[Security]"), uid);
     });
 
     it("does not warn when App Check token is present", async () => {
@@ -350,7 +359,7 @@ describe("SkateHubba Cloud Functions", () => {
       const uid = freshUid("ac-ok");
       const ctx = makeContext({ uid, roles: ["admin"], app: true });
       await (manageUserRole as any)({ targetUid: "tgt", role: "moderator", action: "grant" }, ctx);
-      expect(mockLogger.warn).not.toHaveBeenCalledWith(
+      expect(mocks.logger.warn).not.toHaveBeenCalledWith(
         expect.stringContaining("[Security]"),
         expect.anything()
       );
@@ -1772,7 +1781,7 @@ describe("SkateHubba Cloud Functions", () => {
           bucket: "b",
         })
       ).resolves.not.toThrow();
-      expect(mockLogger.error).toHaveBeenCalledWith(
+      expect(mocks.logger.error).toHaveBeenCalledWith(
         expect.stringContaining("[validateChallengeVideo]"),
         expect.anything(),
         expect.anything()
@@ -1828,11 +1837,11 @@ describe("SkateHubba Cloud Functions", () => {
         { gameId: "g1", clipUrl: "u", trickName: null, isSetTrick: true, idempotencyKey: "k-log1" },
         ctx
       );
-      expect(mockLogger.log).toHaveBeenCalledWith(
+      expect(mocks.logger.log).toHaveBeenCalledWith(
         "[TransactionMonitor]",
         expect.stringContaining('"transaction":"submitTrick"')
       );
-      expect(mockLogger.log).toHaveBeenCalledWith(
+      expect(mocks.logger.log).toHaveBeenCalledWith(
         "[TransactionMonitor]",
         expect.stringContaining('"gameId":"g1"')
       );
@@ -1873,7 +1882,7 @@ describe("SkateHubba Cloud Functions", () => {
         },
         ctx
       );
-      expect(mockLogger.warn).toHaveBeenCalledWith(
+      expect(mocks.logger.warn).toHaveBeenCalledWith(
         expect.stringContaining("[TransactionMonitor] Contention detected"),
         expect.stringContaining('"retried":true')
       );
@@ -2025,7 +2034,7 @@ describe("SkateHubba Cloud Functions", () => {
       await (processVoteTimeouts as any)();
 
       // Should log the error but not crash
-      expect(mockLogger.error).toHaveBeenCalledWith(
+      expect(mocks.logger.error).toHaveBeenCalledWith(
         expect.stringContaining("[VoteReminder] Failed to send notification"),
         expect.anything()
       );
@@ -2139,7 +2148,7 @@ describe("SkateHubba Cloud Functions", () => {
 
       await (processVoteTimeouts as any)();
 
-      expect(mockLogger.error).toHaveBeenCalledWith(
+      expect(mocks.logger.error).toHaveBeenCalledWith(
         expect.stringContaining("[VoteTimeout] Failed to notify"),
         expect.anything()
       );
