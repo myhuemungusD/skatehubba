@@ -183,8 +183,8 @@ git clone https://github.com/myhuemungusD/skatehubba.git /opt/skatehubba
 cd /opt/skatehubba && git checkout staging
 
 # 3. Configure secrets
-cp .env.staging .env.staging.local
-nano .env.staging.local
+cp .env.staging.example .env.staging
+nano .env.staging
 
 # 4. Start services
 docker compose -f docker-compose.staging.yml up -d

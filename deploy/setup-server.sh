@@ -77,7 +77,7 @@ if [ ! -f "$APP_DIR/.env.staging" ]; then
   echo ""
   echo "WARNING: .env.staging not found!"
   echo "Copy the template and fill in your secrets:"
-  echo "  cp $APP_DIR/.env.staging.template $APP_DIR/.env.staging"
+  echo "  cp $APP_DIR/.env.staging.example $APP_DIR/.env.staging"
   echo "  nano $APP_DIR/.env.staging"
   echo ""
 fi
