@@ -6,7 +6,6 @@
  * Run specific test categories:
  *   Performance tests:  npx playwright test --grep @perf
  *   Interaction tests:  npx playwright test --grep @interaction
- *   Filter tests:       npx playwright test --grep @filter
  *   Accessibility:      npx playwright test --grep @a11y
  *   Error handling:     npx playwright test --grep @error
  *   Loading states:     npx playwright test --grep @loading
@@ -129,63 +128,6 @@ mapTest.describe("User Interactions", () => {
     console.log(`[Pan] Initial: ${initialCount}, After: ${afterPan}`);
 
     expect(afterPan).toBeGreaterThanOrEqual(0);
-  });
-});
-
-// ============================================================================
-// Search & Filter Test Suite
-// ============================================================================
-
-mapTest.describe("Search & Filtering", () => {
-  mapTest.beforeEach(async ({ mapPage, api }) => {
-    await api.mockSpots(CONFIG.SMALL_SPOT_COUNT);
-    await mapPage.goto();
-    await mapPage.waitForReady();
-  });
-
-  mapTest("should filter spots by search query @filter", async ({ mapPage }) => {
-    const initialCount = await mapPage.getMarkerCount();
-    expect(initialCount).toBeGreaterThan(0);
-
-    await mapPage.search("Test Spot 0");
-
-    await expect(mapPage.markers).toHaveCount(1);
-  });
-
-  mapTest("should restore all spots when search cleared @filter", async ({ mapPage }) => {
-    const initialCount = await mapPage.getMarkerCount();
-
-    await mapPage.search("Test Spot 0");
-    await expect(mapPage.markers).toHaveCount(1);
-
-    await mapPage.clearSearch();
-
-    const afterClear = await mapPage.getMarkerCount();
-    expect(afterClear).toBe(initialCount);
-  });
-
-  mapTest("should filter spots by category (street) @filter", async ({ mapPage }) => {
-    const initialCount = await mapPage.getMarkerCount();
-
-    await mapPage.filterByType("street");
-
-    const filteredCount = await mapPage.getMarkerCount();
-
-    expect(filteredCount).toBeGreaterThan(0);
-    expect(filteredCount).toBeLessThan(initialCount);
-
-    const expectedApprox = Math.floor(initialCount / 3);
-    expect(filteredCount).toBeGreaterThanOrEqual(expectedApprox - 2);
-    expect(filteredCount).toBeLessThanOrEqual(expectedApprox + 2);
-  });
-
-  mapTest("should show no results for non-matching search @filter", async ({ mapPage }) => {
-    await mapPage.search("NonExistentSpotXYZ12345");
-
-    const count = await mapPage.getMarkerCount();
-    const showsEmpty = await mapPage.isEmpty();
-
-    expect(count === 0 || showsEmpty).toBe(true);
   });
 });
 

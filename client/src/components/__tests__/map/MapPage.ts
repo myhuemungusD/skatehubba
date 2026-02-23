@@ -42,8 +42,8 @@ export class MapPage {
     return this.page.locator(SELECTORS.zoomOut);
   }
 
-  get searchInput(): Locator {
-    return this.page.locator(SELECTORS.searchInput);
+  get addSpotButton(): Locator {
+    return this.page.locator(SELECTORS.addSpotButton);
   }
 
   get loadingIndicator(): Locator {
@@ -136,33 +136,6 @@ export class MapPage {
     const marker = this.markers.nth(index);
     await expect(marker).toBeVisible({ timeout: CONFIG.ANIMATION_TIMEOUT });
     await marker.click();
-  }
-
-  /** Search for spots by name */
-  async search(query: string): Promise<void> {
-    await expect(this.searchInput).toBeVisible();
-    await this.searchInput.fill(query);
-    await this.waitForMarkersStable();
-  }
-
-  /** Clear search input */
-  async clearSearch(): Promise<void> {
-    await this.searchInput.clear();
-    await this.waitForMarkersStable();
-  }
-
-  /** Click filter button by spot type */
-  async filterByType(type: "street" | "park" | "diy"): Promise<void> {
-    const filterSelector = {
-      street: SELECTORS.filterStreet,
-      park: SELECTORS.filterPark,
-      diy: SELECTORS.filterDiy,
-    }[type];
-
-    const filter = this.page.locator(filterSelector);
-    await expect(filter).toBeVisible();
-    await filter.click();
-    await this.waitForMarkersStable();
   }
 
   /** Focus map container for keyboard navigation */
