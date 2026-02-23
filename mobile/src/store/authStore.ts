@@ -1,42 +1,11 @@
-import { create } from "zustand";
-import { onAuthStateChanged, signOut as firebaseSignOut, type User } from "firebase/auth";
+import { createBaseAuthStore } from "@skatehubba/firebase";
 import { auth } from "@/lib/firebase.config";
 import { clearAnalyticsSession } from "@/lib/analytics/logEvent";
 import { clearOfflineCache } from "@/lib/offlineCache";
 
-interface AuthState {
-  user: User | null;
-  isInitialized: boolean;
-  initialize: () => () => void;
-  signOut: () => Promise<void>;
-}
-
-let authUnsubscribe: (() => void) | null = null;
-
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isInitialized: false,
-
-  initialize: () => {
-    if (authUnsubscribe) return authUnsubscribe;
-    authUnsubscribe = onAuthStateChanged(auth, (user) => {
-      set({ user, isInitialized: true });
-    });
-    return authUnsubscribe;
-  },
-
-  signOut: async () => {
-    try {
-      await firebaseSignOut(auth);
-      // Clear analytics session to prevent cross-account session tracking
-      await clearAnalyticsSession();
-      // Clear offline cache to prevent stale data on re-login
-      await clearOfflineCache();
-      set({ user: null });
-    } catch (error) {
-      if (__DEV__) {
-        console.error("[AuthStore] Sign out failed", error);
-      }
-    }
-  },
-}));
+export const useAuthStore = createBaseAuthStore(auth, async () => {
+  // Clear analytics session to prevent cross-account session tracking
+  await clearAnalyticsSession();
+  // Clear offline cache to prevent stale data on re-login
+  await clearOfflineCache();
+});

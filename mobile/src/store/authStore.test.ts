@@ -1,11 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // Use vi.hoisted so mock fns are available inside vi.mock factories
-const { mockOnAuthStateChanged, mockFirebaseSignOut, mockClearAnalytics } = vi.hoisted(() => ({
-  mockOnAuthStateChanged: vi.fn(),
-  mockFirebaseSignOut: vi.fn(),
-  mockClearAnalytics: vi.fn().mockResolvedValue(undefined),
-}));
+const { mockOnAuthStateChanged, mockFirebaseSignOut, mockClearAnalytics, mockClearOfflineCache } =
+  vi.hoisted(() => ({
+    mockOnAuthStateChanged: vi.fn(),
+    mockFirebaseSignOut: vi.fn(),
+    mockClearAnalytics: vi.fn().mockResolvedValue(undefined),
+    mockClearOfflineCache: vi.fn().mockResolvedValue(undefined),
+  }));
 
 vi.mock("@/lib/firebase.config", () => ({
   auth: { currentUser: null },
@@ -20,10 +22,14 @@ vi.mock("@/lib/analytics/logEvent", () => ({
   clearAnalyticsSession: mockClearAnalytics,
 }));
 
+vi.mock("@/lib/offlineCache", () => ({
+  clearOfflineCache: mockClearOfflineCache,
+}));
+
 declare const globalThis: { __DEV__: boolean };
 globalThis.__DEV__ = false;
 
-// Dynamic import to get fresh module state (module-level authUnsubscribe singleton)
+// Dynamic import to get fresh module state (factory closure singleton resets on module reset)
 let useAuthStore: any;
 
 describe("authStore", () => {
@@ -110,6 +116,15 @@ describe("authStore", () => {
       await useAuthStore.getState().signOut();
 
       expect(mockClearAnalytics).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears offline cache on sign out", async () => {
+      mockFirebaseSignOut.mockResolvedValue(undefined);
+      useAuthStore.setState({ user: { uid: "user-123" } as any, isInitialized: true });
+
+      await useAuthStore.getState().signOut();
+
+      expect(mockClearOfflineCache).toHaveBeenCalledTimes(1);
     });
 
     it("handles sign out failure gracefully without throwing", async () => {
