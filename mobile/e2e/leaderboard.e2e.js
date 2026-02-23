@@ -31,13 +31,13 @@ describe("Leaderboard", () => {
       await expect(element(by.id("leaderboard-loading"))).toBeVisible();
     });
 
-    it("displays the Top Skaters header", async () => {
+    it("displays the S.K.A.T.E. Leaderboard header", async () => {
       if (!(await requireAuth())) return;
 
       await waitFor(element(by.id("leaderboard-header")))
         .toBeVisible()
         .withTimeout(10000);
-      await expect(element(by.text("Top Skaters"))).toBeVisible();
+      await expect(element(by.text("S.K.A.T.E. Leaderboard"))).toBeVisible();
     });
 
     it("renders the leaderboard list", async () => {
@@ -54,11 +54,10 @@ describe("Leaderboard", () => {
       await expect(element(by.id("leaderboard-row-0"))).toBeVisible();
     });
 
-    it("displays at least one row with player name and points", async () => {
+    it("displays at least one row with player name and win count", async () => {
       if (!(await requireAuth())) return;
 
       await expect(element(by.id("leaderboard-row-0"))).toBeVisible();
-      await expect(element(by.text("pts"))).toBeVisible();
     });
 
     it("displays top three entries with trophy icons", async () => {

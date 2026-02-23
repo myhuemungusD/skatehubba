@@ -1,335 +1,313 @@
 /**
- * Tests for Storage Service
+ * Behavior tests for Storage Service
+ *
+ * Tests the video upload pipeline: signed URL generation, file validation,
+ * public URL construction, cache headers, deletion, and quality variants.
  */
 
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../logger");
-vi.mock("firebase-admin/storage");
+// ── Mocks ────────────────────────────────────────────────────────────────
+
+const {
+  mockEnv,
+  mockGetSignedUrl,
+  mockExists,
+  mockGetMetadata,
+  mockSetMetadata,
+  mockDelete,
+  mockFile,
+} = vi.hoisted(() => {
+  const mockGetSignedUrl = vi.fn().mockResolvedValue(["https://signed-url"]);
+  const mockExists = vi.fn().mockResolvedValue([true]);
+  const mockGetMetadata = vi.fn().mockResolvedValue([{ size: 1000, contentType: "video/mp4" }]);
+  const mockSetMetadata = vi.fn().mockResolvedValue(undefined);
+  const mockDelete = vi.fn().mockResolvedValue(undefined);
+
+  const mockFile = vi.fn().mockReturnValue({
+    getSignedUrl: mockGetSignedUrl,
+    exists: mockExists,
+    getMetadata: mockGetMetadata,
+    setMetadata: mockSetMetadata,
+    delete: mockDelete,
+  });
+
+  return {
+    mockEnv: { FIREBASE_STORAGE_BUCKET: "test-bucket" },
+    mockGetSignedUrl,
+    mockExists,
+    mockGetMetadata,
+    mockSetMetadata,
+    mockDelete,
+    mockFile,
+  };
+});
+
+vi.mock("../../config/env", () => ({
+  env: mockEnv,
+}));
+
+vi.mock("../../admin", () => ({
+  admin: {
+    storage: vi.fn().mockReturnValue({
+      bucket: vi.fn().mockReturnValue({
+        file: mockFile,
+      }),
+    }),
+  },
+}));
+
+vi.mock("../../logger", () => ({
+  default: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
+import {
+  generateUploadUrls,
+  getSignedDownloadUrl,
+  validateUploadedFile,
+  getPublicUrl,
+  setCacheHeaders,
+  deleteFile,
+  isOwnStorageUrl,
+  getQualityVariantPath,
+  getQualityVideoUrl,
+  buildQualityUrls,
+} from "../storageService";
+
+// ── Tests ────────────────────────────────────────────────────────────────
 
 describe("Storage Service", () => {
-  describe("File Upload", () => {
-    it("should upload file to storage", () => {
-      const file = {
-        filename: "video.mp4",
-        mimetype: "video/mp4",
-        size: 5000000,
-      };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnv.FIREBASE_STORAGE_BUCKET = "test-bucket";
+  });
 
-      expect(file.filename).toBe("video.mp4");
-      expect(file.mimetype).toContain("video");
+  describe("generateUploadUrls", () => {
+    it("returns signed upload URLs for video and thumbnail", async () => {
+      const result = await generateUploadUrls("user-123");
+
+      expect(result.uploadId).toBeDefined();
+      expect(result.videoUploadUrl).toBe("https://signed-url");
+      expect(result.thumbnailUploadUrl).toBe("https://signed-url");
+      expect(result.videoPath).toContain("trickmint/user-123/");
+      expect(result.thumbnailPath).toContain("_thumb.jpg");
+      expect(result.expiresAt).toBeDefined();
     });
 
-    it("should generate unique filename", () => {
-      const originalName = "video.mp4";
-      const timestamp = Date.now();
-      const uniqueName = `${timestamp}-${originalName}`;
-
-      expect(uniqueName).toContain(originalName);
-      expect(uniqueName).toContain(timestamp.toString());
+    it("uses webm extension by default", async () => {
+      const result = await generateUploadUrls("user-123");
+      expect(result.videoPath).toMatch(/\.webm$/);
     });
 
-    it("should validate file size", () => {
-      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-      const fileSize = 45 * 1024 * 1024;
-
-      const isValid = fileSize <= MAX_FILE_SIZE;
-      expect(isValid).toBe(true);
+    it("uses specified file extension", async () => {
+      const result = await generateUploadUrls("user-123", "mp4");
+      expect(result.videoPath).toMatch(/\.mp4$/);
     });
 
-    it("should reject oversized files", () => {
-      const MAX_FILE_SIZE = 50 * 1024 * 1024;
-      const fileSize = 60 * 1024 * 1024;
-
-      const isValid = fileSize <= MAX_FILE_SIZE;
-      expect(isValid).toBe(false);
-    });
-
-    it("should validate mime type", () => {
-      const allowedTypes = ["video/mp4", "video/webm", "image/jpeg", "image/png"];
-      const mimeType = "video/mp4";
-
-      expect(allowedTypes).toContain(mimeType);
+    it("throws when FIREBASE_STORAGE_BUCKET is not configured", async () => {
+      mockEnv.FIREBASE_STORAGE_BUCKET = "";
+      await expect(generateUploadUrls("user-1")).rejects.toThrow(
+        "FIREBASE_STORAGE_BUCKET is not configured"
+      );
     });
   });
 
-  describe("File Paths", () => {
-    it("should generate video path", () => {
-      const userId = "user-123";
-      const filename = "video.mp4";
-      const path = `videos/${userId}/${filename}`;
-
-      expect(path).toContain("videos");
-      expect(path).toContain(userId);
-    });
-
-    it("should generate thumbnail path", () => {
-      const userId = "user-123";
-      const filename = "thumb.jpg";
-      const path = `thumbnails/${userId}/${filename}`;
-
-      expect(path).toContain("thumbnails");
-      expect(path).toContain(userId);
-    });
-
-    it("should generate profile photo path", () => {
-      const userId = "user-123";
-      const filename = "profile.jpg";
-      const path = `profiles/${userId}/${filename}`;
-
-      expect(path).toContain("profiles");
-      expect(path).toContain(userId);
+  describe("getSignedDownloadUrl", () => {
+    it("returns a signed download URL for the given path", async () => {
+      const url = await getSignedDownloadUrl("trickmint/user-1/video.webm");
+      expect(url).toBe("https://signed-url");
+      expect(mockFile).toHaveBeenCalledWith("trickmint/user-1/video.webm");
     });
   });
 
-  describe("File Download", () => {
-    it("should generate download URL", () => {
-      const bucket = "skatehubba-storage";
-      const path = "videos/user-123/video.mp4";
-      const url = `https://storage.googleapis.com/${bucket}/${path}`;
+  describe("validateUploadedFile", () => {
+    it("returns valid for a file within size and type constraints", async () => {
+      mockGetMetadata.mockResolvedValueOnce([{ size: 5_000_000, contentType: "video/mp4" }]);
 
-      expect(url).toContain(bucket);
-      expect(url).toContain(path);
-    });
+      const result = await validateUploadedFile("video.mp4", "video");
 
-    it("should generate signed URL with expiry", () => {
-      const expiryTime = Date.now() + 3600000; // 1 hour
-      expect(expiryTime).toBeGreaterThan(Date.now());
-    });
-
-    it("should handle non-existent file", () => {
-      const exists = false;
-      expect(exists).toBe(false);
-    });
-  });
-
-  describe("File Deletion", () => {
-    it("should delete file from storage", () => {
-      const path = "videos/user-123/video.mp4";
-      expect(path).toBeDefined();
-    });
-
-    it("should delete multiple files", () => {
-      const paths = [
-        "videos/user-123/video1.mp4",
-        "videos/user-123/video2.mp4",
-        "thumbnails/user-123/thumb1.jpg",
-      ];
-
-      expect(paths).toHaveLength(3);
-    });
-
-    it("should handle deletion errors", () => {
-      const error = new Error("File not found");
-      expect(error.message).toBe("File not found");
-    });
-  });
-
-  describe("Bucket Management", () => {
-    it("should use correct bucket", () => {
-      const bucket = "skatehubba-storage";
-      expect(bucket).toBe("skatehubba-storage");
-    });
-
-    it("should set bucket CORS", () => {
-      const cors = {
-        origin: ["https://skatehubba.com"],
-        method: ["GET", "POST", "DELETE"],
-      };
-
-      expect(cors.origin).toContain("https://skatehubba.com");
-    });
-
-    it("should configure lifecycle rules", () => {
-      const rule = {
-        action: "Delete",
-        condition: { age: 90 },
-      };
-
-      expect(rule.condition.age).toBe(90);
-    });
-  });
-
-  describe("Metadata", () => {
-    it("should set file metadata", () => {
-      const metadata = {
+      expect(result.valid).toBe(true);
+      expect(result.metadata).toEqual({
+        size: 5_000_000,
         contentType: "video/mp4",
-        metadata: {
-          userId: "user-123",
-          uploadedAt: new Date().toISOString(),
-          originalName: "my-trick.mp4",
-        },
-      };
-
-      expect(metadata.contentType).toBe("video/mp4");
-      expect(metadata.metadata.userId).toBe("user-123");
+        exists: true,
+      });
     });
 
-    it("should retrieve file metadata", () => {
-      const metadata = {
-        size: 5000000,
-        contentType: "video/mp4",
-        timeCreated: "2024-01-01T00:00:00Z",
-      };
+    it("rejects a file that does not exist in storage", async () => {
+      mockExists.mockResolvedValueOnce([false]);
 
-      expect(metadata.size).toBeGreaterThan(0);
-    });
-  });
+      const result = await validateUploadedFile("missing.mp4", "video");
 
-  describe("Video Processing", () => {
-    it("should extract video duration", () => {
-      const durationSeconds = 15;
-      expect(durationSeconds).toBeGreaterThan(0);
-      expect(durationSeconds).toBeLessThanOrEqual(60);
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe("File not found in storage");
     });
 
-    it("should generate thumbnail", () => {
-      const thumbnailPath = "thumbnails/user-123/thumb.jpg";
-      expect(thumbnailPath).toContain("thumbnails");
+    it("rejects a video exceeding the 50MB size limit", async () => {
+      mockGetMetadata.mockResolvedValueOnce([{ size: 60 * 1024 * 1024, contentType: "video/mp4" }]);
+
+      const result = await validateUploadedFile("big.mp4", "video");
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("exceeds maximum size");
     });
 
-    it("should transcode video", () => {
-      const formats = ["mp4", "webm"];
-      expect(formats).toContain("mp4");
-    });
-  });
+    it("rejects a thumbnail exceeding the 2MB size limit", async () => {
+      mockGetMetadata.mockResolvedValueOnce([{ size: 3 * 1024 * 1024, contentType: "image/jpeg" }]);
 
-  describe("Storage Quotas", () => {
-    it("should track user storage usage", () => {
-      const usage = {
-        userId: "user-123",
-        bytesUsed: 100 * 1024 * 1024, // 100MB
-        quota: 1024 * 1024 * 1024, // 1GB
-      };
+      const result = await validateUploadedFile("big.jpg", "thumbnail");
 
-      expect(usage.bytesUsed).toBeLessThan(usage.quota);
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("exceeds maximum size");
     });
 
-    it("should calculate remaining quota", () => {
-      const used = 100 * 1024 * 1024;
-      const total = 1024 * 1024 * 1024;
-      const remaining = total - used;
+    it("rejects a file with a disallowed MIME type", async () => {
+      mockGetMetadata.mockResolvedValueOnce([{ size: 1000, contentType: "application/pdf" }]);
 
-      expect(remaining).toBeGreaterThan(0);
+      const result = await validateUploadedFile("file.pdf", "video");
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain("Invalid file type");
     });
 
-    it("should enforce quota limits", () => {
-      const used = 1000 * 1024 * 1024;
-      const quota = 1024 * 1024 * 1024;
+    it("handles storage errors gracefully", async () => {
+      mockExists.mockRejectedValueOnce(new Error("GCS unavailable"));
 
-      const canUpload = used < quota;
-      expect(canUpload).toBe(true);
-    });
+      const result = await validateUploadedFile("video.mp4", "video");
 
-    it("should reject upload when over quota", () => {
-      const used = 1024 * 1024 * 1024;
-      const quota = 1024 * 1024 * 1024;
-      const fileSize = 10 * 1024 * 1024;
-
-      const canUpload = used + fileSize <= quota;
-      expect(canUpload).toBe(false);
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe("Failed to validate file");
     });
   });
 
-  describe("Image Processing", () => {
-    it("should resize image", () => {
-      const dimensions = {
-        width: 800,
-        height: 600,
-      };
+  describe("getPublicUrl", () => {
+    it("constructs a Firebase Storage public URL with encoded path", () => {
+      const url = getPublicUrl("trickmint/user-1/video.webm");
 
-      expect(dimensions.width).toBeGreaterThan(0);
-      expect(dimensions.height).toBeGreaterThan(0);
+      expect(url).toBe(
+        `https://firebasestorage.googleapis.com/v0/b/test-bucket/o/${encodeURIComponent("trickmint/user-1/video.webm")}?alt=media`
+      );
     });
 
-    it("should create thumbnail from image", () => {
-      const thumbnailSize = { width: 150, height: 150 };
-      expect(thumbnailSize.width).toBe(150);
-    });
+    it("throws when FIREBASE_STORAGE_BUCKET is not configured", () => {
+      mockEnv.FIREBASE_STORAGE_BUCKET = "";
 
-    it("should optimize image quality", () => {
-      const quality = 85; // 0-100
-      expect(quality).toBeGreaterThan(0);
-      expect(quality).toBeLessThanOrEqual(100);
+      expect(() => getPublicUrl("trickmint/user-1/video.webm")).toThrow(
+        "FIREBASE_STORAGE_BUCKET is not configured"
+      );
     });
   });
 
-  describe("Access Control", () => {
-    it("should verify user owns file", () => {
-      const file = { userId: "user-123" };
-      const requestingUser = "user-123";
+  describe("setCacheHeaders", () => {
+    it("sets immutable cache headers on video files", async () => {
+      await setCacheHeaders("video.webm", "video");
 
-      const hasAccess = file.userId === requestingUser;
-      expect(hasAccess).toBe(true);
+      expect(mockSetMetadata).toHaveBeenCalledWith({
+        cacheControl: "public, max-age=31536000, immutable",
+      });
     });
 
-    it("should allow public access to public files", () => {
-      const file = { isPublic: true };
-      expect(file.isPublic).toBe(true);
+    it("sets immutable cache headers on thumbnail files", async () => {
+      await setCacheHeaders("thumb.jpg", "thumbnail");
+
+      expect(mockSetMetadata).toHaveBeenCalledWith({
+        cacheControl: "public, max-age=31536000, immutable",
+      });
     });
 
-    it("should deny access to private files", () => {
-      const file = { userId: "user-123", isPublic: false };
-      const requestingUser = "user-456";
+    it("silently handles metadata update failures", async () => {
+      mockSetMetadata.mockRejectedValueOnce(new Error("GCS error"));
 
-      const hasAccess = file.isPublic || file.userId === requestingUser;
-      expect(hasAccess).toBe(false);
-    });
-  });
-
-  describe("Batch Operations", () => {
-    it("should upload multiple files", () => {
-      const files = [{ name: "video1.mp4" }, { name: "video2.mp4" }, { name: "video3.mp4" }];
-
-      expect(files).toHaveLength(3);
-    });
-
-    it("should delete multiple files", () => {
-      const paths = ["videos/video1.mp4", "videos/video2.mp4", "thumbnails/thumb1.jpg"];
-
-      expect(paths).toHaveLength(3);
+      await expect(setCacheHeaders("video.webm", "video")).resolves.toBeUndefined();
     });
   });
 
-  describe("Error Handling", () => {
-    it("should handle upload failure", () => {
-      const error = new Error("Upload failed");
-      expect(error.message).toBe("Upload failed");
+  describe("deleteFile", () => {
+    it("deletes a file that exists in storage", async () => {
+      await deleteFile("video.webm");
+
+      expect(mockExists).toHaveBeenCalled();
+      expect(mockDelete).toHaveBeenCalled();
     });
 
-    it("should handle invalid file type", () => {
-      const allowedTypes = ["video/mp4", "image/jpeg"];
-      const fileType = "application/pdf";
+    it("skips deletion for files that do not exist", async () => {
+      mockExists.mockResolvedValueOnce([false]);
 
-      const isAllowed = allowedTypes.includes(fileType);
-      expect(isAllowed).toBe(false);
+      await deleteFile("gone.webm");
+
+      expect(mockDelete).not.toHaveBeenCalled();
     });
 
-    it("should handle network errors", () => {
-      const error = new Error("Network timeout");
-      expect(error.message).toContain("Network");
-    });
+    it("silently handles deletion errors", async () => {
+      mockExists.mockRejectedValueOnce(new Error("GCS error"));
 
-    it("should handle insufficient storage", () => {
-      const error = new Error("Insufficient storage");
-      expect(error.message).toBe("Insufficient storage");
+      await expect(deleteFile("video.webm")).resolves.toBeUndefined();
     });
   });
 
-  describe("Cleanup", () => {
-    it("should clean up temporary files", () => {
-      const tempFiles = [
-        { path: "/tmp/upload1", age: 3600000 }, // 1 hour old
-        { path: "/tmp/upload2", age: 7200000 }, // 2 hours old
-      ];
-
-      const oldFiles = tempFiles.filter((f) => f.age > 3600000);
-      expect(oldFiles).toHaveLength(1);
+  describe("isOwnStorageUrl", () => {
+    it("returns true for Firebase Storage URLs matching our bucket", () => {
+      expect(
+        isOwnStorageUrl("https://firebasestorage.googleapis.com/v0/b/test-bucket/o/video.webm")
+      ).toBe(true);
     });
 
-    it("should delete orphaned files", () => {
-      const orphaned = true;
-      expect(orphaned).toBe(true);
+    it("returns true for GCS direct URLs matching our bucket", () => {
+      expect(isOwnStorageUrl("https://storage.googleapis.com/test-bucket/video.webm")).toBe(true);
+    });
+
+    it("returns false for URLs from other buckets", () => {
+      expect(
+        isOwnStorageUrl("https://firebasestorage.googleapis.com/v0/b/other-bucket/o/video.webm")
+      ).toBe(false);
+    });
+
+    it("returns false when FIREBASE_STORAGE_BUCKET is not configured", () => {
+      mockEnv.FIREBASE_STORAGE_BUCKET = "";
+      expect(isOwnStorageUrl("https://some-url.com/video.webm")).toBe(false);
+    });
+  });
+
+  describe("getQualityVariantPath", () => {
+    it("appends quality tier suffix before the extension", () => {
+      expect(getQualityVariantPath("trickmint/user/abc.webm", "low")).toBe(
+        "trickmint/user/abc_low.mp4"
+      );
+    });
+
+    it("always produces .mp4 output regardless of input format", () => {
+      expect(getQualityVariantPath("video.webm", "medium")).toBe("video_medium.mp4");
+    });
+
+    it("handles paths without an extension", () => {
+      expect(getQualityVariantPath("video", "low")).toBe("video_low.mp4");
+    });
+  });
+
+  describe("getQualityVideoUrl", () => {
+    it("returns the original URL for high quality tier", () => {
+      const original = "https://original-url.com/video.webm";
+      expect(getQualityVideoUrl(original, "path.webm", "high")).toBe(original);
+    });
+
+    it("returns a public URL for lower quality tiers", () => {
+      const url = getQualityVideoUrl("https://original.com", "path.webm", "low");
+      expect(url).toContain("path_low.mp4");
+    });
+  });
+
+  describe("buildQualityUrls", () => {
+    it("returns URLs for all three quality tiers", () => {
+      const urls = buildQualityUrls("https://original.com", "trickmint/user/vid.webm");
+
+      expect(urls.high).toBe("https://original.com");
+      expect(urls.low).toContain("vid_low.mp4");
+      expect(urls.medium).toContain("vid_medium.mp4");
     });
   });
 });
