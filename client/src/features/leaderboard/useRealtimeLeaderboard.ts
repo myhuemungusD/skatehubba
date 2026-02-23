@@ -7,10 +7,8 @@ export interface LeaderboardEntry {
   id: string;
   displayName: string;
   username?: string;
-  xp?: number;
-  totalCheckIns?: number;
-  spotsVisited?: number;
-  streak?: number;
+  wins: number;
+  losses: number;
   rank?: number;
   avatarUrl?: string;
 }
@@ -19,10 +17,8 @@ interface FirestoreLeaderboardEntry {
   id: string;
   displayName?: string;
   username?: string;
-  xp?: number;
-  totalCheckIns?: number;
-  spotsVisited?: number;
-  streak?: number;
+  wins?: number;
+  losses?: number;
   rank?: number;
   avatarUrl?: string;
 }
@@ -32,10 +28,8 @@ const toLeaderboardEntry = (item: FirestoreLeaderboardEntry): LeaderboardEntry =
     id: item.id,
     displayName: item.displayName ?? "Skater",
     username: item.username,
-    xp: item.xp,
-    totalCheckIns: item.totalCheckIns,
-    spotsVisited: item.spotsVisited,
-    streak: item.streak,
+    wins: item.wins ?? 0,
+    losses: item.losses ?? 0,
     rank: item.rank,
     avatarUrl: item.avatarUrl,
   };
@@ -44,8 +38,7 @@ const toLeaderboardEntry = (item: FirestoreLeaderboardEntry): LeaderboardEntry =
 const sortEntries = (entries: LeaderboardEntry[]) => {
   return [...entries].sort((a, b) => {
     if (a.rank !== undefined && b.rank !== undefined) return a.rank - b.rank;
-    if (a.xp !== undefined && b.xp !== undefined) return b.xp - a.xp;
-    return a.displayName.localeCompare(b.displayName);
+    return b.wins - a.wins;
   });
 };
 

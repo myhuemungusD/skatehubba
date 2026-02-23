@@ -3,9 +3,7 @@ export interface LeaderboardEntry {
   userId: string;
   displayName: string;
   photoURL: string | null;
-  totalPoints: number;
-  checkInCount: number;
-  spotsUnlocked: number;
-  tricksCompleted: number;
-  currentStreak: number;
+  wins: number;
+  losses: number;
+  winRate: number;
 }
