@@ -1,13 +1,12 @@
 /**
- * Coverage tests for rate-limit branches in game + battle socket handlers.
+ * Behavior tests for socket handler rate limiting
  *
- * Mocks checkRateLimit to return false so every handler exercises its
- * "rate_limited" early-exit path.
+ * Verifies that game and battle socket handlers reject requests
+ * with a rate_limited error when the client sends too quickly.
  */
 
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
-// Shared socket-level mocks
 vi.mock("../../rooms", () => ({
   joinRoom: vi.fn().mockResolvedValue(undefined),
   leaveRoom: vi.fn().mockResolvedValue(undefined),
@@ -43,7 +42,7 @@ vi.mock("../../../logger", () => ({
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
-// KEY: rate-limiter always rejects
+// All rate-limit checks return false (= rejected)
 vi.mock("../../socketRateLimit", () => ({
   registerRateLimitRules: vi.fn(),
   checkRateLimit: vi.fn(() => false),
@@ -61,7 +60,7 @@ function makeMocks() {
   return { socket, io, eventHandlers };
 }
 
-describe("Game handlers – rate-limit branches", () => {
+describe("Game socket handlers — rate limiting", () => {
   let socket: any;
   let io: any;
   let eventHandlers: Map<string, Function>;
@@ -78,7 +77,7 @@ describe("Game handlers – rate-limit branches", () => {
     ["game:pass", ["game-1"]],
     ["game:forfeit", ["game-1"]],
     ["game:reconnect", ["game-1"]],
-  ] as const)("emits rate_limited for %s", async (event, args) => {
+  ] as const)("rejects %s with rate_limited error when throttled", async (event, args) => {
     const { registerGameHandlers } = await import("../game");
     registerGameHandlers(io, socket);
 
@@ -92,7 +91,7 @@ describe("Game handlers – rate-limit branches", () => {
   });
 });
 
-describe("Battle handlers – rate-limit branches", () => {
+describe("Battle socket handlers — rate limiting", () => {
   let socket: any;
   let io: any;
   let eventHandlers: Map<string, Function>;
@@ -108,7 +107,7 @@ describe("Battle handlers – rate-limit branches", () => {
     ["battle:startVoting", ["battle-1"]],
     ["battle:vote", [{ battleId: "b1", odv: "u1", vote: "clean" as const }]],
     ["battle:ready", ["battle-1"]],
-  ] as const)("emits rate_limited for %s", async (event, args) => {
+  ] as const)("rejects %s with rate_limited error when throttled", async (event, args) => {
     const { registerBattleHandlers } = await import("../battle");
     registerBattleHandlers(io, socket);
 
