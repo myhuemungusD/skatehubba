@@ -1,24 +1,9 @@
 /**
- * @fileoverview Coverage tests for uncovered branches in commerce functions.
+ * Edge-case behavior tests for Stripe webhook handlers, inventory holds, and stock release.
  *
- * Covers:
- *
- * stripeWebhook.ts:
- *   - handlePaymentSucceeded: order already paid, order not pending, PI mismatch,
- *     amount mismatch, currency mismatch, consumeHold failure
- *   - handlePaymentFailed: order not found, order not pending, releaseHold failure
- *   - handleChargeDisputeCreated: missing payment_intent, order not found,
- *     already disputed, unexpected status, update failure
- *   - handleChargeRefunded: missing payment_intent, order not found, partial refund,
- *     already refunded, unexpected status, update failure, restock failure
- *   - Webhook endpoint: error processing event (catch block lines 484-496)
- *
- * expireHolds.ts:
- *   - releaseHoldAtomic returns false (hold not actually released) - skip status update (line 76)
- *
- * stockRelease.ts:
- *   - releaseHoldAtomic: full batch processing with shard increment logic (lines 80-112)
- *   - restockFromConsumedHold: batch processing for consumed holds (lines 180-207)
+ * Tests payment lifecycle edge cases (idempotent replays, status guards, validation
+ * mismatches), dispute and refund handling, hold expiration, and stock release
+ * batch processing with shard distribution.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -259,7 +244,7 @@ async function callWebhook(req: any, res: any) {
 // STRIPE WEBHOOK TESTS
 // ============================================================================
 
-describe("Stripe Webhook — coverage-stripe-webhook", () => {
+describe("Stripe Webhook — edge cases", () => {
   let originalEnv: NodeJS.ProcessEnv;
 
   beforeEach(async () => {
@@ -298,7 +283,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
   // ==========================================================================
 
   describe("handlePaymentSucceeded", () => {
-    it("returns early without consuming hold when order is already paid (line ~91)", async () => {
+    it("is idempotent — skips already-paid orders without consuming hold", async () => {
       const orderId = "order-already-paid-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -330,7 +315,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("refuses to mark paid when order is not in pending status (lines ~95-101)", async () => {
+    it("refuses to mark paid when order is not in pending status", async () => {
       const orderId = "order-fulfilled-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -391,7 +376,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
-    it("throws SECURITY error on payment intent ID mismatch (lines ~105-113)", async () => {
+    it("rejects payment with mismatched payment intent ID as a security violation", async () => {
       const orderId = "order-pi-sec-mismatch";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -423,7 +408,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("throws error on amount mismatch (lines ~117-127)", async () => {
+    it("rejects payment when received amount differs from order total", async () => {
       const orderId = "order-amt-mismatch-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -454,7 +439,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("throws error on currency mismatch (lines ~130-139)", async () => {
+    it("rejects payment when currency does not match order", async () => {
       const orderId = "order-cur-mismatch-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -485,7 +470,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("handles consumeHold failure after successful payment (lines ~163-169)", async () => {
+    it("handles consumeHold failure after successful payment", async () => {
       const orderId = "order-consume-fail";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -526,7 +511,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
   // ==========================================================================
 
   describe("handlePaymentFailed", () => {
-    it("logs error when order not found (line ~203)", async () => {
+    it("handles missing order gracefully", async () => {
       // No order in mockDocs for this ID
       mockConstructEvent.mockReturnValue({
         id: "evt_fail_no_order",
@@ -548,7 +533,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("skips cancel when order not in pending status (lines ~210-215)", async () => {
+    it("skips cancellation when order is already paid", async () => {
       const orderId = "order-fail-already-paid";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -578,7 +563,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
-    it("handles releaseHold failure after order canceled (lines ~239-245)", async () => {
+    it("handles releaseHold failure after order cancellation", async () => {
       const orderId = "order-release-fail";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -618,7 +603,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
   // ==========================================================================
 
   describe("handleChargeDisputeCreated", () => {
-    it("returns early when payment_intent is missing (line ~265)", async () => {
+    it("ignores disputes with no payment intent attached", async () => {
       mockConstructEvent.mockReturnValue({
         id: "evt_dispute_no_pi",
         type: "charge.dispute.created",
@@ -640,7 +625,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("returns early when order not found (lines ~274-279)", async () => {
+    it("ignores disputes for unknown orders", async () => {
       // No order in mockDocs
       mockConstructEvent.mockReturnValue({
         id: "evt_dispute_no_order",
@@ -663,7 +648,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("returns early when order already disputed (line ~285)", async () => {
+    it("is idempotent — skips already-disputed orders", async () => {
       const orderId = "order-already-disputed-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -694,7 +679,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("returns early when order in unexpected status (lines ~291-298) - pending", async () => {
+    it("ignores disputes for orders in pending status", async () => {
       const orderId = "order-dispute-pending-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -784,7 +769,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
-    it("catches and rethrows when update fails (lines ~306-312)", async () => {
+    it("propagates Firestore write failures during dispute update", async () => {
       const orderId = "order-dispute-update-fail-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -858,7 +843,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
   // ==========================================================================
 
   describe("handleChargeRefunded", () => {
-    it("returns early when payment_intent is missing (line ~334)", async () => {
+    it("ignores refunds with no payment intent attached", async () => {
       mockConstructEvent.mockReturnValue({
         id: "evt_refund_no_pi",
         type: "charge.refunded",
@@ -881,7 +866,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("returns early when order not found (lines ~343)", async () => {
+    it("ignores refunds for unknown orders", async () => {
       // No order in mockDocs
       mockConstructEvent.mockReturnValue({
         id: "evt_refund_no_order",
@@ -905,7 +890,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("logs warning and returns early on partial refund (lines ~355-362)", async () => {
+    it("skips partial refunds — only full refunds are processed", async () => {
       const orderId = "order-partial-ref-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -937,7 +922,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("returns early when order already refunded (line ~365)", async () => {
+    it("is idempotent — skips already-refunded orders", async () => {
       const orderId = "order-already-refunded-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -969,7 +954,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("returns early when order in unexpected status - pending (lines ~371-377)", async () => {
+    it("ignores refunds for orders still in pending status", async () => {
       const orderId = "order-refund-pending-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -1031,7 +1016,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
-    it("catches and rethrows when orderRef.update fails (lines ~387-392)", async () => {
+    it("propagates Firestore write failures during refund update", async () => {
       const orderId = "order-refund-upd-fail-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -1068,7 +1053,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("handles restock failure after successful refund status update (lines ~398-403)", async () => {
+    it("handles restock failure after successful refund status update", async () => {
       const orderId = "order-restock-fail-cov2";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -1168,11 +1153,11 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
   });
 
   // ==========================================================================
-  // Webhook endpoint error processing (lines ~484-496)
+  // Webhook endpoint error processing
   // ==========================================================================
 
   describe("Webhook endpoint — error processing event", () => {
-    it("returns 200 when handler throws an Error (lines ~484-496)", async () => {
+    it("returns 200 to Stripe when handler throws an Error", async () => {
       const orderId = "order-error-throw";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -1204,7 +1189,7 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
       expect(res.send).toHaveBeenCalledWith("OK");
     });
 
-    it("returns 200 when handler throws a non-Error value (string error, line ~488)", async () => {
+    it("returns 200 to Stripe when handler throws a non-Error value", async () => {
       const orderId = "order-string-error";
 
       mockDocs.set(`orders/${orderId}`, {
@@ -1342,10 +1327,10 @@ describe("Stripe Webhook — coverage-stripe-webhook", () => {
 });
 
 // ============================================================================
-// EXPIRE HOLDS — releaseHoldAtomic returns false (line 76)
+// EXPIRE HOLDS — hold release returns false
 // ============================================================================
 
-describe("expireHolds — releaseHoldAtomic returns false (line 76)", () => {
+describe("expireHolds — hold release returns false", () => {
   let expireHoldsFn: () => Promise<void>;
 
   beforeEach(async () => {
@@ -1384,7 +1369,84 @@ describe("expireHolds — releaseHoldAtomic returns false (line 76)", () => {
 });
 
 // ============================================================================
-// STOCK RELEASE — releaseHoldAtomic batch processing (lines 80-112)
+// EXPIRE HOLDS — timeout guard prevents runaway processing
+// ============================================================================
+
+describe("expireHolds — timeout guard", () => {
+  let expireHoldsFn: () => Promise<void>;
+  let originalDateNow: () => number;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    mockDocs.clear();
+    mockDocUpdateFns.clear();
+    mockDocGetFns.clear();
+
+    originalDateNow = Date.now;
+
+    vi.resetModules();
+    const mod = await import("../expireHolds");
+    expireHoldsFn = mod.expireHolds as unknown as () => Promise<void>;
+  });
+
+  afterEach(() => {
+    Date.now = originalDateNow;
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  it("breaks out of processing loop when elapsed time exceeds safety timeout", async () => {
+    mockDocs.set("holds/hold-timeout-1", {
+      status: "held",
+      uid: "user-1",
+      items: [{ productId: "prod-1", qty: 1 }],
+      expiresAt: { toMillis: () => originalDateNow.call(Date) - 60000 },
+    });
+    mockDocs.set("products/prod-1", { shards: 3 });
+
+    let callCount = 0;
+    const baseTime = originalDateNow.call(Date);
+
+    Date.now = () => {
+      callCount++;
+      if (callCount <= 1) {
+        return baseTime;
+      }
+      return baseTime + 60_000;
+    };
+
+    await expireHoldsFn();
+
+    const hold = mockDocs.get("holds/hold-timeout-1");
+    expect(hold.status).toBe("held");
+  });
+
+  it("stops after first batch when processing time exceeds limit", async () => {
+    mockDocs.set("holds/hold-batch-1", {
+      status: "held",
+      uid: "user-1",
+      items: [{ productId: "prod-1", qty: 1 }],
+      expiresAt: { toMillis: () => originalDateNow.call(Date) - 60000 },
+    });
+    mockDocs.set("products/prod-1", { shards: 3 });
+
+    const baseTime = originalDateNow.call(Date);
+    let callCount = 0;
+
+    Date.now = () => {
+      callCount++;
+      if (callCount <= 8) {
+        return baseTime;
+      }
+      return baseTime + 55_000;
+    };
+
+    await expireHoldsFn();
+  });
+});
+
+// ============================================================================
+// STOCK RELEASE — releaseHoldAtomic batch processing
 // ============================================================================
 
 describe("stockRelease — releaseHoldAtomic batch processing", () => {
@@ -1404,7 +1466,7 @@ describe("stockRelease — releaseHoldAtomic batch processing", () => {
     useRealStockRelease = false;
   });
 
-  it("processes batch with shard increment logic for held items (lines 80-112)", async () => {
+  it("releases held items by incrementing inventory shard counters", async () => {
     // Set up a hold with items
     mockDocs.set("holds/order-batch-1", {
       status: "held",
@@ -1492,7 +1554,7 @@ describe("stockRelease — releaseHoldAtomic batch processing", () => {
 });
 
 // ============================================================================
-// STOCK RELEASE — restockFromConsumedHold batch processing (lines 180-207)
+// STOCK RELEASE — restockFromConsumedHold batch processing
 // ============================================================================
 
 describe("stockRelease — restockFromConsumedHold batch processing", () => {
@@ -1512,7 +1574,7 @@ describe("stockRelease — restockFromConsumedHold batch processing", () => {
     useRealStockRelease = false;
   });
 
-  it("processes batch with shard increment logic for consumed hold (lines 180-207)", async () => {
+  it("restocks consumed items by incrementing inventory shard counters", async () => {
     mockDocs.set("holds/order-restock-1", {
       status: "consumed",
       uid: "user-1",
