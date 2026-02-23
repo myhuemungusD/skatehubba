@@ -135,7 +135,7 @@ export function useGameEffects({
         letter: null,
         autoDismissMs: null,
       };
-    } else if ((turnPhase as string) === "attacker_uploaded" && !isMe) {
+    } else if (turnPhase === "attacker_recording" && !isMe) {
       overlay = {
         type: "waiting_opponent",
         title: "WAITING",

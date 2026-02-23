@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
@@ -8,7 +8,7 @@ import { getTierColor } from "@/lib/getTierColor";
 interface SpotDetailModalProps {
   spot: Spot | null;
   onClose: () => void;
-  onCheckIn: (spot: Spot) => void;
+  onCheckIn: (spot: Spot) => Promise<void>;
 }
 
 export const SpotDetailModal = memo(function SpotDetailModal({
@@ -16,6 +16,12 @@ export const SpotDetailModal = memo(function SpotDetailModal({
   onClose,
   onCheckIn,
 }: SpotDetailModalProps) {
+  const handleCheckIn = useCallback(async () => {
+    if (!spot) return;
+    await onCheckIn(spot);
+    onClose();
+  }, [spot, onCheckIn, onClose]);
+
   if (!spot) return null;
 
   const tierValue = spot.tier ?? "bronze";
@@ -43,10 +49,7 @@ export const SpotDetailModal = memo(function SpotDetailModal({
           <TouchableOpacity
             testID="map-check-in"
             style={styles.checkInButton}
-            onPress={() => {
-              onCheckIn(spot);
-              onClose();
-            }}
+            onPress={handleCheckIn}
           >
             <Ionicons name="location" size={20} color={SKATE.colors.white} />
             <Text style={styles.checkInButtonText}>Check In Here</Text>

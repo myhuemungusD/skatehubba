@@ -78,11 +78,20 @@ function MapScreenContent() {
 
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
 
-      const loc = await Location.getCurrentPositionAsync({});
-      setLocation(loc);
+        const loc = await Location.getCurrentPositionAsync({});
+        setLocation(loc);
+      } catch {
+        showMessage({
+          message: "Location Unavailable",
+          description: "Could not determine your location. Check-in requires location.",
+          type: "warning",
+          duration: 3000,
+        });
+      }
     })();
   }, []);
 

@@ -1,22 +1,24 @@
 import { memo } from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { SKATE } from "@/theme";
+import { getTierColor } from "@/lib/getTierColor";
+import type { Spot } from "@/types";
 
-const TIERS = [
-  { label: "Bronze", color: "#cd7f32" },
-  { label: "Silver", color: "#c0c0c0" },
-  { label: "Gold", color: "#ffd700" },
-  { label: "Legendary", color: "#ff6600" },
-] as const;
+const TIERS: readonly { label: string; tier: NonNullable<Spot["tier"]> }[] = [
+  { label: "Bronze", tier: "bronze" },
+  { label: "Silver", tier: "silver" },
+  { label: "Gold", tier: "gold" },
+  { label: "Legendary", tier: "legendary" },
+];
 
 export const MapLegend = memo(function MapLegend() {
   return (
     <View testID="map-legend" style={styles.legend}>
       <Text style={styles.legendTitle}>Tier</Text>
       <View style={styles.legendItems}>
-        {TIERS.map(({ label, color }) => (
+        {TIERS.map(({ label, tier }) => (
           <View key={label} style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: color }]} />
+            <View style={[styles.legendDot, { backgroundColor: getTierColor(tier) }]} />
             <Text style={styles.legendText}>{label}</Text>
           </View>
         ))}

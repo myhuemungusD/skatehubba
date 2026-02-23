@@ -26,10 +26,15 @@ import { WaitingForOpponentView } from "@/components/game/WaitingForOpponentView
 import { TurnOverlay } from "@/components/game/TurnOverlay";
 import { TrickRecorder } from "@/components/game/TrickRecorder";
 import { ResultScreen } from "@/components/game/ResultScreen";
-import type { SkateLetter } from "@/types";
+import type { SkateLetter, Move } from "@/types";
 
 /** Firestore auto-generated IDs: exactly 20 alphanumeric characters. */
 const VALID_GAME_ID = /^[a-zA-Z0-9]{20}$/;
+
+/** Find the most recent match move with a pending result. */
+function findLatestPendingMatch(moves: Move[]): Move | null {
+  return [...moves].reverse().find((m) => m.type === "match" && m.result === "pending") ?? null;
+}
 
 /**
  * Main S.K.A.T.E. Battle Screen
@@ -110,16 +115,14 @@ export default function GameScreen() {
     (vote: "landed" | "bailed") => {
       if (!gameSession?.currentSetMove) return;
 
-      const latestMatch = [...gameSession.moves]
-        .reverse()
-        .find((m) => m.type === "match" && m.result === "pending");
+      const latestMatch = findLatestPendingMatch(gameSession.moves);
 
-      if (latestMatch) {
-        judgeTrickMutation.mutate({
-          moveId: latestMatch.id,
-          vote,
-        });
-      }
+      if (!latestMatch) return;
+
+      judgeTrickMutation.mutate({
+        moveId: latestMatch.id,
+        vote,
+      });
     },
     [gameSession, judgeTrickMutation]
   );
@@ -175,9 +178,7 @@ export default function GameScreen() {
       return { canJudge: false, hasVoted: false, myVote: null, opponentVote: null };
     }
 
-    const latestMatchMove = [...gameSession.moves]
-      .reverse()
-      .find((m) => m.type === "match" && m.result === "pending");
+    const latestMatchMove = findLatestPendingMatch(gameSession.moves);
 
     if (!latestMatchMove || !latestMatchMove.judgmentVotes) {
       return { canJudge: true, hasVoted: false, myVote: null, opponentVote: null };
@@ -196,8 +197,7 @@ export default function GameScreen() {
 
     return (
       (gameSession.turnPhase === "attacker_recording" && !isAttacker) ||
-      (gameSession.turnPhase === "defender_recording" && !isDefender) ||
-      ((gameSession.turnPhase as string) === "attacker_uploaded" && isAttacker)
+      (gameSession.turnPhase === "defender_recording" && !isDefender)
     );
   }, [gameSession, isAttacker, isDefender]);
 

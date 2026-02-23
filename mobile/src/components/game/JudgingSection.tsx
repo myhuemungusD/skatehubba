@@ -12,8 +12,8 @@ interface JudgingSectionProps {
   matchMoveVideoIsLoading: boolean;
   canJudge: boolean;
   hasVoted: boolean;
-  myVote: string | null;
-  opponentVote: string | null;
+  myVote: "landed" | "bailed" | null;
+  opponentVote: "landed" | "bailed" | null;
   onJudge: (vote: "landed" | "bailed") => void;
   isJudging: boolean;
 }
