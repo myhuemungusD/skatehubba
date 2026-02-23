@@ -5,7 +5,7 @@ import { DEMO_LEADERBOARD } from "@/demo/mockData";
 
 /**
  * Demo: Leaderboard Screen
- * Shows global rankings with trophy indicators, points, and stats.
+ * Shows S.K.A.T.E. PvP rankings with win/loss records.
  * Uses hardcoded mock data for investor demos.
  */
 export default function DemoLeaderboardScreen() {
@@ -68,25 +68,25 @@ export default function DemoLeaderboardScreen() {
           <View style={styles.statsRow}>
             <View style={styles.miniStat}>
               <Ionicons name="trophy" size={12} color={SKATE.colors.gray} />
-              <Text style={styles.miniStatText}>{item.gamesWon}W</Text>
+              <Text style={styles.miniStatText}>{item.wins}W - {item.losses}L</Text>
             </View>
             <View style={styles.miniStat}>
-              <Ionicons name="location" size={12} color={SKATE.colors.gray} />
+              <Ionicons name="stats-chart" size={12} color={SKATE.colors.gray} />
               <Text style={styles.miniStatText}>
-                {item.spotsUnlocked} spots
+                {item.winRate}%
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Points */}
+        {/* Wins */}
         <View style={styles.pointsContainer}>
           <Text
             style={[styles.points, isFirst && styles.pointsFirst]}
           >
-            {item.totalPoints.toLocaleString()}
+            {item.wins}
           </Text>
-          <Text style={styles.pointsLabel}>pts</Text>
+          <Text style={styles.pointsLabel}>wins</Text>
         </View>
       </View>
     );
@@ -107,9 +107,9 @@ export default function DemoLeaderboardScreen() {
         ListHeaderComponent={
           <View style={styles.header}>
             <Ionicons name="podium" size={32} color={SKATE.colors.gold} />
-            <Text style={styles.headerText}>Top Skaters</Text>
+            <Text style={styles.headerText}>S.K.A.T.E. Leaderboard</Text>
             <Text style={styles.headerSubtext}>
-              Global rankings based on S.K.A.T.E. performance
+              Who&apos;s winning the most games of S.K.A.T.E.
             </Text>
           </View>
         }

@@ -34,11 +34,15 @@ export function DonorRecognition() {
   }
 
   return (
-    <div className="bg-gradient-to-r from-orange-500/10 to-purple-600/10 border-b border-orange-400/20 py-3">
+    <div
+      className="bg-gradient-to-r from-orange-500/10 to-purple-600/10 border-b border-orange-400/20 py-3"
+      role="complementary"
+      aria-label="Recent supporters"
+    >
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-center gap-4 text-center">
           <div className="flex items-center gap-2 text-orange-400">
-            <Heart className="w-4 h-4 fill-current" />
+            <Heart className="w-4 h-4 fill-current" aria-hidden="true" />
             <span className="font-semibold text-sm">Recent Supporters:</span>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-[#fafafa]">

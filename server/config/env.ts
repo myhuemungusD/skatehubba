@@ -99,6 +99,37 @@ const envSchema = z.object({
   // Monitoring & URLs
   SENTRY_DSN: z.string().optional(),
   PRODUCTION_URL: z.string().optional(),
+
+  // CORS allowed origins (comma-separated)
+  ALLOWED_ORIGINS: z.string().optional(),
+
+  // Redis (optional — enables caching and session store)
+  // Accepts redis:// and rediss:// (TLS) connection strings
+  REDIS_URL: z
+    .string()
+    .regex(/^rediss?:\/\//, "REDIS_URL must start with redis:// or rediss://")
+    .optional(),
+
+  // Cron endpoint protection (recommended in production)
+  CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
+
+  // Logging
+  LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),
+
+  // Firebase App Check enforcement mode — must match AppCheckMode in middleware/appCheck.ts
+  // monitor: log only (default, safe for gradual rollout)
+  // warn:    add warning header but allow request
+  // enforce: reject requests without a valid App Check token
+  APP_CHECK_MODE: z.enum(["monitor", "warn", "enforce"]).default("monitor"),
+
+  // Spot check-in radius in metres (service hard cap: 150m)
+  CHECK_IN_RADIUS_METERS: z.coerce.number().positive().max(150, "CHECK_IN_RADIUS_METERS cannot exceed 150m (service hard cap)").default(100),
+
+  // Database pool tuning (all optional with safe defaults)
+  DB_POOL_MAX: z.coerce.number().int().positive().default(20),
+  DB_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().nonnegative().default(30000),
+  DB_POOL_CONNECTION_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
 });
 
 function validateEnv() {

@@ -57,7 +57,6 @@ const mockFirebaseConfig = {
 };
 
 vi.mock("@skatehubba/config", () => ({
-  getFirebaseConfig: vi.fn(() => mockFirebaseConfig),
   assertEnvWiring: vi.fn(),
   getAppEnv: vi.fn(() => "development"),
   getEnvBanner: vi.fn(() => "DEV MODE"),
@@ -81,6 +80,20 @@ describe("firebase/config", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.resetModules();
+    // Stub import.meta.env so the local getFirebaseConfig() in config.ts
+    // returns the expected test values (config.ts now reads directly from
+    // import.meta.env rather than going through @skatehubba/config).
+    vi.stubEnv("EXPO_PUBLIC_FIREBASE_API_KEY", mockFirebaseConfig.apiKey);
+    vi.stubEnv("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN", mockFirebaseConfig.authDomain);
+    vi.stubEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID", mockFirebaseConfig.projectId);
+    vi.stubEnv("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET", mockFirebaseConfig.storageBucket);
+    vi.stubEnv("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID", mockFirebaseConfig.messagingSenderId);
+    vi.stubEnv("EXPO_PUBLIC_FIREBASE_APP_ID", mockFirebaseConfig.appId);
+    vi.stubEnv("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID", mockFirebaseConfig.measurementId);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   describe("initFirebase", () => {

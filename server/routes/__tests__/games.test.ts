@@ -457,8 +457,10 @@ describe("Games Routes", () => {
     });
 
     it("should handle database unavailability", () => {
-      const isDatabaseAvailable = false;
-      expect(isDatabaseAvailable).toBe(false);
+      vi.mocked(getDb).mockImplementation(() => {
+        throw new Error("Database not configured");
+      });
+      expect(() => getDb()).toThrow("Database not configured");
     });
   });
 });

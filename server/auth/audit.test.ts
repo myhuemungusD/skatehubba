@@ -1,14 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { mockInfo, mockWarn, mockError, mockDebug, mockExecute, mockIsDatabaseAvailable } =
-  vi.hoisted(() => ({
-    mockInfo: vi.fn(),
-    mockWarn: vi.fn(),
-    mockError: vi.fn(),
-    mockDebug: vi.fn(),
-    mockExecute: vi.fn(),
-    mockIsDatabaseAvailable: vi.fn(),
-  }));
+const { mockInfo, mockWarn, mockError, mockDebug, mockExecute, mockGetDb } = vi.hoisted(() => ({
+  mockInfo: vi.fn(),
+  mockWarn: vi.fn(),
+  mockError: vi.fn(),
+  mockDebug: vi.fn(),
+  mockExecute: vi.fn(),
+  mockGetDb: vi.fn(),
+}));
 
 vi.mock("../logger", () => ({
   default: {
@@ -26,8 +25,7 @@ vi.mock("../logger", () => ({
 }));
 
 vi.mock("../db", () => ({
-  getDb: () => ({ execute: mockExecute }),
-  isDatabaseAvailable: mockIsDatabaseAvailable,
+  getDb: () => mockGetDb(),
 }));
 
 import { getClientIP, AuditLogger, AUDIT_EVENTS, type AuditLogEntry } from "./audit";
@@ -134,8 +132,8 @@ describe("getClientIP", () => {
 describe("AuditLogger.log", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
     mockExecute.mockResolvedValue(undefined);
+    mockGetDb.mockReturnValue({ execute: mockExecute });
   });
 
   it("logs successful events with logger.info", async () => {
@@ -176,14 +174,15 @@ describe("AuditLogger.log", () => {
   });
 
   it("skips database when not available", async () => {
-    mockIsDatabaseAvailable.mockReturnValue(false);
+    mockGetDb.mockImplementation(() => {
+      throw new Error("Database not configured");
+    });
     await AuditLogger.log({
       eventType: AUDIT_EVENTS.LOGIN_SUCCESS,
       ipAddress: "1.2.3.4",
       success: true,
     });
     expect(mockExecute).not.toHaveBeenCalled();
-    expect(mockDebug).toHaveBeenCalledWith("Database not available for audit logging");
   });
 
   it("handles database errors gracefully", async () => {
@@ -203,8 +202,8 @@ describe("AuditLogger.log", () => {
 describe("AuditLogger helper methods", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIsDatabaseAvailable.mockReturnValue(true);
     mockExecute.mockResolvedValue(undefined);
+    mockGetDb.mockReturnValue({ execute: mockExecute });
   });
 
   it("logLoginSuccess logs with correct event type and metadata", async () => {

@@ -17,6 +17,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useAuthStore } from "../store/authStore";
 import { logger } from "../lib/logger";
 import { setAuthPersistence } from "../lib/firebase";
+import { getAuthErrorMessage } from "../lib/firebase/auth-errors";
 import { isEmbeddedBrowser } from "./auth/authSchemas";
 import { SignInTab } from "./auth/SignInTab";
 import { SignUpTab } from "./auth/SignUpTab";
@@ -62,15 +63,8 @@ export default function AuthPage() {
   useEffect(() => {
     if (!auth?.isAuthenticated || auth?.profileStatus === "unknown") return;
 
-    if (auth.profileStatus === "exists") {
+    if (auth.profileStatus === "exists" || auth.profileStatus === "missing") {
       setLocation(getNextUrl());
-    } else if (auth.profileStatus === "missing" && activeTab === "signin") {
-      const nextUrl = getNextUrl();
-      const setupUrl =
-        nextUrl !== "/hub"
-          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
-          : "/profile/setup";
-      setLocation(setupUrl);
     }
   }, [auth?.isAuthenticated, auth?.profileStatus, activeTab, setLocation]);
 
@@ -87,15 +81,8 @@ export default function AuthPage() {
   // (the hook value may be stale since we're inside an async handler).
   const redirectAfterSignIn = useCallback(() => {
     const { profileStatus } = useAuthStore.getState();
-    if (profileStatus === "exists") {
+    if (profileStatus === "exists" || profileStatus === "missing") {
       setLocation(getNextUrl());
-    } else if (profileStatus === "missing") {
-      const nextUrl = getNextUrl();
-      const setupUrl =
-        nextUrl !== "/hub"
-          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
-          : "/profile/setup";
-      setLocation(setupUrl);
     } else {
       // Fallback: profile status couldn't be determined, go to hub
       // and let the protected route handle it
@@ -122,7 +109,7 @@ export default function AuthPage() {
       });
       redirectAfterSignIn();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Google sign in failed";
+      const message = getAuthErrorMessage(error);
       toast({
         title: "Google Sign In Failed",
         description: message,

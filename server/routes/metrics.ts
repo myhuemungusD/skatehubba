@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { Router } from "express";
 import { sql } from "drizzle-orm";
-import { db } from "../db";
+import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import {
   WAB_AU_SNAPSHOT,
@@ -39,11 +39,8 @@ metricsRouter.get(
   authenticateUser,
   requireAdmin,
   async (_req: Request, res: Response) => {
-    if (!db) {
-      return Errors.dbUnavailable(res);
-    }
-
     try {
+      const db = getDb();
       const result = await db.execute(sql.raw(WAB_AU_SNAPSHOT));
       return res.json(result.rows[0] || { wab: 0, au: 0, wab_per_au: 0 });
     } catch (error) {
@@ -64,11 +61,8 @@ metricsRouter.get(
   authenticateUser,
   requireAdmin,
   async (_req: Request, res: Response) => {
-    if (!db) {
-      return Errors.dbUnavailable(res);
-    }
-
     try {
+      const db = getDb();
       const result = await db.execute(sql.raw(WAB_AU_TREND_12_WEEKS));
       return res.json(result.rows);
     } catch (error) {
@@ -85,11 +79,8 @@ metricsRouter.get(
  * Admin only.
  */
 metricsRouter.get("/kpi", authenticateUser, requireAdmin, async (_req: Request, res: Response) => {
-  if (!db) {
-    return Errors.dbUnavailable(res);
-  }
-
   try {
+    const db = getDb();
     const result = await db.execute(sql.raw(KPI_DASHBOARD));
     return res.json(result.rows[0] || {});
   } catch (error) {
@@ -109,11 +100,8 @@ metricsRouter.get(
   authenticateUser,
   requireAdmin,
   async (_req: Request, res: Response) => {
-    if (!db) {
-      return Errors.dbUnavailable(res);
-    }
-
     try {
+      const db = getDb();
       const result = await db.execute(sql.raw(UPLOADS_WITH_RESPONSE_48H));
       return res.json(result.rows[0] || {});
     } catch (error) {
@@ -134,11 +122,8 @@ metricsRouter.get(
   authenticateUser,
   requireAdmin,
   async (_req: Request, res: Response) => {
-    if (!db) {
-      return Errors.dbUnavailable(res);
-    }
-
     try {
+      const db = getDb();
       const result = await db.execute(sql.raw(VOTES_PER_BATTLE));
       return res.json(result.rows[0] || {});
     } catch (error) {
@@ -159,11 +144,8 @@ metricsRouter.get(
   authenticateUser,
   requireAdmin,
   async (_req: Request, res: Response) => {
-    if (!db) {
-      return Errors.dbUnavailable(res);
-    }
-
     try {
+      const db = getDb();
       const result = await db.execute(sql.raw(CREW_JOIN_RATE));
       return res.json(result.rows[0] || {});
     } catch (error) {
@@ -184,11 +166,8 @@ metricsRouter.get(
   authenticateUser,
   requireAdmin,
   async (_req: Request, res: Response) => {
-    if (!db) {
-      return Errors.dbUnavailable(res);
-    }
-
     try {
+      const db = getDb();
       const result = await db.execute(sql.raw(D7_RETENTION));
       return res.json(result.rows[0] || {});
     } catch (error) {

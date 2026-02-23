@@ -32,9 +32,13 @@ export function VerificationPrompt({
   };
 
   return (
-    <div className={`bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 ${className}`}>
+    <div
+      className={`bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 ${className}`}
+      role="alert"
+      aria-label="Email verification required"
+    >
       <div className="flex items-start gap-3">
-        <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+        <AlertCircle className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" aria-hidden="true" />
         <div className="flex-1">
           <p className="text-orange-400 font-medium text-sm">
             Verify your email to unlock {action}
@@ -50,7 +54,7 @@ export function VerificationPrompt({
             className="mt-2 text-orange-400 hover:text-orange-300 hover:bg-orange-500/10 p-0 h-auto"
             data-testid="button-resend-inline"
           >
-            <Mail className="w-3 h-3 mr-1" />
+            <Mail className="w-3 h-3 mr-1" aria-hidden="true" />
             {isResending ? "Sending..." : "Resend verification email"}
           </Button>
         </div>

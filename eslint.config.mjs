@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import tseslint from "typescript-eslint";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import jsxA11y from "eslint-plugin-jsx-a11y";
 import globals from "globals";
 
 export default tseslint.config(
@@ -20,9 +21,14 @@ export default tseslint.config(
       "**/*.test.ts",
       "**/*.test.tsx",
       "**/e2e/**",
+      "scripts/**",
+      "migrations/**",
+      "benchmarks/**",
       "**/tailwind.config.ts",
       "**/.detoxrc.js",
       "**/.next/**",
+      "**/__tests__/**/helpers/**",
+      "**/__tests__/**/mockSetup.ts",
     ],
   },
 
@@ -31,6 +37,9 @@ export default tseslint.config(
 
   // TypeScript recommended (type-aware disabled for CI speed)
   ...tseslint.configs.recommended,
+
+  // JSX accessibility (flat config)
+  jsxA11y.flatConfigs.recommended,
 
   // React/TypeScript files
   {
@@ -72,8 +81,19 @@ export default tseslint.config(
       // React hooks - relaxed for complex effects
       "react-hooks/exhaustive-deps": "warn",
 
+      // Accessibility (jsx-a11y) — warn for rules that have many existing violations
+      // so the linter can surface issues without blocking the build
+      "jsx-a11y/no-autofocus": "warn",
+      "jsx-a11y/label-has-associated-control": "warn",
+      "jsx-a11y/media-has-caption": "warn",
+      "jsx-a11y/click-events-have-key-events": "warn",
+      "jsx-a11y/no-static-element-interactions": "warn",
+      "jsx-a11y/heading-has-content": "warn",
+      "jsx-a11y/anchor-has-content": "warn",
+      "jsx-a11y/img-redundant-alt": "error",
+
       // General quality
-      "no-console": "off",
+      "no-console": ["error", { allow: ["warn", "error"] }],
       "prefer-const": "error",
       "no-var": "error",
     },
@@ -83,7 +103,7 @@ export default tseslint.config(
   {
     files: ["**/*.spec.ts", "**/*.spec.tsx", "**/*.test.ts", "**/*.test.tsx"],
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
       "no-console": "off",
     },
   },

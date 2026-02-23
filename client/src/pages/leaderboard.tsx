@@ -3,6 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useRealtimeLeaderboard } from "@/features/leaderboard/useRealtimeLeaderboard";
 
+function winRate(wins: number, losses: number): string {
+  const total = wins + losses;
+  if (total === 0) return "0%";
+  return `${Math.round((wins / total) * 100)}%`;
+}
+
 export default function LeaderboardPage() {
   const { entries, isLoading, error, isOffline } = useRealtimeLeaderboard();
 
@@ -11,10 +17,10 @@ export default function LeaderboardPage() {
       <header className="space-y-2">
         <div className="flex items-center gap-2">
           <Trophy className="h-6 w-6 text-yellow-400" />
-          <h1 className="text-2xl font-semibold text-white">Leaderboard</h1>
+          <h1 className="text-2xl font-semibold text-white">S.K.A.T.E. Leaderboard</h1>
         </div>
         <p className="text-sm text-neutral-400">
-          Real-time rankings from the SkateHubba live leaderboard.
+          Who&apos;s winning the most games of S.K.A.T.E.
         </p>
         {isOffline ? (
           <div className="flex items-center gap-2 text-xs text-yellow-300">
@@ -35,7 +41,7 @@ export default function LeaderboardPage() {
       {error ? (
         <Card className="bg-neutral-900/60 border-neutral-800">
           <CardContent className="py-8 text-center text-sm text-neutral-400">
-            No rankings to display yet. Be the first to check in and claim the top spot!
+            No rankings to display yet. Challenge someone to a game of S.K.A.T.E.!
           </CardContent>
         </Card>
       ) : null}
@@ -43,7 +49,7 @@ export default function LeaderboardPage() {
       {!isLoading && !error && entries.length === 0 ? (
         <Card className="bg-neutral-900/60 border-neutral-800">
           <CardContent className="py-8 text-center text-sm text-neutral-400">
-            No rankings yet. Check in at a spot to start climbing.
+            No rankings yet. Challenge someone to start climbing.
           </CardContent>
         </Card>
       ) : null}
@@ -58,23 +64,16 @@ export default function LeaderboardPage() {
                   <CardTitle className="text-base text-white">
                     #{rank} {entry.displayName}
                   </CardTitle>
-                  {entry.xp !== undefined ? (
-                    <Badge className="bg-yellow-500/20 text-yellow-300">
-                      {entry.xp.toLocaleString()} XP
-                    </Badge>
-                  ) : null}
+                  <Badge className="bg-yellow-500/20 text-yellow-300">
+                    {entry.wins}W - {entry.losses}L
+                  </Badge>
                 </div>
               </CardHeader>
               <CardContent className="text-xs text-neutral-400">
                 <div className="flex flex-wrap gap-3">
                   {entry.username ? <span>@{entry.username.replace(/^@/, "")}</span> : null}
-                  {entry.totalCheckIns !== undefined ? (
-                    <span>{entry.totalCheckIns} check-ins</span>
-                  ) : null}
-                  {entry.spotsVisited !== undefined ? (
-                    <span>{entry.spotsVisited} spots</span>
-                  ) : null}
-                  {entry.streak !== undefined ? <span>{entry.streak} day streak</span> : null}
+                  <span>{winRate(entry.wins, entry.losses)} win rate</span>
+                  <span>{entry.wins + entry.losses} games played</span>
                 </div>
               </CardContent>
             </Card>

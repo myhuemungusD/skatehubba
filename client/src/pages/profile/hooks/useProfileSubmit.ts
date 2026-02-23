@@ -61,7 +61,7 @@ export function useProfileSubmit(
       setSubmitError(null);
 
       try {
-        if (!skip && usernameStatus === "unverified" && values.username?.trim()) {
+        if (!skip && (usernameStatus === "unverified" || usernameStatus === "idle") && values.username?.trim()) {
           const result = await checkUsernameAvailability(values.username, 2500);
           if (result === "taken") {
             setUsernameStatus("taken");
@@ -135,11 +135,20 @@ export function useProfileSubmit(
             setSubmitError(
               "Could not save your profile. This is a server issue — please try again in a moment."
             );
+          } else if (typeof error.status === "number" && error.status >= 500) {
+            // Server crash / misconfiguration — often means missing server env vars
+            setSubmitError(
+              `Server error (${error.status}) — the API may be misconfigured. ` +
+                `If you're the developer, check /api/health/env for a diagnostic report.`
+            );
           } else {
             setSubmitError(error.message || getUserFriendlyMessage(error));
           }
         } else if (error instanceof TypeError) {
-          setSubmitError("Network error — check your connection and try again.");
+          setSubmitError(
+            "Network error — the API may be unreachable. " +
+              "Check your connection or visit /api/health/live to verify the server is running."
+          );
         } else {
           setSubmitError("We couldn't create your profile. Try again.");
         }

@@ -46,11 +46,8 @@ export const SELECTORS = Object.freeze({
   zoomIn: ".leaflet-control-zoom-in",
   zoomOut: ".leaflet-control-zoom-out",
 
-  // UI Elements
-  searchInput: '[data-testid="input-spot-search"]',
-  filterStreet: '[data-testid="filter-street"]',
-  filterPark: '[data-testid="filter-park"]',
-  filterDiy: '[data-testid="filter-diy"]',
+  // UI Elements (search and filters removed — map is simplified)
+  addSpotButton: '[data-testid="button-add-spot-mode"]',
 
   // States
   loading: '[data-testid="map-loading"], .loading-spinner, [aria-busy="true"]',

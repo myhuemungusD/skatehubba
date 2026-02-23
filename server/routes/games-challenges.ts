@@ -4,7 +4,7 @@
  */
 
 import { Router } from "express";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { games, customUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -25,10 +25,6 @@ const router = Router();
 // ============================================================================
 
 router.post("/create", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   const parsed = createGameSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());
@@ -104,10 +100,6 @@ router.post("/create", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.post("/:id/respond", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   const parsed = respondGameSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());
@@ -123,7 +115,11 @@ router.post("/:id/respond", authenticateUser, async (req, res) => {
 
     if (!game) return Errors.notFound(res, "GAME_NOT_FOUND", "Game not found.");
     if (game.player2Id !== currentUserId) {
-      return Errors.forbidden(res, "NOT_CHALLENGED_PLAYER", "Only the challenged player can respond.");
+      return Errors.forbidden(
+        res,
+        "NOT_CHALLENGED_PLAYER",
+        "Only the challenged player can respond."
+      );
     }
     if (game.status !== "pending") {
       return Errors.badRequest(res, "GAME_NOT_PENDING", "Game is not pending.");

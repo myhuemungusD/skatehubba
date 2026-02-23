@@ -14,7 +14,7 @@
  * @module auth/audit
  */
 
-import { getDb, isDatabaseAvailable } from "../db.ts";
+import { getDb } from "../db.ts";
 import { sql } from "drizzle-orm";
 import logger from "../logger.ts";
 
@@ -139,10 +139,6 @@ export class AuditLogger {
 
     // Store in database for compliance/analysis
     try {
-      if (!isDatabaseAvailable()) {
-        logger.debug("Database not available for audit logging");
-        return;
-      }
       await getDb().execute(sql`
         INSERT INTO audit_logs (
           event_type, 

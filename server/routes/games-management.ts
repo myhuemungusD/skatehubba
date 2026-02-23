@@ -4,7 +4,7 @@
  */
 
 import { Router } from "express";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { games, gameTurns, gameDisputes } from "@shared/schema";
 import { eq, or, desc } from "drizzle-orm";
@@ -18,10 +18,6 @@ const router = Router();
 // ============================================================================
 
 router.post("/:id/forfeit", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const currentUserId = req.currentUser!.id;
   const gameId = req.params.id;
 
@@ -84,10 +80,6 @@ router.post("/:id/forfeit", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.get("/my-games", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const currentUserId = req.currentUser!.id;
 
   try {
@@ -132,10 +124,6 @@ router.get("/my-games", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.get("/:id", authenticateUser, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return res.status(503).json({ error: "Database unavailable" });
-  }
-
   const currentUserId = req.currentUser!.id;
   const gameId = req.params.id;
 

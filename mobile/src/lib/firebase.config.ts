@@ -37,8 +37,10 @@ const firebaseConfig = getSharedFirebaseConfig();
 if (__DEV__ && !isProd()) {
   const banner = getEnvBanner();
   if (banner) {
+    // eslint-disable-next-line no-console
     console.log(`[Firebase Mobile] ${banner}`);
   }
+  // eslint-disable-next-line no-console
   console.log(`[Firebase Mobile] Environment: ${getAppEnv()}`);
 }
 
