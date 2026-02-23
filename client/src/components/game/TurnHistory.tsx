@@ -5,6 +5,7 @@
  * and result badges.
  */
 
+import { memo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Check, X, Clock, Play, Target, Shield, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,7 +18,12 @@ interface TurnHistoryProps {
   className?: string;
 }
 
-export function TurnHistory({ turns, currentUserId, onVideoClick, className }: TurnHistoryProps) {
+export const TurnHistory = memo(function TurnHistory({
+  turns,
+  currentUserId,
+  onVideoClick,
+  className,
+}: TurnHistoryProps) {
   if (turns.length === 0) {
     return <div className={cn("text-center py-8 text-neutral-500", className)}>No turns yet.</div>;
   }
@@ -132,4 +138,4 @@ export function TurnHistory({ turns, currentUserId, onVideoClick, className }: T
       })}
     </div>
   );
-}
+});

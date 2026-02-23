@@ -10,7 +10,7 @@
  * - game over: Locked permanently
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useSearch, useLocation } from "wouter";
 import {
   Swords,
@@ -155,29 +155,60 @@ export default function SkateGamePage() {
     [gameId, user?.uid, submitTurn, toast]
   );
 
-  const handleJudge = (result: "landed" | "missed") => {
-    if (!gameId || !pendingTurnId) return;
-    judgeTurn.mutate({ turnId: pendingTurnId, result, gameId });
-  };
+  const handleJudge = useCallback(
+    (result: "landed" | "missed") => {
+      if (!gameId || !pendingTurnId) return;
+      judgeTurn.mutate({ turnId: pendingTurnId, result, gameId });
+    },
+    [gameId, pendingTurnId, judgeTurn]
+  );
 
-  const handleDispute = (turnId: number) => {
-    if (!gameId) return;
-    fileDispute.mutate({ gameId, turnId });
-  };
+  const handleDispute = useCallback(
+    (turnId: number) => {
+      if (!gameId) return;
+      fileDispute.mutate({ gameId, turnId });
+    },
+    [gameId, fileDispute]
+  );
 
-  const handleResolveDispute = (disputeId: number, finalResult: "landed" | "missed") => {
-    if (!gameId) return;
-    resolveDispute.mutate({ disputeId, finalResult, gameId });
-  };
+  const handleResolveDispute = useCallback(
+    (disputeId: number, finalResult: "landed" | "missed") => {
+      if (!gameId) return;
+      resolveDispute.mutate({ disputeId, finalResult, gameId });
+    },
+    [gameId, resolveDispute]
+  );
 
-  const handleForfeit = () => {
+  const handleForfeit = useCallback(() => {
     if (!gameId) return;
     forfeitGame.mutate(gameId);
-  };
+  }, [gameId, forfeitGame]);
 
-  const handleBackToLobby = () => {
+  const handleBackToLobby = useCallback(() => {
     setLocation("/play?tab=lobby");
-  };
+  }, [setLocation]);
+
+  // Memoize computed lists — disputeableTurns has O(n×m) nested .some() in .filter()
+  const disputeableTurns = useMemo(
+    () =>
+      turns?.filter(
+        (t) =>
+          t.result === "missed" &&
+          t.playerId === user?.uid &&
+          t.turnType === "set" &&
+          canDispute &&
+          !disputes?.some((d) => d.turnId === t.id)
+      ) ?? [],
+    [turns, user?.uid, canDispute, disputes]
+  );
+
+  const pendingDisputesAgainstMe = useMemo(
+    () => disputes?.filter((d) => d.againstPlayerId === user?.uid && !d.finalResult) ?? [],
+    [disputes, user?.uid]
+  );
+
+  // Stable reference for TurnHistory
+  const turnsForHistory = useMemo(() => turns || [], [turns]);
 
   if (!gameId) {
     return (
@@ -205,21 +236,6 @@ export default function SkateGamePage() {
 
   const isPending = game.status === "pending";
   const isActive = game.status === "active";
-
-  // Find most recent BAIL'd turns that can be disputed
-  const disputeableTurns =
-    turns?.filter(
-      (t) =>
-        t.result === "missed" &&
-        t.playerId === user.uid &&
-        t.turnType === "set" &&
-        canDispute &&
-        !disputes?.some((d) => d.turnId === t.id)
-    ) ?? [];
-
-  // Find unresolved disputes against the current user
-  const pendingDisputesAgainstMe =
-    disputes?.filter((d) => d.againstPlayerId === user.uid && !d.finalResult) ?? [];
 
   // Turn phase display
   const phaseLabels: Record<string, string> = {
@@ -596,7 +612,7 @@ export default function SkateGamePage() {
         <div>
           <h2 className="text-lg font-semibold text-white mb-3">History</h2>
           <TurnHistory
-            turns={turns || []}
+            turns={turnsForHistory}
             currentUserId={user.uid}
             onVideoClick={setSelectedVideo}
           />

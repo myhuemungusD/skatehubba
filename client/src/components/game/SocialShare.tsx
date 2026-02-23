@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import { Share2, Copy, Check, Twitter, Facebook, MessageCircle } from "lucide-react";
 import { Button } from "../ui/button";
 import {
@@ -25,7 +25,7 @@ interface SocialShareProps {
  * Social sharing component for S.K.A.T.E. game clips
  * Supports Twitter, Facebook, WhatsApp, and direct link copying
  */
-export function SocialShare({
+export const SocialShare = memo(function SocialShare({
   gameId,
   playerOne,
   playerTwo,
@@ -220,4 +220,4 @@ export function SocialShare({
       </DialogContent>
     </Dialog>
   );
-}
+});

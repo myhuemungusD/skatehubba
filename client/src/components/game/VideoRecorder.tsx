@@ -12,7 +12,7 @@
  * - Recording auto-starts → auto-sends on stop
  */
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { memo, useRef, useState, useCallback, useEffect } from "react";
 import { Video, Circle, Square } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,11 @@ interface VideoRecorderProps {
 
 type RecorderState = "idle" | "requesting" | "recording" | "sent";
 
-export function VideoRecorder({ onRecordingComplete, disabled, className }: VideoRecorderProps) {
+export const VideoRecorder = memo(function VideoRecorder({
+  onRecordingComplete,
+  disabled,
+  className,
+}: VideoRecorderProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -251,4 +255,4 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
       )}
     </div>
   );
-}
+});

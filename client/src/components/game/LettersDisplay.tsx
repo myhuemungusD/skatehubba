@@ -4,7 +4,8 @@
  * Displays S.K.A.T.E. letter progress for a player
  */
 
-import { cn } from '@/lib/utils';
+import { memo } from "react";
+import { cn } from "@/lib/utils";
 
 interface LettersDisplayProps {
   letters: string;
@@ -13,22 +14,22 @@ interface LettersDisplayProps {
   className?: string;
 }
 
-const SKATE = ['S', 'K', 'A', 'T', 'E'];
+const SKATE = ["S", "K", "A", "T", "E"];
 
-export function LettersDisplay({
+export const LettersDisplay = memo(function LettersDisplay({
   letters,
   playerName,
   isCurrentPlayer = false,
   className,
 }: LettersDisplayProps) {
-  const letterArray = letters.split('');
+  const letterArray = letters.split("");
 
   return (
-    <div className={cn('flex flex-col items-center gap-2', className)}>
+    <div className={cn("flex flex-col items-center gap-2", className)}>
       <div
         className={cn(
-          'text-sm font-medium',
-          isCurrentPlayer ? 'text-yellow-400' : 'text-neutral-400'
+          "text-sm font-medium",
+          isCurrentPlayer ? "text-yellow-400" : "text-neutral-400"
         )}
       >
         {playerName}
@@ -41,10 +42,10 @@ export function LettersDisplay({
             <div
               key={index}
               className={cn(
-                'w-10 h-12 flex items-center justify-center rounded-lg border-2 text-lg font-bold transition-all',
+                "w-10 h-12 flex items-center justify-center rounded-lg border-2 text-lg font-bold transition-all",
                 hasLetter
-                  ? 'bg-red-500/20 border-red-500 text-red-400'
-                  : 'bg-neutral-800/50 border-neutral-700 text-neutral-600'
+                  ? "bg-red-500/20 border-red-500 text-red-400"
+                  : "bg-neutral-800/50 border-neutral-700 text-neutral-600"
               )}
             >
               {letter}
@@ -58,4 +59,4 @@ export function LettersDisplay({
       )}
     </div>
   );
-}
+});

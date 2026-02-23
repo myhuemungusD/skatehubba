@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Helmet } from "react-helmet";
 
 interface GameMetaTagsProps {
@@ -13,7 +14,7 @@ interface GameMetaTagsProps {
  * SEO and social sharing meta tags for S.K.A.T.E. game pages
  * Optimized for Open Graph (Facebook, LinkedIn) and Twitter Cards
  */
-export function GameMetaTags({
+export const GameMetaTags = memo(function GameMetaTags({
   gameId,
   playerOne = "Player 1",
   playerTwo = "Player 2",
@@ -94,4 +95,4 @@ export function GameMetaTags({
       )}
     </Helmet>
   );
-}
+});
