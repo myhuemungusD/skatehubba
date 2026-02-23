@@ -40,6 +40,8 @@ const STREET_SPOT_TYPES = [
   { value: "other", label: "Other" },
 ] as const;
 
+type StreetSpotType = (typeof STREET_SPOT_TYPES)[number]["value"];
+
 const TIER_LABELS: Record<string, string> = {
   bronze: "Bronze - Local spot",
   silver: "Silver - Worth the trip",
@@ -49,6 +51,13 @@ const TIER_LABELS: Record<string, string> = {
 
 const MAX_IMAGES = 3;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+interface ImagePreview {
+  id: number;
+  dataUrl: string;
+}
+
+let nextImageId = 0;
 
 interface AddSpotModalProps {
   isOpen: boolean;
@@ -71,7 +80,7 @@ export function AddSpotModal({
   const [description, setDescription] = useState("");
   const [spotType, setSpotType] = useState<string>("street");
   const [tier, setTier] = useState<string>("bronze");
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<ImagePreview[]>([]);
 
   const isLocationReady = Boolean(userLocation && userLocation.lat !== 0 && userLocation.lng !== 0);
 
@@ -137,11 +146,19 @@ export function AddSpotModal({
       }
 
       const reader = new FileReader();
+      const imageId = nextImageId++;
       reader.onload = (e) => {
-        const result = e.target?.result as string;
+        const dataUrl = e.target?.result as string;
         setImagePreviews((prev) => {
           if (prev.length >= MAX_IMAGES) return prev;
-          return [...prev, result];
+          return [...prev, { id: imageId, dataUrl }];
+        });
+      };
+      reader.onerror = () => {
+        toast({
+          title: "Failed to read image",
+          description: `Could not load ${file.name}. Try another file.`,
+          variant: "destructive",
         });
       };
       reader.readAsDataURL(file);
@@ -151,8 +168,8 @@ export function AddSpotModal({
     event.target.value = "";
   };
 
-  const removeImage = (index: number) => {
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  const removeImage = (id: number) => {
+    setImagePreviews((prev) => prev.filter((img) => img.id !== id));
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -180,7 +197,7 @@ export function AddSpotModal({
     const payload = insertSpotSchema.parse({
       name: trimmedName,
       description: description.trim() || undefined,
-      spotType: spotType as "street" | "rail" | "ledge" | "stairs" | "gap" | "bank" | "manual-pad" | "flat" | "diy" | "other",
+      spotType: spotType as StreetSpotType,
       tier: tier as (typeof SPOT_TIERS)[number],
       lat: userLocation.lat,
       lng: userLocation.lng,
@@ -333,13 +350,14 @@ export function AddSpotModal({
             {/* Image Previews */}
             {imagePreviews.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-1">
-                {imagePreviews.map((src, i) => (
-                  <div key={i} className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-neutral-700">
-                    <img src={src} alt={`Spot photo ${i + 1}`} className="w-full h-full object-cover" />
+                {imagePreviews.map((img) => (
+                  <div key={img.id} className="relative shrink-0 w-20 h-20 rounded-lg overflow-hidden border border-neutral-700">
+                    <img src={img.dataUrl} alt="Spot photo" className="w-full h-full object-cover" />
                     <button
                       type="button"
-                      onClick={() => removeImage(i)}
+                      onClick={() => removeImage(img.id)}
                       className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center"
+                      aria-label="Remove photo"
                     >
                       <X className="w-3 h-3 text-white" />
                     </button>
@@ -367,7 +385,6 @@ export function AddSpotModal({
               multiple
               onChange={handleImageSelect}
               className="hidden"
-              capture="environment"
             />
           </div>
 

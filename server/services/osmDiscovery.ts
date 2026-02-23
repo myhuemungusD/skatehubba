@@ -161,12 +161,12 @@ export async function discoverSkateparks(
       if (!elLat || !elLng) continue;
 
       const tags = el.tags ?? {};
-      const isShop = tags.shop === "skateboard" || (tags.shop === "sports" && tags.sport === "skateboard");
-      const defaultName = isShop ? "Skate Shop" : "Skatepark";
+      const shop = isSkateShop(tags);
+      const defaultName = shop ? "Skate Shop" : "Skatepark";
       const name = tags.name || tags["name:en"] || defaultName;
 
       // Skip unnamed nodes that are just sport=skateboard tags on random things
-      if (name === "Skatepark" && !tags.leisure) continue;
+      if (name === defaultName && !tags.leisure && !shop) continue;
 
       results.push({
         name,
@@ -210,9 +210,13 @@ export async function discoverSkateparks(
   }
 }
 
+function isSkateShop(tags: Record<string, string>): boolean {
+  return tags.shop === "skateboard" || (tags.shop === "sports" && tags.sport === "skateboard");
+}
+
 function buildDescription(tags: Record<string, string>): string {
   const parts: string[] = [];
-  const isShop = tags.shop === "skateboard" || (tags.shop === "sports" && tags.sport === "skateboard");
+  const shop = isSkateShop(tags);
 
   if (tags.description) return tags.description;
 
@@ -225,7 +229,7 @@ function buildDescription(tags: Record<string, string>): string {
   if (tags.phone) parts.push(`Phone: ${tags.phone}`);
   if (tags.website) parts.push(`Website: ${tags.website}`);
 
-  const label = isShop ? "Skate shop" : "Skatepark";
+  const label = shop ? "Skate shop" : "Skatepark";
   return parts.length > 0
     ? `${label} discovered from OpenStreetMap. ${parts.join(". ")}.`
     : `${label} discovered from OpenStreetMap.`;
@@ -244,8 +248,7 @@ function buildAddress(tags: Record<string, string>): string {
 }
 
 function inferSpotType(tags: Record<string, string>): "park" | "bowl" | "street" | "other" {
-  const isShop = tags.shop === "skateboard" || (tags.shop === "sports" && tags.sport === "skateboard");
-  if (isShop) return "other";
+  if (isSkateShop(tags)) return "other";
 
   const name = (tags.name || "").toLowerCase();
   if (name.includes("bowl")) return "bowl";
