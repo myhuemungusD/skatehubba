@@ -7,7 +7,6 @@ FROM base AS deps
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY server/package.json server/package.json
 COPY client/package.json client/package.json
-COPY web/package.json web/package.json
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/types/package.json packages/types/package.json
 COPY packages/config/package.json packages/config/package.json
