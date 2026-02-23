@@ -172,6 +172,9 @@ importers:
       '@skatehubba/config':
         specifier: workspace:*
         version: link:../packages/config
+      '@skatehubba/firebase':
+        specifier: workspace:*
+        version: link:../packages/firebase
       '@skatehubba/types':
         specifier: workspace:*
         version: link:../packages/types
@@ -357,6 +360,9 @@ importers:
       '@skatehubba/config':
         specifier: workspace:*
         version: link:../packages/config
+      '@skatehubba/firebase':
+        specifier: workspace:*
+        version: link:../packages/firebase
       '@skatehubba/types':
         specifier: workspace:*
         version: link:../packages/types
@@ -498,7 +504,14 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
-  packages/firebase: {}
+  packages/firebase:
+    dependencies:
+      firebase:
+        specifier: '>=10'
+        version: 11.10.0(@react-native-async-storage/async-storage@2.1.2(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))
+      zustand:
+        specifier: '>=4'
+        version: 5.0.10(@types/react@18.3.27)(react@18.3.1)(use-sync-external-store@1.6.0(react@18.3.1))
 
   packages/shared:
     dependencies:
@@ -11939,7 +11952,7 @@ snapshots:
       postcss: 8.4.49
       resolve-from: 5.0.0
     optionalDependencies:
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -12010,7 +12023,7 @@ snapshots:
       '@expo/json-file': 10.0.8
       '@react-native/normalize-colors': 0.81.5
       debug: 4.4.3(supports-color@8.1.1)
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
       resolve-from: 5.0.0
       semver: 7.7.4
       xml2js: 0.6.0
@@ -14710,6 +14723,14 @@ snapshots:
     optionalDependencies:
       vite: 6.4.1(@types/node@22.19.7)(jiti@1.21.7)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
+  '@vitest/mocker@4.0.18(vite@6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
+    dependencies:
+      '@vitest/spy': 4.0.18
+      estree-walker: 3.0.3
+      magic-string: 0.30.21
+    optionalDependencies:
+      vite: 6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
+
   '@vitest/mocker@4.0.18(vite@6.4.1(@types/node@22.19.9)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@vitest/spy': 4.0.18
@@ -15135,7 +15156,7 @@ snapshots:
       resolve-from: 5.0.0
     optionalDependencies:
       '@babel/runtime': 7.28.6
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
@@ -16615,7 +16636,7 @@ snapshots:
   expo-crypto@15.0.8(expo@54.0.32):
     dependencies:
       base64-js: 1.5.1
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
 
   expo-device@8.0.10(expo@54.0.32):
     dependencies:
@@ -16657,7 +16678,7 @@ snapshots:
 
   expo-keep-awake@15.0.8(expo@54.0.32)(react@18.3.1):
     dependencies:
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
       react: 18.3.1
 
   expo-linking@7.0.5(expo@54.0.32)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1):
@@ -20991,7 +21012,7 @@ snapshots:
   vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.7)(jiti@2.6.1)(jsdom@23.2.0)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       '@vitest/expect': 4.0.18
-      '@vitest/mocker': 4.0.18(vite@6.4.1(@types/node@22.19.9)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@vitest/mocker': 4.0.18(vite@6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
       '@vitest/pretty-format': 4.0.18
       '@vitest/runner': 4.0.18
       '@vitest/snapshot': 4.0.18
