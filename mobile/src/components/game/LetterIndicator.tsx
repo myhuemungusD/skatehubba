@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { View, Text, StyleSheet, Animated } from "react-native";
 import { useRef, useEffect } from "react";
 import { SKATE } from "@/theme";
@@ -12,7 +13,7 @@ interface LetterIndicatorProps {
   layout?: "horizontal" | "vertical";
 }
 
-export function LetterIndicator({
+export const LetterIndicator = memo(function LetterIndicator({
   letters,
   playerName,
   isCurrentPlayer,
@@ -67,10 +68,7 @@ export function LetterIndicator({
     >
       <View style={[styles.nameContainer, isVertical && styles.nameContainerVertical]}>
         <Text
-          style={[
-            styles.playerName,
-            isCurrentPlayer && styles.playerNameCurrent,
-          ]}
+          style={[styles.playerName, isCurrentPlayer && styles.playerNameCurrent]}
           numberOfLines={1}
         >
           {playerName}
@@ -87,19 +85,8 @@ export function LetterIndicator({
           const hasLetter = letters.includes(letter);
 
           return (
-            <View
-              key={letter}
-              style={[
-                styles.letterBox,
-                hasLetter && styles.letterBoxActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.letterText,
-                  hasLetter && styles.letterTextActive,
-                ]}
-              >
+            <View key={letter} style={[styles.letterBox, hasLetter && styles.letterBoxActive]}>
+              <Text style={[styles.letterText, hasLetter && styles.letterTextActive]}>
                 {letter}
               </Text>
             </View>
@@ -114,7 +101,7 @@ export function LetterIndicator({
       )}
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
