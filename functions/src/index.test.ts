@@ -148,6 +148,13 @@ vi.mock("fluent-ffmpeg", () => ({
   }),
 }));
 
+// Mock shared modules to isolate unit tests from cross-cutting concerns.
+// The Firestore-based rate limiter would otherwise consume transaction mock
+// state that game function tests rely on.
+vi.mock("./shared/rateLimiter", () => ({
+  checkRateLimit: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Mock commerce modules re-exported by index.ts to avoid Express/Stripe side-effects
 vi.mock("./commerce/holdAndCreateIntent", () => ({
   holdAndCreatePaymentIntent: vi.fn(),
@@ -292,7 +299,8 @@ describe("SkateHubba Cloud Functions", () => {
   });
 
   // ==========================================================================
-  // checkRateLimit  (internal, tested via manageUserRole)
+  // checkRateLimit  (Firestore-based, tested via mock integration)
+  // Rate limiter has its own unit tests in shared/__tests__/rateLimiter.test.ts
   // ==========================================================================
 
   describe("checkRateLimit (via manageUserRole)", () => {
@@ -314,15 +322,21 @@ describe("SkateHubba Cloud Functions", () => {
       }
     });
 
-    it("throws resource-exhausted on the 11th request", async () => {
+    it("throws resource-exhausted when rate limiter rejects", async () => {
       setupSuccessfulRoleChange();
+
+      // Temporarily make the rate limiter mock reject
+      const { checkRateLimit: mockRateLimit } = await import("./shared/rateLimiter");
+      (mockRateLimit as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new (functions.https.HttpsError as any)(
+          "resource-exhausted",
+          "Too many requests. Please try again later."
+        )
+      );
+
       const uid = freshUid("rl-exceed");
       const ctx = makeContext({ uid, roles: ["admin"] });
       const data = { targetUid: "tgt", role: "moderator", action: "grant" };
-
-      for (let i = 0; i < 10; i++) {
-        await (manageUserRole as any)(data, ctx);
-      }
 
       await expect((manageUserRole as any)(data, ctx)).rejects.toThrow("Too many requests");
     });
