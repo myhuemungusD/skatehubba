@@ -93,15 +93,12 @@ describe("AuthService — additional coverage", () => {
       expect(result).toBeNull();
     });
 
-    it("succeeds when user exists but email is not verified", async () => {
+    it("returns null when user exists but email is not verified", async () => {
       mockWhere.mockResolvedValueOnce([
         { id: "u1", email: "user@example.com", isEmailVerified: false },
       ]);
-      mockWhere.mockResolvedValueOnce(undefined);
       const result = await AuthService.generatePasswordResetToken("user@example.com");
-      expect(result).toBeDefined();
-      expect(result).toHaveLength(64);
-      expect(result).toMatch(/^[0-9a-f]+$/);
+      expect(result).toBeNull();
     });
 
     it("generates and stores a reset token for a verified user (lines 326-338)", async () => {

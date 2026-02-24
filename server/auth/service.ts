@@ -6,8 +6,6 @@ import { customUsers, authSessions } from "../../packages/shared/schema/index";
 import { eq, and, gt } from "drizzle-orm";
 import type { CustomUser, InsertCustomUser, AuthSession } from "../../packages/shared/schema/index";
 import { env } from "../config/env";
-import { admin } from "../admin.ts";
-import logger from "../logger.ts";
 
 /**
  * Authentication service for SkateHubba
@@ -236,7 +234,7 @@ export class AuthService {
    * Create a new authentication session for a user
    * @param userId - User ID to create session for
    * @returns Promise resolving to JWT token and session record
-   *
+   * 
    * NOTE: Session tokens are stored as SHA256 hashes (not raw JWTs) for security.
    * This means existing sessions with raw tokens will be invalidated on deploy.
    * Users with pre-existing sessions will need to re-authenticate.
@@ -324,15 +322,11 @@ export class AuthService {
   /**
    * Generate a password reset token for a user
    * @param email - Email address of user requesting password reset
-   * @returns Promise resolving to reset token if user exists, null otherwise
-   *
-   * NOTE: Does not require email verification. The reset email itself
-   * proves ownership of the address. Blocking unverified users locked
-   * them out permanently if they forgot their password before verifying.
+   * @returns Promise resolving to reset token if user exists and is verified, null otherwise
    */
   static async generatePasswordResetToken(email: string): Promise<string | null> {
     const user = await this.findUserByEmail(email);
-    if (!user) return null;
+    if (!user || !user.isEmailVerified) return null;
 
     const resetToken = this.generateSecureToken();
     const resetExpiry = new Date(Date.now() + this.EMAIL_TOKEN_EXPIRY);
@@ -371,31 +365,12 @@ export class AuthService {
 
     const passwordHash = await this.hashPassword(newPassword);
 
-    // Update Firebase password so signInWithEmailAndPassword works with the new password.
-    // Without this, the custom DB and Firebase diverge and the user can never sign in.
-    if (user.firebaseUid) {
-      try {
-        await admin.auth().updateUser(user.firebaseUid, { password: newPassword });
-      } catch (err) {
-        logger.error("Failed to update Firebase password during reset", {
-          userId: user.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        // Don't block the reset — the custom DB update still succeeds.
-        // The user can re-authenticate via Google OAuth if Firebase update failed.
-      }
-    }
-
-    // Completing a password reset proves email ownership — mark verified.
     const [updatedUser] = await getDb()
       .update(customUsers)
       .set({
         passwordHash,
         resetPasswordToken: null,
         resetPasswordExpires: null,
-        isEmailVerified: true,
-        emailVerificationToken: null,
-        emailVerificationExpires: null,
         updatedAt: new Date(),
       })
       .where(eq(customUsers.id, user.id))
@@ -438,19 +413,6 @@ export class AuthService {
     }
 
     const passwordHash = await this.hashPassword(newPassword);
-
-    // Update Firebase password so signInWithEmailAndPassword stays in sync.
-    if (user.firebaseUid) {
-      try {
-        await admin.auth().updateUser(user.firebaseUid, { password: newPassword });
-      } catch (err) {
-        logger.error("Failed to update Firebase password during change", {
-          userId: user.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return { success: false, message: "Password change failed. Please try again." };
-      }
-    }
 
     await getDb()
       .update(customUsers)
