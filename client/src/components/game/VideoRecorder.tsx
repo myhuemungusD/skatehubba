@@ -175,7 +175,9 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
     <div className={cn("flex flex-col items-center gap-4", className)}>
       {/* Camera viewfinder — only visible during recording */}
       <div className="relative w-full aspect-[9/16] max-h-[400px] bg-black rounded-lg overflow-hidden">
-        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted>
+          <track kind="captions" />
+        </video>
 
         {state === "recording" && (
           <>

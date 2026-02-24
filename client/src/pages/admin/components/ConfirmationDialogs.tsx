@@ -170,8 +170,9 @@ export function BanConfirmDialog({
           </DialogDescription>
         </DialogHeader>
         <div>
-          <label className="text-sm text-neutral-400 block mb-1">Reason</label>
+          <label htmlFor="ban-reason-textarea" className="text-sm text-neutral-400 block mb-1">Reason</label>
           <Textarea
+            id="ban-reason-textarea"
             value={banNotes}
             onChange={(e) => onNotesChange(e.target.value)}
             placeholder="Reason for ban..."

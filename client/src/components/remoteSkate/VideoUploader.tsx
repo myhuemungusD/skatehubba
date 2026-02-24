@@ -92,11 +92,17 @@ export function VideoUploader({
           isDisabled && "opacity-50 cursor-not-allowed",
           uploadDone && !isUploading && "border-green-500/50 bg-green-500/5"
         )}
+        role="button"
+        tabIndex={isDisabled ? -1 : 0}
+        aria-label="Upload video file"
         onDragEnter={isDisabled ? undefined : handleDrag}
         onDragLeave={isDisabled ? undefined : handleDrag}
         onDragOver={isDisabled ? undefined : handleDrag}
         onDrop={isDisabled ? undefined : handleDrop}
         onClick={() => !isDisabled && inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (!isDisabled && (e.key === "Enter" || e.key === " ")) inputRef.current?.click();
+        }}
       >
         <input
           ref={inputRef}

@@ -14,7 +14,7 @@ import type { Request, Response, NextFunction } from "express";
 // ---------------------------------------------------------------------------
 
 export interface MockRequestOptions {
-  body?: Record<string, unknown>;
+  body?: unknown;
   params?: Record<string, string>;
   query?: Record<string, string>;
   headers?: Record<string, string | string[] | undefined>;

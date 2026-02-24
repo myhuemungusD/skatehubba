@@ -56,7 +56,7 @@ interface UseSocketReturn {
  *     if (!socket) return;
  *
  *     socket.on('battle:update', (data) => {
- *       console.log('Battle updated:', data);
+ *       logger.log('Battle updated:', data);
  *     });
  *
  *     return () => {

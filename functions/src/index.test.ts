@@ -232,6 +232,8 @@ describe("SkateHubba Cloud Functions", () => {
     mocks.firestoreInstance.collection.mockReturnValue(mocks.collectionRef);
     mocks.firestoreInstance.doc.mockReturnValue(mocks.docRef);
     mocks.runTransaction.mockImplementation(async (fn: any) => fn(mocks.transaction));
+    // Default: no existing rate-limit entry (first request in window — always allowed)
+    mocks.transaction.get.mockResolvedValue({ exists: false, data: () => ({}) });
     mocks.bucket.file.mockReturnValue(mocks.bucketFile);
     mocks.storageInstance.bucket.mockReturnValue(mocks.bucket);
     mocks.docRef.get.mockResolvedValue({ exists: false, data: () => ({}), get: () => null });
@@ -320,9 +322,11 @@ describe("SkateHubba Cloud Functions", () => {
       const ctx = makeContext({ uid, roles: ["admin"] });
       const data = { targetUid: "tgt", role: "moderator", action: "grant" };
 
-      for (let i = 0; i < 10; i++) {
-        await (manageUserRole as any)(data, ctx);
-      }
+      // Simulate Firestore state: rate-limit window is full (10/10 requests used)
+      mocks.transaction.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ count: 10, resetAt: { toMillis: () => Date.now() + 60_000 } }),
+      });
 
       await expect((manageUserRole as any)(data, ctx)).rejects.toThrow("Too many requests");
     });

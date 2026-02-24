@@ -413,8 +413,9 @@ export default function AdminReports() {
           </DialogHeader>
           <div className="space-y-3">
             <div>
-              <label className="text-sm text-neutral-400 block mb-1">Notes</label>
+              <label htmlFor="mod-notes-textarea" className="text-sm text-neutral-400 block mb-1">Notes</label>
               <Textarea
+                id="mod-notes-textarea"
                 value={modNotes}
                 onChange={(e) => setModNotes(e.target.value)}
                 placeholder="Reason for this action..."
