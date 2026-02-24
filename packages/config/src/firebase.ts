@@ -135,7 +135,7 @@ export function getFirebaseConfig(_options: GetFirebaseConfigOptions = {}): Fire
   const config = buildConfigFromEnv();
 
   if (config) {
-    // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console -- startup diagnostic confirming which Firebase project/env is active; this shared config package has no structured logger dependency to avoid circular imports
     console.log(`[Firebase] Using env-provided config for ${env}`);
     return config;
   }

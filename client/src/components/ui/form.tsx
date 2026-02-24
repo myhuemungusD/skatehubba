@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components -- shadcn/ui: exports multiple form context helpers (FormField, FormItem, FormLabel, etc.) alongside the Form component from the same file; this is standard shadcn/ui structure and the HMR impact is negligible for a UI primitive */
 "use client";
 
 import * as React from "react";

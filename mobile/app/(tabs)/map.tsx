@@ -46,7 +46,7 @@ let MapView: React.ComponentType<NativeMapViewProps> | null = null;
 let Marker: React.ComponentType<NativeMarkerProps> | null = null;
 if (!isExpoGo) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require needed for conditional native module loading; static import would crash Expo Go since the native module is unavailable there
     const maps = require("react-native-maps");
     MapView = maps.default;
     Marker = maps.Marker;

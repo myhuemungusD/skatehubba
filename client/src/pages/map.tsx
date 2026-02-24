@@ -77,7 +77,7 @@ export default function MapPage() {
       url.searchParams.delete("upgrade");
       window.history.replaceState({}, "", url.pathname + url.search);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally runs once on mount; URL params are read only at page load to handle Stripe redirect state and should not re-run on subsequent renders
 
   // ---------------------------------------------------------------------------
   // Geolocation
