@@ -8,6 +8,7 @@
  */
 
 import { getEnvOptional, getAppEnv, type AppEnv } from "./env";
+import { REQUIRED_PUBLIC_VARS } from "./envContract";
 import { globals } from "./globals";
 
 /**
@@ -39,14 +40,8 @@ export interface GetFirebaseConfigOptions {
  * All EXPO_PUBLIC_FIREBASE_* vars must be configured in the deployment
  * environment. The app will throw at startup if they are missing.
  */
-const REQUIRED_FIREBASE_VARS = [
-  "EXPO_PUBLIC_FIREBASE_API_KEY",
-  "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
-  "EXPO_PUBLIC_FIREBASE_APP_ID",
-  "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
-  "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
-  "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-] as const;
+// Derived from the contract — single source of truth. DO NOT hardcode here.
+const REQUIRED_FIREBASE_VARS = REQUIRED_PUBLIC_VARS;
 
 function normalizeEnvValue(value: string | undefined | null): string | undefined {
   if (!value) return undefined;

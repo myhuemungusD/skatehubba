@@ -81,6 +81,19 @@ export {
   type FirebaseConfig,
 } from "./firebase";
 
+// Environment contract (single source of truth for env var names)
+export {
+  REQUIRED_PUBLIC_VARS,
+  OPTIONAL_PUBLIC_VARS,
+  ALL_PUBLIC_VARS,
+  isCanonicalPrefix,
+  detectPrefixMismatch,
+  validatePublicEnv,
+  type RequiredPublicVar,
+  type OptionalPublicVar,
+  type PublicVar,
+} from "./envContract";
+
 // Certificate pinning
 export {
   getCertificatePinningConfig,

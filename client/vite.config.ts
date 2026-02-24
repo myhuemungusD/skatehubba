@@ -8,6 +8,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig(({ mode }) => {
   const rootEnv = loadEnv(mode, path.resolve(__dirname, ".."), ["VITE_", "EXPO_PUBLIC_"]);
+
+  // ── Build-tool config (consumed by vite.config.ts only, never bundled into app) ──
+  // These intentionally use VITE_ prefix — they configure the build tool, not the app.
+  // App-facing env vars MUST use EXPO_PUBLIC_ (see packages/config/src/envContract.ts).
   const apiTarget = rootEnv.VITE_API_PROXY_TARGET || "http://localhost:3001";
   const sourcemap = rootEnv.VITE_SOURCEMAP === "true";
   const dropConsole = rootEnv.VITE_DROP_CONSOLE === "true";
