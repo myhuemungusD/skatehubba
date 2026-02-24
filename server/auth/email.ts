@@ -1,11 +1,13 @@
-import { Resend } from 'resend';
-import { env } from '../config/env';
-import logger from '../logger';
+import { Resend } from "resend";
+import { env } from "../config/env";
+import logger from "../logger";
 
 const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
 
 if (!resend) {
-  logger.warn('RESEND_API_KEY not configured — password reset and verification emails will be logged to console only');
+  logger.warn(
+    "RESEND_API_KEY not configured — password reset and verification emails will be logged to console only"
+  );
 }
 
 // Email templates
@@ -110,46 +112,54 @@ const getPasswordResetEmailTemplate = (name: string, resetUrl: string) => `
 `;
 
 const getBaseUrl = (): string => {
-  if (env.NODE_ENV === 'production') {
-    return env.PRODUCTION_URL || 'https://skatehubba.com';
+  if (env.NODE_ENV === "production") {
+    return env.PRODUCTION_URL || "https://skatehubba.com";
   }
-  // Dev: use Vite dev server port (5173), not Express port (3001)
-  return `http://localhost:${process.env.DEV_VITE_PORT || '5173'}`;
+  // Dev: use client dev server port, not Express API port (3001)
+  return `http://localhost:${process.env.DEV_CLIENT_PORT || "3000"}`;
 };
 
 // Send verification email
-export async function sendVerificationEmail(email: string, token: string, name: string): Promise<void> {
+export async function sendVerificationEmail(
+  email: string,
+  token: string,
+  name: string
+): Promise<void> {
   const baseUrl = getBaseUrl();
   const verificationUrl = `${baseUrl}/verify-email?token=${token}`;
 
   if (resend) {
     await resend.emails.send({
-      from: 'SkateHubba <hello@skatehubba.com>',
+      from: "SkateHubba <hello@skatehubba.com>",
       to: email,
-      subject: 'Verify your SkateHubba account 🛹',
+      subject: "Verify your SkateHubba account 🛹",
       html: getVerificationEmailTemplate(name, verificationUrl),
     });
   } else {
     // Log without PII in message string (email goes in structured context
     // where the logger's redact() can mask it). Never log the full URL
     // since it contains the secret verification token.
-    logger.warn('Verification email not sent (RESEND_API_KEY not configured)', { email });
+    logger.warn("Verification email not sent (RESEND_API_KEY not configured)", { email });
   }
 }
 
 // Send password reset email
-export async function sendPasswordResetEmail(email: string, token: string, name: string): Promise<void> {
+export async function sendPasswordResetEmail(
+  email: string,
+  token: string,
+  name: string
+): Promise<void> {
   const baseUrl = getBaseUrl();
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
   if (resend) {
     await resend.emails.send({
-      from: 'SkateHubba <hello@skatehubba.com>',
+      from: "SkateHubba <hello@skatehubba.com>",
       to: email,
-      subject: 'Reset your SkateHubba password',
+      subject: "Reset your SkateHubba password",
       html: getPasswordResetEmailTemplate(name, resetUrl),
     });
   } else {
-    logger.warn('Password reset email not sent (RESEND_API_KEY not configured)', { email });
+    logger.warn("Password reset email not sent (RESEND_API_KEY not configured)", { email });
   }
 }

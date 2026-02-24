@@ -19,8 +19,8 @@ import { logger } from "./lib/logger";
 import AppRoutes from "./routes/AppRoutes";
 
 function BuildStamp() {
-  const commit = import.meta.env.VITE_COMMIT_SHA || "dev";
-  const buildTime = import.meta.env.VITE_BUILD_TIME || new Date().toISOString();
+  const commit = import.meta.env.EXPO_PUBLIC_COMMIT_SHA || "dev";
+  const buildTime = import.meta.env.EXPO_PUBLIC_BUILD_TIME || new Date().toISOString();
   return (
     <footer
       style={{
@@ -99,7 +99,7 @@ export default function App() {
     const exposeUid =
       import.meta.env.DEV ||
       (typeof window !== "undefined" && window.Cypress) ||
-      import.meta.env.VITE_E2E === "true";
+      import.meta.env.EXPO_PUBLIC_E2E === "true";
     if (exposeUid && typeof window !== "undefined") {
       window.__SKATEHUBBA_UID__ = user?.uid ?? null;
     }
