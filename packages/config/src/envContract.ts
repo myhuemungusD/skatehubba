@@ -139,10 +139,13 @@ export function validatePublicEnv(env: Record<string, string | undefined>): {
   missing: RequiredPublicVar[];
   mismatched: Array<{ found: string; expected: string }>;
 } {
-  const missing = REQUIRED_PUBLIC_VARS.filter((name) => {
+  const missing: RequiredPublicVar[] = [];
+  for (const name of REQUIRED_PUBLIC_VARS) {
     const val = env[name];
-    return !val || val.trim() === "";
-  }) as unknown as RequiredPublicVar[];
+    if (!val || val.trim() === "") {
+      missing.push(name);
+    }
+  }
 
   // Check for vars set with wrong prefix
   const mismatched: Array<{ found: string; expected: string }> = [];
