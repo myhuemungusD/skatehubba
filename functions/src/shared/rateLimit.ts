@@ -7,7 +7,7 @@
  */
 
 import * as functions from "firebase-functions";
-import * as admin from "firebase-admin";
+import { Timestamp, FieldValue } from "firebase-admin/firestore";
 import { getAdminDb } from "../firebaseAdmin";
 
 const RATE_LIMIT = {
@@ -33,19 +33,19 @@ export async function checkRateLimit(uid: string): Promise<void> {
     if (!doc.exists) {
       tx.set(rateLimitRef, {
         count: 1,
-        resetAt: admin.firestore.Timestamp.fromMillis(now + RATE_LIMIT.windowMs),
+        resetAt: Timestamp.fromMillis(now + RATE_LIMIT.windowMs),
       });
       return;
     }
 
     const data = doc.data()!;
-    const resetAt = data.resetAt as admin.firestore.Timestamp;
+    const resetAt = data.resetAt as Timestamp;
 
     if (now > resetAt.toMillis()) {
       // Window expired — reset counter
       tx.update(rateLimitRef, {
         count: 1,
-        resetAt: admin.firestore.Timestamp.fromMillis(now + RATE_LIMIT.windowMs),
+        resetAt: Timestamp.fromMillis(now + RATE_LIMIT.windowMs),
       });
       return;
     }
@@ -58,7 +58,7 @@ export async function checkRateLimit(uid: string): Promise<void> {
     }
 
     tx.update(rateLimitRef, {
-      count: admin.firestore.FieldValue.increment(1),
+      count: FieldValue.increment(1),
     });
   });
 }
