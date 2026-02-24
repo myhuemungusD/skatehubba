@@ -114,7 +114,36 @@ export function AddSpotDialog({ isOpen, onClose, lat, lng }: AddSpotDialogProps)
       logger.warn("[SpotDraft] Failed to parse existing drafts, starting fresh");
     }
     existingDrafts.push(draft);
-    localStorage.setItem("spotDrafts", JSON.stringify(existingDrafts));
+
+    try {
+      localStorage.setItem("spotDrafts", JSON.stringify(existingDrafts));
+    } catch (storageErr) {
+      // DataURL photo may exceed localStorage quota — retry without the photo
+      if (draft.photoPreview) {
+        logger.warn("[SpotDraft] Storage quota exceeded with photo, retrying without it");
+        const draftWithoutPhoto: SpotDraft = { ...draft, photoPreview: null };
+        existingDrafts[existingDrafts.length - 1] = draftWithoutPhoto;
+        try {
+          localStorage.setItem("spotDrafts", JSON.stringify(existingDrafts));
+        } catch {
+          logger.error("[SpotDraft] Storage quota exceeded even without photo", storageErr);
+          toast({
+            title: "Storage Full",
+            description: "Could not save draft — clear some space and try again.",
+            variant: "destructive",
+          });
+          return;
+        }
+      } else {
+        logger.error("[SpotDraft] Storage quota exceeded", storageErr);
+        toast({
+          title: "Storage Full",
+          description: "Could not save draft — clear some space and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
 
     logger.log("[SpotDraft] Saved draft:", draft);
 

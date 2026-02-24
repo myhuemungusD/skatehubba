@@ -4,7 +4,7 @@ import { profileCreateSchema, usernameSchema } from "@shared/validation/profile"
 import { admin } from "../admin";
 import { env } from "../config/env";
 import { getDb } from "../db";
-import { onboardingProfiles } from "@shared/schema";
+import { onboardingProfiles, userProfiles, closetItems } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
 import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
@@ -314,16 +314,26 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
 
 /**
  * DELETE /api/profile
- * Permanently deletes the authenticated user's database record.
- * The client is responsible for subsequently calling Firebase deleteUser()
- * to remove the Auth account and revoke the session.
+ * Permanently deletes the authenticated user and all associated data.
+ * Called by the client AFTER Firebase Auth deletion succeeds, so the
+ * Firebase account is already gone by the time this runs.
+ *
+ * Deletion order:
+ *   1. closet_items      — no FK to customUsers, must be deleted explicitly
+ *   2. onboarding_profiles — no FK to customUsers, must be deleted explicitly
+ *   3. user_profiles     — no FK to customUsers, must be deleted explicitly
+ *   4. customUsers       — cascades authSessions and mfaSecrets via DB FK
  */
 router.delete("/", requireFirebaseUid, async (req, res) => {
   const uid = (req as FirebaseAuthedRequest).firebaseUid;
+  const database = getDb();
 
   try {
-    await deleteUser(uid);
-    logger.info("[Profile] Account deleted", { uid });
+    await database.delete(closetItems).where(eq(closetItems.userId, uid));
+    await database.delete(onboardingProfiles).where(eq(onboardingProfiles.uid, uid));
+    await database.delete(userProfiles).where(eq(userProfiles.id, uid));
+    await deleteUser(uid); // deletes customUsers row; cascades authSessions + mfaSecrets
+    logger.info("[Profile] Account and all related data deleted", { uid });
     return res.status(204).send();
   } catch (error) {
     logger.error("[Profile] Account deletion failed", { uid, error });

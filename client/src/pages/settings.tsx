@@ -101,7 +101,7 @@ const FAQ_ITEMS = [
 ] as const;
 
 export default function SettingsPage() {
-  const auth = useAuth();
+  const { user, isAuthenticated, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -110,39 +110,43 @@ export default function SettingsPage() {
 
   const handleLogout = useCallback(async () => {
     try {
-      await auth?.signOut?.();
+      await signOut?.();
     } catch {
       // Best-effort logout
     } finally {
       setLocation("/");
     }
-  }, [auth, setLocation]);
+  }, [signOut, setLocation]);
 
   const handleDeleteAccount = useCallback(async () => {
-    const currentUser = auth.user;
-    if (!currentUser) return;
+    if (!user) return;
 
     setIsDeleting(true);
     try {
+      // Delete Firebase Auth account first — if this fails (e.g. requires-recent-login)
+      // nothing is deleted and the user can retry after re-authenticating.
+      await deleteUser(user);
+      // Firebase account is gone; now remove the DB record best-effort.
       await apiRequest("DELETE", "/api/profile");
-      await deleteUser(currentUser);
       setLocation("/");
     } catch (err) {
-      toast({
-        title: "Deletion failed",
-        description:
-          err instanceof Error ? err.message : "Could not delete your account. Please try again.",
-        variant: "destructive",
-      });
+      const code = (err as { code?: string }).code;
+      const description =
+        code === "auth/requires-recent-login"
+          ? "Please sign out and sign back in, then try again."
+          : err instanceof Error
+            ? err.message
+            : "Could not delete your account. Please try again.";
+      toast({ title: "Deletion failed", description, variant: "destructive" });
     } finally {
       setIsDeleting(false);
     }
-  }, [auth.user, setLocation, toast]);
+  }, [user, setLocation, toast]);
 
   // Fetch notification preferences
   const { data: prefs, isLoading } = useQuery<NotificationPrefs>({
     queryKey: ["/api/notifications/preferences"],
-    enabled: auth.isAuthenticated,
+    enabled: isAuthenticated,
   });
 
   // Update preferences mutation
@@ -380,7 +384,6 @@ export default function SettingsPage() {
                   </AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleDeleteAccount}
-                    disabled={isDeleting}
                     className="bg-red-700 hover:bg-red-800 text-white"
                   >
                     {isDeleting ? "Deleting…" : "Delete My Account"}

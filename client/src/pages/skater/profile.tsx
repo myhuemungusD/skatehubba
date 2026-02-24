@@ -8,11 +8,11 @@ import { ChallengeButton } from "@/components/skater/ChallengeButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import type { UserProfile } from "@shared/schema";
-import { Layers, Settings, Circle, Footprints } from "lucide-react";
+import { Layers, Wrench, Circle, Footprints } from "lucide-react";
 
 const CLOSET_CATEGORIES = [
   { label: "Decks", icon: Layers },
-  { label: "Trucks", icon: Settings },
+  { label: "Trucks", icon: Wrench },
   { label: "Wheels", icon: Circle },
   { label: "Shoes", icon: Footprints },
 ] as const;
