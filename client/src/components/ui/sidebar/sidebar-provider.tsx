@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components -- shadcn/ui: exports both SidebarProvider component and the useSidebar hook from the same file; co-locating the hook with its provider is intentional and the HMR impact is negligible */
 import * as React from "react";
 
 import { useIsMobile } from "../../../hooks/use-mobile";

@@ -37,10 +37,10 @@ const firebaseConfig = getSharedFirebaseConfig();
 if (__DEV__ && !isProd()) {
   const banner = getEnvBanner();
   if (banner) {
-    // eslint-disable-next-line no-console
+    // eslint-disable-next-line no-console -- env banner (e.g. "🧪 STAGING") is intentionally emitted to Metro logs on startup, guarded by __DEV__ && !isProd()
     console.log(`[Firebase Mobile] ${banner}`);
   }
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console -- active environment is logged once on startup for developer visibility, guarded by __DEV__ && !isProd()
   console.log(`[Firebase Mobile] Environment: ${getAppEnv()}`);
 }
 

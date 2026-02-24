@@ -2,7 +2,7 @@
  * @deprecated Import from "./sidebar/index" instead.
  * This file is kept as a re-export shim to preserve backwards compatibility.
  */
-/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components -- backwards-compat re-export shim: re-exports all sidebar sub-components from a single entry point; the rule fires because multiple non-component values are exported, but this is intentional for import ergonomics */
 export {
   Sidebar,
   SidebarContent,

@@ -40,7 +40,7 @@ let useCameraFormat: (
 ) => CameraFormat | null = () => null;
 if (!isExpoGo) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require needed for conditional native module loading; static import would crash Expo Go since the native module is unavailable there
     const vc = require("react-native-vision-camera");
     VisionCamera = vc.Camera;
     useCameraDevice = vc.useCameraDevice;
