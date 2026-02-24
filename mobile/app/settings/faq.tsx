@@ -1,6 +1,4 @@
 import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 import * as Linking from "expo-linking";
@@ -48,18 +46,8 @@ const FAQ_ITEMS: FaqItem[] = [
 ];
 
 function FaqScreenContent() {
-  const router = useRouter();
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="chevron-back" size={24} color={SKATE.colors.orange} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Help &amp; FAQ</Text>
-        <View style={styles.backButton} />
-      </View>
-
       <Text style={styles.intro}>
         Find answers to common questions about SkateHubba below. Still need help? Reach out to us.
       </Text>
@@ -72,10 +60,12 @@ function FaqScreenContent() {
       ))}
 
       <TouchableOpacity
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel="Email support at support@skatehubba.com"
         style={styles.contactButton}
         onPress={() => Linking.openURL("mailto:support@skatehubba.com")}
       >
-        <Ionicons name="mail" size={18} color={SKATE.colors.ink} style={styles.contactIcon} />
         <Text style={styles.contactButtonText}>Email Support</Text>
       </TouchableOpacity>
 
@@ -99,21 +89,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: SKATE.spacing.lg,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: SKATE.spacing.lg,
-  },
-  backButton: {
-    width: 40,
-    alignItems: "flex-start",
-  },
-  title: {
-    color: SKATE.colors.white,
-    fontSize: SKATE.fontSize.xl,
-    fontWeight: SKATE.fontWeight.bold,
   },
   intro: {
     color: SKATE.colors.gray,
@@ -147,9 +122,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: SKATE.spacing.lg,
-  },
-  contactIcon: {
-    marginRight: SKATE.spacing.sm,
+    minHeight: SKATE.accessibility.minimumTouchTarget,
   },
   contactButtonText: {
     color: SKATE.colors.ink,

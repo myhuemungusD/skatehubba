@@ -121,20 +121,28 @@ function SettingsScreenContent() {
           text: "Delete Account",
           style: "destructive",
           onPress: async () => {
+            const currentUser = auth.currentUser;
+            if (!currentUser) return;
             try {
-              await removePushTokenFromServer();
-              await apiRequest("/api/profile", { method: "DELETE" });
-              const currentUser = auth.currentUser;
-              if (currentUser) {
-                await deleteUser(currentUser);
+              // Delete Firebase account first — if this requires re-auth, nothing
+              // server-side has been touched yet and the user can try again.
+              await deleteUser(currentUser);
+              // Firebase account gone; now clean up server-side data.
+              try {
+                await removePushTokenFromServer();
+              } catch {
+                // Non-fatal — push token cleanup failure doesn't block deletion.
               }
+              await apiRequest("/api/profile", { method: "DELETE" });
+              // Auth state listener will redirect; explicit replace ensures immediate
+              // navigation even if the listener fires with a slight delay.
               router.replace("/auth/sign-in");
             } catch (error: unknown) {
               const code = (error as { code?: string })?.code;
               if (code === "auth/requires-recent-login") {
                 Alert.alert(
                   "Re-authentication Required",
-                  "For security, please sign out and sign back in, then try again."
+                  "For security, please sign out and sign back in before deleting your account."
                 );
               } else {
                 Alert.alert("Error", "Failed to delete account. Please try again.");
@@ -178,7 +186,13 @@ function SettingsScreenContent() {
             icon="key"
             title="Change Password"
             onPress={async () => {
-              if (!user?.email) return;
+              if (!user?.email) {
+                Alert.alert(
+                  "No Email Address",
+                  "Your account doesn't have an email address associated with it. Password reset is not available."
+                );
+                return;
+              }
               try {
                 await sendPasswordResetEmail(auth, user.email);
                 Alert.alert(
@@ -239,7 +253,10 @@ function SettingsScreenContent() {
             rightElement={
               <Switch
                 value={locationEnabled}
-                onValueChange={setLocationEnabled}
+                onValueChange={(val) => {
+                  setLocationEnabled(val);
+                  updatePref("locationEnabled", val);
+                }}
                 trackColor={{ false: SKATE.colors.darkGray, true: SKATE.colors.orange }}
                 thumbColor={SKATE.colors.white}
               />

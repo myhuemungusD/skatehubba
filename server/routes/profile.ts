@@ -315,6 +315,11 @@ router.delete("/", requireFirebaseUid, async (req: FirebaseAuthedRequest, res) =
   const firebaseUid = req.firebaseUid;
   try {
     const db = getDb();
+    // Delete the onboarding profile (uid = firebaseUid). This is the primary
+    // profile record for Firebase-authenticated users.
+    await db.delete(onboardingProfiles).where(eq(onboardingProfiles.uid, firebaseUid));
+    // Also remove any custom-auth user record linked to this Firebase UID.
+    // The customUsers table cascades to spots, battles, etc. on deletion.
     await db.delete(customUsers).where(eq(customUsers.firebaseUid, firebaseUid));
     res.json({ success: true });
   } catch (err) {
