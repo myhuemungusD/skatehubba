@@ -4,7 +4,7 @@ import { profileCreateSchema, usernameSchema } from "@shared/validation/profile"
 import { admin } from "../admin";
 import { env } from "../config/env";
 import { getDb } from "../db";
-import { onboardingProfiles } from "@shared/schema";
+import { onboardingProfiles, customUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
 import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
@@ -308,6 +308,18 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
       "PROFILE_CREATE_FAILED",
       "Failed to create profile. Please try again."
     );
+  }
+});
+
+router.delete("/", requireFirebaseUid, async (req: FirebaseAuthedRequest, res) => {
+  const firebaseUid = req.firebaseUid;
+  try {
+    const db = getDb();
+    await db.delete(customUsers).where(eq(customUsers.firebaseUid, firebaseUid));
+    res.json({ success: true });
+  } catch (err) {
+    logger.error("[Profile] Failed to delete account", { firebaseUid, err });
+    res.status(500).json({ error: "Failed to delete account" });
   }
 });
 
