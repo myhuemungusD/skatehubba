@@ -44,6 +44,12 @@ While other apps (Shred Spots, The Spot Guide, Skately) focus on passive discove
 - [ ] **Load Testing** - Benchmark performance at 10k+ concurrent users
 - [ ] **Performance Monitoring** - Real-time dashboards for uptime/errors
 
+### 🗄️ Database Consolidation — Phase 1 (Cleanup)
+- [ ] **Remove legacy Firestore collections** - Drop rules for `signups`, `mail`, `mailList`, `subscriptions`
+- [ ] **Deprecate Firestore `gameSessions`** - PostgreSQL `game_sessions` table is the replacement
+- [ ] **Unify `challenges` table** - Extend PostgreSQL schema for Remote S.K.A.T.E. challenges with write-through to Firestore
+- See [DATABASE_CONSOLIDATION_PLAN.md](docs/DATABASE_CONSOLIDATION_PLAN.md)
+
 ### 📚 Documentation
 - [ ] **OpenAPI/Swagger Schema** - Auto-generated API docs
 - [ ] **Game Tutorial** - Interactive walkthrough for new players
@@ -75,6 +81,13 @@ While other apps (Shred Spots, The Spot Guide, Skately) focus on passive discove
 - [ ] **Social Sharing** - Share trick clips to Instagram/TikTok/Twitter
 - [ ] **Highlight Reels** - Auto-generate montages from game clips
 
+### 🗄️ Database Consolidation — Phase 2 (Game Unification)
+- [ ] **Create PostgreSQL tables for Remote S.K.A.T.E.** - `remote_skate_games`, `remote_skate_rounds`, `remote_skate_videos`
+- [ ] **Implement write-through** - Server writes to PostgreSQL first, projects to Firestore for real-time
+- [ ] **Backfill existing Firestore game data** - One-time migration of all Remote S.K.A.T.E. history to PostgreSQL
+- [ ] **Unified cross-mode leaderboards** - Single SQL query across both game modes
+- See [DATABASE_CONSOLIDATION_PLAN.md](docs/DATABASE_CONSOLIDATION_PLAN.md)
+
 ---
 
 ## Q3 2026 (Jul - Sep) - Monetization & Growth
@@ -90,6 +103,13 @@ While other apps (Shred Spots, The Spot Guide, Skately) focus on passive discove
 - [ ] **Trick Success Rates** - Which tricks you land most/least
 - [ ] **Head-to-Head Records** - Stats against specific opponents
 - [ ] **Meta Analysis** - Which tricks are most effective in S.K.A.T.E.
+
+### 🗄️ Database Consolidation — Phase 3 (Commerce)
+- [ ] **Migrate commerce to PostgreSQL** - Products, orders, holds move from Firestore to PostgreSQL
+- [ ] **Replace sharded Firestore counters** - PostgreSQL `FOR UPDATE` locks for stock management
+- [ ] **Move Cloud Functions commerce logic to Express** - `holdAndCreatePaymentIntent` becomes an Express route
+- [ ] **Decommission Firestore commerce collections** - Remove `products`, `holds`, `orders` from Firestore
+- See [DATABASE_CONSOLIDATION_PLAN.md](docs/DATABASE_CONSOLIDATION_PLAN.md)
 
 ### 🎨 Customization
 - [ ] **Profile Themes** - Customize profile appearance
