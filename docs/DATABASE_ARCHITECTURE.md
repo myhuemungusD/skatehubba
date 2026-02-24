@@ -199,6 +199,12 @@ await db.update(games)
 - Removed Firestore user duplication (users, usernames, spots are PostgreSQL-only)
 - Firestore rules no longer include `/users/`, `/usernames/`, or `/spots/` collections
 
+### 🔄 In Progress — Database Consolidation
+
+Remote S.K.A.T.E. game data and commerce data currently live in Firestore without PostgreSQL backing. A phased consolidation plan migrates all persistent business data to PostgreSQL while keeping Firestore as a real-time projection layer.
+
+**See [DATABASE_CONSOLIDATION_PLAN.md](DATABASE_CONSOLIDATION_PLAN.md)** for the full roadmap, collection-by-collection disposition, and migration phases.
+
 ---
 
 ## Development Guidelines

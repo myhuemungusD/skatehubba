@@ -81,15 +81,14 @@ export default tseslint.config(
       // React hooks - relaxed for complex effects
       "react-hooks/exhaustive-deps": "warn",
 
-      // Accessibility (jsx-a11y) — warn for rules that have many existing violations
-      // so the linter can surface issues without blocking the build
-      "jsx-a11y/no-autofocus": "warn",
-      "jsx-a11y/label-has-associated-control": "warn",
-      "jsx-a11y/media-has-caption": "warn",
-      "jsx-a11y/click-events-have-key-events": "warn",
-      "jsx-a11y/no-static-element-interactions": "warn",
-      "jsx-a11y/heading-has-content": "warn",
-      "jsx-a11y/anchor-has-content": "warn",
+      // Accessibility (jsx-a11y) — all violations have been fixed; enforce as errors
+      "jsx-a11y/no-autofocus": "error",
+      "jsx-a11y/label-has-associated-control": "error",
+      "jsx-a11y/media-has-caption": "error",
+      "jsx-a11y/click-events-have-key-events": "error",
+      "jsx-a11y/no-static-element-interactions": "error",
+      "jsx-a11y/heading-has-content": "error",
+      "jsx-a11y/anchor-has-content": "error",
       "jsx-a11y/img-redundant-alt": "error",
 
       // General quality

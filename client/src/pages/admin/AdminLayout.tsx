@@ -87,8 +87,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Close menu"
           className="fixed inset-0 bg-black/60 z-40 md:hidden"
           onClick={() => setMobileOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setMobileOpen(false);
+          }}
         />
       )}
 
