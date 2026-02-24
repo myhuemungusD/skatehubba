@@ -41,6 +41,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@sentry/react": "^10.32.1",
     "@skatehubba/config": "workspace:*",
+    "@skatehubba/firebase": "workspace:*",
     "@skatehubba/types": "workspace:*",
     "@stripe/react-stripe-js": "^2.8.0",
     "@stripe/stripe-js": "^4.8.0",

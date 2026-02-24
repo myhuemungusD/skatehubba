@@ -26,6 +26,7 @@
     "@expo/vector-icons": "^15.0.3",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@skatehubba/config": "workspace:*",
+    "@skatehubba/firebase": "workspace:*",
     "@skatehubba/types": "workspace:*",
     "@tanstack/react-query": "^5.90.0",
     "date-fns": "^3.6.0",

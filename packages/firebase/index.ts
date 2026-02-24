@@ -1,3 +1,1 @@
-// Placeholder for shared Firebase configuration
-// Move Firebase config files here as needed
-export {};
+export * from "./src/baseAuthStore";

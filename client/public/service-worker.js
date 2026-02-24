@@ -40,6 +40,10 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
+  // Only handle http/https requests (Cache API doesn't support other schemes)
+  const url = new URL(event.request.url);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
   // Skip API calls for real-time data
   if (event.request.url.includes('/api/')) return;
 

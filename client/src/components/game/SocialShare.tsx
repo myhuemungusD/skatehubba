@@ -181,9 +181,9 @@ export function SocialShare({
 
           {/* Copy Link */}
           <div className="space-y-2">
-            <label className="text-xs text-gray-400 uppercase tracking-wider font-semibold">
+            <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">
               Or copy link
-            </label>
+            </p>
             <div className="flex gap-2">
               <div className="flex-1 bg-black/60 border border-neutral-800 rounded-md px-3 py-2 text-sm text-gray-300 truncate">
                 {shareUrl}
