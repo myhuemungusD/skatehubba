@@ -258,3 +258,11 @@ useEffect(() => {
 | Firestore | Real-time projection | Server only (after PostgreSQL) | Client (for subscriptions) |
 
 **When in doubt: PostgreSQL is the answer.**
+
+---
+
+## Consolidation Roadmap
+
+Remote S.K.A.T.E. game data (`games`, `rounds`, `videos`) and commerce data (`products`, `holds`, `orders`) currently live in Firestore without PostgreSQL backing. These are being migrated to PostgreSQL as source of truth in a phased plan.
+
+**See [DATABASE_CONSOLIDATION_PLAN.md](../DATABASE_CONSOLIDATION_PLAN.md)** for the full migration roadmap, collection-by-collection disposition, and timeline.
