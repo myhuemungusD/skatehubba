@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Seven parallel audits across the database layer surfaced **27 distinct findings**: 8 critical, 9 high, 8 medium, 2 low. The PostgreSQL layer is solid — proper indexes, transactions, connection pooling, row-level locking, no N+1 patterns. The problems concentrate in three areas:
+Seven parallel audits across the database layer surfaced **30 distinct findings**: 9 critical, 9 high, 10 medium, 2 low. The PostgreSQL layer is solid — proper indexes, transactions, connection pooling, row-level locking, no N+1 patterns. The problems concentrate in three areas:
 
 1. **Firestore projection sync is largely unimplemented** — 4 of 5 documented projections have no sync code
 2. **Security rules and client code are out of sync** — 3 collection path mismatches cause runtime failures
@@ -91,6 +91,15 @@ Products, holds, orders, stock shards, and webhook deduplication all live in Fir
 Server writes to root-level `games` and `rounds` collections (`firestore.collection("games")`). The architecture documents `getEnvPath()` for environment namespacing (`env/prod/games/...`), but the server bypasses it entirely. Staging and production write to the same Firestore collections.
 
 **Fix:** Wrap all server-side Firestore collection references with `getEnvPath()`. Add startup assertion via `assertEnvWiring()` from `@skatehubba/config`.
+
+---
+
+### C9. Missing Firestore Rules for `rate_limits` Collection
+**File:** `functions/src/shared/rateLimit.ts:27`
+
+Cloud Functions use a `rate_limits/{uid}` collection for Firestore-based rate limiting via transactions. This collection has **no rules defined** in `firestore.rules`. The Admin SDK bypasses rules (so server-side calls work), but if any client code ever references this collection, it would fail. More importantly, the collection is undocumented and invisible in the rules file — a maintenance hazard.
+
+**Fix:** Add explicit deny rules for `rate_limits` collection in `firestore.rules` to document its existence and ensure no client access: `match /rate_limits/{doc} { allow read, write: if false; }`
 
 ---
 
@@ -256,6 +265,34 @@ Server uses `NODE_ENV` (development/production/test) but doesn't map to `APP_ENV
 
 ---
 
+### M9. Orphaned Firestore Rules for Migrated Collections
+**Files:** `firestore.rules:90-105`
+
+Rules exist for `moderation_users`, `reports`, `mod_actions`, `moderation_quotas` — all of which were migrated to PostgreSQL in migration `0005_consolidate_to_postgresql.sql`. The rules are all-deny (`allow read, write: if false` or owner-read-only), so they're not a security issue, but they're dead weight that creates confusion about what's active.
+
+**Fix:** Remove rules for fully migrated collections. Add comment listing them as historical.
+
+---
+
+### M10. Dead PostgreSQL Tables Never Queried
+**Files:** `packages/shared/schema/tricks.ts`, `tutorials.ts`, `notifications.ts`, `commerce.ts`
+
+Several tables are defined in the schema but never imported or queried in server code:
+
+| Table | Schema File | Status |
+|-------|------------|--------|
+| `trickMastery` | tricks.ts | Defined, never queried |
+| `tutorialSteps` | tutorials.ts | Defined, never queried |
+| `userProgress` | tutorials.ts | Defined, never queried |
+| `notificationPreferences` | notifications.ts | Defined, never queried |
+| `donations` | commerce.ts | Defined, never queried |
+
+Not harmful (empty tables cost nothing in Neon), but creates schema bloat and false expectations about feature completeness.
+
+**Fix:** Either implement the features that use these tables or mark them as `@deprecated` with a TODO comment indicating they're placeholders for future features.
+
+---
+
 ## LOW Findings
 
 ### L1. Signup Email Regex Too Permissive
@@ -300,6 +337,7 @@ Pattern `^[^@\s]+@[^@\s]+\.[^@\s]+$` accepts invalid emails like `a@b.c`.
 | C4 | Implement notification Firestore sync | 2 hr |
 | C5 | Add sync health monitoring job | 4 hr |
 | C8 | Add `getEnvPath()` to server Firestore writes | 1 hr |
+| C9 | Add `rate_limits` deny rule to firestore.rules | 5 min |
 | H1 | Move user doc creation server-side | 2 hr |
 | H4 | Fix Firestore rule helper null pointer risk | 30 min |
 | H6 | Fix restock silent failure + partial batch | 3 hr |
