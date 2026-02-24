@@ -11,9 +11,13 @@
 import * as functions from "firebase-functions";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import * as admin from "firebase-admin";
+import type { DocumentData } from "firebase-admin/firestore";
 import { monitoredTransaction } from "../shared/transaction";
 import { VOTE_REMINDER_BEFORE_MS } from "./constants";
 import type { JudgmentVotes } from "./judgeTrick";
+
+/** Firestore game session document data */
+type GameDocument = DocumentData;
 
 /**
  * Scheduled function that runs every 15 seconds to:
@@ -63,7 +67,7 @@ export const processVoteTimeouts = onSchedule("every 15 seconds", async () => {
  */
 async function sendVoteReminderNotifications(
   gameId: string,
-  game: FirebaseFirestore.DocumentData
+  game: GameDocument
 ): Promise<void> {
   const db = admin.firestore();
 
@@ -135,7 +139,7 @@ async function sendVoteReminderNotifications(
  */
 async function autoResolveVoteTimeout(
   gameId: string,
-  game: FirebaseFirestore.DocumentData
+  game: GameDocument
 ): Promise<void> {
   const db = admin.firestore();
   const gameRef = db.doc(`game_sessions/${gameId}`);
@@ -210,7 +214,7 @@ async function autoResolveVoteTimeout(
  */
 async function sendTimeoutNotifications(
   gameId: string,
-  game: FirebaseFirestore.DocumentData
+  game: GameDocument
 ): Promise<void> {
   const db = admin.firestore();
   const playerIds = [game.player1Id, game.player2Id];
