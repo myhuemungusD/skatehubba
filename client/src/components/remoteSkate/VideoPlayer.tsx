@@ -88,7 +88,9 @@ export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
           preload="metadata"
           className="w-full max-h-[300px] object-contain"
           onError={() => setHasError(true)}
-        />
+        >
+          <track kind="captions" />
+        </video>
       </div>
     </div>
   );

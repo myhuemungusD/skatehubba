@@ -235,10 +235,11 @@ export default function TrickMintPage() {
             <div className="space-y-4">
               {/* Trick Name */}
               <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                <label htmlFor="trick-name" className="block text-sm font-medium text-neutral-300 mb-2">
                   Trick Name *
                 </label>
                 <Input
+                  id="trick-name"
                   placeholder="Kickflip, Tre Flip, Nollie Heel..."
                   value={trickName}
                   onChange={(e) => setTrickName(e.target.value)}
@@ -250,10 +251,11 @@ export default function TrickMintPage() {
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
+                <label htmlFor="trick-description" className="block text-sm font-medium text-neutral-300 mb-2">
                   Description (optional)
                 </label>
                 <Input
+                  id="trick-description"
                   placeholder="First try, flat ground, etc."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -415,7 +417,9 @@ export default function TrickMintPage() {
                 playsInline
                 controlsList="nodownload noplaybackrate"
                 disablePictureInPicture
-              />
+              >
+                <track kind="captions" />
+              </video>
             </div>
           </div>
         </div>

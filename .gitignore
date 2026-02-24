@@ -10,6 +10,7 @@ npm-shrinkwrap.json
 .env.local
 .env.production
 .env.development
+.env.staging
 .env.*.local
 .env.backup
 .jwt-secret.dev

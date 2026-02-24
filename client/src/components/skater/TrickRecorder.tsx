@@ -189,7 +189,9 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
               playsInline
               muted
               className="w-full h-full object-cover"
-            />
+            >
+              <track kind="captions" />
+            </video>
 
             {/* Camera Overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/50 pointer-events-none">
@@ -245,22 +247,24 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
         ) : (
           <>
             {/* Video Preview */}
-            <video ref={previewRef} controls className="w-full h-full object-cover" />
+            <video ref={previewRef} controls className="w-full h-full object-cover">
+              <track kind="captions" />
+            </video>
 
             {/* Preview Overlay */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
               {/* Trick Name Input */}
               <div className="mb-6">
-                <label className="block text-white text-sm font-semibold mb-2">
+                <label htmlFor="trick-name-input" className="block text-white text-sm font-semibold mb-2">
                   Name Your Trick
                 </label>
                 <input
+                  id="trick-name-input"
                   type="text"
                   value={trickName}
                   onChange={(e) => setTrickName(e.target.value)}
                   placeholder="e.g., Kickflip, Heelflip, 360 Flip..."
                   className="w-full bg-zinc-800 text-white px-4 py-3 rounded-xl border-2 border-zinc-700 focus:border-orange-500 outline-none transition-all"
-                  autoFocus
                 />
               </div>
 

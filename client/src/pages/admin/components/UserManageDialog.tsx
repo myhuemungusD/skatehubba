@@ -62,7 +62,7 @@ export function UserManageDialog({
           <div className="space-y-4">
             {/* Trust Level */}
             <div>
-              <label className="text-sm text-neutral-400 block mb-1.5">Trust Level</label>
+              <p className="text-sm text-neutral-400 block mb-1.5">Trust Level</p>
               <Select
                 value={String(user.trustLevel)}
                 onValueChange={(val) => {
@@ -85,7 +85,7 @@ export function UserManageDialog({
 
             {/* Account Tier Override */}
             <div>
-              <label className="text-sm text-neutral-400 block mb-1.5">Account Tier</label>
+              <p className="text-sm text-neutral-400 block mb-1.5">Account Tier</p>
               <Select
                 value={user.accountTier}
                 onValueChange={(val) => {
@@ -107,7 +107,7 @@ export function UserManageDialog({
 
             {/* Pro Verification */}
             <div>
-              <label className="text-sm text-neutral-400 block mb-1.5">Pro Verification</label>
+              <p className="text-sm text-neutral-400 block mb-1.5">Pro Verification</p>
               <div className="flex gap-2">
                 <Button
                   size="sm"
@@ -141,7 +141,7 @@ export function UserManageDialog({
 
             {/* Ban Actions */}
             <div>
-              <label className="text-sm text-neutral-400 block mb-1.5">Moderation Actions</label>
+              <p className="text-sm text-neutral-400 block mb-1.5">Moderation Actions</p>
               <div className="flex gap-2">
                 {user.moderation?.isBanned ? (
                   <span className="text-xs text-red-400 flex items-center gap-1">
