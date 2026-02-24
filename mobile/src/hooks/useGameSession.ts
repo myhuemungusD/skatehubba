@@ -173,7 +173,7 @@ async function uploadWithRetry(
     } catch (error) {
       lastError = error as Error;
       if (attempt < MAX_RETRIES) {
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- retry progress is emitted to console so it appears in Metro/device logs during development; no structured logger is available in this mobile utility
         console.log(`[Upload] Retry ${attempt + 1}/${MAX_RETRIES} after error`);
         await sleep(RETRY_DELAYS[attempt]);
         onProgress(0); // Reset progress for retry

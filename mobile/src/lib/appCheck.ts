@@ -75,7 +75,7 @@ export function initAppCheck(firebaseApp: FirebaseApp): void {
         isTokenAutoRefreshEnabled: false,
       });
 
-      // eslint-disable-next-line no-console
+      // eslint-disable-next-line no-console -- startup diagnostic emitted only in local/debug builds; confirms which App Check provider is active
       console.log("[AppCheck] Initialized with debug provider");
     } else {
       // Production and staging: use a custom provider that integrates
@@ -109,7 +109,7 @@ export function initAppCheck(firebaseApp: FirebaseApp): void {
       });
 
       if (__DEV__) {
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- startup diagnostic guarded by __DEV__; confirms App Check is active in non-production builds
         console.log(`[AppCheck] Initialized for ${env}`);
       }
     }
