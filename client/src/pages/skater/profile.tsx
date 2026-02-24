@@ -8,6 +8,14 @@ import { ChallengeButton } from "@/components/skater/ChallengeButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import type { UserProfile } from "@shared/schema";
+import { Layers, Settings, Circle, Footprints } from "lucide-react";
+
+const CLOSET_CATEGORIES = [
+  { label: "Decks", icon: Layers },
+  { label: "Trucks", icon: Settings },
+  { label: "Wheels", icon: Circle },
+  { label: "Shoes", icon: Footprints },
+] as const;
 
 export default function SkaterProfile() {
   const params = useParams();
@@ -144,14 +152,23 @@ export default function SkaterProfile() {
         </div>
       </section>
 
-      {/* Closet - Coming Soon */}
+      {/* Closet */}
       <section className="mx-auto w-full max-w-6xl px-4 pb-24 pt-8">
         <h2 className="mb-4 text-lg font-semibold uppercase tracking-wide text-orange-400">
           Closet
         </h2>
-        <Card className="bg-neutral-900 border-neutral-700 p-8 text-center">
-          <p className="text-neutral-400">Closet collectibles coming soon!</p>
-        </Card>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {CLOSET_CATEGORIES.map(({ label, icon: Icon }) => (
+            <Card
+              key={label}
+              className="bg-neutral-900 border-neutral-700 p-6 flex flex-col items-center gap-2 text-center"
+            >
+              <Icon className="w-8 h-8 text-neutral-600" />
+              <p className="text-sm font-medium text-neutral-300">{label}</p>
+              <p className="text-xs text-neutral-600">None yet</p>
+            </Card>
+          ))}
+        </div>
       </section>
 
       {/* Footer brand strip */}

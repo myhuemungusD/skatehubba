@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
 import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
 import { createProfileWithRollback, createUsernameStore } from "../services/profileService";
+import { deleteUser } from "../services/userService";
 import logger from "../logger";
 import { MAX_AVATAR_BYTES, MAX_USERNAME_GENERATION_ATTEMPTS } from "../config/constants";
 import { Errors } from "../utils/apiError";
@@ -308,6 +309,25 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
       "PROFILE_CREATE_FAILED",
       "Failed to create profile. Please try again."
     );
+  }
+});
+
+/**
+ * DELETE /api/profile
+ * Permanently deletes the authenticated user's database record.
+ * The client is responsible for subsequently calling Firebase deleteUser()
+ * to remove the Auth account and revoke the session.
+ */
+router.delete("/", requireFirebaseUid, async (req, res) => {
+  const uid = (req as FirebaseAuthedRequest).firebaseUid;
+
+  try {
+    await deleteUser(uid);
+    logger.info("[Profile] Account deleted", { uid });
+    return res.status(204).send();
+  } catch (error) {
+    logger.error("[Profile] Account deletion failed", { uid, error });
+    return Errors.internal(res, "ACCOUNT_DELETE_FAILED", "Failed to delete account. Please try again.");
   }
 });
 
