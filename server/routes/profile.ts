@@ -4,7 +4,7 @@ import { profileCreateSchema, usernameSchema } from "@shared/validation/profile"
 import { admin } from "../admin";
 import { env } from "../config/env";
 import { getDb } from "../db";
-import { onboardingProfiles } from "@shared/schema";
+import { onboardingProfiles, customUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
 import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
@@ -308,6 +308,23 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
       "PROFILE_CREATE_FAILED",
       "Failed to create profile. Please try again."
     );
+  }
+});
+
+router.delete("/", requireFirebaseUid, async (req, res) => {
+  const { firebaseUid } = req as FirebaseAuthedRequest;
+  try {
+    const db = getDb();
+    // Delete the onboarding profile (uid = firebaseUid). This is the primary
+    // profile record for Firebase-authenticated users.
+    await db.delete(onboardingProfiles).where(eq(onboardingProfiles.uid, firebaseUid));
+    // Also remove any custom-auth user record linked to this Firebase UID.
+    // The customUsers table cascades to spots, battles, etc. on deletion.
+    await db.delete(customUsers).where(eq(customUsers.firebaseUid, firebaseUid));
+    res.json({ success: true });
+  } catch (err) {
+    logger.error("[Profile] Failed to delete account", { firebaseUid, err });
+    res.status(500).json({ error: "Failed to delete account" });
   }
 });
 
