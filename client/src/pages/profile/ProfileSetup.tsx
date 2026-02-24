@@ -43,19 +43,13 @@ export default function ProfileSetup() {
     checkUsernameAvailability,
   } = useUsernameCheck(username);
 
-  const {
-    submitting,
-    submitError,
-    failCount,
-    onSubmit,
-    handleSkip,
-    handleContinue,
-  } = useProfileSubmit(
-    usernameStatus,
-    setUsernameStatus,
-    setUsernameMessage,
-    checkUsernameAvailability
-  );
+  const { submitting, submitError, failCount, onSubmit, handleSkip, handleContinue } =
+    useProfileSubmit(
+      usernameStatus,
+      setUsernameStatus,
+      setUsernameMessage,
+      checkUsernameAvailability
+    );
 
   const submitDisabled = Boolean(
     submitting ||
@@ -132,9 +126,9 @@ export default function ProfileSetup() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)} noValidate>
           {userEmail && (
             <div className="space-y-2">
-              <label className="text-sm font-semibold text-neutral-200" id="email-label">
+              <p className="text-sm font-semibold text-neutral-200" id="email-label">
                 Email
-              </label>
+              </p>
               <div className="relative">
                 <AtSign
                   className="absolute left-3 top-3.5 h-4 w-4 text-neutral-500"

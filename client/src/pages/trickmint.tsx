@@ -235,7 +235,10 @@ export default function TrickMintPage() {
             <div className="space-y-4">
               {/* Trick Name */}
               <div>
-                <label htmlFor="trick-name" className="block text-sm font-medium text-neutral-300 mb-2">
+                <label
+                  htmlFor="trick-name"
+                  className="block text-sm font-medium text-neutral-300 mb-2"
+                >
                   Trick Name *
                 </label>
                 <Input
@@ -251,7 +254,10 @@ export default function TrickMintPage() {
 
               {/* Description */}
               <div>
-                <label htmlFor="trick-description" className="block text-sm font-medium text-neutral-300 mb-2">
+                <label
+                  htmlFor="trick-description"
+                  className="block text-sm font-medium text-neutral-300 mb-2"
+                >
                   Description (optional)
                 </label>
                 <Input
@@ -395,12 +401,22 @@ export default function TrickMintPage() {
       {/* ====== VIDEO PLAYER MODAL ====== */}
       {selectedVideo && (
         <div
+          role="button"
+          tabIndex={0}
+          aria-label="Close video modal"
           className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4"
-          onClick={() => setSelectedVideo(null)}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setSelectedVideo(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") setSelectedVideo(null);
+          }}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Video player"
             className="bg-neutral-900 rounded-none sm:rounded-lg p-2 sm:p-4 w-full sm:max-w-lg"
-            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-medium text-neutral-400">Video</h3>
