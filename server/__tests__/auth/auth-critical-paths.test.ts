@@ -330,13 +330,11 @@ describe("Auth Flow - Critical Paths", () => {
       expect(result.success).toBe(true);
     });
 
-    it("generatePasswordResetToken succeeds for unverified user", async () => {
+    it("generatePasswordResetToken returns null for unverified user", async () => {
       mockDbReturns.selectResult = [{ id: "user-1", isEmailVerified: false }];
-      mockDbReturns.updateResult = [];
 
       const token = await AuthService.generatePasswordResetToken("unverified@test.com");
-      expect(token).toBeDefined();
-      expect(typeof token).toBe("string");
+      expect(token).toBeNull();
     });
 
     it("generatePasswordResetToken returns null for nonexistent user", async () => {

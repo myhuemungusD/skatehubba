@@ -1078,12 +1078,10 @@ describe("AuthService - Additional Coverage", () => {
       expect(token).toBeNull();
     });
 
-    it("succeeds for unverified email user", async () => {
+    it("returns null for unverified email user", async () => {
       mockDbReturns.selectResult = [{ id: "u1", isEmailVerified: false }];
-      mockDbReturns.updateResult = [];
       const token = await AuthService.generatePasswordResetToken("unverified@test.com");
-      expect(token).toBeDefined();
-      expect(typeof token).toBe("string");
+      expect(token).toBeNull();
     });
   });
 
