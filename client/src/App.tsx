@@ -18,7 +18,10 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import { logger } from "./lib/logger";
 import AppRoutes from "./routes/AppRoutes";
 
+/** L9: Only render build stamp in development to prevent info leakage */
 function BuildStamp() {
+  if (!import.meta.env.DEV) return null;
+
   const commit = import.meta.env.VITE_COMMIT_SHA || "dev";
   const buildTime = import.meta.env.VITE_BUILD_TIME || new Date().toISOString();
   return (
@@ -91,19 +94,6 @@ export default function App() {
       logger.info("Firebase Analytics initialized successfully");
     }
   }, []);
-
-  // Expose UID only in dev, Cypress, or explicit E2E mode
-  const { user, isInitialized } = useAuth();
-  useEffect(() => {
-    if (!isInitialized) return;
-    const exposeUid =
-      import.meta.env.DEV ||
-      (typeof window !== "undefined" && window.Cypress) ||
-      import.meta.env.VITE_E2E === "true";
-    if (exposeUid && typeof window !== "undefined") {
-      window.__SKATEHUBBA_UID__ = user?.uid ?? null;
-    }
-  }, [isInitialized, user]);
 
   return (
     <ErrorBoundary>

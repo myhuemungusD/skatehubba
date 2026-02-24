@@ -121,12 +121,11 @@ function initFirebase() {
     return;
   }
 
-  if (!isProd()) {
+  // L9: Only log Firebase config in true local development
+  if (import.meta.env.DEV && typeof window !== "undefined" && window.location.hostname === "localhost") {
     const banner = getEnvBanner();
     logger.log(`[Firebase] ${banner}`);
     logger.log("[Firebase] Environment:", getAppEnv());
-    logger.log("[Firebase] Project ID:", config.projectId);
-    logger.log("[Firebase] App ID:", config.appId.substring(0, 30) + "...");
   }
 
   app = getApps().length ? getApp() : initializeApp(config);

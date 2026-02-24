@@ -4,9 +4,13 @@ import { lt } from "drizzle-orm";
 import { getDb } from "../db";
 import { verifyCronSecret } from "../middleware/cronAuth";
 import { forfeitExpiredGames, notifyDeadlineWarnings } from "./games";
+import { apiLimiter } from "../middleware/security";
 import logger from "../logger";
 
 const router = Router();
+
+// H9: Rate limit cron endpoints to mitigate brute-force secret guessing
+router.use(apiLimiter);
 
 // POST /api/cron/forfeit-expired-games — auto-forfeit expired games
 router.post("/forfeit-expired-games", async (req, res) => {

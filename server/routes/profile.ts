@@ -7,6 +7,7 @@ import { getDb } from "../db";
 import { onboardingProfiles, userProfiles, closetItems } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
+import { authenticateUser } from "../auth/middleware";
 import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
 import { createProfileWithRollback, createUsernameStore } from "../services/profileService";
 import { deleteUser } from "../services/userService";
@@ -324,8 +325,8 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
  *   3. user_profiles     — no FK to customUsers, must be deleted explicitly
  *   4. customUsers       — cascades authSessions and mfaSecrets via DB FK
  */
-router.delete("/", requireFirebaseUid, async (req, res) => {
-  const uid = (req as FirebaseAuthedRequest).firebaseUid;
+router.delete("/", authenticateUser, async (req, res) => {
+  const uid = req.currentUser!.id;
   const database = getDb();
 
   try {

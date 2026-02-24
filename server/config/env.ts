@@ -104,14 +104,18 @@ const envSchema = z.object({
   ALLOWED_ORIGINS: z.string().optional(),
 
   // Redis (optional — enables caching and session store)
-  // Accepts redis:// and rediss:// (TLS) connection strings
+  // L4: Require TLS (rediss://) in production; allow redis:// in development
   REDIS_URL: z
     .string()
     .regex(/^rediss?:\/\//, "REDIS_URL must start with redis:// or rediss://")
+    .refine(
+      (val) => !(process.env.NODE_ENV === "production" && val && !val.startsWith("rediss://")),
+      "REDIS_URL must use TLS (rediss://) in production"
+    )
     .optional(),
 
-  // Cron endpoint protection (recommended in production)
-  CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters").optional(),
+  // M9: Cron endpoint protection — require 32-char minimum (consistent with other secrets)
+  CRON_SECRET: z.string().min(32, "CRON_SECRET must be at least 32 characters").optional(),
 
   // Logging
   LOG_LEVEL: z.enum(["error", "warn", "info", "debug"]).default("info"),

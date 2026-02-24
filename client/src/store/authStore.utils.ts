@@ -23,31 +23,33 @@ export const isPopupSafe = () => {
 
 const profileCacheKey = (uid: string) => `skatehubba.profile.${uid}`;
 
+/**
+ * M13: Only read profile status from cache (not full PII).
+ * Full profile data stays in React state (memory only) and is fetched fresh.
+ */
 export const readProfileCache = (uid: string): ProfileCache | null => {
   if (typeof window === "undefined") return null;
   const raw = sessionStorage.getItem(profileCacheKey(uid));
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as ProfileCache;
-    if (parsed.profile) {
-      return {
-        status: parsed.status,
-        profile: {
-          ...parsed.profile,
-          createdAt: new Date(parsed.profile.createdAt),
-          updatedAt: new Date(parsed.profile.updatedAt),
-        },
-      };
-    }
-    return parsed;
+    // Return status only — profile data comes from server, not cache
+    return { status: parsed.status, profile: null };
   } catch {
     return null;
   }
 };
 
+/**
+ * M13: Only persist profile status to sessionStorage (no PII).
+ * This prevents XSS from accessing user's personal information via sessionStorage.
+ */
 export const writeProfileCache = (uid: string, cache: ProfileCache) => {
   if (typeof window === "undefined") return;
-  sessionStorage.setItem(profileCacheKey(uid), JSON.stringify(cache));
+  sessionStorage.setItem(
+    profileCacheKey(uid),
+    JSON.stringify({ status: cache.status })
+  );
 };
 
 export const clearProfileCache = (uid: string) => {

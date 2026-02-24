@@ -26,28 +26,27 @@ function validateEnv() {
   try {
     const parsed = envSchema.parse(import.meta.env);
     
-    // Validate critical Firebase config in production
+    // H10: Validate critical Firebase config — fail fast in production without console leaks
     if (import.meta.env.PROD) {
       if (!parsed.EXPO_PUBLIC_FIREBASE_API_KEY || parsed.EXPO_PUBLIC_FIREBASE_API_KEY === 'undefined') {
-        console.error('[ENV] CRITICAL: EXPO_PUBLIC_FIREBASE_API_KEY is missing in production!');
+        throw new Error('Critical client configuration missing. Cannot start application.');
       }
       if (!parsed.EXPO_PUBLIC_FIREBASE_PROJECT_ID || parsed.EXPO_PUBLIC_FIREBASE_PROJECT_ID === 'undefined') {
-        console.error('[ENV] CRITICAL: EXPO_PUBLIC_FIREBASE_PROJECT_ID is missing in production!');
+        throw new Error('Critical client configuration missing. Cannot start application.');
       }
     }
     
     return parsed;
   } catch (error) {
-    console.error('[ENV] Environment validation failed:', error);
-    if (error instanceof z.ZodError) {
-      // In production, log the specific missing variables
-      if (import.meta.env.PROD) {
-        console.error('[ENV] Validation errors:', error.errors);
-        throw new Error('Critical environment variables missing. Cannot start application.');
-      }
+    if (import.meta.env.PROD) {
+      // H10: Don't leak validation details to browser console in production
+      throw new Error('Application configuration error.');
     }
     // Development fallback only
     console.warn('[ENV] Using fallback empty env for development');
+    if (import.meta.env.DEV) {
+      console.error('[ENV] Validation failed:', error);
+    }
     return envSchema.parse({});
   }
 }

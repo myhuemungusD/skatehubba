@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { setupAuthRoutes } from "./auth/routes";
-import { authenticateUser } from "./auth/middleware";
+import { authenticateUser, requireAdmin } from "./auth/middleware";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
+import { emailSignupLimiter } from "./middleware/security";
 import { bandwidthDetection } from "./middleware/bandwidth";
 import { analyticsRouter } from "./routes/analytics";
 import { metricsRouter } from "./routes/metrics";
@@ -26,7 +27,7 @@ export function registerRoutes(app: Express): void {
   setupAuthRoutes(app);
 
   app.use("/api/analytics", analyticsRouter);
-  app.use("/api/metrics", metricsRouter);
+  app.use("/api/metrics", authenticateUser, requireAdmin, metricsRouter);
   app.use("/api", moderationRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/profile", profileRouter);
@@ -46,7 +47,7 @@ export function registerRoutes(app: Express): void {
   app.use("/api/posts", postsRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/matchmaking", matchmakingRouter);
-  app.use("/api/beta-signup", betaSignupRouter);
+  app.use("/api/beta-signup", emailSignupLimiter, betaSignupRouter);
   app.use("/api/stats", statsRouter);
   app.use("/api/cron", cronRouter);
 }

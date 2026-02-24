@@ -216,10 +216,10 @@ jobs:
   firebase_rules_verify:
     name: "🔥 Firebase Rules Validation"
     runs-on: ubuntu-latest
-    # Security: Only run on protected branches, not on forks
+    # M8: Run on PRs too (not just main pushes) to catch rule issues before merge
     if: |
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' ||
+       github.event_name == 'pull_request') &&
       github.repository == 'myhuemungusD/skatehubba'
     steps:
       - uses: actions/checkout@v4
