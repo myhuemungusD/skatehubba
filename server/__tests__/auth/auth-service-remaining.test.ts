@@ -6,6 +6,9 @@
  *
  * Lines 423-428: changePassword() with currentSessionToken — the branch where
  *   sessions are deleted and a new session is created.
+ *
+ * Firebase sync: resetPassword/changePassword call admin.auth().updateUser()
+ *   to keep Firebase in sync with the custom DB password.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -17,6 +20,27 @@ vi.mock("../../config/env", () => ({
     JWT_SECRET: "test-jwt-secret-at-least-32-characters-long!",
     SESSION_SECRET: "test-session-secret-at-least-32-chars-long",
     NODE_ENV: "test",
+  },
+}));
+
+// Mock Firebase Admin SDK
+const mockUpdateUser = vi.fn();
+vi.mock("../../admin", () => ({
+  admin: {
+    auth: () => ({
+      updateUser: (...args: any[]) => mockUpdateUser(...args),
+    }),
+  },
+}));
+
+// Mock logger
+const mockLogError = vi.fn();
+vi.mock("../../logger", () => ({
+  default: {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: (...args: any[]) => mockLogError(...args),
+    debug: vi.fn(),
   },
 }));
 
@@ -184,6 +208,165 @@ describe("AuthService — additional coverage", () => {
 
       expect(result.success).toBe(true);
       expect(result.message).toBe("Password changed. All sessions have been logged out.");
+    });
+  });
+
+  describe("resetPassword — Firebase sync", () => {
+    it("updates Firebase password when user has firebaseUid", async () => {
+      mockHash.mockResolvedValueOnce("$2b$12$newhash");
+      mockUpdateUser.mockResolvedValueOnce({});
+
+      // SELECT: find user by reset token
+      mockWhere.mockResolvedValueOnce([
+        {
+          id: "u1",
+          email: "user@example.com",
+          firebaseUid: "firebase-uid-123",
+          resetPasswordToken: "valid-token",
+          resetPasswordExpires: new Date(Date.now() + 86400000),
+        },
+      ]);
+
+      // UPDATE: set new password, clear token (returns updated user)
+      mockReturning.mockResolvedValueOnce([
+        { id: "u1", email: "user@example.com", isEmailVerified: true },
+      ]);
+
+      // deleteAllUserSessions
+      mockReturning.mockResolvedValueOnce([]);
+
+      const result = await AuthService.resetPassword("valid-token", "NewSecure1");
+
+      expect(result).not.toBeNull();
+      expect(mockUpdateUser).toHaveBeenCalledWith("firebase-uid-123", { password: "NewSecure1" });
+    });
+
+    it("aborts reset when Firebase password update fails", async () => {
+      mockHash.mockResolvedValueOnce("$2b$12$newhash");
+      mockUpdateUser.mockRejectedValueOnce(new Error("Firebase unavailable"));
+
+      // SELECT: find user by reset token
+      mockWhere.mockResolvedValueOnce([
+        {
+          id: "u1",
+          email: "user@example.com",
+          firebaseUid: "firebase-uid-123",
+          resetPasswordToken: "valid-token",
+          resetPasswordExpires: new Date(Date.now() + 86400000),
+        },
+      ]);
+
+      const result = await AuthService.resetPassword("valid-token", "NewSecure1");
+
+      expect(result).toBeNull();
+      expect(mockLogError).toHaveBeenCalledWith(
+        "Failed to update Firebase password during reset — aborting reset",
+        expect.objectContaining({ userId: "u1" })
+      );
+    });
+
+    it("skips Firebase update when user has no firebaseUid", async () => {
+      mockHash.mockResolvedValueOnce("$2b$12$newhash");
+
+      // SELECT: user without firebaseUid
+      mockWhere.mockResolvedValueOnce([
+        {
+          id: "u1",
+          email: "user@example.com",
+          resetPasswordToken: "valid-token",
+          resetPasswordExpires: new Date(Date.now() + 86400000),
+        },
+      ]);
+
+      // UPDATE: returns updated user
+      mockReturning.mockResolvedValueOnce([
+        { id: "u1", email: "user@example.com", isEmailVerified: true },
+      ]);
+
+      // deleteAllUserSessions
+      mockReturning.mockResolvedValueOnce([]);
+
+      const result = await AuthService.resetPassword("valid-token", "NewSecure1");
+
+      expect(result).not.toBeNull();
+      expect(mockUpdateUser).not.toHaveBeenCalled();
+    });
+
+    it("returns null when concurrent request already consumed the token", async () => {
+      mockHash.mockResolvedValueOnce("$2b$12$newhash");
+
+      // SELECT: find user by reset token
+      mockWhere.mockResolvedValueOnce([
+        {
+          id: "u1",
+          email: "user@example.com",
+          resetPasswordToken: "valid-token",
+          resetPasswordExpires: new Date(Date.now() + 86400000),
+        },
+      ]);
+
+      // UPDATE: returns empty (token already consumed by concurrent request)
+      mockReturning.mockResolvedValueOnce([]);
+
+      const result = await AuthService.resetPassword("valid-token", "NewSecure1");
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("changePassword — Firebase sync", () => {
+    it("updates Firebase password when user has firebaseUid", async () => {
+      mockUpdateUser.mockResolvedValueOnce({});
+
+      mockWhere.mockResolvedValueOnce([
+        {
+          id: "u1",
+          email: "user@example.com",
+          passwordHash: "firebase-auth-user",
+          firebaseUid: "firebase-uid-123",
+          isEmailVerified: true,
+        },
+      ]);
+
+      mockHash.mockResolvedValueOnce("$2b$12$newhash");
+
+      // update().set().where() for setting new password
+      mockWhere.mockResolvedValueOnce(undefined);
+
+      // deleteAllUserSessions
+      mockReturning.mockResolvedValueOnce([]);
+
+      const result = await AuthService.changePassword("u1", "", "NewPassword456!");
+
+      expect(result.success).toBe(true);
+      expect(mockUpdateUser).toHaveBeenCalledWith("firebase-uid-123", {
+        password: "NewPassword456!",
+      });
+    });
+
+    it("fails when Firebase password update fails", async () => {
+      mockUpdateUser.mockRejectedValueOnce(new Error("Firebase unavailable"));
+
+      mockWhere.mockResolvedValueOnce([
+        {
+          id: "u1",
+          email: "user@example.com",
+          passwordHash: "firebase-auth-user",
+          firebaseUid: "firebase-uid-123",
+          isEmailVerified: true,
+        },
+      ]);
+
+      mockHash.mockResolvedValueOnce("$2b$12$newhash");
+
+      const result = await AuthService.changePassword("u1", "", "NewPassword456!");
+
+      expect(result.success).toBe(false);
+      expect(result.message).toBe("Password change failed. Please try again.");
+      expect(mockLogError).toHaveBeenCalledWith(
+        "Failed to update Firebase password during change",
+        expect.objectContaining({ userId: "u1" })
+      );
     });
   });
 });

@@ -373,20 +373,23 @@ export class AuthService {
 
     // Update Firebase password so signInWithEmailAndPassword works with the new password.
     // Without this, the custom DB and Firebase diverge and the user can never sign in.
+    // IMPORTANT: If this fails, we must abort — otherwise the DB gets the new hash
+    // but Firebase keeps the old password, locking the user out of email/password login.
     if (user.firebaseUid) {
       try {
         await admin.auth().updateUser(user.firebaseUid, { password: newPassword });
       } catch (err) {
-        logger.error("Failed to update Firebase password during reset", {
+        logger.error("Failed to update Firebase password during reset — aborting reset", {
           userId: user.id,
           error: err instanceof Error ? err.message : String(err),
         });
-        // Don't block the reset — the custom DB update still succeeds.
-        // The user can re-authenticate via Google OAuth if Firebase update failed.
+        return null;
       }
     }
 
     // Completing a password reset proves email ownership — mark verified.
+    // Use the token in the WHERE clause (not just user.id) to prevent TOCTOU races:
+    // if a concurrent request already consumed this token, this UPDATE returns 0 rows.
     const [updatedUser] = await getDb()
       .update(customUsers)
       .set({
@@ -398,12 +401,23 @@ export class AuthService {
         emailVerificationExpires: null,
         updatedAt: new Date(),
       })
-      .where(eq(customUsers.id, user.id))
+      .where(and(eq(customUsers.id, user.id), eq(customUsers.resetPasswordToken, token)))
       .returning();
 
-    // SECURITY: Invalidate ALL sessions after password change
-    // This ensures any compromised sessions are logged out
-    await this.deleteAllUserSessions(user.id);
+    if (!updatedUser) return null;
+
+    // SECURITY: Invalidate ALL sessions after password change.
+    // Wrapped in try/catch so a session-deletion failure doesn't mask a successful
+    // reset — the password is already updated in both Firebase and the DB by this
+    // point. Old sessions expire naturally within 24h regardless.
+    try {
+      await this.deleteAllUserSessions(user.id);
+    } catch (err) {
+      logger.error("Failed to invalidate sessions after password reset", {
+        userId: user.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
 
     return updatedUser;
   }
