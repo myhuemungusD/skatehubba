@@ -2,7 +2,7 @@ import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { View, StyleSheet } from "react-native";
 import type React from "react";
-import { openLink } from "@/src/lib/linking";
+import { openLink } from "@/lib/linking";
 
 // tabBarTestID is a valid BottomTabNavigationOptions prop but not yet reflected
 // in expo-router's Tabs.Screen option types. This helper merges it in so the
