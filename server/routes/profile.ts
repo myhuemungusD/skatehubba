@@ -311,8 +311,8 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
   }
 });
 
-router.delete("/", requireFirebaseUid, async (req: FirebaseAuthedRequest, res) => {
-  const firebaseUid = req.firebaseUid;
+router.delete("/", requireFirebaseUid, async (req, res) => {
+  const { firebaseUid } = req as FirebaseAuthedRequest;
   try {
     const db = getDb();
     // Delete the onboarding profile (uid = firebaseUid). This is the primary
