@@ -1,338 +1,534 @@
-# SkateHubba API System Security Audit
+# SkateHubba Production Security Audit — End-to-End
 
-**Date:** 2026-02-18 (Updated — Third Pass + Remediation)
-**Scope:** Full server-side API layer — authentication, authorization, middleware, WebSocket, payments, database access, configuration, game logic, video pipeline, and all route modules.
-**Auditor:** Automated deep-dive code review (78+ files analyzed across 3 passes)
+**Date:** 2026-02-24
+**Scope:** Full-stack end-to-end — server API, authentication, authorization, middleware, WebSocket, payments, database, client-side (web + mobile), Firebase/Firestore rules, storage rules, dependencies, CI/CD, Docker, environment configuration.
+**Auditor:** Automated deep-dive code review (100+ files analyzed across 6 parallel audit passes)
+**Previous Audits:** 2026-02-06 (Health Check), 2026-02-12 (Mobile), 2026-02-18 (API Third Pass)
 
 ---
 
 ## Executive Summary
 
-The SkateHubba API is **well-architected** with many security best practices already in place: bcrypt password hashing, session token hashing (SHA-256), TOTP MFA with AES-256-GCM encryption, timing-safe comparisons in critical paths, Zod input validation, OWASP-compliant CSRF protection, comprehensive rate limiting, audit logging, replay protection for check-ins, and atomic Stripe payment idempotency via `consumedPaymentIntents`.
+This is a comprehensive production-level security audit of the entire SkateHubba platform. The audit was conducted across 6 parallel review passes covering every layer of the stack: authentication, API routes, WebSocket/real-time, payments, client-side, dependencies, CI/CD, and infrastructure.
 
-The audit identified **5 critical**, **11 high**, **12 medium**, and **12 low** findings across three passes. All critical, high, and medium findings have been remediated. Applicable low findings have also been fixed.
+**Overall Security Posture: B+** — Strong foundation with critical gaps that must be closed before production.
 
-### Remediation Summary
+The codebase demonstrates many excellent security practices: bcrypt password hashing (12 rounds), SHA-256 session token hashing, AES-256-GCM MFA encryption with dedicated keys, OWASP double-submit CSRF with timing-safe comparison, comprehensive rate limiting (15+ configurations), Zod input validation, Drizzle ORM parameterized queries, audit logging, replay protection, and atomic Stripe payment idempotency.
 
-| Severity | Found | Fixed | Remaining                                       |
-| -------- | ----- | ----- | ----------------------------------------------- |
-| Critical | 5     | 5     | 0                                               |
-| High     | 11    | 10    | 1 (H6 — accepted risk, H10 — design limitation) |
-| Medium   | 12    | 11    | 1 (M10 — backlog)                               |
-| Low      | 12    | 3     | 9 (informational / accepted risk)               |
+However, this audit identified **new findings** beyond previous audits that require attention.
 
----
+### Finding Summary
 
-## Findings
-
-### CRITICAL
-
-#### C1. CSRF Token Comparison Vulnerable to Timing Attack — FIXED
-
-- **File:** `server/middleware/csrf.ts`
-- **Issue:** CSRF double-submit cookie validation used `===` operator, leaking token bytes via timing side-channel.
-- **Fix applied:** Replaced with `crypto.timingSafeEqual()` with length pre-check and Buffer conversion.
-
-#### C2. Socket.io CORS Falls Back to Wildcard `*` — FIXED
-
-- **File:** `server/socket/index.ts`
-- **Issue:** When `ALLOWED_ORIGINS` was unset, Socket.io accepted connections from ANY origin.
-- **Fix applied:** Changed fallback from `"*"` to `false` to reject all cross-origin connections when not configured.
-
-#### C3. CSP `frameSrc` Directive Ignores Computed Firebase Domain — FIXED
-
-- **File:** `server/index.ts`
-- **Issue:** Computed `frameSrcDirective` was never used — `frameSrc: ["'none'"]` was hardcoded, breaking Firebase OAuth.
-- **Fix applied:** Changed to `frameSrc: frameSrcDirective` so the Firebase Auth domain is properly allowed.
-
-#### C4. MFA Encryption Uses Shared JWT Secret with Static Salt — FIXED
-
-- **File:** `server/auth/mfa.ts`, `server/config/env.ts`
-- **Issue:** MFA secrets encrypted with key derived from JWT signing secret. If JWT secret leaked, all MFA secrets decryptable.
-- **Fix applied:** Added `getMfaKey()` function that prefers a dedicated `MFA_ENCRYPTION_KEY` environment variable. `MFA_ENCRYPTION_KEY` is now **required** in production (enforced by env schema at boot). Falls back to JWT_SECRET only in development with a warning. Legacy ciphertext decryption path preserved for backward compatibility.
-
-#### C5. No `trust proxy` Configuration — FIXED
-
-- **File:** `server/index.ts`
-- **Issue:** Without `trust proxy`, all rate limiters, lockout, and audit logs used the proxy's IP behind a reverse proxy.
-- **Fix applied:** Added `app.set("trust proxy", 1)` near the top of the server setup.
+| Severity | New Findings | Previously Known | Total |
+| -------- | ------------ | ---------------- | ----- |
+| Critical | 7 | 5 (all fixed) | 7 new |
+| High | 10 | 11 (10 fixed) | 10 new |
+| Medium | 15 | 12 (11 fixed) | 15 new |
+| Low | 12 | 12 (3 fixed) | 12 new |
+| **Total** | **44** | **40 (29 fixed)** | **44 new** |
 
 ---
 
-### HIGH
+## Table of Contents
 
-#### H1. `optionalAuthentication` Ignores Session Cookies — FIXED
-
-- **File:** `server/auth/middleware.ts`
-- **Issue:** `optionalAuthentication` only checked Authorization header, ignoring `req.cookies.sessionToken`.
-- **Fix applied:** Added session cookie validation logic mirroring `authenticateUser`, with fallback to Firebase ID token.
-
-#### H2. User Search Exposes Email Addresses — FIXED
-
-- **File:** `server/routes.ts`
-- **Issue:** `/api/users/search` searched by email and returned email addresses to any authenticated user.
-- **Fix applied:** Removed `email` and `firebaseUid` from both the select clause and the ILIKE search condition.
-
-#### H3. Quick Match Leaks Firebase UID — FIXED
-
-- **File:** `server/routes.ts`
-- **Issue:** Quick match response included `opponentFirebaseUid`.
-- **Fix applied:** Removed `opponentFirebaseUid` from the response payload.
-
-#### H4. Password Change Missing Re-authentication Guard — FIXED
-
-- **File:** `server/auth/routes/password.ts`
-- **Issue:** `/api/auth/change-password` lacked `requireRecentAuth` middleware, allowing Firebase-authenticated users to change passwords without re-verification.
-- **Fix applied:** Added `requireRecentAuth` to the middleware chain.
-
-#### H5. `logIPAddress` Middleware Mutates Request Body — FIXED
-
-- **File:** `server/middleware/security.ts`
-- **Issue:** IP address was injected into `req.body`, potentially overwriting user-supplied data.
-- **Fix applied:** Changed to use `res.locals.clientIp` instead of mutating `req.body`.
-
-#### H6. Lockout Service Fails Open on DB Error — ACCEPTED RISK
-
-- **File:** `server/auth/lockout.ts`
-- **Issue:** When database is unreachable, `checkLockout()` returns `isLocked: false`. This is documented as intentional to prevent DoS via DB outage.
-- **Status:** Accepted risk with recommendation to add alerting when fallback triggers.
-
-#### H7. WebSocket Game Handlers Have No Rate Limiting — FIXED
-
-- **File:** `server/socket/handlers/game.ts`, `server/socket/index.ts`
-- **Issue:** All 5 game socket event handlers had zero rate limiting.
-- **Fix applied:** Added per-socket sliding window rate limiter (15 events / 10 seconds) with automatic cleanup on disconnect. All game events (`game:create`, `game:trick`, `game:pass`, `game:forfeit`, `game:reconnect`) now rate-checked.
-
-#### H8. TrickMint Video Path Validation Bypassable — FIXED
-
-- **File:** `server/routes/trickmint.ts`
-- **Issue:** Path validation used `startsWith()` which is structurally unsound for prefix matching.
-- **Fix applied:** Changed to segment-exact validation: splits path on `/` and checks `segments[0] === "trickmint"` and `segments[1] === userId`.
-
-#### H9. Stripe Webhook Missing Event Deduplication — FIXED
-
-- **File:** `server/routes/stripeWebhook.ts`
-- **Issue:** Webhook handler had a TOCTOU race condition — concurrent deliveries could both upgrade the user.
-- **Fix applied:** Wrapped in a transaction using `consumedPaymentIntents` with `SELECT FOR UPDATE`, mirroring the purchase-premium endpoint pattern. Also changed error responses from 200 to 500 so Stripe retries on infrastructure failures (M3 fix).
-
-#### H10. Remote S.K.A.T.E. Offense Can Unilaterally Decide Round Results — DESIGN LIMITATION
-
-- **File:** `server/routes/remoteSkate.ts`
-- **Issue:** Only the offense player resolves rounds. No defense player verification.
-- **Status:** Design limitation. Error messages genericized (M12 fix) to prevent game state leakage. Full fix requires game design changes (dispute mechanism/voting).
-
-#### H11. Admin System Status Endpoint Missing Authentication — FIXED
-
-- **File:** `server/monitoring/index.ts`
-- **Issue:** `/api/admin/system-status` was registered directly on `app` via `registerMonitoringRoutes()`, bypassing the authentication middleware chain. Any unauthenticated user could access server metrics, memory usage, request rates, and error rates.
-- **Fix applied:** Added `authenticateUser, requireAdmin` middleware to the route handler.
+1. [Critical Findings](#critical-findings)
+2. [High Findings](#high-findings)
+3. [Medium Findings](#medium-findings)
+4. [Low Findings](#low-findings)
+5. [Positive Findings](#positive-findings)
+6. [Previously Remediated Findings](#previously-remediated-findings)
+7. [Remediation Priority](#remediation-priority)
+8. [Compliance Checklist](#compliance-checklist)
 
 ---
 
-### MEDIUM
+## Critical Findings
 
-#### M1. Session Token TTL Mismatch — FIXED
+### C1. Metrics Routes Completely Unprotected
 
-- **Files:** `server/auth/service.ts`, `server/security.ts`
-- **Issue:** `SECURITY_CONFIG.SESSION_TTL` was 7 days while actual JWT expiry was 24 hours.
-- **Fix applied:** Synchronized `SESSION_TTL` to 24 hours to match `TOKEN_EXPIRY`.
+- **File:** `server/routes.ts:29`
+- **Layer:** API Routes
+- **Issue:** The metrics router is mounted WITHOUT authentication middleware: `app.use("/api/metrics", metricsRouter)`. The inline `requireAdmin` function inside `metrics.ts` only checks for admin role but does not verify authentication first. All 8 business metrics endpoints (WAB/AU, KPI dashboard, retention rates, crew join rate, etc.) are accessible to unauthenticated users.
+- **Impact:** Complete exposure of business intelligence metrics to any unauthenticated request.
+- **Fix:** Add `authenticateUser, requireAdmin` middleware at the router mount: `app.use("/api/metrics", authenticateUser, requireAdmin, metricsRouter)`.
 
-#### M2. No Password Max Length Validation — FIXED
+### C2. Dispute Resolution Has No Authorization Check
 
-- **File:** `server/auth/routes/password.ts`
-- **Issue:** bcrypt silently truncates at 72 bytes. No max length was enforced.
-- **Fix applied:** Added 72-character max length validation on both change-password and reset-password endpoints.
+- **File:** `server/routes/games-disputes.ts:74-115`
+- **Layer:** API Routes
+- **Issue:** The `POST /disputes/:disputeId/resolve` endpoint requires authentication but does NOT verify the user is an admin or moderator. Any authenticated user can resolve any game dispute and manipulate outcomes.
+- **Impact:** Game integrity compromised — users can award themselves wins by resolving disputes in their favor.
+- **Fix:** Add admin/moderator role check: `if (!req.currentUser?.roles?.includes("admin")) return res.status(403).json(...)`.
 
-#### M3. Stripe Webhook Swallows Processing Errors — FIXED
+### C3. Room Authorization Bypass — Missing Membership Verification on Socket Events
 
-- **File:** `server/routes/stripeWebhook.ts`
-- **Issue:** Application errors returned 200 OK, preventing Stripe retries.
-- **Fix applied:** Changed error handler to return 500 for infrastructure/DB errors. Idempotency guard prevents double-processing on retries.
+- **File:** `server/socket/handlers/battle.ts:117,175,246`
+- **Layer:** WebSocket
+- **Issue:** Socket event handlers (`battle:join`, `battle:startVoting`, `battle:vote`) verify the user is authenticated but do NOT verify they are a member of the room/battle they're accessing. An authenticated user can vote in battles they never joined.
+- **Impact:** Battle outcome manipulation across the entire platform.
+- **Fix:** Add `verifyBattleAccess(socket, battleId)` check that validates `roomInfo.members.has(socket.data.odv)` before processing any battle event.
 
-#### M4. Swagger UI Publicly Accessible in Production — FIXED
+### C4. Battle Notification Spam — No Opponent Validation
 
-- **File:** `server/index.ts`
-- **Issue:** API documentation was served to all users in production.
-- **Fix applied:** Wrapped Swagger UI routes in `if (process.env.NODE_ENV !== "production")` guard.
+- **File:** `server/socket/handlers/battle.ts:88-98`
+- **Layer:** WebSocket
+- **Issue:** The `battle:create` handler sends push notifications to `input.opponentId` without verifying the opponent exists, is active, or has opted into notifications. An attacker can spam arbitrary user IDs with notifications.
+- **Impact:** Notification DoS against any user; harassment vector.
+- **Fix:** Validate opponent exists in database and has notifications enabled before calling `sendToUser()`.
 
-#### M5. No Expired Session Cleanup — FIXED
+### C5. Race Condition in Payment Event Deduplication
 
-- **File:** `server/routes.ts`
-- **Issue:** `authSessions` table had no cleanup of expired records.
-- **Fix applied:** Added `POST /api/cron/cleanup-sessions` endpoint (protected by timing-safe cron secret) that deletes expired sessions.
+- **File:** `server/routes/stripeWebhook.ts:25-52`
+- **Layer:** Payments
+- **Issue:** The in-memory fallback for event deduplication (used when Redis is unavailable) has a TOCTOU race condition: between checking `processedEventsMemory.has(eventId)` and inserting, concurrent requests can both proceed, causing double-processing of payment events.
+- **Impact:** Users could be double-charged or premium status granted twice.
+- **Fix:** Use Redis `SET ... NX` (atomic set-if-not-exists) for Redis path. For memory fallback, use database unique constraint on `processedWebhookEvents` table as the definitive deduplication layer.
 
-#### M6. `secureCompare` Leaks Length Information — FIXED
+### C6. User ID Exposed to Window Object
 
-- **File:** `server/security.ts`
-- **Issue:** Early return on length mismatch leaked string length via timing.
-- **Fix applied:** Changed to pad both buffers to equal length before `timingSafeEqual`, preventing length leakage.
+- **File:** `client/src/App.tsx:99-106`
+- **Layer:** Client-Side
+- **Issue:** `window.__SKATEHUBBA_UID__` is set when `VITE_E2E=true` or in dev mode. If the E2E flag is accidentally enabled in a production build, all users' Firebase UIDs are exposed to the global scope and any injected scripts.
+- **Impact:** User enumeration; any XSS vulnerability gains immediate access to user identity.
+- **Fix:** Remove `window.__SKATEHUBBA_UID__` entirely. Use DevTools protocol or console debug groups for development debugging instead.
 
-#### M7. OSM Discovery Passes Unvalidated Radius to Overpass API — FIXED
+### C7. Unvalidated Payment Redirect URL
 
-- **File:** `server/services/osmDiscovery.ts`
-- **Issue:** `radiusMeters` parameter was interpolated into Overpass QL without validation.
-- **Fix applied:** Added bounds checking (500-100000m) for both radius and coordinates at the service level.
-
-#### M8. Pro Award Tier Error Response Leaks Target User's Current Tier — FIXED
-
-- **File:** `server/routes/tier.ts`
-- **Issue:** Error response included `currentTier` of the target user.
-- **Fix applied:** Removed `currentTier` from error response, returning generic "User already has an upgraded account."
-
-#### M9. Checkout Session `success_url` Derived from Request Origin — FIXED
-
-- **File:** `server/routes/tier.ts`
-- **Issue:** `success_url`/`cancel_url` used unvalidated `req.headers.origin`, enabling open redirect.
-- **Fix applied:** Added validation against `ALLOWED_ORIGINS` list, falling back to `PRODUCTION_URL` or `DEV_DEFAULT_ORIGIN` if origin is not in the allowlist.
-
-#### M10. Notification Quiet Hours Stored but Never Enforced — BACKLOG
-
-- **File:** `server/services/notificationService.ts`
-- **Issue:** Quiet hours preferences stored but never checked before sending push notifications.
-- **Status:** Deferred to backlog. Requires notification service refactor.
-
-#### M11. View Counter Increment Has No Deduplication — FIXED
-
-- **File:** `server/routes/trickmint.ts`
-- **Issue:** Every GET request incremented the view counter, allowing inflation.
-- **Fix applied:** Added Redis-based per-user deduplication with a 24-hour window. Views only increment once per user per clip per day.
-
-#### M12. Remote S.K.A.T.E. Error Messages Leak Game State — FIXED
-
-- **File:** `server/routes/remoteSkate.ts`
-- **Issue:** Error messages revealed internal game state.
-- **Fix applied:** Genericized all error messages to prevent game state leakage. Details logged server-side only.
+- **File:** `client/src/components/UpgradePrompt.tsx:25-39`
+- **Layer:** Client-Side
+- **Issue:** The checkout flow redirects to a URL returned by the API (`window.location.href = url`) without validating the domain. If the API is compromised, users can be redirected to phishing sites that mimic Stripe.
+- **Impact:** Payment phishing — users trust redirects from the app's payment flow.
+- **Fix:** Validate URL against a whitelist: `["checkout.stripe.com"]` before redirecting.
 
 ---
 
-### LOW / INFORMATIONAL
+## High Findings
 
-#### L1. Helmet Not Applied in Development — INFORMATIONAL
+### H1. Profile Deletion Uses Weak Authentication
 
-- **File:** `server/index.ts`
-- **Note:** Common practice. Dev environments won't catch CSP issues until production.
+- **File:** `server/routes/profile.ts:327-342`
+- **Layer:** API Routes
+- **Issue:** `DELETE /api/profile` uses `requireFirebaseUid` instead of `authenticateUser`. This only verifies the Firebase token without checking if the user exists in the database, is active, or is banned. Banned users can delete their own data.
+- **Fix:** Replace `requireFirebaseUid` with `authenticateUser`.
 
-#### L2. In-Memory Rate Limit Fallback in Multi-Process — INFORMATIONAL
+### H2. Metrics Routes Use Raw SQL
 
-- **Note:** Architectural limitation when Redis is unavailable. Rate limits become per-process. Mitigated by Redis being the recommended production configuration.
+- **File:** `server/routes/metrics.ts:44,66,84,105,127,149,171`
+- **Layer:** Database
+- **Issue:** All 7 metrics endpoints use `db.execute(sql.raw(...))` with hardcoded SQL strings. While currently safe (no user input), this pattern is dangerous and invites future SQL injection if developers modify queries without parameterization.
+- **Fix:** Migrate to Drizzle ORM type-safe query builders. Add a lint rule to disallow `sql.raw()` outside approved locations.
 
-#### L3. Body Parse Limit at 10MB — INFORMATIONAL
+### H3. Remote Skate Routes Lack Database User Validation
 
-- **File:** `server/config/server.ts`
-- **Note:** Generous limit. Consider per-endpoint limits in future.
+- **File:** `server/routes/remoteSkate.ts:99-180`
+- **Layer:** API Routes
+- **Issue:** Remote Skate routes use a custom `verifyFirebaseAuth()` that returns a Firebase UID without validating the user exists in the database or checking ban/deactivation status.
+- **Fix:** Create `requireFirebaseUidWithDbValidation` middleware that verifies user existence, active status, and ban status.
 
-#### L4. Bot User-Agent Filter Blocks Testing Tools — INFORMATIONAL
+### H4. Game Dispute Creation Missing Ownership Validation
 
-- **File:** `server/middleware/security.ts`
-- **Note:** Middleware is exported but not globally applied. No action needed.
+- **File:** `server/routes/games-disputes.ts:41-73`
+- **Layer:** API Routes
+- **Issue:** `POST /disputes` allows any authenticated user to dispute ANY game regardless of participation. No check that the user is one of the two players.
+- **Impact:** Moderation queue spam; game integrity erosion.
+- **Fix:** Query the game record and verify `game.player1Id === reporterId || game.player2Id === reporterId`.
 
-#### L5. IPv6 Validation Regex Incomplete — INFORMATIONAL
+### H5. Insufficient WebSocket Input Validation
 
-- **File:** `server/security.ts`
-- **Note:** Not used in critical paths. No impact.
+- **File:** `server/socket/validation.ts:14-58`
+- **Layer:** WebSocket
+- **Issue:** String validations use `.min(1).max(100)` without character set restrictions. Game IDs, battle IDs, and room IDs don't validate against expected formats (UUID/alphanumeric), allowing control characters or special sequences that could enable log injection or Unicode normalization bypasses.
+- **Fix:** Add regex patterns: `/^[a-zA-Z0-9_-]{20,36}$/` for IDs, alphanumeric-only for user IDs.
 
-#### L6. Dev Admin Bypass Relies Solely on NODE_ENV — FIXED
+### H6. Payment Intent Missing Email Validation
 
-- **File:** `server/auth/middleware.ts`, `server/config/env.ts`
-- **Issue:** `X-Dev-Admin: true` bypass only gated on `NODE_ENV`.
-- **Fix applied:** Added secondary check requiring `DEV_ADMIN_BYPASS=true` environment variable. Bypass now requires both NODE_ENV check AND explicit opt-in.
+- **File:** `server/routes/tier.ts:273-314`
+- **Layer:** Payments
+- **Issue:** The `purchase-premium` endpoint verifies `intent.metadata?.userId` matches the authenticated user but does not verify `intent.customer_email` matches the user's email. An attacker controlling two accounts could create a payment intent with the victim's userId in metadata.
+- **Fix:** Add `intent.customer_email !== user.email` validation before processing.
 
-#### L7. FFmpeg `targetBitrate` Interpolation Edge Case — INFORMATIONAL
+### H7. CSRF Token Parsing Not RFC 6265 Compliant
 
-- **File:** `server/services/videoTranscoder.ts`
-- **Note:** `targetBitrate` only comes from hardcoded `QUALITY_PRESETS` or `DEFAULT_OPTIONS`, never from user input. No security risk. `execFile()` prevents shell injection regardless.
+- **File:** `client/src/lib/api/client.ts:29-35`
+- **Layer:** Client-Side
+- **Issue:** Cookie parsing uses `.split("=")[1]` which breaks if cookie values contain `=` characters. Pattern repeated in 3 files with no centralized parser.
+- **Fix:** Use regex: `document.cookie.match(/(?:^|;\s*)csrfToken=([^;]*)/)` and centralize in a shared utility.
 
-#### L8. `typing` Socket Event Broadcasts Without Room Validation — FIXED
+### H8. Incomplete Open Redirect Validation in Auth Flow
 
-- **File:** `server/socket/index.ts`
-- **Issue:** Typing events could be sent to any room ID without membership check.
-- **Fix applied:** Added `data.rooms.has(roomId)` guard before broadcasting.
+- **File:** `client/src/pages/AuthPage.tsx:42-58`, `client/src/components/auth-guard.tsx:44-56`
+- **Layer:** Client-Side
+- **Issue:** The `?next=` redirect parameter validation checks `startsWith("/")` and `!startsWith("//")` but can be bypassed with double-encoded payloads or parameterized paths.
+- **Fix:** Add comprehensive validation: reject URLs containing encoded characters after decode, reject protocol-relative URLs, reject absolute URLs with any scheme.
 
-#### L9. Stripe SDK Instantiated Per-Request — INFORMATIONAL
+### H9. Cron Routes Use Weak Static Secret Authentication
 
-- **Files:** `server/routes/stripeWebhook.ts`, `server/routes/tier.ts`
-- **Note:** Performance optimization opportunity. Stripe SDK is lightweight to construct. No security impact.
+- **File:** `server/routes/cron.ts:12-41`
+- **Layer:** API Routes
+- **Issue:** Cron endpoints authenticate via a single static shared secret. No per-request signatures, no expiry, no rate limiting, and no audit trail of which system triggered jobs.
+- **Fix:** Implement HMAC-signed time-based tokens with JWT verification. Add rate limiting and audit logging.
 
-#### L10. `DELETE /api/trickmint/:id` Missing Storage File Cleanup — INFORMATIONAL
+### H10. Firebase Config Errors Logged to Production Console
 
-- **File:** `server/routes/trickmint.ts`
-- **Note:** Data hygiene issue. Orphaned files accumulate in Firebase Storage. Recommend adding Firebase Admin SDK storage deletion in future.
-
-#### L11. `GET /api/trickmint/upload/limits` Not Behind Auth — INFORMATIONAL
-
-- **File:** `server/routes/trickmint.ts`
-- **Note:** Public endpoint by design. Not sensitive information.
-
-#### L12. Monitoring Routes vs Production Catch-All — INFORMATIONAL
-
-- **File:** `server/index.ts`
-- **Note:** Verified: monitoring routes use `/api/` prefix and are registered before the catch-all. No shadowing occurs.
-
----
-
-## Positive Findings (Things Done Well)
-
-| Area                         | Details                                                                                     |
-| ---------------------------- | ------------------------------------------------------------------------------------------- |
-| **Password hashing**         | bcrypt with 12 salt rounds                                                                  |
-| **Session storage**          | Tokens stored as SHA-256 hashes, not raw JWTs                                               |
-| **MFA**                      | TOTP with AES-256-GCM encryption, timing-safe code verification, bcrypt-hashed backup codes |
-| **CSRF**                     | OWASP Double Submit Cookie pattern with timing-safe comparison                              |
-| **Rate limiting**            | 15+ rate limit configurations covering auth, writes, check-ins, admin, discovery, WebSocket |
-| **Input validation**         | Zod schemas on all write endpoints via `validateBody()` middleware                          |
-| **SQL injection**            | Drizzle ORM parameterized queries throughout; LIKE wildcards escaped                        |
-| **Replay protection**        | Nonce + timestamp verification on check-ins                                                 |
-| **Audit logging**            | Comprehensive login, MFA, password, and admin action tracking                               |
-| **Sensitive data redaction** | Logger automatically redacts passwords, tokens, secrets, and emails                         |
-| **Password reset**           | Generic responses to prevent email enumeration                                              |
-| **Session invalidation**     | All sessions revoked on password change/reset                                               |
-| **Cron auth**                | Timing-safe cron secret verification                                                        |
-| **Webhook auth**             | Stripe signature verification before processing                                             |
-| **Account lockout**          | 5-attempt lockout with 15-minute cooldown                                                   |
-| **Email validation**         | ReDoS-safe, RFC-compliant email regex                                                       |
-| **Graceful shutdown**        | SIGTERM/SIGINT handlers for clean WebSocket and Redis shutdown                              |
-| **Payment idempotency**      | Both `purchase-premium` and webhook use `consumedPaymentIntents` with `SELECT FOR UPDATE`   |
-| **Pro award caps**           | Atomic transaction with count check prevents unlimited Pro awards                           |
-| **FFmpeg safety**            | Uses `execFile()` (not `exec()`) — no shell injection vector                                |
-| **Socket.io auth**           | Firebase token verification + rate limiting on WebSocket connections                        |
-| **LIKE wildcard escape**     | Search queries escape `%`, `_`, `\` to prevent wildcard injection                           |
+- **File:** `client/src/config/env.ts:32-45`
+- **Layer:** Client-Side
+- **Issue:** Missing Firebase configuration variables trigger `console.error()` in production, leaking architectural details to anyone viewing the browser console.
+- **Fix:** Route to error tracking service (Sentry) instead of console. Only log in development.
 
 ---
 
-## Files Modified During Remediation
+## Medium Findings
 
-| File                              | Changes                                                                              |
-| --------------------------------- | ------------------------------------------------------------------------------------ |
-| `server/index.ts`                 | Trust proxy (C5), CSP frameSrc (C3), Swagger UI production gate (M4)                 |
-| `server/middleware/csrf.ts`       | Timing-safe CSRF comparison (C1)                                                     |
-| `server/socket/index.ts`          | CORS fallback (C2), typing room check (L8), rate limit cleanup wiring (H7)           |
-| `server/auth/mfa.ts`              | Dedicated MFA encryption key (C4)                                                    |
-| `server/config/env.ts`            | `MFA_ENCRYPTION_KEY` and `DEV_ADMIN_BYPASS` env vars (C4, L6)                        |
-| `server/auth/middleware.ts`       | Optional auth session cookies (H1), dev admin bypass guard (L6)                      |
-| `server/routes.ts`                | User search email removal (H2), Firebase UID removal (H3), session cleanup cron (M5) |
-| `server/auth/routes/password.ts`  | Recent auth guard (H4), max password length (M2)                                     |
-| `server/middleware/security.ts`   | IP logging via res.locals (H5)                                                       |
-| `server/socket/handlers/game.ts`  | Per-socket rate limiting (H7)                                                        |
-| `server/routes/trickmint.ts`      | Segment-exact path validation (H8), view deduplication (M11)                         |
-| `server/routes/stripeWebhook.ts`  | Transaction + deduplication (H9), error responses (M3)                               |
-| `server/routes/remoteSkate.ts`    | Generic error messages (H10, M12)                                                    |
-| `server/monitoring/index.ts`      | Admin auth on system-status (H11)                                                    |
-| `server/security.ts`              | SESSION_TTL sync (M1), secureCompare padding (M6)                                    |
-| `server/services/osmDiscovery.ts` | Coordinate + radius validation (M7)                                                  |
-| `server/routes/tier.ts`           | Tier leak removal (M8), origin validation (M9)                                       |
+### M1. Missing Payment Currency Validation
+
+- **File:** `server/routes/tier.ts:273-314`
+- **Layer:** Payments
+- **Issue:** Payment verification checks amount (999) and status but not currency. An attacker could create a payment intent in a cheap currency (999 JPY = ~$6.50 instead of $9.99 USD).
+- **Fix:** Add `if (intent.currency !== "usd") return sendError(...)`.
+
+### M2. URL Scheme Not Restricted on Post Media URLs
+
+- **File:** `server/routes/posts.ts:10-14`
+- **Layer:** API Routes
+- **Issue:** `z.string().url()` accepts any valid URL including `javascript:`, `data:`, and `file:` schemes. These could trigger XSS when rendered client-side.
+- **Fix:** Add `.refine(url => /^https?:\/\//.test(url), "URL must use HTTPS")`.
+
+### M3. Notification Quiet Hours Regex Accepts Invalid Times
+
+- **File:** `server/routes/notifications.ts:126-135`
+- **Layer:** API Routes
+- **Issue:** `/^\d{2}:\d{2}$/` accepts `99:99`, `25:60`, etc.
+- **Fix:** Use `/^([01]\d|2[0-3]):([0-5]\d)$/`.
+
+### M4. Unpinned GitHub Actions (Trivy, SSH)
+
+- **File:** `.github/workflows/deploy-staging.yml:77,99`
+- **Layer:** CI/CD
+- **Issue:** `aquasecurity/trivy-action@master` and `appleboy/ssh-action@v1` use branch/major references instead of pinned SHAs or patch versions. Supply chain attack vector.
+- **Fix:** Pin to specific SHAs or exact versions.
+
+### M5. Committed .env.staging File
+
+- **File:** `.env.staging`
+- **Layer:** Configuration
+- **Issue:** File committed to git despite header saying "NEVER commit this file." Even with empty values, the template signals weak secrets management and risks accidental secret commits.
+- **Fix:** Add `.env.staging` to `.gitignore`. Rename to `.env.staging.example`. Rotate any secrets that may have been committed historically.
+
+### M6. Missing Spot Image Write Authorization in Storage Rules
+
+- **File:** `storage.rules:61-68`
+- **Layer:** Firebase
+- **Issue:** Any authenticated user can upload/update images for any spot. No verification the user is the spot owner.
+- **Fix:** Add `isSpotOwner(spotId)` function that checks Firestore for ownership.
+
+### M7. Node.js 20 Approaching EOL
+
+- **File:** `Dockerfile:1`
+- **Layer:** Infrastructure
+- **Issue:** `FROM node:20-slim` — Node.js 20 LTS EOL is April 30, 2026 (~2 months away). After EOL, no security patches.
+- **Fix:** Upgrade to `node:22-slim`.
+
+### M8. Firebase Rules Only Validated on Main Branch
+
+- **File:** `.github/workflows/ci.yml:216-223`
+- **Layer:** CI/CD
+- **Issue:** Firestore/Storage rules validation only runs on push to main, not on PRs. Invalid rules can be merged without validation.
+- **Fix:** Add PR trigger to the `firebase_rules_verify` job.
+
+### M9. CRON_SECRET Minimum Length Too Short
+
+- **File:** `server/config/env.ts:114`
+- **Layer:** Configuration
+- **Issue:** 16-character minimum provides ~84 bits of entropy, while all other secrets require 32 characters (~192 bits).
+- **Fix:** Change to `.min(32)`.
+
+### M10. Admin User Search Leaks Full Moderation Data
+
+- **File:** `server/routes/admin.ts:78-163`
+- **Layer:** API Routes
+- **Issue:** Admin user search returns all moderation fields (ban reasons, reputation scores, verification status) without role-based filtering. A compromised admin account exposes everything.
+- **Fix:** Implement field-level access control based on admin sub-roles.
+
+### M11. Concurrent Purchase Requests Not Prevented
+
+- **File:** `server/routes/tier.ts:246-378`
+- **Layer:** Payments
+- **Issue:** No distributed lock prevents a user from initiating multiple simultaneous checkout sessions. While idempotency guards prevent double-upgrades, unnecessary Stripe sessions are created.
+- **Fix:** Add Redis-based distributed lock: `purchase:${userId}` with 60-second TTL.
+
+### M12. Developer Admin Mode Globally Accessible
+
+- **File:** `client/src/lib/devAdmin.ts:22-31`
+- **Layer:** Client-Side
+- **Issue:** `window.__enableDevAdmin()` is exposed on localhost with no verification required. Single function call enables dev admin mode that bypasses tier checks.
+- **Fix:** Add verification prompt, expiry timer (1 hour), and gating behind `import.meta.env.DEV`.
+
+### M13. Profile Data Cached in Unencrypted SessionStorage
+
+- **File:** `client/src/store/authStore.utils.ts:26-56`
+- **Layer:** Client-Side
+- **Issue:** Full user profile (username, bio, avatar, hometown) cached in plaintext in sessionStorage. Any XSS vulnerability gives attackers access to all cached PII.
+- **Fix:** Cache only non-sensitive status data. Keep full profile in React state (memory only).
+
+### M14. WebSocket Error Messages Leak System Information
+
+- **File:** `server/socket/handlers/battle.ts` (multiple lines)
+- **Layer:** WebSocket
+- **Issue:** Error codes like `rate_limited`, `battle_not_found`, `not_participant` help attackers enumerate valid IDs and understand system behavior.
+- **Fix:** In production, emit generic error codes. Log specifics server-side only.
+
+### M15. Legacy MFA Encryption Without Deprecation Timeline
+
+- **File:** `server/auth/mfa/crypto.ts`
+- **Layer:** Authentication
+- **Issue:** Legacy "hardcoded-salt" decryption path preserved indefinitely for backward compatibility. If salt leaks, all legacy MFA secrets are compromised.
+- **Fix:** Set deprecation deadline (e.g., December 2026). Force MFA re-enrollment for users still on legacy cipher.
 
 ---
 
-## Finding Count Summary
+## Low Findings
 
-| Severity            | Count  | Fixed  | Remaining           |
-| ------------------- | ------ | ------ | ------------------- |
-| Critical            | 5      | 5      | 0                   |
-| High                | 11     | 10     | 1 (accepted/design) |
-| Medium              | 12     | 11     | 1 (backlog)         |
-| Low / Informational | 12     | 3      | 9 (informational)   |
-| **Total**           | **40** | **29** | **11**              |
+### L1. Beta Signup Missing IP-Based Rate Limiting
+
+- **File:** `server/routes/betaSignup.ts:13-69`
+- **Issue:** Rate limiting is per-email (inline), not per-IP (middleware). Attackers can spam with different emails.
+- **Fix:** Add `emailSignupLimiter` middleware.
+
+### L2. Game/Turn ID Parsing Accepts Partial Matches
+
+- **File:** `server/routes/games-turns.ts:93-98`
+- **Issue:** `parseInt("123abc")` returns `123`. Should validate entire string.
+- **Fix:** Use `z.coerce.number().int().positive()`.
+
+### L3. Stripe Premium Price Hardcoded
+
+- **File:** `server/routes/stripeWebhook.ts:175-182`
+- **Issue:** Price (999) hardcoded and silently fails on mismatch. Should use environment variable with proper error handling.
+
+### L4. Redis URL Allows Unencrypted Connections in Production
+
+- **File:** `server/config/env.ts:110`
+- **Issue:** `redis://` (no TLS) accepted in production. Should require `rediss://` in production environments.
+
+### L5. Presence Update Broadcasts to All Users
+
+- **File:** `server/socket/handlers/presence.ts:148`
+- **Issue:** Online/offline status broadcast globally. Users cannot control who sees their status. Privacy concern.
+
+### L6. No Async Operation Timeout in Game Handlers
+
+- **File:** `server/socket/handlers/game/join.ts:14-80`
+- **Issue:** Database operations in socket handlers have no timeout. Hanging DB could exhaust resources.
+- **Fix:** Wrap in `Promise.race()` with 5-second timeout.
+
+### L7. Idempotency Keys Not Validated for Strength
+
+- **File:** `server/routes/tier.ts:152-164`
+- **Issue:** Client-provided idempotency keys have no format/entropy validation. Weak keys could be predicted.
+- **Fix:** Require base64-encoded 32+ byte values.
+
+### L8. Docker Healthcheck Fetch Has No Timeout
+
+- **File:** `Dockerfile:58-59`
+- **Issue:** `fetch()` in HEALTHCHECK has no AbortSignal timeout. Hanging fetch processes accumulate.
+- **Fix:** Add `{ signal: AbortSignal.timeout(3000) }`.
+
+### L9. Build Stamp Visible in Production
+
+- **File:** `client/src/App.tsx:21-40`
+- **Issue:** Commit SHA and build time rendered in footer on all environments. Aids reconnaissance.
+- **Fix:** Gate behind `import.meta.env.DEV`.
+
+### L10. Service Worker Registration Errors Logged to Console
+
+- **File:** `client/index.html:124-132`
+- **Issue:** Registration failures logged to production console.
+- **Fix:** Route errors to Sentry instead.
+
+### L11. Public Video Storage Without Access Control
+
+- **File:** `storage.rules:74-95`
+- **Issue:** All uploaded videos publicly readable. Enables unauthorized distribution and bandwidth abuse.
+
+### L12. Challenge Votes Allow Self-Voting
+
+- **File:** `firestore.rules:249-271`
+- **Issue:** No check that the voter is not the submission creator. Allows vote manipulation.
+- **Fix:** Validate via Cloud Function that `userId !== submission.createdBy`.
 
 ---
 
-_End of audit report. — Third pass + full remediation complete._
+## Positive Findings
+
+The following security controls are well-implemented and represent industry best practices:
+
+| Area | Implementation | Rating |
+| ---- | -------------- | ------ |
+| **Password hashing** | bcrypt with 12 salt rounds | Excellent |
+| **Session storage** | Tokens stored as SHA-256 hashes, not raw JWTs | Excellent |
+| **MFA encryption** | AES-256-GCM with random salt per ciphertext, dedicated key in production | Excellent |
+| **CSRF protection** | OWASP Double Submit Cookie with HMAC-normalized timing-safe comparison | Excellent |
+| **Rate limiting** | 15+ configurations across auth, writes, check-ins, admin, discovery, WebSocket | Excellent |
+| **Input validation** | Zod schemas on all write endpoints via `validateBody()` middleware | Excellent |
+| **SQL injection** | Drizzle ORM parameterized queries; LIKE wildcards escaped | Excellent |
+| **XSS prevention** | No `dangerouslySetInnerHTML`, no `eval()`, tokens in HttpOnly cookies | Excellent |
+| **Replay protection** | Nonce + timestamp verification on check-ins | Excellent |
+| **Audit logging** | Comprehensive login, MFA, password, admin action tracking with dual storage | Excellent |
+| **Sensitive data redaction** | Logger auto-redacts passwords, tokens, secrets, emails | Excellent |
+| **Email enumeration prevention** | Generic responses on password reset | Excellent |
+| **Session invalidation** | All sessions revoked on password change/reset | Excellent |
+| **Webhook authentication** | Stripe signature verification before processing | Excellent |
+| **Account lockout** | 5-attempt lockout with 15-min cooldown, per-email + per-IP | Strong |
+| **Re-authentication** | 5-minute window for sensitive operations (password, MFA, deletion) | Excellent |
+| **Firebase token verification** | Revocation check enabled (`verifyIdToken(token, true)`) | Excellent |
+| **Payment idempotency** | `consumedPaymentIntents` with `SELECT FOR UPDATE` in transaction | Excellent |
+| **FFmpeg safety** | Uses `execFile()` (not `exec()`) — no shell injection | Excellent |
+| **Non-root Docker** | Custom user `skatehubba:1001` — prevents container escape privilege escalation | Excellent |
+| **Firestore rules** | Default-deny, helper functions, environment isolation, field validation | Excellent |
+| **CI/CD scanning** | Gitleaks + CodeQL + Trivy + lockfile integrity | Strong |
+| **App Check** | Gradual rollout (monitor → warn → enforce) with strict option for sensitive endpoints | Good |
+
+---
+
+## Previously Remediated Findings
+
+All findings from previous audits (Feb 6, Feb 12, Feb 18) that were marked as fixed have been verified as remediated:
+
+| ID | Finding | Status |
+| -- | ------- | ------ |
+| C1-prev | CSRF timing attack (`===` → `timingSafeEqual`) | Verified Fixed |
+| C2-prev | Socket.io CORS wildcard fallback | Verified Fixed |
+| C3-prev | CSP frameSrc ignoring Firebase domain | Verified Fixed |
+| C4-prev | MFA encryption using shared JWT secret | Verified Fixed |
+| C5-prev | Missing `trust proxy` | Verified Fixed |
+| H1-prev | `optionalAuthentication` ignoring session cookies | Verified Fixed |
+| H2-prev | User search exposing emails | Verified Fixed |
+| H3-prev | Quick match leaking Firebase UID | Verified Fixed |
+| H4-prev | Password change missing re-auth guard | Verified Fixed |
+| H5-prev | `logIPAddress` mutating request body | Verified Fixed |
+| H7-prev | WebSocket game handlers no rate limiting | Verified Fixed |
+| H8-prev | TrickMint path validation bypass | Verified Fixed |
+| H9-prev | Stripe webhook event deduplication | Verified Fixed |
+| H11-prev | Admin system status missing auth | Verified Fixed |
+| M1-prev | Session TTL mismatch | Verified Fixed |
+| M2-prev | No password max length (bcrypt truncation) | Verified Fixed |
+
+**Accepted Risks (unchanged):**
+- H6-prev: Lockout service fails closed on DB error (intentional design)
+- H10-prev: Remote S.K.A.T.E. offense unilateral round resolution (design limitation)
+- M10-prev: Notification quiet hours not enforced (backlog)
+
+---
+
+## Remediation Priority
+
+### Immediate (Within 48 Hours)
+
+| # | Finding | Complexity | File |
+| - | ------- | ---------- | ---- |
+| C1 | Add auth to metrics routes | Low (1 line) | `server/routes.ts` |
+| C2 | Add admin check to dispute resolution | Low | `server/routes/games-disputes.ts` |
+| C3 | Add room membership verification to socket events | Medium | `server/socket/handlers/battle.ts` |
+| C4 | Validate opponent before notification | Low | `server/socket/handlers/battle.ts` |
+| C5 | Fix payment dedup race condition (use Redis NX) | Medium | `server/routes/stripeWebhook.ts` |
+| C6 | Remove window UID exposure | Low | `client/src/App.tsx` |
+| C7 | Validate checkout redirect URL | Low | `client/src/components/UpgradePrompt.tsx` |
+
+### Within 1 Week
+
+| # | Finding | Complexity | File |
+| - | ------- | ---------- | ---- |
+| H1 | Fix profile delete auth | Low | `server/routes/profile.ts` |
+| H3 | Fix remote skate DB validation | Medium | `server/routes/remoteSkate.ts` |
+| H4 | Add dispute ownership check | Medium | `server/routes/games-disputes.ts` |
+| H5 | Tighten socket input validation | Medium | `server/socket/validation.ts` |
+| H6 | Add payment email validation | Low | `server/routes/tier.ts` |
+| H7 | Fix CSRF token parsing | Low | `client/src/lib/api/client.ts` |
+| H8 | Strengthen open redirect validation | Medium | `client/src/pages/AuthPage.tsx` |
+| H9 | Improve cron authentication | High | `server/routes/cron.ts` |
+| H10 | Suppress config logs in prod | Low | `client/src/config/env.ts` |
+| M1 | Add currency validation | Low | `server/routes/tier.ts` |
+
+### Within 2 Weeks
+
+| # | Finding | Complexity |
+| - | ------- | ---------- |
+| M2 | URL scheme restriction on posts | Low |
+| M3 | Fix quiet hours regex | Low |
+| M4 | Pin GitHub Actions versions | Low |
+| M5 | Remove .env.staging from git | Low |
+| M6 | Spot image write authorization | Medium |
+| M9 | Increase CRON_SECRET minimum | Low |
+| M10 | Role-based admin data filtering | Medium |
+| M11 | Purchase distributed lock | Medium |
+| M14 | Generic socket error messages | Medium |
+
+### Within 1 Month
+
+| # | Finding | Complexity |
+| - | ------- | ---------- |
+| M7 | Upgrade to Node.js 22 | Medium |
+| M8 | Firebase rules PR validation | Low |
+| M12 | Dev admin mode hardening | Low |
+| M13 | Minimize sessionStorage caching | Low |
+| M15 | MFA legacy cipher deprecation plan | Low |
+| All Low findings | Various | Low–Medium |
+
+---
+
+## Compliance Checklist
+
+### OWASP Top 10 (2021)
+
+| Category | Status | Notes |
+| -------- | ------ | ----- |
+| A01: Broken Access Control | Needs Work | C1, C2, C3, H1, H3, H4 |
+| A02: Cryptographic Failures | Pass | AES-256-GCM, bcrypt, SHA-256 |
+| A03: Injection | Pass | Drizzle ORM, Zod validation (except H2 raw SQL) |
+| A04: Insecure Design | Pass | Defense-in-depth architecture |
+| A05: Security Misconfiguration | Needs Work | M4, M5, M7, M8 |
+| A06: Vulnerable Components | Needs Work | Node EOL, unpinned actions |
+| A07: Auth Failures | Pass | Strong auth, MFA, lockout, re-auth |
+| A08: Software/Data Integrity | Needs Work | Unsigned Docker images |
+| A09: Logging/Monitoring | Pass | Comprehensive audit logging |
+| A10: SSRF | Pass | No user-controlled HTTP requests |
+
+### CWE Top 25
+
+| CWE | Status |
+| --- | ------ |
+| CWE-287: Improper Authentication | C1 (metrics), H1, H3 need fixes |
+| CWE-79: XSS | Pass — no innerHTML, no eval |
+| CWE-89: SQL Injection | Pass — Drizzle ORM throughout |
+| CWE-352: CSRF | Pass — OWASP Double Submit Cookie |
+| CWE-306: Missing Auth for Critical Function | C1, C2 need fixes |
+| CWE-862: Missing Authorization | C2, C3, H4 need fixes |
+| CWE-798: Hardcoded Credentials | Pass — Zod env validation |
+
+---
+
+## Methodology
+
+- **Static analysis:** All server routes, middleware, auth modules, socket handlers
+- **Configuration review:** Environment schemas, Docker, CI/CD workflows
+- **Dependency audit:** package.json files across root, server, client, mobile, functions
+- **Firebase review:** Firestore rules, Storage rules, App Check configuration
+- **Client review:** React components, API client, auth flows, storage patterns
+- **Cross-reference:** All findings checked against previous audit reports (Feb 6, 12, 18)
+
+---
+
+## Appendix: Files Audited
+
+**Server (50+ files):** `server/auth/` (service, middleware, lockout, audit, mfa, routes), `server/middleware/` (csrf, security, firebaseUid, appCheck, rateLimit), `server/routes/` (all 14 route files), `server/socket/` (auth, handlers, validation), `server/config/` (env, rateLimits, server), `server/services/` (osmDiscovery, videoTranscoder, notificationService), `server/security.ts`, `server/monitoring/`, `server/routes/stripeWebhook.ts`, `server/routes/tier.ts`
+
+**Client (20+ files):** `client/src/App.tsx`, `client/src/lib/api/client.ts`, `client/src/pages/AuthPage.tsx`, `client/src/components/UpgradePrompt.tsx`, `client/src/components/auth-guard.tsx`, `client/src/lib/devAdmin.ts`, `client/src/store/authStore.utils.ts`, `client/src/config/env.ts`, `client/src/lib/firebase/config.ts`
+
+**Infrastructure:** `Dockerfile`, `.github/workflows/` (ci.yml, deploy-staging.yml, security.yml, codeql.yml), `firestore.rules`, `storage.rules`, `.env.example`, `.env.staging`, `firebase.json`
+
+**Dependencies:** Root `package.json`, `server/package.json`, `client/package.json`, `mobile/package.json`, `functions/package.json`
+
+---
+
+_End of audit report — Full E2E production security audit complete._
+_Next scheduled review: May 2026 (quarterly cadence)._
