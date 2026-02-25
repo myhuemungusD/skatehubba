@@ -120,16 +120,28 @@ describe("firebase/config", () => {
     });
 
     it("logs environment info in non-prod mode", async () => {
-      const { isProd, getEnvBanner, getAppEnv } = await import("@skatehubba/config");
+      const { isProd } = await import("@skatehubba/config");
       vi.mocked(isProd).mockReturnValue(false);
 
-      await import("../config");
+      // Simulate localhost dev environment so the logging guard passes
+      const origWindow = globalThis.window;
+      (globalThis as any).window = { location: { hostname: "localhost" } };
 
-      const { logger } = await import("../../logger");
-      expect(logger.log).toHaveBeenCalledWith(
-        expect.stringContaining("[Firebase]"),
-        expect.any(String)
-      );
+      try {
+        await import("../config");
+
+        const { logger } = await import("../../logger");
+        expect(logger.log).toHaveBeenCalledWith(
+          expect.stringContaining("[Firebase]"),
+          expect.any(String)
+        );
+      } finally {
+        if (origWindow === undefined) {
+          delete (globalThis as any).window;
+        } else {
+          globalThis.window = origWindow;
+        }
+      }
     });
 
     it("does not log environment info in prod mode", async () => {
