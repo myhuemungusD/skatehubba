@@ -229,7 +229,7 @@ jobs:
       - uses: ./.github/actions/setup-pnpm-env
 
       - name: Install Firebase CLI
-        run: npm install -g firebase-tools
+        run: curl -sL https://firebase.tools | bash
 
       - name: Mask Firebase Token
         run: echo "::add-mask::${{ secrets.FIREBASE_TOKEN }}"
