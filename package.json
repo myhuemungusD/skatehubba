@@ -91,7 +91,8 @@
       "serve-static": ">=1.16.0",
       "glob": ">=10.4.0",
       "detox>glob": "8.1.0",
-      "rimraf": ">=5.0.0"
+      "rimraf": ">=5.0.0",
+      "@types/express-serve-static-core": "^4.19.8"
     },
     "onlyBuiltDependencies": [
       "esbuild",
