@@ -170,6 +170,7 @@ import {
   getUserRoles,
   submitTrick,
   judgeTrick,
+  setterBail,
   getVideoUrl,
   validateChallengeVideo,
   processVoteTimeouts,
@@ -2167,6 +2168,204 @@ describe("SkateHubba Cloud Functions", () => {
 
       expect(gameDoc.ref.update).not.toHaveBeenCalled();
       expect(mocks.runTransaction).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==========================================================================
+  // Integration-style: full game flow scenario
+  // ==========================================================================
+
+  // ==========================================================================
+  // setterBail
+  // ==========================================================================
+
+  describe("setterBail", () => {
+    const bailGame = (overrides: Record<string, any> = {}) => ({
+      player1Id: "p1",
+      player2Id: "p2",
+      currentTurn: "p1",
+      currentAttacker: "p1",
+      turnPhase: "attacker_recording",
+      roundNumber: 1,
+      moves: [],
+      processedIdempotencyKeys: [],
+      currentSetMove: null,
+      player1Letters: [],
+      player2Letters: [],
+      status: "active",
+      winnerId: null,
+      ...overrides,
+    });
+
+    it("rejects unauthenticated caller", async () => {
+      await expect(
+        (setterBail as any)({ gameId: "g", idempotencyKey: "k" }, noAuthContext())
+      ).rejects.toThrow("Not logged in");
+    });
+
+    it("rejects missing gameId", async () => {
+      const ctx = makeContext({ uid: freshUid("sb") });
+      await expect((setterBail as any)({ gameId: "", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Missing gameId"
+      );
+    });
+
+    it("throws not-found when game does not exist", async () => {
+      mocks.transaction.get.mockResolvedValue({ exists: false });
+      const ctx = makeContext({ uid: "p1" });
+      await expect(
+        (setterBail as any)({ gameId: "ghost", idempotencyKey: "k" }, ctx)
+      ).rejects.toThrow("Game not found");
+    });
+
+    it("returns duplicate:true for already-processed idempotency key", async () => {
+      const game = bailGame({ processedIdempotencyKeys: ["dup-bail"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "dup-bail" }, ctx);
+      expect(res).toMatchObject({ success: true, duplicate: true });
+    });
+
+    it("rejects when game is not active", async () => {
+      const game = bailGame({ status: "completed" });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Game is not active"
+      );
+    });
+
+    it("rejects when caller is not the attacker", async () => {
+      const game = bailGame({ currentAttacker: "p1" });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p2" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Only the setter can declare a bail"
+      );
+    });
+
+    it("rejects when not in attacker_recording phase", async () => {
+      const game = bailGame({ turnPhase: "judging" });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Can only bail during set trick phase"
+      );
+    });
+
+    it("rejects when player already has S.K.A.T.E.", async () => {
+      const game = bailGame({ player1Letters: ["S", "K", "A", "T", "E"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Player already has S.K.A.T.E."
+      );
+    });
+
+    it("assigns a letter to player1 setter and swaps roles", async () => {
+      const game = bailGame({ player1Letters: ["S"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb1" }, ctx);
+      expect(res).toMatchObject({
+        success: true,
+        gameOver: false,
+        winnerId: null,
+        duplicate: false,
+      });
+      expect(res.message).toContain("Letter earned");
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player1Letters).toEqual(["S", "K"]);
+      expect(update.currentAttacker).toBe("p2");
+      expect(update.currentTurn).toBe("p2");
+      expect(update.turnPhase).toBe("attacker_recording");
+      expect(update.roundNumber).toBe(2);
+      expect(update.currentSetMove).toBeNull();
+    });
+
+    it("assigns a letter to player2 setter and swaps roles", async () => {
+      const game = bailGame({
+        currentAttacker: "p2",
+        currentTurn: "p2",
+        player2Letters: [],
+      });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p2" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb2" }, ctx);
+      expect(res.gameOver).toBe(false);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player2Letters).toEqual(["S"]);
+      expect(update.currentAttacker).toBe("p1");
+    });
+
+    it("ends game when setter gets 5th letter (S.K.A.T.E.)", async () => {
+      const game = bailGame({ player1Letters: ["S", "K", "A", "T"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb-go" }, ctx);
+      expect(res).toMatchObject({
+        success: true,
+        gameOver: true,
+        winnerId: "p2",
+        duplicate: false,
+      });
+      expect(res.message).toContain("Game over");
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player1Letters).toEqual(["S", "K", "A", "T", "E"]);
+      expect(update.status).toBe("completed");
+      expect(update.winnerId).toBe("p2");
+      expect(update.turnPhase).toBe("round_complete");
+    });
+
+    it("ends game when player2 setter gets 5th letter", async () => {
+      const game = bailGame({
+        currentAttacker: "p2",
+        currentTurn: "p2",
+        player2Letters: ["S", "K", "A", "T"],
+      });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p2" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb-go2" }, ctx);
+      expect(res.gameOver).toBe(true);
+      expect(res.winnerId).toBe("p1");
+    });
+
+    it("caps idempotency keys at 50", async () => {
+      const keys = Array.from({ length: 50 }, (_, i) => `bk${i}`);
+      const game = bailGame({ processedIdempotencyKeys: keys });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await (setterBail as any)({ gameId: "g", idempotencyKey: "bk-new" }, ctx);
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.processedIdempotencyKeys).toHaveLength(50);
+      expect(update.processedIdempotencyKeys).toContain("bk-new");
+      expect(update.processedIdempotencyKeys).not.toContain("bk0");
+    });
+
+    it("handles missing idempotencyKey gracefully", async () => {
+      const game = bailGame();
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "" }, ctx);
+      expect(res.success).toBe(true);
+      expect(res.duplicate).toBe(false);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.processedIdempotencyKeys).toEqual([]);
+    });
+
+    it("handles null player letters", async () => {
+      const game = bailGame({ player1Letters: null });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb-null" }, ctx);
+      expect(res.success).toBe(true);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player1Letters).toEqual(["S"]);
     });
   });
 

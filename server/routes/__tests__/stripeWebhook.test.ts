@@ -467,6 +467,38 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
+    it("rejects checkout session with wrong currency (M1 cheap-currency attack)", async () => {
+      const session: Stripe.Checkout.Session = {
+        id: "cs_test_currency",
+        metadata: {
+          userId: "user-1",
+          type: "premium_upgrade",
+        },
+        payment_status: "paid",
+        amount_total: 999,
+        currency: "jpy",
+      } as any;
+
+      const event: Stripe.Event = {
+        id: "evt_currency_mismatch",
+        type: "checkout.session.completed",
+        data: {
+          object: session,
+        },
+      } as any;
+
+      mockConstructEvent.mockReturnValue(event);
+
+      const req = mockRequest({
+        headers: { "stripe-signature": "valid_sig" },
+      });
+      const res = mockResponse();
+
+      await callWebhook(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+
     it("returns 500 when database is unavailable (so Stripe retries)", async () => {
       mockGetDbShouldThrow = true;
 

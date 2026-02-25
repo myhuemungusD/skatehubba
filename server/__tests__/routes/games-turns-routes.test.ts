@@ -1007,4 +1007,111 @@ describe("Game Turn Routes", () => {
       });
     });
   });
+
+  // ==========================================================================
+  // POST /:id/setter-bail
+  // ==========================================================================
+
+  describe("POST /:id/setter-bail", () => {
+    it("returns game data on successful bail (no game over)", async () => {
+      const updatedGame = {
+        ...baseActiveGame,
+        player1Letters: "S",
+        offensivePlayerId: "user-2",
+        defensivePlayerId: "user-1",
+      };
+
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [[baseActiveGame]],
+          updateResults: [[updatedGame]],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({ params: { id: "game-1" } });
+      const res = createRes();
+
+      await callHandler("post", "/:id/setter-bail", req, res);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gameOver: false,
+          message: expect.stringContaining("Letter earned"),
+        })
+      );
+    });
+
+    it("returns game over when setter gets S.K.A.T.E.", async () => {
+      const gameWithSKAT = {
+        ...baseActiveGame,
+        player1Letters: "SKAT",
+      };
+      const completedGame = {
+        ...gameWithSKAT,
+        status: "completed",
+        winnerId: "user-2",
+        player1Letters: "SKATE",
+      };
+
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [[gameWithSKAT]],
+          updateResults: [[completedGame]],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({ params: { id: "game-1" } });
+      const res = createRes();
+
+      await callHandler("post", "/:id/setter-bail", req, res);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gameOver: true,
+          winnerId: "user-2",
+        })
+      );
+    });
+
+    it("returns error when user is not the setter", async () => {
+      const gameWhereUser2Sets = {
+        ...baseActiveGame,
+        offensivePlayerId: "user-2",
+        defensivePlayerId: "user-1",
+      };
+
+      mockTransaction.mockImplementation(async (callback: any) => {
+        const tx = createTx({
+          selectResults: [[gameWhereUser2Sets]],
+        });
+        return callback(tx);
+      });
+
+      const req = createReq({ params: { id: "game-1" } });
+      const res = createRes();
+
+      await callHandler("post", "/:id/setter-bail", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "Only the setter can declare a bail",
+      });
+    });
+
+    it("returns 500 on unexpected error", async () => {
+      mockTransaction.mockRejectedValue(new Error("DB connection lost"));
+
+      const req = createReq({ params: { id: "game-1" } });
+      const res = createRes();
+
+      await callHandler("post", "/:id/setter-bail", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "Failed to process setter bail",
+      });
+    });
+  });
 });
