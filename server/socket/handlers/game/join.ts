@@ -20,11 +20,14 @@ export function registerJoinHandler(io: TypedServer, socket: TypedSocket): void 
     try {
       const eventId = generateEventId("join", data.odv, gameId);
 
-      const result = await joinGame({
-        eventId,
-        gameId,
-        odv: data.odv,
-      });
+      // L6: Timeout DB operations to prevent hanging socket handlers
+      const SOCKET_OP_TIMEOUT = 5000;
+      const result = await Promise.race([
+        joinGame({ eventId, gameId, odv: data.odv }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Operation timed out")), SOCKET_OP_TIMEOUT)
+        ),
+      ]);
 
       if (!result.success) {
         socket.emit("error", {

@@ -8,7 +8,8 @@ import { createPost } from "../services/moderationStore";
 const router = Router();
 
 const postSchema = z.object({
-  mediaUrl: z.string().url().max(2000),
+  // M2: Restrict URL scheme to HTTPS only (prevent javascript:, data:, file: XSS)
+  mediaUrl: z.string().url().max(2000).refine((url) => /^https:\/\//i.test(url), "URL must use HTTPS"),
   caption: z.string().max(300).optional(),
   spotId: z.number().int().optional(),
 });

@@ -16,12 +16,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockTransaction = vi.fn();
 let shouldGetDbThrow = false;
 
+/** A mock result for the pre-transaction game lookup select chain */
+let gameSelectResult: any[] = [];
+
 function createDbChain() {
   const chain: any = {};
   chain.select = vi.fn().mockReturnValue(chain);
   chain.from = vi.fn().mockReturnValue(chain);
   chain.where = vi.fn().mockReturnValue(chain);
-  chain.limit = vi.fn().mockReturnValue(chain);
+  chain.limit = vi.fn().mockImplementation(() => Promise.resolve(gameSelectResult));
   chain.insert = vi.fn().mockReturnValue(chain);
   chain.values = vi.fn().mockReturnValue(chain);
   chain.returning = vi.fn().mockReturnValue(chain);
@@ -47,6 +50,7 @@ vi.mock("../../auth/middleware", () => ({
     req.currentUser = req.currentUser || { id: "user-1" };
     next();
   },
+  requireAdmin: vi.fn((_req: any, _res: any, next: any) => next()),
   requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
@@ -72,7 +76,12 @@ vi.mock("../../services/gameNotificationService", () => ({
 }));
 
 vi.mock("@shared/schema", () => ({
-  games: { _table: "games", id: { name: "id" } },
+  games: {
+    _table: "games",
+    id: { name: "id" },
+    player1Id: { name: "player1Id" },
+    player2Id: { name: "player2Id" },
+  },
   gameTurns: { _table: "gameTurns", id: { name: "id" } },
   gameDisputes: { _table: "gameDisputes", id: { name: "id" } },
   userProfiles: {
@@ -90,7 +99,15 @@ vi.mock("drizzle-orm", () => ({
   ),
 }));
 
-vi.mock("./games-shared", () => ({
+const mockFileDispute = vi.fn();
+const mockResolveDispute = vi.fn();
+
+vi.mock("../../services/gameDisputeService", () => ({
+  fileDispute: (...args: any[]) => mockFileDispute(...args),
+  resolveDispute: (...args: any[]) => mockResolveDispute(...args),
+}));
+
+vi.mock("../../routes/games-shared", () => ({
   disputeSchema: {
     safeParse: (body: any) => {
       if (!body || !body.turnId || typeof body.turnId !== "number") {
@@ -179,6 +196,7 @@ describe("Game Dispute Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     shouldGetDbThrow = false;
+    gameSelectResult = [];
   });
 
   // ==========================================================================
@@ -208,31 +226,20 @@ describe("Game Dispute Routes", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
     });
 
+    it("returns 404 when game is not found", async () => {
+      gameSelectResult = []; // No game found
+
+      const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
+      const res = createRes();
+
+      await callHandler("POST /:id/dispute", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ error: "Game not found" });
+    });
+
     it("returns 403 when user is not a player", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        let callIdx = 0;
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockImplementation(() => {
-          callIdx++;
-          if (callIdx === 1) {
-            // game query
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: "game-1",
-                    player1Id: "other-1",
-                    player2Id: "other-2",
-                    status: "active",
-                  },
-                ]).then(r),
-            };
-          }
-          return { then: (r: any) => Promise.resolve([]).then(r) };
-        });
-        return callback(tx);
-      });
+      gameSelectResult = [{ player1Id: "other-1", player2Id: "other-2" }];
 
       const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
       const res = createRes();
@@ -241,54 +248,17 @@ describe("Game Dispute Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith({
-        error: "You are not a player in this game",
+        error: "Only game participants can file disputes",
       });
     });
 
-    it("returns 400 when game is not active", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
-              {
-                id: "game-1",
-                player1Id: "user-1",
-                player2Id: "user-2",
-                status: "completed",
-              },
-            ]).then(r),
-        });
-        return callback(tx);
-      });
-
-      const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
-      const res = createRes();
-
-      await callHandler("POST /:id/dispute", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: "Game is not active" });
-    });
-
-    it("returns 400 when dispute already used", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
-              {
-                id: "game-1",
-                player1Id: "user-1",
-                player2Id: "user-2",
-                status: "active",
-                player1DisputeUsed: true,
-              },
-            ]).then(r),
-        });
-        return callback(tx);
+    it("returns error status when fileDispute returns not ok", async () => {
+      gameSelectResult = [{ player1Id: "user-1", player2Id: "user-2" }];
+      mockTransaction.mockImplementation(async (callback: any) => callback({}));
+      mockFileDispute.mockResolvedValue({
+        ok: false,
+        status: 400,
+        error: "You have already used your dispute for this game",
       });
 
       const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
@@ -302,234 +272,6 @@ describe("Game Dispute Routes", () => {
       });
     });
 
-    it("returns 404 when turn not found", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let callIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          callIdx++;
-          if (callIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: "game-1",
-                    player1Id: "user-1",
-                    player2Id: "user-2",
-                    status: "active",
-                    player1DisputeUsed: false,
-                  },
-                ]).then(r),
-            };
-          }
-          // turn query — not found
-          return { then: (r: any) => Promise.resolve([]).then(r) };
-        });
-        return callback(tx);
-      });
-
-      const req = createReq({ params: { id: "game-1" }, body: { turnId: 999 } });
-      const res = createRes();
-
-      await callHandler("POST /:id/dispute", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ error: "Turn not found" });
-    });
-
-    it("returns 400 when turn belongs to different game", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let callIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          callIdx++;
-          if (callIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: "game-1",
-                    player1Id: "user-1",
-                    player2Id: "user-2",
-                    status: "active",
-                    player1DisputeUsed: false,
-                  },
-                ]).then(r),
-            };
-          }
-          return {
-            then: (r: any) =>
-              Promise.resolve([
-                {
-                  id: 1,
-                  gameId: "game-other",
-                  result: "missed",
-                  playerId: "user-1",
-                  judgedBy: "user-2",
-                },
-              ]).then(r),
-          };
-        });
-        return callback(tx);
-      });
-
-      const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
-      const res = createRes();
-
-      await callHandler("POST /:id/dispute", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        error: "Turn does not belong to this game",
-      });
-    });
-
-    it("returns 400 when turn result is not 'missed'", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let callIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          callIdx++;
-          if (callIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: "game-1",
-                    player1Id: "user-1",
-                    player2Id: "user-2",
-                    status: "active",
-                    player1DisputeUsed: false,
-                  },
-                ]).then(r),
-            };
-          }
-          return {
-            then: (r: any) =>
-              Promise.resolve([
-                {
-                  id: 1,
-                  gameId: "game-1",
-                  result: "landed",
-                  playerId: "user-1",
-                  judgedBy: "user-2",
-                },
-              ]).then(r),
-          };
-        });
-        return callback(tx);
-      });
-
-      const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
-      const res = createRes();
-
-      await callHandler("POST /:id/dispute", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        error: "Can only dispute a BAIL judgment",
-      });
-    });
-
-    it("returns 400 when turn is not yours", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let callIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          callIdx++;
-          if (callIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: "game-1",
-                    player1Id: "user-1",
-                    player2Id: "user-2",
-                    status: "active",
-                    player1DisputeUsed: false,
-                  },
-                ]).then(r),
-            };
-          }
-          return {
-            then: (r: any) =>
-              Promise.resolve([
-                {
-                  id: 1,
-                  gameId: "game-1",
-                  result: "missed",
-                  playerId: "user-2", // not the current user
-                  judgedBy: "user-1",
-                },
-              ]).then(r),
-          };
-        });
-        return callback(tx);
-      });
-
-      const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
-      const res = createRes();
-
-      await callHandler("POST /:id/dispute", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        error: "You can only dispute judgments on your own tricks",
-      });
-    });
-
-    it("returns 400 when turn has not been judged", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let callIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          callIdx++;
-          if (callIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: "game-1",
-                    player1Id: "user-1",
-                    player2Id: "user-2",
-                    status: "active",
-                    player1DisputeUsed: false,
-                  },
-                ]).then(r),
-            };
-          }
-          return {
-            then: (r: any) =>
-              Promise.resolve([
-                {
-                  id: 1,
-                  gameId: "game-1",
-                  result: "missed",
-                  playerId: "user-1",
-                  judgedBy: null, // not judged yet
-                },
-              ]).then(r),
-          };
-        });
-        return callback(tx);
-      });
-
-      const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
-      const res = createRes();
-
-      await callHandler("POST /:id/dispute", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({
-        error: "Turn has not been judged yet",
-      });
-    });
-
     it("succeeds and creates dispute (201)", async () => {
       const disputeRecord = {
         id: "dispute-1",
@@ -540,43 +282,12 @@ describe("Game Dispute Routes", () => {
         originalResult: "missed",
       };
 
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let selectCallIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          selectCallIdx++;
-          if (selectCallIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: "game-1",
-                    player1Id: "user-1",
-                    player2Id: "user-2",
-                    status: "active",
-                    player1DisputeUsed: false,
-                  },
-                ]).then(r),
-            };
-          }
-          return {
-            then: (r: any) =>
-              Promise.resolve([
-                {
-                  id: 1,
-                  gameId: "game-1",
-                  result: "missed",
-                  playerId: "user-1",
-                  judgedBy: "user-2",
-                },
-              ]).then(r),
-          };
-        });
-        tx.returning = vi.fn().mockReturnValue({
-          then: (r: any) => Promise.resolve([disputeRecord]).then(r),
-        });
-        return callback(tx);
+      gameSelectResult = [{ player1Id: "user-1", player2Id: "user-2" }];
+      mockTransaction.mockImplementation(async (callback: any) => callback({}));
+      mockFileDispute.mockResolvedValue({
+        ok: true,
+        dispute: disputeRecord,
+        opponentId: "user-2",
       });
 
       const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
@@ -597,7 +308,26 @@ describe("Game Dispute Routes", () => {
       });
     });
 
+    it("skips notification when opponentId is null", async () => {
+      gameSelectResult = [{ player1Id: "user-1", player2Id: "user-2" }];
+      mockTransaction.mockImplementation(async (callback: any) => callback({}));
+      mockFileDispute.mockResolvedValue({
+        ok: true,
+        dispute: { id: "dispute-1" },
+        opponentId: null,
+      });
+
+      const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
+      const res = createRes();
+
+      await callHandler("POST /:id/dispute", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(mockSendGameNotification).not.toHaveBeenCalled();
+    });
+
     it("returns 500 on unexpected transaction error", async () => {
+      gameSelectResult = [{ player1Id: "user-1", player2Id: "user-2" }];
       mockTransaction.mockRejectedValue(new Error("DB crash"));
 
       const req = createReq({ params: { id: "game-1" }, body: { turnId: 1 } });
@@ -643,14 +373,12 @@ describe("Game Dispute Routes", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
     });
 
-    it("returns 404 when dispute is not found", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) => Promise.resolve([]).then(r),
-        });
-        return callback(tx);
+    it("returns error status when resolveDispute returns not ok", async () => {
+      mockTransaction.mockImplementation(async (callback: any) => callback({}));
+      mockResolveDispute.mockResolvedValue({
+        ok: false,
+        status: 404,
+        error: "Dispute not found",
       });
 
       const req = createReq({
@@ -666,22 +394,11 @@ describe("Game Dispute Routes", () => {
     });
 
     it("returns 400 when dispute is already resolved", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
-              {
-                id: 1,
-                gameId: "game-1",
-                disputedBy: "user-2",
-                againstPlayerId: "user-1",
-                finalResult: "landed", // already resolved
-              },
-            ]).then(r),
-        });
-        return callback(tx);
+      mockTransaction.mockImplementation(async (callback: any) => callback({}));
+      mockResolveDispute.mockResolvedValue({
+        ok: false,
+        status: 400,
+        error: "Dispute already resolved",
       });
 
       const req = createReq({
@@ -696,23 +413,12 @@ describe("Game Dispute Routes", () => {
       expect(res.json).toHaveBeenCalledWith({ error: "Dispute already resolved" });
     });
 
-    it("returns 403 when current user is not the judging player", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        tx.limit = vi.fn().mockReturnValue({
-          then: (r: any) =>
-            Promise.resolve([
-              {
-                id: 1,
-                gameId: "game-1",
-                disputedBy: "user-2",
-                againstPlayerId: "user-other", // not user-1
-                finalResult: null,
-              },
-            ]).then(r),
-        });
-        return callback(tx);
+    it("returns 403 when resolveDispute denies access", async () => {
+      mockTransaction.mockImplementation(async (callback: any) => callback({}));
+      mockResolveDispute.mockResolvedValue({
+        ok: false,
+        status: 403,
+        error: "Only the judging player can resolve the dispute",
       });
 
       const req = createReq({
@@ -729,134 +435,12 @@ describe("Game Dispute Routes", () => {
       });
     });
 
-    it("returns 404 when game is not found", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let callIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          callIdx++;
-          if (callIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: 1,
-                    gameId: "game-1",
-                    turnId: 1,
-                    disputedBy: "user-2",
-                    againstPlayerId: "user-1",
-                    finalResult: null,
-                  },
-                ]).then(r),
-            };
-          }
-          // game not found
-          return { then: (r: any) => Promise.resolve([]).then(r) };
-        });
-        return callback(tx);
-      });
-
-      const req = createReq({
-        params: { disputeId: "1" },
-        body: { finalResult: "landed" },
-      });
-      const res = createRes();
-
-      await callHandler("POST /disputes/:disputeId/resolve", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ error: "Game not found" });
-    });
-
-    it("returns 400 when game is not active", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let callIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          callIdx++;
-          if (callIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: 1,
-                    gameId: "game-1",
-                    turnId: 1,
-                    disputedBy: "user-2",
-                    againstPlayerId: "user-1",
-                    finalResult: null,
-                  },
-                ]).then(r),
-            };
-          }
-          return {
-            then: (r: any) =>
-              Promise.resolve([
-                {
-                  id: "game-1",
-                  player1Id: "user-1",
-                  player2Id: "user-2",
-                  status: "completed",
-                },
-              ]).then(r),
-          };
-        });
-        return callback(tx);
-      });
-
-      const req = createReq({
-        params: { disputeId: "1" },
-        body: { finalResult: "landed" },
-      });
-      const res = createRes();
-
-      await callHandler("POST /disputes/:disputeId/resolve", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: "Game is no longer active" });
-    });
-
     it("resolves dispute with 'landed' — overturns BAIL", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let callIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          callIdx++;
-          if (callIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: 1,
-                    gameId: "game-1",
-                    turnId: 1,
-                    disputedBy: "user-2",
-                    againstPlayerId: "user-1",
-                    finalResult: null,
-                  },
-                ]).then(r),
-            };
-          }
-          return {
-            then: (r: any) =>
-              Promise.resolve([
-                {
-                  id: "game-1",
-                  player1Id: "user-1",
-                  player2Id: "user-2",
-                  status: "active",
-                  player1Letters: "S",
-                  player2Letters: "",
-                  offensivePlayerId: "user-1",
-                  defensivePlayerId: "user-2",
-                },
-              ]).then(r),
-          };
-        });
-        return callback(tx);
+      mockTransaction.mockImplementation(async (callback: any) => callback({}));
+      mockResolveDispute.mockResolvedValue({
+        ok: true,
+        dispute: { id: 1, finalResult: "landed" },
+        penaltyTarget: "user-2",
       });
 
       const req = createReq({
@@ -875,42 +459,11 @@ describe("Game Dispute Routes", () => {
     });
 
     it("resolves dispute with 'missed' — BAIL stands", async () => {
-      mockTransaction.mockImplementation(async (callback: any) => {
-        const tx = createDbChain();
-        tx.execute = vi.fn().mockResolvedValue(undefined);
-        let callIdx = 0;
-        tx.limit = vi.fn().mockImplementation(() => {
-          callIdx++;
-          if (callIdx === 1) {
-            return {
-              then: (r: any) =>
-                Promise.resolve([
-                  {
-                    id: 1,
-                    gameId: "game-1",
-                    turnId: 1,
-                    disputedBy: "user-2",
-                    againstPlayerId: "user-1",
-                    finalResult: null,
-                  },
-                ]).then(r),
-            };
-          }
-          return {
-            then: (r: any) =>
-              Promise.resolve([
-                {
-                  id: "game-1",
-                  player1Id: "user-1",
-                  player2Id: "user-2",
-                  status: "active",
-                  player1Letters: "S",
-                  player2Letters: "",
-                },
-              ]).then(r),
-          };
-        });
-        return callback(tx);
+      mockTransaction.mockImplementation(async (callback: any) => callback({}));
+      mockResolveDispute.mockResolvedValue({
+        ok: true,
+        dispute: { id: 1, finalResult: "missed" },
+        penaltyTarget: "user-1",
       });
 
       const req = createReq({
