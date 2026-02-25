@@ -174,7 +174,7 @@ jobs:
           ${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager "platform-tools" "emulator"
 
       - name: AVD Cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         id: avd-cache
         with:
           path: |
@@ -293,7 +293,7 @@ jobs:
           bundler-cache: true
 
       - name: Cache CocoaPods
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: mobile/ios/Pods
           key: ${{ runner.os }}-pods-${{ hashFiles('mobile/ios/Podfile.lock') }}
