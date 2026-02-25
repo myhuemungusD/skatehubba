@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, Image } from "react-native";
+import { View, Text, StyleSheet, FlatList, Image, RefreshControl } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { LeaderboardEntry } from "@/types";
@@ -14,7 +14,7 @@ function winRate(wins: number, losses: number): string {
 }
 
 function LeaderboardScreenContent() {
-  const { data: leaderboard, isLoading } = useQuery({
+  const { data: leaderboard, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["/api/leaderboard"],
     queryFn: () => apiRequest<LeaderboardEntry[]>("/api/leaderboard"),
   });
@@ -56,10 +56,20 @@ function LeaderboardScreenContent() {
     );
   };
 
+  const hasNoData = !isLoading && (!leaderboard || leaderboard.length === 0);
+
   return (
     <View testID="leaderboard-screen" style={styles.container}>
       {isLoading ? (
         <LeaderboardSkeleton />
+      ) : hasNoData ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="trophy-outline" size={64} color={SKATE.colors.gray} />
+          <Text style={styles.emptyTitle}>No Rankings Yet</Text>
+          <Text style={styles.emptyText}>
+            Play S.K.A.T.E. challenges to climb the leaderboard!
+          </Text>
+        </View>
       ) : (
         <FlatList
           testID="leaderboard-list"
@@ -72,6 +82,14 @@ function LeaderboardScreenContent() {
                 S.K.A.T.E. Leaderboard
               </Text>
             </View>
+          }
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={SKATE.colors.orange}
+              colors={[SKATE.colors.orange]}
+            />
           }
         />
       )}
@@ -158,5 +176,24 @@ const styles = StyleSheet.create({
     fontSize: SKATE.fontSize.xl,
     fontWeight: SKATE.fontWeight.bold,
     color: SKATE.colors.orange,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: SKATE.spacing.xxl,
+  },
+  emptyTitle: {
+    color: SKATE.colors.white,
+    fontSize: SKATE.fontSize.xxl,
+    fontWeight: SKATE.fontWeight.bold,
+    marginTop: SKATE.spacing.lg,
+  },
+  emptyText: {
+    color: SKATE.colors.lightGray,
+    fontSize: SKATE.fontSize.md,
+    textAlign: "center",
+    marginTop: SKATE.spacing.sm,
+    lineHeight: 20,
   },
 });

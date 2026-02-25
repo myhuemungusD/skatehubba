@@ -20,6 +20,7 @@ import { openLink } from "@/lib/linking";
 import { useState, useEffect, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { removePushTokenFromServer } from "@/lib/pushNotifications";
+import Constants from "expo-constants";
 
 type SettingItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -104,7 +105,9 @@ function SettingsScreenContent() {
             await signOut(auth);
             router.replace("/(tabs)");
           } catch (error) {
-            console.error("Sign out error:", error);
+            if (__DEV__) {
+              console.error("Sign out error:", error);
+            }
           }
         },
       },
@@ -320,7 +323,7 @@ function SettingsScreenContent() {
 
       {/* App Info */}
       <View style={styles.appInfo}>
-        <Text style={styles.appVersion}>SkateHubba v1.0.0</Text>
+        <Text style={styles.appVersion}>SkateHubba v{Constants.expoConfig?.version ?? "1.0.0"}</Text>
         <Text style={styles.appCopyright}>Made with love for skaters</Text>
       </View>
 

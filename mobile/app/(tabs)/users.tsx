@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput, RefreshControl } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useRouter } from "expo-router";
@@ -18,7 +18,7 @@ function UsersScreenContent() {
   const router = useRouter();
   const [search, setSearch] = useState("");
 
-  const { data: users, isLoading } = useQuery({
+  const { data: users, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["/api/users"],
     queryFn: () => apiRequest<User[]>("/api/users"),
   });
@@ -91,6 +91,14 @@ function UsersScreenContent() {
           renderItem={renderUser}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={SKATE.colors.orange}
+              colors={[SKATE.colors.orange]}
+            />
+          }
         />
       )}
     </View>

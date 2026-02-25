@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -9,6 +9,7 @@ import { httpsCallable } from "firebase/functions";
 import { functions } from "@/lib/firebase.config";
 import { showMessage } from "react-native-flash-message";
 import { SKATE } from "@/theme";
+import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 
 interface UserProfile {
   photoURL?: string;
@@ -21,7 +22,7 @@ interface UserProfile {
 
 const createChallenge = httpsCallable(functions, "createChallenge");
 
-export default function ProfileScreen() {
+function ProfileScreenContent() {
   const { uid } = useLocalSearchParams();
   const { user: currentUser } = useAuth();
   const router = useRouter();
@@ -41,25 +42,31 @@ export default function ProfileScreen() {
       });
       return res.data;
     },
-    onSuccess: () => showMessage({ message: "Challenge sent 🔥", type: "success" }),
+    onSuccess: () => showMessage({ message: "Challenge sent!", type: "success" }),
     onError: (e: Error) => showMessage({ message: e?.message || "Failed", type: "danger" }),
   });
 
   if (isLoading) {
     return (
-      <View style={styles.container}>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color={SKATE.colors.orange} />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </View>
     );
   }
 
+  const displayInitial = profile?.displayName?.charAt(0).toUpperCase() || "S";
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Image
-          source={{ uri: profile?.photoURL || "https://via.placeholder.com/100" }}
-          style={styles.avatar}
-        />
+        {profile?.photoURL ? (
+          <Image source={{ uri: profile.photoURL }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarInitial}>{displayInitial}</Text>
+          </View>
+        )}
         <Text style={styles.name}>{profile?.displayName || "Skater"}</Text>
         <Text style={styles.email}>{profile?.email}</Text>
 
@@ -91,11 +98,19 @@ export default function ProfileScreen() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Recent Activity</Text>
         <View style={styles.emptyState}>
-          <Ionicons name="time-outline" size={48} color="#666" />
+          <Ionicons name="time-outline" size={48} color={SKATE.colors.gray} />
           <Text style={styles.emptyText}>No recent activity</Text>
         </View>
       </View>
     </ScrollView>
+  );
+}
+
+export default function ProfileScreen() {
+  return (
+    <ScreenErrorBoundary screenName="Profile">
+      <ProfileScreenContent />
+    </ScreenErrorBoundary>
   );
 }
 
@@ -110,7 +125,7 @@ function StatCard({
 }) {
   return (
     <View style={styles.statCard}>
-      <Ionicons name={icon} size={32} color="#ff6600" />
+      <Ionicons name={icon} size={32} color={SKATE.colors.orange} />
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
@@ -120,89 +135,110 @@ function StatCard({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0a0a0a",
+    backgroundColor: SKATE.colors.ink,
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: SKATE.colors.ink,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: SKATE.spacing.md,
   },
   header: {
     alignItems: "center",
-    padding: 24,
+    padding: SKATE.spacing.xxl,
     borderBottomWidth: 1,
-    borderBottomColor: "#2a2a2a",
+    borderBottomColor: SKATE.colors.darkGray,
   },
   avatar: {
     width: 100,
     height: 100,
     borderRadius: 50,
-    marginBottom: 16,
+    marginBottom: SKATE.spacing.lg,
     borderWidth: 3,
-    borderColor: "#ff6600",
+    borderColor: SKATE.colors.orange,
+  },
+  avatarPlaceholder: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: SKATE.spacing.lg,
+    borderWidth: 3,
+    borderColor: SKATE.colors.orange,
+    backgroundColor: SKATE.colors.grime,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarInitial: {
+    color: SKATE.colors.orange,
+    fontSize: 40,
+    fontWeight: "bold",
   },
   name: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
+    fontSize: SKATE.fontSize.title,
+    fontWeight: SKATE.fontWeight.bold,
+    color: SKATE.colors.white,
   },
   email: {
-    fontSize: 14,
-    color: "#999",
-    marginTop: 4,
+    fontSize: SKATE.fontSize.md,
+    color: SKATE.colors.lightGray,
+    marginTop: SKATE.spacing.xs,
   },
   challengeButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: SKATE.spacing.sm,
     backgroundColor: SKATE.colors.blood,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
-    marginTop: 16,
+    paddingVertical: SKATE.spacing.md,
+    paddingHorizontal: SKATE.spacing.xxl,
+    borderRadius: SKATE.borderRadius.md,
+    marginTop: SKATE.spacing.lg,
     minHeight: SKATE.accessibility.minimumTouchTarget,
   },
   challengeButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+    color: SKATE.colors.white,
+    fontSize: SKATE.fontSize.lg,
+    fontWeight: SKATE.fontWeight.bold,
   },
   stats: {
     flexDirection: "row",
     justifyContent: "space-around",
-    padding: 24,
+    padding: SKATE.spacing.xxl,
   },
   statCard: {
     alignItems: "center",
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
-    marginTop: 8,
+    fontSize: SKATE.fontSize.title,
+    fontWeight: SKATE.fontWeight.bold,
+    color: SKATE.colors.white,
+    marginTop: SKATE.spacing.sm,
   },
   statLabel: {
-    fontSize: 12,
-    color: "#999",
-    marginTop: 4,
+    fontSize: SKATE.fontSize.sm,
+    color: SKATE.colors.lightGray,
+    marginTop: SKATE.spacing.xs,
   },
   section: {
-    padding: 24,
+    padding: SKATE.spacing.xxl,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 16,
+    fontSize: SKATE.fontSize.xxl,
+    fontWeight: SKATE.fontWeight.bold,
+    color: SKATE.colors.white,
+    marginBottom: SKATE.spacing.lg,
   },
   emptyState: {
     alignItems: "center",
-    paddingVertical: 32,
+    paddingVertical: SKATE.spacing.xxl,
   },
   emptyText: {
-    color: "#666",
-    fontSize: 14,
-    marginTop: 12,
+    color: SKATE.colors.gray,
+    fontSize: SKATE.fontSize.md,
+    marginTop: SKATE.spacing.md,
   },
   loadingText: {
-    color: "#fff",
-    fontSize: 16,
-    textAlign: "center",
-    marginTop: 32,
+    color: SKATE.colors.lightGray,
+    fontSize: SKATE.fontSize.lg,
   },
 });

@@ -36,11 +36,13 @@ export class ScreenErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error(
-      `[ScreenErrorBoundary${this.props.screenName ? ` – ${this.props.screenName}` : ""}] Caught error:`,
-      error,
-      errorInfo
-    );
+    if (__DEV__) {
+      console.error(
+        `[ScreenErrorBoundary${this.props.screenName ? ` – ${this.props.screenName}` : ""}] Caught error:`,
+        error,
+        errorInfo
+      );
+    }
   }
 
   handleRetry = (): void => {

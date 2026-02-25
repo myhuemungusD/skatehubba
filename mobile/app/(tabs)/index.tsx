@@ -135,23 +135,6 @@ function HomeScreenContent() {
         </View>
       </View>
 
-      {/* Investor Demo Access */}
-      <View style={styles.section}>
-        <TouchableOpacity
-          style={styles.demoCard}
-          onPress={() => router.push("/demo")}
-        >
-          <View style={styles.demoIconContainer}>
-            <Ionicons name="eye" size={24} color={SKATE.colors.orange} />
-          </View>
-          <View style={styles.demoContent}>
-            <Text style={styles.demoTitle}>Investor Demo</Text>
-            <Text style={styles.demoSubtitle}>Preview all screens with mock data</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={SKATE.colors.orange} />
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.bottomPadding} />
     </ScrollView>
   );
@@ -272,38 +255,6 @@ const styles = StyleSheet.create({
   },
   activitySubtitle: {
     color: SKATE.colors.gray,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  demoCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: SKATE.colors.grime,
-    borderRadius: SKATE.borderRadius.lg,
-    padding: SKATE.spacing.lg,
-    borderWidth: 1,
-    borderColor: SKATE.colors.orange,
-    borderStyle: "dashed",
-  },
-  demoIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 102, 0, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: SKATE.spacing.md,
-  },
-  demoContent: {
-    flex: 1,
-  },
-  demoTitle: {
-    color: SKATE.colors.orange,
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  demoSubtitle: {
-    color: SKATE.colors.lightGray,
     fontSize: 12,
     marginTop: 2,
   },

@@ -78,14 +78,18 @@ export function useRecordingState({ onVideoReady }: UseRecordingStateParams) {
           onVideoReady(video.path);
         },
         onRecordingError: (error: unknown) => {
-          console.error("[TrickRecorder] Recording error:", error);
+          if (__DEV__) {
+            console.error("[TrickRecorder] Recording error:", error);
+          }
           setRecording(false);
           Alert.alert("Recording Failed", "Please try again.");
         },
       });
       // Auto-stop is handled by the timer useEffect above
     } catch (error) {
-      console.error("[TrickRecorder] Failed to start recording:", error);
+      if (__DEV__) {
+        console.error("[TrickRecorder] Failed to start recording:", error);
+      }
       setRecording(false);
       Alert.alert("Recording Failed", "Please try again.");
     }
