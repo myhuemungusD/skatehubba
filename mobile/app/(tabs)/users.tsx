@@ -1,4 +1,13 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  TextInput,
+  RefreshControl,
+} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useRouter } from "expo-router";
@@ -18,14 +27,19 @@ function UsersScreenContent() {
   const router = useRouter();
   const [search, setSearch] = useState("");
 
-  const { data: users, isLoading } = useQuery({
+  const {
+    data: users,
+    isLoading,
+    error,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ["/api/users"],
     queryFn: () => apiRequest<User[]>("/api/users"),
   });
 
-  const filteredUsers = users?.filter(
-    (user: User) =>
-      user.displayName?.toLowerCase().includes(search.toLowerCase())
+  const filteredUsers = users?.filter((user: User) =>
+    user.displayName?.toLowerCase().includes(search.toLowerCase())
   );
 
   const renderUser = ({ item }: { item: User }) => (
@@ -67,6 +81,8 @@ function UsersScreenContent() {
           style={styles.searchIcon}
         />
         <TextInput
+          accessible
+          accessibilityLabel="Search skaters"
           style={styles.searchInput}
           placeholder="Search skaters..."
           placeholderTextColor={SKATE.colors.gray}
@@ -77,6 +93,24 @@ function UsersScreenContent() {
 
       {isLoading ? (
         <UsersSkeleton />
+      ) : error ? (
+        <View style={styles.emptyState}>
+          <Ionicons name="cloud-offline-outline" size={64} color={SKATE.colors.blood} />
+          <Text style={styles.emptyTitle}>Failed to Load</Text>
+          <Text style={styles.emptyText}>
+            Could not load skaters. Check your connection and try again.
+          </Text>
+          <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading skaters"
+            style={styles.retryButton}
+            onPress={() => refetch()}
+          >
+            <Ionicons name="refresh" size={20} color={SKATE.colors.white} />
+            <Text style={styles.retryButtonText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
       ) : filteredUsers?.length === 0 ? (
         <View style={styles.emptyState}>
           <Ionicons name="people-outline" size={64} color={SKATE.colors.orange} />
@@ -91,6 +125,14 @@ function UsersScreenContent() {
           renderItem={renderUser}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={SKATE.colors.orange}
+              colors={[SKATE.colors.orange]}
+            />
+          }
         />
       )}
     </View>
@@ -196,5 +238,21 @@ const styles = StyleSheet.create({
     fontSize: SKATE.fontSize.md,
     textAlign: "center",
     lineHeight: 20,
+  },
+  retryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SKATE.spacing.sm,
+    backgroundColor: SKATE.colors.blood,
+    paddingVertical: SKATE.spacing.md,
+    paddingHorizontal: SKATE.spacing.xxl,
+    borderRadius: SKATE.borderRadius.md,
+    marginTop: SKATE.spacing.lg,
+    minHeight: SKATE.accessibility.minimumTouchTarget,
+  },
+  retryButtonText: {
+    color: SKATE.colors.white,
+    fontSize: SKATE.fontSize.lg,
+    fontWeight: SKATE.fontWeight.bold,
   },
 });

@@ -44,9 +44,11 @@ export function OfflineBanner() {
         }),
       ]);
 
-      Animated.loop(pulse).start();
+      const loopRef = Animated.loop(pulse);
+      loopRef.start();
 
       return () => {
+        loopRef.stop();
         pulseAnim.setValue(1);
       };
     }

@@ -62,7 +62,7 @@ export function SlowMoReplay({
           const speed = isSlowMo ? SLOW_MO_SPEED : NORMAL_SPEED;
           await videoRef.current.setRateAsync(speed, true);
         } catch (err) {
-          console.error("[SlowMoReplay] Failed to set playback rate:", err);
+          if (__DEV__) console.error("[SlowMoReplay] Failed to set playback rate:", err);
         }
       }
     };
@@ -80,7 +80,7 @@ export function SlowMoReplay({
     } else if (status.error) {
       setIsLoading(false);
       setError("Failed to load video");
-      console.error("[SlowMoReplay] Playback error:", status.error);
+      if (__DEV__) console.error("[SlowMoReplay] Playback error:", status.error);
     }
   }, []);
 
@@ -102,7 +102,7 @@ export function SlowMoReplay({
         await videoRef.current.playAsync();
       }
     } catch (err) {
-      console.error("[SlowMoReplay] Failed to toggle playback:", err);
+      if (__DEV__) console.error("[SlowMoReplay] Failed to toggle playback:", err);
     }
   }, [isPlaying]);
 
@@ -114,7 +114,7 @@ export function SlowMoReplay({
       const newPosition = Math.max(0, positionMillis - 2000);
       await videoRef.current.setPositionAsync(newPosition);
     } catch (err) {
-      console.error("[SlowMoReplay] Failed to seek:", err);
+      if (__DEV__) console.error("[SlowMoReplay] Failed to seek:", err);
     }
   }, [positionMillis]);
 
@@ -126,7 +126,7 @@ export function SlowMoReplay({
       const newPosition = Math.min(durationMillis, positionMillis + 2000);
       await videoRef.current.setPositionAsync(newPosition);
     } catch (err) {
-      console.error("[SlowMoReplay] Failed to seek:", err);
+      if (__DEV__) console.error("[SlowMoReplay] Failed to seek:", err);
     }
   }, [positionMillis, durationMillis]);
 
@@ -138,7 +138,7 @@ export function SlowMoReplay({
       await videoRef.current.setPositionAsync(0);
       await videoRef.current.playAsync();
     } catch (err) {
-      console.error("[SlowMoReplay] Failed to restart:", err);
+      if (__DEV__) console.error("[SlowMoReplay] Failed to restart:", err);
     }
   }, []);
 

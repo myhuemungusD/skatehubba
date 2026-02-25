@@ -37,7 +37,7 @@ export class VideoErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error("[VideoErrorBoundary] Caught error:", error, errorInfo);
+    if (__DEV__) console.error("[VideoErrorBoundary] Caught error:", error, errorInfo);
   }
 
   handleRetry = (): void => {

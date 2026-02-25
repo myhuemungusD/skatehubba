@@ -2,14 +2,9 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-nati
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
+import { openLink } from "@/lib/linking";
 
-// Placeholder product data
-const FEATURED_PRODUCTS = [
-  { id: "1", name: "SkateHubba Deck", price: 59.99, image: null, category: "Decks" },
-  { id: "2", name: "Pro Wheels Set", price: 45.99, image: null, category: "Wheels" },
-  { id: "3", name: "Grip Tape Pack", price: 12.99, image: null, category: "Accessories" },
-  { id: "4", name: "Skate Tool", price: 15.99, image: null, category: "Tools" },
-];
+const STORE_URL = "https://skatehubba.store";
 
 const CATEGORIES = [
   { id: "decks", name: "Decks", icon: "layers" as const },
@@ -22,25 +17,38 @@ const CATEGORIES = [
 function ShopScreenContent() {
   return (
     <ScrollView style={styles.container}>
-      {/* Coming Soon Banner */}
+      {/* Hero Banner */}
       <View style={styles.banner}>
-        <Ionicons name="storefront" size={32} color={SKATE.colors.orange} />
-        <Text style={styles.bannerTitle}>Shop Coming Soon</Text>
+        <Ionicons name="storefront" size={48} color={SKATE.colors.orange} />
+        <Text style={styles.bannerTitle}>SkateHubba Shop</Text>
         <Text style={styles.bannerText}>
-          Get gear from your favorite skate brands directly in the app
+          Official gear, decks, apparel, and accessories for the community.
         </Text>
+        <TouchableOpacity
+          style={styles.visitStoreButton}
+          onPress={() => openLink(STORE_URL)}
+          accessibilityRole="link"
+          accessibilityLabel="Visit SkateHubba Store"
+        >
+          <Ionicons name="open-outline" size={20} color={SKATE.colors.white} />
+          <Text style={styles.visitStoreText}>Visit skatehubba.store</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Categories */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Categories</Text>
+        <Text style={styles.sectionTitle}>Browse Categories</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           style={styles.categoriesScroll}
         >
           {CATEGORIES.map((category) => (
-            <TouchableOpacity key={category.id} style={styles.categoryCard}>
+            <TouchableOpacity
+              key={category.id}
+              style={styles.categoryCard}
+              onPress={() => openLink(STORE_URL)}
+            >
               <View style={styles.categoryIcon}>
                 <Ionicons name={category.icon} size={24} color={SKATE.colors.orange} />
               </View>
@@ -50,27 +58,40 @@ function ShopScreenContent() {
         </ScrollView>
       </View>
 
-      {/* Featured Products */}
+      {/* Info Cards */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Featured</Text>
-        <View style={styles.productsGrid}>
-          {FEATURED_PRODUCTS.map((product) => (
-            <TouchableOpacity key={product.id} style={styles.productCard}>
-              <View style={styles.productImage}>
-                <Ionicons name="cube-outline" size={48} color={SKATE.colors.gray} />
-              </View>
-              <Text style={styles.productName}>{product.name}</Text>
-              <Text style={styles.productCategory}>{product.category}</Text>
-              <Text style={styles.productPrice}>${product.price.toFixed(2)}</Text>
-            </TouchableOpacity>
-          ))}
+        <View style={styles.infoCard}>
+          <Ionicons name="cube" size={28} color={SKATE.colors.orange} />
+          <View style={styles.infoContent}>
+            <Text style={styles.infoTitle}>Free Shipping</Text>
+            <Text style={styles.infoText}>On orders over $50</Text>
+          </View>
+        </View>
+        <View style={styles.infoCard}>
+          <Ionicons name="shield-checkmark" size={28} color={SKATE.colors.orange} />
+          <View style={styles.infoContent}>
+            <Text style={styles.infoTitle}>Quality Guaranteed</Text>
+            <Text style={styles.infoText}>30-day return policy</Text>
+          </View>
+        </View>
+        <View style={styles.infoCard}>
+          <Ionicons name="people" size={28} color={SKATE.colors.orange} />
+          <View style={styles.infoContent}>
+            <Text style={styles.infoTitle}>Community Drops</Text>
+            <Text style={styles.infoText}>Exclusive collabs with pro skaters</Text>
+          </View>
         </View>
       </View>
 
-      {/* Notify Me */}
-      <TouchableOpacity style={styles.notifyButton}>
-        <Ionicons name="notifications" size={20} color={SKATE.colors.white} />
-        <Text style={styles.notifyButtonText}>Notify Me When Shop Opens</Text>
+      {/* Bottom CTA */}
+      <TouchableOpacity
+        style={styles.bottomCTA}
+        onPress={() => openLink(STORE_URL)}
+        accessibilityRole="link"
+        accessibilityLabel="Shop now at skatehubba.store"
+      >
+        <Ionicons name="cart" size={20} color={SKATE.colors.white} />
+        <Text style={styles.bottomCTAText}>Shop Now</Text>
       </TouchableOpacity>
 
       <View style={styles.bottomPadding} />
@@ -94,12 +115,11 @@ const styles = StyleSheet.create({
   banner: {
     backgroundColor: SKATE.colors.grime,
     margin: SKATE.spacing.lg,
-    padding: SKATE.spacing.xl,
+    padding: SKATE.spacing.xxl,
     borderRadius: SKATE.borderRadius.lg,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: SKATE.colors.orange,
-    borderStyle: "dashed",
+    borderColor: SKATE.colors.darkGray,
   },
   bannerTitle: {
     color: SKATE.colors.white,
@@ -112,6 +132,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: "center",
     marginTop: SKATE.spacing.sm,
+    lineHeight: 20,
+  },
+  visitStoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: SKATE.colors.orange,
+    paddingVertical: SKATE.spacing.md,
+    paddingHorizontal: SKATE.spacing.xl,
+    borderRadius: SKATE.borderRadius.md,
+    marginTop: SKATE.spacing.lg,
+    gap: SKATE.spacing.sm,
+    minHeight: SKATE.accessibility.minimumTouchTarget,
+  },
+  visitStoreText: {
+    color: SKATE.colors.white,
+    fontSize: 16,
+    fontWeight: "bold",
   },
   section: {
     padding: SKATE.spacing.lg,
@@ -147,44 +184,31 @@ const styles = StyleSheet.create({
     marginTop: SKATE.spacing.sm,
     textAlign: "center",
   },
-  productsGrid: {
+  infoCard: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: SKATE.spacing.md,
-  },
-  productCard: {
-    width: "47%",
+    alignItems: "center",
     backgroundColor: SKATE.colors.grime,
     borderRadius: SKATE.borderRadius.lg,
-    padding: SKATE.spacing.md,
+    padding: SKATE.spacing.lg,
+    marginBottom: SKATE.spacing.md,
     borderWidth: 1,
     borderColor: SKATE.colors.darkGray,
+    gap: SKATE.spacing.lg,
   },
-  productImage: {
-    height: 100,
-    backgroundColor: SKATE.colors.darkGray,
-    borderRadius: SKATE.borderRadius.md,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: SKATE.spacing.sm,
+  infoContent: {
+    flex: 1,
   },
-  productName: {
+  infoTitle: {
     color: SKATE.colors.white,
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  productCategory: {
-    color: SKATE.colors.gray,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  productPrice: {
-    color: SKATE.colors.orange,
     fontSize: 16,
     fontWeight: "bold",
-    marginTop: SKATE.spacing.sm,
   },
-  notifyButton: {
+  infoText: {
+    color: SKATE.colors.lightGray,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  bottomCTA: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -193,8 +217,9 @@ const styles = StyleSheet.create({
     padding: SKATE.spacing.lg,
     borderRadius: SKATE.borderRadius.lg,
     gap: SKATE.spacing.sm,
+    minHeight: SKATE.accessibility.minimumTouchTarget,
   },
-  notifyButtonText: {
+  bottomCTAText: {
     color: SKATE.colors.white,
     fontSize: 16,
     fontWeight: "bold",

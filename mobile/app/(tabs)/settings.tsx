@@ -20,6 +20,7 @@ import { openLink } from "@/lib/linking";
 import { useState, useEffect, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { removePushTokenFromServer } from "@/lib/pushNotifications";
+import Constants from "expo-constants";
 
 type SettingItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -104,7 +105,9 @@ function SettingsScreenContent() {
             await signOut(auth);
             router.replace("/(tabs)");
           } catch (error) {
-            console.error("Sign out error:", error);
+            if (__DEV__) {
+              console.error("Sign out error:", error);
+            }
           }
         },
       },
@@ -218,6 +221,8 @@ function SettingsScreenContent() {
             showChevron={false}
             rightElement={
               <Switch
+                accessibilityRole="switch"
+                accessibilityLabel="Push Notifications"
                 value={pushEnabled}
                 onValueChange={(val) => {
                   setPushEnabled(val);
@@ -235,6 +240,8 @@ function SettingsScreenContent() {
             showChevron={false}
             rightElement={
               <Switch
+                accessibilityRole="switch"
+                accessibilityLabel="Email Notifications"
                 value={emailEnabled}
                 onValueChange={(val) => {
                   setEmailEnabled(val);
@@ -252,6 +259,8 @@ function SettingsScreenContent() {
             showChevron={false}
             rightElement={
               <Switch
+                accessibilityRole="switch"
+                accessibilityLabel="Location Services"
                 value={locationEnabled}
                 onValueChange={(val) => {
                   setLocationEnabled(val);
@@ -320,7 +329,9 @@ function SettingsScreenContent() {
 
       {/* App Info */}
       <View style={styles.appInfo}>
-        <Text style={styles.appVersion}>SkateHubba v1.0.0</Text>
+        <Text style={styles.appVersion}>
+          SkateHubba v{Constants.expoConfig?.version ?? "1.0.0"}
+        </Text>
         <Text style={styles.appCopyright}>Made with love for skaters</Text>
       </View>
 
