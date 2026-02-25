@@ -513,6 +513,7 @@ describe("Game Turn Routes", () => {
       expect(mockSendGameNotification).toHaveBeenCalledWith("user-2", "your_turn", {
         gameId: "game-1",
         opponentName: "Alice",
+        trickName: "Kickflip",
       });
     });
 

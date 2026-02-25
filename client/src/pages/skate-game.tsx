@@ -114,7 +114,11 @@ export default function SkateGamePage() {
   const handleRematch = () => {
     if (!game) return;
     const opponentId = game.player1Id === user?.uid ? game.player2Id : game.player1Id;
-    createGame.mutate(opponentId);
+    createGame.mutate(opponentId, {
+      onSuccess: (data) => {
+        setLocation(`/play/game?gameId=${data.game.id}`);
+      },
+    });
   };
 
   const handleBackToLobby = () => setLocation("/play?tab=lobby");
@@ -256,7 +260,7 @@ export default function SkateGamePage() {
         )}
 
         {/* Waiting for Opponent */}
-        {isActive && !isGameOver && !isMyTurn && (
+        {isActive && !isGameOver && !isMyTurn && !needsToJudge && (
           <div className="p-6 rounded-lg bg-neutral-800/30 border border-neutral-700 text-center">
             <Clock className="w-8 h-8 text-neutral-500 mx-auto mb-3" />
             <p className="text-sm text-neutral-400">Waiting for {opponentName}.</p>

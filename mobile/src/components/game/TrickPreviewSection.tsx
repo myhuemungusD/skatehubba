@@ -26,6 +26,7 @@ export const TrickPreviewSection = memo(function TrickPreviewSection({
           <Video
             source={{ uri: videoUrl }}
             style={styles.previewVideo}
+            shouldPlay
             useNativeControls
             isLooping
             resizeMode={ResizeMode.CONTAIN}

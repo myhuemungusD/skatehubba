@@ -13,23 +13,12 @@ interface LetterIndicatorProps {
   layout?: "horizontal" | "vertical";
 }
 
-/** Color escalation: green → yellow → orange → red based on letter count */
+/** Color escalation: green → yellow → orange → red based on letter count (matches web) */
 function getLetterColor(letterCount: number): string {
-  switch (letterCount) {
-    case 0:
-      return SKATE.colors.neon; // green — clean
-    case 1:
-      return "#22c55e"; // green
-    case 2:
-      return "#eab308"; // yellow
-    case 3:
-      return SKATE.colors.orange; // orange
-    case 4:
-    case 5:
-      return SKATE.colors.blood; // red — match point / eliminated
-    default:
-      return SKATE.colors.neon;
-  }
+  if (letterCount === 0) return SKATE.colors.neon; // green — clean
+  if (letterCount <= 2) return "#eab308"; // yellow
+  if (letterCount === 3) return SKATE.colors.orange; // orange
+  return SKATE.colors.blood; // red — match point / eliminated
 }
 
 /** Status label based on letter count */
@@ -128,10 +117,10 @@ export const LetterIndicator = memo(function LetterIndicator({
         isMatchPoint && {
           borderColor: SKATE.colors.blood,
           shadowColor: SKATE.colors.blood,
-          shadowOpacity: 0.6,
           shadowRadius: 12,
           elevation: 8,
         },
+        isMatchPoint && { shadowOpacity: glowAnim },
         { transform: [{ scale: pulseAnim }] },
       ]}
     >
@@ -151,15 +140,14 @@ export const LetterIndicator = memo(function LetterIndicator({
 
       <View style={[styles.lettersRow, isVertical && styles.lettersRowVertical]}>
         {SKATE_LETTERS.map((letter, index) => {
-          const hasLetter = letters.includes(letter);
-          const letterColor = hasLetter ? getLetterColor(index + 1) : undefined;
+          const hasLetter = index < letters.length;
 
           return (
             <View
               key={letter}
               style={[
                 styles.letterBox,
-                hasLetter && { backgroundColor: letterColor, borderColor: letterColor },
+                hasLetter && { backgroundColor: escalationColor, borderColor: escalationColor },
               ]}
             >
               <Text style={[styles.letterText, hasLetter && styles.letterTextActive]}>

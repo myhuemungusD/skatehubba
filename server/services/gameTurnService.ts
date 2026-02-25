@@ -311,6 +311,8 @@ export async function judgeTurn(
           gameId: game.id,
           winnerId: winnerId || undefined,
           youWon: pid === winnerId,
+          opponentName:
+            (pid === game.player1Id ? game.player2Name : game.player1Name) || "Opponent",
         },
       })),
     };
@@ -433,6 +435,8 @@ export async function setterBail(
           gameId: game.id,
           winnerId: winnerId || undefined,
           youWon: pid === winnerId,
+          opponentName:
+            (pid === game.player1Id ? game.player2Name : game.player1Name) || "Opponent",
         },
       })),
     };

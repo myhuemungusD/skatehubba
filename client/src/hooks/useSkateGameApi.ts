@@ -107,6 +107,7 @@ export function useJudgeTurn() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      if (data.gameOver) queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
       toast({ title: data.message });
     },
     onError: (error: Error) => {
@@ -148,6 +149,7 @@ export function useResolveDispute() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
       toast({ title: data.message });
     },
     onError: (error: Error) => {
@@ -165,6 +167,7 @@ export function useSetterBail() {
     onSuccess: (data, gameId) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      if (data.gameOver) queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
       toast({ title: data.message });
     },
     onError: (error: Error) => {
@@ -190,6 +193,7 @@ export function useForfeitGame() {
     onSuccess: (_data, gameId) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
       toast({ title: "You forfeited." });
     },
     onError: (error: Error) => {

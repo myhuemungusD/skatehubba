@@ -57,7 +57,7 @@ const NOTIFICATION_CONFIG: Record<
   }),
   game_forfeited_timeout: () => ({
     title: "Game over. Timeout.",
-    body: "24hr deadline missed. Letter assigned.",
+    body: "Deadline missed. Game forfeited.",
   }),
   deadline_warning: (data) => ({
     title: "Clock's ticking.",

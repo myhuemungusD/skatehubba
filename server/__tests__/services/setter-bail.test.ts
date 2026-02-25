@@ -507,6 +507,7 @@ describe("setterBail", () => {
             gameId: "game-1",
             winnerId: "user-2",
             youWon: false,
+            opponentName: "Bob",
           },
         });
 
@@ -517,6 +518,7 @@ describe("setterBail", () => {
             gameId: "game-1",
             winnerId: "user-2",
             youWon: true,
+            opponentName: "Alice",
           },
         });
       }

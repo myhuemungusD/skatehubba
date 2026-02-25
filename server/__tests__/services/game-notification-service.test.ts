@@ -180,7 +180,7 @@ describe("Game Notification Service", () => {
       expect(mockSendPushNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           title: "Game over. Timeout.",
-          body: "24hr deadline missed. Letter assigned.",
+          body: "Deadline missed. Game forfeited.",
           data: expect.objectContaining({
             type: "game_game_forfeited_timeout",
           }),
@@ -473,7 +473,7 @@ describe("Game Notification Service", () => {
         expect.objectContaining({
           type: "game_forfeited_timeout",
           title: "Game over. Timeout.",
-          body: "24hr deadline missed. Letter assigned.",
+          body: "Deadline missed. Game forfeited.",
         })
       );
     });
