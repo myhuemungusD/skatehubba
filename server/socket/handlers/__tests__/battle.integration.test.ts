@@ -17,6 +17,7 @@ const mockGetBattle = vi.fn();
 const mockInitializeVoting = vi.fn();
 const mockCastVote = vi.fn();
 const mockGenerateEventId = vi.fn(() => "event-123");
+const mockGetDb = vi.fn();
 
 vi.mock("../../rooms", () => ({
   joinRoom: mockJoinRoom,
@@ -51,6 +52,18 @@ vi.mock("../../socketRateLimit", () => ({
   checkRateLimit: vi.fn(() => true),
 }));
 
+vi.mock("../../../db", () => ({
+  getDb: (...args: any[]) => mockGetDb(...args),
+}));
+
+vi.mock("@shared/schema", () => ({
+  customUsers: { id: "id", isActive: "isActive" },
+}));
+
+vi.mock("drizzle-orm", () => ({
+  eq: vi.fn((a: any, b: any) => ({ field: a, value: b })),
+}));
+
 describe("Battle Socket Handlers Integration", () => {
   let mockSocket: any;
   let mockIo: any;
@@ -75,6 +88,17 @@ describe("Battle Socket Handlers Integration", () => {
       to: vi.fn().mockReturnThis(),
       emit: vi.fn(),
     };
+
+    // C3: Default room membership for vote handler tests
+    mockGetRoomInfo.mockReturnValue({ members: new Set(["socket-123"]) });
+
+    // C4: Mock DB chain for opponent validation in battle:create
+    const mockDbChain: any = {};
+    mockDbChain.select = vi.fn(() => mockDbChain);
+    mockDbChain.from = vi.fn(() => mockDbChain);
+    mockDbChain.where = vi.fn(() => mockDbChain);
+    mockDbChain.limit = vi.fn().mockResolvedValue([{ id: "user-456", isActive: true }]);
+    mockGetDb.mockReturnValue(mockDbChain);
   });
 
   describe("battle:create", () => {
@@ -511,6 +535,11 @@ describe("Battle Socket Handlers Integration", () => {
   });
 
   describe("battle:ready", () => {
+    beforeEach(() => {
+      // C3: Ready handler now validates battle exists and user is participant
+      mockGetBattle.mockResolvedValue({ creatorId: "user-123", opponentId: "user-456" });
+    });
+
     it("should mark player as ready", async () => {
       const { registerBattleHandlers } = await import("../battle");
       registerBattleHandlers(mockIo, mockSocket);
