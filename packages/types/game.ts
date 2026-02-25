@@ -4,11 +4,21 @@ export type SkateLetter = "S" | "K" | "A" | "T" | "E";
 /** All possible letters a player can accumulate */
 export const SKATE_LETTERS: SkateLetter[] = ["S", "K", "A", "T", "E"];
 
-/** Status of a game session (matches game_sessions.status) */
-export type GameSessionStatus = "waiting" | "active" | "paused" | "completed";
+/** Status of a game session */
+export type GameSessionStatus = "waiting" | "active" | "completed" | "abandoned" | "paused";
 
-/** Current action phase in a turn (matches game_sessions.current_action) */
-export type TurnPhase = "set" | "attempt";
+/** Current phase of a turn in the S.K.A.T.E. battle */
+export type TurnPhase =
+  | "attacker_recording" // Attacker is recording their trick
+  | "defender_recording" // Defender is recording their attempt
+  | "judging" // Both players vote on whether defender landed
+  | "round_complete"; // Round finished, determining next attacker
+
+/** Judgment votes from both players */
+export interface JudgmentVotes {
+  attackerVote: "landed" | "bailed" | null;
+  defenderVote: "landed" | "bailed" | null;
+}
 
 /** A player in a game session (matches game_sessions.players JSON element) */
 export interface GamePlayer {
@@ -18,43 +28,53 @@ export interface GamePlayer {
   disconnectedAt?: string;
 }
 
-/** Result of a single turn/attempt (matches game_turns.result) */
-export type MoveResult = "landed" | "missed" | "pending";
+/** Result of a single move/attempt */
+export type MoveResult = "landed" | "bailed" | "missed" | "pending";
 
-/** A single turn in the game (matches game_turns table) */
+/** A single move/trick attempt in the game */
 export interface Move {
-  id: number;
-  gameId: string;
+  id: string;
+  roundNumber: number;
   playerId: string;
-  playerName: string;
-  turnNumber: number;
-  turnType: "set" | "response";
-  trickDescription: string;
-  videoUrl: string | null;
-  videoDurationMs: number | null;
+  type: "set" | "match"; // 'set' = attacker sets trick, 'match' = defender attempts
+  trickName: string | null; // Optional trick name (e.g., "Kickflip")
+  clipUrl: string;
+  /** Firebase Storage path for signed-URL resolution (null for legacy moves) */
+  storagePath: string | null;
   thumbnailUrl: string | null;
+  durationSec: number;
   result: MoveResult;
-  judgedBy: string | null;
-  judgedAt: Date | null;
+  /** Votes from both players (for match moves during judging) */
+  judgmentVotes?: JudgmentVotes;
   createdAt: Date;
 }
 
-/** Main game session structure (matches game_sessions table) */
+/** Main game session document structure */
 export interface GameSession {
   id: string;
-  spotId: string;
-  creatorId: string;
-  players: GamePlayer[];
-  maxPlayers: number;
-  currentTurnIndex: number;
-  currentAction: TurnPhase;
-  currentTrick: string | null;
-  setterId: string | null;
+  player1Id: string;
+  player2Id: string;
+  player1DisplayName: string;
+  player2DisplayName: string;
+  player1PhotoURL: string | null;
+  player2PhotoURL: string | null;
+  player1Letters: SkateLetter[];
+  player2Letters: SkateLetter[];
+  currentTurn: string; // UID of player whose turn it is
+  currentAttacker: string; // UID of current attacker
+  turnPhase: TurnPhase;
+  roundNumber: number;
   status: GameSessionStatus;
   winnerId: string | null;
-  turnDeadlineAt: Date | null;
-  pausedAt: Date | null;
-  processedEventIds: string[];
+  moves: Move[];
+  currentSetMove: Move | null; // The trick the defender must match
   createdAt: Date;
-  updatedAt: Date;
+  updatedAt: Date | null;
+  completedAt: Date | null;
+  /** Vote deadline timestamp (60 seconds after entering judging phase) */
+  voteDeadline: Date | null;
+  /** Whether the 30-second reminder has been sent */
+  voteReminderSent: boolean | null;
+  /** Flag indicating if the last vote was auto-resolved due to timeout */
+  voteTimeoutOccurred: boolean | null;
 }
