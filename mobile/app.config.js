@@ -43,7 +43,8 @@ module.exports = {
         "ACCESS_COARSE_LOCATION",
         "RECORD_AUDIO",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
       ],
 
       intentFilters: [

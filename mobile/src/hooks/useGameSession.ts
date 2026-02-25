@@ -102,7 +102,9 @@ function parseGameSession(id: string, data: Record<string, unknown>): GameSessio
   const parsed = GameSessionSchema.safeParse(data);
 
   if (!parsed.success) {
-    console.error("[parseGameSession] Validation failed:", parsed.error.issues);
+    if (__DEV__) {
+      console.error("[parseGameSession] Validation failed:", parsed.error.issues);
+    }
     // Return a partial session with safe defaults for graceful degradation
     throw new Error(`Invalid game session data: ${parsed.error.issues[0]?.message}`);
   }
@@ -173,8 +175,10 @@ async function uploadWithRetry(
     } catch (error) {
       lastError = error as Error;
       if (attempt < MAX_RETRIES) {
-        // eslint-disable-next-line no-console -- retry progress is emitted to console so it appears in Metro/device logs during development; no structured logger is available in this mobile utility
-        console.log(`[Upload] Retry ${attempt + 1}/${MAX_RETRIES} after error`);
+        if (__DEV__) {
+          // eslint-disable-next-line no-console -- retry progress is emitted to console so it appears in Metro/device logs during development; no structured logger is available in this mobile utility
+          console.log(`[Upload] Retry ${attempt + 1}/${MAX_RETRIES} after error`);
+        }
         await sleep(RETRY_DELAYS[attempt]);
         onProgress(0); // Reset progress for retry
       }
@@ -202,7 +206,9 @@ export function useGameSession(gameId: string | null) {
         }
       },
       (error) => {
-        console.error("[useGameSession] Snapshot error:", error);
+        if (__DEV__) {
+          console.error("[useGameSession] Snapshot error:", error);
+        }
         showMessage({
           message: "Connection error. Retrying...",
           type: "warning",

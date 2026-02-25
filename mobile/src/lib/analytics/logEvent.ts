@@ -95,7 +95,9 @@ export async function logEvent(
     // Validate before sending
     const parsed = AnalyticsIngestSchema.safeParse(payload);
     if (!parsed.success) {
-      console.warn("[Analytics] Invalid event payload:", parsed.error.flatten());
+      if (__DEV__) {
+        console.warn("[Analytics] Invalid event payload:", parsed.error.flatten());
+      }
       return;
     }
 
@@ -110,7 +112,9 @@ export async function logEvent(
     });
   } catch (error) {
     // Silently fail - analytics should never crash the app
-    console.warn("[Analytics] Failed to log event:", error);
+    if (__DEV__) {
+      console.warn("[Analytics] Failed to log event:", error);
+    }
   }
 }
 
@@ -148,7 +152,9 @@ export async function logEventBatch(
       body: JSON.stringify(payload),
     });
   } catch (error) {
-    console.warn("[Analytics] Failed to log event batch:", error);
+    if (__DEV__) {
+      console.warn("[Analytics] Failed to log event batch:", error);
+    }
   }
 }
 

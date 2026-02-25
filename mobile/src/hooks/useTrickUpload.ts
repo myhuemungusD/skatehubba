@@ -50,7 +50,9 @@ export function useTrickUpload() {
             setUploadProgress(progress);
           },
           (error) => {
-            console.error("Upload error:", error);
+            if (__DEV__) {
+              console.error("Upload error:", error);
+            }
             showMessage({
               message: "Upload Failed",
               description: "Unable to upload video. Please try again.",

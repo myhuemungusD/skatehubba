@@ -38,7 +38,9 @@ export function challengeLink(challengeId: string): string {
 export async function openLink(url: string): Promise<void> {
   const supported = await Linking.canOpenURL(url);
   if (!supported) {
-    console.warn(`[linking] Cannot open URL: ${url}`);
+    if (__DEV__) {
+      console.warn(`[linking] Cannot open URL: ${url}`);
+    }
     return;
   }
   await Linking.openURL(url);

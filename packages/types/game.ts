@@ -5,7 +5,7 @@ export type SkateLetter = "S" | "K" | "A" | "T" | "E";
 export const SKATE_LETTERS: SkateLetter[] = ["S", "K", "A", "T", "E"];
 
 /** Status of a game session */
-export type GameSessionStatus = "waiting" | "active" | "completed" | "abandoned";
+export type GameSessionStatus = "waiting" | "active" | "completed" | "abandoned" | "paused";
 
 /** Current phase of a turn in the S.K.A.T.E. battle */
 export type TurnPhase =
@@ -20,8 +20,16 @@ export interface JudgmentVotes {
   defenderVote: "landed" | "bailed" | null;
 }
 
+/** A player in a game session (matches game_sessions.players JSON element) */
+export interface GamePlayer {
+  odv: string;
+  letters: string;
+  connected: boolean;
+  disconnectedAt?: string;
+}
+
 /** Result of a single move/attempt */
-export type MoveResult = "landed" | "bailed" | "pending";
+export type MoveResult = "landed" | "bailed" | "missed" | "pending";
 
 /** A single move/trick attempt in the game */
 export interface Move {
