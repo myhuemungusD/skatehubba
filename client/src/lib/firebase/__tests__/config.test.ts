@@ -244,6 +244,22 @@ describe("firebase/config", () => {
     });
   });
 
+  describe("missing env vars", () => {
+    it("logs error and skips init when required env vars are missing", async () => {
+      // Remove required env vars to trigger getFirebaseConfig() error
+      vi.unstubAllEnvs();
+
+      const config = await import("../config");
+
+      const { logger } = await import("../../logger");
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining("Missing required environment variables")
+      );
+      // Should not throw — init is skipped gracefully
+      expect(config.isFirebaseInitialized).toBe(false);
+    });
+  });
+
   describe("exports", () => {
     it("exports all expected symbols", async () => {
       const config = await import("../config");

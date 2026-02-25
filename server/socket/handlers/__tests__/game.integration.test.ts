@@ -265,6 +265,26 @@ describe("Game Socket Handlers Integration", () => {
         message: "Game is full",
       });
     });
+
+    it("should handle unexpected errors in join handler", async () => {
+      mockJoinGame.mockRejectedValue(new Error("DB connection lost"));
+
+      const { registerGameHandlers } = await import("../game");
+      registerGameHandlers(mockIo, mockSocket);
+
+      const joinHandler = eventHandlers.get("game:join");
+      await joinHandler!("game-123");
+
+      const logger = (await import("../../../logger")).default;
+      expect(logger.error).toHaveBeenCalledWith(
+        "[Game] Join failed",
+        expect.objectContaining({ error: expect.any(Error), gameId: "game-123" })
+      );
+      expect(mockSocket.emit).toHaveBeenCalledWith("error", {
+        code: "game_join_failed",
+        message: "Failed to join game",
+      });
+    });
   });
 
   describe("game:trick", () => {

@@ -569,6 +569,38 @@ describe("Battle Socket Handlers Integration", () => {
 
       expect(mockJoinRoom).toHaveBeenCalledWith(mockSocket, "battle", "battle-123");
     });
+
+    it("should reject when battle is not found", async () => {
+      mockGetBattle.mockResolvedValue(null);
+
+      const { registerBattleHandlers } = await import("../battle");
+      registerBattleHandlers(mockIo, mockSocket);
+
+      const readyHandler = eventHandlers.get("battle:ready");
+      await readyHandler!("battle-999");
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("error", {
+        code: "battle_not_found",
+        message: "Battle not found",
+      });
+      expect(mockJoinRoom).not.toHaveBeenCalled();
+    });
+
+    it("should reject when non-participant tries to ready", async () => {
+      mockGetBattle.mockResolvedValue({ creatorId: "user-AAA", opponentId: "user-BBB" });
+
+      const { registerBattleHandlers } = await import("../battle");
+      registerBattleHandlers(mockIo, mockSocket);
+
+      const readyHandler = eventHandlers.get("battle:ready");
+      await readyHandler!("battle-123");
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("error", {
+        code: "not_participant",
+        message: "Only battle participants can ready up",
+      });
+      expect(mockJoinRoom).not.toHaveBeenCalled();
+    });
   });
 
   describe("cleanupBattleSubscriptions", () => {
