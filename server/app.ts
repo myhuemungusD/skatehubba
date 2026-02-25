@@ -76,7 +76,7 @@ export function createApp(): express.Express {
           },
         },
         crossOriginEmbedderPolicy: false, // required for cross-origin images/media
-        crossOriginOpenerPolicy: { policy: "same-origin" },
+        crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
         crossOriginResourcePolicy: { policy: "same-site" },
       })
     );
