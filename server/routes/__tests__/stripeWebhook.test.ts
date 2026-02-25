@@ -478,6 +478,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
         },
         payment_status: "paid",
         amount_total: 999,
+        currency: "usd",
       } as any;
 
       const event: Stripe.Event = {
@@ -586,6 +587,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
         },
         payment_status: "paid",
         amount_total: 999,
+        currency: "usd",
       } as any;
 
       const event: Stripe.Event = {
@@ -633,6 +635,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
         },
         payment_status: "paid",
         amount_total: 999,
+        currency: "usd",
       } as any;
 
       const event: Stripe.Event = {
@@ -769,6 +772,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
         },
         payment_status: "paid",
         amount_total: 999,
+        currency: "usd",
       } as any;
 
       const event: Stripe.Event = {

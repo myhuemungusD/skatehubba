@@ -130,10 +130,12 @@ const logger = (await import("../../logger")).default;
 // ============================================================================
 
 function createSocketMock(odv: string, prefix = "socket") {
+  const socketId = `${prefix}-${odv}`;
   const handlers = new Map<string, Function>();
   return {
-    id: `${prefix}-${odv}`,
+    id: socketId,
     data: { odv, rooms: new Set<string>() },
+    rooms: new Set<string>([socketId]),
     on: vi.fn((event: string, handler: Function) => {
       handlers.set(event, handler);
     }),
@@ -268,6 +270,9 @@ describe("Battle Handlers — error catch paths (lines 282-283, 301, 320)", () =
     const socket = createSocketMock("voter-1", "battle");
     battleModule.registerBattleHandlers(io, socket);
 
+    // Mock getRoomInfo to return a room with this socket as a member
+    // so the vote passes the verifyBattleRoomMembership check
+    mockGetRoomInfo.mockReturnValue({ members: new Set([socket.id]) });
     mockCastVote.mockRejectedValue(new Error("Vote service down"));
 
     const handler = socket._handlers.get("battle:vote");
@@ -284,6 +289,11 @@ describe("Battle Handlers — error catch paths (lines 282-283, 301, 320)", () =
     const socket = createSocketMock("ready-1", "battle");
     battleModule.registerBattleHandlers(io, socket);
 
+    // Mock getBattle to return a battle where this user is a participant
+    mockGetBattle.mockResolvedValue({
+      creatorId: "ready-1",
+      opponentId: "opponent-1",
+    });
     mockJoinRoom.mockRejectedValue(new Error("Room join failed"));
 
     const handler = socket._handlers.get("battle:ready");
@@ -299,6 +309,12 @@ describe("Battle Handlers — error catch paths (lines 282-283, 301, 320)", () =
     const io = createIoMock();
     const socket = createSocketMock("ready-new", "battle");
     battleModule.registerBattleHandlers(io, socket);
+
+    // Mock getBattle to return a battle where this user is a participant
+    mockGetBattle.mockResolvedValue({
+      creatorId: "ready-new",
+      opponentId: "opponent-1",
+    });
 
     const handler = socket._handlers.get("battle:ready");
     await handler("battle-456");

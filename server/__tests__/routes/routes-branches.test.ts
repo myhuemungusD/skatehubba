@@ -126,14 +126,22 @@ describe("games-disputes — skip notification when no opponentId (line 53)", ()
       opponentId: null, // No opponent to notify
     });
 
+    const dbChain: any = {};
+    dbChain.select = vi.fn().mockReturnValue(dbChain);
+    dbChain.from = vi.fn().mockReturnValue(dbChain);
+    dbChain.where = vi.fn().mockReturnValue(dbChain);
+    dbChain.limit = vi.fn().mockResolvedValue([{ player1Id: "user-1", player2Id: "user-2" }]);
+    dbChain.transaction = mockTransaction;
+
     vi.doMock("../../db", () => ({
-      getDb: () => ({ transaction: mockTransaction }),
+      getDb: () => dbChain,
     }));
     vi.doMock("../../auth/middleware", () => ({
       authenticateUser: (req: any, _res: any, next: any) => {
         req.currentUser = req.currentUser || { id: "user-1" };
         next();
       },
+      requireAdmin: (_req: any, _res: any, next: any) => next(),
     }));
     vi.doMock("@shared/schema", () => ({ games: {} }));
     vi.doMock("drizzle-orm", () => ({ eq: vi.fn(), and: vi.fn() }));
@@ -264,7 +272,9 @@ describe("metrics — db null for kpi and response-rate error (lines 89, 120-121
     await import("../../routes/metrics");
 
     // Test /kpi with db = null
-    const reqAdmin = createMockRequest({ currentUser: { id: "a1", email: "a@test.com", roles: ["admin"] } });
+    const reqAdmin = createMockRequest({
+      currentUser: { id: "a1", email: "a@test.com", roles: ["admin"] },
+    });
     const res1 = createMockResponse();
 
     for (const h of routeHandlers["GET /kpi"]) {
