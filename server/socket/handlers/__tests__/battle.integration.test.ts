@@ -182,6 +182,59 @@ describe("Battle Socket Handlers Integration", () => {
         message: "Failed to create battle",
       });
     });
+
+    it("should warn when opponent is not found or inactive during direct challenge", async () => {
+      mockCreateBattle.mockResolvedValue({ battleId: "battle-999" });
+
+      // Opponent lookup returns empty (not found)
+      const mockDbChain: any = {};
+      mockDbChain.select = vi.fn(() => mockDbChain);
+      mockDbChain.from = vi.fn(() => mockDbChain);
+      mockDbChain.where = vi.fn(() => mockDbChain);
+      mockDbChain.limit = vi.fn().mockResolvedValue([]);
+      mockGetDb.mockReturnValue(mockDbChain);
+
+      const { registerBattleHandlers } = await import("../battle");
+      registerBattleHandlers(mockIo, mockSocket);
+
+      const createHandler = eventHandlers.get("battle:create");
+      await createHandler!({ matchmaking: "direct", opponentId: "nonexistent-user" });
+
+      const logger = (await import("../../../logger")).default;
+      expect(logger.warn).toHaveBeenCalledWith(
+        "[Battle] Opponent not found or inactive, skipping notification",
+        expect.objectContaining({ opponentId: "nonexistent-user" })
+      );
+      // Should still create the battle
+      expect(mockSocket.emit).toHaveBeenCalledWith(
+        "battle:created",
+        expect.objectContaining({ battleId: "battle-999" })
+      );
+    });
+
+    it("should handle db error during opponent validation gracefully", async () => {
+      mockCreateBattle.mockResolvedValue({ battleId: "battle-888" });
+
+      // DB throws during opponent lookup
+      const mockDbChain: any = {};
+      mockDbChain.select = vi.fn(() => mockDbChain);
+      mockDbChain.from = vi.fn(() => mockDbChain);
+      mockDbChain.where = vi.fn(() => mockDbChain);
+      mockDbChain.limit = vi.fn().mockRejectedValue(new Error("DB connection lost"));
+      mockGetDb.mockReturnValue(mockDbChain);
+
+      const { registerBattleHandlers } = await import("../battle");
+      registerBattleHandlers(mockIo, mockSocket);
+
+      const createHandler = eventHandlers.get("battle:create");
+      await createHandler!({ matchmaking: "direct", opponentId: "user-456" });
+
+      const logger = (await import("../../../logger")).default;
+      expect(logger.error).toHaveBeenCalledWith(
+        "[Battle] Failed to validate opponent for notification",
+        expect.objectContaining({ opponentId: "user-456" })
+      );
+    });
   });
 
   describe("battle:join", () => {
@@ -485,6 +538,27 @@ describe("Battle Socket Handlers Integration", () => {
       });
 
       expect(mockBroadcastToRoom).not.toHaveBeenCalled();
+    });
+
+    it("should reject vote when socket is not in battle room", async () => {
+      // Socket not a member of any room
+      mockGetRoomInfo.mockReturnValue({ members: new Set() });
+
+      const { registerBattleHandlers } = await import("../battle");
+      registerBattleHandlers(mockIo, mockSocket);
+
+      const voteHandler = eventHandlers.get("battle:vote");
+      await voteHandler!({
+        battleId: "battle-123",
+        odv: "user-123",
+        vote: "clean",
+      });
+
+      expect(mockSocket.emit).toHaveBeenCalledWith("error", {
+        code: "not_in_room",
+        message: "You must join the battle before voting",
+      });
+      expect(mockCastVote).not.toHaveBeenCalled();
     });
 
     it("should handle vote errors", async () => {

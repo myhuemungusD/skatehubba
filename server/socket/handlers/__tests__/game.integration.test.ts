@@ -422,6 +422,25 @@ describe("Game Socket Handlers Integration", () => {
         message: "Not your turn",
       });
     });
+
+    it("should skip broadcast if trick already processed (idempotency)", async () => {
+      mockSubmitTrick.mockResolvedValue({
+        success: true,
+        alreadyProcessed: true,
+      });
+
+      const { registerGameHandlers } = await import("../game");
+      registerGameHandlers(mockIo, mockSocket);
+
+      const trickHandler = eventHandlers.get("game:trick");
+      await trickHandler!({
+        gameId: "game-123",
+        odv: "user-123",
+        trickName: "Kickflip",
+      });
+
+      expect(mockBroadcastToRoom).not.toHaveBeenCalled();
+    });
   });
 
   describe("game:pass", () => {
