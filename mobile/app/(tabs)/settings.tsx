@@ -221,6 +221,8 @@ function SettingsScreenContent() {
             showChevron={false}
             rightElement={
               <Switch
+                accessibilityRole="switch"
+                accessibilityLabel="Push Notifications"
                 value={pushEnabled}
                 onValueChange={(val) => {
                   setPushEnabled(val);
@@ -238,6 +240,8 @@ function SettingsScreenContent() {
             showChevron={false}
             rightElement={
               <Switch
+                accessibilityRole="switch"
+                accessibilityLabel="Email Notifications"
                 value={emailEnabled}
                 onValueChange={(val) => {
                   setEmailEnabled(val);
@@ -255,6 +259,8 @@ function SettingsScreenContent() {
             showChevron={false}
             rightElement={
               <Switch
+                accessibilityRole="switch"
+                accessibilityLabel="Location Services"
                 value={locationEnabled}
                 onValueChange={(val) => {
                   setLocationEnabled(val);
@@ -323,7 +329,9 @@ function SettingsScreenContent() {
 
       {/* App Info */}
       <View style={styles.appInfo}>
-        <Text style={styles.appVersion}>SkateHubba v{Constants.expoConfig?.version ?? "1.0.0"}</Text>
+        <Text style={styles.appVersion}>
+          SkateHubba v{Constants.expoConfig?.version ?? "1.0.0"}
+        </Text>
         <Text style={styles.appCopyright}>Made with love for skaters</Text>
       </View>
 

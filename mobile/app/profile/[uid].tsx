@@ -1,5 +1,14 @@
-import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,6 +19,7 @@ import { functions } from "@/lib/firebase.config";
 import { showMessage } from "react-native-flash-message";
 import { SKATE } from "@/theme";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
+import { logEvent } from "@/lib/analytics/logEvent";
 
 interface UserProfile {
   photoURL?: string;
@@ -22,15 +32,28 @@ interface UserProfile {
 
 const createChallenge = httpsCallable(functions, "createChallenge");
 
+/** Firebase UIDs are 20-128 alphanumeric characters. */
+const VALID_UID = /^[a-zA-Z0-9]{20,128}$/;
+
 function ProfileScreenContent() {
-  const { uid } = useLocalSearchParams();
+  const { uid: rawUid } = useLocalSearchParams<{ uid: string }>();
   const { user: currentUser } = useAuth();
   const router = useRouter();
+
+  const uid = rawUid && VALID_UID.test(rawUid) ? rawUid : null;
+  const isInvalidUid = !!rawUid && !uid;
   const isOwnProfile = uid === currentUser?.uid;
+
+  useEffect(() => {
+    if (isInvalidUid) {
+      logEvent("deep_link_invalid", { raw_id: rawUid, route: "profile" });
+    }
+  }, [isInvalidUid, rawUid]);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["/api/profile", uid],
     queryFn: () => apiRequest<UserProfile>(`/api/profile/${uid}`),
+    enabled: !!uid,
   });
 
   const _mutation = useMutation({
@@ -45,6 +68,24 @@ function ProfileScreenContent() {
     onSuccess: () => showMessage({ message: "Challenge sent!", type: "success" }),
     onError: (e: Error) => showMessage({ message: e?.message || "Failed", type: "danger" }),
   });
+
+  if (isInvalidUid) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Ionicons name="warning" size={48} color={SKATE.colors.blood} />
+        <Text style={styles.name}>Invalid profile link</Text>
+        <TouchableOpacity
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+          style={styles.challengeButton}
+          onPress={() => router.back()}
+        >
+          <Text style={styles.challengeButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   if (isLoading) {
     return (

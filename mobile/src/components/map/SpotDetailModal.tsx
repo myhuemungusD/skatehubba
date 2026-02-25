@@ -30,7 +30,13 @@ export const SpotDetailModal = memo(function SpotDetailModal({
     <Modal visible={!!spot} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          <TouchableOpacity style={styles.modalClose} onPress={onClose}>
+          <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Close spot details"
+            style={styles.modalClose}
+            onPress={onClose}
+          >
             <Ionicons name="close" size={24} color={SKATE.colors.white} />
           </TouchableOpacity>
 
@@ -47,6 +53,9 @@ export const SpotDetailModal = memo(function SpotDetailModal({
           </View>
 
           <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Check in at this spot"
             testID="map-check-in"
             style={styles.checkInButton}
             onPress={handleCheckIn}
@@ -78,6 +87,10 @@ const styles = StyleSheet.create({
     top: SKATE.spacing.lg,
     right: SKATE.spacing.lg,
     zIndex: 1,
+    minWidth: SKATE.accessibility.minimumTouchTarget,
+    minHeight: SKATE.accessibility.minimumTouchTarget,
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalTitle: {
     color: SKATE.colors.white,
@@ -116,6 +129,7 @@ const styles = StyleSheet.create({
     padding: SKATE.spacing.lg,
     borderRadius: SKATE.borderRadius.lg,
     gap: SKATE.spacing.sm,
+    minHeight: SKATE.accessibility.minimumTouchTarget,
   },
   checkInButtonText: {
     color: SKATE.colors.white,
