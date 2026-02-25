@@ -457,4 +457,51 @@ export function useAbandonGame(gameId: string) {
   });
 }
 
+interface SetterBailResponse {
+  success: boolean;
+  gameOver: boolean;
+  winnerId: string | null;
+  message: string;
+  duplicate: boolean;
+}
+
+export function useSetterBail(gameId: string) {
+  return useMutation({
+    mutationFn: async (): Promise<SetterBailResponse> => {
+      if (!auth.currentUser) {
+        throw new Error("Not authenticated");
+      }
+
+      const idempotencyKey = generateIdempotencyKey();
+
+      const bail = httpsCallable<{ gameId: string; idempotencyKey: string }, SetterBailResponse>(
+        functions,
+        "setterBail"
+      );
+
+      const response = await bail({ gameId, idempotencyKey });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      if (data.gameOver) {
+        showMessage({
+          message: "You bailed your own trick. Game over.",
+          type: "danger",
+        });
+      } else {
+        showMessage({
+          message: "You bailed your own trick. Letter earned. Roles swap.",
+          type: "warning",
+        });
+      }
+    },
+    onError: (error: Error) => {
+      showMessage({
+        message: error.message || "Failed to bail trick",
+        type: "danger",
+      });
+    },
+  });
+}
+
 export default useGameSession;

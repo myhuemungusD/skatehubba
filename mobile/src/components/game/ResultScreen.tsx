@@ -229,7 +229,7 @@ export function ResultScreen({ gameSession, currentUserId, onExit, onRematch }: 
               onPress={onRematch}
             >
               <Ionicons name="refresh" size={20} color={SKATE.colors.white} />
-              <Text style={styles.buttonText}>Rematch</Text>
+              <Text style={styles.buttonText}>Run it back?</Text>
             </TouchableOpacity>
           )}
 

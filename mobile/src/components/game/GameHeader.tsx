@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from "react-native";
+import { useRef, useEffect } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 
@@ -8,6 +9,26 @@ interface GameHeaderProps {
   paddingTop: number;
   onForfeit: () => void;
   onExit: () => void;
+  /** Current player's letter count (0-5) */
+  myLetterCount?: number;
+  /** Opponent's letter count (0-5) */
+  oppLetterCount?: number;
+}
+
+/** Stakes escalation message based on game state */
+function getStakesMessage(myLetters: number, oppLetters: number): string | null {
+  if (myLetters === 4) return "ONE MORE AND YOU'RE OUT";
+  if (oppLetters === 4) return "ONE MORE AND THEY'RE OUT";
+  if (myLetters === 3 && oppLetters === 3) return "NEXT LETTER DECIDES IT";
+  if (myLetters >= 3 || oppLetters >= 3) return "IT'S GETTING SERIOUS";
+  return null;
+}
+
+/** Color for stakes message */
+function getStakesColor(myLetters: number, oppLetters: number): string {
+  if (myLetters === 4) return SKATE.colors.blood;
+  if (oppLetters === 4) return SKATE.colors.orange;
+  return SKATE.colors.gold;
 }
 
 export const GameHeader = memo(function GameHeader({
@@ -15,7 +36,44 @@ export const GameHeader = memo(function GameHeader({
   paddingTop,
   onForfeit,
   onExit,
+  myLetterCount = 0,
+  oppLetterCount = 0,
 }: GameHeaderProps) {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  const stakesMessage = getStakesMessage(myLetterCount, oppLetterCount);
+  const isMatchPoint = myLetterCount === 4 || oppLetterCount === 4;
+
+  // Pulse animation for match point
+  useEffect(() => {
+    if (isMatchPoint) {
+      pulseAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.05,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulseAnimRef.current.start();
+    }
+
+    return () => {
+      if (pulseAnimRef.current) {
+        pulseAnimRef.current.stop();
+        pulseAnimRef.current = null;
+      }
+      pulseAnim.setValue(1);
+    };
+  }, [isMatchPoint, pulseAnim]);
+
   return (
     <View style={[styles.header, { paddingTop }]}>
       <TouchableOpacity
@@ -29,8 +87,22 @@ export const GameHeader = memo(function GameHeader({
         <Ionicons name="flag" size={24} color={SKATE.colors.blood} />
       </TouchableOpacity>
 
-      <View testID="game-round-badge" style={styles.roundBadge}>
-        <Text style={styles.roundText}>ROUND {roundNumber}</Text>
+      <View style={styles.centerContent}>
+        <View testID="game-round-badge" style={styles.roundBadge}>
+          <Text style={styles.roundText}>ROUND {roundNumber}</Text>
+        </View>
+
+        {stakesMessage && (
+          <Animated.Text
+            style={[
+              styles.stakesText,
+              { color: getStakesColor(myLetterCount, oppLetterCount) },
+              isMatchPoint && { transform: [{ scale: pulseAnim }] },
+            ]}
+          >
+            {stakesMessage}
+          </Animated.Text>
+        )}
       </View>
 
       <TouchableOpacity
@@ -61,6 +133,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+  centerContent: {
+    flex: 1,
+    alignItems: "center",
+    gap: SKATE.spacing.xs,
+  },
   roundBadge: {
     backgroundColor: SKATE.colors.orange,
     paddingHorizontal: SKATE.spacing.lg,
@@ -72,5 +149,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "bold",
     letterSpacing: 2,
+  },
+  stakesText: {
+    fontSize: 11,
+    fontWeight: "bold",
+    letterSpacing: 1.5,
+    textAlign: "center",
   },
 });

@@ -11,6 +11,7 @@ import {
   useJudgeTrick,
   useJoinGame,
   useAbandonGame,
+  useSetterBail,
 } from "@/hooks/useGameSession";
 import { useVideoUrl } from "@/hooks/useVideoUrl";
 import { useGameStore, usePlayerRole, useActiveOverlay } from "@/store/gameStore";
@@ -76,6 +77,7 @@ export default function GameScreen() {
   const judgeTrickMutation = useJudgeTrick(gameId || "");
   const joinGameMutation = useJoinGame(gameId || "");
   const abandonGameMutation = useAbandonGame(gameId || "");
+  const setterBailMutation = useSetterBail(gameId || "");
 
   // Consolidated side effects (analytics, overlays, offline, caching)
   useGameEffects({
@@ -141,6 +143,17 @@ export default function GameScreen() {
       },
     ]);
   }, [abandonGameMutation]);
+
+  const handleSetterBail = useCallback(() => {
+    Alert.alert("Bail Your Trick", "You'll take a letter and roles will swap. Are you sure?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "I Bailed",
+        style: "destructive",
+        onPress: () => setterBailMutation.mutate(),
+      },
+    ]);
+  }, [setterBailMutation]);
 
   const handleExit = useCallback(() => {
     router.replace("/(tabs)/challenges");
@@ -289,6 +302,16 @@ export default function GameScreen() {
         paddingTop={insets.top}
         onForfeit={handleForfeit}
         onExit={handleExit}
+        myLetterCount={
+          gameSession.player1Id === user?.uid
+            ? gameSession.player1Letters.length
+            : gameSession.player2Letters.length
+        }
+        oppLetterCount={
+          gameSession.player1Id === user?.uid
+            ? gameSession.player2Letters.length
+            : gameSession.player1Letters.length
+        }
       />
 
       <PlayersSection
@@ -332,6 +355,12 @@ export default function GameScreen() {
         isUploading={submitTrickMutation.isPending}
         uploadProgress={pendingUpload?.progress}
         onRecordTrick={handleRecordTrick}
+        onSetterBail={
+          isAttacker && gameSession.turnPhase === "attacker_recording"
+            ? handleSetterBail
+            : undefined
+        }
+        setterBailPending={setterBailMutation.isPending}
       />
 
       <TurnOverlay overlay={activeOverlay} onDismiss={dismissOverlay} />
