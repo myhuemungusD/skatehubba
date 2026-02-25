@@ -246,8 +246,11 @@ describe("firebase/config", () => {
 
   describe("missing env vars", () => {
     it("logs error and skips init when required env vars are missing", async () => {
-      // Remove required env vars to trigger getFirebaseConfig() error
-      vi.unstubAllEnvs();
+      // Explicitly clear the three required env vars so getFirebaseConfig() throws
+      // (vi.unstubAllEnvs would restore originals which may be set in CI .env files)
+      vi.stubEnv("EXPO_PUBLIC_FIREBASE_API_KEY", "");
+      vi.stubEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID", "");
+      vi.stubEnv("EXPO_PUBLIC_FIREBASE_APP_ID", "");
 
       const config = await import("../config");
 
