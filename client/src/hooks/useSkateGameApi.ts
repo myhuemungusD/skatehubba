@@ -12,6 +12,7 @@ import { gameApi } from "@/lib/api/game";
 const QUERY_KEYS = {
   myGames: ["games", "my-games"] as const,
   gameDetails: (id: string) => ["games", id] as const,
+  myStats: ["games", "stats", "me"] as const,
 };
 
 export function useMyGames() {
@@ -152,6 +153,31 @@ export function useResolveDispute() {
     onError: (error: Error) => {
       toast({ title: "Failed", description: error.message, variant: "destructive" });
     },
+  });
+}
+
+export function useSetterBail() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (gameId: string) => gameApi.setterBail(gameId),
+    onSuccess: (data, gameId) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      toast({ title: data.message });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useMyStats() {
+  return useQuery({
+    queryKey: QUERY_KEYS.myStats,
+    queryFn: () => gameApi.getMyStats(),
+    staleTime: 30000,
   });
 }
 

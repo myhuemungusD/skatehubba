@@ -6,9 +6,11 @@
  *   includes disputeId when present, error handling (logs but doesn't throw)
  * - sendGameNotificationToUser: each notification type, passes correct data to notifyUser,
  *   error handling (logs but doesn't throw)
- * - game_over type: youWon=true and youWon=false branches
- * - deadline_warning: with and without minutesRemaining
- * - challenge_received: with and without challengerName
+ * - game_over type: youWon=true and youWon=false branches, includes opponentName
+ * - deadline_warning: with and without minutesRemaining, urgent format with letter penalty
+ * - challenge_received: with and without challengerName, @ prefix format
+ * - your_turn: with trickName (includes trick in body) and without (generic waiting message)
+ * - opponent_forfeited: includes opponent name in body
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -76,8 +78,8 @@ describe("Game Notification Service", () => {
 
       expect(mockSendPushNotification).toHaveBeenCalledWith({
         to: pushToken,
-        title: "New Challenge",
-        body: "Tony Hawk challenged you to S.K.A.T.E.",
+        title: "New S.K.A.T.E. Challenge",
+        body: "@Tony Hawk challenged you to S.K.A.T.E. — accept or decline.",
         data: {
           type: "game_challenge_received",
           gameId: "game-1",
@@ -92,8 +94,8 @@ describe("Game Notification Service", () => {
 
       expect(mockSendPushNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "New Challenge",
-          body: "Someone challenged you to S.K.A.T.E.",
+          title: "New S.K.A.T.E. Challenge",
+          body: "@Someone challenged you to S.K.A.T.E. — accept or decline.",
         })
       );
     });
@@ -106,8 +108,8 @@ describe("Game Notification Service", () => {
 
       expect(mockSendPushNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Your turn.",
-          body: "Nyjah Huston is waiting.",
+          title: "Your move.",
+          body: "@Nyjah Huston is waiting — your move",
           data: expect.objectContaining({
             type: "game_your_turn",
             gameId: "game-1",
@@ -121,8 +123,8 @@ describe("Game Notification Service", () => {
 
       expect(mockSendPushNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Your turn.",
-          body: "Opponent is waiting.",
+          title: "Your move.",
+          body: "@Opponent is waiting — your move",
         })
       );
     });
@@ -135,8 +137,8 @@ describe("Game Notification Service", () => {
 
       expect(mockSendPushNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "You won.",
-          body: "S.K.A.T.E. game complete.",
+          title: "VICTORY",
+          body: "You beat your opponent. Game complete.",
           data: expect.objectContaining({
             type: "game_game_over",
           }),
@@ -152,8 +154,8 @@ describe("Game Notification Service", () => {
 
       expect(mockSendPushNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "You lost.",
-          body: "S.K.A.T.E.",
+          title: "S.K.A.T.E.",
+          body: "Your opponent won. You have S.K.A.T.E.",
         })
       );
     });
@@ -164,7 +166,7 @@ describe("Game Notification Service", () => {
       expect(mockSendPushNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           title: "Opponent forfeited.",
-          body: "You win by forfeit.",
+          body: "Your opponent gave up. You win.",
           data: expect.objectContaining({
             type: "game_opponent_forfeited",
           }),
@@ -178,7 +180,7 @@ describe("Game Notification Service", () => {
       expect(mockSendPushNotification).toHaveBeenCalledWith(
         expect.objectContaining({
           title: "Game over. Timeout.",
-          body: "Deadline missed. Game forfeited.",
+          body: "24hr deadline missed. Letter assigned.",
           data: expect.objectContaining({
             type: "game_game_forfeited_timeout",
           }),
@@ -194,8 +196,8 @@ describe("Game Notification Service", () => {
 
       expect(mockSendPushNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Time running out.",
-          body: "15 minutes left to respond.",
+          title: "Clock's ticking.",
+          body: "15 minutes left to respond. Miss it and you take the letter.",
         })
       );
     });
@@ -205,8 +207,8 @@ describe("Game Notification Service", () => {
 
       expect(mockSendPushNotification).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Time running out.",
-          body: "60 minutes left to respond.",
+          title: "Clock's ticking.",
+          body: "60 minutes left to respond. Miss it and you take the letter.",
         })
       );
     });
@@ -254,6 +256,97 @@ describe("Game Notification Service", () => {
       );
     });
 
+    // ========================================================================
+    // New message format tests
+    // ========================================================================
+
+    it("sends your_turn notification with trickName included in body", async () => {
+      await sendGameNotification(pushToken, "your_turn", {
+        ...baseData,
+        opponentName: "Nyjah Huston",
+        trickName: "Kickflip",
+      });
+
+      expect(mockSendPushNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Your move.",
+          body: "@Nyjah Huston set a Kickflip — your move",
+        })
+      );
+    });
+
+    it("sends your_turn notification without trickName uses generic waiting message", async () => {
+      await sendGameNotification(pushToken, "your_turn", {
+        ...baseData,
+        opponentName: "Nyjah Huston",
+      });
+
+      expect(mockSendPushNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Your move.",
+          body: "@Nyjah Huston is waiting — your move",
+        })
+      );
+    });
+
+    it("sends challenge_received notification with @ prefix format", async () => {
+      await sendGameNotification(pushToken, "challenge_received", {
+        ...baseData,
+        challengerName: "Leticia Bufoni",
+      });
+
+      expect(mockSendPushNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "New S.K.A.T.E. Challenge",
+          body: "@Leticia Bufoni challenged you to S.K.A.T.E. — accept or decline.",
+        })
+      );
+    });
+
+    it("sends game_over notification with opponentName when youWon=true", async () => {
+      await sendGameNotification(pushToken, "game_over", {
+        ...baseData,
+        youWon: true,
+        opponentName: "P-Rod",
+      });
+
+      expect(mockSendPushNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "VICTORY",
+          body: "You beat P-Rod. Game complete.",
+        })
+      );
+    });
+
+    it("sends game_over notification with opponentName when youWon=false", async () => {
+      await sendGameNotification(pushToken, "game_over", {
+        ...baseData,
+        youWon: false,
+        opponentName: "P-Rod",
+      });
+
+      expect(mockSendPushNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "S.K.A.T.E.",
+          body: "P-Rod won. You have S.K.A.T.E.",
+        })
+      );
+    });
+
+    it("sends deadline_warning notification with urgent format and letter penalty", async () => {
+      await sendGameNotification(pushToken, "deadline_warning", {
+        ...baseData,
+        minutesRemaining: 5,
+      });
+
+      expect(mockSendPushNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Clock's ticking.",
+          body: "5 minutes left to respond. Miss it and you take the letter.",
+        })
+      );
+    });
+
     it("logs error but does not throw when sendPushNotification rejects", async () => {
       mockSendPushNotification.mockRejectedValue(new Error("Network failure"));
 
@@ -287,8 +380,8 @@ describe("Game Notification Service", () => {
       expect(mockNotifyUser).toHaveBeenCalledWith({
         userId,
         type: "challenge_received",
-        title: "New Challenge",
-        body: "Tony Hawk challenged you to S.K.A.T.E.",
+        title: "New S.K.A.T.E. Challenge",
+        body: "@Tony Hawk challenged you to S.K.A.T.E. — accept or decline.",
         data: expect.objectContaining({
           gameId: "game-2",
           challengerName: "Tony Hawk",
@@ -301,8 +394,8 @@ describe("Game Notification Service", () => {
 
       expect(mockNotifyUser).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "New Challenge",
-          body: "Someone challenged you to S.K.A.T.E.",
+          title: "New S.K.A.T.E. Challenge",
+          body: "@Someone challenged you to S.K.A.T.E. — accept or decline.",
         })
       );
     });
@@ -317,8 +410,8 @@ describe("Game Notification Service", () => {
         expect.objectContaining({
           userId,
           type: "your_turn",
-          title: "Your turn.",
-          body: "Nyjah Huston is waiting.",
+          title: "Your move.",
+          body: "@Nyjah Huston is waiting — your move",
           data: expect.objectContaining({
             gameId: "game-2",
             opponentName: "Nyjah Huston",
@@ -335,8 +428,8 @@ describe("Game Notification Service", () => {
 
       expect(mockNotifyUser).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "You won.",
-          body: "S.K.A.T.E. game complete.",
+          title: "VICTORY",
+          body: "You beat your opponent. Game complete.",
           data: expect.objectContaining({
             youWon: true,
           }),
@@ -352,8 +445,8 @@ describe("Game Notification Service", () => {
 
       expect(mockNotifyUser).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "You lost.",
-          body: "S.K.A.T.E.",
+          title: "S.K.A.T.E.",
+          body: "Your opponent won. You have S.K.A.T.E.",
           data: expect.objectContaining({
             youWon: false,
           }),
@@ -368,7 +461,7 @@ describe("Game Notification Service", () => {
         expect.objectContaining({
           type: "opponent_forfeited",
           title: "Opponent forfeited.",
-          body: "You win by forfeit.",
+          body: "Your opponent gave up. You win.",
         })
       );
     });
@@ -380,7 +473,7 @@ describe("Game Notification Service", () => {
         expect.objectContaining({
           type: "game_forfeited_timeout",
           title: "Game over. Timeout.",
-          body: "Deadline missed. Game forfeited.",
+          body: "24hr deadline missed. Letter assigned.",
         })
       );
     });
@@ -393,8 +486,8 @@ describe("Game Notification Service", () => {
 
       expect(mockNotifyUser).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Time running out.",
-          body: "30 minutes left to respond.",
+          title: "Clock's ticking.",
+          body: "30 minutes left to respond. Miss it and you take the letter.",
         })
       );
     });
@@ -404,8 +497,8 @@ describe("Game Notification Service", () => {
 
       expect(mockNotifyUser).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: "Time running out.",
-          body: "60 minutes left to respond.",
+          title: "Clock's ticking.",
+          body: "60 minutes left to respond. Miss it and you take the letter.",
         })
       );
     });
@@ -448,6 +541,97 @@ describe("Game Notification Service", () => {
             opponentName: "P-Rod",
             challengerName: "Leticia Bufoni",
           }),
+        })
+      );
+    });
+
+    // ========================================================================
+    // New message format tests
+    // ========================================================================
+
+    it("sends your_turn notification with trickName included in body", async () => {
+      await sendGameNotificationToUser(userId, "your_turn", {
+        ...baseData,
+        opponentName: "Nyjah Huston",
+        trickName: "Kickflip",
+      });
+
+      expect(mockNotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Your move.",
+          body: "@Nyjah Huston set a Kickflip — your move",
+        })
+      );
+    });
+
+    it("sends your_turn notification without trickName uses generic waiting message", async () => {
+      await sendGameNotificationToUser(userId, "your_turn", {
+        ...baseData,
+        opponentName: "Nyjah Huston",
+      });
+
+      expect(mockNotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Your move.",
+          body: "@Nyjah Huston is waiting — your move",
+        })
+      );
+    });
+
+    it("sends challenge_received notification with @ prefix format", async () => {
+      await sendGameNotificationToUser(userId, "challenge_received", {
+        ...baseData,
+        challengerName: "Leticia Bufoni",
+      });
+
+      expect(mockNotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "New S.K.A.T.E. Challenge",
+          body: "@Leticia Bufoni challenged you to S.K.A.T.E. — accept or decline.",
+        })
+      );
+    });
+
+    it("sends game_over notification with opponentName when youWon=true", async () => {
+      await sendGameNotificationToUser(userId, "game_over", {
+        ...baseData,
+        youWon: true,
+        opponentName: "P-Rod",
+      });
+
+      expect(mockNotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "VICTORY",
+          body: "You beat P-Rod. Game complete.",
+        })
+      );
+    });
+
+    it("sends game_over notification with opponentName when youWon=false", async () => {
+      await sendGameNotificationToUser(userId, "game_over", {
+        ...baseData,
+        youWon: false,
+        opponentName: "P-Rod",
+      });
+
+      expect(mockNotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "S.K.A.T.E.",
+          body: "P-Rod won. You have S.K.A.T.E.",
+        })
+      );
+    });
+
+    it("sends deadline_warning notification with urgent format and letter penalty", async () => {
+      await sendGameNotificationToUser(userId, "deadline_warning", {
+        ...baseData,
+        minutesRemaining: 5,
+      });
+
+      expect(mockNotifyUser).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Clock's ticking.",
+          body: "5 minutes left to respond. Miss it and you take the letter.",
         })
       );
     });

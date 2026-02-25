@@ -3,7 +3,7 @@ import { authSessions } from "@shared/schema";
 import { lt } from "drizzle-orm";
 import { getDb } from "../db";
 import { verifyCronSecret } from "../middleware/cronAuth";
-import { forfeitExpiredGames, notifyDeadlineWarnings } from "./games";
+import { forfeitExpiredGames, notifyDeadlineWarnings, forfeitStalledGames } from "./games";
 import logger from "../logger";
 
 const router = Router();
@@ -37,6 +37,22 @@ router.post("/deadline-warnings", async (req, res) => {
   } catch (error) {
     logger.error("[Cron] Deadline warnings failed", { error });
     res.status(500).json({ error: "Failed to send deadline warnings" });
+  }
+});
+
+// POST /api/cron/forfeit-stalled-games — 7-day hard cap, closest-to-losing takes the loss
+router.post("/forfeit-stalled-games", async (req, res) => {
+  if (!verifyCronSecret(req.headers.authorization)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const result = await forfeitStalledGames();
+    logger.info("[Cron] Forfeit stalled games completed", result);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    logger.error("[Cron] Forfeit stalled games failed", { error });
+    res.status(500).json({ error: "Failed to process stalled game forfeit" });
   }
 });
 

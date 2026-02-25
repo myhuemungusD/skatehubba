@@ -15,3 +15,5 @@ export { RespondTrickPhase } from "./RespondTrickPhase";
 export { JudgePhase } from "./JudgePhase";
 export { DisputesSection } from "./DisputesSection";
 export { VideoPlayerModal } from "./VideoPlayerModal";
+export { TrickAutocomplete } from "./TrickAutocomplete";
+export { PlayerStats } from "./PlayerStats";

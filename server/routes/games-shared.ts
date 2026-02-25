@@ -11,6 +11,7 @@ import { SKATE_LETTERS_TO_LOSE } from "../config/constants";
 // ============================================================================
 
 export const TURN_DEADLINE_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const GAME_HARD_CAP_MS = 7 * 24 * 60 * 60 * 1000; // 7 days total
 export const MAX_VIDEO_DURATION_MS = 15_000; // 15 seconds hard cap
 export const SKATE_LETTERS = "SKATE";
 

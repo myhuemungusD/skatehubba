@@ -28,6 +28,7 @@ interface NotificationData {
   loserId?: string;
   disputeId?: number;
   minutesRemaining?: number;
+  trickName?: string;
 }
 
 const NOTIFICATION_CONFIG: Record<
@@ -35,28 +36,32 @@ const NOTIFICATION_CONFIG: Record<
   (data: NotificationData) => { title: string; body: string }
 > = {
   challenge_received: (data) => ({
-    title: "New Challenge",
-    body: `${data.challengerName || "Someone"} challenged you to S.K.A.T.E.`,
+    title: "New S.K.A.T.E. Challenge",
+    body: `@${data.challengerName || "Someone"} challenged you to S.K.A.T.E. — accept or decline.`,
   }),
   your_turn: (data) => ({
-    title: "Your turn.",
-    body: `${data.opponentName || "Opponent"} is waiting.`,
+    title: "Your move.",
+    body: data.trickName
+      ? `@${data.opponentName || "Opponent"} set a ${data.trickName} — your move`
+      : `@${data.opponentName || "Opponent"} is waiting — your move`,
   }),
   game_over: (data) => ({
-    title: data.youWon ? "You won." : "You lost.",
-    body: data.youWon ? "S.K.A.T.E. game complete." : "S.K.A.T.E.",
+    title: data.youWon ? "VICTORY" : "S.K.A.T.E.",
+    body: data.youWon
+      ? `You beat ${data.opponentName || "your opponent"}. Game complete.`
+      : `${data.opponentName || "Your opponent"} won. You have S.K.A.T.E.`,
   }),
-  opponent_forfeited: () => ({
+  opponent_forfeited: (data) => ({
     title: "Opponent forfeited.",
-    body: "You win by forfeit.",
+    body: `${data.opponentName || "Your opponent"} gave up. You win.`,
   }),
   game_forfeited_timeout: () => ({
     title: "Game over. Timeout.",
-    body: "Deadline missed. Game forfeited.",
+    body: "24hr deadline missed. Letter assigned.",
   }),
   deadline_warning: (data) => ({
-    title: "Time running out.",
-    body: `${data.minutesRemaining || 60} minutes left to respond.`,
+    title: "Clock's ticking.",
+    body: `${data.minutesRemaining || 60} minutes left to respond. Miss it and you take the letter.`,
   }),
   dispute_filed: () => ({
     title: "Dispute filed.",

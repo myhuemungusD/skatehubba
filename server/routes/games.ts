@@ -31,4 +31,4 @@ router.use("/", gamesManagementRouter);
 export { router as gamesRouter };
 
 // Export cron functions
-export { forfeitExpiredGames, notifyDeadlineWarnings } from "./games-cron";
+export { forfeitExpiredGames, notifyDeadlineWarnings, forfeitStalledGames } from "./games-cron";

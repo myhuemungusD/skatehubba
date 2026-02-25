@@ -11,7 +11,7 @@ import { eq } from "drizzle-orm";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
 import { submitTurnSchema, judgeTurnSchema, MAX_VIDEO_DURATION_MS } from "./games-shared";
-import { submitTurn, judgeTurn } from "../services/gameTurnService";
+import { submitTurn, judgeTurn, setterBail } from "../services/gameTurnService";
 
 const router = Router();
 
@@ -56,6 +56,7 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
       await sendGameNotificationToUser(txResult.notify.playerId, "your_turn", {
         gameId,
         opponentName: txResult.notify.opponentName,
+        trickName: trickDescription,
       });
     }
 
@@ -133,6 +134,50 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
       userId: currentUserId,
     });
     res.status(500).json({ error: "Failed to judge turn" });
+  }
+});
+
+// ============================================================================
+// POST /api/games/:id/setter-bail — Setter bails on their own trick
+// ============================================================================
+
+router.post("/:id/setter-bail", authenticateUser, async (req, res) => {
+  const currentUserId = req.currentUser!.id;
+  const gameId = req.params.id;
+
+  try {
+    const db = getDb();
+
+    const txResult = await db.transaction(async (tx) => setterBail(tx, gameId, currentUserId));
+
+    if (!txResult.ok) {
+      return res.status(txResult.status).json({ error: txResult.error });
+    }
+
+    // Send notifications after transaction commits
+    for (const n of txResult.notifications) {
+      await sendGameNotificationToUser(n.playerId, n.type, n.data);
+    }
+
+    logger.info("[Games] Setter bailed own trick", {
+      gameId,
+      playerId: currentUserId,
+      gameOver: txResult.gameOver,
+    });
+
+    res.json({
+      game: txResult.game,
+      gameOver: txResult.gameOver,
+      winnerId: txResult.winnerId,
+      message: txResult.message,
+    });
+  } catch (error) {
+    logger.error("[Games] Failed to process setter bail", {
+      error,
+      gameId,
+      userId: currentUserId,
+    });
+    res.status(500).json({ error: "Failed to process setter bail" });
   }
 });
 

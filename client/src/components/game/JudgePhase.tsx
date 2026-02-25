@@ -8,7 +8,12 @@ interface JudgePhaseProps {
   isPending: boolean;
 }
 
-export function JudgePhase({ opponentName, lastTrickDescription, onJudge, isPending }: JudgePhaseProps) {
+export function JudgePhase({
+  opponentName,
+  lastTrickDescription,
+  onJudge,
+  isPending,
+}: JudgePhaseProps) {
   return (
     <div className="p-6 rounded-lg bg-gradient-to-r from-yellow-500/10 to-red-500/10 border border-yellow-500/30 space-y-4">
       <div className="flex items-center gap-2">
@@ -16,12 +21,14 @@ export function JudgePhase({ opponentName, lastTrickDescription, onJudge, isPend
         <h2 className="text-lg font-semibold text-white">Judge the Trick</h2>
       </div>
 
-      <p className="text-sm text-neutral-400">Did you land {opponentName}'s trick?</p>
+      <p className="text-sm text-neutral-400">
+        Did you land <span className="text-white font-medium">{opponentName}</span>'s trick?
+      </p>
 
       {lastTrickDescription && (
         <div className="p-4 rounded-lg bg-neutral-900 border border-neutral-700">
           <div className="text-xs text-neutral-500 mb-1">Trick:</div>
-          <div className="text-white font-bold">{lastTrickDescription}</div>
+          <div className="text-white font-bold text-lg">{lastTrickDescription}</div>
         </div>
       )}
 
@@ -29,21 +36,21 @@ export function JudgePhase({ opponentName, lastTrickDescription, onJudge, isPend
         <Button
           onClick={() => onJudge("landed")}
           disabled={isPending}
-          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3"
+          className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-4 text-base"
         >
-          LAND
+          I LANDED IT
         </Button>
         <Button
           onClick={() => onJudge("missed")}
           disabled={isPending}
-          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3"
+          className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-4 text-base"
         >
-          BAIL
+          I DIDN'T GET IT
         </Button>
       </div>
 
       <p className="text-xs text-neutral-500 text-center">
-        BAIL = you get a letter. LAND = roles swap. No take-backs.
+        Missed = you get a letter. Landed = roles swap. No take-backs.
       </p>
     </div>
   );

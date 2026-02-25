@@ -22,6 +22,8 @@ import {
   useFileDispute,
   useResolveDispute,
   useForfeitGame,
+  useSetterBail,
+  useCreateGame,
 } from "@/hooks/useSkateGameApi";
 import {
   LettersDisplay,
@@ -73,6 +75,8 @@ export default function SkateGamePage() {
   const fileDispute = useFileDispute();
   const resolveDispute = useResolveDispute();
   const forfeitGame = useForfeitGame();
+  const setterBailMutation = useSetterBail();
+  const createGame = useCreateGame();
 
   const { handleRecordingComplete, isUploading } = useGameVideoUpload({
     gameId,
@@ -97,9 +101,20 @@ export default function SkateGamePage() {
     resolveDispute.mutate({ disputeId, finalResult, gameId });
   };
 
+  const handleSetterBail = () => {
+    if (!gameId) return;
+    setterBailMutation.mutate(gameId);
+  };
+
   const handleForfeit = () => {
     if (!gameId) return;
     forfeitGame.mutate(gameId);
+  };
+
+  const handleRematch = () => {
+    if (!game) return;
+    const opponentId = game.player1Id === user?.uid ? game.player2Id : game.player1Id;
+    createGame.mutate(opponentId);
   };
 
   const handleBackToLobby = () => setLocation("/play?tab=lobby");
@@ -168,6 +183,8 @@ export default function SkateGamePage() {
           onBack={handleBackToLobby}
           onForfeit={handleForfeit}
           forfeitPending={forfeitGame.isPending}
+          myLetters={myLetters}
+          oppLetters={oppLetters}
         />
 
         {/* Letter Display */}
@@ -196,6 +213,8 @@ export default function SkateGamePage() {
             gameStatus={game.status}
             gameId={gameId}
             playerDisplayName={user?.displayName || "You"}
+            onRematch={handleRematch}
+            rematchPending={createGame.isPending}
           />
         )}
 
@@ -207,6 +226,8 @@ export default function SkateGamePage() {
             onRecordingComplete={handleRecordingComplete}
             isUploading={isUploading}
             submitPending={submitTurn.isPending}
+            onSetterBail={handleSetterBail}
+            setterBailPending={setterBailMutation.isPending}
           />
         )}
 
