@@ -713,6 +713,9 @@ describe("Battle Handlers — battle:vote already-processed + not complete (line
     const socket = createMockSocket("vote-idempotent", "battle");
     battleHandlers.registerBattleHandlers(io, socket);
 
+    // Mock getRoomInfo to return a room with this socket as a member
+    // so the vote passes the verifyBattleRoomMembership check
+    mockGetRoomInfo.mockReturnValue({ members: new Set([socket.id]) });
     mockCastVote.mockResolvedValue({
       success: true,
       alreadyProcessed: true,
@@ -733,6 +736,9 @@ describe("Battle Handlers — battle:vote already-processed + not complete (line
     const socket = createMockSocket("vote-complete-replay", "battle");
     battleHandlers.registerBattleHandlers(io, socket);
 
+    // Mock getRoomInfo to return a room with this socket as a member
+    // so the vote passes the verifyBattleRoomMembership check
+    mockGetRoomInfo.mockReturnValue({ members: new Set([socket.id]) });
     mockCastVote.mockResolvedValue({
       success: true,
       alreadyProcessed: true,

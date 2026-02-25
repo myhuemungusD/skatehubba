@@ -22,12 +22,13 @@ service firebase.storage {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // M6/L11: Tighten MIME matching to specific allowed types only
     function isImage() {
-      return request.resource.contentType.matches('image/.*');
+      return request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
     }
 
     function isVideo() {
-      return request.resource.contentType.matches('video/.*');
+      return request.resource.contentType.matches('video/(mp4|webm|quicktime)');
     }
 
     // Keep these conservative; raise later with evidence/need.

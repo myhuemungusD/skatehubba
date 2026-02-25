@@ -1,4 +1,4 @@
-FROM node:20-slim AS base
+FROM node:22-slim AS base
 RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
 WORKDIR /app
 
@@ -56,6 +56,6 @@ EXPOSE 3001
 
 # Container health check — verifies the process can serve requests
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://localhost:3001/api/health/live').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+  CMD node -e "fetch('http://localhost:3001/api/health/live',{signal:AbortSignal.timeout(3000)}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
 
 CMD ["node", "--import", "tsx", "server/index.ts"]

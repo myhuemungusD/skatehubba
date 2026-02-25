@@ -24,6 +24,7 @@ describe("Presence Socket Handlers Integration", () => {
   let mockSocket: any;
   let mockIo: any;
   let mockRedis: any;
+  let mockToEmit: any;
   let eventHandlers: Map<string, Function>;
 
   beforeEach(async () => {
@@ -32,15 +33,21 @@ describe("Presence Socket Handlers Integration", () => {
     vi.resetModules();
 
     eventHandlers = new Map();
+    mockToEmit = vi.fn();
 
+    const rooms = new Set(["socket-123"]);
     mockSocket = {
       id: "socket-123",
       data: { odv: "user-123" },
+      rooms,
       on: vi.fn((event: string, handler: Function) => {
         eventHandlers.set(event, handler);
       }),
       emit: vi.fn(),
-      join: vi.fn(),
+      join: vi.fn((room: string) => {
+        rooms.add(room);
+      }),
+      to: vi.fn().mockReturnValue({ emit: mockToEmit }),
       broadcast: {
         emit: vi.fn(),
       },
@@ -81,11 +88,12 @@ describe("Presence Socket Handlers Integration", () => {
       );
     });
 
-    it("should broadcast online status", async () => {
+    it("should broadcast online status to joined rooms", async () => {
       const { registerPresenceHandlers } = await import("../presence");
       registerPresenceHandlers(mockIo, mockSocket);
 
-      expect(mockSocket.broadcast.emit).toHaveBeenCalledWith("presence:update", {
+      expect(mockSocket.to).toHaveBeenCalledWith("user:user-123");
+      expect(mockToEmit).toHaveBeenCalledWith("presence:update", {
         odv: "user-123",
         status: "online",
       });
@@ -104,7 +112,8 @@ describe("Presence Socket Handlers Integration", () => {
       const { registerPresenceHandlers } = await import("../presence");
       registerPresenceHandlers(mockIo, mockSocket);
 
-      expect(mockSocket.broadcast.emit).toHaveBeenCalledWith("presence:update", {
+      expect(mockSocket.to).toHaveBeenCalledWith("user:user-123");
+      expect(mockToEmit).toHaveBeenCalledWith("presence:update", {
         odv: "user-123",
         status: "online",
       });
@@ -124,7 +133,7 @@ describe("Presence Socket Handlers Integration", () => {
         "user-123",
         expect.stringContaining("away")
       );
-      expect(mockSocket.broadcast.emit).toHaveBeenCalledWith("presence:update", {
+      expect(mockToEmit).toHaveBeenCalledWith("presence:update", {
         odv: "user-123",
         status: "away",
       });
@@ -481,8 +490,26 @@ describe("Presence Socket Handlers Integration", () => {
 
   describe("Concurrent Users", () => {
     it("should track multiple users simultaneously", async () => {
-      const socket1 = { ...mockSocket, data: { odv: "user-1" }, id: "socket-1" };
-      const socket2 = { ...mockSocket, data: { odv: "user-2" }, id: "socket-2" };
+      const rooms1 = new Set(["socket-1"]);
+      const rooms2 = new Set(["socket-2"]);
+      const socket1 = {
+        ...mockSocket,
+        data: { odv: "user-1" },
+        id: "socket-1",
+        rooms: rooms1,
+        join: vi.fn((room: string) => {
+          rooms1.add(room);
+        }),
+      };
+      const socket2 = {
+        ...mockSocket,
+        data: { odv: "user-2" },
+        id: "socket-2",
+        rooms: rooms2,
+        join: vi.fn((room: string) => {
+          rooms2.add(room);
+        }),
+      };
 
       const { registerPresenceHandlers, getOnlineUsers } = await import("../presence");
 

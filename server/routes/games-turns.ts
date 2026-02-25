@@ -91,10 +91,14 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
   }
 
   const currentUserId = req.currentUser!.id;
-  const turnId = parseInt(req.params.turnId, 10);
   const { result } = parsed.data;
 
-  if (isNaN(turnId)) {
+  // L2: Strict integer validation (parseInt("123abc") silently returns 123)
+  if (!/^\d+$/.test(req.params.turnId)) {
+    return res.status(400).json({ error: "Invalid turn ID" });
+  }
+  const turnId = parseInt(req.params.turnId, 10);
+  if (isNaN(turnId) || turnId <= 0) {
     return res.status(400).json({ error: "Invalid turn ID" });
   }
 

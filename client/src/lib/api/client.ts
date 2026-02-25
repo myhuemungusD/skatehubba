@@ -26,12 +26,11 @@ export const buildApiUrl = (path: string): string => {
   return `${base}${normalizedPath}`;
 };
 
-const getCsrfToken = (): string | undefined => {
+/** H7: RFC 6265 compliant CSRF token extraction using regex (handles '=' in values) */
+export const getCsrfToken = (): string | undefined => {
   if (typeof document === "undefined") return undefined;
-  return document.cookie
-    .split("; ")
-    .find((row) => row.startsWith("csrfToken="))
-    ?.split("=")[1];
+  const match = document.cookie.match(/(?:^|;\s*)csrfToken=([^;]*)/);
+  return match?.[1] ? decodeURIComponent(match[1]) : undefined;
 };
 
 const getAuthToken = async (): Promise<string | null> => {

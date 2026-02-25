@@ -26,12 +26,25 @@ import type {
 import { createBattle, joinBattle, getBattle } from "../../services/battleService";
 import { initializeVoting, castVote, generateEventId } from "../../services/battleStateService";
 import { registerRateLimitRules, checkRateLimit } from "../socketRateLimit";
+import { getDb } from "../../db";
+import { customUsers } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 
 // Track which sockets are in which battles for cleanup
 const socketBattleMap = new Map<string, Set<string>>();
+
+/**
+ * C3: Verify that the socket user is a member of the battle room.
+ * Returns true if the user is in the room, false otherwise.
+ */
+function verifyBattleRoomMembership(socket: TypedSocket, battleId: string): boolean {
+  const roomInfo = getRoomInfo("battle", battleId);
+  if (!roomInfo) return false;
+  return roomInfo.members.has(socket.id);
+}
 
 // Register battle-specific rate-limit rules once at module load
 registerRateLimitRules({
@@ -85,16 +98,37 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
         // Notify creator
         socket.emit("battle:created", payload);
 
-        // If direct challenge, notify opponent
+        // C4: If direct challenge, validate opponent exists before notifying
         if (input.opponentId) {
-          sendToUser(io, input.opponentId, "notification", {
-            id: `battle-invite-${result.battleId}`,
-            type: "challenge",
-            title: "Battle Challenge!",
-            message: "Someone challenged you to a battle",
-            data: { battleId: result.battleId },
-            createdAt: new Date().toISOString(),
-          });
+          try {
+            const db = getDb();
+            const [opponent] = await db
+              .select({ id: customUsers.id, isActive: customUsers.isActive })
+              .from(customUsers)
+              .where(eq(customUsers.id, input.opponentId))
+              .limit(1);
+
+            if (opponent && opponent.isActive) {
+              sendToUser(io, input.opponentId, "notification", {
+                id: `battle-invite-${result.battleId}`,
+                type: "challenge",
+                title: "Battle Challenge!",
+                message: "Someone challenged you to a battle",
+                data: { battleId: result.battleId },
+                createdAt: new Date().toISOString(),
+              });
+            } else {
+              logger.warn("[Battle] Opponent not found or inactive, skipping notification", {
+                opponentId: input.opponentId,
+                battleId: result.battleId,
+              });
+            }
+          } catch (dbError) {
+            logger.error("[Battle] Failed to validate opponent for notification", {
+              error: dbError,
+              opponentId: input.opponentId,
+            });
+          }
         }
 
         logger.info("[Battle] Created via socket", {
@@ -249,6 +283,15 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
         return;
       }
       try {
+        // C3: Verify socket is a member of this battle room
+        if (!verifyBattleRoomMembership(socket, input.battleId)) {
+          socket.emit("error", {
+            code: "not_in_room",
+            message: "You must join the battle before voting",
+          });
+          return;
+        }
+
         const eventId = generateEventId("vote", data.odv, input.battleId);
 
         const result = await castVote({
@@ -323,6 +366,19 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
       return;
     }
     try {
+      // C3: Verify battle exists before allowing ready
+      const battle = await getBattle(battleId);
+      if (!battle) {
+        socket.emit("error", { code: "battle_not_found", message: "Battle not found" });
+        return;
+      }
+
+      // Verify user is a participant
+      if (data.odv !== battle.creatorId && data.odv !== battle.opponentId) {
+        socket.emit("error", { code: "not_participant", message: "Only battle participants can ready up" });
+        return;
+      }
+
       // Join the battle room if not already
       await joinRoom(socket, "battle", battleId);
 

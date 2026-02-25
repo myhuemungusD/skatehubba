@@ -7,19 +7,23 @@
 
 import { z } from "zod";
 
+// H5: Strict ID patterns to prevent log injection and special character abuse
+const safeId = z.string().regex(/^[a-zA-Z0-9_-]{1,100}$/, "Invalid ID format");
+const safeUuid = z.string().regex(/^[a-zA-Z0-9_-]{8,100}$/, "Invalid UUID format");
+
 // ============================================================================
 // Battle Event Schemas
 // ============================================================================
 
 export const battleCreateSchema = z.object({
-  creatorId: z.string().min(1).max(100),
+  creatorId: safeId,
   matchmaking: z.enum(["open", "direct"]),
-  opponentId: z.string().min(1).max(100).optional(),
+  opponentId: safeId.optional(),
 });
 
 export const battleVoteSchema = z.object({
-  battleId: z.string().min(1).max(100),
-  odv: z.string().min(1).max(100),
+  battleId: safeUuid,
+  odv: safeId,
   vote: z.enum(["clean", "sketch", "redo"]),
 });
 
@@ -28,15 +32,15 @@ export const battleVoteSchema = z.object({
 // ============================================================================
 
 export const gameCreateSchema = z.object({
-  spotId: z.string().min(1).max(100),
+  spotId: safeId,
   maxPlayers: z.number().int().min(2).max(8).optional(),
 });
 
 export const gameTrickSchema = z.object({
-  gameId: z.string().min(1).max(100),
-  odv: z.string().min(1).max(100),
+  gameId: safeUuid,
+  odv: safeId,
   trickName: z.string().min(1).max(200),
-  clipUrl: z.string().url().optional(),
+  clipUrl: z.string().url().refine((url) => /^https?:\/\//.test(url), "URL must use HTTP(S)").optional(),
 });
 
 // ============================================================================
@@ -45,7 +49,7 @@ export const gameTrickSchema = z.object({
 
 export const roomJoinSchema = z.object({
   roomType: z.enum(["battle", "game", "spot", "global"]),
-  roomId: z.string().min(1).max(100),
+  roomId: safeUuid,
 });
 
 // ============================================================================

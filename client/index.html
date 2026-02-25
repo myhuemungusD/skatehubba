@@ -120,13 +120,13 @@
     </div>
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- Service Worker Registration -->
+    <!-- Service Worker Registration (L10: silent failure - app works without SW) -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-            .then(reg => reg.update())
-            .catch(err => console.error('SW registration failed:', err));
+            .then(reg => reg.update().catch(() => {}))
+            .catch(() => {});
         });
       }
     </script>
