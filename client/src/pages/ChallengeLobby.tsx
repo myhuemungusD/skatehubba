@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Swords, Plus, Users, Clock, TrendingUp } from "lucide-react";
+import { Swords, Plus, Users, Clock, TrendingUp, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyGames, useRespondToGame, useCreateGame, useMyStats } from "@/hooks/useSkateGameApi";
 import { GameCard, PlayerStats } from "@/components/game";
@@ -13,7 +13,7 @@ export default function ChallengeLobby() {
   const [, setLocation] = useLocation();
   const [challengeUserId, setChallengeUserId] = useState("");
 
-  const { data: myGames, isLoading } = useMyGames();
+  const { data: myGames, isLoading, error: gamesError } = useMyGames();
   const { data: myStats } = useMyStats();
   const respondToGame = useRespondToGame();
   const createGame = useCreateGame();
@@ -43,12 +43,20 @@ export default function ChallengeLobby() {
     return <LoadingScreen />;
   }
 
-  if (!myGames || !user) {
+  if (gamesError || !user) {
     return (
       <div className="text-center py-12">
-        <p className="text-neutral-400">Failed to load games</p>
+        <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+        <h2 className="text-xl font-semibold text-white mb-2">Failed to Load</h2>
+        <p className="text-sm text-neutral-400">
+          {gamesError ? String(gamesError) : "Please sign in to view games"}
+        </p>
       </div>
     );
+  }
+
+  if (!myGames) {
+    return <LoadingScreen />;
   }
 
   const totalGames =

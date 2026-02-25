@@ -5,7 +5,7 @@
  * Keeps the "call your trick" culture alive.
  */
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useId } from "react";
 import { Input } from "@/components/ui/input";
 import { searchTricks } from "@/lib/game/trickDictionary";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,7 @@ export function TrickAutocomplete({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const listboxId = useId();
 
   const updateSuggestions = useCallback((query: string) => {
     if (query.trim().length === 0) {
@@ -97,23 +98,38 @@ export function TrickAutocomplete({
         maxLength={500}
         disabled={disabled}
         autoComplete="off"
+        role="combobox"
+        aria-expanded={showSuggestions && suggestions.length > 0}
+        aria-autocomplete="list"
+        aria-controls={listboxId}
+        aria-activedescendant={
+          selectedIndex >= 0 ? `${listboxId}-option-${selectedIndex}` : undefined
+        }
       />
       {showSuggestions && suggestions.length > 0 && (
-        <ul className="absolute z-50 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+        <ul
+          id={listboxId}
+          role="listbox"
+          className="absolute z-50 w-full mt-1 bg-neutral-900 border border-neutral-700 rounded-lg shadow-xl max-h-48 overflow-y-auto"
+        >
           {suggestions.map((trick, index) => (
-            <li key={trick}>
-              <button
-                type="button"
-                onClick={() => handleSelect(trick)}
-                className={cn(
-                  "w-full text-left px-3 py-2 text-sm transition-colors",
-                  index === selectedIndex
-                    ? "bg-yellow-400/10 text-yellow-400"
-                    : "text-neutral-300 hover:bg-neutral-800"
-                )}
-              >
-                {trick}
-              </button>
+            <li
+              key={trick}
+              id={`${listboxId}-option-${index}`}
+              role="option"
+              aria-selected={index === selectedIndex}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelect(trick);
+              }}
+              className={cn(
+                "w-full text-left px-3 py-2 text-sm transition-colors cursor-pointer",
+                index === selectedIndex
+                  ? "bg-yellow-400/10 text-yellow-400"
+                  : "text-neutral-300 hover:bg-neutral-800"
+              )}
+            >
+              {trick}
             </li>
           ))}
         </ul>
