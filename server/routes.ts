@@ -31,7 +31,7 @@ export function registerRoutes(app: Express): void {
   app.use("/api", moderationRouter);
   app.use("/api/admin", adminRouter);
   app.use("/api/profile", profileRouter);
-  app.use("/api/games", authenticateUser, requirePaidOrPro, gamesRouter);
+  app.use("/api/games", authenticateUser, gamesRouter);
   app.use(
     "/api/trickmint",
     authenticateUser,

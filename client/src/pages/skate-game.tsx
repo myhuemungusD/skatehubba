@@ -116,7 +116,7 @@ export default function SkateGamePage() {
     const opponentId = game.player1Id === user?.uid ? game.player2Id : game.player1Id;
     createGame.mutate(opponentId, {
       onSuccess: (data) => {
-        setLocation(`/play/game?gameId=${data.game.id}`);
+        setLocation(`/play?tab=active&gameId=${data.game.id}`);
       },
     });
   };
