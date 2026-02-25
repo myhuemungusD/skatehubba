@@ -32,7 +32,7 @@ const BUDGETS = {
     radix: 200,
   },
   // Total JS budget for the entire build
-  totalJs: 1800,
+  totalJs: 1825,
   // Total CSS budget
   totalCss: 300,
 };

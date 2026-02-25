@@ -16,10 +16,13 @@ import {
   setDoc,
   updateDoc,
   getDoc,
+  getDocs,
+  deleteDoc,
   onSnapshot,
   query,
   where,
   orderBy,
+  limit,
   serverTimestamp,
   Timestamp,
   FieldValue,
@@ -33,7 +36,12 @@ import { logger } from "../logger";
 // =============================================================================
 
 export type GameStatus = "waiting" | "active" | "complete";
-export type RoundStatus = "awaiting_set" | "awaiting_reply" | "awaiting_confirmation" | "disputed" | "resolved";
+export type RoundStatus =
+  | "awaiting_set"
+  | "awaiting_reply"
+  | "awaiting_confirmation"
+  | "disputed"
+  | "resolved";
 export type RoundResult = "landed" | "missed" | null;
 export type VideoRole = "set" | "reply";
 export type VideoStatus = "uploading" | "ready" | "failed";
@@ -306,6 +314,77 @@ export const RemoteSkateService = {
         callback([]);
       }
     );
+  },
+
+  // ---------------------------------------------------------------------------
+  // QUICK PLAY — Find or create a game for instant matchmaking
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Find a random waiting game to join, or create one if none exist.
+   * Returns { gameId, matched: true } if joined an existing game,
+   * or { gameId, matched: false } if created a new one (waiting for opponent).
+   */
+  async findRandomGame(): Promise<{ gameId: string; matched: boolean }> {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Must be logged in to play");
+
+    // Look for waiting games that aren't ours
+    const gamesRef = collection(db, "games");
+    const q = query(gamesRef, where("status", "==", "waiting"), limit(10));
+
+    const snapshot = await getDocs(q);
+
+    // Find a game we can join (not created by us)
+    for (const gameDoc of snapshot.docs) {
+      const data = gameDoc.data() as GameDoc;
+      if (data.playerAUid !== user.uid && !data.playerBUid) {
+        // Join this game
+        await this.joinGame(gameDoc.id);
+        logger.info("[RemoteSkate] Quick match found", { gameId: gameDoc.id });
+        return { gameId: gameDoc.id, matched: true };
+      }
+    }
+
+    // Check if we already have a waiting game we created
+    const myWaitingQuery = query(
+      gamesRef,
+      where("status", "==", "waiting"),
+      where("playerAUid", "==", user.uid),
+      limit(1)
+    );
+    const myWaitingSnap = await getDocs(myWaitingQuery);
+    if (!myWaitingSnap.empty) {
+      const existingId = myWaitingSnap.docs[0].id;
+      logger.info("[RemoteSkate] Rejoining own waiting game", { gameId: existingId });
+      return { gameId: existingId, matched: false };
+    }
+
+    // No games available — create one and wait
+    const gameId = await this.createGame();
+    logger.info("[RemoteSkate] Quick match: created game, waiting", { gameId });
+    return { gameId, matched: false };
+  },
+
+  /**
+   * Cancel a waiting game (delete it if still in waiting status).
+   */
+  async cancelWaitingGame(gameId: string): Promise<void> {
+    const user = auth.currentUser;
+    if (!user) throw new Error("Must be logged in");
+
+    const gameRef = doc(db, "games", gameId);
+    const gameSnap = await getDoc(gameRef);
+    if (!gameSnap.exists()) return;
+
+    const game = gameSnap.data() as GameDoc;
+    if (game.playerAUid !== user.uid) {
+      throw new Error("Cannot cancel another player's game");
+    }
+    if (game.status !== "waiting") return;
+
+    await deleteDoc(gameRef);
+    logger.info("[RemoteSkate] Waiting game cancelled", { gameId });
   },
 
   // ---------------------------------------------------------------------------
