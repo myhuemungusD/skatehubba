@@ -741,4 +741,67 @@ describe("Game Services — Coverage for Error Catch Paths", () => {
       expect(updated.winnerId).toBe("player-2");
     });
   });
+
+  // ===========================================================================
+  // tricks.ts — passTrick game not found (line 174)
+  // ===========================================================================
+
+  describe("tricks.ts — passTrick game not found (line 174)", () => {
+    it("returns failure when game does not exist", async () => {
+      const result = await passTrick({
+        eventId: "pass-notfound-1",
+        gameId: "missing-game",
+        odv: "player-1",
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error).toBe("Game not found");
+    });
+  });
+
+  // ===========================================================================
+  // tricks.ts — submitTrick mid-round attempt branch (line 117)
+  // ===========================================================================
+
+  describe("tricks.ts — submitTrick mid-round next attempter (line 117)", () => {
+    it("advances to next attempter when not back to setter", async () => {
+      // 3-player game: player-1 is setter, player-2 is current attempter,
+      // player-3 still needs to attempt. After player-2 submits, the turn
+      // should go to player-3 (the else branch at line 117).
+      gameStore.set("trick-midround-game", {
+        id: "trick-midround-game",
+        spotId: "spot-1",
+        creatorId: "player-1",
+        players: [
+          { odv: "player-1", letters: "", connected: true }, // setter (index 0)
+          { odv: "player-2", letters: "", connected: true }, // current attempter (index 1)
+          { odv: "player-3", letters: "", connected: true }, // next attempter (index 2)
+        ],
+        maxPlayers: 4,
+        currentTurnIndex: 1, // player-2's turn to attempt
+        currentAction: "attempt",
+        currentTrick: "Kickflip",
+        setterId: "player-1",
+        status: "active",
+        turnDeadlineAt: null,
+        pausedAt: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        processedEventIds: [],
+      });
+
+      const result = await submitTrick({
+        eventId: "trick-midround-1",
+        gameId: "trick-midround-game",
+        odv: "player-2",
+        trickName: "Kickflip",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.game!.currentAction).toBe("attempt");
+      expect(result.game!.currentTrick).toBe("Kickflip");
+      // Should advance to player-3 (index 2), not back to setter
+      expect(result.game!.players[result.game!.currentTurnIndex].odv).toBe("player-3");
+    });
+  });
 });
