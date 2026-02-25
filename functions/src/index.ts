@@ -23,6 +23,7 @@ export { manageUserRole, getUserRoles } from "./admin/roles";
 // Game functions
 export { submitTrick } from "./game/submitTrick";
 export { judgeTrick } from "./game/judgeTrick";
+export { setterBail } from "./game/setterBail";
 export { getVideoUrl } from "./game/getVideoUrl";
 export { processVoteTimeouts } from "./game/voteTimeouts";
 

@@ -5,6 +5,7 @@
  * - POST /:id/forfeit: voluntary forfeit (p1 + p2), not a player, game not active,
  *     game not found, db unavailable, db error (500), winnerId null branch
  * - GET /my-games: categorized game lists, db unavailable, db error (500)
+ * - GET /stats/me: player stats (wins, losses, streaks, records, top tricks)
  * - GET /:id: game details with turns/disputes, isMyTurn, needsToJudge,
  *     needsToRespond, pendingTurnId, canDispute, not a player, not found,
  *     db unavailable, db error (500)
@@ -66,7 +67,12 @@ vi.mock("../../services/gameNotificationService", () => ({
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   or: vi.fn(),
+  and: vi.fn(),
   desc: vi.fn(),
+  sql: Object.assign(
+    (strings: TemplateStringsArray, ..._values: any[]) => ({ _sql: true, strings }),
+    { raw: (s: string) => ({ _sql: true, raw: s }) }
+  ),
 }));
 
 vi.mock("@shared/schema", () => ({
@@ -83,6 +89,7 @@ vi.mock("@shared/schema", () => ({
     result: "result",
     turnType: "turnType",
     playerId: "playerId",
+    trickDescription: "trickDescription",
   },
   gameDisputes: {
     gameId: "gameId",
@@ -111,6 +118,7 @@ function makeChain(): any {
     "limit",
     "offset",
     "orderBy",
+    "groupBy",
     "set",
     "returning",
     "values",
@@ -145,6 +153,15 @@ vi.mock("../../db", () => ({
       select: vi.fn().mockImplementation(() => makeChain()),
       update: vi.fn().mockImplementation(() => makeChain()),
       insert: vi.fn().mockImplementation(() => makeChain()),
+      transaction: vi.fn().mockImplementation(async (cb: any) => {
+        const tx = {
+          execute: vi.fn().mockResolvedValue(undefined),
+          select: vi.fn().mockImplementation(() => makeChain()),
+          update: vi.fn().mockImplementation(() => makeChain()),
+          insert: vi.fn().mockImplementation(() => makeChain()),
+        };
+        return cb(tx);
+      }),
     };
   },
 }));
@@ -442,6 +459,205 @@ describe("Game Management Routes", () => {
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ error: "Failed to fetch games" })
+      );
+    });
+  });
+
+  // ===========================================================================
+  // GET /stats/me
+  // ===========================================================================
+
+  describe("GET /stats/me", () => {
+    it("returns computed stats with wins, losses, streaks, records, and tricks", async () => {
+      const completed = new Date("2024-01-10");
+      resultQueue.push(
+        // [0] finished games
+        [
+          {
+            id: "g1",
+            winnerId: "user-1",
+            player1Id: "user-1",
+            player2Id: "opp-1",
+            player1Name: "Me",
+            player2Name: "Opp1",
+            completedAt: completed,
+          },
+          {
+            id: "g2",
+            winnerId: "user-1",
+            player1Id: "user-1",
+            player2Id: "opp-1",
+            player1Name: "Me",
+            player2Name: "Opp1",
+            completedAt: completed,
+          },
+          {
+            id: "g3",
+            winnerId: "opp-1",
+            player1Id: "user-1",
+            player2Id: "opp-1",
+            player1Name: "Me",
+            player2Name: "Opp1",
+            completedAt: completed,
+          },
+        ],
+        // [1] trick stats
+        [
+          { trick: "Kickflip", count: 5 },
+          { trick: "Heelflip", count: 3 },
+        ]
+      );
+
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/stats/me", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.totalGames).toBe(3);
+      expect(result.wins).toBe(2);
+      expect(result.losses).toBe(1);
+      expect(result.winRate).toBe(67);
+      expect(result.currentStreak).toBe(2);
+      expect(result.bestStreak).toBe(2);
+      expect(result.opponentRecords).toHaveLength(1);
+      expect(result.opponentRecords[0].wins).toBe(2);
+      expect(result.opponentRecords[0].losses).toBe(1);
+      expect(result.topTricks).toEqual([
+        { trick: "Kickflip", count: 5 },
+        { trick: "Heelflip", count: 3 },
+      ]);
+      expect(result.recentGames).toHaveLength(3);
+    });
+
+    it("returns zero stats when no finished games", async () => {
+      resultQueue.push([], []);
+
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/stats/me", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.totalGames).toBe(0);
+      expect(result.wins).toBe(0);
+      expect(result.losses).toBe(0);
+      expect(result.winRate).toBe(0);
+      expect(result.currentStreak).toBe(0);
+      expect(result.bestStreak).toBe(0);
+      expect(result.opponentRecords).toHaveLength(0);
+      expect(result.topTricks).toHaveLength(0);
+      expect(result.recentGames).toHaveLength(0);
+    });
+
+    it("computes bestStreak across non-consecutive wins", async () => {
+      const completed = new Date("2024-01-10");
+      resultQueue.push(
+        [
+          {
+            id: "g1",
+            winnerId: "opp-1",
+            player1Id: "user-1",
+            player2Id: "opp-1",
+            player1Name: "Me",
+            player2Name: "Opp",
+            completedAt: completed,
+          },
+          {
+            id: "g2",
+            winnerId: "user-1",
+            player1Id: "user-1",
+            player2Id: "opp-1",
+            player1Name: "Me",
+            player2Name: "Opp",
+            completedAt: completed,
+          },
+          {
+            id: "g3",
+            winnerId: "user-1",
+            player1Id: "user-1",
+            player2Id: "opp-1",
+            player1Name: "Me",
+            player2Name: "Opp",
+            completedAt: completed,
+          },
+          {
+            id: "g4",
+            winnerId: "user-1",
+            player1Id: "user-1",
+            player2Id: "opp-1",
+            player1Name: "Me",
+            player2Name: "Opp",
+            completedAt: completed,
+          },
+        ],
+        []
+      );
+
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/stats/me", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.currentStreak).toBe(0); // first game is a loss
+      expect(result.bestStreak).toBe(3); // g2, g3, g4
+    });
+
+    it("skips opponent with null opponentId", async () => {
+      resultQueue.push(
+        [
+          {
+            id: "g1",
+            winnerId: "user-1",
+            player1Id: "user-1",
+            player2Id: null,
+            player1Name: "Me",
+            player2Name: null,
+            completedAt: new Date(),
+          },
+        ],
+        []
+      );
+
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/stats/me", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.opponentRecords).toHaveLength(0);
+    });
+
+    it("uses default name when opponentName is null", async () => {
+      resultQueue.push(
+        [
+          {
+            id: "g1",
+            winnerId: "user-1",
+            player1Id: "opp-1",
+            player2Id: "user-1",
+            player1Name: null,
+            player2Name: "Me",
+            completedAt: new Date(),
+          },
+        ],
+        []
+      );
+
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/stats/me", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.opponentRecords[0].name).toBe("Skater");
+    });
+
+    it("returns 500 when database is unavailable", async () => {
+      shouldDbThrow = true;
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/stats/me", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "Failed to fetch stats" })
       );
     });
   });

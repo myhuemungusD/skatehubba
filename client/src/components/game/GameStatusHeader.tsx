@@ -16,6 +16,25 @@ interface GameStatusHeaderProps {
   onBack: () => void;
   onForfeit: () => void;
   forfeitPending: boolean;
+  myLetters?: string;
+  oppLetters?: string;
+}
+
+/** Returns escalation message based on opponent's letter count */
+function getStakesMessage(oppLetters: string, opponentName: string): string | null {
+  const count = oppLetters.length;
+  if (count === 0) return null;
+  if (count <= 2) return `${opponentName} is on ${oppLetters.split("").join(".")}`;
+  if (count === 3) return `One more and ${opponentName} is out`;
+  if (count === 4) return "MATCH POINT";
+  return null;
+}
+
+function getStakesColor(oppLetterCount: number): string {
+  if (oppLetterCount <= 2) return "text-yellow-400";
+  if (oppLetterCount === 3) return "text-orange-400";
+  if (oppLetterCount >= 4) return "text-red-400 font-bold animate-pulse";
+  return "text-neutral-400";
 }
 
 export function GameStatusHeader({
@@ -30,12 +49,22 @@ export function GameStatusHeader({
   onBack,
   onForfeit,
   forfeitPending,
+  myLetters = "",
+  oppLetters = "",
 }: GameStatusHeaderProps) {
   const phaseLabels: Record<string, string> = {
     set_trick: isOffensive ? "Set your trick." : `${opponentName} is setting a trick.`,
     respond_trick: !isOffensive ? "Your turn to respond." : `${opponentName} is responding.`,
     judge: !isOffensive ? "Judge the trick." : `${opponentName} is judging.`,
   };
+
+  const stakesMessage = isActive && !isGameOver ? getStakesMessage(oppLetters, opponentName) : null;
+  const myStakesMessage =
+    isActive && !isGameOver && myLetters.length >= 3
+      ? myLetters.length === 4
+        ? "YOU'RE ON MATCH POINT"
+        : "One more and you're out"
+      : null;
 
   return (
     <>
@@ -60,16 +89,38 @@ export function GameStatusHeader({
 
       {/* Game Header */}
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center">
-          <Swords className="w-6 h-6 text-orange-500" />
+        <div
+          className={cn(
+            "w-12 h-12 rounded-full flex items-center justify-center",
+            myLetters.length >= 4 ? "bg-red-500/10" : "bg-orange-500/10"
+          )}
+        >
+          <Swords
+            className={cn("w-6 h-6", myLetters.length >= 4 ? "text-red-500" : "text-orange-500")}
+          />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-white">S.K.A.T.E.</h1>
           <p className="text-sm text-neutral-400">
             {isPending && "Waiting for opponent."}
             {isActive && !isGameOver && turnPhase && phaseLabels[turnPhase]}
-            {isGameOver && (game.winnerId ? "Game over." : "Game over.")}
+            {isGameOver && "Game over."}
           </p>
+          {stakesMessage && (
+            <p className={cn("text-xs mt-0.5", getStakesColor(oppLetters.length))}>
+              {stakesMessage}
+            </p>
+          )}
+          {myStakesMessage && (
+            <p
+              className={cn(
+                "text-xs mt-0.5",
+                myLetters.length === 4 ? "text-red-400 font-bold animate-pulse" : "text-orange-400"
+              )}
+            >
+              {myStakesMessage}
+            </p>
+          )}
         </div>
       </div>
 

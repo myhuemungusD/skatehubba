@@ -1,19 +1,20 @@
-import { useState } from 'react';
-import { useLocation } from 'wouter';
-import { Swords, Plus, Users, Clock, TrendingUp } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useMyGames, useRespondToGame, useCreateGame } from '@/hooks/useSkateGameApi';
-import { GameCard } from '@/components/game';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { LoadingScreen } from '@/components/LoadingScreen';
+import { useState } from "react";
+import { useLocation } from "wouter";
+import { Swords, Plus, Users, Clock, TrendingUp, AlertCircle } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useMyGames, useRespondToGame, useCreateGame, useMyStats } from "@/hooks/useSkateGameApi";
+import { GameCard, PlayerStats } from "@/components/game";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export default function ChallengeLobby() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [challengeUserId, setChallengeUserId] = useState('');
+  const [challengeUserId, setChallengeUserId] = useState("");
 
-  const { data: myGames, isLoading } = useMyGames();
+  const { data: myGames, isLoading, error: gamesError } = useMyGames();
+  const { data: myStats } = useMyStats();
   const respondToGame = useRespondToGame();
   const createGame = useCreateGame();
 
@@ -29,7 +30,7 @@ export default function ChallengeLobby() {
     if (!challengeUserId.trim()) return;
     createGame.mutate(challengeUserId.trim(), {
       onSuccess: () => {
-        setChallengeUserId('');
+        setChallengeUserId("");
       },
     });
   };
@@ -42,12 +43,20 @@ export default function ChallengeLobby() {
     return <LoadingScreen />;
   }
 
-  if (!myGames || !user) {
+  if (gamesError || !user) {
     return (
       <div className="text-center py-12">
-        <p className="text-neutral-400">Failed to load games</p>
+        <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+        <h2 className="text-xl font-semibold text-white mb-2">Failed to Load</h2>
+        <p className="text-sm text-neutral-400">
+          {gamesError ? String(gamesError) : "Please sign in to view games"}
+        </p>
       </div>
     );
+  }
+
+  if (!myGames) {
+    return <LoadingScreen />;
   }
 
   const totalGames =
@@ -91,6 +100,9 @@ export default function ChallengeLobby() {
         </div>
       </div>
 
+      {/* Player Stats — your game history IS your reputation */}
+      {myStats && myStats.totalGames > 0 && <PlayerStats stats={myStats} />}
+
       <div className="p-6 rounded-lg bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/30">
         <div className="flex items-start gap-3 mb-4">
           <Plus className="w-5 h-5 text-orange-400 mt-0.5" />
@@ -108,7 +120,7 @@ export default function ChallengeLobby() {
             value={challengeUserId}
             onChange={(e) => setChallengeUserId(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === "Enter") {
                 handleCreateChallenge();
               }
             }}
@@ -119,7 +131,7 @@ export default function ChallengeLobby() {
             disabled={!challengeUserId.trim() || createGame.isPending}
             className="bg-orange-500 hover:bg-orange-600"
           >
-            {createGame.isPending ? 'Sending...' : 'Challenge'}
+            {createGame.isPending ? "Sending..." : "Challenge"}
           </Button>
         </div>
       </div>
@@ -136,7 +148,10 @@ export default function ChallengeLobby() {
 
           <div className="space-y-3">
             {myGames.pendingChallenges.map((game) => (
-              <div key={game.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div
+                key={game.id}
+                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
+              >
                 <GameCard
                   game={game}
                   currentUserId={user.uid}

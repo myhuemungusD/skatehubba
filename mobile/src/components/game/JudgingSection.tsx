@@ -97,20 +97,20 @@ export const JudgingSection = memo(function JudgingSection({
             disabled={isJudging}
           >
             <Ionicons name="checkmark-circle" size={32} color={SKATE.colors.white} />
-            <Text style={styles.judgeButtonText}>LANDED</Text>
+            <Text style={styles.judgeButtonText}>I LANDED IT</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             accessible
             accessibilityRole="button"
-            accessibilityLabel="Vote that trick was bailed"
+            accessibilityLabel="Vote that trick was not landed"
             testID="game-vote-bailed"
             style={[styles.judgeButton, styles.bailedButton]}
             onPress={() => onJudge("bailed")}
             disabled={isJudging}
           >
             <Ionicons name="close-circle" size={32} color={SKATE.colors.white} />
-            <Text style={styles.judgeButtonText}>BAILED</Text>
+            <Text style={styles.judgeButtonText}>I DIDN'T GET IT</Text>
           </TouchableOpacity>
         </View>
       )}

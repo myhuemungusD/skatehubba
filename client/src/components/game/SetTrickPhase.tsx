@@ -1,6 +1,7 @@
-import { Video } from "lucide-react";
+import { Video, AlertTriangle } from "lucide-react";
 import { VideoRecorder } from "./VideoRecorder";
-import { Input } from "@/components/ui/input";
+import { TrickAutocomplete } from "./TrickAutocomplete";
+import { Button } from "@/components/ui/button";
 
 interface SetTrickPhaseProps {
   trickDescription: string;
@@ -8,6 +9,8 @@ interface SetTrickPhaseProps {
   onRecordingComplete: (blob: Blob, durationMs: number) => void;
   isUploading: boolean;
   submitPending: boolean;
+  onSetterBail?: () => void;
+  setterBailPending?: boolean;
 }
 
 export function SetTrickPhase({
@@ -16,6 +19,8 @@ export function SetTrickPhase({
   onRecordingComplete,
   isUploading,
   submitPending,
+  onSetterBail,
+  setterBailPending,
 }: SetTrickPhaseProps) {
   return (
     <div className="p-6 rounded-lg bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/30">
@@ -32,15 +37,13 @@ export function SetTrickPhase({
           >
             Trick Name
           </label>
-          <Input
+          <TrickAutocomplete
             id="set-trick-name"
-            placeholder="Kickflip, Heelflip, Tre Flip..."
             value={trickDescription}
-            onChange={(e) => onTrickDescriptionChange(e.target.value)}
-            className="bg-neutral-900 border-neutral-700"
-            maxLength={500}
+            onChange={onTrickDescriptionChange}
             disabled={isUploading}
           />
+          <p className="text-xs text-neutral-500 mt-1">One take. No preview. Auto-sends on stop.</p>
         </div>
 
         {trickDescription.trim() ? (
@@ -50,12 +53,29 @@ export function SetTrickPhase({
           />
         ) : (
           <p className="text-xs text-neutral-500 text-center py-4">
-            Enter trick name to enable recording.
+            Name your trick to enable recording.
           </p>
         )}
 
         {isUploading && (
           <div className="text-center text-sm text-neutral-400 font-mono">Uploading...</div>
+        )}
+
+        {/* Setter bail — if you can't land what you set, you take the letter */}
+        {onSetterBail && (
+          <div className="pt-2 border-t border-neutral-700/50">
+            <Button
+              onClick={onSetterBail}
+              disabled={setterBailPending || isUploading}
+              variant="ghost"
+              className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10 gap-2"
+            >
+              <AlertTriangle className="w-4 h-4" />I bailed my own trick
+            </Button>
+            <p className="text-xs text-neutral-500 text-center mt-1">
+              Can't land it? You take the letter. That's the rule.
+            </p>
+          </div>
         )}
       </div>
     </div>

@@ -21,6 +21,8 @@ import type {
   DisputeResponse,
   ResolveDisputeRequest,
   ResolveDisputeResponse,
+  SetterBailResponse,
+  GameStats,
 } from "./types";
 
 export const gameApi = {
@@ -81,6 +83,13 @@ export const gameApi = {
     });
   },
 
+  async setterBail(gameId: string): Promise<SetterBailResponse> {
+    return apiRequest<SetterBailResponse>({
+      method: "POST",
+      path: `/api/games/${gameId}/setter-bail`,
+    });
+  },
+
   async forfeitGame(gameId: string): Promise<{ game: Game; message: string }> {
     return apiRequest({
       method: "POST",
@@ -99,6 +108,13 @@ export const gameApi = {
     return apiRequest<GameWithDetails>({
       method: "GET",
       path: `/api/games/${gameId}`,
+    });
+  },
+
+  async getMyStats(): Promise<GameStats> {
+    return apiRequest<GameStats>({
+      method: "GET",
+      path: "/api/games/stats/me",
     });
   },
 };
