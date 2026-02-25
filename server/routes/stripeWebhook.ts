@@ -10,6 +10,10 @@ import { getRedisClient } from "../redis";
 
 const router = Router();
 
+// L3: Centralized premium price constant (prevents silent drift between checkout and webhook)
+const PREMIUM_PRICE_CENTS = 999;
+const PREMIUM_CURRENCY = "usd";
+
 // ============================================================================
 // Stripe event deduplication — prevents TOCTOU race on webhook retries
 // ============================================================================
@@ -19,8 +23,14 @@ const processedEventsMemory = new Map<string, number>();
 
 /**
  * Check if a Stripe event ID has already been processed.
- * Uses Redis when available, falls back to in-memory Map.
- * Returns true if the event was already seen (i.e. is a duplicate).
+ *
+ * Deduplication strategy (defense in depth):
+ * 1. Redis SET NX (atomic, preferred) — first line of defense
+ * 2. In-memory Map (best-effort, single-instance only) — reduces unnecessary DB work
+ * 3. Database `consumedPaymentIntents` with SELECT FOR UPDATE — definitive guard
+ *
+ * The in-memory fallback is NOT relied upon for correctness. The DB transaction
+ * in handleCheckoutCompleted is the true deduplication layer.
  */
 async function isDuplicateEvent(eventId: string): Promise<boolean> {
   const redis = getRedisClient();
@@ -35,9 +45,9 @@ async function isDuplicateEvent(eventId: string): Promise<boolean> {
     }
   }
 
-  // In-memory fallback
+  // Best-effort in-memory fallback (reduces duplicate DB work but not relied upon for safety)
   const now = Date.now();
-  // Prune expired entries periodically (every 1000 checks)
+  // Prune expired entries periodically
   if (processedEventsMemory.size > 1000) {
     for (const [key, ts] of processedEventsMemory) {
       if (now - ts > DEDUP_TTL_SECONDS * 1000) processedEventsMemory.delete(key);
@@ -48,6 +58,7 @@ async function isDuplicateEvent(eventId: string): Promise<boolean> {
     return true;
   }
   processedEventsMemory.set(eventId, now);
+  // Return false — DB transaction is the definitive deduplication guard
   return false;
 }
 
@@ -172,11 +183,21 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
     return;
   }
 
-  if (session.amount_total !== 999) {
+  if (session.amount_total !== PREMIUM_PRICE_CENTS) {
     logger.error("Checkout session amount mismatch", {
       sessionId: session.id,
       expected: 999,
       received: session.amount_total,
+    });
+    return;
+  }
+
+  // M1: Validate currency to prevent cheap-currency attacks (e.g. 999 JPY ≈ $6.50)
+  if (session.currency !== PREMIUM_CURRENCY) {
+    logger.error("Checkout session currency mismatch", {
+      sessionId: session.id,
+      expected: "usd",
+      received: session.currency,
     });
     return;
   }

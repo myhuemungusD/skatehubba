@@ -123,14 +123,15 @@ const preferencesSchema = z.object({
   resultNotifications: z.boolean().optional(),
   marketingEmails: z.boolean().optional(),
   weeklyDigest: z.boolean().optional(),
+  // M3: Validate actual HH:MM time format (not just \d{2}:\d{2} which accepts 99:99)
   quietHoursStart: z
     .string()
-    .regex(/^\d{2}:\d{2}$/)
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Must be valid HH:MM (00:00-23:59)")
     .nullable()
     .optional(),
   quietHoursEnd: z
     .string()
-    .regex(/^\d{2}:\d{2}$/)
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, "Must be valid HH:MM (00:00-23:59)")
     .nullable()
     .optional(),
 });

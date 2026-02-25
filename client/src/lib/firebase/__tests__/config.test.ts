@@ -120,16 +120,28 @@ describe("firebase/config", () => {
     });
 
     it("logs environment info in non-prod mode", async () => {
-      const { isProd, getEnvBanner, getAppEnv } = await import("@skatehubba/config");
+      const { isProd } = await import("@skatehubba/config");
       vi.mocked(isProd).mockReturnValue(false);
 
-      await import("../config");
+      // Simulate localhost dev environment so the logging guard passes
+      const origWindow = globalThis.window;
+      (globalThis as any).window = { location: { hostname: "localhost" } };
 
-      const { logger } = await import("../../logger");
-      expect(logger.log).toHaveBeenCalledWith(
-        expect.stringContaining("[Firebase]"),
-        expect.any(String)
-      );
+      try {
+        await import("../config");
+
+        const { logger } = await import("../../logger");
+        expect(logger.log).toHaveBeenCalledWith(
+          expect.stringContaining("[Firebase]"),
+          expect.any(String)
+        );
+      } finally {
+        if (origWindow === undefined) {
+          delete (globalThis as any).window;
+        } else {
+          globalThis.window = origWindow;
+        }
+      }
     });
 
     it("does not log environment info in prod mode", async () => {
@@ -229,6 +241,25 @@ describe("firebase/config", () => {
       expect(config2.isFirebaseInitialized).toBe(true);
       // initializeApp should still only have been called once
       expect(mockInitializeApp).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("missing env vars", () => {
+    it("logs error and skips init when required env vars are missing", async () => {
+      // Explicitly clear the three required env vars so getFirebaseConfig() throws
+      // (vi.unstubAllEnvs would restore originals which may be set in CI .env files)
+      vi.stubEnv("EXPO_PUBLIC_FIREBASE_API_KEY", "");
+      vi.stubEnv("EXPO_PUBLIC_FIREBASE_PROJECT_ID", "");
+      vi.stubEnv("EXPO_PUBLIC_FIREBASE_APP_ID", "");
+
+      const config = await import("../config");
+
+      const { logger } = await import("../../logger");
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining("Missing required environment variables")
+      );
+      // Should not throw — init is skipped gracefully
+      expect(config.isFirebaseInitialized).toBe(false);
     });
   });
 

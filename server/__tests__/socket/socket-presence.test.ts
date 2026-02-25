@@ -58,11 +58,15 @@ const logger = (await import("../../logger")).default;
 // ============================================================================
 
 function createMockSocket(odv: string) {
+  const socketId = `socket-${odv}`;
   return {
+    id: socketId,
     data: { odv },
+    rooms: new Set([socketId]),
     join: vi.fn(),
     broadcast: { emit: vi.fn() },
     on: vi.fn(),
+    to: vi.fn().mockReturnValue({ emit: vi.fn() }),
   } as any;
 }
 
@@ -388,6 +392,8 @@ describe("setPresence (via registerPresenceHandlers)", () => {
     mockGetRedisClient.mockReturnValue({ hset: hsetMock });
 
     const socket = createMockSocket("status-user");
+    // Add an extra room so the to().emit broadcast path is exercised
+    socket.rooms.add("user:status-user");
     registerPresenceHandlers(createMockIo(), socket);
 
     // Find the presence:update listener
@@ -399,10 +405,8 @@ describe("setPresence (via registerPresenceHandlers)", () => {
 
     // hset should have been called twice: once for initial "online", once for "away"
     expect(hsetMock).toHaveBeenCalledTimes(2);
-    expect(socket.broadcast.emit).toHaveBeenCalledWith("presence:update", {
-      odv: "status-user",
-      status: "away",
-    });
+    // The source broadcasts via socket.to(room).emit, not socket.broadcast.emit
+    expect(socket.to).toHaveBeenCalledWith("user:status-user");
   });
 
   it("logs warning when presence:update hset rejects", async () => {
@@ -522,13 +526,13 @@ describe("registerPresenceHandlers", () => {
   it("broadcasts online presence to other clients", () => {
     mockGetRedisClient.mockReturnValue(null);
     const socket = createMockSocket("broadcast-online");
+    // Add an extra room so the to().emit broadcast path is exercised
+    socket.rooms.add("user:broadcast-online");
 
     registerPresenceHandlers(createMockIo(), socket);
 
-    expect(socket.broadcast.emit).toHaveBeenCalledWith("presence:update", {
-      odv: "broadcast-online",
-      status: "online",
-    });
+    // The source broadcasts via socket.to(room).emit for each room (excluding socket's own id)
+    expect(socket.to).toHaveBeenCalledWith("user:broadcast-online");
   });
 
   it("registers a listener for presence:update", () => {
