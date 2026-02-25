@@ -670,6 +670,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^5.1.2
         version: 5.1.2(vite@6.4.1(@types/node@22.19.9)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      cross-env:
+        specifier: ^10.1.0
+        version: 10.1.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -1470,6 +1473,9 @@ packages:
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
+
+  '@epic-web/invariant@1.0.0':
+    resolution: {integrity: sha512-lrTPqgvfFQtR/eY/qkIzp98OGdNJu0m5ji3q/nJI8v3SXkRKEnWiOxMmbvcSoAIzv/cGiuvRy57k4suKQSAdwA==}
 
   '@esbuild-kit/core-utils@3.3.2':
     resolution: {integrity: sha512-sPRAnw9CdSsRmEtnsl2WXWdyquogVpB3yZ3dgwJfe8zrOzTsV7cJvmwrKVa+0ma5BoiGJ+BoqkMvawbayKUsqQ==}
@@ -5228,6 +5234,11 @@ packages:
   create-jest@29.7.0:
     resolution: {integrity: sha512-Adz2bdH0Vq3F53KEMJOoftQFutWCukm6J24wbPWRO4k1kMY7gS7ds/uoJkNuV8wDCtWWnuwGcJwpWcih+zEW1Q==}
     engines: {node: ^14.15.0 || ^16.10.0 || >=18.0.0}
+    hasBin: true
+
+  cross-env@10.1.0:
+    resolution: {integrity: sha512-GsYosgnACZTADcmEyJctkJIoqAhHjttw7RsFrVoJNXbsWWqaq6Ym+7kZjq6mS45O0jij6vtiReppKQEtqWy6Dw==}
+    engines: {node: '>=20'}
     hasBin: true
 
   cross-spawn@7.0.6:
@@ -11194,6 +11205,8 @@ snapshots:
 
   '@drizzle-team/brocli@0.10.2': {}
 
+  '@epic-web/invariant@1.0.0': {}
+
   '@esbuild-kit/core-utils@3.3.2':
     dependencies:
       esbuild: 0.18.20
@@ -11966,7 +11979,7 @@ snapshots:
       postcss: 8.4.49
       resolve-from: 5.0.0
     optionalDependencies:
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -12037,7 +12050,7 @@ snapshots:
       '@expo/json-file': 10.0.8
       '@react-native/normalize-colors': 0.81.5
       debug: 4.4.3(supports-color@8.1.1)
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
       resolve-from: 5.0.0
       semver: 7.7.4
       xml2js: 0.6.0
@@ -14737,14 +14750,6 @@ snapshots:
     optionalDependencies:
       vite: 6.4.1(@types/node@22.19.7)(jiti@1.21.7)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  '@vitest/mocker@4.0.18(vite@6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
-    dependencies:
-      '@vitest/spy': 4.0.18
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
-
   '@vitest/mocker@4.0.18(vite@6.4.1(@types/node@22.19.9)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@vitest/spy': 4.0.18
@@ -15172,7 +15177,7 @@ snapshots:
       resolve-from: 5.0.0
     optionalDependencies:
       '@babel/runtime': 7.28.6
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
@@ -15674,6 +15679,11 @@ snapshots:
       - babel-plugin-macros
       - supports-color
       - ts-node
+
+  cross-env@10.1.0:
+    dependencies:
+      '@epic-web/invariant': 1.0.0
+      cross-spawn: 7.0.6
 
   cross-spawn@7.0.6:
     dependencies:
@@ -16652,7 +16662,7 @@ snapshots:
   expo-crypto@15.0.8(expo@54.0.32):
     dependencies:
       base64-js: 1.5.1
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
 
   expo-device@8.0.10(expo@54.0.32):
     dependencies:
@@ -16694,7 +16704,7 @@ snapshots:
 
   expo-keep-awake@15.0.8(expo@54.0.32)(react@18.3.1):
     dependencies:
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
       react: 18.3.1
 
   expo-linking@7.0.5(expo@54.0.32)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1):
@@ -21033,7 +21043,7 @@ snapshots:
   vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.7)(jiti@2.6.1)(jsdom@23.2.0)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       '@vitest/expect': 4.0.18
-      '@vitest/mocker': 4.0.18(vite@6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@vitest/mocker': 4.0.18(vite@6.4.1(@types/node@22.19.9)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
       '@vitest/pretty-format': 4.0.18
       '@vitest/runner': 4.0.18
       '@vitest/snapshot': 4.0.18
