@@ -348,7 +348,9 @@ export async function judgeTurn(
           type: "your_turn" as const,
           data: {
             gameId: game.id,
-            opponentName: (isPlayer1 ? game.player2Name : game.player1Name) || "Opponent",
+            opponentName:
+              (newOffensiveId === game.player1Id ? game.player2Name : game.player1Name) ||
+              "Opponent",
           },
         },
       ],

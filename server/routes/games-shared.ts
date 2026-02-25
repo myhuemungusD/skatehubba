@@ -17,6 +17,8 @@ export const SKATE_LETTERS = "SKATE";
 
 // Dedup deadline warnings: track gameId → last warning timestamp
 // Prevents spamming the same player every cron cycle
+// NOTE: In-memory — not shared across server instances. Duplicate warnings may
+// occur under horizontal scaling, but this is acceptable for non-critical alerts.
 export const deadlineWarningsSent = new Map<string, number>();
 export const DEADLINE_WARNING_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes between warnings
 

@@ -14,7 +14,13 @@ mockDbChain.from = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.where = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.update = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.limit = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
+mockDbChain.transaction = vi.fn().mockImplementation(async (cb: any) => {
+  const tx = Object.create(mockDbChain);
+  tx.execute = vi.fn().mockResolvedValue(undefined);
+  return cb(tx);
+});
 
 let shouldGetDbThrow = false;
 
@@ -47,6 +53,10 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   and: vi.fn(),
   lt: vi.fn(),
+  sql: Object.assign(
+    (strings: TemplateStringsArray, ..._values: any[]) => ({ _sql: true, strings }),
+    { raw: (s: string) => ({ _sql: true, raw: s }) }
+  ),
 }));
 
 vi.mock("../../logger", () => ({
@@ -114,11 +124,11 @@ describe("Games Cron", () => {
         player2Id: "player-2",
       };
 
-      // First call is select (returns expired games), subsequent is update chain
+      // Call 1: outer select (expired games), Call 2: inner re-read (FOR UPDATE), Call 3: update
       let selectCallCount = 0;
       mockDbChain.then = (resolve: any) => {
         selectCallCount++;
-        if (selectCallCount === 1) {
+        if (selectCallCount <= 2) {
           return Promise.resolve([expiredGame]).then(resolve);
         }
         return Promise.resolve(undefined).then(resolve);
@@ -161,7 +171,7 @@ describe("Games Cron", () => {
       let selectCallCount = 0;
       mockDbChain.then = (resolve: any) => {
         selectCallCount++;
-        if (selectCallCount === 1) {
+        if (selectCallCount <= 2) {
           return Promise.resolve([expiredGame]).then(resolve);
         }
         return Promise.resolve(undefined).then(resolve);
@@ -299,7 +309,7 @@ describe("Games Cron", () => {
       let selectCallCount = 0;
       mockDbChain.then = (resolve: any) => {
         selectCallCount++;
-        if (selectCallCount === 1) {
+        if (selectCallCount <= 2) {
           return Promise.resolve([stalledGame]).then(resolve);
         }
         return Promise.resolve(undefined).then(resolve);
@@ -333,7 +343,7 @@ describe("Games Cron", () => {
       let selectCallCount = 0;
       mockDbChain.then = (resolve: any) => {
         selectCallCount++;
-        if (selectCallCount === 1) {
+        if (selectCallCount <= 2) {
           return Promise.resolve([stalledGame]).then(resolve);
         }
         return Promise.resolve(undefined).then(resolve);
@@ -367,7 +377,7 @@ describe("Games Cron", () => {
       let selectCallCount = 0;
       mockDbChain.then = (resolve: any) => {
         selectCallCount++;
-        if (selectCallCount === 1) {
+        if (selectCallCount <= 2) {
           return Promise.resolve([stalledGame]).then(resolve);
         }
         return Promise.resolve(undefined).then(resolve);

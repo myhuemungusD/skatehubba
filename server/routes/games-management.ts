@@ -24,47 +24,60 @@ router.post("/:id/forfeit", authenticateUser, async (req, res) => {
   try {
     const db = getDb();
 
-    const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
+    const txResult = await db.transaction(async (tx) => {
+      // Lock game row to prevent concurrent forfeit/turn/cron race
+      await tx.execute(sql`SELECT id FROM games WHERE id = ${gameId} FOR UPDATE`);
 
-    if (!game) return res.status(404).json({ error: "Game not found" });
+      const [game] = await tx.select().from(games).where(eq(games.id, gameId)).limit(1);
 
-    const isPlayer1 = game.player1Id === currentUserId;
-    const isPlayer2 = game.player2Id === currentUserId;
-    if (!isPlayer1 && !isPlayer2) {
-      return res.status(403).json({ error: "You are not a player in this game" });
+      if (!game) return { ok: false as const, status: 404, msg: "Game not found" };
+
+      const isPlayer1 = game.player1Id === currentUserId;
+      const isPlayer2 = game.player2Id === currentUserId;
+      if (!isPlayer1 && !isPlayer2) {
+        return { ok: false as const, status: 403, msg: "You are not a player in this game" };
+      }
+      if (game.status !== "active") {
+        return { ok: false as const, status: 400, msg: "Game is not active" };
+      }
+
+      const now = new Date();
+      const winnerId = isPlayer1 ? game.player2Id : game.player1Id;
+      const forfeitedByName = isPlayer1 ? game.player1Name : game.player2Name;
+
+      const [updatedGame] = await tx
+        .update(games)
+        .set({
+          status: "forfeited",
+          winnerId,
+          completedAt: now,
+          updatedAt: now,
+        })
+        .where(eq(games.id, gameId))
+        .returning();
+
+      return { ok: true as const, game: updatedGame, winnerId, forfeitedByName };
+    });
+
+    if (!txResult.ok) {
+      return res.status(txResult.status).json({ error: txResult.msg });
     }
-    if (game.status !== "active") {
-      return res.status(400).json({ error: "Game is not active" });
-    }
 
-    const now = new Date();
-    const winnerId = isPlayer1 ? game.player2Id : game.player1Id;
-
-    const [updatedGame] = await db
-      .update(games)
-      .set({
-        status: "forfeited",
-        winnerId,
-        completedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(games.id, gameId))
-      .returning();
-
-    // Notify opponent (push + email + in-app)
-    if (winnerId) {
-      await sendGameNotificationToUser(winnerId, "opponent_forfeited", {
+    // Notify opponent (push + email + in-app) — outside transaction
+    if (txResult.winnerId) {
+      await sendGameNotificationToUser(txResult.winnerId, "opponent_forfeited", {
         gameId,
+        opponentName: txResult.forfeitedByName || undefined,
       });
     }
 
     logger.info("[Games] Game forfeited", {
       gameId,
       forfeitedBy: currentUserId,
-      winnerId,
+      winnerId: txResult.winnerId,
     });
 
-    res.json({ game: updatedGame, message: "You forfeited." });
+    res.json({ game: txResult.game, message: "You forfeited." });
   } catch (error) {
     logger.error("[Games] Failed to forfeit game", {
       error,

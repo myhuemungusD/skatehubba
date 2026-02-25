@@ -5,7 +5,7 @@
 
 import { getDb, DatabaseUnavailableError } from "../db";
 import { games } from "@shared/schema";
-import { eq, and, lt } from "drizzle-orm";
+import { eq, and, lt, sql } from "drizzle-orm";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
 import {
@@ -32,36 +32,47 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
     let forfeitedCount = 0;
 
     for (const game of expiredGames) {
-      const loserId = game.currentTurn;
-      const winnerId = loserId === game.player1Id ? game.player2Id : game.player1Id;
+      try {
+        const result = await db.transaction(async (tx) => {
+          await tx.execute(sql`SELECT id FROM games WHERE id = ${game.id} FOR UPDATE`);
+          const [fresh] = await tx.select().from(games).where(eq(games.id, game.id)).limit(1);
 
-      await db
-        .update(games)
-        .set({
-          status: "forfeited",
-          winnerId,
-          completedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(games.id, game.id));
+          // Re-check inside lock — game may have been resolved concurrently
+          if (!fresh || fresh.status !== "active") return null;
+          if (!fresh.deadlineAt || new Date(fresh.deadlineAt) >= now) return null;
 
-      // Notify both players (push + email + in-app)
-      for (const playerId of [game.player1Id, game.player2Id]) {
-        if (!playerId) continue;
-        await sendGameNotificationToUser(playerId, "game_forfeited_timeout", {
-          gameId: game.id,
-          loserId: loserId || undefined,
-          winnerId: winnerId || undefined,
+          const loserId = fresh.currentTurn;
+          const winnerId = loserId === fresh.player1Id ? fresh.player2Id : fresh.player1Id;
+
+          await tx
+            .update(games)
+            .set({ status: "forfeited", winnerId, completedAt: now, updatedAt: now })
+            .where(eq(games.id, game.id));
+
+          return { loserId, winnerId, player1Id: fresh.player1Id, player2Id: fresh.player2Id };
         });
+
+        if (!result) continue;
+
+        for (const playerId of [result.player1Id, result.player2Id]) {
+          if (!playerId) continue;
+          await sendGameNotificationToUser(playerId, "game_forfeited_timeout", {
+            gameId: game.id,
+            loserId: result.loserId || undefined,
+            winnerId: result.winnerId || undefined,
+          });
+        }
+
+        logger.info("[Games] Game forfeited due to timeout", {
+          gameId: game.id,
+          loserId: result.loserId,
+          winnerId: result.winnerId,
+        });
+
+        forfeitedCount++;
+      } catch (err) {
+        logger.error("[Games] Failed to forfeit expired game", { error: err, gameId: game.id });
       }
-
-      logger.info("[Games] Game forfeited due to timeout", {
-        gameId: game.id,
-        loserId,
-        winnerId,
-      });
-
-      forfeitedCount++;
     }
 
     return { forfeited: forfeitedCount };
@@ -148,48 +159,59 @@ export async function forfeitStalledGames(): Promise<{ forfeited: number }> {
     for (const game of stalledGames) {
       if (!game.player1Id || !game.player2Id) continue;
 
-      const p1Count = (game.player1Letters || "").length;
-      const p2Count = (game.player2Letters || "").length;
+      try {
+        const result = await db.transaction(async (tx) => {
+          await tx.execute(sql`SELECT id FROM games WHERE id = ${game.id} FOR UPDATE`);
+          const [fresh] = await tx.select().from(games).where(eq(games.id, game.id)).limit(1);
 
-      // Closest to losing takes the loss. Tie = current turn holder loses.
-      let loserId: string;
-      if (p1Count > p2Count) {
-        loserId = game.player1Id;
-      } else if (p2Count > p1Count) {
-        loserId = game.player2Id;
-      } else {
-        loserId = game.currentTurn || game.player1Id;
-      }
-      const winnerId = loserId === game.player1Id ? game.player2Id : game.player1Id;
+          // Re-check inside lock — game may have been resolved concurrently
+          if (!fresh || fresh.status !== "active") return null;
+          if (!fresh.player1Id || !fresh.player2Id) return null;
 
-      await db
-        .update(games)
-        .set({
-          status: "forfeited",
-          winnerId,
-          completedAt: now,
-          updatedAt: now,
-        })
-        .where(eq(games.id, game.id));
+          const p1Count = (fresh.player1Letters || "").length;
+          const p2Count = (fresh.player2Letters || "").length;
 
-      for (const playerId of [game.player1Id, game.player2Id]) {
-        if (!playerId) continue;
-        await sendGameNotificationToUser(playerId, "game_forfeited_timeout", {
-          gameId: game.id,
-          loserId: loserId || undefined,
-          winnerId: winnerId || undefined,
+          let loserId: string;
+          if (p1Count > p2Count) {
+            loserId = fresh.player1Id;
+          } else if (p2Count > p1Count) {
+            loserId = fresh.player2Id;
+          } else {
+            loserId = fresh.currentTurn || fresh.player1Id;
+          }
+          const winnerId = loserId === fresh.player1Id ? fresh.player2Id : fresh.player1Id;
+
+          await tx
+            .update(games)
+            .set({ status: "forfeited", winnerId, completedAt: now, updatedAt: now })
+            .where(eq(games.id, game.id));
+
+          return { loserId, winnerId, player1Id: fresh.player1Id, player2Id: fresh.player2Id };
         });
+
+        if (!result) continue;
+
+        for (const playerId of [result.player1Id, result.player2Id]) {
+          if (!playerId) continue;
+          await sendGameNotificationToUser(playerId, "game_forfeited_timeout", {
+            gameId: game.id,
+            loserId: result.loserId || undefined,
+            winnerId: result.winnerId || undefined,
+          });
+        }
+
+        logger.info("[Games] Game forfeited due to 7-day hard cap", {
+          gameId: game.id,
+          loserId: result.loserId,
+          winnerId: result.winnerId,
+          p1Letters: game.player1Letters,
+          p2Letters: game.player2Letters,
+        });
+
+        forfeitedCount++;
+      } catch (err) {
+        logger.error("[Games] Failed to forfeit stalled game", { error: err, gameId: game.id });
       }
-
-      logger.info("[Games] Game forfeited due to 7-day hard cap", {
-        gameId: game.id,
-        loserId,
-        winnerId,
-        p1Letters: game.player1Letters,
-        p2Letters: game.player2Letters,
-      });
-
-      forfeitedCount++;
     }
 
     return { forfeited: forfeitedCount };

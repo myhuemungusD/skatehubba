@@ -153,6 +153,15 @@ vi.mock("../../db", () => ({
       select: vi.fn().mockImplementation(() => makeChain()),
       update: vi.fn().mockImplementation(() => makeChain()),
       insert: vi.fn().mockImplementation(() => makeChain()),
+      transaction: vi.fn().mockImplementation(async (cb: any) => {
+        const tx = {
+          execute: vi.fn().mockResolvedValue(undefined),
+          select: vi.fn().mockImplementation(() => makeChain()),
+          update: vi.fn().mockImplementation(() => makeChain()),
+          insert: vi.fn().mockImplementation(() => makeChain()),
+        };
+        return cb(tx);
+      }),
     };
   },
 }));

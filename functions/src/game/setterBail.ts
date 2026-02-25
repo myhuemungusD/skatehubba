@@ -107,7 +107,7 @@ export const setterBail = functions.https.onCall(
       }
 
       const newLetters = [...currentLetters, SKATE_LETTERS[nextLetterIndex]];
-      const isGameOver = newLetters.length === 5;
+      const isGameOver = newLetters.length === SKATE_LETTERS.length;
 
       // Determine winner (the other player)
       const winnerId = isGameOver ? (isPlayer1Setter ? game.player2Id : game.player1Id) : null;
