@@ -3,6 +3,7 @@ import { authSessions } from "@shared/schema";
 import { lt } from "drizzle-orm";
 import { getDb } from "../db";
 import { verifyCronSecret } from "../middleware/cronAuth";
+import { apiLimiter } from "../middleware/security";
 import { forfeitExpiredGames, notifyDeadlineWarnings, forfeitStalledGames } from "./games";
 import logger from "../logger";
 
