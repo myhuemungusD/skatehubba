@@ -165,8 +165,8 @@ describe("Security middleware — uncovered lines", () => {
     it("should use the correct prefix for each rate limiter store", () => {
       // All rateLimit() calls should have produced a store via buildStore,
       // so we expect RedisStore to have been called once per limiter.
-      // security.ts has 14 rateLimit() calls.
-      expect(MockRedisStore.calls.length).toBe(14);
+      // security.ts has 15 rateLimit() calls.
+      expect(MockRedisStore.calls.length).toBe(15);
 
       // Verify some known prefixes are present
       const prefixes = MockRedisStore.calls.map((c: any) => c.prefix);
