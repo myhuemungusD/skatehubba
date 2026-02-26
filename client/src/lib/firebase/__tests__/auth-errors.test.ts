@@ -8,7 +8,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { getAuthErrorMessage } from "../auth-errors";
+import { getAuthErrorMessage, isAuthConfigError } from "../auth-errors";
 
 describe("auth-errors", () => {
   // ────────────────────────────────────────────────────────────────────────
@@ -157,7 +157,7 @@ describe("auth-errors", () => {
 
     it("auth/internal-error", () => {
       const msg = getAuthErrorMessage({ code: "auth/internal-error" });
-      expect(msg).toContain("went wrong");
+      expect(msg).toContain("not configured");
     });
 
     it("auth/requires-recent-login", () => {
@@ -303,6 +303,46 @@ describe("auth-errors", () => {
       };
       const msg = getAuthErrorMessage(error);
       expect(msg).toContain("blocked");
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────
+  // isAuthConfigError
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe("isAuthConfigError", () => {
+    it("returns true for auth/unauthorized-domain", () => {
+      expect(isAuthConfigError({ code: "auth/unauthorized-domain" })).toBe(true);
+    });
+
+    it("returns true for auth/internal-error", () => {
+      expect(isAuthConfigError({ code: "auth/internal-error" })).toBe(true);
+    });
+
+    it("returns true for auth/api-key-not-valid", () => {
+      expect(isAuthConfigError({ code: "auth/api-key-not-valid" })).toBe(true);
+    });
+
+    it("returns true for auth/operation-not-allowed", () => {
+      expect(isAuthConfigError({ code: "auth/operation-not-allowed" })).toBe(true);
+    });
+
+    it("returns true for long Firebase code with prefix match", () => {
+      expect(
+        isAuthConfigError({
+          code: "auth/api-key-not-valid.-please-pass-a-valid-api-key.",
+        })
+      ).toBe(true);
+    });
+
+    it("returns false for user-facing errors", () => {
+      expect(isAuthConfigError({ code: "auth/popup-blocked" })).toBe(false);
+      expect(isAuthConfigError({ code: "auth/wrong-password" })).toBe(false);
+    });
+
+    it("returns false for null/undefined", () => {
+      expect(isAuthConfigError(null)).toBe(false);
+      expect(isAuthConfigError(undefined)).toBe(false);
     });
   });
 

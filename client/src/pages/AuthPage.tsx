@@ -17,7 +17,7 @@ import { useAuth } from "../hooks/useAuth";
 import { useAuthStore } from "../store/authStore";
 import { logger } from "../lib/logger";
 import { setAuthPersistence } from "../lib/firebase";
-import { getAuthErrorMessage } from "../lib/firebase/auth-errors";
+import { getAuthErrorMessage, isAuthConfigError } from "../lib/firebase/auth-errors";
 import { isEmbeddedBrowser } from "./auth/authSchemas";
 import { SignInTab } from "./auth/SignInTab";
 import { SignUpTab } from "./auth/SignUpTab";
@@ -37,6 +37,7 @@ export default function AuthPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [inEmbeddedBrowser, setInEmbeddedBrowser] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   // H8: Parse ?next= param with hardened open-redirect protection
   const getNextUrl = (): string => {
@@ -105,6 +106,7 @@ export default function AuthPage() {
       return;
     }
     setIsGoogleLoading(true);
+    setGoogleError(null);
     try {
       await setAuthPersistence(true);
       await auth.signInWithGoogle();
@@ -115,6 +117,9 @@ export default function AuthPage() {
       redirectAfterSignIn();
     } catch (error) {
       const message = getAuthErrorMessage(error);
+      if (isAuthConfigError(error)) {
+        setGoogleError(message);
+      }
       toast({
         title: "Google Sign In Failed",
         description: message,
@@ -136,6 +141,14 @@ export default function AuthPage() {
           </div>
           <p className="text-gray-400">Find and share the best skate spots</p>
         </div>
+
+        {/* Google sign-in config error */}
+        {googleError && (
+          <div className="bg-red-900/30 border border-red-600/50 rounded-lg p-4 mb-4">
+            <p className="text-red-200 text-sm font-semibold mb-1">Google Sign-In Error</p>
+            <p className="text-red-300/80 text-sm">{googleError}</p>
+          </div>
+        )}
 
         {/* Auth Card */}
         <Card className="bg-[#232323] border-gray-700">

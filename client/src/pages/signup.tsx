@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../co
 import { Link, useLocation } from "wouter";
 import { Mail, Lock, Eye, EyeOff, User, AtSign, Loader2 } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
-import { getAuthErrorMessage } from "../lib/firebase/auth-errors";
+import { getAuthErrorMessage, isAuthConfigError } from "../lib/firebase/auth-errors";
 import { apiRequest } from "../lib/api/client";
 import { useAuthStore } from "../store/authStore";
 import { useUsernameCheck } from "./profile/hooks/useUsernameCheck";
@@ -26,6 +26,7 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreatingProfile, setIsCreatingProfile] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const { toast } = useToast();
   const auth = useAuth();
   const [, setLocation] = useLocation();
@@ -144,6 +145,7 @@ export default function SignupPage() {
     if (usernameError) return;
 
     setIsLoading(true);
+    setGoogleError(null);
     try {
       await auth?.signInWithGoogle();
 
@@ -163,9 +165,13 @@ export default function SignupPage() {
       });
       setLocation("/hub");
     } catch (err: unknown) {
+      const message = getAuthErrorMessage(err);
+      if (isAuthConfigError(err)) {
+        setGoogleError(message);
+      }
       toast({
         title: "Google sign-up failed",
-        description: getAuthErrorMessage(err),
+        description: message,
         variant: "destructive",
       });
     } finally {
@@ -184,6 +190,13 @@ export default function SignupPage() {
           </div>
           <p className="text-gray-400">Join the skateboarding community</p>
         </div>
+
+        {googleError && (
+          <div className="bg-red-900/30 border border-red-600/50 rounded-lg p-4 mb-4">
+            <p className="text-red-200 text-sm font-semibold mb-1">Google Sign-In Error</p>
+            <p className="text-red-300/80 text-sm">{googleError}</p>
+          </div>
+        )}
 
         <Card className="bg-[#232323] border-gray-700">
           <CardHeader>
