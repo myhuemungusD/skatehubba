@@ -50,7 +50,7 @@ Social features including profiles and user interactions.
 #### Public Profile (`social/public-profile/`)
 **Components:**
 - `PublicProfileView.tsx` - Public profile display
-- `TrickBagAggregator.tsx` - Aggregate trick statistics
+- `components/TrickBagAggregator.tsx` - Aggregate trick statistics
 
 **Hooks:**
 - `useUserLookup.ts` - Username to user ID resolution
