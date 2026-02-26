@@ -30,6 +30,7 @@ import {
 } from "firebase/firestore";
 import { db, auth } from "../firebase";
 import { logger } from "../logger";
+import { apiRequest } from "../api/client";
 
 // =============================================================================
 // TYPES (matching exact spec)
@@ -321,11 +322,16 @@ export const RemoteSkateService = {
   // ---------------------------------------------------------------------------
 
   /**
-   * Find a random waiting game to join, or create one if none exist.
+   * Find a random waiting game to join, or create one and notify a random
+   * opponent via the server matchmaking endpoint.
    * Returns { gameId, matched: true } if joined an existing game,
-   * or { gameId, matched: false } if created a new one (waiting for opponent).
+   * or { gameId, matched: false, opponentName? } if created one (waiting).
    */
-  async findRandomGame(): Promise<{ gameId: string; matched: boolean }> {
+  async findRandomGame(): Promise<{
+    gameId: string;
+    matched: boolean;
+    opponentName?: string;
+  }> {
     const user = auth.currentUser;
     if (!user) throw new Error("Must be logged in to play");
 
@@ -357,13 +363,49 @@ export const RemoteSkateService = {
     if (!myWaitingSnap.empty) {
       const existingId = myWaitingSnap.docs[0].id;
       logger.info("[RemoteSkate] Rejoining own waiting game", { gameId: existingId });
+
+      // Re-notify a random opponent so they know the game is still open
+      await this.notifyRandomOpponent(existingId);
+
       return { gameId: existingId, matched: false };
     }
 
-    // No games available — create one and wait
+    // No games available — create one and notify a random opponent
     const gameId = await this.createGame();
-    logger.info("[RemoteSkate] Quick match: created game, waiting", { gameId });
-    return { gameId, matched: false };
+    const opponentName = await this.notifyRandomOpponent(gameId);
+
+    logger.info("[RemoteSkate] Quick match: created game, notified opponent", {
+      gameId,
+      opponentName,
+    });
+    return { gameId, matched: false, opponentName: opponentName ?? undefined };
+  },
+
+  /**
+   * Call the server matchmaking endpoint to send a push notification
+   * to a random eligible user, challenging them to join the given game.
+   * Returns the opponent's name if successful, or null on failure.
+   */
+  async notifyRandomOpponent(gameId: string): Promise<string | null> {
+    try {
+      const result = await apiRequest<{
+        success: boolean;
+        match: { opponentId: string; opponentName: string; challengeId: string };
+      }>({
+        method: "POST",
+        path: "/api/matchmaking/quick-match",
+        body: { gameId },
+      });
+      logger.info("[RemoteSkate] Notified random opponent", {
+        gameId,
+        opponentName: result.match.opponentName,
+      });
+      return result.match.opponentName;
+    } catch (err) {
+      // Non-blocking: opponent notification is best-effort
+      logger.warn("[RemoteSkate] Failed to notify random opponent", { gameId, err });
+      return null;
+    }
   },
 
   /**

@@ -25,6 +25,7 @@ export default function RemoteSkatePage() {
   const [activeGameId, setActiveGameId] = useState<string | null>(urlGameId);
   const [searchUsername, setSearchUsername] = useState("");
   const [isSearching, setIsSearching] = useState(false);
+  const [notifiedOpponent, setNotifiedOpponent] = useState<string | null>(null);
 
   // Deep-link into game
   useEffect(() => {
@@ -38,7 +39,7 @@ export default function RemoteSkatePage() {
   const handlePlayRandom = useCallback(async () => {
     setView("searching");
     try {
-      const { gameId, matched } = await RemoteSkateService.findRandomGame();
+      const { gameId, matched, opponentName } = await RemoteSkateService.findRandomGame();
       if (matched) {
         toast({ title: "Match found!", description: "Let's go!" });
         setActiveGameId(gameId);
@@ -46,6 +47,7 @@ export default function RemoteSkatePage() {
       } else {
         // Waiting for opponent — subscribe to game status changes
         setActiveGameId(gameId);
+        setNotifiedOpponent(opponentName ?? null);
         // Stay on "searching" view — subscription below handles transition
       }
     } catch (err) {
@@ -78,6 +80,7 @@ export default function RemoteSkatePage() {
       }
     }
     setActiveGameId(null);
+    setNotifiedOpponent(null);
     setView("pick");
   }, [activeGameId]);
 
@@ -149,7 +152,14 @@ export default function RemoteSkatePage() {
 
         <div className="text-center space-y-2">
           <h2 className="text-xl font-bold text-white">Finding Opponent...</h2>
-          <p className="text-sm text-neutral-400">Waiting for someone to join. Share the vibe!</p>
+          {notifiedOpponent ? (
+            <p className="text-sm text-neutral-400">
+              Challenged <span className="text-purple-400 font-medium">{notifiedOpponent}</span> —
+              waiting for them to accept!
+            </p>
+          ) : (
+            <p className="text-sm text-neutral-400">Waiting for someone to join. Share the vibe!</p>
+          )}
         </div>
 
         <button
