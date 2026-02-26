@@ -1,107 +1,86 @@
-# 🛹 SkateHubba™ Development Roadmap
-**Owner:** Jason Hamilton  
-**Entity:** Design Mainline LLC  
-**Trademark SN:** 99356919  
-**Version:** 1.0 – October 2025  
+# SkateHubba Development Tracker
+**Owner:** Jason Hamilton
+**Entity:** Design Mainline LLC
+**Trademark SN:** 99356919
+**Updated:** February 2026
 
 ---
 
-## 🎯 Goal
-Build the production-ready SkateHubba™ platform — merging skate culture, AR gameplay, and social interaction.  
-This document tracks frontend, backend, and integration status for every core feature.
+## Current Focus: Phase 1 — Prove It (100 Real Sessions)
+
+See [ROADMAP.md](../../ROADMAP.md) for the full strategy. Everything below serves one goal: **get 100 completed S.K.A.T.E. games by real skaters.**
 
 ---
 
-## 🧩 Core App Systems
+## Core Systems Status
 
-| Feature | Frontend/UI | Backend/Integration | Next Steps |
-|----------|--------------|--------------------|-------------|
-| **Home Menu + Navigation** | 🟩 **Complete** | 🟩 **Complete** | Polish animations and responsiveness |
-| **Authentication (Firebase)** | 🟩 **Complete** | 🟩 **Complete** | Add email verification and profile sync |
-| **Spot Map (Leaflet)** | 🟩 **Complete** | 🟩 **Complete** | Add dynamic filters and clustering |
-| **Check-In System (Geo)** | 🟩 **Complete** | 🟩 **Complete** | Geo-verification with 30m radius working |
-| **AR Mode (Spot View)** | 🟩 **Complete** | 🟩 **Complete** | Camera permissions, AR toggle, and 2D fallback implemented |
-| **Closet / Profile Customization** | 🟩 **Complete** | 🟨 **In Progress** | Link avatar + style to Firestore user profile |
-| **Hubba Shop** | 🟩 **Complete** | 🟨 **In Progress** | Connect Stripe test mode + live products |
-| **Game of SKATE (Remote Challenge)** | 🟨 **In Progress** | 🟨 **In Progress** | Add real-time lobby + timer logic |
-| **Own Your Trick Feature** | 🟨 **In Progress** | 🟨 **In Progress** | Integrate with AR unlock system |
-| **AI Skate Buddy (Beagle)** | 🟩 **Complete** | 🟩 **Complete** | Chat modal with OpenAI API integration working |
-| **Legendary Spot Leaderboard** | 🟩 **Complete** | 🟩 **Complete** | Leaderboard page with rankings, stats, and podium display |
-| **Live Streaming / Spectator Lobby** | 🟨 **In Progress** | 🟥 **Not Started** | Add WebRTC or streaming API |
-| **Hologram Trick Replay (AR)** | 🟩 **Complete** | 🟩 **Complete** | Geo-unlock integrated, AR viewer with WebXR support |
-| **Spot-Locked Unlock Logic** | 🟩 **Complete** | 🟩 **Complete** | UI state managed via Zustand with 24hr expiry |
-| **Notifications (Firebase FCM)** | 🟥 **Not Started** | 🟨 **In Progress** | Add push + in-app alerts |
-| **Pro User Badges** | 🟨 **In Progress** | 🟨 **In Progress** | Add verification icons and Firestore flag |
+| System | Frontend | Backend | Status |
+|--------|----------|---------|--------|
+| **Authentication (Firebase)** | Done | Done | 🟩 Ship |
+| **Spot Map (Leaflet)** | Done | Done | 🟩 Ship |
+| **Check-In System (Geo)** | Done | Done | 🟩 Ship |
+| **Game of S.K.A.T.E. (Async)** | Done | Done | 🟩 Ship |
+| **Video Upload (TrickMint)** | Done | Done | 🟩 Ship |
+| **Dispute Resolution** | Done | Done | 🟩 Ship |
+| **Leaderboard** | Done | Done | 🟩 Ship |
+| **Real-Time Updates (Socket.io)** | Done | Done | 🟩 Ship |
 
 ---
 
-## 🧠 Administrative & Background Systems
+## Phase 1 Work (In Progress)
 
-| System | Status | Optimization |
-|--------|---------|--------------|
-| **Firestore Schema** | 🟩 **Complete** | Add indexes for spots + tricks |
-| **Firebase Storage** | 🟩 **Complete** | Strengthen upload rules |
-| **Cloud Functions** | 🟩 **Complete** | Add cooldown + expiry cleanup |
-| **Auth Rules** | 🟩 **Complete** | Enforce write limits per user |
-| **App Theming** | 🟩 **Complete** | Add dark mode parity |
-
----
-
-## 🚀 Priority Build Order (Next Milestones)
-1. **AR Check-In Button + AR Trick Viewer Integration** – main gameplay loop.  
-2. **AI Skate Buddy Chat UI** – brand personality.  
-3. **Leaderboard System** – engagement + ranking.  
-4. **Closet / Profile Firestore Sync** – persistence.  
-5. **Hubba Shop Stripe Integration** – monetization.  
-6. **Fallback UI for Non-AR Devices** – accessibility.
+| Task | Frontend | Backend | Status |
+|------|----------|---------|--------|
+| **Push Notifications (Turn Alerts)** | 🟥 Not Started | 🟨 In Progress | Blocker for retention |
+| **Rematch Button** | 🟥 Not Started | 🟥 Not Started | Low effort, high retention |
+| **Game Chat** | 🟥 Not Started | 🟥 Not Started | Engagement driver |
+| **Onboarding Tutorial** | 🟥 Not Started | N/A | Critical for new user activation |
+| **Invite Link Sharing** | 🟥 Not Started | 🟥 Not Started | Growth loop |
+| **Check-In Streaks** | 🟥 Not Started | 🟥 Not Started | Map engagement |
+| **Video Transcoding** | N/A | 🟥 Not Started | Phone video compat |
+| **Funnel Analytics** | 🟥 Not Started | 🟥 Not Started | Can't improve what we don't measure |
+| **Mobile Web Polish (PWA)** | 🟥 Not Started | N/A | Most users on phone |
 
 ---
 
-## 🔒 Geo-Secure Unlock Logic Recap
-- Function: `verifyUserAtSpot`  
-- Radius: ≤ 30 m  
-- Access expires: 24 hrs  
-- Storage path: `/tricks/holograms/{trickId}.glb`  
-- Frontend components:  
-  - `/components/ARCheckInButton.tsx`  
-  - `/components/ARTrickViewer.tsx`  
-- State: `/lib/store/useSpotAccess.ts`  
+## Parked (Not Phase 1)
+
+These are built or partially built but not the current focus:
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| AR Mode / Hologram Replay | 🟩 Built | Cool, but not driving game completions |
+| AI Skate Buddy (Beagle) | 🟩 Built | Nice-to-have, not core loop |
+| Hubba Shop / Stripe | 🟨 Partial | Monetization is Phase 3 |
+| Closet / Profile Customization | 🟨 Partial | Cosmetics after retention |
+| Live Streaming / Spectator | 🟨 Partial | Phase 2 at earliest |
+| Pro User Badges | 🟨 Partial | Phase 2 |
 
 ---
 
-## 🧾 Tracking Method
-- Each task marked:
-  - 🟩 **Complete** = Fully implemented and tested
-  - 🟨 **In Progress** = Partially built or needs backend integration
-  - 🟥 **Not Started** = Not yet implemented
-- Update after each commit.  
-- Replit Agent can parse this file to generate next tasks automatically.  
+## Background Systems
+
+| System | Status | Notes |
+|--------|--------|-------|
+| Firestore Schema | 🟩 Done | Consolidation in progress |
+| Firebase Storage | 🟩 Done | Upload rules solid |
+| Cloud Functions | 🟩 Done | Cleanup scheduled |
+| Auth Rules | 🟩 Done | Write limits enforced |
+| CI/CD Pipeline | 🟩 Done | 294 test files |
 
 ---
 
-## 🧾 Automatic Changelog Integration
+## Geo-Secure Unlock Logic
 
-Each time a feature's status changes to 🟩 **Complete**, append an entry to `CHANGELOG.md` in the following format:
-
-```markdown
-## [YYYY-MM-DD]
-
-### Completed Features
-- **[Feature Name]** – One-line summary of what was built or improved.
-- Include implementation details and component/file references if applicable.
-
-### Next Target
-- List the next feature still marked 🟨 **In Progress** or 🟥 **Not Started** in project-roadmap.md.
-```
-
-**Guidelines:**
-- Keep entries chronologically ordered (newest on top)
-- Include file paths for major components (e.g., `ARCheckInButton.tsx`, `/api/spots/check-in`)
-- Reference backend endpoints and integrations
-- Commit CHANGELOG.md updates alongside feature completion
-- Next targets should align with Priority Build Order
+- Function: `verifyUserAtSpot`
+- Radius: ≤ 30m
+- Access expires: 24 hrs
+- Components: `ARCheckInButton.tsx`, `ARTrickViewer.tsx`
+- State: `useSpotAccess.ts`
 
 ---
 
-### 🔄 Command for Replit Agent
-In the Replit AI prompt bar, paste:
+## Status Key
+- 🟩 Done / Ship-ready
+- 🟨 In Progress / Partial
+- 🟥 Not Started
