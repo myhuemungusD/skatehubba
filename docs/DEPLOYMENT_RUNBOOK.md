@@ -24,18 +24,18 @@ The exact root cause is a **mismatch between Vercel's expected output directory 
 
 | Setting | Expected | Actual |
 |---------|----------|--------|
-| Vercel `outputDirectory` | `public` or `dist` | `dist/public` |
-| Vite `build.outDir` | - | `../dist/public` (relative to `/client`) |
+| Vercel `outputDirectory` | `public` or `dist` | `client/dist` |
+| Vite `build.outDir` | - | `dist` (relative to `/client`, resolves to `client/dist/`) |
 
 **Evidence Chain:**
 1. Build log shows: `dist/index.html` and `dist/assets/*` inside `/vercel/path0/client`
-2. Vite config: `outDir: "../dist/public"` (relative to client/, resolves to repo root `dist/public/`)
-3. Vercel was looking for `public` or `dist` at repo root, not `dist/public`
+2. Vite config: `outDir: "dist"` (relative to client/, resolves to `client/dist/`)
+3. Vercel was looking for `public` or `dist` at repo root, not `client/dist`
 
 **Contributing factors:**
 - Multiple config sources (dashboard vs vercel.json)
 - Framework preset defaults (Vite preset expects `dist/`)
-- Monorepo structure confusion (build runs in `/client` but outputs to repo root)
+- Monorepo structure confusion (build runs in `/client` but outputs to `client/dist/`)
 
 #### Minimal Deterministic Fix
 
@@ -44,8 +44,8 @@ The exact root cause is a **mismatch between Vercel's expected output directory 
 | Setting | Value |
 |---------|-------|
 | **Root Directory** | `.` (repo root) |
-| **Build Command** | `pnpm run build` |
-| **Output Directory** | `dist/public` |
+| **Build Command** | `node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build` |
+| **Output Directory** | `client/dist` |
 | **Framework Preset** | `Vite` |
 | **Install Command** | `pnpm install` |
 
@@ -54,15 +54,14 @@ The exact root cause is a **mismatch between Vercel's expected output directory 
 ```json
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run build",
-  "outputDirectory": "dist/public",
+  "buildCommand": "node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build",
+  "outputDirectory": "client/dist",
   "framework": "vite",
   "installCommand": "pnpm install",
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/env-check", "destination": "/api/env-check" },
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
 ```
@@ -109,20 +108,20 @@ jobs:
         
       - name: Validate Output Directory
         run: |
-          if [ ! -f "dist/public/index.html" ]; then
-            echo "❌ DEPLOY BLOCKED: dist/public/index.html not found"
-            echo "Expected output directory: dist/public/"
+          if [ ! -f "client/dist/index.html" ]; then
+            echo "❌ DEPLOY BLOCKED: client/dist/index.html not found"
+            echo "Expected output directory: client/dist/"
             echo "Actual contents:"
-            ls -la dist/ || echo "dist/ does not exist"
+            ls -la client/dist/ || echo "client/dist/ does not exist"
             exit 1
           fi
-          echo "✅ Output directory validated: dist/public/index.html exists"
-          
+          echo "✅ Output directory validated: client/dist/index.html exists"
+
       - name: Validate vercel.json matches output
         run: |
           OUTPUT_DIR=$(jq -r '.outputDirectory' vercel.json)
-          if [ "$OUTPUT_DIR" != "dist/public" ]; then
-            echo "❌ DEPLOY BLOCKED: vercel.json outputDirectory ($OUTPUT_DIR) != dist/public"
+          if [ "$OUTPUT_DIR" != "client/dist" ]; then
+            echo "❌ DEPLOY BLOCKED: vercel.json outputDirectory ($OUTPUT_DIR) != client/dist"
             exit 1
           fi
           echo "✅ vercel.json outputDirectory matches build output"
@@ -138,24 +137,23 @@ jobs:
 |-------|-------|
 | **Severity** | P1 - Production Down |
 | **Symptom** | Deploy fails post-build, Vercel can't find output dir `public` |
-| **Actual Output** | `dist/public/` at repo root |
+| **Actual Output** | `client/dist/` |
 | **Build Path** | `/vercel/path0/client` |
 
 #### Deploy Contract
 
 **1. Repo Assumptions:**
 ```
-/skatehubba1
+/skatehubba
 ├── client/              # Frontend source (Vite root)
 │   ├── src/
 │   ├── index.html
-│   └── vite.config.ts   # outDir: "../dist/public"
-├── dist/
-│   └── public/          # ← ACTUAL BUILD OUTPUT
-│       ├── index.html
-│       └── assets/
+│   ├── dist/            # ← ACTUAL BUILD OUTPUT
+│   │   ├── index.html
+│   │   └── assets/
+│   └── vite.config.ts   # outDir: "dist" (relative to client/)
 ├── vercel.json          # AUTHORITATIVE config
-└── package.json         # build: "pnpm -C client build"
+└── package.json         # build: verify-public-env + turbo build
 ```
 
 **2. Vercel Settings Required:**
@@ -163,8 +161,8 @@ jobs:
 | Setting | Value | Rationale |
 |---------|-------|-----------|
 | Root Directory | `.` | Build from repo root to access monorepo scripts |
-| Build Command | `pnpm run build` | Uses monorepo build orchestration |
-| Output Directory | `dist/public` | Matches Vite `build.outDir` |
+| Build Command | `node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build` | Validates env vars + builds client |
+| Output Directory | `client/dist` | Matches Vite `build.outDir` (relative to client/) |
 | Framework Preset | `Vite` | Enables SPA routing |
 | Install Command | `pnpm install` | pnpm workspace support |
 
@@ -173,11 +171,15 @@ jobs:
 ```json
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run build",
-  "outputDirectory": "dist/public",
+  "buildCommand": "node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build",
+  "outputDirectory": "client/dist",
   "framework": "vite",
   "installCommand": "pnpm install",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/api/env-check", "destination": "/api/env-check" },
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
 }
 ```
 
@@ -187,8 +189,8 @@ jobs:
 - name: Verify Build Artifacts
   run: |
     REQUIRED_FILES=(
-      "dist/public/index.html"
-      "dist/public/assets"
+      "client/dist/index.html"
+      "client/dist/assets"
     )
     for file in "${REQUIRED_FILES[@]}"; do
       if [ ! -e "$file" ]; then
@@ -232,9 +234,9 @@ curl -s https://skatehubba1.vercel.app/version.txt | jq .
 
 | Phase | Action |
 |-------|--------|
-| **Root Cause** | vercel.json `outputDirectory` set to `dist` but Vite outputs to `dist/public` |
+| **Root Cause** | vercel.json `outputDirectory` did not match Vite's output at `client/dist` |
 | **Immediate Mitigation** | `vercel promote <last-working-url>` |
-| **Corrective Action** | Update vercel.json: `"outputDirectory": "dist/public"` |
+| **Corrective Action** | Update vercel.json: `"outputDirectory": "client/dist"` |
 | **Preventative Action** | CI guard + doctor script validation |
 
 ---
@@ -247,8 +249,8 @@ curl -s https://skatehubba1.vercel.app/version.txt | jq .
 | Setting | Value |
 |---------|-------|
 | Root Directory | `.` |
-| Build Command | `pnpm run build` |
-| Output Directory | `dist/public` |
+| Build Command | `node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build` |
+| Output Directory | `client/dist` |
 | Install Command | `pnpm install` |
 | Framework | Vite |
 
@@ -277,15 +279,14 @@ curl -s https://skatehubba1.vercel.app/version.txt | jq .
 ```json
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "pnpm run build",
-  "outputDirectory": "dist/public",
+  "buildCommand": "node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build",
+  "outputDirectory": "client/dist",
   "framework": "vite",
   "installCommand": "pnpm install",
   "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+    { "source": "/api/env-check", "destination": "/api/env-check" },
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }
 ```
@@ -360,7 +361,7 @@ export default defineConfig({
     port: 3000,
   },
   build: {
-    outDir: "../dist/public",
+    outDir: "dist",
     emptyOutDir: true,
     sourcemap: false,
   },
@@ -446,7 +447,7 @@ jobs:
       - name: Verify @/* imports resolved
         run: |
           # Check that no unresolved @/ imports in output
-          if grep -r "from ['\"]@/" dist/public/assets/*.js 2>/dev/null; then
+          if grep -r "from ['\"]@/" client/dist/assets/*.js 2>/dev/null; then  # check build output
             echo "❌ Found unresolved @/ imports in build output"
             exit 1
           fi
@@ -1258,7 +1259,11 @@ vercel env rm VERCEL_FORCE_NO_BUILD_CACHE
 
 | File | Purpose |
 |------|---------|
-| `vercel.json` | Deployment config (authoritative) |
-| `client/vite.config.ts` | Build config |
+| `vercel.json` | Deployment config (authoritative, output: `client/dist`) |
+| `client/vite.config.ts` | Client build config (outDir: `dist` relative to client/) |
 | `client/tsconfig.json` | TypeScript + path aliases |
+| `scripts/verify-public-env.mjs` | Validates EXPO_PUBLIC_* env vars before build |
+| `scripts/build-server.mjs` | Server esbuild orchestration (output: `dist/server/index.js`) |
+| `Dockerfile` | Multi-stage Docker build for staging |
+| `docker-compose.staging.yml` | Full staging stack |
 | `.github/workflows/` | CI/CD pipelines |

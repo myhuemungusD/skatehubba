@@ -61,6 +61,24 @@ pnpm dev
 - `refactor/description` — Structural improvements, no logic change
 - `chore/description` — Dependency updates, maintenance
 
+### Git Hooks
+
+Husky enforces the following hooks automatically:
+
+**Pre-commit:**
+
+1. Lockfile integrity — ensures `pnpm-lock.yaml` matches `package.json`
+2. Secret scanning — blocks hardcoded secrets via Secretlint
+3. `lint-staged` — runs ESLint + Prettier on staged `.ts`/`.tsx`/`.json`/`.md` files
+
+**Pre-push:**
+
+- TypeScript typecheck across all packages (`pnpm run typecheck`)
+
+**Commit message:**
+
+- Commitlint enforces conventional commit format (see below)
+
 ### Engineering Standards
 
 **Shared packages**
@@ -75,9 +93,16 @@ Types and schemas live in `packages/`. If you add data structures that are used 
 
 ### Commit Guidelines
 
-We follow [Conventional Commits](https://www.conventionalcommits.org/).
+We follow [Conventional Commits](https://www.conventionalcommits.org/), enforced by Commitlint via Husky.
 
 Format: `type(scope): subject`
+
+Rules:
+
+- **Subject must be lowercase** — `fix: resolve auth bug` (not `Fix: Resolve auth bug`)
+- Subject max length: 72 characters
+- Header max length: 100 characters
+- Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `perf`, `ci`, `build`, `revert`
 
 Example: `feat(client): add real-time spot check-in validation`
 
@@ -87,11 +112,12 @@ Example: `feat(client): add real-time spot check-in validation`
 2. **Verify locally** — run the full quality suite:
 
 ```bash
-pnpm run typecheck    # TypeScript checking
-pnpm run lint         # ESLint (zero warnings)
-pnpm test             # Unit tests
-pnpm run format:check # Prettier formatting
-pnpm run build        # Full build
+pnpm run typecheck        # TypeScript checking (all packages)
+pnpm run lint             # ESLint (zero warnings)
+pnpm test                 # Unit tests (Vitest, 98% statement coverage threshold)
+pnpm run format:check     # Prettier formatting (JSON files)
+pnpm run validate:packages # Check for duplicate deps, version consistency
+pnpm run build            # Full build (verify env + turbo build)
 ```
 
 Or run everything at once:
@@ -102,7 +128,17 @@ pnpm run verify
 
 3. **Update docs** — if you changed API endpoints or data flows, update the relevant files in `docs/`.
 
-All PRs are gated by CI (GitHub Actions) which runs typecheck, lint, tests, format checking, secret scanning, and build verification.
+All PRs are gated by CI (GitHub Actions) which runs:
+
+- Lockfile integrity check
+- Formatting, package validation, typecheck, lint
+- Build with coverage (98% statements, 93% branches, 99% functions, 99% lines)
+- Bundle size budget check (totalJs: 1825 KB, totalCss: 300 KB)
+- Migration drift detection
+- Mobile typecheck and lint
+- Firestore/Storage security rules scan
+- Firebase rules validation
+- Secret scanning (Gitleaks)
 
 ### Recognition
 

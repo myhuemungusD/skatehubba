@@ -98,13 +98,18 @@ with the community.
 
 ## Tech Stack
 
-| Layer    | Technology                                    |
-| -------- | --------------------------------------------- |
-| Frontend | React, Vite, TypeScript, TailwindCSS, Leaflet |
-| Backend  | Express, TypeScript, PostgreSQL, Drizzle ORM   |
-| Auth     | Firebase Auth                                  |
-| Realtime | Socket.io                                      |
-| CI       | GitHub Actions, CodeQL                         |
+| Layer       | Technology                                              |
+| ----------- | ------------------------------------------------------- |
+| Frontend    | React 18, Vite 6, TypeScript 5.9, TailwindCSS, Leaflet |
+| Backend     | Express, TypeScript, PostgreSQL 16, Drizzle ORM, Redis 7 |
+| Mobile      | React Native, Expo (EAS builds)                         |
+| Auth        | Firebase Auth + custom JWT                              |
+| Realtime    | Socket.io                                               |
+| Monorepo    | pnpm workspaces, Turborepo                              |
+| Build       | esbuild (server), Vite (client)                         |
+| Testing     | Vitest, Playwright, Cypress, Detox (mobile)             |
+| CI/CD       | GitHub Actions, CodeQL, Docker (staging), Vercel (prod) |
+| Monitoring  | Sentry                                                  |
 
 ---
 
@@ -129,13 +134,20 @@ e2e/         Playwright E2E tests
 
 ### Prerequisites
 
-- Node.js 20+
-- pnpm
+- Node.js 20+ (`.nvmrc` included)
+- pnpm 10+ (enforced — `npm install` and `yarn` will fail)
 
 ### Install
 
 ```bash
 pnpm install
+```
+
+### Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env with your Firebase, database, and other credentials
 ```
 
 ### Run
@@ -144,13 +156,24 @@ pnpm install
 pnpm dev
 ```
 
+This starts both the Vite dev server (client on port 3000) and the Express API (server on port 3001) via Turborepo.
+
 ---
 
 ## Testing
 
 ```bash
-pnpm test
-pnpm -w run verify
+pnpm test              # Run all unit tests (Vitest)
+pnpm test:watch        # Watch mode
+pnpm test:coverage     # Run with coverage report
+```
+
+Coverage thresholds enforced in CI: statements 98%, branches 93%, functions 99%, lines 99%.
+
+### Full verification (pre-merge)
+
+```bash
+pnpm run verify        # typecheck + lint + test + build
 ```
 
 ### Cypress E2E
@@ -164,7 +187,11 @@ pnpm --filter skatehubba-client exec cypress run
 
 ## Deployment
 
-`pnpm -w run verify` is the pre-flight check for CI.
+`pnpm run verify` is the pre-flight check for CI.
+
+**Production** — Vercel auto-deploys on push to `main`. Build command: `node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build`. Output: `client/dist`.
+
+**Staging** — Docker Compose via `deploy-staging.yml` workflow on push to `staging`.
 
 See [docs/RELEASE.md](docs/RELEASE.md) for environments, deployment pipelines, and secret rotation.
 
@@ -252,9 +279,12 @@ We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for:
 
 All PRs must pass:
 
-- TypeScript type checking
+- TypeScript type checking (strict mode, no `any`)
 - ESLint linting (zero warnings)
-- Unit tests (294 test files)
+- Prettier formatting check
+- Unit tests with coverage thresholds (98% statements)
+- Bundle size budget check
+- Migration drift check
 - Secret scanning (Gitleaks)
 - Build verification
 
