@@ -30,12 +30,13 @@ Vercel deploys automatically on push to `main` via GitHub integration.
 
 ```
 Push to main
-  → Vercel builds client (pnpm -C client build)
+  → Vercel runs: node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build
+  → Output: client/dist
   → Deploys to CDN edge network
   → Available at skatehubba.com
 ```
 
-The `deploy.yml` workflow runs `pnpm -C client typecheck` as a guard but does not deploy — Vercel handles that.
+The `deploy.yml` workflow runs `pnpm -C client typecheck` as a guard but does not deploy — Vercel handles that via its GitHub integration. See `vercel.json` for the authoritative build config.
 
 ### Staging (full stack)
 
@@ -93,25 +94,49 @@ See `mobile/store-assets/SUBMISSION_CHECKLIST.md` for app store requirements.
 
 ## CI Pipeline
 
-Every push and PR runs the `ci.yml` workflow:
+Every push to `main` and every PR runs the `ci.yml` workflow:
 
-```
-1. Lockfile integrity (pnpm install --frozen-lockfile)
-2. Formatting check (pnpm format:check)
-3. Lint (pnpm lint) — zero warnings enforced
-4. TypeScript typecheck (pnpm -r run typecheck)
-5. Build (pnpm build)
-6. Unit tests (pnpm test) with coverage
-7. Dependency audit (pnpm audit:deps:ci)
-8. Secret scanning (pnpm scan:secrets)
-```
+**Lockfile Integrity** (`lockfile_check`)
+- `pnpm install --frozen-lockfile --ignore-scripts`
+
+**Quality Control** (`build_lint_typecheck`) — depends on lockfile check
+1. Formatting check (`pnpm format:check` — Prettier on JSON files)
+2. Package validation (`pnpm run validate:packages` + `pnpm run validate:package-manager`)
+3. TypeScript typecheck (`pnpm run typecheck`)
+4. Lint (`pnpm run lint` — ESLint, zero warnings enforced)
+5. Build (with placeholder Firebase env vars)
+6. Unit tests with coverage (`pnpm vitest run --coverage` — 98/93/99/99 thresholds)
+
+**Bundle Size Budget** (`bundle_size`) — runs in parallel
+- Builds client, then runs `node scripts/check-bundle-size.mjs --ci`
+- Budgets: totalJs 1825 KB, totalCss 300 KB
+
+**Migration Drift Check** (`migration_drift`) — runs in parallel
+- Runs `pnpm db:generate` and checks for uncommitted migration changes
+
+**Mobile Quality Control** (`mobile_quality`) — runs in parallel
+- TypeScript typecheck and ESLint for the mobile app
+
+**Security Guardrail** (`rules_scan`)
+- Blocks insecure Firestore/Storage rules (wildcard `allow read, write: if true`)
+
+**Firebase Rules Validation** (`firebase_rules_verify`)
+- Validates Firestore/Storage rules via Firebase CLI (requires `FIREBASE_TOKEN`)
+
+**Mobile Detox Smoke** (`mobile_detox_smoke`)
+- Runs Android E2E smoke tests via `mobile-e2e.yml`
+
+**Secret Scanning** (`secret_scan`)
+- Blocks merge conflict markers
+- Gitleaks scan across all branches and PRs
 
 Additional workflows:
 - `codeql.yml` — Static analysis for security vulnerabilities
 - `security.yml` — Security-focused checks
-- `verify-firebase-rules.yml` — Firestore/Storage rules validation
-- `smoke-test.yml` — Post-deploy verification
+- `verify-firebase-rules.yml` — Firestore/Storage rules validation (standalone)
+- `smoke-test.yml` — Post-deploy health checks
 - `mobile-e2e.yml` — Detox E2E tests on iOS/Android
+- `mobile-preview.yml` — EAS preview builds on PR
 
 ### Pre-merge checklist
 
