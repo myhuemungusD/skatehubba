@@ -33,6 +33,7 @@ vi.mock("../../middleware/bandwidth", () => ({
 }));
 vi.mock("../../middleware/security", () => ({
   emailSignupLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+  profileReadLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
 }));
 
 // -- sub-routers (existing) --

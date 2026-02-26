@@ -149,6 +149,14 @@ export const RATE_LIMIT_CONFIG = {
     message: "Too many AI requests, please try again later.",
     prefix: "rl:ai:",
   },
+
+  /** Profile read/fetch requests per IP — prevents scraping */
+  profileRead: {
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 60,
+    message: "Too many profile requests, please slow down.",
+    prefix: "rl:profileread:",
+  },
 } as const;
 
 export type RateLimitKey = keyof typeof RATE_LIMIT_CONFIG;
