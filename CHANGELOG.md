@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interactive Leaflet map with React Leaflet
 - OpenStreetMap data integration
 - Spot filtering by type (ledge, rail, stair set, park, etc.)
-- Spot filtering by tier (beginner, intermediate, advanced, pro)
+- Spot filtering by tier (bronze, silver, gold, legendary)
 - Geolocation-based spot discovery
 - Spot details view with photos and descriptions
 - Add new spots (user-generated content)
@@ -100,7 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Husky pre-commit hooks
 - lint-staged for incremental checking
 - Conventional Commits enforcement
-- 136 test files (Vitest + Cypress + Playwright)
+- 294 test files (Vitest + Cypress + Playwright + Detox)
 
 #### CI/CD Pipeline
 - **GitHub Actions workflows** for all PRs and commits:
@@ -190,7 +190,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Frontend
 - React 18
-- Vite 5.1.2
+- Vite 6
 - TypeScript 5.9.3
 - TailwindCSS
 - Radix UI components
@@ -218,7 +218,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### DevOps
 - pnpm 10.28.1+ (package manager)
 - Turborepo (monorepo builds)
-- Vercel (primary hosting)
+- Vercel (web hosting)
+- Docker Compose (staging)
 - Firebase Hosting (secondary)
 - GitHub Actions (CI/CD)
 - Gitleaks (secret scanning)
@@ -240,7 +241,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🔒 Security
 
 - Zero exposed secrets (verified by Gitleaks)
-- No console.log statements in production code (enforced by ESLint)
+- Minimal console.log in production code (ESLint enforced in client; a few server files still use raw `console.log`)
 - Strict TypeScript with no `any` types allowed
 - Firebase rules prevent unauthorized data access
 - Rate limiting prevents API abuse

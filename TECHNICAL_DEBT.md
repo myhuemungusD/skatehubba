@@ -9,12 +9,12 @@
 
 | Severity | Count | Description |
 |----------|-------|-------------|
-| HIGH     | 4     | Broken builds, security risks, data integrity |
+| HIGH     | 3     | Broken builds, security risks (1 resolved: migration renumbered) |
 | MEDIUM   | 5     | Type safety gaps, code duplication, maintainability |
-| LOW      | 5     | Minor inconsistencies, polish items |
+| LOW      | 4     | Minor inconsistencies, polish items (1 resolved: pnpm version aligned) |
 
 **Overall health:** The codebase is well-structured with strict TypeScript, strong CI,
-good security practices, and extensive tests (269 test files). The debt items below are
+good security practices, and extensive tests (294 test files). The debt items below are
 manageable and none represent architectural dead-ends.
 
 ---
@@ -58,17 +58,10 @@ this step.
 
 **Fix:** Remove the line or create the expected directory.
 
-### 4. Duplicate migration sequence number `0007`
+### 4. ~~Duplicate migration sequence number `0007`~~ (RESOLVED)
 
-Two unrelated migrations share the `0007` prefix:
-
-- `migrations/0007_add_notifications.sql`
-- `migrations/0007_trickmint_video_pipeline.sql`
-
-This can cause non-deterministic migration ordering depending on filesystem sort.
-
-**Fix:** Renumber `0007_trickmint_video_pipeline.sql` to
-`0007b_trickmint_video_pipeline.sql` (or `0011_*` as the next available number).
+Previously two migrations shared the `0007` prefix. The trickmint pipeline
+migration has been renumbered to `0011_trickmint_video_pipeline.sql`.
 
 ---
 
@@ -190,7 +183,7 @@ Other occurrences in `server/logger.ts` and `server/config/env.ts` are acceptabl
 
 ### 13. Mobile has sparse test coverage
 
-Mobile has ~12 test files vs. server's ~130+ and client's ~44. Large untested
+Mobile has ~35 test files vs. server's ~182 and client's ~47. Large untested
 components:
 - `TrickRecorder.tsx` (824 lines) — no tests
 - `AddSpotModal.tsx` — no tests
@@ -198,14 +191,9 @@ components:
 
 **Fix:** Add unit tests for core mobile components, starting with game-related ones.
 
-### 14. pnpm engine version mismatch
+### 14. ~~pnpm engine version mismatch~~ (RESOLVED)
 
-- Root `package.json`: `"pnpm": ">=10.0.0"`
-- `client/package.json`: `"pnpm": ">=9.0.0"`
-
-Minor inconsistency that could allow different local environments.
-
-**Fix:** Align all workspace packages to `"pnpm": ">=10.0.0"`.
+All workspace packages now specify `"pnpm": ">=10.0.0"`.
 
 ---
 
@@ -220,7 +208,7 @@ Minor inconsistency that could allow different local environments.
 - **Server architecture** — Clean separation into `routes/`, `services/`,
   `middleware/`, `auth/`, `socket/`, `config/`
 - **Zero TODO/FIXME/HACK comments** — No deferred-work markers
-- **269 test files** — Extensive coverage across server and client
+- **294 test files** — Extensive coverage across server, client, mobile, and functions
 - **Tooling** — Husky + lint-staged + commitlint + prettier + eslint + secretlint
 - **Database** — Drizzle ORM with typed schema, proper migration system, PostgreSQL
 
@@ -231,7 +219,7 @@ Minor inconsistency that could allow different local environments.
 ### Phase 1: Fix broken/risky items (1-2 days)
 1. Remove `web/package.json` COPY from Dockerfile
 2. Rename `.env.staging` to `.env.staging.example`, add `.env.staging` to `.gitignore`
-3. Renumber duplicate `0007` migration
+3. ~~Renumber duplicate `0007` migration~~ ✅ Done (now `0011`)
 4. Begin splitting `functions/src/index.ts` into modules
 
 ### Phase 2: Reduce drift risk (1-2 weeks)
@@ -242,5 +230,5 @@ Minor inconsistency that could allow different local environments.
 ### Phase 3: Polish (ongoing)
 8. Replace raw `console.log` with structured logger
 9. Add mobile component tests
-10. Align pnpm engine versions
+10. ~~Align pnpm engine versions~~ ✅ Done
 11. Fix a11y violations and upgrade lint rules to `"error"`

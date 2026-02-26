@@ -112,8 +112,15 @@ with the community.
 
 ```text
 client/      Web app (Vite / React)
-server/      API and services
-packages/    Shared code (types, config, utilities)
+server/      Express API + PostgreSQL backend
+mobile/      React Native / Expo app
+functions/   Firebase Cloud Functions
+packages/    Shared code (config, db, firebase, shared, types, utils)
+migrations/  PostgreSQL migration scripts
+scripts/     Build, validation, and deployment scripts
+docs/        Architecture, security, setup guides
+deploy/      Docker / Nginx deployment config
+e2e/         Playwright E2E tests
 ```
 
 ---
@@ -247,7 +254,7 @@ All PRs must pass:
 
 - TypeScript type checking
 - ESLint linting (zero warnings)
-- Unit tests (136 test files)
+- Unit tests (294 test files)
 - Secret scanning (Gitleaks)
 - Build verification
 

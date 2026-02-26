@@ -23,7 +23,10 @@ This directory contains reusable React hooks that encapsulate common functionali
 
 ### Game
 - **`useSkateGame.ts`** - SKATE game state management
+- **`useSkateGameApi.ts`** - SKATE game API interactions
 - **`useSkateGameRealtime.ts`** - Real-time game updates via Firestore
+- **`useRemoteSkateGame.ts`** - Remote S.K.A.T.E. game logic
+- **`useGameVideoUpload.ts`** - Video upload during game turns
 
 ### UI & UX
 - **`use-toast.ts`** - Toast notification system
