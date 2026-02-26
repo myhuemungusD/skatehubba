@@ -78,6 +78,9 @@ vi.mock("../../config/rateLimits", () => ({
     spotRating: { windowMs: 1000, max: 10, message: "test", prefix: "sr:" },
     spotDiscovery: { windowMs: 1000, max: 20, message: "test", prefix: "sd:" },
     proAward: { windowMs: 1000, max: 5, message: "test", prefix: "pa:" },
+    authLogin: { windowMs: 1000, max: 5, message: "test", prefix: "al:" },
+    ai: { windowMs: 1000, max: 10, message: "test", prefix: "ai:" },
+    profileRead: { windowMs: 1000, max: 60, message: "test", prefix: "prd:" },
   },
 }));
 

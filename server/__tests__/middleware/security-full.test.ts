@@ -70,6 +70,9 @@ vi.mock("../../config/rateLimits", () => ({
       prefix: "rl:discovery:",
     },
     proAward: { windowMs: 60000, max: 10, message: "Too many awards", prefix: "rl:award:" },
+    authLogin: { windowMs: 3600000, max: 5, message: "Too many logins", prefix: "rl:auth:" },
+    ai: { windowMs: 900000, max: 10, message: "Too many AI requests", prefix: "rl:ai:" },
+    profileRead: { windowMs: 60000, max: 60, message: "Too many profile reads", prefix: "rl:profileread:" },
   },
 }));
 
