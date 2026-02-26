@@ -69,7 +69,7 @@ export default defineConfig({
         'server/__tests__/helpers/**',
       ],
       thresholds: {
-        statements: 98,
+        statements: 99,
         branches: 93,
         functions: 99,
         lines: 99,
