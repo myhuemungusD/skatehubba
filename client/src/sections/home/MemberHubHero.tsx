@@ -7,6 +7,7 @@ interface QuickAction {
   href: string;
   description: string;
   color: string;
+  featured?: boolean;
 }
 
 interface MemberHubHeroProps {
@@ -14,13 +15,12 @@ interface MemberHubHeroProps {
     text: string;
     variant: "success" | "info";
   };
-  title: string;
   quickActions: QuickAction[];
 }
 
-export function MemberHubHero({ badge, title, quickActions }: MemberHubHeroProps) {
+export function MemberHubHero({ badge, quickActions }: MemberHubHeroProps) {
   return (
-    <section className="pt-24 pb-12 px-6">
+    <section className="pt-8 pb-12 px-6">
       <div className="max-w-6xl mx-auto">
         {/* Badge */}
         {badge && (
@@ -40,16 +40,27 @@ export function MemberHubHero({ badge, title, quickActions }: MemberHubHeroProps
           </div>
         )}
 
-        {/* Title */}
-        <h1 className="text-4xl md:text-5xl font-bold text-white mb-8">{title}</h1>
-
         {/* Quick Actions Grid - Skateboard themed cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {quickActions.map((action, i) => (
-            <Link key={i} href={action.href} className="skate-card">
-              <action.icon className="skate-card-icon" />
-              <h3 className="skate-card-title">{action.label}</h3>
-              <p className="skate-card-description">{action.description}</p>
+            <Link
+              key={i}
+              href={action.href}
+              className={action.featured ? "skate-card-featured" : "skate-card"}
+            >
+              <action.icon
+                className={action.featured ? "skate-card-featured-icon" : "skate-card-icon"}
+              />
+              <h3 className={action.featured ? "skate-card-featured-title" : "skate-card-title"}>
+                {action.label}
+              </h3>
+              <p
+                className={
+                  action.featured ? "skate-card-featured-description" : "skate-card-description"
+                }
+              >
+                {action.description}
+              </p>
             </Link>
           ))}
         </div>

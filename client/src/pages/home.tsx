@@ -17,11 +17,7 @@ export default function Home() {
 
   return (
     <div className="text-white">
-      <MemberHubHero
-        badge={homeContent.hero.badge}
-        title={homeContent.hero.title}
-        quickActions={homeContent.hero.quickActions}
-      />
+      <MemberHubHero badge={homeContent.hero.badge} quickActions={homeContent.hero.quickActions} />
 
       <StatsStrip stats={displayStats} />
 
