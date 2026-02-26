@@ -50,40 +50,83 @@ Challenge anyone to a game of S.K.A.T.E. — record tricks on video, judge your 
 
 ## Tech Stack
 
-```
-Client     React · TypeScript · Vite · TailwindCSS · Leaflet
-Server     Express · TypeScript · PostgreSQL · Drizzle ORM
-Mobile     React Native · Expo
-Realtime   Socket.io
-Auth       Firebase Auth
-Infra      Docker · Nginx · Let's Encrypt · GitHub Actions
-CI/CD      Turbo · Vitest · ESLint · Prettier · Husky · CodeQL · Gitleaks
+| Layer       | Technology                                              |
+| ----------- | ------------------------------------------------------- |
+| Frontend    | React 18, Vite 6, TypeScript 5.9, TailwindCSS, Leaflet |
+| Backend     | Express, TypeScript, PostgreSQL 16, Drizzle ORM, Redis 7 |
+| Mobile      | React Native, Expo (EAS builds)                         |
+| Auth        | Firebase Auth + custom JWT                              |
+| Realtime    | Socket.io                                               |
+| Monorepo    | pnpm workspaces, Turborepo                              |
+| Build       | esbuild (server), Vite (client)                         |
+| Testing     | Vitest, Playwright, Cypress, Detox (mobile)             |
+| CI/CD       | GitHub Actions, CodeQL, Docker (staging), Vercel (prod) |
+| Monitoring  | Sentry                                                  |
+
+---
+
+## Repo Structure
+
+```text
+client/      Web app (Vite / React)
+server/      Express API + PostgreSQL backend
+mobile/      React Native / Expo app
+functions/   Firebase Cloud Functions
+packages/    Shared code (config, db, firebase, shared, types, utils)
+migrations/  PostgreSQL migration scripts
+scripts/     Build, validation, and deployment scripts
+docs/        Architecture, security, setup guides
+deploy/      Docker / Nginx deployment config
+e2e/         Playwright E2E tests
 ```
 
 ---
 
-## Quick Start
+## Local Development
+
+### Prerequisites
+
+- Node.js 20+ (`.nvmrc` included)
+- pnpm 10+ (enforced — `npm install` and `yarn` will fail)
+
+### Install
 
 ```bash
 # Prerequisites: Node.js 20+, pnpm 10+
 pnpm install
+```
+
+### Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env with your Firebase, database, and other credentials
+```
+
+### Run
+
+```bash
 pnpm dev
 ```
 
-| Command | Description |
-|---|---|
-| `pnpm dev` | Start all services in dev mode (Turbo) |
-| `pnpm build` | Production build |
-| `pnpm test` | Run all tests |
-| `pnpm lint` | Lint all packages |
-| `pnpm typecheck` | Type-check all packages |
-| `pnpm -w run verify` | Full CI preflight (typecheck + lint + test + build) |
-| `pnpm db:studio` | Open Drizzle Studio for the database |
+This starts both the Vite dev server (client on port 3000) and the Express API (server on port 3001) via Turborepo.
 
 ---
 
 ## Project Structure
 
+```bash
+pnpm test              # Run all unit tests (Vitest)
+pnpm test:watch        # Watch mode
+pnpm test:coverage     # Run with coverage report
+```
+
+Coverage thresholds enforced in CI: statements 98%, branches 93%, functions 99%, lines 99%.
+
+### Full verification (pre-merge)
+
+```bash
+pnpm run verify        # typecheck + lint + test + build
 ```
 skatehubba/
 ├── client/          React web app (Vite)
@@ -108,7 +151,20 @@ skatehubba/
 
 ## Deployment
 
-The staging environment runs on Docker Compose with PostgreSQL, Redis, Nginx, and automatic SSL.
+`pnpm run verify` is the pre-flight check for CI.
+
+**Production** — Vercel auto-deploys on push to `main`. Build command: `node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build`. Output: `client/dist`.
+
+**Staging** — Docker Compose via `deploy-staging.yml` workflow on push to `staging`.
+
+See [docs/RELEASE.md](docs/RELEASE.md) for environments, deployment pipelines, and secret rotation.
+
+### Staging (Public Demo)
+
+The staging environment runs on Docker Compose
+with PostgreSQL, Redis, Nginx, and automatic SSL via Let's Encrypt.
+
+**Quick start on a fresh Ubuntu server:**
 
 ```bash
 # One-liner for a fresh Ubuntu server:
@@ -159,7 +215,14 @@ We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full gu
 pnpm -w run verify   # typecheck + lint + test + build
 ```
 
-Branch naming: `feat/`, `fix/`, `refactor/`, `chore/` — [Conventional Commits](https://www.conventionalcommits.org/) required.
+- TypeScript type checking (strict mode, no `any`)
+- ESLint linting (zero warnings)
+- Prettier formatting check
+- Unit tests with coverage thresholds (98% statements)
+- Bundle size budget check
+- Migration drift check
+- Secret scanning (Gitleaks)
+- Build verification
 
 ---
 
