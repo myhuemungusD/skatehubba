@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { setupAuthRoutes } from "./auth/routes";
 import { authenticateUser, requireAdmin } from "./auth/middleware";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
-import { emailSignupLimiter } from "./middleware/security";
+import { emailSignupLimiter, profileReadLimiter } from "./middleware/security";
 import { bandwidthDetection } from "./middleware/bandwidth";
 import { analyticsRouter } from "./routes/analytics";
 import { metricsRouter } from "./routes/metrics";
@@ -30,7 +30,7 @@ export function registerRoutes(app: Express): void {
   app.use("/api/metrics", authenticateUser, requireAdmin, metricsRouter);
   app.use("/api", moderationRouter);
   app.use("/api/admin", adminRouter);
-  app.use("/api/profile", profileRouter);
+  app.use("/api/profile", profileReadLimiter, profileRouter);
   app.use("/api/games", authenticateUser, gamesRouter);
   app.use(
     "/api/trickmint",

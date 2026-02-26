@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { Helmet } from "react-helmet";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -68,8 +69,30 @@ export default function SkaterProfile() {
     );
   }
 
+  const skaterTitle = `${profile.displayName || handle} (@${handle}) | SkateHubba`;
+  const skaterDescription = profile.bio
+    ? `${profile.bio} — ${profile.wins ?? 0}W/${profile.losses ?? 0}L on SkateHubba`
+    : `Check out @${handle}'s S.K.A.T.E. stats, trick bag, and closet on SkateHubba.`;
+  const skaterUrl = `https://skatehubba.com/skater/${handle}`;
+
   return (
     <div className="text-white">
+      <Helmet>
+        <title>{skaterTitle}</title>
+        <meta name="description" content={skaterDescription} />
+        <link rel="canonical" href={skaterUrl} />
+        <meta property="og:type" content="profile" />
+        <meta property="og:url" content={skaterUrl} />
+        <meta property="og:title" content={skaterTitle} />
+        <meta property="og:description" content={skaterDescription} />
+        {profile.photoURL && <meta property="og:image" content={profile.photoURL} />}
+        <meta property="og:site_name" content="SkateHubba" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content={skaterTitle} />
+        <meta name="twitter:description" content={skaterDescription} />
+        <meta name="twitter:creator" content="@skatehubba_app" />
+        {profile.photoURL && <meta name="twitter:image" content={profile.photoURL} />}
+      </Helmet>
       {/* Header / hero */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-8 md:pt-12">
         <div className="flex items-center justify-between gap-4 flex-wrap">
