@@ -145,8 +145,17 @@ export function createApp(): express.Express {
   // Global rate limiting for all API routes (before CSRF validation for better error handling)
   app.use("/api", apiLimiter);
 
-  // Global CSRF validation for all state-changing API requests
-  app.use("/api", requireCsrfToken);
+  // Global CSRF validation for all state-changing API requests.
+  // Unauthenticated password endpoints are exempt: they don't use cookie-based
+  // auth (so CSRF adds no security), they're rate-limited by authLimiter, and
+  // reset-password already requires a secret token from the user's email.
+  // Without this exemption, users arriving from an email link (no prior cookies)
+  // would always receive a 403 on their first POST.
+  const csrfExemptPaths = new Set(["/api/auth/forgot-password", "/api/auth/reset-password"]);
+  app.use("/api", (req, res, next) => {
+    if (csrfExemptPaths.has(req.path)) return next();
+    return requireCsrfToken(req, res, next);
+  });
 
   // Register all API routes
   registerRoutes(app);
