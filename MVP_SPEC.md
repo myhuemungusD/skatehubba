@@ -191,27 +191,43 @@ Users who haven't verified their email:
 
 ### Public Routes (No Auth Required)
 
-- `/landing` - Conversion landing page
-- `/signup` - Registration
-- `/signin` - Login
+- `/auth` - Combined sign-up / sign-in (default for unauthenticated users)
+- `/landing` - Conversion landing page (SEO/marketing)
+- `/signup` - Registration (legacy, redirects to `/auth`)
+- `/signin` - Login (legacy, redirects to `/auth`)
 - `/forgot-password` - Password reset
 - `/privacy`, `/terms`, `/specs` - Legal pages
+- `/demo` - Demo page
+- `/skater/:handle` - Public skater profile
+- `/p/:username` - Public profile by username
 
-### Protected Routes (Auth Required)
+### Protected Routes (Auth Required) — Dashboard Layout
 
-- `/home` - Member dashboard
+- `/hub` - Member dashboard (primary authenticated view)
+- `/play` - S.K.A.T.E. game lobby
+- `/me` - User profile, settings, check-in history
 - `/map` - Spot map (allows unverified)
+- `/leaderboard` - Rankings
 - `/spots/:id` - Spot details (allows unverified)
 - `/profile/setup` - Profile creation
-- `/settings` - User settings
-- `/feed` - Activity feed
-- `/leaderboard` - Rankings
-
-### Game Routes (Shipped in v0.9.0)
-
-- `/game` - S.K.A.T.E. lobby
-- `/game/active` - Active game
 - `/trickmint` - Video upload
+- `/tutorial` - Interactive tutorial
+
+### Admin Routes (Role-gated)
+
+- `/admin` - Admin dashboard
+- `/admin/reports` - Moderation reports
+- `/admin/users` - User management
+- `/admin/metrics` - Platform metrics
+- `/admin/audit-log` - Audit log
+
+### Legacy Routes (Redirects)
+
+The following routes redirect to new consolidated paths for backward compatibility:
+
+- `/home`, `/feed`, `/dashboard`, `/showcase` → `/hub`
+- `/game`, `/game/active`, `/skate-game` → `/play`
+- `/closet`, `/settings`, `/checkins` → `/me`
 
 ### Not Yet Implemented
 
@@ -246,13 +262,14 @@ Users who haven't verified their email:
 
 | Layer    | Technology                   |
 | -------- | ---------------------------- |
-| Frontend | React 18, Vite, Tailwind CSS |
-| Maps     | Leaflet, React Leaflet       |
-| State    | Zustand, TanStack Query      |
-| Backend  | Express, TypeScript          |
-| Database | PostgreSQL, Drizzle ORM      |
-| Auth     | Firebase Authentication      |
-| Hosting  | Vercel (planned)             |
+| Frontend | React 18, Vite 6, Tailwind CSS |
+| Maps     | Leaflet, React Leaflet         |
+| State    | Zustand, TanStack Query        |
+| Backend  | Express, TypeScript            |
+| Database | PostgreSQL, Drizzle ORM        |
+| Auth     | Firebase Authentication        |
+| Realtime | Socket.io                      |
+| Hosting  | Vercel (web), Docker (staging) |
 
 ---
 

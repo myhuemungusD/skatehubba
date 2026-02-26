@@ -28,7 +28,15 @@ migrations/
 ├── 0003_create_spots_table.sql            # Forward migration
 ├── 0003_create_spots_table_down.sql       # Rollback migration
 ├── 0004_add_account_tier.sql              # Forward migration
-└── 0004_add_account_tier_down.sql         # Rollback migration
+├── 0004_add_account_tier_down.sql         # Rollback migration
+├── 0005_consolidate_to_postgresql.sql     # Firestore → PostgreSQL consolidation
+├── 0006_async_skate_game.sql              # Async turn-based S.K.A.T.E. game
+├── 0007_add_notifications.sql             # Notification tables and preferences
+├── 0008_rename_points_to_xp.sql           # Rename points column to xp
+├── 0009_add_spot_ratings_table.sql        # Per-user spot rating dedup
+├── 0009_add_spot_ratings_table_down.sql   # Rollback migration
+├── 0010_add_clip_views_table.sql          # Per-user clip view dedup
+└── 0011_trickmint_video_pipeline.sql      # TrickMint video pipeline + trick_clips
 ```
 
 ## Migration Files
@@ -87,6 +95,41 @@ Adds monetization tier system to user accounts.
 - `account_tier` - User's current tier
 - `pro_awarded_by` - Who awarded pro status
 - `premium_purchased_at` - Premium purchase timestamp
+
+### 0005 - Consolidate Firestore to PostgreSQL
+
+Migrates data previously stored in Firestore into PostgreSQL tables. Adds
+missing unique constraints and fixes race condition vectors.
+
+### 0006 - Async S.K.A.T.E. Game
+
+Adds async turn-based S.K.A.T.E. game support: turn phases, disputes, and
+reputation penalties.
+
+### 0007 - Add Notifications
+
+Creates notification and notification-preferences tables for the in-app feed,
+push preferences, and email opt-in/out.
+
+### 0008 - Rename Points to XP
+
+Renames the `points` column to `xp` in `user_profiles` to align with the UI
+naming convention.
+
+### 0009 - Add Spot Ratings Table
+
+Adds `spot_ratings` for per-user rating deduplication — ensures each user can
+only rate a spot once.
+
+### 0010 - Add Clip Views Table
+
+Adds `clip_views` for per-user view deduplication — prevents view count
+inflation.
+
+### 0011 - TrickMint Video Pipeline
+
+Adds the `trick_clips` table and a `thumbnail_url` column to `game_turns` for
+the TrickMint video upload pipeline.
 
 ## Migration Runners
 

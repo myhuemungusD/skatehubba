@@ -63,6 +63,14 @@ vi.mock("../logger", () => ({
   },
 }));
 
+const mockApiRequest = vi.fn().mockResolvedValue({
+  success: true,
+  match: { opponentId: "random-user", opponentName: "RandomSkater", challengeId: "qm-123" },
+});
+vi.mock("../api/client", () => ({
+  apiRequest: (...args: any[]) => mockApiRequest(...args),
+}));
+
 const { RemoteSkateService } = await import("../remoteSkate/remoteSkateService");
 
 describe("RemoteSkateService", () => {
@@ -74,6 +82,10 @@ describe("RemoteSkateService", () => {
       playerBUid: null,
       status: "waiting",
       letters: { "user-1": "" },
+    });
+    mockApiRequest.mockResolvedValue({
+      success: true,
+      match: { opponentId: "random-user", opponentName: "RandomSkater", challengeId: "qm-123" },
     });
   });
 
@@ -503,10 +515,19 @@ describe("RemoteSkateService", () => {
 
       const result = await RemoteSkateService.findRandomGame();
 
-      expect(result).toEqual({ gameId: "my-game", matched: false });
+      expect(result.gameId).toBe("my-game");
+      expect(result.matched).toBe(false);
+      // Should call server to re-notify a random opponent
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/matchmaking/quick-match",
+          body: { gameId: "my-game" },
+        })
+      );
     });
 
-    it("should create a new game when no waiting games exist", async () => {
+    it("should create a new game and notify random opponent when no waiting games exist", async () => {
       // First getDocs: no games at all
       mockGetDocs
         .mockResolvedValueOnce({ docs: [], empty: true })
@@ -517,7 +538,15 @@ describe("RemoteSkateService", () => {
 
       expect(result.matched).toBe(false);
       expect(result.gameId).toBeDefined();
+      expect(result.opponentName).toBe("RandomSkater");
       expect(mockSetDoc).toHaveBeenCalled(); // createGame called
+      // Should call server to notify a random opponent
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/matchmaking/quick-match",
+        })
+      );
     });
 
     it("should throw when not logged in", async () => {
@@ -555,6 +584,26 @@ describe("RemoteSkateService", () => {
 
       // Should have created a new game since the found game was full
       expect(result.matched).toBe(false);
+      expect(mockSetDoc).toHaveBeenCalled();
+      // Should also notify a random opponent
+      expect(mockApiRequest).toHaveBeenCalled();
+    });
+
+    it("should still return gameId when opponent notification fails", async () => {
+      // Notification fails (non-blocking)
+      mockApiRequest.mockRejectedValueOnce(new Error("No opponents available"));
+
+      // First getDocs: no games at all
+      mockGetDocs
+        .mockResolvedValueOnce({ docs: [], empty: true })
+        // Second getDocs: no own waiting game either
+        .mockResolvedValueOnce({ docs: [], empty: true });
+
+      const result = await RemoteSkateService.findRandomGame();
+
+      expect(result.matched).toBe(false);
+      expect(result.gameId).toBeDefined();
+      expect(result.opponentName).toBeUndefined();
       expect(mockSetDoc).toHaveBeenCalled();
     });
   });
