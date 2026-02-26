@@ -110,18 +110,18 @@ jobs:
         run: |
           if [ ! -f "client/dist/index.html" ]; then
             echo "❌ DEPLOY BLOCKED: client/dist/index.html not found"
-            echo "Expected output directory: dist/public/"
+            echo "Expected output directory: client/dist/"
             echo "Actual contents:"
-            ls -la dist/ || echo "dist/ does not exist"
+            ls -la client/dist/ || echo "client/dist/ does not exist"
             exit 1
           fi
           echo "✅ Output directory validated: client/dist/index.html exists"
-          
+
       - name: Validate vercel.json matches output
         run: |
           OUTPUT_DIR=$(jq -r '.outputDirectory' vercel.json)
-          if [ "$OUTPUT_DIR" != "dist/public" ]; then
-            echo "❌ DEPLOY BLOCKED: vercel.json outputDirectory ($OUTPUT_DIR) != dist/public"
+          if [ "$OUTPUT_DIR" != "client/dist" ]; then
+            echo "❌ DEPLOY BLOCKED: vercel.json outputDirectory ($OUTPUT_DIR) != client/dist"
             exit 1
           fi
           echo "✅ vercel.json outputDirectory matches build output"
@@ -361,7 +361,7 @@ export default defineConfig({
     port: 3000,
   },
   build: {
-    outDir: "../dist/public",
+    outDir: "dist",
     emptyOutDir: true,
     sourcemap: false,
   },

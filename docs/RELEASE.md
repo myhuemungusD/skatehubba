@@ -226,7 +226,7 @@ Coordinate with your database provider (Neon). Update the password in both the p
 
 Secrets are scanned in multiple layers:
 - **Pre-commit:** Gitleaks via Husky git hooks
-- **CI:** `pnpm scan:secrets` (Secretlint) runs on every push
+- **CI:** Gitleaks scan runs on every push and PR (via `gitleaks/gitleaks-action@v2`)
 - **GitHub:** Push protection enabled (`.github/workflows/security.yml`)
 - **Container:** Trivy scans Docker images for embedded secrets
 
