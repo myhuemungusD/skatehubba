@@ -21,7 +21,7 @@ export const homeContent = {
       {
         icon: Gamepad2,
         label: "S.K.A.T.E",
-        href: "/play?tab=remote",
+        href: "/play",
         description: "Challenge someone",
         color: "bg-purple-500",
       },

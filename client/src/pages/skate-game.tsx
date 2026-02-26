@@ -28,7 +28,6 @@ import {
 import {
   LettersDisplay,
   TurnHistory,
-  GameMetaTags,
   GameStatusHeader,
   GameOverScreen,
   SetTrickPhase,
@@ -116,12 +115,12 @@ export default function SkateGamePage() {
     const opponentId = game.player1Id === user?.uid ? game.player2Id : game.player1Id;
     createGame.mutate(opponentId, {
       onSuccess: (data) => {
-        setLocation(`/play?tab=active&gameId=${data.game.id}`);
+        setLocation(`/play?gameId=${data.game.id}`);
       },
     });
   };
 
-  const handleBackToLobby = () => setLocation("/play?tab=lobby");
+  const handleBackToLobby = () => setLocation("/play");
 
   if (!gameId) {
     return (
@@ -166,146 +165,120 @@ export default function SkateGamePage() {
     disputes?.filter((d) => d.againstPlayerId === user.uid && !d.finalResult) ?? [];
 
   return (
-    <>
-      <GameMetaTags
-        gameId={gameId ?? undefined}
-        playerOne={user?.displayName || "You"}
-        playerTwo={opponentName}
-        gameStatus={game.status}
-        currentTurn={turns?.length || 0}
+    <div className="space-y-6">
+      <GameStatusHeader
+        game={game}
+        isActive={isActive}
+        isGameOver={isGameOver}
+        isPending={isPending}
+        isMyTurn={isMyTurn}
+        opponentName={opponentName}
+        turnPhase={turnPhase}
+        isOffensive={isOffensive}
+        onBack={handleBackToLobby}
+        onForfeit={handleForfeit}
+        forfeitPending={forfeitGame.isPending}
+        myLetters={myLetters}
+        oppLetters={oppLetters}
       />
-      <div className="space-y-6">
-        <GameStatusHeader
-          game={game}
-          isActive={isActive}
-          isGameOver={isGameOver}
-          isPending={isPending}
-          isMyTurn={isMyTurn}
-          opponentName={opponentName}
-          turnPhase={turnPhase}
-          isOffensive={isOffensive}
-          onBack={handleBackToLobby}
-          onForfeit={handleForfeit}
-          forfeitPending={forfeitGame.isPending}
+
+      <div className="grid grid-cols-2 gap-4">
+        <LettersDisplay
+          letters={myLetters}
+          playerName="You"
+          isCurrentPlayer={isMyTurn}
+          className="p-4 rounded-lg bg-neutral-800/50 border border-neutral-700"
+        />
+        <LettersDisplay
+          letters={oppLetters}
+          playerName={opponentName}
+          isCurrentPlayer={!isMyTurn && isActive}
+          className="p-4 rounded-lg bg-neutral-800/50 border border-neutral-700"
+        />
+      </div>
+
+      {isGameOver && (
+        <GameOverScreen
+          iWon={iWon}
           myLetters={myLetters}
           oppLetters={oppLetters}
+          opponentName={opponentName}
+          gameStatus={game.status}
+          gameId={gameId}
+          playerDisplayName={user?.displayName || "You"}
+          onRematch={handleRematch}
+          rematchPending={createGame.isPending}
         />
+      )}
 
-        {/* Letter Display */}
-        <div className="grid grid-cols-2 gap-4">
-          <LettersDisplay
-            letters={myLetters}
-            playerName="You"
-            isCurrentPlayer={isMyTurn}
-            className="p-4 rounded-lg bg-neutral-800/50 border border-neutral-700"
-          />
-          <LettersDisplay
-            letters={oppLetters}
-            playerName={opponentName}
-            isCurrentPlayer={!isMyTurn && isActive}
-            className="p-4 rounded-lg bg-neutral-800/50 border border-neutral-700"
-          />
-        </div>
-
-        {/* Game Over */}
-        {isGameOver && (
-          <GameOverScreen
-            iWon={iWon}
-            myLetters={myLetters}
-            oppLetters={oppLetters}
-            opponentName={opponentName}
-            gameStatus={game.status}
-            gameId={gameId}
-            playerDisplayName={user?.displayName || "You"}
-            onRematch={handleRematch}
-            rematchPending={createGame.isPending}
-          />
-        )}
-
-        {/* Set Trick Phase */}
-        {isActive && !isGameOver && turnPhase === "set_trick" && isOffensive && isMyTurn && (
-          <SetTrickPhase
-            trickDescription={trickDescription}
-            onTrickDescriptionChange={setTrickDescription}
-            onRecordingComplete={handleRecordingComplete}
-            isUploading={isUploading}
-            submitPending={submitTurn.isPending}
-            onSetterBail={handleSetterBail}
-            setterBailPending={setterBailMutation.isPending}
-          />
-        )}
-
-        {/* Respond Trick Phase */}
-        {isActive && !isGameOver && turnPhase === "respond_trick" && isDefensive && isMyTurn && (
-          <RespondTrickPhase
-            trickDescription={trickDescription}
-            onTrickDescriptionChange={setTrickDescription}
-            onRecordingComplete={handleRecordingComplete}
-            isUploading={isUploading}
-            submitPending={submitTurn.isPending}
-            lastTrickDescription={game.lastTrickDescription}
-            turns={turns || []}
-            onVideoClick={setSelectedVideo}
-          />
-        )}
-
-        {/* Judge Phase */}
-        {isActive && !isGameOver && needsToJudge && (
-          <JudgePhase
-            opponentName={opponentName}
-            lastTrickDescription={game.lastTrickDescription}
-            onJudge={handleJudge}
-            isPending={judgeTurn.isPending}
-          />
-        )}
-
-        {/* Waiting for Opponent */}
-        {isActive && !isGameOver && !isMyTurn && !needsToJudge && (
-          <div className="p-6 rounded-lg bg-neutral-800/30 border border-neutral-700 text-center">
-            <Clock className="w-8 h-8 text-neutral-500 mx-auto mb-3" />
-            <p className="text-sm text-neutral-400">Waiting for {opponentName}.</p>
-            {game.deadlineAt && (
-              <p className="text-xs text-neutral-500 mt-1">
-                Deadline: {formatDistanceToNow(new Date(game.deadlineAt), { addSuffix: true })}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Pending Challenge */}
-        {isPending && (
-          <div className="p-6 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-center">
-            <Clock className="w-8 h-8 text-yellow-400 mx-auto mb-3" />
-            <p className="text-sm text-neutral-400">Waiting for {opponentName} to accept.</p>
-          </div>
-        )}
-
-        {/* Disputes */}
-        <DisputesSection
-          pendingDisputesAgainstMe={pendingDisputesAgainstMe}
-          disputeableTurns={disputeableTurns}
-          isGameOver={isGameOver}
-          onResolveDispute={handleResolveDispute}
-          onDispute={handleDispute}
-          resolveDisputePending={resolveDispute.isPending}
-          fileDisputePending={fileDispute.isPending}
+      {isActive && !isGameOver && turnPhase === "set_trick" && isOffensive && isMyTurn && (
+        <SetTrickPhase
+          trickDescription={trickDescription}
+          onTrickDescriptionChange={setTrickDescription}
+          onRecordingComplete={handleRecordingComplete}
+          isUploading={isUploading}
+          submitPending={submitTurn.isPending}
+          onSetterBail={handleSetterBail}
+          setterBailPending={setterBailMutation.isPending}
         />
+      )}
 
-        {/* Turn History */}
-        <div>
-          <h2 className="text-lg font-semibold text-white mb-3">History</h2>
-          <TurnHistory
-            turns={turns || []}
-            currentUserId={user.uid}
-            onVideoClick={setSelectedVideo}
-          />
+      {isActive && !isGameOver && turnPhase === "respond_trick" && isDefensive && isMyTurn && (
+        <RespondTrickPhase
+          trickDescription={trickDescription}
+          onTrickDescriptionChange={setTrickDescription}
+          onRecordingComplete={handleRecordingComplete}
+          isUploading={isUploading}
+          submitPending={submitTurn.isPending}
+          lastTrickDescription={game.lastTrickDescription}
+          turns={turns || []}
+          onVideoClick={setSelectedVideo}
+        />
+      )}
+
+      {isActive && !isGameOver && needsToJudge && (
+        <JudgePhase
+          opponentName={opponentName}
+          lastTrickDescription={game.lastTrickDescription}
+          onJudge={handleJudge}
+          isPending={judgeTurn.isPending}
+        />
+      )}
+
+      {isActive && !isGameOver && !isMyTurn && !needsToJudge && (
+        <div className="p-6 rounded-lg bg-neutral-800/30 border border-neutral-700 text-center">
+          <Clock className="w-8 h-8 text-neutral-500 mx-auto mb-3" />
+          <p className="text-sm text-neutral-400">Waiting for {opponentName}.</p>
+          {game.deadlineAt && (
+            <p className="text-xs text-neutral-500 mt-1">
+              Deadline: {formatDistanceToNow(new Date(game.deadlineAt), { addSuffix: true })}
+            </p>
+          )}
         </div>
+      )}
 
-        {/* Video Player Modal */}
-        {selectedVideo && (
-          <VideoPlayerModal videoUrl={selectedVideo} onClose={() => setSelectedVideo(null)} />
-        )}
-      </div>
-    </>
+      {isPending && (
+        <div className="p-6 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-center">
+          <Clock className="w-8 h-8 text-yellow-400 mx-auto mb-3" />
+          <p className="text-sm text-neutral-400">Waiting for {opponentName} to accept.</p>
+        </div>
+      )}
+
+      <DisputesSection
+        pendingDisputesAgainstMe={pendingDisputesAgainstMe}
+        disputeableTurns={disputeableTurns}
+        isGameOver={isGameOver}
+        onResolveDispute={handleResolveDispute}
+        onDispute={handleDispute}
+        resolveDisputePending={resolveDispute.isPending}
+        fileDisputePending={fileDispute.isPending}
+      />
+
+      <TurnHistory turns={turns || []} currentUserId={user.uid} onVideoClick={setSelectedVideo} />
+
+      {selectedVideo && (
+        <VideoPlayerModal videoUrl={selectedVideo} onClose={() => setSelectedVideo(null)} />
+      )}
+    </div>
   );
 }

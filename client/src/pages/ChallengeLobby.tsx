@@ -36,7 +36,7 @@ export default function ChallengeLobby() {
   };
 
   const handleViewGame = (gameId: string) => {
-    setLocation(`/play?tab=active&gameId=${gameId}`);
+    setLocation(`/play?gameId=${gameId}`);
   };
 
   if (isLoading) {
