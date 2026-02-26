@@ -13,7 +13,10 @@ import { OrganizationStructuredData, WebAppStructuredData } from "./components/S
 import { analytics as firebaseAnalytics } from "./lib/firebase";
 import { usePerformanceMonitor } from "./hooks/usePerformanceMonitor";
 import { useSkipLink } from "./hooks/useSkipLink";
+import { useRouteAnnouncer } from "./hooks/useRouteAnnouncer";
+import { MotionConfig } from "framer-motion";
 import { FeedbackButton } from "./components/FeedbackButton";
+import { OfflineBanner } from "./components/OfflineBanner";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { logger } from "./lib/logger";
 import AppRoutes from "./routes/AppRoutes";
@@ -79,6 +82,11 @@ function GoogleRedirectWelcome() {
   return null;
 }
 
+function RouteAccessibility() {
+  useRouteAnnouncer();
+  return null;
+}
+
 export default function App() {
   // Monitor performance in development
   usePerformanceMonitor();
@@ -97,10 +105,12 @@ export default function App() {
 
   return (
     <ErrorBoundary>
+      <MotionConfig reducedMotion="user">
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           {/* Environment indicator - shows in staging/local only */}
           <StagingBanner />
+          <OfflineBanner />
           <GoogleRedirectWelcome />
           <OrganizationStructuredData
             data={{
@@ -126,6 +136,7 @@ export default function App() {
             }}
           />
           <Router>
+            <RouteAccessibility />
             <AppRoutes />
           </Router>
           <BuildStamp />
@@ -134,6 +145,7 @@ export default function App() {
           <FeedbackButton />
         </TooltipProvider>
       </QueryClientProvider>
+      </MotionConfig>
     </ErrorBoundary>
   );
 }

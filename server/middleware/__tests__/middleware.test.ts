@@ -60,6 +60,7 @@ vi.mock("../../config/rateLimits", () => {
       proAward: stub,
       authLogin: stub,
       ai: stub,
+      profileRead: stub,
     },
   };
 });

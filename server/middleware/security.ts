@@ -232,6 +232,19 @@ export const proAwardLimiter = rateLimit({
 });
 
 /**
+ * Rate limiter for profile read/fetch requests
+ * Prevents scraping of user profiles
+ */
+export const profileReadLimiter = rateLimit({
+  windowMs: RL.profileRead.windowMs,
+  max: RL.profileRead.max,
+  message: { error: RL.profileRead.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: buildStore(RL.profileRead.prefix),
+});
+
+/**
  * Honeypot validation middleware to catch bots
  *
  * Checks for a hidden form field named 'company' that humans won't fill but bots will.

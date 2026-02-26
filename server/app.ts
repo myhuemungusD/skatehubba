@@ -21,6 +21,7 @@ import { registerRoutes } from "./routes.ts";
 import { DatabaseUnavailableError } from "./db.ts";
 import swaggerUi from "swagger-ui-express";
 import { generateOpenAPISpec } from "./api-docs/index.ts";
+import { generateSitemapXml } from "@shared/sitemap-config";
 
 export function createApp(): express.Express {
   const app = express();
@@ -128,6 +129,13 @@ export function createApp(): express.Express {
       })
     );
   }
+
+  // Sitemap.xml — generated from shared config for SEO discoverability
+  app.get("/sitemap.xml", (_req, res) => {
+    res.setHeader("Content-Type", "application/xml");
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+    res.send(generateSitemapXml());
+  });
 
   // Raw body for Stripe webhook signature verification (MUST precede express.json())
   app.use("/webhooks/stripe", express.raw({ type: "application/json" }));

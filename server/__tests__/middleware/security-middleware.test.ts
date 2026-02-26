@@ -65,6 +65,9 @@ vi.mock("../../config/rateLimits", () => {
       spotRating: stub,
       spotDiscovery: stub,
       proAward: stub,
+      authLogin: stub,
+      ai: stub,
+      profileRead: stub,
     },
   };
 });

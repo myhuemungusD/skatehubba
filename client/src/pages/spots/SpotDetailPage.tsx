@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+import { Helmet } from "react-helmet";
 import { MapPin, ArrowLeft, Loader2 } from "lucide-react";
 import { type Spot } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -71,8 +72,28 @@ export default function SpotDetailPage({ params }: SpotDetailPageProps) {
     );
   }
 
+  const spotTitle = `${spot.name} — Skate Spot | SkateHubba`;
+  const spotDescription = spot.description
+    ? `${spot.description} — ${spot.city || ""}${spot.state ? `, ${spot.state}` : ""}`
+    : `Check out ${spot.name} in ${spot.city || "the area"}. Discover, check in, and own the spot on SkateHubba.`;
+  const spotUrl = `https://skatehubba.com/spots/${spot.id}`;
+
   return (
     <div className="space-y-6">
+      <Helmet>
+        <title>{spotTitle}</title>
+        <meta name="description" content={spotDescription} />
+        <link rel="canonical" href={spotUrl} />
+        <meta property="og:type" content="place" />
+        <meta property="og:url" content={spotUrl} />
+        <meta property="og:title" content={spotTitle} />
+        <meta property="og:description" content={spotDescription} />
+        <meta property="og:site_name" content="SkateHubba" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content={spotTitle} />
+        <meta name="twitter:description" content={spotDescription} />
+        <meta name="twitter:creator" content="@skatehubba_app" />
+      </Helmet>
       <Link href="/map" className="text-sm text-neutral-400 hover:text-neutral-200">
         <ArrowLeft className="inline-block h-4 w-4 mr-1" />
         Back to map

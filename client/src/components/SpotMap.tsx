@@ -298,12 +298,30 @@ export const SpotMap = memo(function SpotMap({
     });
   }, [selectedSpotId]);
 
+  const spotListSummary = useMemo(() => {
+    if (visibleSpots.length === 0) return "No spots visible in current area.";
+    const names = visibleSpots.slice(0, 5).map((s) => s.name);
+    const more = visibleSpots.length > 5 ? ` and ${visibleSpots.length - 5} more` : "";
+    return `${visibleSpots.length} spots visible: ${names.join(", ")}${more}.`;
+  }, [visibleSpots]);
+
   return (
     <div
-      ref={mapContainerRef}
-      className="w-full h-full bg-gray-900"
-      style={{ minHeight: "100%" }}
-      data-testid="map-container"
-    />
+      role="region"
+      aria-label="Interactive skate spots map"
+      className="relative w-full h-full"
+    >
+      <div
+        ref={mapContainerRef}
+        className="w-full h-full bg-gray-900"
+        style={{ minHeight: "100%" }}
+        data-testid="map-container"
+        aria-hidden="true"
+      />
+      {/* Screen reader accessible summary of map contents */}
+      <div className="sr-only" aria-live="polite" role="status">
+        {spotListSummary}
+      </div>
+    </div>
   );
 });
