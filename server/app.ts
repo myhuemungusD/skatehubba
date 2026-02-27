@@ -16,10 +16,9 @@ import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { apiLimiter } from "./middleware/security.ts";
 import { requestTracing } from "./middleware/requestTracing.ts";
 import { metricsMiddleware, registerMonitoringRoutes } from "./monitoring/index.ts";
-import { DEV_ORIGINS, BODY_PARSE_LIMIT } from "./config/server.ts";
+import { getAllowedOrigins, BODY_PARSE_LIMIT } from "./config/server.ts";
 import { registerRoutes } from "./routes.ts";
 import { DatabaseUnavailableError } from "./db.ts";
-import swaggerUi from "swagger-ui-express";
 import { generateOpenAPISpec } from "./api-docs/index.ts";
 import { generateSitemapXml } from "@shared/sitemap-config";
 
@@ -92,17 +91,17 @@ export function createApp(): express.Express {
     });
   }
 
-  // CORS configuration
+  // CORS configuration — delegates to centralized getAllowedOrigins() which
+  // hardcodes https://skatehubba.com, merges ALLOWED_ORIGINS env, and adds
+  // localhost variants in development.
+  const allowedOrigins = getAllowedOrigins();
   const corsOptions = {
     origin: function (
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void
     ) {
-      const allowed = process.env.ALLOWED_ORIGINS?.split(",") || [];
-      const allAllowed =
-        process.env.NODE_ENV === "production" ? allowed : [...allowed, ...DEV_ORIGINS];
       // Allow requests with no origin (mobile apps, server-to-server) or matching allowed domains
-      if (!origin || allAllowed.indexOf(origin) !== -1) {
+      if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -115,19 +114,23 @@ export function createApp(): express.Express {
   // Compression
   app.use(compression());
 
-  // OpenAPI / Swagger UI — disabled in production to prevent API surface exposure
-  const openApiSpec = generateOpenAPISpec();
+  // OpenAPI / Swagger UI — disabled in production to prevent API surface exposure.
+  // Dynamic import avoids loading swagger-ui-express (and generating the spec)
+  // in production, cutting ~1-2 MB of cold-start weight from the serverless function.
   if (process.env.NODE_ENV !== "production") {
+    const openApiSpec = generateOpenAPISpec();
     app.get("/api/docs/openapi.json", (_req, res) => res.json(openApiSpec));
-    app.use(
-      "/api/docs",
-      swaggerUi.serve,
-      swaggerUi.setup(openApiSpec, {
-        customSiteTitle: "SkateHubba API Docs",
-        customCss: ".swagger-ui .topbar { background-color: #667eea; }",
-        swaggerOptions: { persistAuthorization: true },
-      })
-    );
+    import("swagger-ui-express").then((swaggerUi) => {
+      app.use(
+        "/api/docs",
+        swaggerUi.serve,
+        swaggerUi.setup(openApiSpec, {
+          customSiteTitle: "SkateHubba API Docs",
+          customCss: ".swagger-ui .topbar { background-color: #667eea; }",
+          swaggerOptions: { persistAuthorization: true },
+        })
+      );
+    });
   }
 
   // Sitemap.xml — generated from shared config for SEO discoverability
