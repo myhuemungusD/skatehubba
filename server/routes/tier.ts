@@ -8,7 +8,7 @@ import { eq, count } from "drizzle-orm";
 import logger from "../logger";
 import { validateOrigin } from "../config/server";
 import { Errors, sendError } from "../utils/apiError";
-import { proAwardLimiter } from "../middleware/security";
+import { proAwardLimiter, paymentLimiter } from "../middleware/security";
 
 const router = Router();
 
@@ -158,7 +158,7 @@ const createCheckoutSchema = z.object({
     .regex(/^[a-zA-Z0-9_-]+$/, "Invalid key format"),
 });
 
-router.post("/create-checkout-session", authenticateUser, async (req, res) => {
+router.post("/create-checkout-session", authenticateUser, paymentLimiter, async (req, res) => {
   const parsed = createCheckoutSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());
@@ -248,7 +248,7 @@ const purchasePremiumSchema = z.object({
   paymentIntentId: z.string().min(1, "Payment intent ID is required"),
 });
 
-router.post("/purchase-premium", authenticateUser, async (req, res) => {
+router.post("/purchase-premium", authenticateUser, paymentLimiter, async (req, res) => {
   const parsed = purchasePremiumSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());

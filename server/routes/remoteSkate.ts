@@ -13,8 +13,12 @@ import { admin } from "../admin";
 import type { Transaction } from "firebase-admin/firestore";
 import logger from "../logger";
 import type { Request, Response } from "express";
+import { remoteSkateLimiter } from "../middleware/security";
 
 const router = Router();
+
+// Apply rate limiting to all remote-skate write endpoints
+router.use(remoteSkateLimiter);
 const SKATE_LETTERS = "SKATE";
 const MAX_LETTERS = 5;
 

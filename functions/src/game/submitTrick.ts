@@ -10,6 +10,7 @@ import * as crypto from "crypto";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { monitoredTransaction } from "../shared/transaction";
+import { checkRateLimit } from "../shared/rateLimit";
 import { VOTE_TIMEOUT_MS } from "./constants";
 
 interface SubmitTrickRequest {
@@ -43,6 +44,8 @@ export const submitTrick = functions.https.onCall(
     if (!context.auth?.uid) {
       throw new functions.https.HttpsError("unauthenticated", "Not logged in");
     }
+
+    await checkRateLimit(context.auth.uid);
 
     const { gameId, clipUrl, storagePath, trickName, isSetTrick, idempotencyKey } = data;
 

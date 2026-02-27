@@ -9,6 +9,7 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { monitoredTransaction } from "../shared/transaction";
+import { checkRateLimit } from "../shared/rateLimit";
 import { SKATE_LETTERS } from "./constants";
 
 interface JudgeTrickRequest {
@@ -49,6 +50,8 @@ export const judgeTrick = functions.https.onCall(
     if (!context.auth?.uid) {
       throw new functions.https.HttpsError("unauthenticated", "Not logged in");
     }
+
+    await checkRateLimit(context.auth.uid);
 
     const { gameId, moveId, vote, idempotencyKey } = data;
 

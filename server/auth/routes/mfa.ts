@@ -6,6 +6,7 @@ import type { Express } from "express";
 import { authenticateUser } from "../middleware.ts";
 import { getClientIP } from "../audit.ts";
 import { MfaService } from "../mfa.ts";
+import { mfaVerifyLimiter, sensitiveAuthLimiter } from "../../middleware/security.ts";
 import logger from "../../logger.ts";
 
 // NOTE: CSRF validation is handled globally by app.use("/api", requireCsrfToken)
@@ -33,7 +34,7 @@ export function setupMfaRoutes(app: Express) {
   /**
    * Initiate MFA setup - returns secret and QR code URL
    */
-  app.post("/api/auth/mfa/setup", authenticateUser, async (req, res) => {
+  app.post("/api/auth/mfa/setup", authenticateUser, sensitiveAuthLimiter, async (req, res) => {
     try {
       const user = req.currentUser!;
 
@@ -63,7 +64,7 @@ export function setupMfaRoutes(app: Express) {
   /**
    * Complete MFA setup by verifying first code
    */
-  app.post("/api/auth/mfa/verify-setup", authenticateUser, async (req, res) => {
+  app.post("/api/auth/mfa/verify-setup", authenticateUser, mfaVerifyLimiter, async (req, res) => {
     const ipAddress = getClientIP(req);
     const userAgent = req.headers["user-agent"] || undefined;
 
@@ -100,7 +101,7 @@ export function setupMfaRoutes(app: Express) {
   /**
    * Verify MFA code during login
    */
-  app.post("/api/auth/mfa/verify", authenticateUser, async (req, res) => {
+  app.post("/api/auth/mfa/verify", authenticateUser, mfaVerifyLimiter, async (req, res) => {
     const ipAddress = getClientIP(req);
     const userAgent = req.headers["user-agent"] || undefined;
 
@@ -149,7 +150,7 @@ export function setupMfaRoutes(app: Express) {
   /**
    * Disable MFA for user
    */
-  app.post("/api/auth/mfa/disable", authenticateUser, async (req, res) => {
+  app.post("/api/auth/mfa/disable", authenticateUser, mfaVerifyLimiter, async (req, res) => {
     const ipAddress = getClientIP(req);
     const userAgent = req.headers["user-agent"] || undefined;
 
@@ -189,7 +190,7 @@ export function setupMfaRoutes(app: Express) {
   /**
    * Regenerate backup codes
    */
-  app.post("/api/auth/mfa/backup-codes", authenticateUser, async (req, res) => {
+  app.post("/api/auth/mfa/backup-codes", authenticateUser, mfaVerifyLimiter, async (req, res) => {
     const ipAddress = getClientIP(req);
     const userAgent = req.headers["user-agent"] || undefined;
 

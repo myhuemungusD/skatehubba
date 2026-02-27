@@ -8,6 +8,7 @@ import { authenticateUser, recordRecentAuth } from "../middleware.ts";
 import { admin } from "../../admin.ts";
 import { AuditLogger, getClientIP } from "../audit.ts";
 import { MfaService } from "../mfa.ts";
+import { sensitiveAuthLimiter } from "../../middleware/security.ts";
 import logger from "../../logger.ts";
 
 // NOTE: CSRF validation is handled globally by app.use("/api", requireCsrfToken)
@@ -19,7 +20,7 @@ export function setupReauthRoutes(app: Express) {
    * Call this before operations that require recent authentication
    * Valid for 5 minutes after successful verification
    */
-  app.post("/api/auth/verify-identity", authenticateUser, async (req, res) => {
+  app.post("/api/auth/verify-identity", authenticateUser, sensitiveAuthLimiter, async (req, res) => {
     const ipAddress = getClientIP(req);
     const userAgent = req.headers["user-agent"] || undefined;
 
