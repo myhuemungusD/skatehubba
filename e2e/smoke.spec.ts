@@ -138,6 +138,7 @@ test.describe("Legacy Route Redirects", () => {
     "/dashboard",
     "/game",
     "/skate-game",
+    "/remote-skate",
     "/closet",
     "/settings",
     "/showcase",
