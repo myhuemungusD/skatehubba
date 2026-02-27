@@ -21,9 +21,14 @@ export default tseslint.config(
       "**/*.test.ts",
       "**/*.test.tsx",
       "**/e2e/**",
+      "scripts/**",
+      "migrations/**",
+      "benchmarks/**",
       "**/tailwind.config.ts",
       "**/.detoxrc.js",
       "**/.next/**",
+      "**/__tests__/**/helpers/**",
+      "**/__tests__/**/mockSetup.ts",
     ],
   },
 
@@ -32,6 +37,9 @@ export default tseslint.config(
 
   // TypeScript recommended (type-aware disabled for CI speed)
   ...tseslint.configs.recommended,
+
+  // JSX accessibility (flat config)
+  jsxA11y.flatConfigs.recommended,
 
   // React/TypeScript files
   {
@@ -53,7 +61,6 @@ export default tseslint.config(
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
-      "jsx-a11y": jsxA11y,
     },
     rules: {
       // React hooks
@@ -62,9 +69,6 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
-
-      // Accessibility
-      ...jsxA11y.configs.recommended.rules,
 
       // TypeScript
       "@typescript-eslint/no-unused-vars": [
@@ -77,8 +81,18 @@ export default tseslint.config(
       // React hooks - relaxed for complex effects
       "react-hooks/exhaustive-deps": "warn",
 
+      // Accessibility (jsx-a11y) — all violations have been fixed; enforce as errors
+      "jsx-a11y/no-autofocus": "error",
+      "jsx-a11y/label-has-associated-control": "error",
+      "jsx-a11y/media-has-caption": "error",
+      "jsx-a11y/click-events-have-key-events": "error",
+      "jsx-a11y/no-static-element-interactions": "error",
+      "jsx-a11y/heading-has-content": "error",
+      "jsx-a11y/anchor-has-content": "error",
+      "jsx-a11y/img-redundant-alt": "error",
+
       // General quality
-      "no-console": "off",
+      "no-console": ["error", { allow: ["warn", "error"] }],
       "prefer-const": "error",
       "no-var": "error",
     },
@@ -88,7 +102,7 @@ export default tseslint.config(
   {
     files: ["**/*.spec.ts", "**/*.spec.tsx", "**/*.test.ts", "**/*.test.tsx"],
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
       "no-console": "off",
     },
   },

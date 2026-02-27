@@ -1,34 +1,56 @@
 # Deployment Configuration
 
-This repository uses automated deployment via GitHub Actions for both Firebase Functions and Vercel.
+This repository uses Vercel GitHub integration for production and GitHub Actions with Docker for staging. Firebase Cloud Functions are deployed separately.
 
 ## Workflow Overview
 
-The deployment workflow (`.github/workflows/deploy.yml`) performs the following tasks:
+### Production (`deploy.yml`)
 
-1. **Build Application**: Builds the client and server code
-2. **Check Build Logs**: Scans build logs for errors and warnings
-3. **Deploy Firebase Functions**: Deploys Cloud Functions to Firebase (main branch only)
-4. **Deploy to Vercel**: Deploys the application to Vercel production (main branch only)
-5. **PR Comment**: Posts a deployment summary comment on pull requests
+The production deploy workflow runs on push to `main` and PRs:
+
+1. **Typecheck Guard**: Runs `pnpm -C client typecheck` to verify no type errors
+2. **Vercel Auto-Deploy**: Vercel deploys automatically via its GitHub integration (not triggered by this workflow)
+
+Vercel handles the full build and deploy using the config in `vercel.json`.
+
+### Staging (`deploy-staging.yml`)
+
+The staging deploy workflow runs on push to `staging` or manual dispatch:
+
+1. **Build & Push Docker Image**: Multi-stage Docker build, pushed to `ghcr.io` with SHA and `latest` tags
+2. **Container Image Scan**: Trivy CVE scan (blocks on CRITICAL/HIGH severity), uploads SARIF to GitHub Security
+3. **Deploy to Staging Server**: SSH into staging host, `docker compose pull && up -d --no-deps app`
+4. **Run Database Migrations**: `pnpm db:migrate` with staging DATABASE_URL
+5. **Smoke Test**: Health check (5 retries) + API docs verification
 
 ## Required Secrets
 
 To enable full deployment functionality, configure the following GitHub repository secrets:
 
-### Firebase Deployment
+### Firebase
 
-- `FIREBASE_TOKEN`: Firebase CI token for deployment
+- `FIREBASE_TOKEN`: Firebase CI token for rules validation
   - Generate: Run `firebase login:ci` locally and copy the token
+- `FIREBASE_PROJECT_ID`: Your Firebase project ID
 
-### Vercel Deployment
+### Vercel
 
-- `VERCEL_TOKEN`: Vercel authentication token
-  - Generate: [Vercel Account Settings → Tokens](https://vercel.com/account/tokens)
-- `VERCEL_ORG_ID`: Your Vercel organization ID (optional)
-  - Find in: Vercel project settings or `.vercel/project.json`
-- `VERCEL_PROJECT_ID`: Your Vercel project ID (optional)
-  - Find in: Vercel project settings or `.vercel/project.json`
+Vercel deploys via GitHub integration — no tokens needed in GitHub Actions. Configure environment variables directly in the Vercel dashboard.
+
+### Staging
+
+- `STAGING_HOST`: Staging server hostname/IP
+- `STAGING_USER`: SSH username
+- `STAGING_SSH_KEY`: SSH private key for deployment
+- `STAGING_DATABASE_URL`: PostgreSQL connection string
+
+### Staging Variables (GitHub repository variables)
+
+- `STAGING_API_URL`: Base URL for the staging API
+- `STAGING_CANONICAL_ORIGIN`: Canonical origin for the staging environment
+- `STAGING_FIREBASE_API_KEY`, `STAGING_FIREBASE_AUTH_DOMAIN`, `STAGING_FIREBASE_PROJECT_ID`, `STAGING_FIREBASE_STORAGE_BUCKET`, `STAGING_FIREBASE_MESSAGING_SENDER_ID`, `STAGING_FIREBASE_APP_ID`
+- `STAGING_STRIPE_PK`: Stripe publishable key for staging
+- `STAGING_SENTRY_DSN`: Sentry DSN for staging error tracking
 
 ## Required Public Env Vars (Web)
 
@@ -45,7 +67,33 @@ The build will fail if any are missing. Legacy `VITE_*` equivalents are still ac
 a fallback but `EXPO_PUBLIC_*` takes priority. If both prefixes are set for the same key,
 remove the `VITE_*` version to avoid confusion.
 
+The `scripts/verify-public-env.mjs` script validates these before every build. It checks
+`EXPO_PUBLIC_` first, then falls back to `VITE_` prefix. In strict mode (Vercel/production),
+missing vars cause the build to fail.
+
 ## Configuration Files
+
+### Vercel (`vercel.json`)
+
+The authoritative deployment config:
+
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build",
+  "outputDirectory": "client/dist",
+  "framework": "vite",
+  "functions": {
+    "api/index.ts": { "maxDuration": 30 },
+    "api/env-check.ts": { "maxDuration": 5 }
+  },
+  "rewrites": [
+    { "source": "/api/env-check", "destination": "/api/env-check" },
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}
+```
 
 ### Firebase (`firebase.json`)
 
@@ -55,73 +103,70 @@ Configures:
 - Cloud Functions deployment
 - Hosting configuration (optional)
 
-### Vercel (`vercel.json`)
+### Docker (`Dockerfile`)
 
-Configures:
+Multi-stage build for staging:
 
-- Build settings
-- Routes and redirects
-- Output directory
+- `base` — Node 22 slim with pnpm 10.28.1
+- `deps` — Install all workspace dependencies with `--frozen-lockfile`
+- `client-build` — Build client with `EXPO_PUBLIC_*` build args via `pnpm -C client build`
+- `production` — Non-root user (`skatehubba:1001`), health check on `/api/health/live`, exposes port 3001
 
-## Firebase Functions
+Runtime command: `node --import tsx server/index.ts`
+
+## Firebase Cloud Functions
 
 Cloud Functions are located in the `functions/` directory:
 
 ```
 functions/
 ├── src/
-│   └── index.ts          # Main functions entry point
-├── package.json          # Functions dependencies
-├── tsconfig.json         # TypeScript configuration
+│   ├── index.ts          # Entry point (re-exports all functions)
+│   ├── admin/            # Role management (manageUserRole, getUserRoles)
+│   ├── game/             # S.K.A.T.E. battle logic
+│   ├── video/            # Storage triggers
+│   ├── commerce/         # Stripe/payment functions
+│   └── shared/           # Shared utilities (rate limiting, etc.)
+├── package.json
+├── tsconfig.json
 └── .gitignore
 ```
 
-### Example Functions Included
+### Deployed Functions
 
-1. **helloWorld**: HTTP endpoint example
-2. **onUserCreated**: Firestore trigger example
-3. **dailyCleanup**: Scheduled function example
+- **Admin**: `manageUserRole`, `getUserRoles` — RBAC role management with custom claims
+- **Game**: `submitTrick`, `judgeTrick`, `setterBail`, `getVideoUrl`, `processVoteTimeouts`
+- **Video**: `validateChallengeVideo` — Storage trigger for video validation
+- **Commerce**: `holdAndCreatePaymentIntent`, `stripeWebhook`, `expireHolds`
+
+Security features: App Check enforcement, Firestore-backed rate limiting, RBAC with custom claims, audit logging.
 
 ## Local Development
 
 ### Build the application
 
 ```bash
-npm run build
+pnpm run build
 ```
 
 ### Deploy Firebase Functions manually
 
 ```bash
-cd functions
-npm install
-npm run deploy
+firebase deploy --only functions
 ```
 
 ### Deploy to Vercel manually
 
 ```bash
-npm install -g vercel
-vercel --prod
+npx vercel --prod
 ```
 
 ## Workflow Triggers
 
-The deployment workflow runs on:
-
-- **Push to main**: Full deployment (Firebase + Vercel)
-- **Pull requests**: Build and check only, posts summary comment
-- **Manual dispatch**: Full deployment via GitHub Actions UI
-
-## Deployment Summary
-
-On pull requests, the workflow automatically posts a comment with:
-
-- Build status (success/failure)
-- Error and warning counts
-- Firebase Functions deployment status
-- Vercel deployment status and URL
-- Links to workflow logs
+| Workflow             | Trigger                            | Action                                            |
+| -------------------- | ---------------------------------- | ------------------------------------------------- |
+| `deploy.yml`         | Push to `main`, PRs                | Typecheck guard (Vercel auto-deploys from `main`) |
+| `deploy-staging.yml` | Push to `staging`, manual dispatch | Full Docker build + deploy to staging server      |
 
 ## Troubleshooting
 
@@ -133,20 +178,26 @@ On pull requests, the workflow automatically posts a comment with:
 
 ### Vercel deployment fails
 
-1. Check that `VERCEL_TOKEN` is set correctly
-2. Verify Vercel project is linked locally: `vercel link`
+1. Check that all `EXPO_PUBLIC_*` env vars are set in Vercel dashboard
+2. Verify Vercel project is linked: `vercel link`
 3. Check Vercel deployment logs in the Vercel dashboard
 
 ### Build errors
 
 1. Review the build logs artifact in GitHub Actions
-2. Run `npm run build` locally to reproduce
-3. Check for TypeScript errors: `npm run check`
+2. Run `pnpm run build` locally to reproduce
+3. Check for TypeScript errors: `pnpm run typecheck`
+
+### Staging deployment fails
+
+1. Verify `STAGING_SSH_KEY` and `STAGING_HOST` secrets are correct
+2. SSH into the staging server and check Docker logs: `docker compose -f docker-compose.staging.yml logs app`
+3. Check health endpoint: `curl https://staging.skatehubba.com/api/health`
 
 ## GitHub Actions Permissions
 
-The workflow requires:
+The staging workflow requires:
 
-- `contents: read` - To checkout code
-- `pull-requests: write` - To post PR comments
-- `id-token: write` - For OIDC authentication (if used)
+- `contents: read` — To checkout code
+- `packages: write` — To push Docker images to ghcr.io
+- `security-events: write` — To upload Trivy SARIF results

@@ -7,7 +7,7 @@ export type { _SkateLetter as SkateLetter };
 export type {
   GameSessionStatus,
   TurnPhase,
-  JudgmentVotes,
+  GamePlayer,
   MoveResult,
   Move,
   GameSession,

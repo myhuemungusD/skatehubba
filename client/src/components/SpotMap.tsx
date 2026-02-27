@@ -36,8 +36,6 @@ interface SpotMapProps {
   userLocation: UserLocation | null;
   selectedSpotId: number | null;
   onSelectSpot: (spotId: number) => void;
-  addSpotMode?: boolean;
-  onMapClick?: (lat: number, lng: number) => void;
 }
 
 export const SpotMap = memo(function SpotMap({
@@ -45,8 +43,6 @@ export const SpotMap = memo(function SpotMap({
   userLocation,
   selectedSpotId,
   onSelectSpot,
-  addSpotMode = false,
-  onMapClick,
 }: SpotMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -55,7 +51,6 @@ export const SpotMap = memo(function SpotMap({
   const userMarkerRef = useRef<L.Marker | null>(null);
   const accuracyCircleRef = useRef<L.Circle | null>(null);
   const hasCenteredRef = useRef(false);
-  const tempMarkerRef = useRef<L.Marker | null>(null);
   const [bounds, setBounds] = useState<L.LatLngBounds | null>(null);
 
   const initialCenterRef = useRef<[number, number]>(
@@ -209,7 +204,10 @@ export const SpotMap = memo(function SpotMap({
           .addTo(map)
           .on("click", () => onSelectSpot(spot.id));
 
-        marker.bindPopup(`<div class="font-semibold">${spot.name}</div>`);
+        const popupContent = document.createElement("div");
+        popupContent.className = "font-semibold";
+        popupContent.textContent = spot.name;
+        marker.bindPopup(popupContent);
         spotMarkersRef.current.set(spot.id, marker);
         markerProximityRef.current.set(spot.id, proximityKey);
       } else {
@@ -300,64 +298,26 @@ export const SpotMap = memo(function SpotMap({
     });
   }, [selectedSpotId]);
 
-  // Handle add spot mode - allow clicking on map to place pin
-  useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    const map = mapInstanceRef.current;
-
-    const handleMapClick = (e: L.LeafletMouseEvent) => {
-      if (addSpotMode && onMapClick) {
-        // Remove previous temp marker
-        if (tempMarkerRef.current) {
-          tempMarkerRef.current.remove();
-        }
-
-        // Add temporary marker at clicked location
-        const tempMarker = L.marker([e.latlng.lat, e.latlng.lng], {
-          icon: L.divIcon({
-            html: `
-              <div class="relative">
-                <div class="w-10 h-10 rounded-full bg-orange-500 border-4 border-white shadow-lg flex items-center justify-center animate-pulse">
-                  <span class="text-white text-xl"></span>
-                </div>
-              </div>
-            `,
-            className: "",
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-          }),
-        }).addTo(map);
-
-        tempMarkerRef.current = tempMarker;
-        onMapClick(e.latlng.lat, e.latlng.lng);
-      }
-    };
-
-    if (addSpotMode) {
-      map.on("click", handleMapClick);
-      map.getContainer().style.cursor = "crosshair";
-    } else {
-      map.off("click", handleMapClick);
-      map.getContainer().style.cursor = "";
-
-      // Remove temp marker when exiting add mode
-      if (tempMarkerRef.current) {
-        tempMarkerRef.current.remove();
-        tempMarkerRef.current = null;
-      }
-    }
-
-    return () => {
-      map.off("click", handleMapClick);
-    };
-  }, [addSpotMode, onMapClick]);
+  const spotListSummary = useMemo(() => {
+    if (visibleSpots.length === 0) return "No spots visible in current area.";
+    const names = visibleSpots.slice(0, 5).map((s) => s.name);
+    const more = visibleSpots.length > 5 ? ` and ${visibleSpots.length - 5} more` : "";
+    return `${visibleSpots.length} spots visible: ${names.join(", ")}${more}.`;
+  }, [visibleSpots]);
 
   return (
-    <div
-      ref={mapContainerRef}
-      className="w-full h-full bg-gray-900"
-      style={{ minHeight: "100%" }}
-      data-testid="map-container"
-    />
+    <div role="region" aria-label="Interactive skate spots map" className="relative w-full h-full">
+      <div
+        ref={mapContainerRef}
+        className="w-full h-full bg-gray-900"
+        style={{ minHeight: "100%" }}
+        data-testid="map-container"
+        aria-hidden="true"
+      />
+      {/* Screen reader accessible summary of map contents */}
+      <div className="sr-only" aria-live="polite" role="status">
+        {spotListSummary}
+      </div>
+    </div>
   );
 });

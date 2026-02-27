@@ -1,3 +1,4 @@
+/* eslint-disable no-console -- this IS the logger module; direct console access is intentional here and guarded: production builds silence all levels except error */
 const isDevelopment = import.meta.env.DEV;
 
 export type LogLevel = "log" | "info" | "warn" | "error" | "debug";

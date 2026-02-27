@@ -3,12 +3,14 @@ import { customAlphabet } from "nanoid";
 import { profileCreateSchema, usernameSchema } from "@shared/validation/profile";
 import { admin } from "../admin";
 import { env } from "../config/env";
-import { getDb, isDatabaseAvailable } from "../db";
-import { onboardingProfiles } from "@shared/schema";
+import { getDb } from "../db";
+import { onboardingProfiles, userProfiles, closetItems } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
+import { authenticateUser } from "../auth/middleware";
 import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
 import { createProfileWithRollback, createUsernameStore } from "../services/profileService";
+import { deleteUser } from "../services/userService";
 import logger from "../logger";
 import { MAX_AVATAR_BYTES, MAX_USERNAME_GENERATION_ATTEMPTS } from "../config/constants";
 import { Errors } from "../utils/apiError";
@@ -50,10 +52,6 @@ const safeRelease = async (
 router.get("/me", requireFirebaseUid, async (req, res) => {
   const { firebaseUid } = req as FirebaseAuthedRequest;
 
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   try {
     const db = getDb();
     const [profile] = await db
@@ -84,10 +82,6 @@ router.get("/me", requireFirebaseUid, async (req, res) => {
 });
 
 router.get("/username-check", usernameCheckLimiter, async (req, res) => {
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   const raw = Array.isArray(req.query.username) ? req.query.username[0] : req.query.username;
   const parsed = usernameSchema.safeParse(raw);
 
@@ -115,9 +109,6 @@ router.get("/username-check", usernameCheckLimiter, async (req, res) => {
 
 router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res) => {
   const { firebaseUid } = req as FirebaseAuthedRequest;
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
 
   const parsed = profileCreateSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -134,11 +125,9 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
   let db;
   try {
     db = getDb();
-  } catch (error) {
-    logger.error("[Profile] Database connection failed", { uid, error });
+  } catch {
     return Errors.dbUnavailable(res);
   }
-
   const usernameStore = createUsernameStore(db);
 
   // ── Check for existing profile ──────────────────────────────────
@@ -325,6 +314,44 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
       res,
       "PROFILE_CREATE_FAILED",
       "Failed to create profile. Please try again."
+    );
+  }
+});
+
+/**
+ * DELETE /api/profile
+ * Permanently deletes the authenticated user and all associated data.
+ * Called by the client AFTER Firebase Auth deletion succeeds, so the
+ * Firebase account is already gone by the time this runs.
+ *
+ * Deletion order:
+ *   1. closet_items      — no FK to customUsers, must be deleted explicitly
+ *   2. onboarding_profiles — no FK to customUsers, must be deleted explicitly
+ *   3. user_profiles     — no FK to customUsers, must be deleted explicitly
+ *   4. customUsers       — cascades authSessions and mfaSecrets via DB FK
+ */
+router.delete("/", authenticateUser, async (req, res) => {
+  const uid = req.currentUser!.id;
+  let database;
+  try {
+    database = getDb();
+  } catch {
+    return Errors.dbUnavailable(res);
+  }
+
+  try {
+    await database.delete(closetItems).where(eq(closetItems.userId, uid));
+    await database.delete(onboardingProfiles).where(eq(onboardingProfiles.uid, uid));
+    await database.delete(userProfiles).where(eq(userProfiles.id, uid));
+    await deleteUser(uid); // deletes customUsers row; cascades authSessions + mfaSecrets
+    logger.info("[Profile] Account and all related data deleted", { uid });
+    return res.status(204).send();
+  } catch (error) {
+    logger.error("[Profile] Account deletion failed", { uid, error });
+    return Errors.internal(
+      res,
+      "ACCOUNT_DELETE_FAILED",
+      "Failed to delete account. Please try again."
     );
   }
 });

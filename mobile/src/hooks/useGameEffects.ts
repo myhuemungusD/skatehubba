@@ -1,35 +1,27 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useGameStore } from "@/store/gameStore";
 import { useNetworkStore, useReconnectionStatus } from "@/store/networkStore";
+import { useCacheGameSession } from "@/hooks/useOfflineCache";
 import { logEvent } from "@/lib/analytics/logEvent";
-import type { GameOverlay, SkateLetter } from "@/types";
+import type { GameOverlay, GameSession, SkateLetter } from "@/types";
 
-interface GameSession {
-  status: string;
-  turnPhase: string;
-  currentTurn: string | null;
-  currentAttacker: string | null;
-  currentSetMove: { trickName: string | null } | null;
-  player1Id: string;
-  player2Id: string;
-  player1Letters: SkateLetter[];
-  player2Letters: SkateLetter[];
-  winnerId?: string | null;
-  roundNumber: number;
-}
-
-interface UseGameEffectsParams {
+interface UseGameEffectsOptions {
   gameId: string | null;
   rawGameId: string | undefined;
   isInvalidId: boolean;
   userId: string | undefined;
   gameSession: GameSession | null | undefined;
+  lastAnnouncedLetter: SkateLetter | null;
+  setLastAnnouncedLetter: (letter: SkateLetter | null) => void;
   abandonGameMutation: { mutate: () => void };
 }
 
 /**
- * Extracts all side-effect logic from the GameScreen into a single hook.
- * Handles: store init/cleanup, analytics, offline reconnection, turn overlays, letter announcements.
+ * Consolidates all game-related side effects from GameScreen.
+ *
+ * Handles: store init/teardown, deep-link validation logging,
+ * offline tracking, reconnection forfeit, analytics events,
+ * turn announcements, letter announcements, and game completion logging.
  */
 export function useGameEffects({
   gameId,
@@ -37,18 +29,23 @@ export function useGameEffects({
   isInvalidId,
   userId,
   gameSession,
+  lastAnnouncedLetter,
+  setLastAnnouncedLetter,
   abandonGameMutation,
-}: UseGameEffectsParams) {
+}: UseGameEffectsOptions) {
   const { initGame, resetGame, showOverlay } = useGameStore();
   const { setActiveGame, resetReconnectState } = useNetworkStore();
   const { expired: reconnectExpired } = useReconnectionStatus();
-  const [lastAnnouncedLetter, setLastAnnouncedLetter] = useState<SkateLetter | null>(null);
+
+  // Cache game session to AsyncStorage for offline access
+  useCacheGameSession(gameSession);
 
   // Initialize game store
   useEffect(() => {
     if (gameId && userId) {
       initGame(gameId, userId);
     }
+
     return () => {
       resetGame();
     };
@@ -68,16 +65,21 @@ export function useGameEffects({
     } else {
       setActiveGame(null);
     }
+
     return () => {
       setActiveGame(null);
       resetReconnectState();
     };
   }, [gameId, gameSession?.status, setActiveGame, resetReconnectState]);
 
-  // Handle reconnection window expiry - forfeit the game
+  // Handle reconnection window expiry -- forfeit the game
   useEffect(() => {
     if (reconnectExpired && gameSession?.status === "active") {
-      logEvent("game_forfeited", { battle_id: gameId, reason: "reconnect_timeout" });
+      logEvent("game_forfeited", {
+        battle_id: gameId,
+        reason: "reconnect_timeout",
+      });
+
       abandonGameMutation.mutate();
       resetReconnectState();
     }
@@ -133,7 +135,7 @@ export function useGameEffects({
         letter: null,
         autoDismissMs: null,
       };
-    } else if ((turnPhase as string) === "attacker_uploaded" && !isMe) {
+    } else if (turnPhase === "attacker_recording" && !isMe) {
       overlay = {
         type: "waiting_opponent",
         title: "WAITING",
@@ -196,6 +198,7 @@ export function useGameEffects({
     gameSession?.player1Id,
     userId,
     lastAnnouncedLetter,
+    setLastAnnouncedLetter,
     showOverlay,
   ]);
 

@@ -65,7 +65,7 @@ export const EnhancedToast = memo(function EnhancedToast({
         config.bgClass
       )}
     >
-      <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", config.iconClass)} />
+      <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", config.iconClass)} aria-hidden="true" />
 
       <div className="flex-1 grid gap-1">
         <ToastPrimitives.Title className={cn("text-sm font-semibold", config.titleClass)}>
@@ -86,7 +86,7 @@ export const EnhancedToast = memo(function EnhancedToast({
           "focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/20"
         )}
       >
-        <X className="h-4 w-4" />
+        <X className="h-4 w-4" aria-hidden="true" />
       </ToastPrimitives.Close>
     </ToastPrimitives.Root>
   );

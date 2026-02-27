@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { Helmet } from "react-helmet";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +9,14 @@ import { ChallengeButton } from "@/components/skater/ChallengeButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import type { UserProfile } from "@shared/schema";
+import { Layers, Wrench, Circle, Footprints } from "lucide-react";
+
+const CLOSET_CATEGORIES = [
+  { label: "Decks", icon: Layers },
+  { label: "Trucks", icon: Wrench },
+  { label: "Wheels", icon: Circle },
+  { label: "Shoes", icon: Footprints },
+] as const;
 
 export default function SkaterProfile() {
   const params = useParams();
@@ -60,8 +69,30 @@ export default function SkaterProfile() {
     );
   }
 
+  const skaterTitle = `${profile.displayName || handle} (@${handle}) | SkateHubba`;
+  const skaterDescription = profile.bio
+    ? `${profile.bio} — ${profile.wins ?? 0}W/${profile.losses ?? 0}L on SkateHubba`
+    : `Check out @${handle}'s S.K.A.T.E. stats, trick bag, and closet on SkateHubba.`;
+  const skaterUrl = `https://skatehubba.com/skater/${handle}`;
+
   return (
     <div className="text-white">
+      <Helmet>
+        <title>{skaterTitle}</title>
+        <meta name="description" content={skaterDescription} />
+        <link rel="canonical" href={skaterUrl} />
+        <meta property="og:type" content="profile" />
+        <meta property="og:url" content={skaterUrl} />
+        <meta property="og:title" content={skaterTitle} />
+        <meta property="og:description" content={skaterDescription} />
+        {profile.photoURL && <meta property="og:image" content={profile.photoURL} />}
+        <meta property="og:site_name" content="SkateHubba" />
+        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:title" content={skaterTitle} />
+        <meta name="twitter:description" content={skaterDescription} />
+        <meta name="twitter:creator" content="@skatehubba_app" />
+        {profile.photoURL && <meta name="twitter:image" content={profile.photoURL} />}
+      </Helmet>
       {/* Header / hero */}
       <section className="mx-auto w-full max-w-6xl px-4 pt-8 md:pt-12">
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -92,7 +123,7 @@ export default function SkaterProfile() {
                 @{handle}
               </p>
               <p className="text-sm text-neutral-300" data-testid="profile-stats">
-                {profile.stance} {profile.homeSpot} W/L {profile.wins ?? 0}/{profile.losses ?? 0}
+                {profile.stance} {profile.homeSpot ? `· ${profile.homeSpot}` : ""}
               </p>
             </div>
           </div>
@@ -115,14 +146,54 @@ export default function SkaterProfile() {
         )}
       </section>
 
-      {/* Closet - Coming Soon */}
+      {/* Stats */}
+      <section className="mx-auto w-full max-w-6xl px-4 pt-8">
+        <h2 className="mb-4 text-lg font-semibold uppercase tracking-wide text-orange-400">
+          S.K.A.T.E. Record
+        </h2>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <Card className="bg-neutral-900 border-neutral-700 p-4 text-center">
+            <p className="text-2xl font-bold text-green-400">{profile.wins ?? 0}</p>
+            <p className="text-xs text-neutral-400 uppercase tracking-wide">Wins</p>
+          </Card>
+          <Card className="bg-neutral-900 border-neutral-700 p-4 text-center">
+            <p className="text-2xl font-bold text-red-400">{profile.losses ?? 0}</p>
+            <p className="text-xs text-neutral-400 uppercase tracking-wide">Losses</p>
+          </Card>
+          <Card className="bg-neutral-900 border-neutral-700 p-4 text-center">
+            <p className="text-2xl font-bold text-yellow-300">
+              {(profile.wins ?? 0) + (profile.losses ?? 0) > 0
+                ? `${Math.round(((profile.wins ?? 0) / ((profile.wins ?? 0) + (profile.losses ?? 0))) * 100)}%`
+                : "0%"}
+            </p>
+            <p className="text-xs text-neutral-400 uppercase tracking-wide">Win Rate</p>
+          </Card>
+          <Card className="bg-neutral-900 border-neutral-700 p-4 text-center">
+            <p className="text-2xl font-bold text-orange-400">
+              {(profile.xp ?? 0).toLocaleString()}
+            </p>
+            <p className="text-xs text-neutral-400 uppercase tracking-wide">XP</p>
+          </Card>
+        </div>
+      </section>
+
+      {/* Closet */}
       <section className="mx-auto w-full max-w-6xl px-4 pb-24 pt-8">
         <h2 className="mb-4 text-lg font-semibold uppercase tracking-wide text-orange-400">
           Closet
         </h2>
-        <Card className="bg-neutral-900 border-neutral-700 p-8 text-center">
-          <p className="text-neutral-400">Closet collectibles coming soon!</p>
-        </Card>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {CLOSET_CATEGORIES.map(({ label, icon: Icon }) => (
+            <Card
+              key={label}
+              className="bg-neutral-900 border-neutral-700 p-6 flex flex-col items-center gap-2 text-center"
+            >
+              <Icon className="w-8 h-8 text-neutral-600" />
+              <p className="text-sm font-medium text-neutral-300">{label}</p>
+              <p className="text-xs text-neutral-600">None yet</p>
+            </Card>
+          ))}
+        </div>
       </section>
 
       {/* Footer brand strip */}

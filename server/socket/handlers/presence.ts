@@ -144,17 +144,24 @@ export function registerPresenceHandlers(_io: TypedServer, socket: TypedSocket):
     status: "online",
   };
 
-  // Broadcast to all connected clients (or just friends in production)
-  socket.broadcast.emit("presence:update", presencePayload);
+  // L5: Broadcast presence only to rooms the user is in (not globally)
+  // This prevents leaking online status to arbitrary users
+  for (const room of socket.rooms) {
+    if (room !== socket.id) {
+      socket.to(room).emit("presence:update", presencePayload);
+    }
+  }
 
   // Handle status updates
   socket.on("presence:update", (status: "online" | "away") => {
     setPresence(data.odv, status);
 
-    socket.broadcast.emit("presence:update", {
-      odv: data.odv,
-      status,
-    });
+    // L5: Scope broadcast to user's joined rooms only
+    for (const room of socket.rooms) {
+      if (room !== socket.id) {
+        socket.to(room).emit("presence:update", { odv: data.odv, status });
+      }
+    }
 
     logger.debug("[Presence] Status updated", { odv: data.odv, status });
   });

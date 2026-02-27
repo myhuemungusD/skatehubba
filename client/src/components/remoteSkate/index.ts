@@ -9,3 +9,5 @@ export { CreateGame } from "./CreateGame";
 export { JoinGame } from "./JoinGame";
 export { GameRound } from "./GameRound";
 export { GameComplete } from "./GameComplete";
+export { HowToPlay } from "./HowToPlay";
+export { ActiveGames } from "./ActiveGames";

@@ -13,11 +13,14 @@ import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
-import { signOut } from "firebase/auth";
+import { signOut, sendPasswordResetEmail, deleteUser } from "firebase/auth";
 import { auth } from "@/lib/firebase.config";
+import * as Linking from "expo-linking";
+import { openLink } from "@/lib/linking";
 import { useState, useEffect, useCallback } from "react";
 import { apiRequest } from "@/lib/queryClient";
 import { removePushTokenFromServer } from "@/lib/pushNotifications";
+import Constants from "expo-constants";
 
 type SettingItemProps = {
   icon: keyof typeof Ionicons.glyphMap;
@@ -102,7 +105,9 @@ function SettingsScreenContent() {
             await signOut(auth);
             router.replace("/(tabs)");
           } catch (error) {
-            console.error("Sign out error:", error);
+            if (__DEV__) {
+              console.error("Sign out error:", error);
+            }
           }
         },
       },
@@ -111,8 +116,44 @@ function SettingsScreenContent() {
 
   const handleDeleteAccount = () => {
     Alert.alert(
-      "Coming Soon",
-      "Account deletion is not yet available. When launched, this will permanently remove all your data, game history, and profile information."
+      "Delete Account",
+      "This will permanently delete your account, game history, and all profile data. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete Account",
+          style: "destructive",
+          onPress: async () => {
+            const currentUser = auth.currentUser;
+            if (!currentUser) return;
+            try {
+              // Delete Firebase account first — if this requires re-auth, nothing
+              // server-side has been touched yet and the user can try again.
+              await deleteUser(currentUser);
+              // Firebase account gone; now clean up server-side data.
+              try {
+                await removePushTokenFromServer();
+              } catch {
+                // Non-fatal — push token cleanup failure doesn't block deletion.
+              }
+              await apiRequest("/api/profile", { method: "DELETE" });
+              // Auth state listener will redirect; explicit replace ensures immediate
+              // navigation even if the listener fires with a slight delay.
+              router.replace("/auth/sign-in");
+            } catch (error: unknown) {
+              const code = (error as { code?: string })?.code;
+              if (code === "auth/requires-recent-login") {
+                Alert.alert(
+                  "Re-authentication Required",
+                  "For security, please sign out and sign back in before deleting your account."
+                );
+              } else {
+                Alert.alert("Error", "Failed to delete account. Please try again.");
+              }
+            }
+          },
+        },
+      ]
     );
   };
 
@@ -147,7 +188,24 @@ function SettingsScreenContent() {
           <SettingItem
             icon="key"
             title="Change Password"
-            onPress={() => Alert.alert("Coming Soon", "Password change will be available soon.")}
+            onPress={async () => {
+              if (!user?.email) {
+                Alert.alert(
+                  "No Email Address",
+                  "Your account doesn't have an email address associated with it. Password reset is not available."
+                );
+                return;
+              }
+              try {
+                await sendPasswordResetEmail(auth, user.email);
+                Alert.alert(
+                  "Password Reset Sent",
+                  `A password reset link has been sent to ${user.email}. Check your inbox.`
+                );
+              } catch {
+                Alert.alert("Error", "Failed to send password reset email. Try again.");
+              }
+            }}
           />
         </View>
       </View>
@@ -163,6 +221,8 @@ function SettingsScreenContent() {
             showChevron={false}
             rightElement={
               <Switch
+                accessibilityRole="switch"
+                accessibilityLabel="Push Notifications"
                 value={pushEnabled}
                 onValueChange={(val) => {
                   setPushEnabled(val);
@@ -180,6 +240,8 @@ function SettingsScreenContent() {
             showChevron={false}
             rightElement={
               <Switch
+                accessibilityRole="switch"
+                accessibilityLabel="Email Notifications"
                 value={emailEnabled}
                 onValueChange={(val) => {
                   setEmailEnabled(val);
@@ -197,8 +259,13 @@ function SettingsScreenContent() {
             showChevron={false}
             rightElement={
               <Switch
+                accessibilityRole="switch"
+                accessibilityLabel="Location Services"
                 value={locationEnabled}
-                onValueChange={setLocationEnabled}
+                onValueChange={(val) => {
+                  setLocationEnabled(val);
+                  updatePref("locationEnabled", val);
+                }}
                 trackColor={{ false: SKATE.colors.darkGray, true: SKATE.colors.orange }}
                 thumbColor={SKATE.colors.white}
               />
@@ -220,24 +287,22 @@ function SettingsScreenContent() {
           <SettingItem
             icon="help-circle"
             title="Help & FAQ"
-            onPress={() =>
-              Alert.alert("Coming Soon", "Help & FAQ section is coming soon. Stay tuned!")
-            }
+            onPress={() => router.push("/settings/faq")}
           />
           <SettingItem
             icon="chatbubble"
             title="Contact Us"
-            onPress={() => Alert.alert("Coming Soon", "Contact form is coming soon. Stay tuned!")}
+            onPress={() => Linking.openURL("mailto:support@skatehubba.com")}
           />
           <SettingItem
             icon="document-text"
             title="Terms of Service"
-            onPress={() => Alert.alert("Coming Soon", "Terms of service will be available soon.")}
+            onPress={() => openLink("https://skatehubba.com/terms")}
           />
           <SettingItem
             icon="shield-checkmark"
             title="Privacy Policy"
-            onPress={() => Alert.alert("Coming Soon", "Privacy policy will be available soon.")}
+            onPress={() => openLink("https://skatehubba.com/privacy")}
           />
         </View>
       </View>
@@ -264,7 +329,9 @@ function SettingsScreenContent() {
 
       {/* App Info */}
       <View style={styles.appInfo}>
-        <Text style={styles.appVersion}>SkateHubba v1.0.0</Text>
+        <Text style={styles.appVersion}>
+          SkateHubba v{Constants.expoConfig?.version ?? "1.0.0"}
+        </Text>
         <Text style={styles.appCopyright}>Made with love for skaters</Text>
       </View>
 

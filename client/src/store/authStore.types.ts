@@ -1,4 +1,7 @@
 import type { User as FirebaseUser } from "firebase/auth";
+import type { BaseAuthState } from "@skatehubba/firebase";
+
+export type { BaseAuthState };
 
 export type UserRole = "admin" | "moderator" | "verified_pro";
 export type ProfileStatus = "unknown" | "exists" | "missing";
@@ -34,7 +37,7 @@ export interface ProfileCache {
   profile: UserProfile | null;
 }
 
-export interface AuthState {
+export interface AuthState extends BaseAuthState {
   user: FirebaseUser | null;
   profile: UserProfile | null;
   profileStatus: ProfileStatus;

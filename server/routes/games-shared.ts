@@ -3,7 +3,7 @@
  */
 
 import { z } from "zod";
-import { getDb, getUserDisplayName as getUserDisplayNameFromDb } from "../db";
+import { getUserDisplayName as getUserDisplayNameFromDb } from "../db";
 import { SKATE_LETTERS_TO_LOSE } from "../config/constants";
 
 // ============================================================================
@@ -11,11 +11,14 @@ import { SKATE_LETTERS_TO_LOSE } from "../config/constants";
 // ============================================================================
 
 export const TURN_DEADLINE_MS = 24 * 60 * 60 * 1000; // 24 hours
+export const GAME_HARD_CAP_MS = 7 * 24 * 60 * 60 * 1000; // 7 days total
 export const MAX_VIDEO_DURATION_MS = 15_000; // 15 seconds hard cap
 export const SKATE_LETTERS = "SKATE";
 
 // Dedup deadline warnings: track gameId → last warning timestamp
 // Prevents spamming the same player every cron cycle
+// NOTE: In-memory — not shared across server instances. Duplicate warnings may
+// occur under horizontal scaling, but this is acceptable for non-critical alerts.
 export const deadlineWarningsSent = new Map<string, number>();
 export const DEADLINE_WARNING_COOLDOWN_MS = 30 * 60 * 1000; // 30 minutes between warnings
 

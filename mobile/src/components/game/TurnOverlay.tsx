@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet, Animated, Pressable, Modal } from "react-native";
 import { memo, useRef, useEffect } from "react";
+import { View, Text, StyleSheet, Animated, Pressable, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import type { GameOverlay } from "@/types";

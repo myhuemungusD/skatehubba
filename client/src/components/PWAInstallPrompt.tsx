@@ -5,7 +5,7 @@ import { logger } from "../lib/logger";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
 export function PWAInstallPrompt() {
@@ -16,16 +16,16 @@ export function PWAInstallPrompt() {
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
-      
+
       // Show prompt after 30 seconds if user hasn't dismissed it before
-      const dismissed = localStorage.getItem('pwa-install-dismissed');
+      const dismissed = localStorage.getItem("pwa-install-dismissed");
       if (!dismissed) {
         setTimeout(() => setShowPrompt(true), 30000);
       }
     };
 
-    window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
   }, []);
 
   const handleInstall = async () => {
@@ -33,38 +33,40 @@ export function PWAInstallPrompt() {
 
     await deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-      logger.info('PWA installed');
+
+    if (outcome === "accepted") {
+      logger.info("PWA installed");
     }
-    
+
     setDeferredPrompt(null);
     setShowPrompt(false);
   };
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    localStorage.setItem('pwa-install-dismissed', 'true');
+    localStorage.setItem("pwa-install-dismissed", "true");
   };
 
   if (!showPrompt || !deferredPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 animate-in slide-in-from-bottom duration-300">
+    <div
+      className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 z-50 animate-in slide-in-from-bottom duration-300"
+      role="dialog"
+      aria-label="Install SkateHubba app"
+    >
       <div className="bg-[#232323] border border-orange-500/50 rounded-lg shadow-2xl p-4">
         <div className="flex items-start gap-3">
-          <div className="rounded-full bg-orange-500/10 p-2">
+          <div className="rounded-full bg-orange-500/10 p-2" aria-hidden="true">
             <Download className="h-5 w-5 text-orange-500" />
           </div>
-          
+
           <div className="flex-1">
-            <h3 className="text-white font-semibold mb-1">
-              Install SkateHubba
-            </h3>
+            <h3 className="text-white font-semibold mb-1">Install SkateHubba</h3>
             <p className="text-sm text-gray-400 mb-3">
               Get the app for quick access and offline support
             </p>
-            
+
             <div className="flex gap-2">
               <Button
                 onClick={handleInstall}
@@ -89,9 +91,9 @@ export function PWAInstallPrompt() {
           <button
             onClick={handleDismiss}
             className="text-gray-400 hover:text-white transition-colors"
-            aria-label="Close"
+            aria-label="Dismiss install prompt"
           >
-            <X className="h-4 w-4" />
+            <X className="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>

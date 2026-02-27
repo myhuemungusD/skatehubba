@@ -1,26 +1,31 @@
 import { memo } from "react";
-import { Trophy, Skull } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Trophy, Skull, RotateCcw } from "lucide-react";
 import { SocialShare } from "./SocialShare";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface GameOverScreenProps {
   iWon: boolean;
-  opponentName: string;
   myLetters: string;
   oppLetters: string;
-  isForfeited: boolean;
+  opponentName: string;
+  gameStatus: string;
   gameId: string;
   playerDisplayName: string;
+  onRematch?: () => void;
+  rematchPending?: boolean;
 }
 
 export const GameOverScreen = memo(function GameOverScreen({
   iWon,
-  opponentName,
   myLetters,
   oppLetters,
-  isForfeited,
+  opponentName,
+  gameStatus,
   gameId,
   playerDisplayName,
+  onRematch,
+  rematchPending,
 }: GameOverScreenProps) {
   return (
     <div
@@ -42,11 +47,26 @@ export const GameOverScreen = memo(function GameOverScreen({
         <p className="text-neutral-500">
           You: {myLetters || "Clean"} | {opponentName}: {oppLetters || "Clean"}
         </p>
-        {isForfeited && (
+        {gameStatus === "forfeited" && (
           <p className="text-neutral-500 mt-2">{iWon ? "Opponent forfeited." : "You forfeited."}</p>
         )}
       </div>
-      <div className="mt-6 flex justify-center">
+
+      {/* Rematch — highest-converting retention mechanic in competitive games */}
+      {onRematch && (
+        <div className="mt-6">
+          <Button
+            onClick={onRematch}
+            disabled={rematchPending}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 text-base gap-2"
+          >
+            <RotateCcw className="w-5 h-5" />
+            {rematchPending ? "Sending..." : "Run it back?"}
+          </Button>
+        </div>
+      )}
+
+      <div className="mt-4 flex justify-center">
         <SocialShare
           gameId={gameId}
           playerOne={playerDisplayName}

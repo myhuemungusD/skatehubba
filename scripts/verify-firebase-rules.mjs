@@ -25,6 +25,7 @@ import path from "node:path";
 
 const projectId = process.env.FIREBASE_PROJECT_ID;
 const token = process.env.FIREBASE_TOKEN;
+const useNpx = (process.env.FIREBASE_USE_NPX ?? "false").toLowerCase() === "true";
 const toolsVersion = process.env.FIREBASE_TOOLS_VERSION ?? "latest";
 const strict = (process.env.FIREBASE_RULES_STRICT ?? "true").toLowerCase() === "true";
 
@@ -71,10 +72,15 @@ function runFirebase(args) {
     npm_config_cache: process.env.npm_config_cache,
   };
 
+  // Prefer the standalone `firebase` binary (installed via curl -sL https://firebase.tools | bash)
+  // Fall back to npx for local dev if FIREBASE_USE_NPX=true
+  const cmd = useNpx ? "npx" : "firebase";
+  const cmdArgs = useNpx ? ["firebase-tools@" + toolsVersion, ...args] : args;
+
   try {
     return execFileSync(
-      "npx",
-      ["firebase-tools@" + toolsVersion, ...args],
+      cmd,
+      cmdArgs,
       {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],

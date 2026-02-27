@@ -17,45 +17,45 @@ If data exists in both places, PostgreSQL wins. Firestore is updated via sync jo
 
 ### Users & Identity
 
-| Table | Fields | Notes |
-|-------|--------|-------|
-| `customUsers` | id, email, passwordHash, firstName, lastName, firebaseUid, isEmailVerified, trustLevel, isActive, createdAt | Core identity. Keyed by internal UUID. |
-| `usernames` | uid, username | Unique username reservation. UID is Firebase UID. |
+| Table          | Fields                                                                                                                                                 | Notes                                                                                          |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `customUsers`  | id, email, passwordHash, firstName, lastName, firebaseUid, isEmailVerified, trustLevel, isActive, createdAt                                            | Core identity. Keyed by internal UUID.                                                         |
+| `usernames`    | uid, username                                                                                                                                          | Unique username reservation. UID is Firebase UID.                                              |
 | `userProfiles` | id (Firebase UID), handle, displayName, bio, photoURL, stance, homeSpot, **xp**, wins, losses, disputePenalties, filmerRepScore, filmerVerified, roles | Extended profile. **XP is authoritative here. Level is computed: `Math.floor(xp / 500) + 1`.** |
-| `authSessions` | userId, token, expiresAt | Server-side session management. |
+| `authSessions` | userId, token, expiresAt                                                                                                                               | Server-side session management.                                                                |
 
 ### Spots & Check-ins
 
-| Table | Fields | Notes |
-|-------|--------|-------|
-| `spots` | id, name, lat, lng, tier, spotType, checkInCount, rating, verified, createdBy | All spot data. |
-| `checkIns` | id, userId, spotId, timestamp, isAr, filmerUid, filmerStatus | Historical check-in records. One per user per spot per day. |
-| `filmerRequests` | id, checkInId, requesterId, filmerId, status | Filmer attribution workflow. |
+| Table            | Fields                                                                        | Notes                                                       |
+| ---------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `spots`          | id, name, lat, lng, tier, spotType, checkInCount, rating, verified, createdBy | All spot data.                                              |
+| `checkIns`       | id, userId, spotId, timestamp, isAr, filmerUid, filmerStatus                  | Historical check-in records. One per user per spot per day. |
+| `filmerRequests` | id, checkInId, requesterId, filmerId, status                                  | Filmer attribution workflow.                                |
 
 ### Games & Competition
 
-| Table | Fields | Notes |
-|-------|--------|-------|
-| `games` | id, player1Id, player2Id, status, currentTurn, player1Letters, player2Letters, winnerId, completedAt | S.K.A.T.E. game records. **Final results live here.** |
-| `gameTurns` | id, gameId, playerId, turnNumber, trickDescription, result, judgedBy | Turn-by-turn history. |
-| `battles` | id, creatorId, opponentId, status, winnerId, clipUrl | 1v1 battle records. |
-| `battleVotes` | id, battleId, odv, vote | Battle voting. |
-| `challenges` | id, challengerId, challengedId, status, gameId | Challenge requests. |
+| Table         | Fields                                                                                               | Notes                                                 |
+| ------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `games`       | id, player1Id, player2Id, status, currentTurn, player1Letters, player2Letters, winnerId, completedAt | S.K.A.T.E. game records. **Final results live here.** |
+| `gameTurns`   | id, gameId, playerId, turnNumber, trickDescription, result, judgedBy                                 | Turn-by-turn history.                                 |
+| `battles`     | id, creatorId, opponentId, status, winnerId, clipUrl                                                 | 1v1 battle records.                                   |
+| `battleVotes` | id, battleId, odv, vote                                                                              | Battle voting.                                        |
+| `challenges`  | id, challengerId, challengedId, status, gameId                                                       | Challenge requests.                                   |
 
 ### Progression
 
-| Table | Fields | Notes |
-|-------|--------|-------|
-| `trickMastery` | userId, trick, level, landedCount, streak | Trick progression per user. |
-| `closetItems` | id, userId, type, brand, name, imageUrl, rarity | Collectible gear. |
+| Table          | Fields                                          | Notes                       |
+| -------------- | ----------------------------------------------- | --------------------------- |
+| `trickMastery` | userId, trick, level, landedCount, streak       | Trick progression per user. |
+| `closetItems`  | id, userId, type, brand, name, imageUrl, rarity | Collectible gear.           |
 
 ### Commerce & Admin
 
-| Table | Fields | Notes |
-|-------|--------|-------|
-| `products`, `orders`, `donations` | All fields | E-commerce data. |
+| Table                                           | Fields     | Notes                    |
+| ----------------------------------------------- | ---------- | ------------------------ |
+| `products`, `orders`, `donations`               | All fields | E-commerce data.         |
 | `auditLogs`, `loginAttempts`, `accountLockouts` | All fields | Security and compliance. |
-| `feedback` | All fields | User feedback. |
+| `feedback`                                      | All fields | User feedback.           |
 
 ---
 
@@ -63,10 +63,10 @@ If data exists in both places, PostgreSQL wins. Firestore is updated via sync jo
 
 These collections are the source of truth because they represent ephemeral or real-time-only state that doesn't need permanent storage:
 
-| Collection | Purpose | Why Firestore |
-|------------|---------|---------------|
-| `chatMessages` | AI Skate Buddy conversations | Ephemeral chat, no long-term value |
-| `presence` | Online/offline status | Inherently real-time, no history needed |
+| Collection       | Purpose                             | Why Firestore                           |
+| ---------------- | ----------------------------------- | --------------------------------------- |
+| `chatMessages`   | AI Skate Buddy conversations        | Ephemeral chat, no long-term value      |
+| `presence`       | Online/offline status               | Inherently real-time, no history needed |
 | `activeCheckins` | Currently checked-in users at spots | Ephemeral presence, expires on checkout |
 
 ---
@@ -75,13 +75,13 @@ These collections are the source of truth because they represent ephemeral or re
 
 These collections mirror PostgreSQL data for real-time client subscriptions. **The server writes here after writing to PostgreSQL.** Clients should never trust these as authoritative.
 
-| Collection | Mirrors | Sync Trigger |
-|------------|---------|--------------|
-| `users` | `userProfiles` (subset) | Profile update API |
-| `gameSessions` | `games` (active only) | Game state change API |
-| `leaderboardLive` | Computed from `userProfiles` + `checkIns` | Admin job / check-in event |
-| `notifications` | Server-generated | Server creates after relevant events |
-| `challengeVotes` | `battleVotes` for active battles | Vote submission |
+| Collection        | Mirrors                                   | Sync Trigger                         |
+| ----------------- | ----------------------------------------- | ------------------------------------ |
+| `users`           | `userProfiles` (subset)                   | Profile update API                   |
+| `gameSessions`    | `games` (active only)                     | Game state change API                |
+| `leaderboardLive` | Computed from `userProfiles` + `checkIns` | Admin job / check-in event           |
+| `notifications`   | Server-generated                          | Server creates after relevant events |
+| `challengeVotes`  | `battleVotes` for active battles          | Vote submission                      |
 
 ### Firestore `users` Collection Schema
 
@@ -89,12 +89,12 @@ This is a **projection** of PostgreSQL `userProfiles`. It contains a subset of f
 
 ```typescript
 interface FirestoreUserProfile {
-  userId: string;        // Same as userProfiles.id
-  displayName: string;   // Mirrored from userProfiles
-  photoURL?: string;     // Mirrored from userProfiles
-  xp: number;            // Mirrored from userProfiles.xp
-  level: number;         // Computed: Math.floor(xp / 500) + 1
-  isPro: boolean;        // Derived from subscription status
+  userId: string; // Same as userProfiles.id
+  displayName: string; // Mirrored from userProfiles
+  photoURL?: string; // Mirrored from userProfiles
+  xp: number; // Mirrored from userProfiles.xp
+  level: number; // Computed: Math.floor(xp / 500) + 1
+  isPro: boolean; // Derived from subscription status
   role: "skater" | "filmer" | "pro";
   updatedAt: Timestamp;
 }
@@ -106,19 +106,19 @@ interface FirestoreUserProfile {
 
 When someone asks "where does X live?", this table answers:
 
-| Field | Authoritative Store | Projection |
-|-------|---------------------|------------|
-| User XP | `userProfiles.xp` (PostgreSQL) | `users.xp` (Firestore) |
-| User Level | Computed: `Math.floor(xp / 500) + 1` | `users.level` (Firestore, derived from xp) |
-| User Points | Removed - use XP instead | - |
-| Check-in History | `checkIns` (PostgreSQL) | None |
-| Active Check-in Status | `activeCheckins` (Firestore) | None |
-| Leaderboard Rank | Computed from PostgreSQL | `leaderboardLive` (Firestore) |
-| Game Result | `games` (PostgreSQL) | None |
-| Active Game State | `games` (PostgreSQL) | `gameSessions` (Firestore) |
-| Trick Mastery | `trickMastery` (PostgreSQL) | None |
-| Chat Messages | `chatMessages` (Firestore) | None |
-| Online Status | `presence` (Firestore) | None |
+| Field                  | Authoritative Store                  | Projection                                 |
+| ---------------------- | ------------------------------------ | ------------------------------------------ |
+| User XP                | `userProfiles.xp` (PostgreSQL)       | `users.xp` (Firestore)                     |
+| User Level             | Computed: `Math.floor(xp / 500) + 1` | `users.level` (Firestore, derived from xp) |
+| User Points            | Removed - use XP instead             | -                                          |
+| Check-in History       | `checkIns` (PostgreSQL)              | None                                       |
+| Active Check-in Status | `activeCheckins` (Firestore)         | None                                       |
+| Leaderboard Rank       | Computed from PostgreSQL             | `leaderboardLive` (Firestore)              |
+| Game Result            | `games` (PostgreSQL)                 | None                                       |
+| Active Game State      | `games` (PostgreSQL)                 | `gameSessions` (Firestore)                 |
+| Trick Mastery          | `trickMastery` (PostgreSQL)          | None                                       |
+| Chat Messages          | `chatMessages` (Firestore)           | None                                       |
+| Online Status          | `presence` (Firestore)               | None                                       |
 
 ---
 
@@ -132,15 +132,19 @@ Used for data that must be consistent in real-time:
 // Example: Update user profile
 async function updateUserProfile(uid: string, updates: Partial<UserProfile>) {
   // 1. Write to PostgreSQL (authoritative)
-  await db.update(userProfiles)
+  await db
+    .update(userProfiles)
     .set({ ...updates, updatedAt: new Date() })
     .where(eq(userProfiles.id, uid));
 
   // 2. Sync to Firestore (projection)
-  await firestore.collection("users").doc(uid).update({
-    ...updates,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
+  await firestore
+    .collection("users")
+    .doc(uid)
+    .update({
+      ...updates,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 }
 ```
 
@@ -159,18 +163,22 @@ async function onCheckIn(userId: string) {
 
 // Background job
 async function updateLeaderboard(userId: string) {
-  const stats = await db.select({
-    xp: userProfiles.xp,
-    totalCheckIns: sql`COUNT(${checkIns.id})`,
-  })
-  .from(userProfiles)
-  .leftJoin(checkIns, eq(checkIns.userId, userId))
-  .where(eq(userProfiles.id, userId));
+  const stats = await db
+    .select({
+      xp: userProfiles.xp,
+      totalCheckIns: sql`COUNT(${checkIns.id})`,
+    })
+    .from(userProfiles)
+    .leftJoin(checkIns, eq(checkIns.userId, userId))
+    .where(eq(userProfiles.id, userId));
 
-  await firestore.collection("leaderboardLive").doc(userId).set({
-    ...stats,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-  });
+  await firestore
+    .collection("leaderboardLive")
+    .doc(userId)
+    .set({
+      ...stats,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
 }
 ```
 
@@ -252,9 +260,17 @@ useEffect(() => {
 
 ## Summary
 
-| Store | Role | Writes | Reads |
-|-------|------|--------|-------|
-| PostgreSQL | Source of truth | Server only | Server (for APIs, business logic) |
-| Firestore | Real-time projection | Server only (after PostgreSQL) | Client (for subscriptions) |
+| Store      | Role                 | Writes                         | Reads                             |
+| ---------- | -------------------- | ------------------------------ | --------------------------------- |
+| PostgreSQL | Source of truth      | Server only                    | Server (for APIs, business logic) |
+| Firestore  | Real-time projection | Server only (after PostgreSQL) | Client (for subscriptions)        |
 
 **When in doubt: PostgreSQL is the answer.**
+
+---
+
+## Consolidation Roadmap
+
+Remote S.K.A.T.E. game data (`games`, `rounds`, `videos`) and commerce data (`products`, `holds`, `orders`) currently live in Firestore without PostgreSQL backing. These are being migrated to PostgreSQL as source of truth in a phased plan.
+
+**See [DATABASE_CONSOLIDATION_PLAN.md](../DATABASE_CONSOLIDATION_PLAN.md)** for the full migration roadmap, collection-by-collection disposition, and timeline.

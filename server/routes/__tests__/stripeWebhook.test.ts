@@ -80,7 +80,7 @@ const mockDbReturns = {
 // Track calls to differentiate between tx queries (consumed check, user check) and post-tx queries (email lookup)
 let selectCallCount = 0;
 
-let mockIsDatabaseAvailable = true;
+let mockGetDbShouldThrow = false;
 
 function createMockDb() {
   const db: any = {
@@ -116,8 +116,10 @@ function createMockDb() {
 }
 
 vi.mock("../../db", () => ({
-  getDb: () => createMockDb(),
-  isDatabaseAvailable: () => mockIsDatabaseAvailable,
+  getDb: () => {
+    if (mockGetDbShouldThrow) throw new Error("Database not configured");
+    return createMockDb();
+  },
 }));
 
 // Mock Stripe
@@ -179,7 +181,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
     // Reset mock returns
     mockDbReturns.selectResult = [];
     mockDbReturns.updateResult = [];
-    mockIsDatabaseAvailable = true;
+    mockGetDbShouldThrow = false;
     selectCallCount = 0;
     mockRedisClient = null; // Default: no Redis (falls back to in-memory)
 
@@ -465,8 +467,40 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
+    it("rejects checkout session with wrong currency (M1 cheap-currency attack)", async () => {
+      const session: Stripe.Checkout.Session = {
+        id: "cs_test_currency",
+        metadata: {
+          userId: "user-1",
+          type: "premium_upgrade",
+        },
+        payment_status: "paid",
+        amount_total: 999,
+        currency: "jpy",
+      } as any;
+
+      const event: Stripe.Event = {
+        id: "evt_currency_mismatch",
+        type: "checkout.session.completed",
+        data: {
+          object: session,
+        },
+      } as any;
+
+      mockConstructEvent.mockReturnValue(event);
+
+      const req = mockRequest({
+        headers: { "stripe-signature": "valid_sig" },
+      });
+      const res = mockResponse();
+
+      await callWebhook(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+    });
+
     it("returns 500 when database is unavailable (so Stripe retries)", async () => {
-      mockIsDatabaseAvailable = false;
+      mockGetDbShouldThrow = true;
 
       const session: Stripe.Checkout.Session = {
         id: "cs_test_123",
@@ -476,6 +510,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
         },
         payment_status: "paid",
         amount_total: 999,
+        currency: "usd",
       } as any;
 
       const event: Stripe.Event = {
@@ -498,7 +533,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       expect(res.status).toHaveBeenCalledWith(500);
 
       // Restore for other tests
-      mockIsDatabaseAvailable = true;
+      mockGetDbShouldThrow = false;
     });
 
     it("logs error when user not found", async () => {
@@ -584,6 +619,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
         },
         payment_status: "paid",
         amount_total: 999,
+        currency: "usd",
       } as any;
 
       const event: Stripe.Event = {
@@ -631,6 +667,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
         },
         payment_status: "paid",
         amount_total: 999,
+        currency: "usd",
       } as any;
 
       const event: Stripe.Event = {
@@ -767,6 +804,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
         },
         payment_status: "paid",
         amount_total: 999,
+        currency: "usd",
       } as any;
 
       const event: Stripe.Event = {

@@ -6,6 +6,7 @@
  * - joinGame
  * - markSetComplete / markReplyComplete
  * - subscribeToGame / subscribeToRounds / subscribeToVideo / subscribeToMyGames
+ * - findRandomGame / cancelWaitingGame
  * - resolveRound
  */
 
@@ -14,12 +15,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock firebase/firestore
 const mockSetDoc = vi.fn().mockResolvedValue(undefined);
 const mockUpdateDoc = vi.fn().mockResolvedValue(undefined);
+const mockDeleteDoc = vi.fn().mockResolvedValue(undefined);
 const mockGetDocResult = { exists: vi.fn(() => true), data: vi.fn(), id: "mock-id" };
 const mockGetDoc = vi.fn().mockResolvedValue(mockGetDocResult);
+const mockGetDocs = vi.fn().mockResolvedValue({ docs: [], empty: true });
 const mockOnSnapshot = vi.fn(() => vi.fn()); // returns unsubscribe
 const mockQuery = vi.fn();
 const mockWhere = vi.fn();
 const mockOrderBy = vi.fn();
+const mockLimit = vi.fn();
 const mockServerTimestamp = vi.fn(() => ({ _serverTimestamp: true }));
 const mockCollection = vi.fn(() => ({ id: "generated-id" }));
 const mockDoc = vi.fn((..._args: any[]) => ({ id: "generated-id" }));
@@ -29,11 +33,14 @@ vi.mock("firebase/firestore", () => ({
   doc: (...args: any[]) => mockDoc(...args),
   setDoc: (...args: any[]) => mockSetDoc(...args),
   updateDoc: (...args: any[]) => mockUpdateDoc(...args),
+  deleteDoc: (...args: any[]) => mockDeleteDoc(...args),
   getDoc: (...args: any[]) => mockGetDoc(...args),
+  getDocs: (...args: any[]) => mockGetDocs(...args),
   onSnapshot: (...args: any[]) => mockOnSnapshot(...args),
   query: (...args: any[]) => mockQuery(...args),
   where: (...args: any[]) => mockWhere(...args),
   orderBy: (...args: any[]) => mockOrderBy(...args),
+  limit: (...args: any[]) => mockLimit(...args),
   serverTimestamp: () => mockServerTimestamp(),
   Timestamp: { now: vi.fn() },
   FieldValue: {},
@@ -56,6 +63,14 @@ vi.mock("../logger", () => ({
   },
 }));
 
+const mockApiRequest = vi.fn().mockResolvedValue({
+  success: true,
+  match: { opponentId: "random-user", opponentName: "RandomSkater", challengeId: "qm-123" },
+});
+vi.mock("../api/client", () => ({
+  apiRequest: (...args: any[]) => mockApiRequest(...args),
+}));
+
 const { RemoteSkateService } = await import("../remoteSkate/remoteSkateService");
 
 describe("RemoteSkateService", () => {
@@ -67,6 +82,10 @@ describe("RemoteSkateService", () => {
       playerBUid: null,
       status: "waiting",
       letters: { "user-1": "" },
+    });
+    mockApiRequest.mockResolvedValue({
+      success: true,
+      match: { opponentId: "random-user", opponentName: "RandomSkater", challengeId: "qm-123" },
     });
   });
 
@@ -447,6 +466,203 @@ describe("RemoteSkateService", () => {
 
       expect(callback).toHaveBeenCalledWith([]);
       expect(logger.error).toHaveBeenCalledWith("[RemoteSkate] My games subscription error", error);
+    });
+  });
+
+  describe("findRandomGame", () => {
+    it("should join an existing waiting game when one is available", async () => {
+      // First getDocs call returns a waiting game from another user
+      mockGetDocs.mockResolvedValueOnce({
+        docs: [
+          {
+            id: "waiting-game-1",
+            data: () => ({ playerAUid: "other-user", playerBUid: null, status: "waiting" }),
+          },
+        ],
+        empty: false,
+      });
+
+      // joinGame's getDoc will return the game data
+      mockGetDocResult.data.mockReturnValue({
+        playerAUid: "other-user",
+        playerBUid: null,
+        status: "waiting",
+        letters: { "other-user": "" },
+      });
+
+      const result = await RemoteSkateService.findRandomGame();
+
+      expect(result).toEqual({ gameId: "waiting-game-1", matched: true });
+    });
+
+    it("should rejoin own existing waiting game when no others available", async () => {
+      // First getDocs: no joinable games (only our own)
+      mockGetDocs
+        .mockResolvedValueOnce({
+          docs: [
+            {
+              id: "my-game",
+              data: () => ({ playerAUid: "user-1", playerBUid: null, status: "waiting" }),
+            },
+          ],
+          empty: false,
+        })
+        // Second getDocs: our own waiting game found
+        .mockResolvedValueOnce({
+          docs: [{ id: "my-game" }],
+          empty: false,
+        });
+
+      const result = await RemoteSkateService.findRandomGame();
+
+      expect(result.gameId).toBe("my-game");
+      expect(result.matched).toBe(false);
+      // Should call server to re-notify a random opponent
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/matchmaking/quick-match",
+          body: { gameId: "my-game" },
+        })
+      );
+    });
+
+    it("should create a new game and notify random opponent when no waiting games exist", async () => {
+      // First getDocs: no games at all
+      mockGetDocs
+        .mockResolvedValueOnce({ docs: [], empty: true })
+        // Second getDocs: no own waiting game either
+        .mockResolvedValueOnce({ docs: [], empty: true });
+
+      const result = await RemoteSkateService.findRandomGame();
+
+      expect(result.matched).toBe(false);
+      expect(result.gameId).toBeDefined();
+      expect(result.opponentName).toBe("RandomSkater");
+      expect(mockSetDoc).toHaveBeenCalled(); // createGame called
+      // Should call server to notify a random opponent
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/matchmaking/quick-match",
+        })
+      );
+    });
+
+    it("should throw when not logged in", async () => {
+      const { auth } = await import("../firebase");
+      const original = auth.currentUser;
+      (auth as any).currentUser = null;
+
+      await expect(RemoteSkateService.findRandomGame()).rejects.toThrow(
+        "Must be logged in to play"
+      );
+
+      (auth as any).currentUser = original;
+    });
+
+    it("should skip games where playerBUid is already set", async () => {
+      // First getDocs: game exists but is full
+      mockGetDocs
+        .mockResolvedValueOnce({
+          docs: [
+            {
+              id: "full-game",
+              data: () => ({
+                playerAUid: "other-user",
+                playerBUid: "third-user",
+                status: "waiting",
+              }),
+            },
+          ],
+          empty: false,
+        })
+        // Second getDocs: no own waiting game
+        .mockResolvedValueOnce({ docs: [], empty: true });
+
+      const result = await RemoteSkateService.findRandomGame();
+
+      // Should have created a new game since the found game was full
+      expect(result.matched).toBe(false);
+      expect(mockSetDoc).toHaveBeenCalled();
+      // Should also notify a random opponent
+      expect(mockApiRequest).toHaveBeenCalled();
+    });
+
+    it("should still return gameId when opponent notification fails", async () => {
+      // Notification fails (non-blocking)
+      mockApiRequest.mockRejectedValueOnce(new Error("No opponents available"));
+
+      // First getDocs: no games at all
+      mockGetDocs
+        .mockResolvedValueOnce({ docs: [], empty: true })
+        // Second getDocs: no own waiting game either
+        .mockResolvedValueOnce({ docs: [], empty: true });
+
+      const result = await RemoteSkateService.findRandomGame();
+
+      expect(result.matched).toBe(false);
+      expect(result.gameId).toBeDefined();
+      expect(result.opponentName).toBeUndefined();
+      expect(mockSetDoc).toHaveBeenCalled();
+    });
+  });
+
+  describe("cancelWaitingGame", () => {
+    it("should delete a waiting game owned by current user", async () => {
+      mockGetDocResult.exists.mockReturnValue(true);
+      mockGetDocResult.data.mockReturnValue({
+        playerAUid: "user-1",
+        status: "waiting",
+      });
+
+      await RemoteSkateService.cancelWaitingGame("game-1");
+
+      expect(mockDeleteDoc).toHaveBeenCalled();
+    });
+
+    it("should throw when trying to cancel another user's game", async () => {
+      mockGetDocResult.exists.mockReturnValue(true);
+      mockGetDocResult.data.mockReturnValue({
+        playerAUid: "other-user",
+        status: "waiting",
+      });
+
+      await expect(RemoteSkateService.cancelWaitingGame("game-1")).rejects.toThrow(
+        "Cannot cancel another player's game"
+      );
+    });
+
+    it("should no-op when game does not exist", async () => {
+      mockGetDocResult.exists.mockReturnValue(false);
+
+      await RemoteSkateService.cancelWaitingGame("nonexistent");
+
+      expect(mockDeleteDoc).not.toHaveBeenCalled();
+    });
+
+    it("should no-op when game is not in waiting status", async () => {
+      mockGetDocResult.exists.mockReturnValue(true);
+      mockGetDocResult.data.mockReturnValue({
+        playerAUid: "user-1",
+        status: "active",
+      });
+
+      await RemoteSkateService.cancelWaitingGame("game-1");
+
+      expect(mockDeleteDoc).not.toHaveBeenCalled();
+    });
+
+    it("should throw when not logged in", async () => {
+      const { auth } = await import("../firebase");
+      const original = auth.currentUser;
+      (auth as any).currentUser = null;
+
+      await expect(RemoteSkateService.cancelWaitingGame("game-1")).rejects.toThrow(
+        "Must be logged in"
+      );
+
+      (auth as any).currentUser = original;
     });
   });
 

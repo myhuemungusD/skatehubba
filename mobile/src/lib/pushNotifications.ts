@@ -30,6 +30,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
   // Push notifications only work on physical devices
   if (!Device.isDevice) {
     if (__DEV__) {
+      // eslint-disable-next-line no-console -- development-only diagnostic guarded by __DEV__; explains to the developer why push token registration is skipped in simulators
       console.log("[Push] Skipping registration — not a physical device");
     }
     return null;
@@ -47,6 +48,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
 
   if (finalStatus !== "granted") {
     if (__DEV__) {
+      // eslint-disable-next-line no-console -- development-only diagnostic guarded by __DEV__; surfaces permission denial status for debugging without crashing
       console.log("[Push] Permission not granted:", finalStatus);
     }
     return null;

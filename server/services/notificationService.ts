@@ -7,7 +7,7 @@
 
 import { Expo, ExpoPushMessage, ExpoPushTicket } from "expo-server-sdk";
 import logger from "../logger";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import {
   notifications,
   notificationPreferences,
@@ -127,8 +127,6 @@ export async function sendQuickMatchNotification(
 // ============================================================================
 
 async function getUserPrefs(userId: string): Promise<NotificationPrefs> {
-  if (!isDatabaseAvailable()) return DEFAULT_NOTIFICATION_PREFS;
-
   try {
     const db = getDb();
     const [prefs] = await db
@@ -219,8 +217,6 @@ async function persistNotification(
   body: string,
   data?: Record<string, unknown>
 ): Promise<void> {
-  if (!isDatabaseAvailable()) return;
-
   try {
     const db = getDb();
     await db.insert(notifications).values({
@@ -243,8 +239,6 @@ async function sendPushToUser(
   body: string,
   data?: Record<string, unknown>
 ): Promise<void> {
-  if (!isDatabaseAvailable()) return;
-
   try {
     const db = getDb();
     const [user] = await db
@@ -273,8 +267,6 @@ async function sendEmailToUser(
   _title: string,
   data?: Record<string, unknown>
 ): Promise<void> {
-  if (!isDatabaseAvailable()) return;
-
   try {
     const db = getDb();
     const [user] = await db

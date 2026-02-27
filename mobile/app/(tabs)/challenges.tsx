@@ -5,6 +5,7 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -23,7 +24,12 @@ function ChallengesScreenContent() {
   const { user, isAuthenticated } = useRequireAuth();
   const router = useRouter();
 
-  const { data: challenges, isLoading } = useQuery({
+  const {
+    data: challenges,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ["challenges", user?.uid],
     queryFn: async () => {
       if (!user) return [];
@@ -73,6 +79,7 @@ function ChallengesScreenContent() {
               accessibilityRole="button"
               accessibilityLabel="Respond to challenge now"
               style={styles.respondButton}
+              onPress={() => router.push(`/challenge/${item.id}`)}
             >
               <Text style={styles.respondButtonText}>Respond Now</Text>
             </TouchableOpacity>
@@ -121,6 +128,14 @@ function ChallengesScreenContent() {
           renderItem={renderChallenge}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={refetch}
+              tintColor={SKATE.colors.orange}
+              colors={[SKATE.colors.orange]}
+            />
+          }
         />
       )}
     </View>

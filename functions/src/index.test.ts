@@ -58,6 +58,14 @@ const mocks = vi.hoisted(() => {
 
   const ffprobeFn = vi.fn();
 
+  const logger = {
+    log: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+    debug: vi.fn(),
+  };
+
   return {
     transaction,
     runTransaction,
@@ -70,6 +78,7 @@ const mocks = vi.hoisted(() => {
     bucket,
     storageInstance,
     ffprobeFn,
+    logger,
   };
 });
 
@@ -89,6 +98,7 @@ vi.mock("firebase-functions", () => ({
     onCall: vi.fn((handler: any) => handler),
   },
   config: () => ({}),
+  logger: mocks.logger,
   storage: {
     object: () => ({
       onFinalize: vi.fn((handler: any) => handler),
@@ -160,10 +170,21 @@ import {
   getUserRoles,
   submitTrick,
   judgeTrick,
+  setterBail,
   getVideoUrl,
   validateChallengeVideo,
   processVoteTimeouts,
 } from "./index";
+
+import * as functions from "firebase-functions";
+
+const mockLogger = functions.logger as unknown as {
+  log: ReturnType<typeof vi.fn>;
+  info: ReturnType<typeof vi.fn>;
+  warn: ReturnType<typeof vi.fn>;
+  error: ReturnType<typeof vi.fn>;
+  debug: ReturnType<typeof vi.fn>;
+};
 
 // ============================================================================
 // Test helpers
@@ -212,6 +233,8 @@ describe("SkateHubba Cloud Functions", () => {
     mocks.firestoreInstance.collection.mockReturnValue(mocks.collectionRef);
     mocks.firestoreInstance.doc.mockReturnValue(mocks.docRef);
     mocks.runTransaction.mockImplementation(async (fn: any) => fn(mocks.transaction));
+    // Default: no existing rate-limit entry (first request in window — always allowed)
+    mocks.transaction.get.mockResolvedValue({ exists: false, data: () => ({}) });
     mocks.bucket.file.mockReturnValue(mocks.bucketFile);
     mocks.storageInstance.bucket.mockReturnValue(mocks.bucket);
     mocks.docRef.get.mockResolvedValue({ exists: false, data: () => ({}), get: () => null });
@@ -300,9 +323,11 @@ describe("SkateHubba Cloud Functions", () => {
       const ctx = makeContext({ uid, roles: ["admin"] });
       const data = { targetUid: "tgt", role: "moderator", action: "grant" };
 
-      for (let i = 0; i < 10; i++) {
-        await (manageUserRole as any)(data, ctx);
-      }
+      // Simulate Firestore state: rate-limit window is full (10/10 requests used)
+      mocks.transaction.get.mockResolvedValue({
+        exists: true,
+        data: () => ({ count: 10, resetAt: { toMillis: () => Date.now() + 60_000 } }),
+      });
 
       await expect((manageUserRole as any)(data, ctx)).rejects.toThrow("Too many requests");
     });
@@ -325,7 +350,7 @@ describe("SkateHubba Cloud Functions", () => {
       const uid = freshUid("ac-warn");
       const ctx = makeContext({ uid, roles: ["admin"], app: false });
       await (manageUserRole as any)({ targetUid: "tgt", role: "moderator", action: "grant" }, ctx);
-      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[Security]"), uid);
+      expect(mocks.logger.warn).toHaveBeenCalledWith(expect.stringContaining("[Security]"), uid);
     });
 
     it("does not warn when App Check token is present", async () => {
@@ -333,7 +358,7 @@ describe("SkateHubba Cloud Functions", () => {
       const uid = freshUid("ac-ok");
       const ctx = makeContext({ uid, roles: ["admin"], app: true });
       await (manageUserRole as any)({ targetUid: "tgt", role: "moderator", action: "grant" }, ctx);
-      expect(console.warn).not.toHaveBeenCalledWith(
+      expect(mocks.logger.warn).not.toHaveBeenCalledWith(
         expect.stringContaining("[Security]"),
         expect.anything()
       );
@@ -1755,7 +1780,7 @@ describe("SkateHubba Cloud Functions", () => {
           bucket: "b",
         })
       ).resolves.not.toThrow();
-      expect(console.error).toHaveBeenCalledWith(
+      expect(mocks.logger.error).toHaveBeenCalledWith(
         expect.stringContaining("[validateChallengeVideo]"),
         expect.anything(),
         expect.anything()
@@ -1811,11 +1836,11 @@ describe("SkateHubba Cloud Functions", () => {
         { gameId: "g1", clipUrl: "u", trickName: null, isSetTrick: true, idempotencyKey: "k-log1" },
         ctx
       );
-      expect(console.log).toHaveBeenCalledWith(
+      expect(mocks.logger.log).toHaveBeenCalledWith(
         "[TransactionMonitor]",
         expect.stringContaining('"transaction":"submitTrick"')
       );
-      expect(console.log).toHaveBeenCalledWith(
+      expect(mocks.logger.log).toHaveBeenCalledWith(
         "[TransactionMonitor]",
         expect.stringContaining('"gameId":"g1"')
       );
@@ -1856,7 +1881,7 @@ describe("SkateHubba Cloud Functions", () => {
         },
         ctx
       );
-      expect(console.warn).toHaveBeenCalledWith(
+      expect(mocks.logger.warn).toHaveBeenCalledWith(
         expect.stringContaining("[TransactionMonitor] Contention detected"),
         expect.stringContaining('"retried":true')
       );
@@ -2008,7 +2033,7 @@ describe("SkateHubba Cloud Functions", () => {
       await (processVoteTimeouts as any)();
 
       // Should log the error but not crash
-      expect(console.error).toHaveBeenCalledWith(
+      expect(mocks.logger.error).toHaveBeenCalledWith(
         expect.stringContaining("[VoteReminder] Failed to send notification"),
         expect.anything()
       );
@@ -2122,7 +2147,7 @@ describe("SkateHubba Cloud Functions", () => {
 
       await (processVoteTimeouts as any)();
 
-      expect(console.error).toHaveBeenCalledWith(
+      expect(mocks.logger.error).toHaveBeenCalledWith(
         expect.stringContaining("[VoteTimeout] Failed to notify"),
         expect.anything()
       );
@@ -2143,6 +2168,204 @@ describe("SkateHubba Cloud Functions", () => {
 
       expect(gameDoc.ref.update).not.toHaveBeenCalled();
       expect(mocks.runTransaction).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==========================================================================
+  // Integration-style: full game flow scenario
+  // ==========================================================================
+
+  // ==========================================================================
+  // setterBail
+  // ==========================================================================
+
+  describe("setterBail", () => {
+    const bailGame = (overrides: Record<string, any> = {}) => ({
+      player1Id: "p1",
+      player2Id: "p2",
+      currentTurn: "p1",
+      currentAttacker: "p1",
+      turnPhase: "attacker_recording",
+      roundNumber: 1,
+      moves: [],
+      processedIdempotencyKeys: [],
+      currentSetMove: null,
+      player1Letters: [],
+      player2Letters: [],
+      status: "active",
+      winnerId: null,
+      ...overrides,
+    });
+
+    it("rejects unauthenticated caller", async () => {
+      await expect(
+        (setterBail as any)({ gameId: "g", idempotencyKey: "k" }, noAuthContext())
+      ).rejects.toThrow("Not logged in");
+    });
+
+    it("rejects missing gameId", async () => {
+      const ctx = makeContext({ uid: freshUid("sb") });
+      await expect((setterBail as any)({ gameId: "", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Missing gameId"
+      );
+    });
+
+    it("throws not-found when game does not exist", async () => {
+      mocks.transaction.get.mockResolvedValue({ exists: false });
+      const ctx = makeContext({ uid: "p1" });
+      await expect(
+        (setterBail as any)({ gameId: "ghost", idempotencyKey: "k" }, ctx)
+      ).rejects.toThrow("Game not found");
+    });
+
+    it("returns duplicate:true for already-processed idempotency key", async () => {
+      const game = bailGame({ processedIdempotencyKeys: ["dup-bail"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "dup-bail" }, ctx);
+      expect(res).toMatchObject({ success: true, duplicate: true });
+    });
+
+    it("rejects when game is not active", async () => {
+      const game = bailGame({ status: "completed" });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Game is not active"
+      );
+    });
+
+    it("rejects when caller is not the attacker", async () => {
+      const game = bailGame({ currentAttacker: "p1" });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p2" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Only the setter can declare a bail"
+      );
+    });
+
+    it("rejects when not in attacker_recording phase", async () => {
+      const game = bailGame({ turnPhase: "judging" });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Can only bail during set trick phase"
+      );
+    });
+
+    it("rejects when player already has S.K.A.T.E.", async () => {
+      const game = bailGame({ player1Letters: ["S", "K", "A", "T", "E"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Player already has S.K.A.T.E."
+      );
+    });
+
+    it("assigns a letter to player1 setter and swaps roles", async () => {
+      const game = bailGame({ player1Letters: ["S"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb1" }, ctx);
+      expect(res).toMatchObject({
+        success: true,
+        gameOver: false,
+        winnerId: null,
+        duplicate: false,
+      });
+      expect(res.message).toContain("Letter earned");
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player1Letters).toEqual(["S", "K"]);
+      expect(update.currentAttacker).toBe("p2");
+      expect(update.currentTurn).toBe("p2");
+      expect(update.turnPhase).toBe("attacker_recording");
+      expect(update.roundNumber).toBe(2);
+      expect(update.currentSetMove).toBeNull();
+    });
+
+    it("assigns a letter to player2 setter and swaps roles", async () => {
+      const game = bailGame({
+        currentAttacker: "p2",
+        currentTurn: "p2",
+        player2Letters: [],
+      });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p2" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb2" }, ctx);
+      expect(res.gameOver).toBe(false);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player2Letters).toEqual(["S"]);
+      expect(update.currentAttacker).toBe("p1");
+    });
+
+    it("ends game when setter gets 5th letter (S.K.A.T.E.)", async () => {
+      const game = bailGame({ player1Letters: ["S", "K", "A", "T"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb-go" }, ctx);
+      expect(res).toMatchObject({
+        success: true,
+        gameOver: true,
+        winnerId: "p2",
+        duplicate: false,
+      });
+      expect(res.message).toContain("Game over");
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player1Letters).toEqual(["S", "K", "A", "T", "E"]);
+      expect(update.status).toBe("completed");
+      expect(update.winnerId).toBe("p2");
+      expect(update.turnPhase).toBe("round_complete");
+    });
+
+    it("ends game when player2 setter gets 5th letter", async () => {
+      const game = bailGame({
+        currentAttacker: "p2",
+        currentTurn: "p2",
+        player2Letters: ["S", "K", "A", "T"],
+      });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p2" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb-go2" }, ctx);
+      expect(res.gameOver).toBe(true);
+      expect(res.winnerId).toBe("p1");
+    });
+
+    it("caps idempotency keys at 50", async () => {
+      const keys = Array.from({ length: 50 }, (_, i) => `bk${i}`);
+      const game = bailGame({ processedIdempotencyKeys: keys });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await (setterBail as any)({ gameId: "g", idempotencyKey: "bk-new" }, ctx);
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.processedIdempotencyKeys).toHaveLength(50);
+      expect(update.processedIdempotencyKeys).toContain("bk-new");
+      expect(update.processedIdempotencyKeys).not.toContain("bk0");
+    });
+
+    it("handles missing idempotencyKey gracefully", async () => {
+      const game = bailGame();
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "" }, ctx);
+      expect(res.success).toBe(true);
+      expect(res.duplicate).toBe(false);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.processedIdempotencyKeys).toEqual([]);
+    });
+
+    it("handles null player letters", async () => {
+      const game = bailGame({ player1Letters: null });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb-null" }, ctx);
+      expect(res.success).toBe(true);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player1Letters).toEqual(["S"]);
     });
   });
 

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
+declare const globalThis: { __DEV__: boolean };
+globalThis.__DEV__ = false;
+
 // Mock the config dependencies — all from the main entry point
 // since the mobile tsconfig uses moduleResolution: "node"
 vi.mock("@skatehubba/config", () => ({

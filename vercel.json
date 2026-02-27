@@ -12,6 +12,7 @@
     }
   },
   "rewrites": [
+    { "source": "/api/env-check", "destination": "/api/env-check" },
     { "source": "/api/(.*)", "destination": "/api" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]

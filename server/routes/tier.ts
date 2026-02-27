@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { getDb, isDatabaseAvailable } from "../db";
+import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { requirePaidOrPro } from "../middleware/requirePaidOrPro";
 import { customUsers, consumedPaymentIntents } from "@shared/schema";
@@ -51,10 +51,6 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, proAwardLimiter, a
 
   if (userId === awarder.id) {
     return Errors.badRequest(res, "SELF_AWARD", "You can't award Pro to yourself.");
-  }
-
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
   }
 
   try {
@@ -154,7 +150,12 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, proAwardLimiter, a
  * Uses idempotency keys to prevent duplicate sessions.
  */
 const createCheckoutSchema = z.object({
-  idempotencyKey: z.string().min(1).max(255),
+  // L7: Require minimum entropy in idempotency keys to prevent prediction
+  idempotencyKey: z
+    .string()
+    .min(16)
+    .max(255)
+    .regex(/^[a-zA-Z0-9_-]+$/, "Invalid key format"),
 });
 
 router.post("/create-checkout-session", authenticateUser, async (req, res) => {
@@ -262,10 +263,6 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
     });
   }
 
-  if (!isDatabaseAvailable()) {
-    return Errors.dbUnavailable(res);
-  }
-
   try {
     // Verify the paymentIntentId with Stripe before granting premium access
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -296,6 +293,17 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
           paymentIntentId,
         });
         return sendError(res, 402, "PAYMENT_AMOUNT_INVALID", "Payment amount invalid.");
+      }
+
+      // H6: Verify currency to prevent cheap-currency bypass
+      if (intent.currency !== "usd") {
+        logger.error("Payment intent currency mismatch", {
+          userId: user.id,
+          expected: "usd",
+          received: intent.currency,
+          paymentIntentId,
+        });
+        return sendError(res, 402, "PAYMENT_CURRENCY_INVALID", "Payment currency invalid.");
       }
 
       // Verify payment intent belongs to current user

@@ -201,7 +201,6 @@ export function AddSpotModal({ isOpen, onClose, userLocation }: AddSpotModalProp
                 placeholderTextColor={SKATE.colors.gray}
                 style={styles.input}
                 maxLength={100}
-                autoFocus
               />
             </View>
 

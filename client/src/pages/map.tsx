@@ -1,12 +1,12 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MapPin, Navigation as NavigationIcon, Plus, Eye, Search, Loader2 } from "lucide-react";
+import { MapPin, Navigation as NavigationIcon, Plus, Eye, Loader2 } from "lucide-react";
 import { type Spot } from "@shared/schema";
 import { AddSpotModal } from "../components/map/AddSpotModal";
 import { SpotDetailModal } from "../components/map/SpotDetailModal";
-import { MapHeader } from "../components/map/MapHeader";
 import { SpotMap } from "../components/SpotMap";
 import { Button } from "../components/ui/button";
+import { Card, CardContent } from "../components/ui/card";
 import { useToast } from "../hooks/use-toast";
 import { useGeolocation } from "../hooks/useGeolocation";
 import { useAccountTier } from "../hooks/useAccountTier";
@@ -50,8 +50,6 @@ export default function MapPage() {
   const [isAddSpotOpen, setIsAddSpotOpen] = useState(false);
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeTypeFilter, setActiveTypeFilter] = useState<string | null>(null);
 
   // Handle return from Stripe Checkout
   useEffect(() => {
@@ -78,7 +76,7 @@ export default function MapPage() {
       url.searchParams.delete("upgrade");
       window.history.replaceState({}, "", url.pathname + url.search);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally runs once on mount; URL params are read only at page load to handle Stripe redirect state and should not re-run on subsequent renders
 
   // ---------------------------------------------------------------------------
   // Geolocation
@@ -179,26 +177,10 @@ export default function MapPage() {
     });
   }, [spots, userLocation]);
 
-  const filteredSpots = useMemo(() => {
-    let result = spotsWithDistance;
-
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      result = result.filter(
-        (s) => s.name.toLowerCase().includes(q) || s.description?.toLowerCase().includes(q)
-      );
-    }
-
-    if (activeTypeFilter) {
-      result = result.filter((s) => s.spotType === activeTypeFilter);
-    }
-
-    return result;
-  }, [spotsWithDistance, searchQuery, activeTypeFilter]);
-
+  // Pre-compute check-in count to avoid .filter() in render
   const checkInRangeCount = useMemo(() => {
-    return filteredSpots.filter((s) => s.proximity === "here").length;
-  }, [filteredSpots]);
+    return spotsWithDistance.filter((s) => s.proximity === "here").length;
+  }, [spotsWithDistance]);
 
   const selectedSpot = useMemo<SpotWithDistance | null>(() => {
     if (selectedSpotId === null) return null;
@@ -270,11 +252,11 @@ export default function MapPage() {
     }
 
     if (geolocation.status === "ready") {
-      if (filteredSpots.length === 0 && !searchQuery && !activeTypeFilter) {
+      if (spotsWithDistance.length === 0) {
         return (
           <p className="text-sm text-gray-400 flex items-center gap-1 mt-1">
-            <Search className="w-3 h-3" />
-            No spots nearby yet. Drop a pin to add one!
+            <MapPin className="w-3 h-3" />
+            No spots nearby yet. Add one!
           </p>
         );
       }
@@ -305,10 +287,8 @@ export default function MapPage() {
     isSpotsLoading,
     isUsingDemoSpots,
     geolocation.status,
-    filteredSpots.length,
+    spotsWithDistance.length,
     checkInRangeCount,
-    searchQuery,
-    activeTypeFilter,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -327,7 +307,7 @@ export default function MapPage() {
           </div>
         ) : (
           <SpotMap
-            spots={filteredSpots}
+            spots={spotsWithDistance}
             userLocation={userLocation}
             selectedSpotId={selectedSpotId}
             onSelectSpot={handleSelectSpot}
@@ -355,15 +335,25 @@ export default function MapPage() {
           geolocationErrorCode={geolocation.errorCode}
         />
 
-        <MapHeader
-          spotsCount={spots.length}
-          isSpotsLoading={isSpotsLoading}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          activeTypeFilter={activeTypeFilter}
-          onTypeFilterChange={setActiveTypeFilter}
-          statusMessage={statusMessage}
-        />
+        {/* Floating Header */}
+        <header className="absolute top-4 left-4 right-4 z-[1000] pointer-events-none">
+          <Card className="bg-black/80 border-gray-600 backdrop-blur-md pointer-events-auto">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-bold text-[#fafafa] flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-[#ff6a00]" aria-hidden="true" />
+                    Skate Spots
+                    {!isSpotsLoading && spots.length > 0 && (
+                      <span className="text-sm font-normal text-gray-500">({spots.length})</span>
+                    )}
+                  </h1>
+                  {statusMessage}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </header>
       </main>
 
       <SpotDetailModal

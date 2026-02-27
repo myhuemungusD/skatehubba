@@ -1,0 +1,81 @@
+import { Router } from "express";
+import { authSessions } from "@shared/schema";
+import { lt } from "drizzle-orm";
+import { getDb } from "../db";
+import { verifyCronSecret } from "../middleware/cronAuth";
+import { apiLimiter } from "../middleware/security";
+import { forfeitExpiredGames, notifyDeadlineWarnings, forfeitStalledGames } from "./games";
+import logger from "../logger";
+
+const router = Router();
+
+// H9: Rate limit cron endpoints to mitigate brute-force secret guessing
+router.use(apiLimiter);
+
+// POST /api/cron/forfeit-expired-games — auto-forfeit expired games
+router.post("/forfeit-expired-games", async (req, res) => {
+  if (!verifyCronSecret(req.headers.authorization)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const result = await forfeitExpiredGames();
+    logger.info("[Cron] Forfeit expired games completed", result);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    logger.error("[Cron] Forfeit expired games failed", { error });
+    res.status(500).json({ error: "Failed to process forfeit" });
+  }
+});
+
+// POST /api/cron/deadline-warnings — send deadline warnings (≤1 hour remaining)
+router.post("/deadline-warnings", async (req, res) => {
+  if (!verifyCronSecret(req.headers.authorization)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const result = await notifyDeadlineWarnings();
+    logger.info("[Cron] Deadline warnings sent", result);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    logger.error("[Cron] Deadline warnings failed", { error });
+    res.status(500).json({ error: "Failed to send deadline warnings" });
+  }
+});
+
+// POST /api/cron/forfeit-stalled-games — 7-day hard cap, closest-to-losing takes the loss
+router.post("/forfeit-stalled-games", async (req, res) => {
+  if (!verifyCronSecret(req.headers.authorization)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const result = await forfeitStalledGames();
+    logger.info("[Cron] Forfeit stalled games completed", result);
+    res.json({ success: true, ...result });
+  } catch (error) {
+    logger.error("[Cron] Forfeit stalled games failed", { error });
+    res.status(500).json({ error: "Failed to process stalled game forfeit" });
+  }
+});
+
+// POST /api/cron/cleanup-sessions — clean up expired auth sessions (M5 audit finding)
+router.post("/cleanup-sessions", async (req, res) => {
+  if (!verifyCronSecret(req.headers.authorization)) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const db = getDb();
+    const result = await db.delete(authSessions).where(lt(authSessions.expiresAt, new Date()));
+    const deleted = (result as { rowCount?: number }).rowCount ?? 0;
+    logger.info("[Cron] Expired sessions cleaned up", { deleted });
+    res.json({ success: true, deleted });
+  } catch (error) {
+    logger.error("[Cron] Session cleanup failed", { error });
+    res.status(500).json({ error: "Failed to cleanup sessions" });
+  }
+});
+
+export const cronRouter = router;

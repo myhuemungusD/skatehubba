@@ -1,110 +1,67 @@
-# SkateHubba
+<p align="center">
+  <strong>S K A T E H U B B A</strong>
+</p>
 
-**Play S.K.A.T.E. remotely with skaters around the world.**
+<p align="center">
+  The first async, turn-based S.K.A.T.E. game for skaters worldwide.
+</p>
 
-[![Try Demo](https://img.shields.io/badge/Try%20Demo-staging.skatehubba.com-f59e0b?style=for-the-badge&logo=skateboarding)](https://staging.skatehubba.com)
-[![CI](https://github.com/myhuemungusD/skatehubba/actions/workflows/ci.yml/badge.svg)](https://github.com/myhuemungusD/skatehubba/actions/workflows/ci.yml)
-
-The first app built for remote, async skateboarding battles.
-Challenge anyone, anywhere — record tricks on your schedule,
-judge opponents' attempts, and compete without being at the same spot.
-No coordination needed. Just you, your board, and skaters worldwide.
-
-> **What makes us different:** While other skate apps show you
-> spot maps, **SkateHubba lets you compete remotely** with video-based
-> S.K.A.T.E. games. Play against skaters in different cities, countries,
-> or time zones — asynchronously, on your own schedule.
+<p align="center">
+  <a href="https://github.com/myhuemungusD/skatehubba/actions/workflows/ci.yml"><img src="https://github.com/myhuemungusD/skatehubba/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/myhuemungusD/skatehubba/actions/workflows/codeql.yml"><img src="https://github.com/myhuemungusD/skatehubba/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+  <a href="https://github.com/myhuemungusD/skatehubba/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+  <a href="https://staging.skatehubba.com"><img src="https://img.shields.io/badge/demo-staging.skatehubba.com-f59e0b" alt="Demo"></a>
+</p>
 
 ---
 
-## Core Features
+Other skate apps help you find spots. **SkateHubba lets you compete remotely.**
 
-### Remote S.K.A.T.E.
-
-**Play the classic game of S.K.A.T.E. with anyone, anywhere, anytime.**
-
-- **Challenge Anyone, Anywhere** —
-  Play against skaters in different cities, time zones, or countries
-- **Video-Based Gameplay** —
-  Record your tricks (up to 30 s); no honor system, video is proof
-- **Async Turn-Based** —
-  Play when you are free, no need to coordinate schedules
-- **Judgement System** —
-  Opponents judge your tricks as LAND or BAIL
-- **Dispute Resolution** —
-  Challenge unfair judgements with admin review
-- **Real-Time Updates** —
-  Socket.io notifications when it is your turn
-- **Full Game History** —
-  Every trick, every judgement, saved forever
-
-**How it works**
-
-1. Challenge a skater from the lobby
-2. Record your trick attempt and upload
-3. Opponent judges it (LAND or BAIL)
-4. If LAND, they must attempt the same trick
-5. You judge their attempt
-6. First to spell S.K.A.T.E. loses
-
-[Learn the full rules →](docs/GAME_RULES.md)
+Challenge anyone to a game of S.K.A.T.E. — record tricks on video, judge your opponent's attempts, and battle asynchronously across cities, countries, and time zones. No need to be at the same spot. No need to coordinate schedules. Just you, your board, and skaters worldwide.
 
 ---
 
-### Spot Map
+## How It Works
 
-Browse skate spots on an interactive map.
-Filter by type (ledge, rail, stair set, park, etc.) and tier.
-Spots are sourced from OpenStreetMap and can be discovered
-via geolocation.
+```
+1. Challenge a skater        4. They must match your trick
+2. Record your trick (≤30s)  5. You judge their attempt
+3. Opponent judges: LAND/BAIL 6. First to spell S.K.A.T.E. loses
+```
 
-### Check-ins
-
-Check in at a spot when you are within 30 meters.
-Each check-in is geo-verified and counts toward your streak,
-XP, and leaderboard rank. Daily limits prevent abuse.
-
-### Leaderboard
-
-Real-time rankings across XP, spot count, and streaks.
-City-wide leaderboards surface the most active skaters.
-
-### TrickMint
-
-Upload skateboarding trick videos to the public feed.
-Build your trick library and share your progression
-with the community.
+> Full rules: [docs/GAME_RULES.md](docs/GAME_RULES.md)
 
 ---
 
-## Feature Comparison
+## Features
 
-| Feature                          | SkateHubba | Shred Spots | The Spot Guide | Skately |
-| -------------------------------- | ---------- | ----------- | -------------- | ------- |
-| **Remote S.K.A.T.E. Games**      | Yes        | No          | No             | No      |
-| **Async Turn-Based Gameplay**    | Yes        | No          | No             | No      |
-| **Video-Based Trick Judgement**  | Yes        | No          | No             | No      |
-| **Dispute Resolution**           | Yes        | No          | No             | No      |
-| **Real-Time Game Updates**       | Yes        | No          | No             | No      |
-| **Spot Map**                     | Yes        | Yes         | Yes            | Yes     |
-| **Check-ins**                    | Yes        | Yes         | Yes            | Yes     |
-| **Leaderboard**                  | Yes        | Yes         | No             | No      |
-| **Video Uploads**                | Yes        | No          | No             | No      |
-
-**Bottom line:** Other apps help you find spots.
-**SkateHubba lets you compete remotely.**
+|             | Feature            | Description                                                   |
+| ----------- | ------------------ | ------------------------------------------------------------- |
+| **Game**    | Remote S.K.A.T.E.  | Async turn-based gameplay with video proof — no honor system  |
+|             | Dispute Resolution | Challenge unfair calls with admin review                      |
+|             | Real-Time Updates  | Socket.io notifications when it's your turn                   |
+|             | Full History       | Every trick, every judgement, saved forever                   |
+| **Social**  | TrickMint          | Upload trick videos to the public feed                        |
+|             | Leaderboard        | Real-time rankings by XP, spots, and streaks                  |
+| **Explore** | Spot Map           | Interactive map with filters by type and tier (Leaflet + OSM) |
+|             | Check-ins          | Geo-verified check-ins within 30m — earn XP and streaks       |
 
 ---
 
 ## Tech Stack
 
-| Layer    | Technology                                    |
-| -------- | --------------------------------------------- |
-| Frontend | React, Vite, TypeScript, TailwindCSS, Leaflet |
-| Backend  | Express, TypeScript, PostgreSQL, Drizzle ORM   |
-| Auth     | Firebase Auth                                  |
-| Realtime | Socket.io                                      |
-| CI       | GitHub Actions, CodeQL                         |
+| Layer      | Technology                                               |
+| ---------- | -------------------------------------------------------- |
+| Frontend   | React 18, Vite 6, TypeScript 5.9, TailwindCSS, Leaflet   |
+| Backend    | Express, TypeScript, PostgreSQL 16, Drizzle ORM, Redis 7 |
+| Mobile     | React Native, Expo (EAS builds)                          |
+| Auth       | Firebase Auth + custom JWT                               |
+| Realtime   | Socket.io                                                |
+| Monorepo   | pnpm workspaces, Turborepo                               |
+| Build      | esbuild (server), Vite (client)                          |
+| Testing    | Vitest, Playwright, Cypress, Detox (mobile)              |
+| CI/CD      | GitHub Actions, CodeQL, Docker (staging), Vercel (prod)  |
+| Monitoring | Sentry                                                   |
 
 ---
 
@@ -112,8 +69,15 @@ with the community.
 
 ```text
 client/      Web app (Vite / React)
-server/      API and services
-packages/    Shared code (types, config, utilities)
+server/      Express API + PostgreSQL backend
+mobile/      React Native / Expo app
+functions/   Firebase Cloud Functions
+packages/    Shared code (config, db, firebase, shared, types, utils)
+migrations/  PostgreSQL migration scripts
+scripts/     Build, validation, and deployment scripts
+docs/        Architecture, security, setup guides
+deploy/      Docker / Nginx deployment config
+e2e/         Playwright E2E tests
 ```
 
 ---
@@ -122,13 +86,21 @@ packages/    Shared code (types, config, utilities)
 
 ### Prerequisites
 
-- Node.js 20+
-- pnpm
+- Node.js 20+ (`.nvmrc` included)
+- pnpm 10+ (enforced — `npm install` and `yarn` will fail)
 
 ### Install
 
 ```bash
+# Prerequisites: Node.js 20+, pnpm 10+
 pnpm install
+```
+
+### Configure environment
+
+```bash
+cp .env.example .env
+# Edit .env with your Firebase, database, and other credentials
 ```
 
 ### Run
@@ -137,27 +109,55 @@ pnpm install
 pnpm dev
 ```
 
+This starts both the Vite dev server (client on port 3000) and the Express API (server on port 3001) via Turborepo.
+
 ---
 
-## Testing
+## Project Structure
 
 ```bash
-pnpm test
-pnpm -w run verify
+pnpm test              # Run all unit tests (Vitest)
+pnpm test:watch        # Watch mode
+pnpm test:coverage     # Run with coverage report
 ```
 
-### Cypress E2E
+Coverage thresholds enforced in CI: statements 98%, branches 93%, functions 99%, lines 99%.
+
+### Full verification (pre-merge)
 
 ```bash
-pnpm --filter skatehubba-client dev -- --host 0.0.0.0 --port 3000
-pnpm --filter skatehubba-client exec cypress run
+pnpm run verify        # typecheck + lint + test + build
 ```
+
+skatehubba/
+├── client/ React web app (Vite)
+├── server/ Express API + PostgreSQL
+├── mobile/ React Native / Expo app
+├── functions/ Firebase Cloud Functions
+├── packages/
+│ ├── config/ Shared configuration
+│ ├── db/ Drizzle schema & queries
+│ ├── firebase/ Firebase client helpers
+│ ├── shared/ Shared business logic
+│ ├── types/ Shared TypeScript types
+│ └── utils/ Shared utilities
+├── migrations/ PostgreSQL migrations
+├── e2e/ Playwright end-to-end tests
+├── deploy/ Docker / Nginx / SSL config
+├── scripts/ Build, validation & deploy scripts
+└── docs/ Architecture, security & setup guides
+
+````
 
 ---
 
 ## Deployment
 
-`pnpm -w run verify` is the pre-flight check for CI.
+`pnpm run verify` is the pre-flight check for CI.
+
+**Production** — Vercel auto-deploys on push to `main`. Build command: `node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build`. Output: `client/dist`.
+
+**Staging** — Docker Compose via `deploy-staging.yml` workflow on push to `staging`.
 
 See [docs/RELEASE.md](docs/RELEASE.md) for environments, deployment pipelines, and secret rotation.
 
@@ -169,85 +169,60 @@ with PostgreSQL, Redis, Nginx, and automatic SSL via Let's Encrypt.
 **Quick start on a fresh Ubuntu server:**
 
 ```bash
-export DOMAIN=staging.skatehubba.com
-export EMAIL=admin@skatehubba.com
-bash deploy/setup-server.sh
-```
+# One-liner for a fresh Ubuntu server:
+DOMAIN=staging.skatehubba.com EMAIL=admin@skatehubba.com bash deploy/setup-server.sh
+````
 
-**Manual steps:**
+See [docs/RELEASE.md](docs/RELEASE.md) for full deployment docs, environments, and secret rotation.
 
-```bash
-# 1. Point DNS A record for staging.skatehubba.com to your server IP
-# 2. Clone the repo and checkout staging branch
-git clone https://github.com/myhuemungusD/skatehubba.git /opt/skatehubba
-cd /opt/skatehubba && git checkout staging
-
-# 3. Configure secrets
-cp .env.staging .env.staging.local
-nano .env.staging.local
-
-# 4. Start services
-docker compose -f docker-compose.staging.yml up -d
-
-# 5. SSL certificates are managed automatically by the certbot container
-```
-
-Live at: **<https://staging.skatehubba.com>**
+**Live demo:** [staging.skatehubba.com](https://staging.skatehubba.com)
 
 ---
 
 ## Documentation
 
-| Document                                              | Description                        |
-| ----------------------------------------------------- | ---------------------------------- |
-| [Game Rules](docs/GAME_RULES.md)                      | How S.K.A.T.E. works on SkateHubba |
-| [System Architecture](docs/SYSTEM_ARCHITECTURE.md)     | Boundaries, data flow, auth, video pipeline |
-| [Game Architecture](docs/ARCHITECTURE.md)              | Game system design with Mermaid diagrams |
-| [Release & Deployment](docs/RELEASE.md)                | Environments, deploys, secret rotation |
-| [Roadmap](ROADMAP.md)                                  | Upcoming features and vision        |
-| [Changelog](CHANGELOG.md)                              | Release history (v0.9.0)            |
-| [Deployment Runbook](docs/DEPLOYMENT_RUNBOOK.md)       | Incident response and troubleshooting |
-| [Contributing](CONTRIBUTING.md)                        | Development workflow and standards   |
-| [Security](docs/security/SECURITY.md)                  | Security policies and reporting     |
-| [Setup Guides](docs/setup/)                             | Firebase, Google Sign-in, email config |
+| Document                                           |                                               |
+| -------------------------------------------------- | --------------------------------------------- |
+| [Game Rules](docs/GAME_RULES.md)                   | How S.K.A.T.E. works on SkateHubba            |
+| [System Architecture](docs/SYSTEM_ARCHITECTURE.md) | Boundaries, data flow, auth, video pipeline   |
+| [Game Architecture](docs/ARCHITECTURE.md)          | Game system design with Mermaid diagrams      |
+| [Release & Deployment](docs/RELEASE.md)            | Environments, pipelines, secret rotation      |
+| [Deployment Runbook](docs/DEPLOYMENT_RUNBOOK.md)   | Incident response and troubleshooting         |
+| [Security](docs/security/SECURITY.md)              | Security policies and vulnerability reporting |
+| [Contributing](CONTRIBUTING.md)                    | Dev workflow, branch conventions, PR process  |
+| [Changelog](CHANGELOG.md)                          | Release history                               |
+| [Roadmap](ROADMAP.md)                              | What's next                                   |
 
 ---
 
-## Demo
+## Roadmap
 
-**[Try the live staging demo →](https://staging.skatehubba.com)**
+| Quarter     | Highlights                                                      |
+| ----------- | --------------------------------------------------------------- |
+| **Q1 2026** | Mobile app (React Native), spectator mode, game stats dashboard |
+| **Q2 2026** | Tournament brackets, trick recognition AI, crew battles         |
+| **Q3 2026** | Premium tiers, player analytics, sponsor integrations           |
+| **Q4 2026** | Speed S.K.A.T.E., tag team mode, global expansion               |
 
-The staging environment uses demo data and Stripe test mode —
-explore freely without affecting production.
-
----
-
-## What's Next
-
-See the [Roadmap](ROADMAP.md) for upcoming features, including:
-
-- **Q1 2026** — Mobile app (React Native), spectator mode, game stats
-- **Q2 2026** — Tournament mode, trick recognition AI, crew battles
-- **Q3 2026** — Premium tiers, analytics dashboard, sponsor integration
-- **Q4 2026** — New game modes (Speed S.K.A.T.E., Tag Team), global expansion
+Full details: [ROADMAP.md](ROADMAP.md)
 
 ---
 
 ## Contributing
 
-We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for:
+We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
 
-- Development setup and workflow
-- Branch naming conventions (`feat/`, `fix/`, `refactor/`, `chore/`)
-- Conventional Commits specification
-- Code quality standards (no `any` types, functional components)
-- PR process with CI validation
+```bash
+# All PRs must pass:
+pnpm -w run verify   # typecheck + lint + test + build
+```
 
-All PRs must pass:
-
-- TypeScript type checking
+- TypeScript type checking (strict mode, no `any`)
 - ESLint linting (zero warnings)
-- Unit tests (136 test files)
+- Prettier formatting check
+- Unit tests with coverage thresholds (98% statements)
+- Bundle size budget check
+- Migration drift check
 - Secret scanning (Gitleaks)
 - Build verification
 
@@ -255,21 +230,12 @@ All PRs must pass:
 
 ## Security
 
-See [docs/security/SECURITY.md](docs/security/SECURITY.md) for:
+Report vulnerabilities via [docs/security/SECURITY.md](docs/security/SECURITY.md).
 
-- Reporting vulnerabilities
-- Security features (rate limiting, CSRF, email verification)
-- Firestore and Storage security rules
-- Multi-layer secret scanning
+Built-in protections: rate limiting, CSRF tokens, email verification, Firestore & Storage security rules, multi-layer secret scanning (Gitleaks + Secretlint).
 
 ---
 
 ## License
 
-See [LICENSE](LICENSE).
-
----
-
-## Trademark
-
-SkateHubba™ is a trademark of Design Mainline LLC.
+[MIT](LICENSE) — SkateHubba™ is a trademark of Design Mainline LLC.

@@ -145,7 +145,7 @@ export function SpotDetailModal({
       return `${Math.round(d * 1000)} m`;
     }
     return `${d.toFixed(1)} km`;
-  }, [userLocation?.lat, userLocation?.lng, spot?.lat, spot?.lng]);
+  }, [spot, userLocation]);
 
   const handleShare = async () => {
     if (!spot) return;

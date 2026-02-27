@@ -752,6 +752,94 @@ a:focus-visible {
   filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.3));
 }
 
+/* Featured Play SKATE card - stands out from regular cards */
+@keyframes skate-glow {
+  0%, 100% {
+    box-shadow:
+      0 4px 15px rgba(168, 85, 247, 0.4),
+      0 0 30px rgba(168, 85, 247, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 4px 25px rgba(168, 85, 247, 0.6),
+      0 0 50px rgba(168, 85, 247, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  }
+}
+
+@keyframes skate-shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.skate-card-featured {
+  background: linear-gradient(145deg, #7c3aed 0%, #9333ea 40%, #a855f7 70%, #7c3aed 100%);
+  border-radius: 2rem;
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  position: relative;
+  overflow: hidden;
+  transition: all 250ms var(--ease-out-quart);
+  animation: skate-glow 2.5s ease-in-out infinite;
+  border: 2px solid rgba(192, 132, 252, 0.6);
+  grid-column: span 2;
+}
+
+.skate-card-featured::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.12) 45%,
+    rgba(255, 255, 255, 0.12) 55%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  animation: skate-shimmer 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.skate-card-featured:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow:
+    0 8px 30px rgba(168, 85, 247, 0.5),
+    0 0 60px rgba(168, 85, 247, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.skate-card-featured:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.skate-card-featured-title {
+  font-family: 'Bebas Neue', sans-serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.skate-card-featured-description {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.skate-card-featured-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  color: #fff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
 /* Alternative skateboard deck shape - more elongated */
 .skate-deck-card {
   background: linear-gradient(145deg, #d4a056 0%, #c48b3c 50%, #b37a2e 100%);

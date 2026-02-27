@@ -18,8 +18,10 @@ import { requestTracing } from "./middleware/requestTracing.ts";
 import { metricsMiddleware, registerMonitoringRoutes } from "./monitoring/index.ts";
 import { DEV_ORIGINS, BODY_PARSE_LIMIT } from "./config/server.ts";
 import { registerRoutes } from "./routes.ts";
+import { DatabaseUnavailableError } from "./db.ts";
 import swaggerUi from "swagger-ui-express";
 import { generateOpenAPISpec } from "./api-docs/index.ts";
+import { generateSitemapXml } from "@shared/sitemap-config";
 
 export function createApp(): express.Express {
   const app = express();
@@ -75,7 +77,7 @@ export function createApp(): express.Express {
           },
         },
         crossOriginEmbedderPolicy: false, // required for cross-origin images/media
-        crossOriginOpenerPolicy: { policy: "same-origin" },
+        crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
         crossOriginResourcePolicy: { policy: "same-site" },
       })
     );
@@ -128,6 +130,13 @@ export function createApp(): express.Express {
     );
   }
 
+  // Sitemap.xml — generated from shared config for SEO discoverability
+  app.get("/sitemap.xml", (_req, res) => {
+    res.setHeader("Content-Type", "application/xml");
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+    res.send(generateSitemapXml());
+  });
+
   // Raw body for Stripe webhook signature verification (MUST precede express.json())
   app.use("/webhooks/stripe", express.raw({ type: "application/json" }));
 
@@ -144,8 +153,17 @@ export function createApp(): express.Express {
   // Global rate limiting for all API routes (before CSRF validation for better error handling)
   app.use("/api", apiLimiter);
 
-  // Global CSRF validation for all state-changing API requests
-  app.use("/api", requireCsrfToken);
+  // Global CSRF validation for all state-changing API requests.
+  // Unauthenticated password endpoints are exempt: they don't use cookie-based
+  // auth (so CSRF adds no security), they're rate-limited by authLimiter, and
+  // reset-password already requires a secret token from the user's email.
+  // Without this exemption, users arriving from an email link (no prior cookies)
+  // would always receive a 403 on their first POST.
+  const csrfExemptPaths = new Set(["/api/auth/forgot-password", "/api/auth/reset-password"]);
+  app.use("/api", (req, res, next) => {
+    if (csrfExemptPaths.has(req.path)) return next();
+    return requireCsrfToken(req, res, next);
+  });
 
   // Register all API routes
   registerRoutes(app);
@@ -153,17 +171,31 @@ export function createApp(): express.Express {
   // Monitoring: health checks, readiness probes, system status
   registerMonitoringRoutes(app);
 
+  // API 404 catch-all — registered after all /api routes so unmatched API
+  // requests return structured JSON instead of falling through to the SPA
+  // HTML catch-all. Must come before the global error handler.
+  app.use("/api", (_req, res) => {
+    res.status(404).json({ error: "Not found" });
+  });
+
   // Global error handler — catches any unhandled Express errors from all routes
   // including non-MVP systems (Stripe, TrickMint, games, battles) so they never
   // cascade or crash the server during the demo.
   // Must be registered last, after all routes and middleware.
   app.use(
-    (
-      err: Error,
-      _req: express.Request,
-      res: express.Response,
-      _next: express.NextFunction
-    ) => {
+    (err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+      // Database not configured → 503 Service Unavailable
+      if (err instanceof DatabaseUnavailableError) {
+        logger.warn("[App] Database unavailable", { route: _req.path });
+        if (!res.headersSent) {
+          res.status(503).json({
+            error: "DATABASE_UNAVAILABLE",
+            message: "Database unavailable. Please try again shortly.",
+          });
+        }
+        return;
+      }
+
       logger.error("[App] Unhandled route error", {
         name: err?.name,
         message: err?.message,

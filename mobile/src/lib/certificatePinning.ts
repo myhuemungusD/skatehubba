@@ -70,14 +70,18 @@ export function initCertificatePinning(): void {
 
   if (cachedConfig.enabled) {
     const domainNames = cachedConfig.domains.map((d: PinnedDomain) => d.hostname).join(", ");
-    console.log(`[CertPinning] Active for: ${domainNames}`);
+    if (__DEV__) {
+      console.warn(`[CertPinning] Active for: ${domainNames}`);
+    }
     checkPinExpiration(cachedConfig);
   } else if (typeof __DEV__ !== "undefined" && !__DEV__) {
     // Warn in non-dev builds if pinning is disabled
-    console.warn(
-      "[CertPinning] Certificate pinning is DISABLED. " +
-        "Configure SPKI pins for production builds."
-    );
+    if (__DEV__) {
+      console.warn(
+        "[CertPinning] Certificate pinning is DISABLED. " +
+          "Configure SPKI pins for production builds."
+      );
+    }
   }
 }
 
@@ -224,12 +228,14 @@ export function reportPossiblePinningFailure(url: string, error: unknown): void 
     recordFailure(event);
 
     if (isProd()) {
-      console.error(
-        `[CertPinning] POSSIBLE PIN FAILURE for ${hostname}. ` +
-          "This may indicate a MITM attack or expired/rotated certificates. " +
-          "Error: " +
-          errorMessage
-      );
+      if (__DEV__) {
+        console.error(
+          `[CertPinning] POSSIBLE PIN FAILURE for ${hostname}. ` +
+            "This may indicate a MITM attack or expired/rotated certificates. " +
+            "Error: " +
+            errorMessage
+        );
+      }
     }
   }
 }
@@ -303,20 +309,26 @@ function checkPinExpiration(config: CertificatePinningConfig): void {
   );
 
   if (daysUntilExpiry <= 0) {
-    console.error(
-      "[CertPinning] WARNING: Certificate pins have EXPIRED. " +
-        "Native pinning will fall back to standard certificate validation. " +
-        "Rotate pins immediately."
-    );
+    if (__DEV__) {
+      console.error(
+        "[CertPinning] WARNING: Certificate pins have EXPIRED. " +
+          "Native pinning will fall back to standard certificate validation. " +
+          "Rotate pins immediately."
+      );
+    }
   } else if (daysUntilExpiry <= 30) {
-    console.warn(
-      `[CertPinning] Certificate pins expire in ${daysUntilExpiry} days ` +
-        `(${config.pinExpiration}). Schedule pin rotation.`
-    );
+    if (__DEV__) {
+      console.warn(
+        `[CertPinning] Certificate pins expire in ${daysUntilExpiry} days ` +
+          `(${config.pinExpiration}). Schedule pin rotation.`
+      );
+    }
   } else if (daysUntilExpiry <= 90) {
-    console.log(
-      `[CertPinning] Pin expiration: ${config.pinExpiration} ` +
-        `(${daysUntilExpiry} days remaining)`
-    );
+    if (__DEV__) {
+      console.warn(
+        `[CertPinning] Pin expiration: ${config.pinExpiration} ` +
+          `(${daysUntilExpiry} days remaining)`
+      );
+    }
   }
 }

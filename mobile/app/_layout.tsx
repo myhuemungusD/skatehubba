@@ -87,6 +87,7 @@ export default function RootLayout() {
           }}
         />
         <Stack.Screen name="demo" options={{ title: "Investor Demo", headerShown: false }} />
+        <Stack.Screen name="settings/faq" options={{ title: "Help & FAQ" }} />
       </Stack>
       <OfflineBanner />
       <FlashMessage position="top" />

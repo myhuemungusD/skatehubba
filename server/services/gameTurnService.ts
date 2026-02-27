@@ -8,6 +8,7 @@
 import { games, gameTurns } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { TURN_DEADLINE_MS, SKATE_LETTERS, isGameOver } from "../routes/games-shared";
+import type { Database } from "../db";
 
 // ============================================================================
 // Types
@@ -56,8 +57,18 @@ type JudgeTurnSuccess = {
   notifications: Notification[];
 };
 
+type SetterBailSuccess = {
+  ok: true;
+  game: typeof games.$inferSelect;
+  gameOver: boolean;
+  winnerId?: string | null;
+  message: string;
+  notifications: Notification[];
+};
+
 export type SubmitTurnResult = TxError | SubmitTurnSuccess;
 export type JudgeTurnResult = TxError | JudgeTurnSuccess;
+export type SetterBailResult = TxError | SetterBailSuccess;
 
 // ============================================================================
 // Submit Turn
@@ -67,10 +78,7 @@ export type JudgeTurnResult = TxError | JudgeTurnSuccess;
  * Submit a trick (set) or response video within a transaction.
  * Validates game state, creates the turn record, and advances game phase.
  */
-export async function submitTurn(
-  tx: Parameters<Parameters<ReturnType<typeof import("../db").getDb>["transaction"]>[0]>[0],
-  input: SubmitTurnInput
-): Promise<SubmitTurnResult> {
+export async function submitTurn(tx: Database, input: SubmitTurnInput): Promise<SubmitTurnResult> {
   const { gameId, playerId, trickDescription, videoUrl, videoDurationMs, thumbnailUrl } = input;
 
   // Lock game row to prevent concurrent turn submissions
@@ -187,7 +195,7 @@ export async function submitTurn(
  * and determines role swaps.
  */
 export async function judgeTurn(
-  tx: Parameters<Parameters<ReturnType<typeof import("../db").getDb>["transaction"]>[0]>[0],
+  tx: Database,
   turnId: number,
   playerId: string,
   result: "landed" | "missed",
@@ -244,6 +252,11 @@ export async function judgeTurn(
   let newOffensiveId: string;
   let newDefensiveId: string;
 
+  // Active games must have both role IDs set; guard against corrupt state.
+  if (!game.offensivePlayerId || !game.defensivePlayerId) {
+    return { ok: false, status: 500, error: "Game is missing player role assignments" };
+  }
+
   if (result === "missed") {
     // BAIL: defensive player gets a letter, roles STAY the same
     if (isPlayer1) {
@@ -251,12 +264,12 @@ export async function judgeTurn(
     } else {
       newPlayer2Letters += SKATE_LETTERS[newPlayer2Letters.length] || "";
     }
-    newOffensiveId = game.offensivePlayerId!;
-    newDefensiveId = game.defensivePlayerId!;
+    newOffensiveId = game.offensivePlayerId;
+    newDefensiveId = game.defensivePlayerId;
   } else {
     // LAND: roles swap
-    newOffensiveId = game.defensivePlayerId!;
-    newDefensiveId = game.offensivePlayerId!;
+    newOffensiveId = game.defensivePlayerId;
+    newDefensiveId = game.offensivePlayerId;
   }
 
   // Check for game over
@@ -298,6 +311,8 @@ export async function judgeTurn(
           gameId: game.id,
           winnerId: winnerId || undefined,
           youWon: pid === winnerId,
+          opponentName:
+            (pid === game.player1Id ? game.player2Name : game.player1Name) || "Opponent",
         },
       })),
     };
@@ -333,10 +348,131 @@ export async function judgeTurn(
           type: "your_turn" as const,
           data: {
             gameId: game.id,
-            opponentName: (isPlayer1 ? game.player2Name : game.player1Name) || "Opponent",
+            opponentName:
+              (newOffensiveId === game.player1Id ? game.player2Name : game.player1Name) ||
+              "Opponent",
           },
         },
       ],
     };
   }
+}
+
+// ============================================================================
+// Setter Bail
+// ============================================================================
+
+/**
+ * Setter bails on their own trick — they take the letter themselves.
+ * This is a real S.K.A.T.E. rule: if you can't land what you set,
+ * you eat the letter and your opponent becomes the setter.
+ */
+export async function setterBail(
+  tx: Database,
+  gameId: string,
+  playerId: string
+): Promise<SetterBailResult> {
+  // Lock game row
+  await tx.execute(sql`SELECT id FROM games WHERE id = ${gameId} FOR UPDATE`);
+
+  const [game] = await tx.select().from(games).where(eq(games.id, gameId)).limit(1);
+
+  if (!game) return { ok: false, status: 404, error: "Game not found" };
+  if (game.status !== "active") return { ok: false, status: 400, error: "Game is not active" };
+  if (game.offensivePlayerId !== playerId)
+    return { ok: false, status: 403, error: "Only the setter can declare a bail" };
+  if (game.turnPhase !== "set_trick")
+    return { ok: false, status: 400, error: "Can only bail during set trick phase" };
+
+  const isPlayer1 = game.player1Id === playerId;
+  let newPlayer1Letters = game.player1Letters || "";
+  let newPlayer2Letters = game.player2Letters || "";
+
+  // Setter takes a letter
+  if (isPlayer1) {
+    newPlayer1Letters += SKATE_LETTERS[newPlayer1Letters.length] || "";
+  } else {
+    newPlayer2Letters += SKATE_LETTERS[newPlayer2Letters.length] || "";
+  }
+
+  const now = new Date();
+  const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
+
+  // Roles swap — opponent becomes the setter
+  const newOffensiveId = game.defensivePlayerId!;
+  const newDefensiveId = game.offensivePlayerId!;
+
+  // Check for game over
+  const gameOverCheck = isGameOver(newPlayer1Letters, newPlayer2Letters);
+
+  if (gameOverCheck.over) {
+    const winnerId = gameOverCheck.loserId === "player1" ? game.player2Id : game.player1Id;
+
+    const [updatedGame] = await tx
+      .update(games)
+      .set({
+        player1Letters: newPlayer1Letters,
+        player2Letters: newPlayer2Letters,
+        status: "completed",
+        winnerId,
+        completedAt: now,
+        updatedAt: now,
+        turnPhase: null,
+        currentTurn: null,
+        deadlineAt: null,
+      })
+      .where(eq(games.id, gameId))
+      .returning();
+
+    return {
+      ok: true,
+      game: updatedGame,
+      gameOver: true,
+      winnerId,
+      message: "You bailed your own trick. Game over.",
+      notifications: [game.player1Id, game.player2Id].filter(Boolean).map((pid) => ({
+        playerId: pid as string,
+        type: "game_over" as const,
+        data: {
+          gameId: game.id,
+          winnerId: winnerId || undefined,
+          youWon: pid === winnerId,
+          opponentName:
+            (pid === game.player1Id ? game.player2Name : game.player1Name) || "Opponent",
+        },
+      })),
+    };
+  }
+
+  const [updatedGame] = await tx
+    .update(games)
+    .set({
+      player1Letters: newPlayer1Letters,
+      player2Letters: newPlayer2Letters,
+      currentTurn: newOffensiveId,
+      turnPhase: "set_trick",
+      offensivePlayerId: newOffensiveId,
+      defensivePlayerId: newDefensiveId,
+      deadlineAt: deadline,
+      updatedAt: now,
+    })
+    .where(eq(games.id, gameId))
+    .returning();
+
+  return {
+    ok: true,
+    game: updatedGame,
+    gameOver: false,
+    message: "You bailed your own trick. Letter earned. Roles swap.",
+    notifications: [
+      {
+        playerId: newOffensiveId,
+        type: "your_turn" as const,
+        data: {
+          gameId: game.id,
+          opponentName: (isPlayer1 ? game.player1Name : game.player2Name) || "Opponent",
+        },
+      },
+    ],
+  };
 }

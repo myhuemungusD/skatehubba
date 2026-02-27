@@ -184,13 +184,9 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
         {!isPreviewing ? (
           <>
             {/* Live Camera Feed */}
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover">
+              <track kind="captions" />
+            </video>
 
             {/* Camera Overlay */}
             <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-black/50 pointer-events-none">
@@ -248,8 +244,9 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
         ) : (
           <>
             {/* Video Preview */}
-            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- User-recorded trick video; captions not applicable */}
-            <video ref={previewRef} controls className="w-full h-full object-cover" />
+            <video ref={previewRef} controls className="w-full h-full object-cover">
+              <track kind="captions" />
+            </video>
 
             {/* Preview Overlay */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">

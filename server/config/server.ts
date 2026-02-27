@@ -13,9 +13,8 @@ export const SERVER_PORT = parseInt(process.env.PORT || "3001", 10);
  * Override individual ports via environment variables for custom setups.
  */
 export const DEV_ORIGINS = [
-  `http://localhost:${process.env.DEV_VITE_PORT || "5173"}`,
   `http://localhost:${process.env.DEV_CLIENT_PORT || "3000"}`,
-  `http://localhost:${process.env.DEV_EMAIL_PORT || "5000"}`,
+  `http://localhost:${process.env.DEV_EMAIL_PORT || "1025"}`,
 ] as const;
 
 /** Default dev origin used as fallback (e.g. Stripe checkout redirect) */

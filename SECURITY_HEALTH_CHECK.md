@@ -1,13 +1,14 @@
 # Security Health Check Report
 
-**Date:** 2026-02-06
+**Date:** 2026-02-06 (superseded by full E2E audit 2026-02-24)
 **Scope:** Full-stack audit — server, client, Firestore rules, storage rules, dependencies, CI/CD
+**Current Status:** This was the initial health check. The platform has since undergone a comprehensive E2E production audit (2026-02-24) that identified and remediated 44 additional findings. See [SECURITY_AUDIT.md](SECURITY_AUDIT.md) for the latest.
 
 ---
 
-## Overall Grade: B+
+## Overall Grade: B+ → A- (as of 2026-02-24 full audit)
 
-The codebase has a strong security foundation with professional-grade authentication, comprehensive rate limiting, CSRF protection, and audit logging. Three issues were found and fixed in this review. A handful of lower-priority items remain as recommendations.
+The codebase has a strong security foundation with professional-grade authentication, comprehensive rate limiting, CSRF protection, and audit logging. Three issues were found and fixed in this initial review. All remaining recommendations have since been addressed in subsequent audits (Feb 12, 18, 24).
 
 ---
 
@@ -60,25 +61,25 @@ The Content-Security-Policy `scriptSrc` directive included `'unsafe-inline'`, wh
 
 ---
 
-## Remaining Recommendations
+## Remaining Recommendations (Updated 2026-02-26)
 
 ### Medium Priority
 
-| #   | Issue                                        | Location                             | Recommendation                                                                                                                                                                 |
-| --- | -------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 1   | ~~Hardcoded dev JWT secret~~                 | `server/config/env.ts`               | **FIXED** — `JWT_SECRET` is now required in all non-test environments with 32-character minimum. No fallback, no auto-generation. `MFA_ENCRYPTION_KEY` required in production. |
-| 2   | `unsafe-inline` still in `styleSrc`          | `server/index.ts:31`                 | Move to nonce-based CSP for inline styles when feasible                                                                                                                        |
-| 3   | ~~Missing `ALLOWED_ORIGINS` in env example~~ | `.env.example`                       | **FIXED** — `ALLOWED_ORIGINS` is present in `.env.example` and validated at runtime.                                                                                           |
-| 4   | Hardcoded Firebase API key                   | `packages/config/src/firebase.ts:43` | Firebase web keys are public by design, but consider reading from env for consistency                                                                                          |
+| #   | Issue                                        | Location                             | Status                                                                                                                            |
+| --- | -------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | ~~Hardcoded dev JWT secret~~                 | `server/config/env.ts`               | **FIXED** — `JWT_SECRET` required in all non-test environments with 32-character minimum.                                         |
+| 2   | `unsafe-inline` still in `styleSrc`          | `server/index.ts:31`                 | **OPEN** — Move to nonce-based CSP for inline styles when feasible. Tracked as future hardening.                                  |
+| 3   | ~~Missing `ALLOWED_ORIGINS` in env example~~ | `.env.example`                       | **FIXED** — Present in `.env.example` and validated at runtime.                                                                   |
+| 4   | Hardcoded Firebase API key                   | `packages/config/src/firebase.ts:43` | **ACCEPTED** — Firebase web keys are public by design. Env-based config is a consistency improvement, not a security requirement. |
 
 ### Low Priority
 
-| #   | Issue                                 | Location                                | Recommendation                                                     |
-| --- | ------------------------------------- | --------------------------------------- | ------------------------------------------------------------------ |
-| 5   | Loose storage MIME matching           | `storage.rules:25-31`                   | Tighten to `image/(jpeg\|png\|webp)` and `video/(mp4\|webm)`       |
-| 6   | Helmet not applied in dev             | `server/index.ts:24`                    | Apply CSP in all environments to catch issues early                |
-| 7   | User-agent blocking may reject SDKs   | `server/middleware/security.ts:339-355` | The block on "python" and "curl" may reject legitimate API clients |
-| 8   | Numeric param validation inconsistent | `server/routes.ts` (various)            | Standardize bounds checking on all numeric query params            |
+| #   | Issue                               | Location                                | Status                                                                                                        |
+| --- | ----------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 5   | ~~Loose storage MIME matching~~     | `storage.rules:25-31`                   | **FIXED** — Tightened to `image/(jpeg\|png\|webp\|gif)` and `video/(mp4\|webm\|quicktime)` (Feb 24 audit M6). |
+| 6   | Helmet not applied in dev           | `server/index.ts:24`                    | **ACCEPTED** — CSP in production only is intentional to avoid breaking dev tooling.                           |
+| 7   | User-agent blocking may reject SDKs | `server/middleware/security.ts:339-355` | **ACCEPTED** — Mobile app uses Bearer auth, not cookie-based; SDK user-agents are not blocked.                |
+| 8   | ~~Numeric param validation~~        | `server/routes.ts` (various)            | **FIXED** — Zod coerce validation added across routes (Feb 24 audit L2).                                      |
 
 ---
 

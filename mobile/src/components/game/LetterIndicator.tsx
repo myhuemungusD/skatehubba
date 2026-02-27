@@ -12,6 +12,22 @@ interface LetterIndicatorProps {
   layout?: "horizontal" | "vertical";
 }
 
+/** Color escalation: green -> yellow -> orange -> red based on letter count (matches web) */
+function getLetterColor(letterCount: number): string {
+  if (letterCount === 0) return SKATE.colors.neon; // green — clean
+  if (letterCount <= 2) return "#eab308"; // yellow
+  if (letterCount === 3) return SKATE.colors.orange; // orange
+  return SKATE.colors.blood; // red — match point / eliminated
+}
+
+/** Status label based on letter count */
+function getStatusLabel(letterCount: number): string | null {
+  if (letterCount === 0) return "Clean";
+  if (letterCount === 4) return "MATCH POINT";
+  if (letterCount === 5) return "S.K.A.T.E.";
+  return null;
+}
+
 export const LetterIndicator = memo(function LetterIndicator({
   letters,
   playerName,
@@ -20,9 +36,15 @@ export const LetterIndicator = memo(function LetterIndicator({
   layout = "horizontal",
 }: LetterIndicatorProps) {
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0.3)).current;
   const pulseAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const glowAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
-  // Attacker pulse effect with proper cleanup
+  const isMatchPoint = letters.length === 4;
+  const escalationColor = getLetterColor(letters.length);
+  const statusLabel = getStatusLabel(letters.length);
+
+  // Attacker pulse effect
   useEffect(() => {
     if (isAttacker) {
       pulseAnimRef.current = Animated.loop(
@@ -51,6 +73,35 @@ export const LetterIndicator = memo(function LetterIndicator({
     };
   }, [isAttacker, pulseAnim]);
 
+  // Match point glow effect
+  useEffect(() => {
+    if (isMatchPoint) {
+      glowAnimRef.current = Animated.loop(
+        Animated.sequence([
+          Animated.timing(glowAnim, {
+            toValue: 0.8,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(glowAnim, {
+            toValue: 0.3,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      glowAnimRef.current.start();
+    }
+
+    return () => {
+      if (glowAnimRef.current) {
+        glowAnimRef.current.stop();
+        glowAnimRef.current = null;
+      }
+      glowAnim.setValue(0.3);
+    };
+  }, [isMatchPoint, glowAnim]);
+
   const isVertical = layout === "vertical";
 
   return (
@@ -62,6 +113,13 @@ export const LetterIndicator = memo(function LetterIndicator({
         styles.container,
         isVertical && styles.containerVertical,
         isCurrentPlayer && styles.containerCurrent,
+        isMatchPoint && {
+          borderColor: SKATE.colors.blood,
+          shadowColor: SKATE.colors.blood,
+          shadowRadius: 12,
+          elevation: 8,
+        },
+        isMatchPoint && { shadowOpacity: glowAnim },
         { transform: [{ scale: pulseAnim }] },
       ]}
     >
@@ -80,11 +138,17 @@ export const LetterIndicator = memo(function LetterIndicator({
       </View>
 
       <View style={[styles.lettersRow, isVertical && styles.lettersRowVertical]}>
-        {SKATE_LETTERS.map((letter) => {
-          const hasLetter = letters.includes(letter);
+        {SKATE_LETTERS.map((letter, index) => {
+          const hasLetter = index < letters.length;
 
           return (
-            <View key={letter} style={[styles.letterBox, hasLetter && styles.letterBoxActive]}>
+            <View
+              key={letter}
+              style={[
+                styles.letterBox,
+                hasLetter && { backgroundColor: escalationColor, borderColor: escalationColor },
+              ]}
+            >
               <Text style={[styles.letterText, hasLetter && styles.letterTextActive]}>
                 {letter}
               </Text>
@@ -93,9 +157,23 @@ export const LetterIndicator = memo(function LetterIndicator({
         })}
       </View>
 
-      {letters.length === 5 && (
-        <View style={styles.eliminatedBanner}>
-          <Text style={styles.eliminatedText}>ELIMINATED</Text>
+      {statusLabel && (
+        <View
+          style={[
+            styles.statusBanner,
+            isMatchPoint && styles.matchPointBanner,
+            letters.length === 5 && styles.eliminatedBanner,
+          ]}
+        >
+          <Text
+            style={[
+              styles.statusText,
+              { color: escalationColor },
+              letters.length === 5 && styles.eliminatedText,
+            ]}
+          >
+            {statusLabel}
+          </Text>
         </View>
       )}
     </Animated.View>
@@ -169,10 +247,6 @@ const styles = StyleSheet.create({
     borderColor: SKATE.colors.darkGray,
     borderRadius: SKATE.borderRadius.sm,
   },
-  letterBoxActive: {
-    backgroundColor: SKATE.colors.blood,
-    borderColor: SKATE.colors.blood,
-  },
   letterText: {
     fontWeight: "bold",
     fontSize: 20,
@@ -181,6 +255,13 @@ const styles = StyleSheet.create({
   },
   letterTextActive: {
     color: SKATE.colors.white,
+  },
+  statusBanner: {
+    marginTop: SKATE.spacing.xs,
+    alignItems: "center",
+  },
+  matchPointBanner: {
+    paddingVertical: SKATE.spacing.xs,
   },
   eliminatedBanner: {
     position: "absolute",
@@ -191,9 +272,14 @@ const styles = StyleSheet.create({
     backgroundColor: SKATE.colors.blood,
     paddingVertical: SKATE.spacing.xs,
   },
+  statusText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    letterSpacing: 1,
+    textTransform: "uppercase",
+  },
   eliminatedText: {
     color: SKATE.colors.white,
-    fontWeight: "bold",
     fontSize: 14,
     textAlign: "center",
     letterSpacing: 2,

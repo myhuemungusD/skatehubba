@@ -12,6 +12,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
     include: ['**/*.test.ts', '**/*.test.tsx'],
     exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', 'mobile/**'],
     coverage: {
@@ -53,11 +54,23 @@ export default defineConfig({
         'client/src/lib/firestore/index.ts',
         'client/src/lib/game/index.ts',
         'client/src/lib/remoteSkate/index.ts',
+        'server/services/battle/index.ts',
+        'server/services/filmerRequests/index.ts',
+        'server/services/moderation/index.ts',
+        'server/services/video/index.ts',
+        // Deprecated re-export shims — no logic
+        'server/socket/handlers/game.ts',
+        'server/auth/mfa.ts',
+        // Functions barrel (re-exports only)
+        'functions/src/index.ts',
+        // Firestore-backed rate limiter — requires deep Firestore transaction mocking, tested via integration
+        'functions/src/shared/rateLimit.ts',
         // Test setup/mock helpers — not production code
-        'server/__tests__/game-critical-paths/mockSetup.ts',
+        'server/__tests__/services/game-critical-paths/mockSetup.ts',
+        'server/__tests__/helpers/**',
       ],
       thresholds: {
-        statements: 98,
+        statements: 99,
         branches: 93,
         functions: 99,
         lines: 99,
