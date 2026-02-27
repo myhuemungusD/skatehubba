@@ -122,7 +122,12 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
 
   const uid = firebaseUid;
 
-  const db = getDb();
+  let db;
+  try {
+    db = getDb();
+  } catch {
+    return Errors.dbUnavailable(res);
+  }
   const usernameStore = createUsernameStore(db);
 
   // ── Check for existing profile ──────────────────────────────────
@@ -327,7 +332,12 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
  */
 router.delete("/", authenticateUser, async (req, res) => {
   const uid = req.currentUser!.id;
-  const database = getDb();
+  let database;
+  try {
+    database = getDb();
+  } catch {
+    return Errors.dbUnavailable(res);
+  }
 
   try {
     await database.delete(closetItems).where(eq(closetItems.userId, uid));
@@ -338,7 +348,11 @@ router.delete("/", authenticateUser, async (req, res) => {
     return res.status(204).send();
   } catch (error) {
     logger.error("[Profile] Account deletion failed", { uid, error });
-    return Errors.internal(res, "ACCOUNT_DELETE_FAILED", "Failed to delete account. Please try again.");
+    return Errors.internal(
+      res,
+      "ACCOUNT_DELETE_FAILED",
+      "Failed to delete account. Please try again."
+    );
   }
 });
 
