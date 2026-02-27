@@ -1,20 +1,65 @@
 /**
- * VideoPlayer - Displays uploaded trick video with loading states
+ * VideoPlayer - Displays uploaded trick video with loading states.
+ *
+ * Uses the `getVideoUrl` Cloud Function to generate short-lived signed URLs
+ * for video playback instead of permanent download URLs.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { httpsCallable } from "firebase/functions";
 import { Play, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { functions } from "@/lib/firebase";
+import { logger } from "@/lib/logger";
 import type { VideoDoc } from "@/lib/remoteSkate";
 
 interface VideoPlayerProps {
   video: (VideoDoc & { id: string }) | null;
+  gameId: string;
   label: string;
   className?: string;
 }
 
-export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
+const getVideoUrl = httpsCallable<
+  { gameId: string; storagePath: string },
+  { signedUrl: string; expiresAt: string }
+>(functions, "getVideoUrl");
+
+export function VideoPlayer({ video, gameId, label, className }: VideoPlayerProps) {
   const [hasError, setHasError] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [isLoadingUrl, setIsLoadingUrl] = useState(false);
+
+  useEffect(() => {
+    // Reset state when video changes
+    setSignedUrl(null);
+    setHasError(false);
+
+    if (!video || video.status !== "ready" || !video.storagePath) return;
+
+    let cancelled = false;
+    setIsLoadingUrl(true);
+
+    getVideoUrl({ gameId, storagePath: video.storagePath })
+      .then((result) => {
+        if (!cancelled) {
+          setSignedUrl(result.data.signedUrl);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          logger.error("[VideoPlayer] Failed to get signed URL", err);
+          setHasError(true);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingUrl(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [video?.id, video?.status, video?.storagePath, gameId]);
 
   if (!video) {
     return (
@@ -61,7 +106,21 @@ export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
     );
   }
 
-  if (hasError) {
+  if (isLoadingUrl) {
+    return (
+      <div
+        className={cn(
+          "flex flex-col items-center justify-center gap-2 rounded-lg bg-neutral-900 border border-neutral-800 p-6 min-h-[180px]",
+          className
+        )}
+      >
+        <Loader2 className="h-6 w-6 text-yellow-400 animate-spin" />
+        <span className="text-sm text-neutral-400">Loading {label}...</span>
+      </div>
+    );
+  }
+
+  if (hasError || !signedUrl) {
     return (
       <div
         className={cn(
@@ -70,7 +129,7 @@ export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
         )}
       >
         <AlertCircle className="h-6 w-6 text-red-400" />
-        <span className="text-sm text-red-400">Failed to play video</span>
+        <span className="text-sm text-red-400">Failed to load video</span>
       </div>
     );
   }
@@ -82,7 +141,7 @@ export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
           {label}
         </p>
         <video
-          src={video.downloadURL || undefined}
+          src={signedUrl}
           controls
           playsInline
           preload="metadata"

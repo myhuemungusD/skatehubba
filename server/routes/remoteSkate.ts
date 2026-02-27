@@ -4,7 +4,11 @@
  * Server-trusted endpoint for resolving rounds.
  * Uses Firebase Admin SDK for atomic Firestore transactions.
  *
+ * Authentication is handled by the `authenticateUser` middleware
+ * applied in routes.ts. Route handlers use `req.currentUser.firebaseUid`.
+ *
  * POST /api/remote-skate/:gameId/rounds/:roundId/resolve
+ * POST /api/remote-skate/:gameId/rounds/:roundId/confirm
  */
 
 import { Router } from "express";
@@ -69,28 +73,6 @@ const confirmSchema = z.object({
 });
 
 /**
- * Authenticate via Firebase ID token in Authorization header.
- * Returns the decoded UID or sends 401.
- */
-async function verifyFirebaseAuth(req: Request, res: Response): Promise<string | null> {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Authentication required" });
-    return null;
-  }
-
-  try {
-    const token = authHeader.substring(7);
-    const decoded = await admin.auth().verifyIdToken(token, true);
-    return decoded.uid;
-  } catch (error) {
-    logger.error("[RemoteSkate] Token verification failed", { error: String(error) });
-    res.status(401).json({ error: "Invalid authentication token" });
-    return null;
-  }
-}
-
-/**
  * POST /:gameId/rounds/:roundId/resolve
  *
  * Submit a round result claim. Only offense can call this.
@@ -98,8 +80,10 @@ async function verifyFirebaseAuth(req: Request, res: Response): Promise<string |
  * "awaiting_confirmation" so the defense player must confirm or dispute.
  */
 router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Response) => {
-  const uid = await verifyFirebaseAuth(req, res);
-  if (!uid) return;
+  const uid = req.currentUser?.firebaseUid;
+  if (!uid) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
 
   const parsed = resolveSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -188,8 +172,10 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
  * If the defense disagrees, the round is flagged as "disputed" for manual review.
  */
 router.post("/:gameId/rounds/:roundId/confirm", async (req: Request, res: Response) => {
-  const uid = await verifyFirebaseAuth(req, res);
-  if (!uid) return;
+  const uid = req.currentUser?.firebaseUid;
+  if (!uid) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
 
   const parsed = confirmSchema.safeParse(req.body);
   if (!parsed.success) {

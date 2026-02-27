@@ -390,11 +390,11 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
 
       {/* Videos */}
       <div className="grid grid-cols-1 gap-4">
-        <VideoPlayer video={setVideo} label="Set Trick" />
+        <VideoPlayer video={setVideo} gameId={gameId} label="Set Trick" />
         {(roundStatus === "awaiting_reply" ||
           roundStatus === "awaiting_confirmation" ||
           roundStatus === "disputed" ||
-          replyVideo) && <VideoPlayer video={replyVideo} label="Reply Attempt" />}
+          replyVideo) && <VideoPlayer video={replyVideo} gameId={gameId} label="Reply Attempt" />}
       </div>
 
       {/* Upload controls */}
@@ -475,18 +475,24 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
-              onClick={() => confirmRound(currentRound?.offenseClaim as "landed" | "missed")}
-              disabled={isResolving}
+              onClick={() => {
+                const claim = currentRound?.offenseClaim;
+                if (claim === "landed" || claim === "missed") confirmRound(claim);
+              }}
+              disabled={isResolving || !currentRound?.offenseClaim}
               className="py-3 px-4 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 font-medium text-sm hover:bg-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isResolving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "I Agree"}
             </button>
             <button
               type="button"
-              onClick={() =>
-                confirmRound(currentRound?.offenseClaim === "landed" ? "missed" : "landed")
-              }
-              disabled={isResolving}
+              onClick={() => {
+                const claim = currentRound?.offenseClaim;
+                if (claim === "landed" || claim === "missed") {
+                  confirmRound(claim === "landed" ? "missed" : "landed");
+                }
+              }}
+              disabled={isResolving || !currentRound?.offenseClaim}
               className="py-3 px-4 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-400 font-medium text-sm hover:bg-orange-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isResolving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Dispute"}

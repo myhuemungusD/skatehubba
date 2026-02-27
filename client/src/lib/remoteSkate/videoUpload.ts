@@ -178,7 +178,7 @@ function getExtension(contentType: string): string {
  *
  * Flow:
  * 1. Creates videos/{videoId} Firestore doc with status="uploading"
- * 2. Uploads file to videos/{uid}/{gameId}/{roundId}/{videoId}.{ext}
+ * 2. Uploads file to videos/{uid}/{gameId}/round_{roundId}/{videoId}.{ext}
  * 3. On success: updates video doc + patches round doc
  * 4. On failure: updates video doc with error
  *
@@ -191,7 +191,7 @@ export function uploadVideo(
 ): UploadTask {
   const { file, uid, gameId, roundId, videoId, role } = params;
   const ext = getExtension(file.type);
-  const storagePath = `videos/${uid}/${gameId}/${roundId}/${videoId}.${ext}`;
+  const storagePath = `videos/${uid}/${gameId}/round_${roundId}/${videoId}.${ext}`;
 
   // Create video doc immediately with status="uploading"
   const videoDocRef = doc(db, "videos", videoId);

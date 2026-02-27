@@ -78,6 +78,12 @@ vi.mock("../../config/rateLimits", () => ({
       message: "Too many profile reads",
       prefix: "rl:profileread:",
     },
+    remoteSkate: {
+      windowMs: 60000,
+      max: 20,
+      message: "Too many game actions",
+      prefix: "rl:remoteskate:",
+    },
   },
 }));
 

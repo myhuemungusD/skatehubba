@@ -85,6 +85,7 @@ function createReq(overrides: any = {}) {
     headers: { authorization: "Bearer valid-token" },
     params: { gameId: "game-1", roundId: "round-1" },
     body: { result: "landed" },
+    currentUser: { firebaseUid: "user-1" },
     ...overrides,
   };
 }
@@ -111,27 +112,18 @@ async function callHandler(routeKey: string, req: any, res: any) {
 describe("Remote Skate Routes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockVerifyIdToken.mockResolvedValue({ uid: "user-1" });
   });
 
   describe("POST /:gameId/rounds/:roundId/resolve", () => {
-    it("should return 401 with no auth header", async () => {
-      const req = createReq({ headers: {} });
+    it("should return 401 with no currentUser", async () => {
+      const req = createReq({ currentUser: undefined });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
     });
 
-    it("should return 401 with invalid auth format", async () => {
-      const req = createReq({ headers: { authorization: "Basic token" } });
-      const res = createRes();
-      await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
-      expect(res.status).toHaveBeenCalledWith(401);
-    });
-
-    it("should return 401 with invalid token", async () => {
-      mockVerifyIdToken.mockRejectedValue(new Error("invalid token"));
-      const req = createReq();
+    it("should return 401 with missing firebaseUid", async () => {
+      const req = createReq({ currentUser: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
@@ -498,15 +490,14 @@ describe("Remote Skate Routes", () => {
   });
 
   describe("POST /:gameId/rounds/:roundId/confirm", () => {
-    it("should return 401 with no auth header", async () => {
-      const req = createReq({ headers: {} });
+    it("should return 401 with no currentUser", async () => {
+      const req = createReq({ currentUser: undefined });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
     });
 
     it("should finalize round when defense agrees", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockImplementation(async (fn: any) => {
         const gameSnap = {
           exists: true,
@@ -536,7 +527,7 @@ describe("Remote Skate Routes", () => {
         return await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({ body: { result: "landed" }, currentUser: { firebaseUid: "user-2" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.json).toHaveBeenCalledWith(
@@ -545,7 +536,6 @@ describe("Remote Skate Routes", () => {
     });
 
     it("should flag round as disputed when defense disagrees", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockImplementation(async (fn: any) => {
         const gameSnap = {
           exists: true,
@@ -575,7 +565,7 @@ describe("Remote Skate Routes", () => {
         return await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "missed" } });
+      const req = createReq({ body: { result: "missed" }, currentUser: { firebaseUid: "user-2" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.json).toHaveBeenCalledWith(
@@ -584,7 +574,6 @@ describe("Remote Skate Routes", () => {
     });
 
     it("should complete game when defense agrees and reaches SKATE", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockImplementation(async (fn: any) => {
         const gameSnap = {
           exists: true,
@@ -614,7 +603,7 @@ describe("Remote Skate Routes", () => {
         return await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "missed" } });
+      const req = createReq({ body: { result: "missed" }, currentUser: { firebaseUid: "user-2" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.json).toHaveBeenCalledWith(
@@ -623,22 +612,23 @@ describe("Remote Skate Routes", () => {
     });
 
     it("should return 400 with invalid body", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
-      const req = createReq({ body: { result: "invalid" } });
+      const req = createReq({
+        body: { result: "invalid" },
+        currentUser: { firebaseUid: "user-2" },
+      });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
     });
 
     it("should return 404 when game not found", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockImplementation(async (fn: any) => {
         const gameSnap = { exists: false };
         const transaction = { get: vi.fn().mockResolvedValue(gameSnap) };
         await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({ body: { result: "landed" }, currentUser: { firebaseUid: "user-2" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(404);
@@ -649,7 +639,6 @@ describe("Remote Skate Routes", () => {
     });
 
     it("should return 403 when non-participant accesses game in confirm", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "outsider" });
       mockTransaction.mockImplementation(async (fn: any) => {
         const gameSnap = {
           exists: true,
@@ -664,7 +653,10 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({
+        body: { result: "landed" },
+        currentUser: { firebaseUid: "outsider" },
+      });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(403);
@@ -675,7 +667,6 @@ describe("Remote Skate Routes", () => {
     });
 
     it("should return 400 when game is not active in confirm", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockImplementation(async (fn: any) => {
         const gameSnap = {
           exists: true,
@@ -690,7 +681,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({ body: { result: "landed" }, currentUser: { firebaseUid: "user-2" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
@@ -701,7 +692,6 @@ describe("Remote Skate Routes", () => {
     });
 
     it("should return 404 when round not found in confirm", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockImplementation(async (fn: any) => {
         const gameSnap = {
           exists: true,
@@ -719,7 +709,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({ body: { result: "landed" }, currentUser: { firebaseUid: "user-2" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(404);
@@ -730,7 +720,6 @@ describe("Remote Skate Routes", () => {
     });
 
     it("should return 400 when round is not awaiting confirmation", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockImplementation(async (fn: any) => {
         const gameSnap = {
           exists: true,
@@ -756,7 +745,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({ body: { result: "landed" }, currentUser: { firebaseUid: "user-2" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
@@ -767,7 +756,6 @@ describe("Remote Skate Routes", () => {
     });
 
     it("should return 403 when offense tries to confirm", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "user-1" });
       mockTransaction.mockImplementation(async (fn: any) => {
         const gameSnap = {
           exists: true,
@@ -800,9 +788,8 @@ describe("Remote Skate Routes", () => {
     });
 
     it("should return 500 on unexpected error", async () => {
-      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockRejectedValue(new Error("Unexpected"));
-      const req = createReq();
+      const req = createReq({ currentUser: { firebaseUid: "user-2" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(500);
