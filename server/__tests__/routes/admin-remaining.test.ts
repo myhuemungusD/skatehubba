@@ -1,43 +1,23 @@
 /**
- * Coverage test for server/admin.ts — uncovered line 34
+ * Coverage test for server/admin.ts — ADC failure path
  *
- * Line 34: `logger.warn("Server-side App Check initialization failed:", { appCheckError });`
- * This is inside a try/catch at line 30-35, within the production block.
- * The try block at line 31 just logs info, and line 33 catches if that throws.
- *
- * Looking at the source:
- *   if (env.NODE_ENV === "production") {
- *     try {
- *       logger.info("Firebase App Check enabled for server-side protection");
- *     } catch (appCheckError) {
- *       logger.warn("Server-side App Check initialization failed:", { appCheckError });  // line 34
- *     }
- *   }
- *
- * To hit line 34, we need:
- * - NODE_ENV === "production"
- * - logger.info to throw during the App Check block
+ * When no valid Firebase credentials are provided (no FIREBASE_ADMIN_KEY,
+ * no individual env vars), admin.ts falls back to Application Default
+ * Credentials. If ADC also fails, it should log a descriptive warning
+ * telling the user which env vars to set.
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-describe("admin.ts — line 34 (App Check catch block)", () => {
+describe("admin.ts — ADC failure path", () => {
   beforeEach(() => {
     vi.resetModules();
     vi.clearAllMocks();
   });
 
-  it("catches App Check initialization failure in production", async () => {
-    let infoCallCount = 0;
+  it("warns when ADC fallback also fails", async () => {
     const mockWarn = vi.fn();
-    const mockInfo = vi.fn().mockImplementation((msg: string) => {
-      infoCallCount++;
-      // The first logger.info call is "Firebase Admin SDK initialized" — let it pass
-      // The second logger.info call is "Firebase App Check enabled..." — make it throw
-      if (infoCallCount === 2) {
-        throw new Error("App Check logger crash");
-      }
-    });
+    const mockInfo = vi.fn();
 
     vi.doMock("../../logger", () => ({
       default: {
@@ -67,11 +47,13 @@ describe("admin.ts — line 34 (App Check catch block)", () => {
 
     const mockInitializeApp = vi.fn();
     const mockCert = vi.fn().mockReturnValue({ type: "cert" });
-    const mockApplicationDefault = vi.fn().mockReturnValue({ type: "appDefault" });
+    const mockApplicationDefault = vi.fn().mockImplementation(() => {
+      throw new Error("Could not load the default credentials");
+    });
 
     vi.doMock("firebase-admin", () => ({
       default: {
-        apps: [], // Empty so initialization runs
+        apps: [],
         credential: {
           cert: mockCert,
           applicationDefault: mockApplicationDefault,
@@ -82,10 +64,9 @@ describe("admin.ts — line 34 (App Check catch block)", () => {
 
     await import("../../admin");
 
-    // The warn should be called with App Check failure message
     expect(mockWarn).toHaveBeenCalledWith(
-      "Server-side App Check initialization failed:",
-      expect.objectContaining({ appCheckError: expect.any(Error) })
+      expect.stringContaining("Firebase Admin SDK could not initialize"),
+      expect.objectContaining({ adcError: expect.any(Error) })
     );
   });
 });
