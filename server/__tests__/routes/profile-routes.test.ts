@@ -297,14 +297,16 @@ describe("Profile Routes", () => {
   });
 
   describe("POST /create", () => {
-    it("should throw when db unavailable (global handler returns 503)", async () => {
+    it("should return 503 when db unavailable", async () => {
       mockGetDbFn.mockImplementation(() => {
         throw new Error("Database not configured");
       });
       const req = createReq({ body: { username: "newuser", stance: "regular" } });
       const res = createRes();
-      await expect(callHandler("POST /create", req, res)).rejects.toThrow(
-        "Database not configured"
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
       );
     });
 
@@ -315,13 +317,17 @@ describe("Profile Routes", () => {
       expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    it("should throw when getDb throws (global handler returns 503)", async () => {
+    it("should return 503 when getDb throws", async () => {
       mockGetDbFn.mockImplementation(() => {
         throw new Error("No DB connection");
       });
       const req = createReq({ body: { username: "newuser", stance: "regular" } });
       const res = createRes();
-      await expect(callHandler("POST /create", req, res)).rejects.toThrow("No DB connection");
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+      );
     });
 
     it("should return 500 when db select throws during profile check", async () => {
@@ -543,13 +549,17 @@ describe("Profile Routes", () => {
       expect(res.send).toHaveBeenCalled();
     });
 
-    it("should throw when db is unavailable (getDb is outside try/catch)", async () => {
+    it("should return 503 when db is unavailable", async () => {
       mockGetDbFn.mockImplementation(() => {
         throw new Error("Database not configured");
       });
       const req = createReq();
       const res = createRes();
-      await expect(callHandler("DELETE /", req, res)).rejects.toThrow("Database not configured");
+      await callHandler("DELETE /", req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+      );
     });
 
     it("should return 500 when deleteUser throws", async () => {
