@@ -31,8 +31,11 @@ interface ChatState {
   sendMessage: (userId: string, userName: string, message: string) => Promise<void>;
   sendAIMessage: (message: string) => Promise<void>;
   listenToMessages: () => () => void;
+  disconnect: () => void;
   clearMessages: () => Promise<void>;
 }
+
+let chatUnsubscribe: (() => void) | null = null;
 
 export const useChatStore = create<ChatState>((set, get) => ({
   messages: [],
@@ -73,6 +76,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
   },
 
   listenToMessages: () => {
+    // Clean up any existing listener before creating a new one
+    if (chatUnsubscribe) {
+      chatUnsubscribe();
+      chatUnsubscribe = null;
+    }
+
     const q = query(collection(db, "chat_messages"), orderBy("timestamp", "desc"), limit(100));
 
     const unsubscribe = onSnapshot(
@@ -100,7 +109,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }
     );
 
+    chatUnsubscribe = unsubscribe;
     return unsubscribe;
+  },
+
+  disconnect: () => {
+    if (chatUnsubscribe) {
+      chatUnsubscribe();
+      chatUnsubscribe = null;
+    }
+    set({ messages: [], error: null, isLoading: false });
   },
 
   clearMessages: async () => {

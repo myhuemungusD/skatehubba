@@ -54,6 +54,8 @@ export const EnhancedToast = memo(function EnhancedToast({
 
   return (
     <ToastPrimitives.Root
+      role="status"
+      aria-live="polite"
       className={cn(
         "group pointer-events-auto relative flex w-full items-start gap-4 overflow-hidden rounded-lg border p-4 shadow-lg transition-all",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
