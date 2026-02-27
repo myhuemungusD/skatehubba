@@ -87,7 +87,7 @@ adminRouter.get("/users", ...adminMiddleware, async (req, res) => {
     const offset = (page - 1) * limit;
 
     // Escape SQL LIKE wildcards to prevent wildcard injection
-    const sanitizedSearch = search?.replace(/[%_\\]/g, (c) => `\\${c}`);
+    const sanitizedSearch = search?.replace(/[%_\\]/g, (c: string) => `\\${c}`);
     const searchCondition = sanitizedSearch
       ? or(
           ilike(customUsers.email, `%${sanitizedSearch}%`),
