@@ -7,10 +7,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearch } from "wouter";
-import { Shuffle, Search, Loader2, X, ArrowLeft, Video } from "lucide-react";
+import { Shuffle, Search, Loader2, X, ArrowLeft, Video, LogIn } from "lucide-react";
 import { RemoteSkateService } from "@/lib/remoteSkate";
 import { GameRound } from "@/components/remoteSkate/GameRound";
 import { JoinGame } from "@/components/remoteSkate/JoinGame";
+import { HowToPlay } from "@/components/remoteSkate/HowToPlay";
+import { ActiveGames } from "@/components/remoteSkate/ActiveGames";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -236,69 +238,90 @@ export default function RemoteSkatePage() {
     );
   }
 
-  // ── PICK VIEW (2 big buttons) ────────────────────────────────────────────
+  const handleResumeGame = (gameId: string) => {
+    setActiveGameId(gameId);
+    setView("game");
+  };
+
+  // ── PICK VIEW ──────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {/* Compact header */}
+      {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center">
           <Video className="w-5 h-5 text-purple-500" />
         </div>
         <div>
           <h1 className="text-xl font-bold text-white">Remote S.K.A.T.E.</h1>
-          <p className="text-xs text-neutral-500">Video trick battles — pick how you play</p>
+          <p className="text-xs text-neutral-500">
+            Async video trick battles — challenge anyone, anywhere
+          </p>
         </div>
       </div>
 
-      {/* Two big action buttons */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Play Random */}
-        <button
-          type="button"
-          onClick={handlePlayRandom}
-          className={cn(
-            "group relative flex flex-col items-center gap-4 p-8 rounded-xl border-2 transition-all",
-            "border-purple-500/40 hover:border-purple-400 hover:bg-purple-500/10",
-            "active:scale-[0.98]"
-          )}
-        >
-          <div className="w-16 h-16 rounded-full bg-purple-500/20 flex items-center justify-center group-hover:bg-purple-500/30 transition-colors">
-            <Shuffle className="w-8 h-8 text-purple-400" />
-          </div>
-          <div className="text-center">
-            <p className="text-lg font-bold text-white">Play Random</p>
-            <p className="text-xs text-neutral-400 mt-1">Instant match with anyone online</p>
-          </div>
-        </button>
+      {/* How to Play (collapsible) */}
+      <HowToPlay />
 
-        {/* Search Player */}
-        <button
-          type="button"
-          onClick={() => setView("search-input")}
-          className={cn(
-            "group relative flex flex-col items-center gap-4 p-8 rounded-xl border-2 transition-all",
-            "border-yellow-500/40 hover:border-yellow-400 hover:bg-yellow-500/10",
-            "active:scale-[0.98]"
-          )}
-        >
-          <div className="w-16 h-16 rounded-full bg-yellow-500/20 flex items-center justify-center group-hover:bg-yellow-500/30 transition-colors">
-            <Search className="w-8 h-8 text-yellow-400" />
-          </div>
-          <div className="text-center">
-            <p className="text-lg font-bold text-white">Search Player</p>
-            <p className="text-xs text-neutral-400 mt-1">Challenge a specific skater</p>
-          </div>
-        </button>
-      </div>
+      {/* Active Games */}
+      <ActiveGames onResumeGame={handleResumeGame} />
 
-      {/* Join by ID — small text link */}
-      <div className="text-center">
+      {/* Start a new game */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-medium text-neutral-500 uppercase tracking-wide">
+          Start a New Game
+        </h3>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Play Random */}
+          <button
+            type="button"
+            onClick={handlePlayRandom}
+            className={cn(
+              "group relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all",
+              "border-purple-500/40 hover:border-purple-400 hover:bg-purple-500/10",
+              "active:scale-[0.98]"
+            )}
+          >
+            <div className="w-14 h-14 rounded-full bg-purple-500/20 flex items-center justify-center group-hover:bg-purple-500/30 transition-colors">
+              <Shuffle className="w-7 h-7 text-purple-400" />
+            </div>
+            <div className="text-center">
+              <p className="text-base font-bold text-white">Play Random</p>
+              <p className="text-xs text-neutral-400 mt-1">Get matched with anyone online</p>
+            </div>
+          </button>
+
+          {/* Challenge a Friend */}
+          <button
+            type="button"
+            onClick={() => setView("search-input")}
+            className={cn(
+              "group relative flex flex-col items-center gap-3 p-6 rounded-xl border-2 transition-all",
+              "border-yellow-500/40 hover:border-yellow-400 hover:bg-yellow-500/10",
+              "active:scale-[0.98]"
+            )}
+          >
+            <div className="w-14 h-14 rounded-full bg-yellow-500/20 flex items-center justify-center group-hover:bg-yellow-500/30 transition-colors">
+              <Search className="w-7 h-7 text-yellow-400" />
+            </div>
+            <div className="text-center">
+              <p className="text-base font-bold text-white">Challenge a Friend</p>
+              <p className="text-xs text-neutral-400 mt-1">Create a game and share the link</p>
+            </div>
+          </button>
+        </div>
+
+        {/* Join by Game ID — visible button instead of hidden text */}
         <button
           type="button"
           onClick={() => setView("join")}
-          className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors underline underline-offset-2"
+          className={cn(
+            "w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg border transition-colors",
+            "border-neutral-700 text-neutral-300 text-sm hover:bg-neutral-800 hover:border-neutral-600"
+          )}
         >
-          Have a Game ID? Join directly
+          <LogIn className="h-4 w-4" />
+          Join Game by ID
         </button>
       </div>
     </div>
