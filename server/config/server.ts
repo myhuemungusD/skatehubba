@@ -9,6 +9,12 @@
 export const SERVER_PORT = parseInt(process.env.PORT || "3001", 10);
 
 /**
+ * Production origins that are always allowed regardless of ALLOWED_ORIGINS env var.
+ * This prevents CORS lockouts if the env var is misconfigured or missing.
+ */
+export const PRODUCTION_ORIGINS = ["https://skatehubba.com"] as const;
+
+/**
  * Development origins for CORS and fallback URLs.
  * Override individual ports via environment variables for custom setups.
  */
@@ -22,17 +28,19 @@ export const DEV_DEFAULT_ORIGIN = DEV_ORIGINS[0];
 
 /**
  * Returns the list of allowed origins for the current environment.
- * Matches the CORS origin logic in server/index.ts.
+ * In production: PRODUCTION_ORIGINS + ALLOWED_ORIGINS env var.
+ * In development: all of the above + localhost dev origins.
  */
 export function getAllowedOrigins(): string[] {
   const envOrigins =
     process.env.ALLOWED_ORIGINS?.split(",")
       .map((o) => o.trim())
       .filter(Boolean) || [];
+  const unique = [...new Set([...PRODUCTION_ORIGINS, ...envOrigins])];
   if (process.env.NODE_ENV === "production") {
-    return envOrigins;
+    return unique;
   }
-  return [...envOrigins, ...DEV_ORIGINS];
+  return [...unique, ...DEV_ORIGINS];
 }
 
 /**

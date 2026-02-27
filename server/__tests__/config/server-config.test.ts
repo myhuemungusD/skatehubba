@@ -53,24 +53,28 @@ describe("Server Config", () => {
       expect(origins.some((o: string) => o.includes("localhost"))).toBe(true);
     });
 
-    it("returns only ALLOWED_ORIGINS in production mode", async () => {
+    it("returns PRODUCTION_ORIGINS + ALLOWED_ORIGINS in production mode", async () => {
       process.env.NODE_ENV = "production";
       process.env.ALLOWED_ORIGINS = "https://app.example.com";
-      const { getAllowedOrigins } = await import("../../config/server");
+      const { getAllowedOrigins, PRODUCTION_ORIGINS } = await import("../../config/server");
 
       const origins = getAllowedOrigins();
-      expect(origins).toEqual(["https://app.example.com"]);
+      // Always includes hardcoded production origins
+      for (const prodOrigin of PRODUCTION_ORIGINS) {
+        expect(origins).toContain(prodOrigin);
+      }
+      expect(origins).toContain("https://app.example.com");
       // No dev origins
       expect(origins.some((o: string) => o.includes("localhost"))).toBe(false);
     });
 
-    it("returns empty array in production with no ALLOWED_ORIGINS", async () => {
+    it("returns only PRODUCTION_ORIGINS in production with no ALLOWED_ORIGINS", async () => {
       process.env.NODE_ENV = "production";
       delete process.env.ALLOWED_ORIGINS;
-      const { getAllowedOrigins } = await import("../../config/server");
+      const { getAllowedOrigins, PRODUCTION_ORIGINS } = await import("../../config/server");
 
       const origins = getAllowedOrigins();
-      expect(origins).toEqual([]);
+      expect(origins).toEqual([...PRODUCTION_ORIGINS]);
     });
 
     it("trims and filters ALLOWED_ORIGINS entries", async () => {
@@ -103,19 +107,19 @@ describe("Server Config", () => {
     it("returns fallback for undefined origin", async () => {
       delete process.env.NODE_ENV;
       delete process.env.ALLOWED_ORIGINS;
-      const { validateOrigin, DEV_ORIGINS } = await import("../../config/server");
+      const { validateOrigin, PRODUCTION_ORIGINS } = await import("../../config/server");
 
-      // Fallback should be first allowed origin (first dev origin)
-      expect(validateOrigin(undefined)).toBe(DEV_ORIGINS[0]);
+      // Fallback should be first allowed origin (first production origin)
+      expect(validateOrigin(undefined)).toBe(PRODUCTION_ORIGINS[0]);
     });
 
     it("returns fallback for spoofed origin not in allowed list", async () => {
       delete process.env.NODE_ENV;
       delete process.env.ALLOWED_ORIGINS;
-      const { validateOrigin, DEV_ORIGINS } = await import("../../config/server");
+      const { validateOrigin, PRODUCTION_ORIGINS } = await import("../../config/server");
 
       const result = validateOrigin("https://evil-phishing-site.com");
-      expect(result).toBe(DEV_ORIGINS[0]);
+      expect(result).toBe(PRODUCTION_ORIGINS[0]);
       expect(result).not.toContain("evil");
     });
 
@@ -134,13 +138,13 @@ describe("Server Config", () => {
       expect(validateOrigin("https://skatehubba.com")).toBe("https://skatehubba.com");
     });
 
-    it("falls back to DEV_DEFAULT_ORIGIN when no origins are configured in production", async () => {
+    it("falls back to PRODUCTION_ORIGINS[0] when no ALLOWED_ORIGINS set in production", async () => {
       process.env.NODE_ENV = "production";
       delete process.env.ALLOWED_ORIGINS;
-      const { validateOrigin, DEV_DEFAULT_ORIGIN } = await import("../../config/server");
+      const { validateOrigin, PRODUCTION_ORIGINS } = await import("../../config/server");
 
-      // No ALLOWED_ORIGINS in production → empty list → falls to DEV_DEFAULT_ORIGIN
-      expect(validateOrigin(undefined)).toBe(DEV_DEFAULT_ORIGIN);
+      // No ALLOWED_ORIGINS in production → falls to first hardcoded production origin
+      expect(validateOrigin(undefined)).toBe(PRODUCTION_ORIGINS[0]);
     });
 
     it("accepts all configured dev origins", async () => {
