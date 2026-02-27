@@ -17,7 +17,12 @@ interface GameCompleteProps {
   onNewGame: () => void;
 }
 
-export function GameComplete({ game, winnerUid, loserUid, onNewGame }: GameCompleteProps) {
+export function GameComplete({
+  game,
+  winnerUid,
+  loserUid: _loserUid,
+  onNewGame,
+}: GameCompleteProps) {
   const uid = auth.currentUser?.uid;
   const iWon = winnerUid === uid;
 
@@ -53,16 +58,9 @@ export function GameComplete({ game, winnerUid, loserUid, onNewGame }: GameCompl
       <div className="bg-neutral-900/50 border border-neutral-800 rounded-lg p-6">
         <h3 className="text-sm font-medium text-neutral-400 text-center mb-4">Final Score</h3>
         <div className="flex items-center justify-between gap-4">
-          <LetterDisplay
-            letters={myLetters}
-            label="You"
-            isCurrentUser
-          />
+          <LetterDisplay letters={myLetters} label="You" isCurrentUser />
           <div className="text-xs text-neutral-500 font-medium">VS</div>
-          <LetterDisplay
-            letters={opponentLetters}
-            label="Opponent"
-          />
+          <LetterDisplay letters={opponentLetters} label="Opponent" />
         </div>
         <p className="text-xs text-neutral-500 text-center mt-3">
           {iWon

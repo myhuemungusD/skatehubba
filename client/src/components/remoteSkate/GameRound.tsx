@@ -6,7 +6,18 @@
  */
 
 import { useState, useCallback } from "react";
-import { Loader2, Shield, Swords, Clock, Copy, Check, Link, ArrowLeft, HelpCircle, Info } from "lucide-react";
+import {
+  Loader2,
+  Shield,
+  Swords,
+  Clock,
+  Copy,
+  Check,
+  Link,
+  ArrowLeft,
+  HelpCircle,
+  Info,
+} from "lucide-react";
 import { useRemoteSkateGame } from "@/hooks/useRemoteSkateGame";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -75,7 +86,11 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
       toast({ title: "Copied!", description: "Game ID copied to clipboard." });
       setTimeout(() => setCopiedId(false), 2000);
     } catch {
-      toast({ title: "Copy failed", description: "Please copy the ID manually.", variant: "destructive" });
+      toast({
+        title: "Copy failed",
+        description: "Please copy the ID manually.",
+        variant: "destructive",
+      });
     }
   }, [gameId, toast]);
 
@@ -87,7 +102,11 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
       toast({ title: "Link copied!", description: "Share this link with your opponent." });
       setTimeout(() => setCopiedLink(false), 2000);
     } catch {
-      toast({ title: "Copy failed", description: "Please copy the link manually.", variant: "destructive" });
+      toast({
+        title: "Copy failed",
+        description: "Please copy the link manually.",
+        variant: "destructive",
+      });
     }
   }, [gameId, toast]);
 
@@ -175,7 +194,7 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
 
         {/* Game ID with copy */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-neutral-500 block">Game ID</label>
+          <span className="text-xs font-medium text-neutral-500 block">Game ID</span>
           <div className="flex items-center gap-2 bg-neutral-900 border border-neutral-700 rounded-lg p-3">
             <code className="flex-1 text-sm text-yellow-400 font-mono break-all select-all">
               {gameId}
@@ -201,19 +220,15 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
           onClick={handleCopyLink}
           className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg border border-neutral-700 text-neutral-300 text-sm hover:bg-neutral-800 transition-colors"
         >
-          {copiedLink ? (
-            <Check className="h-4 w-4 text-green-400" />
-          ) : (
-            <Link className="h-4 w-4" />
-          )}
+          {copiedLink ? <Check className="h-4 w-4 text-green-400" /> : <Link className="h-4 w-4" />}
           {copiedLink ? "Link Copied!" : "Copy Invite Link"}
         </button>
 
         <div className="flex items-start gap-2 rounded-md bg-blue-500/5 border border-blue-500/20 p-3">
           <Info className="h-4 w-4 text-blue-400 mt-0.5 shrink-0" />
           <p className="text-xs text-neutral-400 leading-relaxed">
-            Your opponent can paste the Game ID on the &ldquo;Join Game by ID&rdquo; screen, or simply
-            open the invite link to jump straight in.
+            Your opponent can paste the Game ID on the &ldquo;Join Game by ID&rdquo; screen, or
+            simply open the invite link to jump straight in.
           </p>
         </div>
       </div>
@@ -232,8 +247,7 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
     roundStatus === "awaiting_reply" &&
     isMyTurn &&
     replyVideo?.status === "ready";
-  const showConfirmButtons =
-    myRole === "defense" && roundStatus === "awaiting_confirmation";
+  const showConfirmButtons = myRole === "defense" && roundStatus === "awaiting_confirmation";
 
   // Improved status messages with contextual guidance
   let statusMessage = "";
@@ -244,14 +258,17 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
       statusHint = "You've submitted your judgment. Your opponent will either agree or dispute it.";
     } else if (myRole === "defense") {
       const claim = currentRound?.offenseClaim;
-      statusMessage = claim === "landed"
-        ? "Your opponent says you LANDED the trick."
-        : "Your opponent says you MISSED the trick.";
-      statusHint = "Watch both videos and decide if you agree. If you disagree, you can dispute it.";
+      statusMessage =
+        claim === "landed"
+          ? "Your opponent says you LANDED the trick."
+          : "Your opponent says you MISSED the trick.";
+      statusHint =
+        "Watch both videos and decide if you agree. If you disagree, you can dispute it.";
     }
   } else if (roundStatus === "disputed") {
     statusMessage = "This round is disputed and under admin review.";
-    statusHint = "You and your opponent disagreed on the result. An admin will review the videos and make a final decision.";
+    statusHint =
+      "You and your opponent disagreed on the result. An admin will review the videos and make a final decision.";
   } else if (!isMyTurn) {
     if (roundStatus === "awaiting_set") {
       statusMessage = "Waiting for your opponent to set a trick...";
@@ -270,7 +287,8 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
       statusHint = "Record yourself landing a trick, then upload the video. Make it count!";
     } else if (showReplyUpload) {
       statusMessage = "You're on defense! Watch the set trick and upload your attempt.";
-      statusHint = "Try to replicate the exact trick shown in the video above, then upload your attempt.";
+      statusHint =
+        "Try to replicate the exact trick shown in the video above, then upload your attempt.";
     } else if (showResolveButtons) {
       statusMessage = "Time to judge! Did your opponent land the trick?";
       statusHint = "Watch both videos carefully. Be fair — your opponent can dispute your call.";
@@ -302,11 +320,17 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
           <span className="text-xs text-neutral-500">Round {roundNumber}</span>
           <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-400">
             {myRole === "offense" ? (
-              <span className="flex items-center gap-1" title="You set a trick for your opponent to match">
+              <span
+                className="flex items-center gap-1"
+                title="You set a trick for your opponent to match"
+              >
                 <Swords className="h-3 w-3" /> Offense
               </span>
             ) : myRole === "defense" ? (
-              <span className="flex items-center gap-1" title="You must match your opponent's trick">
+              <span
+                className="flex items-center gap-1"
+                title="You must match your opponent's trick"
+              >
                 <Shield className="h-3 w-3" /> Defense
               </span>
             ) : (
@@ -351,15 +375,15 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
 
         {/* Status message */}
         <p className="text-sm text-neutral-300 font-medium">{statusMessage}</p>
-        {statusHint && (
-          <p className="text-xs text-neutral-500 leading-relaxed">{statusHint}</p>
-        )}
+        {statusHint && <p className="text-xs text-neutral-500 leading-relaxed">{statusHint}</p>}
 
         {/* Not your turn indicator */}
         {!isMyTurn && game.status === "active" && roundStatus !== "disputed" && (
           <div className="flex items-center gap-2 text-xs text-yellow-400/70 bg-yellow-400/5 rounded-md px-3 py-2">
             <Clock className="h-3 w-3" />
-            <span>It&apos;s your opponent&apos;s turn. You&apos;ll be notified when they&apos;re done.</span>
+            <span>
+              It&apos;s your opponent&apos;s turn. You&apos;ll be notified when they&apos;re done.
+            </span>
           </div>
         )}
       </div>
@@ -367,9 +391,10 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
       {/* Videos */}
       <div className="grid grid-cols-1 gap-4">
         <VideoPlayer video={setVideo} label="Set Trick" />
-        {(roundStatus === "awaiting_reply" || roundStatus === "awaiting_confirmation" || roundStatus === "disputed" || replyVideo) && (
-          <VideoPlayer video={replyVideo} label="Reply Attempt" />
-        )}
+        {(roundStatus === "awaiting_reply" ||
+          roundStatus === "awaiting_confirmation" ||
+          roundStatus === "disputed" ||
+          replyVideo) && <VideoPlayer video={replyVideo} label="Reply Attempt" />}
       </div>
 
       {/* Upload controls */}
@@ -398,7 +423,8 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
             Did your opponent land the trick?
           </p>
           <p className="text-xs text-neutral-500 text-center">
-            Watch both videos above, then make your call. Your opponent can dispute if they disagree.
+            Watch both videos above, then make your call. Your opponent can dispute if they
+            disagree.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -407,7 +433,11 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
               disabled={isResolving}
               className="py-3 px-4 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 font-medium text-sm hover:bg-green-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isResolving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "They Landed It"}
+              {isResolving ? (
+                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+              ) : (
+                "They Landed It"
+              )}
             </button>
             <button
               type="button"
@@ -415,7 +445,11 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
               disabled={isResolving}
               className="py-3 px-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 font-medium text-sm hover:bg-red-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isResolving ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "They Missed It"}
+              {isResolving ? (
+                <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+              ) : (
+                "They Missed It"
+              )}
             </button>
           </div>
         </div>
@@ -426,10 +460,12 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
         <div className="space-y-3">
           <p className="text-sm text-neutral-300 text-center font-medium">
             Your opponent called it:{" "}
-            <strong className={cn(
-              "font-bold",
-              currentRound?.offenseClaim === "landed" ? "text-green-400" : "text-red-400"
-            )}>
+            <strong
+              className={cn(
+                "font-bold",
+                currentRound?.offenseClaim === "landed" ? "text-green-400" : "text-red-400"
+              )}
+            >
               {currentRound?.offenseClaim === "landed" ? "LANDED" : "MISSED"}
             </strong>
           </p>
@@ -447,7 +483,9 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
             </button>
             <button
               type="button"
-              onClick={() => confirmRound(currentRound?.offenseClaim === "landed" ? "missed" : "landed")}
+              onClick={() =>
+                confirmRound(currentRound?.offenseClaim === "landed" ? "missed" : "landed")
+              }
               disabled={isResolving}
               className="py-3 px-4 rounded-lg bg-orange-500/10 border border-orange-500/30 text-orange-400 font-medium text-sm hover:bg-orange-500/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -464,8 +502,8 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
           <div className="space-y-1">
             <span className="block font-medium">Round Disputed</span>
             <span className="block text-orange-400/60">
-              You and your opponent disagreed on the result. An admin will review the
-              videos and make a final call. You&apos;ll be notified when it&apos;s resolved.
+              You and your opponent disagreed on the result. An admin will review the videos and
+              make a final call. You&apos;ll be notified when it&apos;s resolved.
             </span>
           </div>
         </div>
