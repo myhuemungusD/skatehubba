@@ -74,7 +74,7 @@ module.exports = {
             compileSdkVersion: 36,
             targetSdkVersion: 36,
             minSdkVersion: 24,
-            kotlinVersion: "2.0.21",
+            kotlinVersion: "2.1.20",
             jsEngine: "hermes",
           },
           ios: {
