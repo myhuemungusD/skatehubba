@@ -10,7 +10,7 @@ import { checkRateLimit } from "../../socketRateLimit";
 import { trackSocketGame } from "./roomManagement";
 import type { TypedServer, TypedSocket } from "./types";
 
-export function registerCreateHandler(io: TypedServer, socket: TypedSocket): void {
+export function registerCreateHandler(_io: TypedServer, socket: TypedSocket): void {
   socket.on("game:create", async (spotId: string, maxPlayers: number = 4) => {
     if (!checkRateLimit(socket.id, "game:create")) {
       socket.emit("error", { code: "rate_limited", message: "Too many requests, slow down" });

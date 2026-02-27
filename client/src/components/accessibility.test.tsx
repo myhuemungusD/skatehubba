@@ -5,13 +5,11 @@
 import { render } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { axe } from "vitest-axe";
-import { toHaveNoViolations } from "vitest-axe/matchers";
+import "vitest-axe/extend-expect";
 import { EmptyState, LoadingEmptyState, ErrorEmptyState } from "./EmptyState";
 import { LoadingScreen, PageLoadingSkeleton } from "./LoadingScreen";
 import { Footer } from "./Footer";
 import { Search } from "lucide-react";
-
-expect.extend({ toHaveNoViolations });
 
 describe("Accessibility (axe-core)", () => {
   it("LoadingScreen has no accessibility violations", async () => {

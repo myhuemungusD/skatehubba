@@ -19,5 +19,5 @@
     }
   },
   "include": ["./**/*.ts", "../server/**/*.ts", "../packages/shared/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "../**/__tests__/**", "../**/*.test.ts", "../**/*.test.tsx"]
 }
