@@ -227,6 +227,96 @@ test.describe("Webhook Routes", () => {
 });
 
 // =============================================================================
+// Remote S.K.A.T.E. API — Route Registration & Auth Boundary
+// =============================================================================
+
+test.describe("Remote S.K.A.T.E. API", () => {
+  test("POST /api/remote-skate/:gameId/rounds/:roundId/resolve is reachable (not 404)", async ({
+    request,
+  }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/nonexistent-game/rounds/nonexistent-round/resolve",
+      { result: "landed" }
+    );
+    // Route exists → auth middleware rejects with 401 (not 404)
+    expect(res.status()).not.toBe(404);
+  });
+
+  test("POST /api/remote-skate/:gameId/rounds/:roundId/confirm is reachable (not 404)", async ({
+    request,
+  }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/nonexistent-game/rounds/nonexistent-round/confirm",
+      { result: "landed" }
+    );
+    expect(res.status()).not.toBe(404);
+  });
+
+  test("resolve endpoint returns 401 without valid auth", async ({ request }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/game-id/rounds/round-id/resolve",
+      { result: "landed" }
+    );
+    expect(res.status()).toBe(401);
+  });
+
+  test("confirm endpoint returns 401 without valid auth", async ({ request }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/game-id/rounds/round-id/confirm",
+      { result: "landed" }
+    );
+    expect(res.status()).toBe(401);
+  });
+
+  test("resolve endpoint rejects invalid result value", async ({ request }) => {
+    // Send an invalid result enum — should fail validation before auth
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/game-id/rounds/round-id/resolve",
+      { result: "invalid-value" }
+    );
+    // Either 400 (validation) or 401 (auth checked first) — both acceptable
+    expect([400, 401]).toContain(res.status());
+  });
+
+  test("confirm endpoint rejects invalid result value", async ({ request }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/game-id/rounds/round-id/confirm",
+      { result: "not-a-valid-option" }
+    );
+    expect([400, 401]).toContain(res.status());
+  });
+
+  test("remote-skate error responses use application/json", async ({ request }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/fake/rounds/fake/resolve",
+      { result: "landed" }
+    );
+    const contentType = res.headers()["content-type"] || "";
+    expect(contentType).toContain("application/json");
+  });
+
+  test("remote-skate errors never expose stack traces", async ({ request }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/fake/rounds/fake/resolve",
+      { result: "landed" }
+    );
+    const text = await res.text();
+    expect(text).not.toContain("at Function");
+    expect(text).not.toContain("at Object");
+    expect(text).not.toContain(".ts:");
+    expect(text).not.toContain(".js:");
+  });
+});
+
+// =============================================================================
 // 404 Handling
 // =============================================================================
 
