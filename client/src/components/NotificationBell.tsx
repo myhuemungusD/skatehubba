@@ -110,14 +110,11 @@ export default function NotificationBell() {
   });
 
   // Close on outside click
-  const handleClickOutside = useCallback(
-    (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    },
-    []
-  );
+  const handleClickOutside = useCallback((e: MouseEvent) => {
+    if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      setIsOpen(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -144,7 +141,11 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 top-full mt-2 w-[calc(100vw-32px)] sm:w-80 max-h-[420px] rounded-lg border border-neutral-800 bg-neutral-900 shadow-xl z-50 flex flex-col overflow-hidden">
+        <div
+          role="region"
+          aria-label="Notifications"
+          className="absolute left-1/2 -translate-x-1/2 sm:left-auto sm:right-0 sm:translate-x-0 top-full mt-2 w-[calc(100vw-32px)] sm:w-80 max-h-[420px] rounded-lg border border-neutral-800 bg-neutral-900 shadow-xl z-50 flex flex-col overflow-hidden"
+        >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-neutral-800 px-4 py-3">
             <h3 className="text-sm font-semibold text-white">Notifications</h3>
@@ -153,6 +154,7 @@ export default function NotificationBell() {
                 onClick={() => markAllReadMutation.mutate()}
                 className="flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors"
                 disabled={markAllReadMutation.isPending}
+                aria-label="Mark all notifications as read"
               >
                 <CheckCheck className="h-3 w-3" />
                 Mark all read
@@ -178,10 +180,9 @@ export default function NotificationBell() {
                   className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-800/50 border-b border-neutral-800/50 last:border-0 ${
                     !item.isRead ? "bg-neutral-800/30" : ""
                   }`}
+                  aria-label={`${item.title}: ${item.body}${!item.isRead ? " (unread)" : ""}`}
                 >
-                  <div className="mt-0.5 flex-shrink-0">
-                    {getNotificationIcon(item.type)}
-                  </div>
+                  <div className="mt-0.5 flex-shrink-0">{getNotificationIcon(item.type)}</div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span
@@ -195,9 +196,7 @@ export default function NotificationBell() {
                         <span className="flex-shrink-0 h-2 w-2 rounded-full bg-orange-500" />
                       )}
                     </div>
-                    <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">
-                      {item.body}
-                    </p>
+                    <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{item.body}</p>
                     <span className="text-[10px] text-neutral-600 mt-1 block">
                       {timeAgo(item.createdAt)}
                     </span>

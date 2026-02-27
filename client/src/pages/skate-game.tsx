@@ -12,18 +12,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import { useSearch, useLocation } from "wouter";
-import {
-  Swords,
-  Clock,
-  Trophy,
-  AlertCircle,
-  ArrowLeft,
-  Video,
-  Flag,
-  AlertTriangle,
-  Play,
-  Skull,
-} from "lucide-react";
+import { Swords, Clock, AlertCircle, ArrowLeft, Flag, AlertTriangle } from "lucide-react";
 import { extractThumbnail } from "@/lib/video/thumbnailExtractor";
 import { formatDistanceToNow } from "date-fns";
 import { useAuth } from "@/hooks/useAuth";
@@ -38,12 +27,14 @@ import {
 import {
   LettersDisplay,
   TurnHistory,
-  VideoRecorder,
   GameMetaTags,
-  SocialShare,
+  VideoPlayerModal,
+  GameOverScreen,
+  SetTrickPanel,
+  RespondTrickPanel,
+  JudgePanel,
 } from "@/components/game";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -117,20 +108,17 @@ export default function SkateGamePage() {
         const timestamp = Date.now();
         const videoPath = `games/${gameId}/turns/${user.uid}_${timestamp}.webm`;
 
-        // Extract thumbnail and upload video in parallel
         const [thumbnailBlob, videoUrl] = await Promise.all([
           extractThumbnail(blob).catch(() => null),
           uploadVideoBlob(videoPath, blob),
         ]);
 
-        // Upload thumbnail if extracted
         let thumbnailUrl: string | undefined;
         if (thumbnailBlob) {
           const thumbPath = `games/${gameId}/turns/${user.uid}_${timestamp}_thumb.jpg`;
           thumbnailUrl = await uploadVideoBlob(thumbPath, thumbnailBlob);
         }
 
-        // Submit turn — auto-send, no preview, no confirmation
         await submitTurn.mutateAsync({
           gameId,
           trickDescription: description,
@@ -141,8 +129,6 @@ export default function SkateGamePage() {
 
         setTrickDescription("");
       } catch (err) {
-        // Mutation errors handled by useSubmitTurn toast.
-        // Upload errors (Firebase Storage) need explicit handling.
         toast({
           title: "Upload failed",
           description: err instanceof Error ? err.message : "Try again.",
@@ -155,29 +141,38 @@ export default function SkateGamePage() {
     [gameId, user?.uid, submitTurn, toast]
   );
 
-  const handleJudge = (result: "landed" | "missed") => {
-    if (!gameId || !pendingTurnId) return;
-    judgeTurn.mutate({ turnId: pendingTurnId, result, gameId });
-  };
+  const handleJudge = useCallback(
+    (result: "landed" | "missed") => {
+      if (!gameId || !pendingTurnId) return;
+      judgeTurn.mutate({ turnId: pendingTurnId, result, gameId });
+    },
+    [gameId, pendingTurnId, judgeTurn]
+  );
 
-  const handleDispute = (turnId: number) => {
-    if (!gameId) return;
-    fileDispute.mutate({ gameId, turnId });
-  };
+  const handleDispute = useCallback(
+    (turnId: number) => {
+      if (!gameId) return;
+      fileDispute.mutate({ gameId, turnId });
+    },
+    [gameId, fileDispute]
+  );
 
-  const handleResolveDispute = (disputeId: number, finalResult: "landed" | "missed") => {
-    if (!gameId) return;
-    resolveDispute.mutate({ disputeId, finalResult, gameId });
-  };
+  const handleResolveDispute = useCallback(
+    (disputeId: number, finalResult: "landed" | "missed") => {
+      if (!gameId) return;
+      resolveDispute.mutate({ disputeId, finalResult, gameId });
+    },
+    [gameId, resolveDispute]
+  );
 
-  const handleForfeit = () => {
+  const handleForfeit = useCallback(() => {
     if (!gameId) return;
     forfeitGame.mutate(gameId);
-  };
+  }, [gameId, forfeitGame]);
 
-  const handleBackToLobby = () => {
+  const handleBackToLobby = useCallback(() => {
     setLocation("/play?tab=lobby");
-  };
+  }, [setLocation]);
 
   if (!gameId) {
     return (
@@ -206,7 +201,6 @@ export default function SkateGamePage() {
   const isPending = game.status === "pending";
   const isActive = game.status === "active";
 
-  // Find most recent BAIL'd turns that can be disputed
   const disputeableTurns =
     turns?.filter(
       (t) =>
@@ -217,11 +211,9 @@ export default function SkateGamePage() {
         !disputes?.some((d) => d.turnId === t.id)
     ) ?? [];
 
-  // Find unresolved disputes against the current user
   const pendingDisputesAgainstMe =
     disputes?.filter((d) => d.againstPlayerId === user.uid && !d.finalResult) ?? [];
 
-  // Turn phase display
   const phaseLabels: Record<string, string> = {
     set_trick: isOffensive ? "Set your trick." : `${opponentName} is setting a trick.`,
     respond_trick: isDefensive ? "Your turn to respond." : `${opponentName} is responding.`,
@@ -264,7 +256,7 @@ export default function SkateGamePage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-white">S.K.A.T.E.</h1>
-            <p className="text-sm text-neutral-400">
+            <p className="text-sm text-neutral-400" aria-live="polite">
               {isPending && "Waiting for opponent."}
               {isActive && !isGameOver && turnPhase && phaseLabels[turnPhase]}
               {isGameOver && (iWon ? "You won." : "You lost.")}
@@ -308,195 +300,55 @@ export default function SkateGamePage() {
           />
         </div>
 
-        {/* ====== GAME OVER SCREEN ====== */}
+        {/* Game Over */}
         {isGameOver && (
-          <div
-            className={cn(
-              "p-8 rounded-lg border-2 text-center",
-              iWon ? "bg-green-500/10 border-green-500" : "bg-red-500/10 border-red-500"
-            )}
-          >
-            {iWon ? (
-              <Trophy className="w-14 h-14 text-green-400 mx-auto mb-3" />
-            ) : (
-              <Skull className="w-14 h-14 text-red-400 mx-auto mb-3" />
-            )}
-            <h2 className="text-3xl font-black mb-2 text-white">
-              {iWon ? "VICTORY" : "GAME OVER"}
-            </h2>
-            <div className="space-y-1 text-sm">
-              <p className={iWon ? "text-green-400" : "text-red-400"}>
-                {iWon ? `${opponentName} has S.K.A.T.E.` : `You have S.K.A.T.E.`}
-              </p>
-              <p className="text-neutral-500">
-                You: {myLetters || "Clean"} | {opponentName}: {oppLetters || "Clean"}
-              </p>
-              {game.status === "forfeited" && (
-                <p className="text-neutral-500 mt-2">
-                  {iWon ? "Opponent forfeited." : "You forfeited."}
-                </p>
-              )}
-            </div>
-            <div className="mt-6 flex justify-center">
-              <SocialShare
-                gameId={gameId}
-                playerOne={user?.displayName || "You"}
-                playerTwo={opponentName}
-                result={iWon ? `${user?.displayName || "You"} won` : `${opponentName} won`}
-              />
-            </div>
-          </div>
+          <GameOverScreen
+            iWon={iWon}
+            opponentName={opponentName}
+            myLetters={myLetters}
+            oppLetters={oppLetters}
+            isForfeited={game.status === "forfeited"}
+            gameId={gameId}
+            playerDisplayName={user?.displayName || "You"}
+          />
         )}
 
-        {/* ====== SET TRICK PHASE ====== */}
+        {/* Set Trick Phase */}
         {isActive && !isGameOver && turnPhase === "set_trick" && isOffensive && isMyTurn && (
-          <div className="p-6 rounded-lg bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/30">
-            <div className="flex items-center gap-2 mb-4">
-              <Video className="w-5 h-5 text-orange-400" />
-              <h2 className="text-lg font-semibold text-white">Set Your Trick</h2>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-neutral-300 mb-2">
-                  Trick Name
-                </label>
-                <Input
-                  placeholder="Kickflip, Heelflip, Tre Flip..."
-                  value={trickDescription}
-                  onChange={(e) => setTrickDescription(e.target.value)}
-                  className="bg-neutral-900 border-neutral-700"
-                  maxLength={500}
-                  disabled={isUploading}
-                />
-              </div>
-
-              {trickDescription.trim() ? (
-                <VideoRecorder
-                  onRecordingComplete={handleRecordingComplete}
-                  disabled={isUploading || submitTurn.isPending}
-                />
-              ) : (
-                <p className="text-xs text-neutral-500 text-center py-4">
-                  Enter trick name to enable recording.
-                </p>
-              )}
-
-              {isUploading && (
-                <div className="text-center text-sm text-neutral-400 font-mono">Uploading...</div>
-              )}
-            </div>
-          </div>
+          <SetTrickPanel
+            trickDescription={trickDescription}
+            onTrickDescriptionChange={setTrickDescription}
+            onRecordingComplete={handleRecordingComplete}
+            isUploading={isUploading}
+            isSubmitting={submitTurn.isPending}
+          />
         )}
 
-        {/* ====== RESPOND TRICK PHASE ====== */}
+        {/* Respond Trick Phase */}
         {isActive && !isGameOver && turnPhase === "respond_trick" && isDefensive && isMyTurn && (
-          <div className="p-6 rounded-lg bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 space-y-4">
-            <div className="flex items-center gap-2">
-              <Swords className="w-5 h-5 text-blue-400" />
-              <h2 className="text-lg font-semibold text-white">Your Turn to Respond</h2>
-            </div>
-
-            {/* Show the trick they need to match */}
-            {game.lastTrickDescription && (
-              <div className="p-4 rounded-lg bg-neutral-900 border border-neutral-700">
-                <div className="text-xs text-neutral-500 mb-1">Trick to match:</div>
-                <div className="text-white font-bold">{game.lastTrickDescription}</div>
-              </div>
-            )}
-
-            {/* Show the set video */}
-            {turns &&
-              turns.length > 0 &&
-              (() => {
-                const lastSetTurn = [...turns].reverse().find((t) => t.turnType === "set");
-                if (lastSetTurn?.videoUrl) {
-                  return (
-                    <button
-                      onClick={() => setSelectedVideo(lastSetTurn.videoUrl)}
-                      className="flex items-center gap-2 text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
-                      type="button"
-                    >
-                      <Play className="w-4 h-4" />
-                      Watch their attempt
-                    </button>
-                  );
-                }
-                return null;
-              })()}
-
-            <div>
-              <label className="block text-sm font-medium text-neutral-300 mb-2">
-                Your Response
-              </label>
-              <Input
-                placeholder="Describe your attempt..."
-                value={trickDescription}
-                onChange={(e) => setTrickDescription(e.target.value)}
-                className="bg-neutral-900 border-neutral-700"
-                maxLength={500}
-                disabled={isUploading}
-              />
-            </div>
-
-            {trickDescription.trim() ? (
-              <VideoRecorder
-                onRecordingComplete={handleRecordingComplete}
-                disabled={isUploading || submitTurn.isPending}
-              />
-            ) : (
-              <p className="text-xs text-neutral-500 text-center py-4">
-                Describe your attempt to enable recording.
-              </p>
-            )}
-
-            {isUploading && (
-              <div className="text-center text-sm text-neutral-400 font-mono">Uploading...</div>
-            )}
-          </div>
+          <RespondTrickPanel
+            lastTrickDescription={game.lastTrickDescription}
+            turns={turns}
+            trickDescription={trickDescription}
+            onTrickDescriptionChange={setTrickDescription}
+            onRecordingComplete={handleRecordingComplete}
+            onVideoClick={setSelectedVideo}
+            isUploading={isUploading}
+            isSubmitting={submitTurn.isPending}
+          />
         )}
 
-        {/* ====== JUDGE PHASE ====== */}
+        {/* Judge Phase */}
         {isActive && !isGameOver && needsToJudge && (
-          <div className="p-6 rounded-lg bg-gradient-to-r from-yellow-500/10 to-red-500/10 border border-yellow-500/30 space-y-4">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-yellow-400" />
-              <h2 className="text-lg font-semibold text-white">Judge the Trick</h2>
-            </div>
-
-            <p className="text-sm text-neutral-400">Did you land {opponentName}'s trick?</p>
-
-            {game.lastTrickDescription && (
-              <div className="p-4 rounded-lg bg-neutral-900 border border-neutral-700">
-                <div className="text-xs text-neutral-500 mb-1">Trick:</div>
-                <div className="text-white font-bold">{game.lastTrickDescription}</div>
-              </div>
-            )}
-
-            <div className="flex gap-3">
-              <Button
-                onClick={() => handleJudge("landed")}
-                disabled={judgeTurn.isPending}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3"
-              >
-                LAND
-              </Button>
-              <Button
-                onClick={() => handleJudge("missed")}
-                disabled={judgeTurn.isPending}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3"
-              >
-                BAIL
-              </Button>
-            </div>
-
-            <p className="text-xs text-neutral-500 text-center">
-              BAIL = you get a letter. LAND = roles swap. No take-backs.
-            </p>
-          </div>
+          <JudgePanel
+            opponentName={opponentName}
+            lastTrickDescription={game.lastTrickDescription}
+            onJudge={handleJudge}
+            isPending={judgeTurn.isPending}
+          />
         )}
 
-        {/* ====== WAITING FOR OPPONENT ====== */}
+        {/* Waiting for Opponent */}
         {isActive && !isGameOver && !isMyTurn && (
           <div className="p-6 rounded-lg bg-neutral-800/30 border border-neutral-700 text-center">
             <Clock className="w-8 h-8 text-neutral-500 mx-auto mb-3" />
@@ -509,7 +361,7 @@ export default function SkateGamePage() {
           </div>
         )}
 
-        {/* ====== PENDING CHALLENGE ====== */}
+        {/* Pending Challenge */}
         {isPending && (
           <div className="p-6 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-center">
             <Clock className="w-8 h-8 text-yellow-400 mx-auto mb-3" />
@@ -517,8 +369,7 @@ export default function SkateGamePage() {
           </div>
         )}
 
-        {/* ====== DISPUTES ====== */}
-        {/* Pending disputes against you */}
+        {/* Disputes */}
         {pendingDisputesAgainstMe.length > 0 && (
           <div className="space-y-3">
             {pendingDisputesAgainstMe.map((dispute) => (
@@ -560,7 +411,7 @@ export default function SkateGamePage() {
           </div>
         )}
 
-        {/* Disputeable turns (your BAIL'd tricks you can dispute) */}
+        {/* Disputeable turns */}
         {disputeableTurns.length > 0 && !isGameOver && (
           <div className="space-y-2">
             <h3 className="text-sm font-medium text-neutral-400">Dispute Available</h3>
@@ -592,7 +443,7 @@ export default function SkateGamePage() {
           </div>
         )}
 
-        {/* ====== TURN HISTORY ====== */}
+        {/* Turn History */}
         <div>
           <h2 className="text-lg font-semibold text-white mb-3">History</h2>
           <TurnHistory
@@ -602,35 +453,9 @@ export default function SkateGamePage() {
           />
         </div>
 
-        {/* ====== VIDEO PLAYER MODAL ====== */}
+        {/* Video Player Modal */}
         {selectedVideo && (
-          <div
-            className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4"
-            onClick={() => setSelectedVideo(null)}
-          >
-            <div
-              className="bg-neutral-900 rounded-none sm:rounded-lg p-2 sm:p-4 w-full sm:max-w-lg"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-sm font-medium text-neutral-400">Video</h3>
-                <Button variant="ghost" size="sm" onClick={() => setSelectedVideo(null)}>
-                  Close
-                </Button>
-              </div>
-              <div className="aspect-[9/16] bg-black rounded-none sm:rounded-lg overflow-hidden">
-                <video
-                  src={selectedVideo}
-                  className="w-full h-full object-contain"
-                  controls
-                  autoPlay
-                  playsInline
-                  controlsList="nodownload noplaybackrate"
-                  disablePictureInPicture
-                />
-              </div>
-            </div>
-          </div>
+          <VideoPlayerModal videoUrl={selectedVideo} onClose={() => setSelectedVideo(null)} />
         )}
       </div>
     </>
