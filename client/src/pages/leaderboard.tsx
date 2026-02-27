@@ -1,7 +1,76 @@
+import { useRef } from "react";
 import { Trophy, WifiOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useRealtimeLeaderboard } from "@/features/leaderboard/useRealtimeLeaderboard";
+import {
+  useRealtimeLeaderboard,
+  type LeaderboardEntry,
+} from "@/features/leaderboard/useRealtimeLeaderboard";
+import { useVirtualizer } from "@tanstack/react-virtual";
+
+const LEADERBOARD_ROW_HEIGHT = 90;
+
+function VirtualizedLeaderboard({ entries }: { entries: LeaderboardEntry[] }) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: entries.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => LEADERBOARD_ROW_HEIGHT,
+    overscan: 10,
+  });
+
+  if (entries.length === 0) return null;
+
+  return (
+    <div ref={parentRef} className="max-h-[70vh] overflow-y-auto">
+      <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const entry = entries[virtualRow.index];
+          const rank = entry.rank ?? virtualRow.index + 1;
+          return (
+            <div
+              key={entry.id}
+              ref={virtualizer.measureElement}
+              data-index={virtualRow.index}
+              className="absolute top-0 left-0 w-full"
+              style={{ transform: `translateY(${virtualRow.start}px)` }}
+            >
+              <div className="pb-3">
+                <Card className="bg-neutral-900/70 border-neutral-800">
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base text-white">
+                        #{rank} {entry.displayName}
+                      </CardTitle>
+                      {entry.xp !== undefined ? (
+                        <Badge className="bg-yellow-500/20 text-yellow-300">
+                          {entry.xp.toLocaleString()} XP
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="text-xs text-neutral-400">
+                    <div className="flex flex-wrap gap-3">
+                      {entry.username ? <span>@{entry.username.replace(/^@/, "")}</span> : null}
+                      {entry.totalCheckIns !== undefined ? (
+                        <span>{entry.totalCheckIns} check-ins</span>
+                      ) : null}
+                      {entry.spotsVisited !== undefined ? (
+                        <span>{entry.spotsVisited} spots</span>
+                      ) : null}
+                      {entry.streak !== undefined ? <span>{entry.streak} day streak</span> : null}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function LeaderboardPage() {
   const { entries, isLoading, error, isOffline } = useRealtimeLeaderboard();
@@ -48,39 +117,7 @@ export default function LeaderboardPage() {
         </Card>
       ) : null}
 
-      <div className="space-y-3">
-        {entries.map((entry, index) => {
-          const rank = entry.rank ?? index + 1;
-          return (
-            <Card key={entry.id} className="bg-neutral-900/70 border-neutral-800">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base text-white">
-                    #{rank} {entry.displayName}
-                  </CardTitle>
-                  {entry.xp !== undefined ? (
-                    <Badge className="bg-yellow-500/20 text-yellow-300">
-                      {entry.xp.toLocaleString()} XP
-                    </Badge>
-                  ) : null}
-                </div>
-              </CardHeader>
-              <CardContent className="text-xs text-neutral-400">
-                <div className="flex flex-wrap gap-3">
-                  {entry.username ? <span>@{entry.username.replace(/^@/, "")}</span> : null}
-                  {entry.totalCheckIns !== undefined ? (
-                    <span>{entry.totalCheckIns} check-ins</span>
-                  ) : null}
-                  {entry.spotsVisited !== undefined ? (
-                    <span>{entry.spotsVisited} spots</span>
-                  ) : null}
-                  {entry.streak !== undefined ? <span>{entry.streak} day streak</span> : null}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      <VirtualizedLeaderboard entries={entries} />
     </div>
   );
 }

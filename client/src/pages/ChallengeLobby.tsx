@@ -1,42 +1,51 @@
-import { useState } from 'react';
-import { useLocation } from 'wouter';
-import { Swords, Plus, Users, Clock, TrendingUp } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useMyGames, useRespondToGame, useCreateGame } from '@/hooks/useSkateGameApi';
-import { GameCard } from '@/components/game';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { LoadingScreen } from '@/components/LoadingScreen';
+import { useState, useCallback } from "react";
+import { useLocation } from "wouter";
+import { Swords, Plus, Users, Clock, TrendingUp } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useMyGames, useRespondToGame, useCreateGame } from "@/hooks/useSkateGameApi";
+import { GameCard } from "@/components/game";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { LoadingScreen } from "@/components/LoadingScreen";
 
 export default function ChallengeLobby() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [challengeUserId, setChallengeUserId] = useState('');
+  const [challengeUserId, setChallengeUserId] = useState("");
 
   const { data: myGames, isLoading } = useMyGames();
   const respondToGame = useRespondToGame();
   const createGame = useCreateGame();
 
-  const handleAcceptChallenge = (gameId: string) => {
-    respondToGame.mutate({ gameId, accept: true });
-  };
+  const handleAcceptChallenge = useCallback(
+    (gameId: string) => {
+      respondToGame.mutate({ gameId, accept: true });
+    },
+    [respondToGame]
+  );
 
-  const handleDeclineChallenge = (gameId: string) => {
-    respondToGame.mutate({ gameId, accept: false });
-  };
+  const handleDeclineChallenge = useCallback(
+    (gameId: string) => {
+      respondToGame.mutate({ gameId, accept: false });
+    },
+    [respondToGame]
+  );
 
-  const handleCreateChallenge = () => {
+  const handleCreateChallenge = useCallback(() => {
     if (!challengeUserId.trim()) return;
     createGame.mutate(challengeUserId.trim(), {
       onSuccess: () => {
-        setChallengeUserId('');
+        setChallengeUserId("");
       },
     });
-  };
+  }, [challengeUserId, createGame]);
 
-  const handleViewGame = (gameId: string) => {
-    setLocation(`/play?tab=active&gameId=${gameId}`);
-  };
+  const handleViewGame = useCallback(
+    (gameId: string) => {
+      setLocation(`/play?tab=active&gameId=${gameId}`);
+    },
+    [setLocation]
+  );
 
   if (isLoading) {
     return <LoadingScreen />;
@@ -108,7 +117,7 @@ export default function ChallengeLobby() {
             value={challengeUserId}
             onChange={(e) => setChallengeUserId(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === "Enter") {
                 handleCreateChallenge();
               }
             }}
@@ -119,7 +128,7 @@ export default function ChallengeLobby() {
             disabled={!challengeUserId.trim() || createGame.isPending}
             className="bg-orange-500 hover:bg-orange-600"
           >
-            {createGame.isPending ? 'Sending...' : 'Challenge'}
+            {createGame.isPending ? "Sending..." : "Challenge"}
           </Button>
         </div>
       </div>
@@ -136,7 +145,10 @@ export default function ChallengeLobby() {
 
           <div className="space-y-3">
             {myGames.pendingChallenges.map((game) => (
-              <div key={game.id} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div
+                key={game.id}
+                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3"
+              >
                 <GameCard
                   game={game}
                   currentUserId={user.uid}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, memo } from "react";
 import { Bell, Check, CheckCheck, Gamepad2, Trophy, Zap, Info } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../lib/queryClient";
@@ -63,6 +63,49 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString();
 }
 
+const NotificationItemRow = memo(function NotificationItemRow({
+  item,
+  onMarkRead,
+}: {
+  item: NotificationItem;
+  onMarkRead: (id: number) => void;
+}) {
+  return (
+    <button
+      onClick={() => {
+        if (!item.isRead) {
+          onMarkRead(item.id);
+        }
+      }}
+      className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-800/50 border-b border-neutral-800/50 last:border-0 ${
+        !item.isRead ? "bg-neutral-800/30" : ""
+      }`}
+      aria-label={`${item.title}: ${item.body}${!item.isRead ? " (unread)" : ""}`}
+    >
+      <div className="mt-0.5 flex-shrink-0">{getNotificationIcon(item.type)}</div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span
+            className={`text-sm font-medium truncate ${
+              item.isRead ? "text-neutral-400" : "text-white"
+            }`}
+          >
+            {item.title}
+          </span>
+          {!item.isRead && <span className="flex-shrink-0 h-2 w-2 rounded-full bg-orange-500" />}
+        </div>
+        <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{item.body}</p>
+        <span className="text-[10px] text-neutral-600 mt-1 block">{timeAgo(item.createdAt)}</span>
+      </div>
+      {!item.isRead && (
+        <div className="flex-shrink-0 mt-1">
+          <Check className="h-3 w-3 text-neutral-600" />
+        </div>
+      )}
+    </button>
+  );
+});
+
 export default function NotificationBell() {
   const { isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
@@ -108,6 +151,13 @@ export default function NotificationBell() {
       queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
     },
   });
+
+  const handleMarkRead = useCallback(
+    (id: number) => {
+      markReadMutation.mutate(id);
+    },
+    [markReadMutation]
+  );
 
   // Close on outside click
   const handleClickOutside = useCallback((e: MouseEvent) => {
@@ -170,43 +220,7 @@ export default function NotificationBell() {
               </div>
             ) : (
               items.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    if (!item.isRead) {
-                      markReadMutation.mutate(item.id);
-                    }
-                  }}
-                  className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-neutral-800/50 border-b border-neutral-800/50 last:border-0 ${
-                    !item.isRead ? "bg-neutral-800/30" : ""
-                  }`}
-                  aria-label={`${item.title}: ${item.body}${!item.isRead ? " (unread)" : ""}`}
-                >
-                  <div className="mt-0.5 flex-shrink-0">{getNotificationIcon(item.type)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-sm font-medium truncate ${
-                          item.isRead ? "text-neutral-400" : "text-white"
-                        }`}
-                      >
-                        {item.title}
-                      </span>
-                      {!item.isRead && (
-                        <span className="flex-shrink-0 h-2 w-2 rounded-full bg-orange-500" />
-                      )}
-                    </div>
-                    <p className="text-xs text-neutral-500 mt-0.5 line-clamp-2">{item.body}</p>
-                    <span className="text-[10px] text-neutral-600 mt-1 block">
-                      {timeAgo(item.createdAt)}
-                    </span>
-                  </div>
-                  {!item.isRead && (
-                    <div className="flex-shrink-0 mt-1">
-                      <Check className="h-3 w-3 text-neutral-600" />
-                    </div>
-                  )}
-                </button>
+                <NotificationItemRow key={item.id} item={item} onMarkRead={handleMarkRead} />
               ))
             )}
           </div>

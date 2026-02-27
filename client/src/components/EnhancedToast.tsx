@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { CheckCircle2, XCircle, AlertCircle, Info, X } from "lucide-react";
 import * as ToastPrimitives from "@radix-ui/react-toast";
 import { cn } from "../lib/utils";
@@ -42,11 +43,11 @@ const variantConfig = {
   },
 };
 
-export function EnhancedToast({ 
-  title, 
-  description, 
+export const EnhancedToast = memo(function EnhancedToast({
+  title,
+  description,
   variant = "default",
-  onClose 
+  onClose,
 }: EnhancedToastProps) {
   const config = variantConfig[variant];
   const Icon = config.icon;
@@ -63,11 +64,9 @@ export function EnhancedToast({
       )}
     >
       <Icon className={cn("h-5 w-5 mt-0.5 shrink-0", config.iconClass)} />
-      
+
       <div className="flex-1 grid gap-1">
-        <ToastPrimitives.Title 
-          className={cn("text-sm font-semibold", config.titleClass)}
-        >
+        <ToastPrimitives.Title className={cn("text-sm font-semibold", config.titleClass)}>
           {title}
         </ToastPrimitives.Title>
         {description && (
@@ -88,4 +87,4 @@ export function EnhancedToast({
       </ToastPrimitives.Close>
     </ToastPrimitives.Root>
   );
-}
+});
