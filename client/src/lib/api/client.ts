@@ -41,15 +41,35 @@ const getAuthToken = async (): Promise<string | null> => {
 
 const parseJsonSafely = async (response: Response): Promise<unknown> => {
   const contentType = response.headers.get("content-type") || "";
-  if (!contentType.includes("application/json")) {
-    return undefined;
+
+  // Standard JSON response
+  if (contentType.includes("application/json")) {
+    try {
+      return await response.json();
+    } catch {
+      return undefined;
+    }
   }
 
-  try {
-    return await response.json();
-  } catch {
-    return undefined;
+  // Non-JSON error responses (Vercel generic 500, HTML error pages, etc.)
+  // Try to extract something useful from the body for error reporting.
+  if (!response.ok) {
+    try {
+      const text = await response.text();
+      // If the text looks like JSON (e.g., missing content-type header), parse it
+      if (text.startsWith("{") || text.startsWith("[")) {
+        return JSON.parse(text);
+      }
+      // Return a synthetic payload so normalizeApiError can extract a message
+      if (text.length > 0 && text.length < 500 && !text.includes("<html")) {
+        return { message: text.trim() };
+      }
+    } catch {
+      // Ignore — we'll fall through to the default error message
+    }
   }
+
+  return undefined;
 };
 
 const buildHeaders = async (options: ApiRequestOptions<unknown>): Promise<HeadersInit> => {

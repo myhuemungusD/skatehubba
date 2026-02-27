@@ -50,6 +50,9 @@ importers:
       '@eslint/js':
         specifier: ^9.39.2
         version: 9.39.2
+      '@playwright/test':
+        specifier: ^1.58.0
+        version: 1.58.0
       '@secretlint/secretlint-rule-preset-recommend':
         specifier: ^11.3.1
         version: 11.3.1
@@ -406,9 +409,6 @@ importers:
       expo-device:
         specifier: ^8.0.10
         version: 8.0.10(expo@54.0.32)
-      expo-image:
-        specifier: ~2.0.0
-        version: 2.0.7(expo@54.0.32)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
       expo-image-picker:
         specifier: ^17.0.10
         version: 17.0.10(expo@54.0.32)
@@ -5975,17 +5975,6 @@ packages:
     resolution: {integrity: sha512-a2xrowp2trmvXyUWgX3O6Q2rZaa2C59AqivKI7+bm+wLvMfTEbZgldLX4rEJJhM8xtmEDTNU+lzjtObwzBRGaw==}
     peerDependencies:
       expo: '*'
-
-  expo-image@2.0.7:
-    resolution: {integrity: sha512-kv40OIJOkItwznhdqFmKxTMC5O8GkpyTf8ng7Py4Hy6IBiH59dkeP6vUZQhzPhJOm5v1kZK4XldbskBosqzOug==}
-    peerDependencies:
-      expo: '*'
-      react: '*'
-      react-native: '*'
-      react-native-web: '*'
-    peerDependenciesMeta:
-      react-native-web:
-        optional: true
 
   expo-keep-awake@15.0.8:
     resolution: {integrity: sha512-YK9M1VrnoH1vLJiQzChZgzDvVimVoriibiDIFLbQMpjYBnvyfUeHJcin/Gx1a+XgupNXy92EQJLgI/9ZuXajYQ==}
@@ -12003,7 +11992,7 @@ snapshots:
       postcss: 8.4.49
       resolve-from: 5.0.0
     optionalDependencies:
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -12074,7 +12063,7 @@ snapshots:
       '@expo/json-file': 10.0.8
       '@react-native/normalize-colors': 0.81.5
       debug: 4.4.3(supports-color@8.1.1)
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
       resolve-from: 5.0.0
       semver: 7.7.4
       xml2js: 0.6.0
@@ -14775,14 +14764,6 @@ snapshots:
     optionalDependencies:
       vite: 6.4.1(@types/node@22.19.7)(jiti@1.21.7)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  '@vitest/mocker@4.0.18(vite@6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
-    dependencies:
-      '@vitest/spy': 4.0.18
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2)
-
   '@vitest/mocker@4.0.18(vite@6.4.1(@types/node@22.19.9)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))':
     dependencies:
       '@vitest/spy': 4.0.18
@@ -15210,7 +15191,7 @@ snapshots:
       resolve-from: 5.0.0
     optionalDependencies:
       '@babel/runtime': 7.28.6
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
     transitivePeerDependencies:
       - '@babel/core'
       - supports-color
@@ -16695,7 +16676,7 @@ snapshots:
   expo-crypto@15.0.8(expo@54.0.32):
     dependencies:
       base64-js: 1.5.1
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
 
   expo-device@8.0.10(expo@54.0.32):
     dependencies:
@@ -16735,15 +16716,9 @@ snapshots:
       expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
       expo-image-loader: 6.0.0(expo@54.0.32)
 
-  expo-image@2.0.7(expo@54.0.32)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1):
-    dependencies:
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
-      react: 18.3.1
-      react-native: 0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)
-
   expo-keep-awake@15.0.8(expo@54.0.32)(react@18.3.1):
     dependencies:
-      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1)
+      expo: 54.0.32(@babel/core@7.29.0)(@expo/metro-runtime@4.0.1(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1)))(expo-router@4.0.22)(react-native@0.83.1(@babel/core@7.29.0)(react@18.3.1))(react@18.3.1)
       react: 18.3.1
 
   expo-linking@7.0.5(expo@54.0.32)(react-native@0.83.1(@babel/core@7.29.0)(@types/react@18.3.27)(react@18.3.1))(react@18.3.1):
@@ -21082,7 +21057,7 @@ snapshots:
   vitest@4.0.18(@opentelemetry/api@1.9.0)(@types/node@22.19.7)(jiti@2.6.1)(jsdom@23.2.0)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2):
     dependencies:
       '@vitest/expect': 4.0.18
-      '@vitest/mocker': 4.0.18(vite@6.4.1(@types/node@22.19.7)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@vitest/mocker': 4.0.18(vite@6.4.1(@types/node@22.19.9)(jiti@2.6.1)(lightningcss@1.31.1)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.2))
       '@vitest/pretty-format': 4.0.18
       '@vitest/runner': 4.0.18
       '@vitest/snapshot': 4.0.18

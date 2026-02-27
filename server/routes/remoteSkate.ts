@@ -10,6 +10,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { admin } from "../admin";
+import type { Transaction } from "firebase-admin/firestore";
 import logger from "../logger";
 import type { Request, Response } from "express";
 
@@ -111,7 +112,7 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
   try {
     const firestore = admin.firestore();
 
-    await firestore.runTransaction(async (transaction) => {
+    await firestore.runTransaction(async (transaction: Transaction) => {
       const gameRef = firestore.collection("games").doc(gameId);
       const gameSnap = await transaction.get(gameRef);
 
@@ -201,7 +202,7 @@ router.post("/:gameId/rounds/:roundId/confirm", async (req: Request, res: Respon
   try {
     const firestore = admin.firestore();
 
-    const txResult = await firestore.runTransaction(async (transaction) => {
+    const txResult = await firestore.runTransaction(async (transaction: Transaction) => {
       const gameRef = firestore.collection("games").doc(gameId);
       const gameSnap = await transaction.get(gameRef);
 

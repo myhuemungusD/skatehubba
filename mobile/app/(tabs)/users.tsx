@@ -6,8 +6,8 @@ import {
   TouchableOpacity,
   TextInput,
   RefreshControl,
+  Image,
 } from "react-native";
-import { Image } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useRouter } from "expo-router";
