@@ -31,8 +31,8 @@ describe("EnhancedToast", () => {
   it("does not render description when not provided", () => {
     const { container } = renderToast({ title: "Done" });
     // Description element should not exist
-    const descriptions = container.querySelectorAll("[class*='text-gray-400']");
-    // Only icon and close button use gray-400, not description
+    const descriptions = container.querySelectorAll("[class*='text-gray-300']");
+    // Only icon and close button use gray-300, not description
     expect(screen.queryByText("Your change was saved.")).toBeNull();
   });
 

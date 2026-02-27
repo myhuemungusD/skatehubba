@@ -173,6 +173,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
       {/* Close Button */}
       <button
         onClick={onClose}
+        aria-label="Close recorder"
         className="absolute top-4 right-4 z-10 bg-black/50 backdrop-blur-sm text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-black/70 transition-all"
       >
         <X className="w-6 h-6" />
@@ -227,6 +228,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
                   whileTap={{ scale: 0.9 }}
                   onClick={startRecording}
                   disabled={!cameraReady}
+                  aria-label="Start recording"
                   className="w-20 h-20 rounded-full bg-gradient-to-br from-red-500 to-red-600 border-4 border-white shadow-2xl flex items-center justify-center hover:from-red-600 hover:to-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Video className="w-10 h-10 text-white" />
@@ -235,6 +237,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
                 <motion.button
                   whileTap={{ scale: 0.9 }}
                   onClick={stopRecording}
+                  aria-label="Stop recording"
                   className="w-20 h-20 rounded-full bg-gradient-to-br from-orange-500 to-orange-600 border-4 border-white shadow-2xl flex items-center justify-center"
                 >
                   <Pause className="w-10 h-10 text-white" />
@@ -245,22 +248,26 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
         ) : (
           <>
             {/* Video Preview */}
+            {/* eslint-disable-next-line jsx-a11y/media-has-caption -- User-recorded trick video; captions not applicable */}
             <video ref={previewRef} controls className="w-full h-full object-cover" />
 
             {/* Preview Overlay */}
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/80 to-transparent p-6">
               {/* Trick Name Input */}
               <div className="mb-6">
-                <label className="block text-white text-sm font-semibold mb-2">
+                <label
+                  htmlFor="trick-name-input"
+                  className="block text-white text-sm font-semibold mb-2"
+                >
                   Name Your Trick
                 </label>
                 <input
+                  id="trick-name-input"
                   type="text"
                   value={trickName}
                   onChange={(e) => setTrickName(e.target.value)}
                   placeholder="e.g., Kickflip, Heelflip, 360 Flip..."
                   className="w-full bg-zinc-800 text-white px-4 py-3 rounded-xl border-2 border-zinc-700 focus:border-orange-500 outline-none transition-all"
-                  autoFocus
                 />
               </div>
 

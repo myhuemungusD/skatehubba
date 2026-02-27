@@ -38,7 +38,7 @@ const variantConfig = {
   default: {
     icon: Info,
     bgClass: "bg-gray-800 border-gray-700",
-    iconClass: "text-gray-400",
+    iconClass: "text-gray-300",
     titleClass: "text-white",
   },
 };
@@ -72,7 +72,7 @@ export const EnhancedToast = memo(function EnhancedToast({
           {title}
         </ToastPrimitives.Title>
         {description && (
-          <ToastPrimitives.Description className="text-sm text-gray-400">
+          <ToastPrimitives.Description className="text-sm text-gray-300">
             {description}
           </ToastPrimitives.Description>
         )}
@@ -80,8 +80,9 @@ export const EnhancedToast = memo(function EnhancedToast({
 
       <ToastPrimitives.Close
         onClick={onClose}
+        aria-label="Dismiss notification"
         className={cn(
-          "rounded-md p-1 text-gray-400 opacity-70 transition-all hover:opacity-100 hover:bg-white/10",
+          "rounded-md p-1 text-gray-300 opacity-70 transition-all hover:opacity-100 hover:bg-white/10",
           "focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/20"
         )}
       >

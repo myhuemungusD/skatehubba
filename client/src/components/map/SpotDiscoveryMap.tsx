@@ -285,7 +285,10 @@ export default function SpotDiscoveryMap({
                 >
                   {selectedSpot.isUnlocked ? "Check In" : " Locked"}
                 </button>
-                <button className="bg-zinc-800 hover:bg-zinc-700 text-white font-bold px-6 py-3 rounded-xl transition-all">
+                <button
+                  aria-label="Get directions to this spot"
+                  className="bg-zinc-800 hover:bg-zinc-700 text-white font-bold px-6 py-3 rounded-xl transition-all"
+                >
                   <Navigation className="w-5 h-5" />
                 </button>
               </div>
