@@ -47,11 +47,7 @@ export function RecordingControls({
             style={[styles.recordButton, recording && styles.recordingButton]}
             onPress={recording ? onStopRecording : onStartRecording}
           >
-            <Ionicons
-              name={recording ? "stop" : "videocam"}
-              size={36}
-              color={SKATE.colors.white}
-            />
+            <Ionicons name={recording ? "stop" : "videocam"} size={36} color={SKATE.colors.white} />
           </TouchableOpacity>
         ) : (
           <View style={styles.actionButtons}>

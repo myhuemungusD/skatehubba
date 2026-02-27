@@ -106,45 +106,45 @@ export default function App() {
   return (
     <ErrorBoundary>
       <MotionConfig reducedMotion="user">
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          {/* Environment indicator - shows in staging/local only */}
-          <StagingBanner />
-          <OfflineBanner />
-          <GoogleRedirectWelcome />
-          <OrganizationStructuredData
-            data={{
-              name: "SkateHubba",
-              url: "https://skatehubba.com",
-              logo: "https://skatehubba.com/icon-512.png",
-              description:
-                "Remote SKATE battles, legendary spot check-ins, and live lobbies. Join the ultimate skateboarding social platform.",
-              sameAs: ["https://twitter.com/skatehubba_app", "https://instagram.com/skatehubba"],
-            }}
-          />
-          <WebAppStructuredData
-            data={{
-              name: "SkateHubba",
-              url: "https://skatehubba.com",
-              description: "Stream. Connect. Skate. Your skateboarding social universe.",
-              applicationCategory: "SportsApplication",
-              operatingSystem: "Any",
-              offers: {
-                price: "0",
-                priceCurrency: "USD",
-              },
-            }}
-          />
-          <Router>
-            <RouteAccessibility />
-            <AppRoutes />
-          </Router>
-          <BuildStamp />
-          <Toaster />
-          <PWAInstallPrompt />
-          <FeedbackButton />
-        </TooltipProvider>
-      </QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            {/* Environment indicator - shows in staging/local only */}
+            <StagingBanner />
+            <OfflineBanner />
+            <GoogleRedirectWelcome />
+            <OrganizationStructuredData
+              data={{
+                name: "SkateHubba",
+                url: "https://skatehubba.com",
+                logo: "https://skatehubba.com/icon-512.png",
+                description:
+                  "Remote SKATE battles, legendary spot check-ins, and live lobbies. Join the ultimate skateboarding social platform.",
+                sameAs: ["https://twitter.com/skatehubba_app", "https://instagram.com/skatehubba"],
+              }}
+            />
+            <WebAppStructuredData
+              data={{
+                name: "SkateHubba",
+                url: "https://skatehubba.com",
+                description: "Stream. Connect. Skate. Your skateboarding social universe.",
+                applicationCategory: "SportsApplication",
+                operatingSystem: "Any",
+                offers: {
+                  price: "0",
+                  priceCurrency: "USD",
+                },
+              }}
+            />
+            <Router>
+              <RouteAccessibility />
+              <AppRoutes />
+            </Router>
+            <BuildStamp />
+            <Toaster />
+            <PWAInstallPrompt />
+            <FeedbackButton />
+          </TooltipProvider>
+        </QueryClientProvider>
       </MotionConfig>
     </ErrorBoundary>
   );

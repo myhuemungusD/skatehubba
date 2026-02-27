@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { CheckCircle2, XCircle, AlertCircle, Info, X } from "lucide-react";
 import * as ToastPrimitives from "@radix-ui/react-toast";
 import { cn } from "../lib/utils";
@@ -37,12 +38,12 @@ const variantConfig = {
   default: {
     icon: Info,
     bgClass: "bg-gray-800 border-gray-700",
-    iconClass: "text-gray-400",
+    iconClass: "text-gray-300",
     titleClass: "text-white",
   },
 };
 
-export function EnhancedToast({
+export const EnhancedToast = memo(function EnhancedToast({
   title,
   description,
   variant = "default",
@@ -53,6 +54,8 @@ export function EnhancedToast({
 
   return (
     <ToastPrimitives.Root
+      role="status"
+      aria-live="polite"
       className={cn(
         "group pointer-events-auto relative flex w-full items-start gap-4 overflow-hidden rounded-lg border p-4 shadow-lg transition-all",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
@@ -69,7 +72,7 @@ export function EnhancedToast({
           {title}
         </ToastPrimitives.Title>
         {description && (
-          <ToastPrimitives.Description className="text-sm text-gray-400">
+          <ToastPrimitives.Description className="text-sm text-gray-300">
             {description}
           </ToastPrimitives.Description>
         )}
@@ -79,7 +82,7 @@ export function EnhancedToast({
         onClick={onClose}
         aria-label="Dismiss notification"
         className={cn(
-          "rounded-md p-1 text-gray-400 opacity-70 transition-all hover:opacity-100 hover:bg-white/10",
+          "rounded-md p-1 text-gray-300 opacity-70 transition-all hover:opacity-100 hover:bg-white/10",
           "focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-white/20"
         )}
       >
@@ -87,4 +90,4 @@ export function EnhancedToast({
       </ToastPrimitives.Close>
     </ToastPrimitives.Root>
   );
-}
+});

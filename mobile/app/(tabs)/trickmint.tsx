@@ -1,11 +1,5 @@
 import { useState } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-  Modal,
-} from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Video, ResizeMode } from "expo-av";
 import * as ImagePicker from "expo-image-picker";
@@ -172,10 +166,7 @@ function TrickMintScreenContent() {
                 <Ionicons name="film" size={48} color={SKATE.colors.gray} />
                 <Text style={styles.emptyTitle}>No clips yet</Text>
                 <Text style={styles.emptyText}>Record your first trick to get started.</Text>
-                <TouchableOpacity
-                  style={styles.emptyButton}
-                  onPress={() => setActiveTab("upload")}
-                >
+                <TouchableOpacity style={styles.emptyButton} onPress={() => setActiveTab("upload")}>
                   <Ionicons name="cloud-upload" size={20} color={SKATE.colors.white} />
                   <Text style={styles.emptyButtonText}>Upload a Trick</Text>
                 </TouchableOpacity>

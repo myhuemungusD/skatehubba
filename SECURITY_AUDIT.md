@@ -20,13 +20,13 @@ However, this audit identified **new findings** beyond previous audits that requ
 
 ### Finding Summary
 
-| Severity | New Findings | Previously Known | Total |
-| -------- | ------------ | ---------------- | ----- |
-| Critical | 7 | 5 (all fixed) | 7 new |
-| High | 10 | 11 (10 fixed) | 10 new |
-| Medium | 15 | 12 (11 fixed) | 15 new |
-| Low | 12 | 12 (3 fixed) | 12 new |
-| **Total** | **44** | **40 (29 fixed)** | **44 new** |
+| Severity  | New Findings | Previously Known  | Total      |
+| --------- | ------------ | ----------------- | ---------- |
+| Critical  | 7            | 5 (all fixed)     | 7 new      |
+| High      | 10           | 11 (10 fixed)     | 10 new     |
+| Medium    | 15           | 12 (11 fixed)     | 15 new     |
+| Low       | 12           | 12 (3 fixed)      | 12 new     |
+| **Total** | **44**       | **40 (29 fixed)** | **44 new** |
 
 ---
 
@@ -363,31 +363,31 @@ However, this audit identified **new findings** beyond previous audits that requ
 
 The following security controls are well-implemented and represent industry best practices:
 
-| Area | Implementation | Rating |
-| ---- | -------------- | ------ |
-| **Password hashing** | bcrypt with 12 salt rounds | Excellent |
-| **Session storage** | Tokens stored as SHA-256 hashes, not raw JWTs | Excellent |
-| **MFA encryption** | AES-256-GCM with random salt per ciphertext, dedicated key in production | Excellent |
-| **CSRF protection** | OWASP Double Submit Cookie with HMAC-normalized timing-safe comparison | Excellent |
-| **Rate limiting** | 15+ configurations across auth, writes, check-ins, admin, discovery, WebSocket | Excellent |
-| **Input validation** | Zod schemas on all write endpoints via `validateBody()` middleware | Excellent |
-| **SQL injection** | Drizzle ORM parameterized queries; LIKE wildcards escaped | Excellent |
-| **XSS prevention** | No `dangerouslySetInnerHTML`, no `eval()`, tokens in HttpOnly cookies | Excellent |
-| **Replay protection** | Nonce + timestamp verification on check-ins | Excellent |
-| **Audit logging** | Comprehensive login, MFA, password, admin action tracking with dual storage | Excellent |
-| **Sensitive data redaction** | Logger auto-redacts passwords, tokens, secrets, emails | Excellent |
-| **Email enumeration prevention** | Generic responses on password reset | Excellent |
-| **Session invalidation** | All sessions revoked on password change/reset | Excellent |
-| **Webhook authentication** | Stripe signature verification before processing | Excellent |
-| **Account lockout** | 5-attempt lockout with 15-min cooldown, per-email + per-IP | Strong |
-| **Re-authentication** | 5-minute window for sensitive operations (password, MFA, deletion) | Excellent |
-| **Firebase token verification** | Revocation check enabled (`verifyIdToken(token, true)`) | Excellent |
-| **Payment idempotency** | `consumedPaymentIntents` with `SELECT FOR UPDATE` in transaction | Excellent |
-| **FFmpeg safety** | Uses `execFile()` (not `exec()`) — no shell injection | Excellent |
-| **Non-root Docker** | Custom user `skatehubba:1001` — prevents container escape privilege escalation | Excellent |
-| **Firestore rules** | Default-deny, helper functions, environment isolation, field validation | Excellent |
-| **CI/CD scanning** | Gitleaks + CodeQL + Trivy + lockfile integrity | Strong |
-| **App Check** | Gradual rollout (monitor → warn → enforce) with strict option for sensitive endpoints | Good |
+| Area                             | Implementation                                                                        | Rating    |
+| -------------------------------- | ------------------------------------------------------------------------------------- | --------- |
+| **Password hashing**             | bcrypt with 12 salt rounds                                                            | Excellent |
+| **Session storage**              | Tokens stored as SHA-256 hashes, not raw JWTs                                         | Excellent |
+| **MFA encryption**               | AES-256-GCM with random salt per ciphertext, dedicated key in production              | Excellent |
+| **CSRF protection**              | OWASP Double Submit Cookie with HMAC-normalized timing-safe comparison                | Excellent |
+| **Rate limiting**                | 15+ configurations across auth, writes, check-ins, admin, discovery, WebSocket        | Excellent |
+| **Input validation**             | Zod schemas on all write endpoints via `validateBody()` middleware                    | Excellent |
+| **SQL injection**                | Drizzle ORM parameterized queries; LIKE wildcards escaped                             | Excellent |
+| **XSS prevention**               | No `dangerouslySetInnerHTML`, no `eval()`, tokens in HttpOnly cookies                 | Excellent |
+| **Replay protection**            | Nonce + timestamp verification on check-ins                                           | Excellent |
+| **Audit logging**                | Comprehensive login, MFA, password, admin action tracking with dual storage           | Excellent |
+| **Sensitive data redaction**     | Logger auto-redacts passwords, tokens, secrets, emails                                | Excellent |
+| **Email enumeration prevention** | Generic responses on password reset                                                   | Excellent |
+| **Session invalidation**         | All sessions revoked on password change/reset                                         | Excellent |
+| **Webhook authentication**       | Stripe signature verification before processing                                       | Excellent |
+| **Account lockout**              | 5-attempt lockout with 15-min cooldown, per-email + per-IP                            | Strong    |
+| **Re-authentication**            | 5-minute window for sensitive operations (password, MFA, deletion)                    | Excellent |
+| **Firebase token verification**  | Revocation check enabled (`verifyIdToken(token, true)`)                               | Excellent |
+| **Payment idempotency**          | `consumedPaymentIntents` with `SELECT FOR UPDATE` in transaction                      | Excellent |
+| **FFmpeg safety**                | Uses `execFile()` (not `exec()`) — no shell injection                                 | Excellent |
+| **Non-root Docker**              | Custom user `skatehubba:1001` — prevents container escape privilege escalation        | Excellent |
+| **Firestore rules**              | Default-deny, helper functions, environment isolation, field validation               | Excellent |
+| **CI/CD scanning**               | Gitleaks + CodeQL + Trivy + lockfile integrity                                        | Strong    |
+| **App Check**                    | Gradual rollout (monitor → warn → enforce) with strict option for sensitive endpoints | Good      |
 
 ---
 
@@ -395,26 +395,27 @@ The following security controls are well-implemented and represent industry best
 
 All findings from previous audits (Feb 6, Feb 12, Feb 18) that were marked as fixed have been verified as remediated:
 
-| ID | Finding | Status |
-| -- | ------- | ------ |
-| C1-prev | CSRF timing attack (`===` → `timingSafeEqual`) | Verified Fixed |
-| C2-prev | Socket.io CORS wildcard fallback | Verified Fixed |
-| C3-prev | CSP frameSrc ignoring Firebase domain | Verified Fixed |
-| C4-prev | MFA encryption using shared JWT secret | Verified Fixed |
-| C5-prev | Missing `trust proxy` | Verified Fixed |
-| H1-prev | `optionalAuthentication` ignoring session cookies | Verified Fixed |
-| H2-prev | User search exposing emails | Verified Fixed |
-| H3-prev | Quick match leaking Firebase UID | Verified Fixed |
-| H4-prev | Password change missing re-auth guard | Verified Fixed |
-| H5-prev | `logIPAddress` mutating request body | Verified Fixed |
-| H7-prev | WebSocket game handlers no rate limiting | Verified Fixed |
-| H8-prev | TrickMint path validation bypass | Verified Fixed |
-| H9-prev | Stripe webhook event deduplication | Verified Fixed |
-| H11-prev | Admin system status missing auth | Verified Fixed |
-| M1-prev | Session TTL mismatch | Verified Fixed |
-| M2-prev | No password max length (bcrypt truncation) | Verified Fixed |
+| ID       | Finding                                           | Status         |
+| -------- | ------------------------------------------------- | -------------- |
+| C1-prev  | CSRF timing attack (`===` → `timingSafeEqual`)    | Verified Fixed |
+| C2-prev  | Socket.io CORS wildcard fallback                  | Verified Fixed |
+| C3-prev  | CSP frameSrc ignoring Firebase domain             | Verified Fixed |
+| C4-prev  | MFA encryption using shared JWT secret            | Verified Fixed |
+| C5-prev  | Missing `trust proxy`                             | Verified Fixed |
+| H1-prev  | `optionalAuthentication` ignoring session cookies | Verified Fixed |
+| H2-prev  | User search exposing emails                       | Verified Fixed |
+| H3-prev  | Quick match leaking Firebase UID                  | Verified Fixed |
+| H4-prev  | Password change missing re-auth guard             | Verified Fixed |
+| H5-prev  | `logIPAddress` mutating request body              | Verified Fixed |
+| H7-prev  | WebSocket game handlers no rate limiting          | Verified Fixed |
+| H8-prev  | TrickMint path validation bypass                  | Verified Fixed |
+| H9-prev  | Stripe webhook event deduplication                | Verified Fixed |
+| H11-prev | Admin system status missing auth                  | Verified Fixed |
+| M1-prev  | Session TTL mismatch                              | Verified Fixed |
+| M2-prev  | No password max length (bcrypt truncation)        | Verified Fixed |
 
 **Accepted Risks (unchanged):**
+
 - H6-prev: Lockout service fails closed on DB error (intentional design)
 - H10-prev: Remote S.K.A.T.E. offense unilateral round resolution (design limitation)
 - M10-prev: Notification quiet hours not enforced (backlog)
@@ -427,66 +428,66 @@ All findings from previous audits (Feb 6, Feb 12, Feb 18) that were marked as fi
 
 ### Critical — All Fixed
 
-| # | Finding | Status | Fix Applied |
-| - | ------- | ------ | ----------- |
-| C1 | Metrics routes unprotected | **FIXED** | Added `authenticateUser` + `requireAdmin` at mount point in `routes.ts` |
-| C2 | Dispute resolution missing admin auth | **FIXED** | Added `requireAdmin` middleware to resolve endpoint |
-| C3 | WebSocket room auth bypass | **FIXED** | Added `verifyBattleRoomMembership()` check on vote/ready events |
-| C4 | Battle notification spam | **FIXED** | DB lookup validates opponent exists and is active before `sendToUser()` |
-| C5 | Payment dedup race condition | **FIXED** | Documented defense-in-depth strategy; DB transaction is definitive guard; added currency validation |
-| C6 | Window UID exposure | **FIXED** | Removed `window.__SKATEHUBBA_UID__` assignment entirely |
-| C7 | Unvalidated payment redirect | **FIXED** | Added `isAllowedCheckoutUrl()` whitelist (`checkout.stripe.com` only) |
+| #   | Finding                               | Status    | Fix Applied                                                                                         |
+| --- | ------------------------------------- | --------- | --------------------------------------------------------------------------------------------------- |
+| C1  | Metrics routes unprotected            | **FIXED** | Added `authenticateUser` + `requireAdmin` at mount point in `routes.ts`                             |
+| C2  | Dispute resolution missing admin auth | **FIXED** | Added `requireAdmin` middleware to resolve endpoint                                                 |
+| C3  | WebSocket room auth bypass            | **FIXED** | Added `verifyBattleRoomMembership()` check on vote/ready events                                     |
+| C4  | Battle notification spam              | **FIXED** | DB lookup validates opponent exists and is active before `sendToUser()`                             |
+| C5  | Payment dedup race condition          | **FIXED** | Documented defense-in-depth strategy; DB transaction is definitive guard; added currency validation |
+| C6  | Window UID exposure                   | **FIXED** | Removed `window.__SKATEHUBBA_UID__` assignment entirely                                             |
+| C7  | Unvalidated payment redirect          | **FIXED** | Added `isAllowedCheckoutUrl()` whitelist (`checkout.stripe.com` only)                               |
 
 ### High — All Fixed
 
-| # | Finding | Status | Fix Applied |
-| - | ------- | ------ | ----------- |
-| H1 | Profile deletion weak auth | **FIXED** | Replaced `requireFirebaseUid` with `authenticateUser` on DELETE route |
-| H3 | Remote skate DB validation | **VERIFIED** | Already validates game membership in Firestore transaction (lines 124-126) |
-| H4 | Dispute ownership bypass | **FIXED** | Added game participant check before `fileDispute()` |
-| H5 | Loose socket input validation | **FIXED** | Replaced `z.string().min(1).max(100)` with strict `safeId` regex patterns |
-| H6 | Missing currency validation | **FIXED** | Added `intent.currency !== "usd"` check in purchase-premium route |
-| H7 | CSRF token parsing | **FIXED** | RFC 6265 regex in `client.ts`, `verify-email.tsx`, `reset-password.tsx` |
-| H8 | Open redirect in auth flow | **FIXED** | Hardened `getNextUrl()` — rejects protocols, double-encoding, auth loops |
-| H9 | Cron route brute-force | **FIXED** | Applied `apiLimiter` rate limiting to all cron routes |
-| H10 | Config leaks in production | **FIXED** | `throw Error` instead of `console.error` in production env validation |
+| #   | Finding                       | Status       | Fix Applied                                                                |
+| --- | ----------------------------- | ------------ | -------------------------------------------------------------------------- |
+| H1  | Profile deletion weak auth    | **FIXED**    | Replaced `requireFirebaseUid` with `authenticateUser` on DELETE route      |
+| H3  | Remote skate DB validation    | **VERIFIED** | Already validates game membership in Firestore transaction (lines 124-126) |
+| H4  | Dispute ownership bypass      | **FIXED**    | Added game participant check before `fileDispute()`                        |
+| H5  | Loose socket input validation | **FIXED**    | Replaced `z.string().min(1).max(100)` with strict `safeId` regex patterns  |
+| H6  | Missing currency validation   | **FIXED**    | Added `intent.currency !== "usd"` check in purchase-premium route          |
+| H7  | CSRF token parsing            | **FIXED**    | RFC 6265 regex in `client.ts`, `verify-email.tsx`, `reset-password.tsx`    |
+| H8  | Open redirect in auth flow    | **FIXED**    | Hardened `getNextUrl()` — rejects protocols, double-encoding, auth loops   |
+| H9  | Cron route brute-force        | **FIXED**    | Applied `apiLimiter` rate limiting to all cron routes                      |
+| H10 | Config leaks in production    | **FIXED**    | `throw Error` instead of `console.error` in production env validation      |
 
 ### Medium — All Fixed
 
-| # | Finding | Status | Fix Applied |
-| - | ------- | ------ | ----------- |
-| M1 | Missing currency validation | **FIXED** | Added `session.currency !== PREMIUM_CURRENCY` in webhook handler |
-| M2 | URL scheme not restricted | **FIXED** | Added `.refine()` requiring HTTPS on post media URLs |
-| M3 | Quiet hours accepts invalid times | **FIXED** | Regex updated to `([01]\d\|2[0-3]):([0-5]\d)` |
-| M4 | Unpinned GitHub Actions | **FIXED** | Pinned trivy-action@0.28.0, ssh-action@v1.2.0 |
-| M5 | .env.staging in git | **FIXED** | Renamed to `.env.staging.example`, added `.env.staging` to `.gitignore` |
-| M6 | Loose storage MIME matching | **FIXED** | Tightened to `image/(jpeg\|png\|webp\|gif)` and `video/(mp4\|webm\|quicktime)` |
-| M7 | Node.js 20 approaching EOL | **FIXED** | Upgraded Dockerfile to `node:22-slim` |
-| M8 | Firebase rules only on main | **FIXED** | Added PR trigger to `firebase_rules_verify` job |
-| M9 | CRON_SECRET too short | **FIXED** | Minimum raised from 16 to 32 characters |
-| M10 | Admin data over-exposure | **DEFERRED** | Requires sub-role architecture design; admin routes already require full admin auth |
-| M11 | Concurrent purchase requests | **DEFERRED** | Idempotency keys + DB transaction prevent double-upgrades; Redis lock is optimization |
-| M12 | Dev admin mode accessible | **FIXED** | Gated behind `import.meta.env.DEV`, added 1-hour expiry |
-| M13 | Profile PII in sessionStorage | **FIXED** | Now caches status only; full profile stays in React state (memory) |
-| M14 | Socket error info leaks | **DEFERRED** | Error codes needed for client UX; server-side logging is comprehensive |
-| M15 | Legacy MFA cipher | **DEFERRED** | Timeline/process item — requires coordinated re-enrollment campaign |
+| #   | Finding                           | Status       | Fix Applied                                                                           |
+| --- | --------------------------------- | ------------ | ------------------------------------------------------------------------------------- |
+| M1  | Missing currency validation       | **FIXED**    | Added `session.currency !== PREMIUM_CURRENCY` in webhook handler                      |
+| M2  | URL scheme not restricted         | **FIXED**    | Added `.refine()` requiring HTTPS on post media URLs                                  |
+| M3  | Quiet hours accepts invalid times | **FIXED**    | Regex updated to `([01]\d\|2[0-3]):([0-5]\d)`                                         |
+| M4  | Unpinned GitHub Actions           | **FIXED**    | Pinned trivy-action@0.28.0, ssh-action@v1.2.0                                         |
+| M5  | .env.staging in git               | **FIXED**    | Renamed to `.env.staging.example`, added `.env.staging` to `.gitignore`               |
+| M6  | Loose storage MIME matching       | **FIXED**    | Tightened to `image/(jpeg\|png\|webp\|gif)` and `video/(mp4\|webm\|quicktime)`        |
+| M7  | Node.js 20 approaching EOL        | **FIXED**    | Upgraded Dockerfile to `node:22-slim`                                                 |
+| M8  | Firebase rules only on main       | **FIXED**    | Added PR trigger to `firebase_rules_verify` job                                       |
+| M9  | CRON_SECRET too short             | **FIXED**    | Minimum raised from 16 to 32 characters                                               |
+| M10 | Admin data over-exposure          | **DEFERRED** | Requires sub-role architecture design; admin routes already require full admin auth   |
+| M11 | Concurrent purchase requests      | **DEFERRED** | Idempotency keys + DB transaction prevent double-upgrades; Redis lock is optimization |
+| M12 | Dev admin mode accessible         | **FIXED**    | Gated behind `import.meta.env.DEV`, added 1-hour expiry                               |
+| M13 | Profile PII in sessionStorage     | **FIXED**    | Now caches status only; full profile stays in React state (memory)                    |
+| M14 | Socket error info leaks           | **DEFERRED** | Error codes needed for client UX; server-side logging is comprehensive                |
+| M15 | Legacy MFA cipher                 | **DEFERRED** | Timeline/process item — requires coordinated re-enrollment campaign                   |
 
 ### Low — All Fixed
 
-| # | Finding | Status | Fix Applied |
-| - | ------- | ------ | ----------- |
-| L1 | Beta signup no IP rate limit | **FIXED** | Added `emailSignupLimiter` middleware at mount point |
-| L2 | parseInt accepts partial input | **FIXED** | Added `/^\d+$/` validation before `parseInt` |
-| L3 | Hardcoded premium price | **FIXED** | Extracted to `PREMIUM_PRICE_CENTS` and `PREMIUM_CURRENCY` constants |
-| L4 | Redis allows unencrypted in prod | **FIXED** | Added `.refine()` requiring `rediss://` in production |
-| L5 | Presence broadcasts globally | **FIXED** | Scoped to user's joined rooms via `socket.rooms` iteration |
-| L6 | No socket handler timeout | **FIXED** | Added 5-second `Promise.race()` timeout to game join handler |
-| L7 | Idempotency keys not validated | **FIXED** | Added `.min(16)` + alphanumeric regex validation |
-| L8 | Docker healthcheck no timeout | **FIXED** | Added `AbortSignal.timeout(3000)` to fetch call |
-| L9 | Build stamp in production | **FIXED** | Gated behind `import.meta.env.DEV` |
-| L10 | SW errors logged to console | **FIXED** | Replaced `console.error` with silent `.catch(() => {})` |
-| L11 | Storage MIME matching | **FIXED** | Tightened alongside M6 |
-| L12 | Challenge self-voting | **DEFERRED** | Requires Cloud Function enforcement (Firestore rules alone insufficient) |
+| #   | Finding                          | Status       | Fix Applied                                                              |
+| --- | -------------------------------- | ------------ | ------------------------------------------------------------------------ |
+| L1  | Beta signup no IP rate limit     | **FIXED**    | Added `emailSignupLimiter` middleware at mount point                     |
+| L2  | parseInt accepts partial input   | **FIXED**    | Added `/^\d+$/` validation before `parseInt`                             |
+| L3  | Hardcoded premium price          | **FIXED**    | Extracted to `PREMIUM_PRICE_CENTS` and `PREMIUM_CURRENCY` constants      |
+| L4  | Redis allows unencrypted in prod | **FIXED**    | Added `.refine()` requiring `rediss://` in production                    |
+| L5  | Presence broadcasts globally     | **FIXED**    | Scoped to user's joined rooms via `socket.rooms` iteration               |
+| L6  | No socket handler timeout        | **FIXED**    | Added 5-second `Promise.race()` timeout to game join handler             |
+| L7  | Idempotency keys not validated   | **FIXED**    | Added `.min(16)` + alphanumeric regex validation                         |
+| L8  | Docker healthcheck no timeout    | **FIXED**    | Added `AbortSignal.timeout(3000)` to fetch call                          |
+| L9  | Build stamp in production        | **FIXED**    | Gated behind `import.meta.env.DEV`                                       |
+| L10 | SW errors logged to console      | **FIXED**    | Replaced `console.error` with silent `.catch(() => {})`                  |
+| L11 | Storage MIME matching            | **FIXED**    | Tightened alongside M6                                                   |
+| L12 | Challenge self-voting            | **DEFERRED** | Requires Cloud Function enforcement (Firestore rules alone insufficient) |
 
 ---
 
@@ -494,30 +495,30 @@ All findings from previous audits (Feb 6, Feb 12, Feb 18) that were marked as fi
 
 ### OWASP Top 10 (2021)
 
-| Category | Status | Notes |
-| -------- | ------ | ----- |
-| A01: Broken Access Control | **Pass** | C1, C2, C3, H1, H4 all remediated |
-| A02: Cryptographic Failures | **Pass** | AES-256-GCM, bcrypt, SHA-256 |
-| A03: Injection | **Pass** | Drizzle ORM, Zod validation, strict socket schemas |
-| A04: Insecure Design | **Pass** | Defense-in-depth architecture |
-| A05: Security Misconfiguration | **Pass** | M4, M5, M7, M8 all remediated |
-| A06: Vulnerable Components | **Pass** | Node 22, pinned actions |
-| A07: Auth Failures | **Pass** | Strong auth, MFA, lockout, re-auth |
-| A08: Software/Data Integrity | Needs Work | Docker image signing recommended |
-| A09: Logging/Monitoring | **Pass** | Comprehensive audit logging |
-| A10: SSRF | **Pass** | No user-controlled HTTP requests |
+| Category                       | Status     | Notes                                              |
+| ------------------------------ | ---------- | -------------------------------------------------- |
+| A01: Broken Access Control     | **Pass**   | C1, C2, C3, H1, H4 all remediated                  |
+| A02: Cryptographic Failures    | **Pass**   | AES-256-GCM, bcrypt, SHA-256                       |
+| A03: Injection                 | **Pass**   | Drizzle ORM, Zod validation, strict socket schemas |
+| A04: Insecure Design           | **Pass**   | Defense-in-depth architecture                      |
+| A05: Security Misconfiguration | **Pass**   | M4, M5, M7, M8 all remediated                      |
+| A06: Vulnerable Components     | **Pass**   | Node 22, pinned actions                            |
+| A07: Auth Failures             | **Pass**   | Strong auth, MFA, lockout, re-auth                 |
+| A08: Software/Data Integrity   | Needs Work | Docker image signing recommended                   |
+| A09: Logging/Monitoring        | **Pass**   | Comprehensive audit logging                        |
+| A10: SSRF                      | **Pass**   | No user-controlled HTTP requests                   |
 
 ### CWE Top 25
 
-| CWE | Status |
-| --- | ------ |
-| CWE-287: Improper Authentication | **Pass** — C1, H1 remediated |
-| CWE-79: XSS | **Pass** — no innerHTML, no eval, HTTPS-only media URLs |
-| CWE-89: SQL Injection | **Pass** — Drizzle ORM throughout |
-| CWE-352: CSRF | **Pass** — OWASP Double Submit Cookie, RFC 6265 parsing |
-| CWE-306: Missing Auth for Critical Function | **Pass** — C1, C2 remediated |
-| CWE-862: Missing Authorization | **Pass** — C2, C3, H4 remediated |
-| CWE-798: Hardcoded Credentials | **Pass** — Zod env validation |
+| CWE                                         | Status                                                  |
+| ------------------------------------------- | ------------------------------------------------------- |
+| CWE-287: Improper Authentication            | **Pass** — C1, H1 remediated                            |
+| CWE-79: XSS                                 | **Pass** — no innerHTML, no eval, HTTPS-only media URLs |
+| CWE-89: SQL Injection                       | **Pass** — Drizzle ORM throughout                       |
+| CWE-352: CSRF                               | **Pass** — OWASP Double Submit Cookie, RFC 6265 parsing |
+| CWE-306: Missing Auth for Critical Function | **Pass** — C1, C2 remediated                            |
+| CWE-862: Missing Authorization              | **Pass** — C2, C3, H4 remediated                        |
+| CWE-798: Hardcoded Credentials              | **Pass** — Zod env validation                           |
 
 ---
 

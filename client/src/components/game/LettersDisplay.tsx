@@ -6,6 +6,7 @@
  * Red glow animation at MATCH POINT (4 letters / "SKAT").
  */
 
+import { memo } from "react";
 import { cn } from "@/lib/utils";
 
 interface LettersDisplayProps {
@@ -40,7 +41,7 @@ function getStatusLabel(letterCount: number): string | null {
   return null;
 }
 
-export function LettersDisplay({
+export const LettersDisplay = memo(function LettersDisplay({
   letters,
   playerName,
   isCurrentPlayer = false,
@@ -99,4 +100,4 @@ export function LettersDisplay({
       )}
     </div>
   );
-}
+});

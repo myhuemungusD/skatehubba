@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Swords, Plus, Users, Clock, TrendingUp, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -18,26 +18,35 @@ export default function ChallengeLobby() {
   const respondToGame = useRespondToGame();
   const createGame = useCreateGame();
 
-  const handleAcceptChallenge = (gameId: string) => {
-    respondToGame.mutate({ gameId, accept: true });
-  };
+  const handleAcceptChallenge = useCallback(
+    (gameId: string) => {
+      respondToGame.mutate({ gameId, accept: true });
+    },
+    [respondToGame]
+  );
 
-  const handleDeclineChallenge = (gameId: string) => {
-    respondToGame.mutate({ gameId, accept: false });
-  };
+  const handleDeclineChallenge = useCallback(
+    (gameId: string) => {
+      respondToGame.mutate({ gameId, accept: false });
+    },
+    [respondToGame]
+  );
 
-  const handleCreateChallenge = () => {
+  const handleCreateChallenge = useCallback(() => {
     if (!challengeUserId.trim()) return;
     createGame.mutate(challengeUserId.trim(), {
       onSuccess: () => {
         setChallengeUserId("");
       },
     });
-  };
+  }, [challengeUserId, createGame]);
 
-  const handleViewGame = (gameId: string) => {
-    setLocation(`/play?gameId=${gameId}`);
-  };
+  const handleViewGame = useCallback(
+    (gameId: string) => {
+      setLocation(`/play?gameId=${gameId}`);
+    },
+    [setLocation]
+  );
 
   if (isLoading) {
     return <LoadingScreen />;

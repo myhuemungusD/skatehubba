@@ -115,11 +115,11 @@ Build profiles:
 
 ## Common Mistakes to Avoid
 
-| Mistake | Correct Approach |
-|---------|-----------------|
-| Running EAS from repo root | Run from `mobile/` directory |
-| Moving mobile files to root | Keep files in `mobile/` |
-| Using `app.json` | Config is in `app.config.js` (JavaScript format) |
+| Mistake                          | Correct Approach                                                              |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| Running EAS from repo root       | Run from `mobile/` directory                                                  |
+| Moving mobile files to root      | Keep files in `mobile/`                                                       |
+| Using `app.json`                 | Config is in `app.config.js` (JavaScript format)                              |
 | Forgetting Firebase config files | Ensure `google-services.json` and `GoogleService-Info.plist` are in `mobile/` |
 
 ---

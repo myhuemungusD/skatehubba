@@ -33,7 +33,11 @@ export function isDevAdmin(): boolean {
 }
 
 // M12: Only expose global helpers in development builds
-if (typeof window !== "undefined" && import.meta.env.DEV && window.location.hostname === "localhost") {
+if (
+  typeof window !== "undefined" &&
+  import.meta.env.DEV &&
+  window.location.hostname === "localhost"
+) {
   window.__enableDevAdmin = () => {
     window.sessionStorage.setItem("devAdmin", "true");
     window.sessionStorage.setItem("devAdminExpiry", String(Date.now() + DEV_ADMIN_EXPIRY_MS));

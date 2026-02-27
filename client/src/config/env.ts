@@ -48,14 +48,20 @@ const envSchema = z.object({
 function validateEnv() {
   try {
     const parsed = envSchema.parse(import.meta.env);
-    
+
     // H10: Validate critical Firebase config — fail fast in production without console leaks
     if (import.meta.env.PROD) {
-      if (!parsed.EXPO_PUBLIC_FIREBASE_API_KEY || parsed.EXPO_PUBLIC_FIREBASE_API_KEY === 'undefined') {
-        throw new Error('Critical client configuration missing. Cannot start application.');
+      if (
+        !parsed.EXPO_PUBLIC_FIREBASE_API_KEY ||
+        parsed.EXPO_PUBLIC_FIREBASE_API_KEY === "undefined"
+      ) {
+        throw new Error("Critical client configuration missing. Cannot start application.");
       }
-      if (!parsed.EXPO_PUBLIC_FIREBASE_PROJECT_ID || parsed.EXPO_PUBLIC_FIREBASE_PROJECT_ID === 'undefined') {
-        throw new Error('Critical client configuration missing. Cannot start application.');
+      if (
+        !parsed.EXPO_PUBLIC_FIREBASE_PROJECT_ID ||
+        parsed.EXPO_PUBLIC_FIREBASE_PROJECT_ID === "undefined"
+      ) {
+        throw new Error("Critical client configuration missing. Cannot start application.");
       }
     }
 
@@ -63,12 +69,12 @@ function validateEnv() {
   } catch (error) {
     if (import.meta.env.PROD) {
       // H10: Don't leak validation details to browser console in production
-      throw new Error('Application configuration error.');
+      throw new Error("Application configuration error.");
     }
     // Development fallback only
-    console.warn('[ENV] Using fallback empty env for development');
+    console.warn("[ENV] Using fallback empty env for development");
     if (import.meta.env.DEV) {
-      console.error('[ENV] Validation failed:', error);
+      console.error("[ENV] Validation failed:", error);
     }
     return envSchema.parse({});
   }

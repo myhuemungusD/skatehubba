@@ -151,7 +151,11 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, proAwardLimiter, a
  */
 const createCheckoutSchema = z.object({
   // L7: Require minimum entropy in idempotency keys to prevent prediction
-  idempotencyKey: z.string().min(16).max(255).regex(/^[a-zA-Z0-9_-]+$/, "Invalid key format"),
+  idempotencyKey: z
+    .string()
+    .min(16)
+    .max(255)
+    .regex(/^[a-zA-Z0-9_-]+$/, "Invalid key format"),
 });
 
 router.post("/create-checkout-session", authenticateUser, async (req, res) => {

@@ -65,21 +65,21 @@ The Content-Security-Policy `scriptSrc` directive included `'unsafe-inline'`, wh
 
 ### Medium Priority
 
-| #   | Issue                                        | Location                             | Status |
-| --- | -------------------------------------------- | ------------------------------------ | ------ |
-| 1   | ~~Hardcoded dev JWT secret~~                 | `server/config/env.ts`               | **FIXED** — `JWT_SECRET` required in all non-test environments with 32-character minimum. |
-| 2   | `unsafe-inline` still in `styleSrc`          | `server/index.ts:31`                 | **OPEN** — Move to nonce-based CSP for inline styles when feasible. Tracked as future hardening. |
-| 3   | ~~Missing `ALLOWED_ORIGINS` in env example~~ | `.env.example`                       | **FIXED** — Present in `.env.example` and validated at runtime. |
+| #   | Issue                                        | Location                             | Status                                                                                                                            |
+| --- | -------------------------------------------- | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | ~~Hardcoded dev JWT secret~~                 | `server/config/env.ts`               | **FIXED** — `JWT_SECRET` required in all non-test environments with 32-character minimum.                                         |
+| 2   | `unsafe-inline` still in `styleSrc`          | `server/index.ts:31`                 | **OPEN** — Move to nonce-based CSP for inline styles when feasible. Tracked as future hardening.                                  |
+| 3   | ~~Missing `ALLOWED_ORIGINS` in env example~~ | `.env.example`                       | **FIXED** — Present in `.env.example` and validated at runtime.                                                                   |
 | 4   | Hardcoded Firebase API key                   | `packages/config/src/firebase.ts:43` | **ACCEPTED** — Firebase web keys are public by design. Env-based config is a consistency improvement, not a security requirement. |
 
 ### Low Priority
 
-| #   | Issue                                 | Location                                | Status |
-| --- | ------------------------------------- | --------------------------------------- | ------ |
-| 5   | ~~Loose storage MIME matching~~       | `storage.rules:25-31`                   | **FIXED** — Tightened to `image/(jpeg\|png\|webp\|gif)` and `video/(mp4\|webm\|quicktime)` (Feb 24 audit M6). |
-| 6   | Helmet not applied in dev             | `server/index.ts:24`                    | **ACCEPTED** — CSP in production only is intentional to avoid breaking dev tooling. |
-| 7   | User-agent blocking may reject SDKs   | `server/middleware/security.ts:339-355` | **ACCEPTED** — Mobile app uses Bearer auth, not cookie-based; SDK user-agents are not blocked. |
-| 8   | ~~Numeric param validation~~          | `server/routes.ts` (various)            | **FIXED** — Zod coerce validation added across routes (Feb 24 audit L2). |
+| #   | Issue                               | Location                                | Status                                                                                                        |
+| --- | ----------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| 5   | ~~Loose storage MIME matching~~     | `storage.rules:25-31`                   | **FIXED** — Tightened to `image/(jpeg\|png\|webp\|gif)` and `video/(mp4\|webm\|quicktime)` (Feb 24 audit M6). |
+| 6   | Helmet not applied in dev           | `server/index.ts:24`                    | **ACCEPTED** — CSP in production only is intentional to avoid breaking dev tooling.                           |
+| 7   | User-agent blocking may reject SDKs | `server/middleware/security.ts:339-355` | **ACCEPTED** — Mobile app uses Bearer auth, not cookie-based; SDK user-agents are not blocked.                |
+| 8   | ~~Numeric param validation~~        | `server/routes.ts` (various)            | **FIXED** — Zod coerce validation added across routes (Feb 24 audit L2).                                      |
 
 ---
 

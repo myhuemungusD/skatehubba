@@ -23,6 +23,7 @@
 > One goal: get 100 complete, real S.K.A.T.E. games played by real skaters. Not signups. Not downloads. **Completed games.**
 
 ### Core Loop — Async Battles
+
 - [ ] Fix any friction that causes game abandonment (track where players drop off)
 - [ ] Push notifications for turn alerts (your opponent landed — your turn)
 - [ ] Rematch button (zero-friction replay after game ends)
@@ -30,22 +31,26 @@
 - [ ] Onboarding flow — 60-second tutorial that gets a new player into their first game
 
 ### Core Loop — Map Check-Ins
+
 - [ ] Make check-ins feel rewarding (streak tracking, spot "regulars" list)
 - [ ] Surface nearby active games at checked-in spots
 - [ ] "Challenge someone here" flow from the spot page
 
 ### Get It in Hands
+
 - [ ] Mobile web optimization (most skaters are on phones, PWA before native)
 - [ ] Invite link sharing (challenge a friend via text/IG DM with one tap)
 - [ ] Basic video transcoding (uploads need to not choke on phone videos)
 
 ### Measure Everything
+
 - [ ] Funnel tracking: signup → first game started → first game completed → second game
 - [ ] Game abandonment rate by stage (challenge sent, trick recorded, judging, etc.)
 - [ ] Session-to-return rate (did they come back within 7 days?)
 - [ ] Weekly active players (not registered users — players who completed a game)
 
 ### Success Criteria (Exit Phase 1)
+
 - 100 completed S.K.A.T.E. games by real users (not team/friends)
 - Game completion rate >70% (games started vs. games finished)
 - 30%+ of players play a second game within 7 days
@@ -64,6 +69,7 @@ Only unlock this after Phase 1 metrics are hit. Focus: make players come back.
 - [ ] Regional leaderboards (city/state competition)
 
 ### Success Criteria (Exit Phase 2)
+
 - 50+ weekly active players
 - 40%+ 30-day retention
 - Organic invites: >20% of new users come from existing user shares

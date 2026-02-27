@@ -44,12 +44,12 @@ Include:
 
 ## Severity Classification
 
-| Severity | Examples | Target Resolution |
-| -------- | -------- | ----------------- |
-| Critical | Auth bypass, RCE, payment manipulation | 48 hours |
-| High | Privilege escalation, data exposure, injection | 7 days |
-| Medium | Information disclosure, missing controls | 30 days |
-| Low | Best practice deviations, hardening | 90 days |
+| Severity | Examples                                       | Target Resolution |
+| -------- | ---------------------------------------------- | ----------------- |
+| Critical | Auth bypass, RCE, payment manipulation         | 48 hours          |
+| High     | Privilege escalation, data exposure, injection | 7 days            |
+| Medium   | Information disclosure, missing controls       | 30 days           |
+| Low      | Best practice deviations, hardening            | 90 days           |
 
 ## Bug Bounty
 
@@ -57,11 +57,11 @@ We do not currently offer a paid bug bounty program, but we appreciate responsib
 
 ## Audit History
 
-| Date | Type | Grade | Findings |
-| ---- | ---- | ----- | -------- |
-| 2026-02-24 | Full E2E Production Audit | A- | 44 findings (all remediated) |
-| 2026-02-12 | Mobile Security Audit | — | 2 critical, 3 high, 4 medium |
-| 2026-02-06 | Security Health Check | B+ | 3 critical/high fixed |
+| Date       | Type                      | Grade | Findings                     |
+| ---------- | ------------------------- | ----- | ---------------------------- |
+| 2026-02-24 | Full E2E Production Audit | A-    | 44 findings (all remediated) |
+| 2026-02-12 | Mobile Security Audit     | —     | 2 critical, 3 high, 4 medium |
+| 2026-02-06 | Security Health Check     | B+    | 3 critical/high fixed        |
 
 ## Detailed Security Documentation
 

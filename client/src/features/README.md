@@ -9,59 +9,76 @@ This directory contains self-contained feature modules that encapsulate domain-s
 ## Feature Modules
 
 ### Check-ins (`checkins/`)
+
 Location-based check-in functionality with replay attack prevention.
 
 **Components:**
+
 - `CheckInButton.tsx` - Check-in button with geolocation validation
 
 **Hooks:**
+
 - `useCheckIn.ts` - Check-in mutation with nonce-based replay detection
 
 **Key Features:**
+
 - Nonce-based replay attack prevention
 - Geolocation requirement enforcement
 - Error handling for rate limits and quota
 
 ### Feed (`feed/`)
+
 Real-time activity feed powered by Firestore.
 
 **Hooks:**
+
 - `useRealtimeFeed.ts` - Live check-in feed with pagination
 
 **Key Features:**
+
 - Real-time Firestore listeners
 - Infinite scroll pagination
 - Online/offline status tracking
 
 ### Leaderboard (`leaderboard/`)
+
 Real-time leaderboard rankings.
 
 **Hooks:**
+
 - `useRealtimeLeaderboard.ts` - Live leaderboard updates
 
 **Key Features:**
+
 - Real-time Firestore sync
 - Top 100 rankings
 - Score updates
 
 ### Social (`social/`)
+
 Social features including profiles and user interactions.
 
 #### Public Profile (`social/public-profile/`)
+
 **Components:**
+
 - `PublicProfileView.tsx` - Public profile display
 - `components/TrickBagAggregator.tsx` - Aggregate trick statistics
 
 **Hooks:**
+
 - `useUserLookup.ts` - Username to user ID resolution
 
 #### Bolts Showcase (`social/bolts-showcase/`)
+
 **Components:**
+
 - `BoltsShowcase.tsx` - Display user's bolt achievements
 
 ## Architecture Patterns
 
 ### Feature Organization
+
 ```
 features/
   feature-name/

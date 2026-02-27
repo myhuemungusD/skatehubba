@@ -3,7 +3,16 @@
  */
 
 import { useState } from "react";
-import { ChevronDown, ChevronUp, HelpCircle, Swords, Shield, Upload, CheckCircle2, AlertTriangle } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronUp,
+  HelpCircle,
+  Swords,
+  Shield,
+  Upload,
+  CheckCircle2,
+  AlertTriangle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function HowToPlay() {
@@ -66,7 +75,7 @@ export function HowToPlay() {
                   number={3}
                   icon={<Upload className="h-3.5 w-3.5 text-yellow-400" />}
                   title="Offense calls it"
-                  description='After watching the reply, the offense decides: did the defense land it or miss it?'
+                  description="After watching the reply, the offense decides: did the defense land it or miss it?"
                 />
                 <Step
                   number={4}
@@ -83,11 +92,17 @@ export function HowToPlay() {
               <ul className="space-y-1.5 text-neutral-400">
                 <li className="flex items-start gap-2">
                   <span className="text-green-400 mt-0.5">&#8226;</span>
-                  <span><strong className="text-neutral-300">Landed:</strong> Roles swap — the defense becomes offense for the next round.</span>
+                  <span>
+                    <strong className="text-neutral-300">Landed:</strong> Roles swap — the defense
+                    becomes offense for the next round.
+                  </span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-red-400 mt-0.5">&#8226;</span>
-                  <span><strong className="text-neutral-300">Missed:</strong> Defense gets a letter (S, then K, then A...). Offense stays on offense.</span>
+                  <span>
+                    <strong className="text-neutral-300">Missed:</strong> Defense gets a letter (S,
+                    then K, then A...). Offense stays on offense.
+                  </span>
                 </li>
               </ul>
             </div>

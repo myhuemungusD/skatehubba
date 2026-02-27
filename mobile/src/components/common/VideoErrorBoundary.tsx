@@ -53,15 +53,9 @@ export class VideoErrorBoundary extends Component<
 
       return (
         <View style={styles.errorContainer}>
-          <Ionicons
-            name="videocam-off"
-            size={48}
-            color={SKATE.colors.lightGray}
-          />
+          <Ionicons name="videocam-off" size={48} color={SKATE.colors.lightGray} />
           <Text style={styles.errorTitle}>Video Unavailable</Text>
-          <Text style={styles.errorMessage}>
-            {this.state.errorMessage}
-          </Text>
+          <Text style={styles.errorMessage}>{this.state.errorMessage}</Text>
           <TouchableOpacity
             accessible
             accessibilityRole="button"

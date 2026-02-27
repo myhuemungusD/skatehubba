@@ -6,11 +6,11 @@ How environments are structured, how code gets deployed, and how to rotate secre
 
 ## Environments
 
-| Environment | URL | Trigger | Database | Firebase Namespace |
-|-------------|-----|---------|----------|--------------------|
-| **Local** | `localhost:3000` (client) / `localhost:3001` (server) | `pnpm dev` | Local PostgreSQL or Neon dev branch | `/env/local/` (emulator recommended) |
-| **Staging** | `staging.skatehubba.com` | Push to `staging` branch | Staging PostgreSQL (Docker or Neon) | `/env/staging/` |
-| **Production** | `skatehubba.com` | Push to `main` (Vercel auto-deploy) | Production PostgreSQL (Neon) | `/env/prod/` |
+| Environment    | URL                                                   | Trigger                             | Database                            | Firebase Namespace                   |
+| -------------- | ----------------------------------------------------- | ----------------------------------- | ----------------------------------- | ------------------------------------ |
+| **Local**      | `localhost:3000` (client) / `localhost:3001` (server) | `pnpm dev`                          | Local PostgreSQL or Neon dev branch | `/env/local/` (emulator recommended) |
+| **Staging**    | `staging.skatehubba.com`                              | Push to `staging` branch            | Staging PostgreSQL (Docker or Neon) | `/env/staging/`                      |
+| **Production** | `skatehubba.com`                                      | Push to `main` (Vercel auto-deploy) | Production PostgreSQL (Neon)        | `/env/prod/`                         |
 
 ### Environment isolation
 
@@ -54,6 +54,7 @@ Push to staging
 ```
 
 The staging server runs Docker Compose with:
+
 - **app** — Express server + built client (port 3001)
 - **db** — PostgreSQL 16 Alpine
 - **redis** — Redis 7 Alpine
@@ -97,9 +98,11 @@ See `mobile/store-assets/SUBMISSION_CHECKLIST.md` for app store requirements.
 Every push to `main` and every PR runs the `ci.yml` workflow:
 
 **Lockfile Integrity** (`lockfile_check`)
+
 - `pnpm install --frozen-lockfile --ignore-scripts`
 
 **Quality Control** (`build_lint_typecheck`) — depends on lockfile check
+
 1. Formatting check (`pnpm format:check` — Prettier on JSON files)
 2. Package validation (`pnpm run validate:packages` + `pnpm run validate:package-manager`)
 3. TypeScript typecheck (`pnpm run typecheck`)
@@ -108,29 +111,37 @@ Every push to `main` and every PR runs the `ci.yml` workflow:
 6. Unit tests with coverage (`pnpm vitest run --coverage` — 98/93/99/99 thresholds)
 
 **Bundle Size Budget** (`bundle_size`) — runs in parallel
+
 - Builds client, then runs `node scripts/check-bundle-size.mjs --ci`
 - Budgets: totalJs 1825 KB, totalCss 300 KB
 
 **Migration Drift Check** (`migration_drift`) — runs in parallel
+
 - Runs `pnpm db:generate` and checks for uncommitted migration changes
 
 **Mobile Quality Control** (`mobile_quality`) — runs in parallel
+
 - TypeScript typecheck and ESLint for the mobile app
 
 **Security Guardrail** (`rules_scan`)
+
 - Blocks insecure Firestore/Storage rules (wildcard `allow read, write: if true`)
 
 **Firebase Rules Validation** (`firebase_rules_verify`)
+
 - Validates Firestore/Storage rules via Firebase CLI (requires `FIREBASE_TOKEN`)
 
 **Mobile Detox Smoke** (`mobile_detox_smoke`)
+
 - Runs Android E2E smoke tests via `mobile-e2e.yml`
 
 **Secret Scanning** (`secret_scan`)
+
 - Blocks merge conflict markers
 - Gitleaks scan across all branches and PRs
 
 Additional workflows:
+
 - `codeql.yml` — Static analysis for security vulnerabilities
 - `security.yml` — Security-focused checks
 - `verify-firebase-rules.yml` — Firestore/Storage rules validation (standalone)
@@ -176,20 +187,20 @@ See `migrations/README.md` and `migrations/QUICKSTART.md` for details.
 
 ### Inventory
 
-| Secret | Location | Rotation Impact |
-|--------|----------|-----------------|
-| `JWT_SECRET` | Server env | Invalidates all active sessions. Users must re-login. |
-| `SESSION_SECRET` | Server env | Invalidates Express sessions. |
-| `MFA_ENCRYPTION_KEY` | Server env | Invalidates all enrolled TOTP secrets. Users must re-enroll MFA. |
-| `FIREBASE_ADMIN_KEY` | Server env (JSON) | Server loses Firebase Admin access until updated. |
-| `STRIPE_SECRET_KEY` | Server env | Payment processing stops until updated. |
-| `STRIPE_WEBHOOK_SECRET` | Server env | Webhook signature verification fails. Stripe retries for up to 72h. |
-| `RESEND_API_KEY` | Server env | Email delivery stops until updated. |
-| `OPENAI_API_KEY` | Server env | AI Skate Buddy (Hesher) stops responding. |
-| `GOOGLE_AI_API_KEY` | Server env | Google AI features stop. |
-| `ADMIN_API_KEY` | Server env | Admin API access blocked until updated. |
-| `DATABASE_URL` | Server env | App cannot connect to database. |
-| `STAGING_SSH_KEY` | GitHub Secrets | Staging deploys fail until updated. |
+| Secret                  | Location          | Rotation Impact                                                     |
+| ----------------------- | ----------------- | ------------------------------------------------------------------- |
+| `JWT_SECRET`            | Server env        | Invalidates all active sessions. Users must re-login.               |
+| `SESSION_SECRET`        | Server env        | Invalidates Express sessions.                                       |
+| `MFA_ENCRYPTION_KEY`    | Server env        | Invalidates all enrolled TOTP secrets. Users must re-enroll MFA.    |
+| `FIREBASE_ADMIN_KEY`    | Server env (JSON) | Server loses Firebase Admin access until updated.                   |
+| `STRIPE_SECRET_KEY`     | Server env        | Payment processing stops until updated.                             |
+| `STRIPE_WEBHOOK_SECRET` | Server env        | Webhook signature verification fails. Stripe retries for up to 72h. |
+| `RESEND_API_KEY`        | Server env        | Email delivery stops until updated.                                 |
+| `OPENAI_API_KEY`        | Server env        | AI Skate Buddy (Hesher) stops responding.                           |
+| `GOOGLE_AI_API_KEY`     | Server env        | Google AI features stop.                                            |
+| `ADMIN_API_KEY`         | Server env        | Admin API access blocked until updated.                             |
+| `DATABASE_URL`          | Server env        | App cannot connect to database.                                     |
+| `STAGING_SSH_KEY`       | GitHub Secrets    | Staging deploys fail until updated.                                 |
 
 ### Rotation procedure
 
@@ -208,6 +219,7 @@ These keys sign tokens. Rotation immediately invalidates all existing sessions. 
 
 **MFA_ENCRYPTION_KEY:**
 This encrypts TOTP secrets at rest. Changing it makes all enrolled MFA unrecoverable. Before rotating:
+
 1. Notify affected users
 2. Decrypt all TOTP secrets with the old key
 3. Re-encrypt with the new key
@@ -225,6 +237,7 @@ Coordinate with your database provider (Neon). Update the password in both the p
 ### Secret scanning
 
 Secrets are scanned in multiple layers:
+
 - **Pre-commit:** Gitleaks via Husky git hooks
 - **CI:** Gitleaks scan runs on every push and PR (via `gitleaks/gitleaks-action@v2`)
 - **GitHub:** Push protection enabled (`.github/workflows/security.yml`)

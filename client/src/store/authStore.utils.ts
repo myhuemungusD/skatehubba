@@ -46,10 +46,7 @@ export const readProfileCache = (uid: string): ProfileCache | null => {
  */
 export const writeProfileCache = (uid: string, cache: ProfileCache) => {
   if (typeof window === "undefined") return;
-  sessionStorage.setItem(
-    profileCacheKey(uid),
-    JSON.stringify({ status: cache.status })
-  );
+  sessionStorage.setItem(profileCacheKey(uid), JSON.stringify({ status: cache.status }));
 };
 
 export const clearProfileCache = (uid: string) => {

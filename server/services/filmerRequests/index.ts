@@ -14,10 +14,6 @@
  * @module services/filmerRequests
  */
 
-export type {
-  FilmerRequestStatus,
-  FilmerRequestAction,
-  FilmerRequestSummary,
-} from "./types";
+export type { FilmerRequestStatus, FilmerRequestAction, FilmerRequestSummary } from "./types";
 export { FilmerRequestError } from "./types";
 export { createFilmerRequest, respondToFilmerRequest, listFilmerRequests } from "./operations";

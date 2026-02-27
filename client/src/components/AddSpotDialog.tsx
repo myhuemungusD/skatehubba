@@ -57,12 +57,20 @@ export function AddSpotDialog({ isOpen, onClose, lat, lng }: AddSpotDialogProps)
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
-      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      toast({
+        title: "Invalid file",
+        description: "Please select an image file.",
+        variant: "destructive",
+      });
       return;
     }
 
     if (file.size > MAX_PHOTO_SIZE_BYTES) {
-      toast({ title: "Image too large", description: "Photo must be under 5 MB.", variant: "destructive" });
+      toast({
+        title: "Image too large",
+        description: "Photo must be under 5 MB.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -71,7 +79,11 @@ export function AddSpotDialog({ isOpen, onClose, lat, lng }: AddSpotDialogProps)
       setPhotoPreview(ev.target?.result as string);
     };
     reader.onerror = () => {
-      toast({ title: "Failed to read image", description: "Try another file.", variant: "destructive" });
+      toast({
+        title: "Failed to read image",
+        description: "Try another file.",
+        variant: "destructive",
+      });
     };
     reader.readAsDataURL(file);
     e.target.value = "";
@@ -246,7 +258,11 @@ export function AddSpotDialog({ isOpen, onClose, lat, lng }: AddSpotDialogProps)
             <div className="mt-1.5 space-y-2">
               {photoPreview ? (
                 <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-neutral-700">
-                  <img src={photoPreview} alt="Spot preview" className="w-full h-full object-cover" />
+                  <img
+                    src={photoPreview}
+                    alt="Spot preview"
+                    className="w-full h-full object-cover"
+                  />
                   <button
                     type="button"
                     onClick={() => setPhotoPreview(null)}

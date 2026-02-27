@@ -62,7 +62,6 @@ export default function MapPage() {
         duration: 6000,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/tier"] });
-      // Clean up URL params
       const url = new URL(window.location.href);
       url.searchParams.delete("upgrade");
       url.searchParams.delete("session_id");
@@ -84,8 +83,6 @@ export default function MapPage() {
   // ---------------------------------------------------------------------------
   const geolocation = useGeolocation(true);
 
-  // Memoized user location - prevents creating new object references on every render
-  // This is critical for preventing SpotMap from re-rendering unnecessarily
   const userLocation = useMemo<UserLocation | null>(() => {
     if (geolocation.latitude === null || geolocation.longitude === null) {
       return null;
@@ -97,7 +94,6 @@ export default function MapPage() {
     };
   }, [geolocation.latitude, geolocation.longitude, geolocation.accuracy]);
 
-  // Simplified location for modals (includes accuracy for check-in proximity)
   const userLocationSimple = useMemo<UserLocationSimple | null>(() => {
     if (!userLocation) return null;
     return {
@@ -118,13 +114,12 @@ export default function MapPage() {
     isError: isSpotsError,
   } = useQuery<Spot[]>({
     queryKey: ["/api/spots"],
-    staleTime: 30_000, // Consider fresh for 30 seconds
-    gcTime: 5 * 60_000, // Keep in garbage collection for 5 minutes
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
     refetchOnWindowFocus: false,
     retry: 2,
   });
 
-  // Use API spots when available, fall back to demo spots when API fails
   const { spots, isFallback: isUsingDemoSpots } = useMemo(() => {
     if (apiSpots && apiSpots.length > 0) return { spots: apiSpots, isFallback: false };
     if (isSpotsError || (!isSpotsLoading && (!apiSpots || apiSpots.length === 0))) {
@@ -133,7 +128,6 @@ export default function MapPage() {
     return { spots: [] as Spot[], isFallback: false };
   }, [apiSpots, isSpotsError, isSpotsLoading]);
 
-  // Discover nearby skateparks from OpenStreetMap when user location is available
   useEffect(() => {
     if (
       hasDiscoveredRef.current ||
@@ -152,12 +146,11 @@ export default function MapPage() {
       .then((res) => res.json())
       .then((data) => {
         if (data.added > 0) {
-          // New spots were discovered - refresh the spots list
           queryClient.invalidateQueries({ queryKey: ["/api/spots"] });
         }
       })
       .catch(() => {
-        // Discovery is best-effort - don't block the map experience
+        // Discovery is best-effort
       });
   }, [geolocation.latitude, geolocation.longitude, geolocation.status, queryClient]);
 
@@ -165,12 +158,8 @@ export default function MapPage() {
   // Memoized Computations
   // ---------------------------------------------------------------------------
 
-  // CRITICAL: Distance calculation wrapped in useMemo
-  // Without this, we recalculate distances for ALL spots on EVERY render
-  // With 1000 spots, that's 1000 haversine calculations per frame = battery death
   const spotsWithDistance = useMemo<SpotWithDistance[]>(() => {
     if (!userLocation) {
-      // No location available - return spots with null distance
       return spots.map((spot) => ({
         ...spot,
         distance: null,
@@ -193,14 +182,13 @@ export default function MapPage() {
     return spotsWithDistance.filter((s) => s.proximity === "here").length;
   }, [spotsWithDistance]);
 
-  // Selected spot from existing data - avoids redundant API fetch in modal
   const selectedSpot = useMemo<SpotWithDistance | null>(() => {
     if (selectedSpotId === null) return null;
     return spotsWithDistance.find((s) => s.id === selectedSpotId) ?? null;
   }, [selectedSpotId, spotsWithDistance]);
 
   // ---------------------------------------------------------------------------
-  // Stable Callbacks - prevents child component re-renders
+  // Stable Callbacks
   // ---------------------------------------------------------------------------
 
   const handleSelectSpot = useCallback((spotId: number) => {
@@ -228,7 +216,6 @@ export default function MapPage() {
   // Effects
   // ---------------------------------------------------------------------------
 
-  // Show a single friendly toast when entering browse mode (geolocation unavailable)
   const hasShownBrowseToastRef = useRef(false);
   useEffect(() => {
     if (geolocation.status === "browse" && !hasShownBrowseToastRef.current) {
@@ -242,10 +229,10 @@ export default function MapPage() {
   }, [geolocation.status, toast]);
 
   // ---------------------------------------------------------------------------
-  // Render Helpers
+  // Status Message
   // ---------------------------------------------------------------------------
 
-  const renderStatusMessage = useCallback(() => {
+  const statusMessage = useMemo(() => {
     if (isSpotsLoading) {
       return (
         <p className="text-sm text-gray-400 flex items-center gap-2 mt-1">
@@ -290,7 +277,6 @@ export default function MapPage() {
       );
     }
 
-    // Browse mode (default for all geolocation failures)
     return (
       <p className="text-sm text-blue-400 flex items-center gap-1 mt-1">
         <Eye className="w-3 h-3" />
@@ -311,7 +297,6 @@ export default function MapPage() {
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden">
-      {/* Full-screen map */}
       <main className="flex-1 relative min-h-0" role="main" aria-label="Skate spots map">
         {isSpotsLoading ? (
           <div className="absolute inset-0 bg-neutral-900 flex items-center justify-center">
@@ -342,7 +327,6 @@ export default function MapPage() {
           </Button>
         </div>
 
-        {/* Add Spot Modal */}
         <AddSpotModal
           isOpen={isAddSpotOpen}
           onClose={handleCloseAddSpot}
@@ -364,7 +348,7 @@ export default function MapPage() {
                       <span className="text-sm font-normal text-gray-500">({spots.length})</span>
                     )}
                   </h1>
-                  {renderStatusMessage()}
+                  {statusMessage}
                 </div>
               </div>
             </CardContent>
@@ -372,7 +356,6 @@ export default function MapPage() {
         </header>
       </main>
 
-      {/* Spot Detail Modal - passes existing data to eliminate redundant fetch */}
       <SpotDetailModal
         spotId={selectedSpotId}
         initialSpot={selectedSpot}
@@ -382,7 +365,6 @@ export default function MapPage() {
         readOnly={selectedSpotId !== null && isDemoSpot({ id: selectedSpotId })}
       />
 
-      {/* Upgrade Prompt for free users */}
       <UpgradePrompt
         isOpen={isUpgradeOpen}
         onClose={() => setIsUpgradeOpen(false)}

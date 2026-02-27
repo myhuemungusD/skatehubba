@@ -56,13 +56,11 @@ export function feedCache(ttlSeconds: number = DEFAULT_TTL_SECONDS) {
       if (shouldCache) {
         // Cache asynchronously — don't block the response
         const serialized = JSON.stringify(body);
-        redis
-          .setex(cacheKey, ttlSeconds, serialized)
-          .catch((writeErr: unknown) => {
-            logger.warn("[FeedCache] Redis write failed", {
-              error: String(writeErr),
-            });
+        redis.setex(cacheKey, ttlSeconds, serialized).catch((writeErr: unknown) => {
+          logger.warn("[FeedCache] Redis write failed", {
+            error: String(writeErr),
           });
+        });
       }
       res.setHeader("X-Cache", "MISS");
       return originalJson(body);

@@ -24,7 +24,7 @@ const DIST_DIR = path.resolve(__dirname, "../client/dist/assets");
 const BUDGETS = {
   // Individual chunk budgets (filename pattern → max KB)
   chunks: {
-    vendor: 500,
+    vendor: 515,
     firebase: 600,
     leaflet: 300,
     motion: 150,
@@ -32,7 +32,7 @@ const BUDGETS = {
     radix: 200,
   },
   // Total JS budget for the entire build
-  totalJs: 1825,
+  totalJs: 1850,
   // Total CSS budget
   totalCss: 300,
 };

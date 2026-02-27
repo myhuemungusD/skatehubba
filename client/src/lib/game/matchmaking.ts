@@ -143,10 +143,7 @@ export async function cancelMatchmaking(queueId: string): Promise<void> {
 /**
  * Subscribe to queue status (to know when matched)
  */
-export function subscribeToQueue(
-  queueId: string,
-  onMatch: (gameId: string) => void
-): Unsubscribe {
+export function subscribeToQueue(queueId: string, onMatch: (gameId: string) => void): Unsubscribe {
   // Listen to the queue entry - if it disappears, check for games
   const queueRef = doc(db, COLLECTIONS.QUEUE, queueId);
 

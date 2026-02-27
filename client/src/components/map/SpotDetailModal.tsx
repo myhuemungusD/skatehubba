@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Star,
@@ -125,8 +125,8 @@ export function SpotDetailModal({
     },
   });
 
-  // Calculate distance if user location available
-  const getDistance = () => {
+  // Calculate distance if user location available (memoized to avoid recomputation)
+  const distance = useMemo(() => {
     if (!userLocation || !spot) return null;
 
     const R = 6371; // Earth's radius in km
@@ -139,13 +139,13 @@ export function SpotDetailModal({
         Math.sin(dLon / 2) *
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
+    const d = R * c;
 
-    if (distance < 1) {
-      return `${Math.round(distance * 1000)} m`;
+    if (d < 1) {
+      return `${Math.round(d * 1000)} m`;
     }
-    return `${distance.toFixed(1)} km`;
-  };
+    return `${d.toFixed(1)} km`;
+  }, [spot, userLocation]);
 
   const handleShare = async () => {
     if (!spot) return;
@@ -178,7 +178,6 @@ export function SpotDetailModal({
   };
 
   const tierConfig = spot?.tier ? TIER_CONFIG[spot.tier] : null;
-  const distance = getDistance();
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>

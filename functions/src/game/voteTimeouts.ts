@@ -65,10 +65,7 @@ export const processVoteTimeouts = onSchedule("every 15 seconds", async () => {
 /**
  * Send push notifications to players who haven't voted yet
  */
-async function sendVoteReminderNotifications(
-  gameId: string,
-  game: GameDocument
-): Promise<void> {
+async function sendVoteReminderNotifications(gameId: string, game: GameDocument): Promise<void> {
   const db = admin.firestore();
 
   // Find the pending match move
@@ -137,10 +134,7 @@ async function sendVoteReminderNotifications(
  * Auto-resolve a vote timeout. Defender gets benefit of the doubt (landed).
  * Handles edge case where both players fail to vote.
  */
-async function autoResolveVoteTimeout(
-  gameId: string,
-  game: GameDocument
-): Promise<void> {
+async function autoResolveVoteTimeout(gameId: string, game: GameDocument): Promise<void> {
   const db = admin.firestore();
   const gameRef = db.doc(`game_sessions/${gameId}`);
 
@@ -179,9 +173,7 @@ async function autoResolveVoteTimeout(
 
     // Determine next state (same logic as judgeTrick)
     const defenderId =
-      freshGame.currentAttacker === freshGame.player1Id
-        ? freshGame.player2Id
-        : freshGame.player1Id;
+      freshGame.currentAttacker === freshGame.player1Id ? freshGame.player2Id : freshGame.player1Id;
 
     // Since result is "landed", defender becomes attacker (roles switch)
     const nextAttacker = defenderId;
@@ -212,10 +204,7 @@ async function autoResolveVoteTimeout(
 /**
  * Notify both players that the vote timed out
  */
-async function sendTimeoutNotifications(
-  gameId: string,
-  game: GameDocument
-): Promise<void> {
+async function sendTimeoutNotifications(gameId: string, game: GameDocument): Promise<void> {
   const db = admin.firestore();
   const playerIds = [game.player1Id, game.player2Id];
 

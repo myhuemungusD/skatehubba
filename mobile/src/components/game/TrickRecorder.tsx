@@ -1,10 +1,4 @@
-import {
-  View,
-  Text,
-  Modal,
-  TouchableOpacity,
-  Animated,
-} from "react-native";
+import { View, Text, Modal, TouchableOpacity, Animated } from "react-native";
 import { useState, useCallback, useEffect } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Video, ResizeMode } from "expo-av";
@@ -106,15 +100,22 @@ export function TrickRecorder({
     requestMicPermission,
   });
 
-  const { cameraRef, progressAnim, recording, recordingTime, maxDuration, startRecording, stopRecording } =
-    useRecordingState({
-      onVideoReady: (uri) => {
-        setVideoUri(uri);
-        if (isSettingTrick) {
-          setShowTrickInput(true);
-        }
-      },
-    });
+  const {
+    cameraRef,
+    progressAnim,
+    recording,
+    recordingTime,
+    maxDuration,
+    startRecording,
+    stopRecording,
+  } = useRecordingState({
+    onVideoReady: (uri) => {
+      setVideoUri(uri);
+      if (isSettingTrick) {
+        setShowTrickInput(true);
+      }
+    },
+  });
 
   // Clean up on close
   useEffect(() => {

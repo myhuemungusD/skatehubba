@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components -- barrel re-export for sidebar sub-components; rule fires because non-component values (hooks, variant helpers) are co-exported, which is intentional for a design-system barrel file */
 export { SidebarProvider, useSidebar } from "./sidebar-provider";
 export { Sidebar, SidebarTrigger, SidebarRail, SidebarInset } from "./sidebar-core";
 export {

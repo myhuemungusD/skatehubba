@@ -35,33 +35,33 @@ Challenge anyone to a game of S.K.A.T.E. — record tricks on video, judge your 
 
 ## Features
 
-| | Feature | Description |
-|---|---|---|
-| **Game** | Remote S.K.A.T.E. | Async turn-based gameplay with video proof — no honor system |
-| | Dispute Resolution | Challenge unfair calls with admin review |
-| | Real-Time Updates | Socket.io notifications when it's your turn |
-| | Full History | Every trick, every judgement, saved forever |
-| **Social** | TrickMint | Upload trick videos to the public feed |
-| | Leaderboard | Real-time rankings by XP, spots, and streaks |
-| **Explore** | Spot Map | Interactive map with filters by type and tier (Leaflet + OSM) |
-| | Check-ins | Geo-verified check-ins within 30m — earn XP and streaks |
+|             | Feature            | Description                                                   |
+| ----------- | ------------------ | ------------------------------------------------------------- |
+| **Game**    | Remote S.K.A.T.E.  | Async turn-based gameplay with video proof — no honor system  |
+|             | Dispute Resolution | Challenge unfair calls with admin review                      |
+|             | Real-Time Updates  | Socket.io notifications when it's your turn                   |
+|             | Full History       | Every trick, every judgement, saved forever                   |
+| **Social**  | TrickMint          | Upload trick videos to the public feed                        |
+|             | Leaderboard        | Real-time rankings by XP, spots, and streaks                  |
+| **Explore** | Spot Map           | Interactive map with filters by type and tier (Leaflet + OSM) |
+|             | Check-ins          | Geo-verified check-ins within 30m — earn XP and streaks       |
 
 ---
 
 ## Tech Stack
 
-| Layer       | Technology                                              |
-| ----------- | ------------------------------------------------------- |
-| Frontend    | React 18, Vite 6, TypeScript 5.9, TailwindCSS, Leaflet |
-| Backend     | Express, TypeScript, PostgreSQL 16, Drizzle ORM, Redis 7 |
-| Mobile      | React Native, Expo (EAS builds)                         |
-| Auth        | Firebase Auth + custom JWT                              |
-| Realtime    | Socket.io                                               |
-| Monorepo    | pnpm workspaces, Turborepo                              |
-| Build       | esbuild (server), Vite (client)                         |
-| Testing     | Vitest, Playwright, Cypress, Detox (mobile)             |
-| CI/CD       | GitHub Actions, CodeQL, Docker (staging), Vercel (prod) |
-| Monitoring  | Sentry                                                  |
+| Layer      | Technology                                               |
+| ---------- | -------------------------------------------------------- |
+| Frontend   | React 18, Vite 6, TypeScript 5.9, TailwindCSS, Leaflet   |
+| Backend    | Express, TypeScript, PostgreSQL 16, Drizzle ORM, Redis 7 |
+| Mobile     | React Native, Expo (EAS builds)                          |
+| Auth       | Firebase Auth + custom JWT                               |
+| Realtime   | Socket.io                                                |
+| Monorepo   | pnpm workspaces, Turborepo                               |
+| Build      | esbuild (server), Vite (client)                          |
+| Testing    | Vitest, Playwright, Cypress, Detox (mobile)              |
+| CI/CD      | GitHub Actions, CodeQL, Docker (staging), Vercel (prod)  |
+| Monitoring | Sentry                                                   |
 
 ---
 
@@ -128,24 +128,26 @@ Coverage thresholds enforced in CI: statements 98%, branches 93%, functions 99%,
 ```bash
 pnpm run verify        # typecheck + lint + test + build
 ```
+
 skatehubba/
-├── client/          React web app (Vite)
-├── server/          Express API + PostgreSQL
-├── mobile/          React Native / Expo app
-├── functions/       Firebase Cloud Functions
+├── client/ React web app (Vite)
+├── server/ Express API + PostgreSQL
+├── mobile/ React Native / Expo app
+├── functions/ Firebase Cloud Functions
 ├── packages/
-│   ├── config/      Shared configuration
-│   ├── db/          Drizzle schema & queries
-│   ├── firebase/    Firebase client helpers
-│   ├── shared/      Shared business logic
-│   ├── types/       Shared TypeScript types
-│   └── utils/       Shared utilities
-├── migrations/      PostgreSQL migrations
-├── e2e/             Playwright end-to-end tests
-├── deploy/          Docker / Nginx / SSL config
-├── scripts/         Build, validation & deploy scripts
-└── docs/            Architecture, security & setup guides
-```
+│ ├── config/ Shared configuration
+│ ├── db/ Drizzle schema & queries
+│ ├── firebase/ Firebase client helpers
+│ ├── shared/ Shared business logic
+│ ├── types/ Shared TypeScript types
+│ └── utils/ Shared utilities
+├── migrations/ PostgreSQL migrations
+├── e2e/ Playwright end-to-end tests
+├── deploy/ Docker / Nginx / SSL config
+├── scripts/ Build, validation & deploy scripts
+└── docs/ Architecture, security & setup guides
+
+````
 
 ---
 
@@ -169,7 +171,7 @@ with PostgreSQL, Redis, Nginx, and automatic SSL via Let's Encrypt.
 ```bash
 # One-liner for a fresh Ubuntu server:
 DOMAIN=staging.skatehubba.com EMAIL=admin@skatehubba.com bash deploy/setup-server.sh
-```
+````
 
 See [docs/RELEASE.md](docs/RELEASE.md) for full deployment docs, environments, and secret rotation.
 
@@ -179,28 +181,28 @@ See [docs/RELEASE.md](docs/RELEASE.md) for full deployment docs, environments, a
 
 ## Documentation
 
-| Document | |
-|---|---|
-| [Game Rules](docs/GAME_RULES.md) | How S.K.A.T.E. works on SkateHubba |
-| [System Architecture](docs/SYSTEM_ARCHITECTURE.md) | Boundaries, data flow, auth, video pipeline |
-| [Game Architecture](docs/ARCHITECTURE.md) | Game system design with Mermaid diagrams |
-| [Release & Deployment](docs/RELEASE.md) | Environments, pipelines, secret rotation |
-| [Deployment Runbook](docs/DEPLOYMENT_RUNBOOK.md) | Incident response and troubleshooting |
-| [Security](docs/security/SECURITY.md) | Security policies and vulnerability reporting |
-| [Contributing](CONTRIBUTING.md) | Dev workflow, branch conventions, PR process |
-| [Changelog](CHANGELOG.md) | Release history |
-| [Roadmap](ROADMAP.md) | What's next |
+| Document                                           |                                               |
+| -------------------------------------------------- | --------------------------------------------- |
+| [Game Rules](docs/GAME_RULES.md)                   | How S.K.A.T.E. works on SkateHubba            |
+| [System Architecture](docs/SYSTEM_ARCHITECTURE.md) | Boundaries, data flow, auth, video pipeline   |
+| [Game Architecture](docs/ARCHITECTURE.md)          | Game system design with Mermaid diagrams      |
+| [Release & Deployment](docs/RELEASE.md)            | Environments, pipelines, secret rotation      |
+| [Deployment Runbook](docs/DEPLOYMENT_RUNBOOK.md)   | Incident response and troubleshooting         |
+| [Security](docs/security/SECURITY.md)              | Security policies and vulnerability reporting |
+| [Contributing](CONTRIBUTING.md)                    | Dev workflow, branch conventions, PR process  |
+| [Changelog](CHANGELOG.md)                          | Release history                               |
+| [Roadmap](ROADMAP.md)                              | What's next                                   |
 
 ---
 
 ## Roadmap
 
-| Quarter | Highlights |
-|---|---|
+| Quarter     | Highlights                                                      |
+| ----------- | --------------------------------------------------------------- |
 | **Q1 2026** | Mobile app (React Native), spectator mode, game stats dashboard |
-| **Q2 2026** | Tournament brackets, trick recognition AI, crew battles |
-| **Q3 2026** | Premium tiers, player analytics, sponsor integrations |
-| **Q4 2026** | Speed S.K.A.T.E., tag team mode, global expansion |
+| **Q2 2026** | Tournament brackets, trick recognition AI, crew battles         |
+| **Q3 2026** | Premium tiers, player analytics, sponsor integrations           |
+| **Q4 2026** | Speed S.K.A.T.E., tag team mode, global expansion               |
 
 Full details: [ROADMAP.md](ROADMAP.md)
 

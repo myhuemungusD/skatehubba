@@ -41,12 +41,13 @@ SkateHubba has undergone 4 security audit passes (Feb 6, 12, 18, 24) with 44 fin
 **Status**: DEFERRED — pending CSS-in-JS migration or nonce-based approach.
 
 ```javascript
-styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"]
+styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"];
 ```
 
 The `scriptSrc` has been hardened (no `unsafe-inline`), which is the critical vector. Style-based attacks are significantly more limited in scope.
 
 **Remediation options** (when ready):
+
 1. Nonce-based CSP for inline styles (requires build tooling changes)
 2. Extract all inline styles to external stylesheets
 3. `strict-dynamic` with nonces for modern browsers
@@ -138,18 +139,18 @@ The `scriptSrc` has been hardened (no `unsafe-inline`), which is the critical ve
 
 ### OWASP Top 10 (2021) — 9/10 Pass
 
-| Category | Status |
-| -------- | ------ |
-| A01: Broken Access Control | **Pass** |
-| A02: Cryptographic Failures | **Pass** |
-| A03: Injection | **Pass** |
-| A04: Insecure Design | **Pass** |
-| A05: Security Misconfiguration | **Pass** |
-| A06: Vulnerable Components | **Pass** |
-| A07: Auth Failures | **Pass** |
-| A08: Software/Data Integrity | **Needs Work** — Docker image signing recommended |
-| A09: Logging/Monitoring | **Pass** |
-| A10: SSRF | **Pass** |
+| Category                       | Status                                            |
+| ------------------------------ | ------------------------------------------------- |
+| A01: Broken Access Control     | **Pass**                                          |
+| A02: Cryptographic Failures    | **Pass**                                          |
+| A03: Injection                 | **Pass**                                          |
+| A04: Insecure Design           | **Pass**                                          |
+| A05: Security Misconfiguration | **Pass**                                          |
+| A06: Vulnerable Components     | **Pass**                                          |
+| A07: Auth Failures             | **Pass**                                          |
+| A08: Software/Data Integrity   | **Needs Work** — Docker image signing recommended |
+| A09: Logging/Monitoring        | **Pass**                                          |
+| A10: SSRF                      | **Pass**                                          |
 
 ---
 

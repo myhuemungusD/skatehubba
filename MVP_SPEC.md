@@ -128,20 +128,20 @@ This document outlines the Minimum Viable Product (MVP) implementation for Skate
 
 The following were originally out of scope for the MVP but have since been implemented. See [CHANGELOG.md](CHANGELOG.md) for details.
 
-| Feature                  | Page                    | Status          |
-| ------------------------ | ----------------------- | --------------- |
-| S.K.A.T.E. Battles       | `/game`, `/game/active` | Implemented     |
-| TrickMint (Video Upload) | `/trickmint`            | Implemented     |
+| Feature                  | Page                    | Status      |
+| ------------------------ | ----------------------- | ----------- |
+| S.K.A.T.E. Battles       | `/game`, `/game/active` | Implemented |
+| TrickMint (Video Upload) | `/trickmint`            | Implemented |
 
 ## Not Yet Implemented
 
-| Feature                  | Page                    | Status          |
-| ------------------------ | ----------------------- | --------------- |
-| Payments/Checkout        | `/checkout`             | Not implemented |
-| Live Streaming           | N/A                     | Not implemented |
-| AR Check-ins             | N/A                     | Not implemented |
-| Bounties                 | N/A                     | Not implemented |
-| Filmer Workflows         | N/A                     | Not implemented |
+| Feature           | Page        | Status          |
+| ----------------- | ----------- | --------------- |
+| Payments/Checkout | `/checkout` | Not implemented |
+| Live Streaming    | N/A         | Not implemented |
+| AR Check-ins      | N/A         | Not implemented |
+| Bounties          | N/A         | Not implemented |
+| Filmer Workflows  | N/A         | Not implemented |
 
 ---
 
@@ -260,8 +260,8 @@ The following routes redirect to new consolidated paths for backward compatibili
 
 ## Technical Stack
 
-| Layer    | Technology                   |
-| -------- | ---------------------------- |
+| Layer    | Technology                     |
+| -------- | ------------------------------ |
 | Frontend | React 18, Vite 6, Tailwind CSS |
 | Maps     | Leaflet, React Leaflet         |
 | State    | Zustand, TanStack Query        |
@@ -304,4 +304,3 @@ The following routes redirect to new consolidated paths for backward compatibili
 - [ ] Errors appear in logs
 - [ ] Audit events tracked
 - [ ] No silent failures
-

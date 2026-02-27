@@ -61,9 +61,7 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
   const results = VARS_TO_CHECK.map((v) => checkVar(v.name, v.mask));
 
   const requiredNames = VARS_TO_CHECK.filter((v) => v.required).map((v) => v.name);
-  const failing = results.filter(
-    (r) => requiredNames.includes(r.name) && r.status !== "set"
-  );
+  const failing = results.filter((r) => requiredNames.includes(r.name) && r.status !== "set");
 
   const payload = {
     timestamp: new Date().toISOString(),

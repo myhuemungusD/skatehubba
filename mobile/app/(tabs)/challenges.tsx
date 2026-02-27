@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
+import { useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase.config";
@@ -23,7 +24,12 @@ function ChallengesScreenContent() {
   const { user, isAuthenticated } = useRequireAuth();
   const router = useRouter();
 
-  const { data: challenges, isLoading, refetch, isRefetching } = useQuery({
+  const {
+    data: challenges,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ["challenges", user?.uid],
     queryFn: async () => {
       if (!user) return [];
@@ -44,6 +50,46 @@ function ChallengesScreenContent() {
     enabled: !!user,
   });
 
+  const renderChallenge = useCallback(
+    ({ item }: { item: Challenge }) => {
+      const isCreator = item.createdBy === user?.uid;
+      const opponentId = isCreator ? item.opponent : item.createdBy;
+
+      return (
+        <TouchableOpacity
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel={`${isCreator ? "Your challenge" : "Challenge from opponent"} versus ${opponentId}, deadline ${format(item.deadline, "MMM d, h:mm a")}, status ${item.status}`}
+          style={styles.card}
+          onPress={() => router.push(`/challenge/${item.id}`)}
+        >
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>
+              {isCreator ? "Your Challenge" : "Challenge from Opponent"}
+            </Text>
+            <StatusBadge status={item.status} />
+          </View>
+
+          <Text style={styles.opponent}>vs. {opponentId}</Text>
+          <Text style={styles.deadline}>Deadline: {format(item.deadline, "MMM d, h:mm a")}</Text>
+
+          {item.status === "pending" && !isCreator && (
+            <TouchableOpacity
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Respond to challenge now"
+              style={styles.respondButton}
+              onPress={() => router.push(`/challenge/${item.id}`)}
+            >
+              <Text style={styles.respondButtonText}>Respond Now</Text>
+            </TouchableOpacity>
+          )}
+        </TouchableOpacity>
+      );
+    },
+    [user?.uid, router]
+  );
+
   // Unauthenticated users are redirected to sign-in by the root layout guard.
   if (!isAuthenticated) {
     return (
@@ -52,43 +98,6 @@ function ChallengesScreenContent() {
       </View>
     );
   }
-
-  const renderChallenge = ({ item }: { item: Challenge }) => {
-    const isCreator = item.createdBy === user?.uid;
-    const opponentId = isCreator ? item.opponent : item.createdBy;
-
-    return (
-      <TouchableOpacity
-        accessible
-        accessibilityRole="button"
-        accessibilityLabel={`${isCreator ? "Your challenge" : "Challenge from opponent"} versus ${opponentId}, deadline ${format(item.deadline, "MMM d, h:mm a")}, status ${item.status}`}
-        style={styles.card}
-        onPress={() => router.push(`/challenge/${item.id}`)}
-      >
-        <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle}>
-            {isCreator ? "Your Challenge" : "Challenge from Opponent"}
-          </Text>
-          <StatusBadge status={item.status} />
-        </View>
-
-        <Text style={styles.opponent}>vs. {opponentId}</Text>
-        <Text style={styles.deadline}>Deadline: {format(item.deadline, "MMM d, h:mm a")}</Text>
-
-        {item.status === "pending" && !isCreator && (
-          <TouchableOpacity
-            accessible
-            accessibilityRole="button"
-            accessibilityLabel="Respond to challenge now"
-            style={styles.respondButton}
-            onPress={() => router.push(`/challenge/${item.id}`)}
-          >
-            <Text style={styles.respondButtonText}>Respond Now</Text>
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
-    );
-  };
 
   return (
     <View testID="challenges-screen" style={styles.container}>
