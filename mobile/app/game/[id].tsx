@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Video, ResizeMode } from "expo-av";
@@ -15,16 +15,15 @@ import {
 } from "@/hooks/useGameSession";
 import { useVideoUrl } from "@/hooks/useVideoUrl";
 import { useGameStore, usePlayerRole, useActiveOverlay } from "@/store/gameStore";
-import { useNetworkStore, useReconnectionStatus } from "@/store/networkStore";
+import { useReconnectionStatus } from "@/store/networkStore";
 import { LetterIndicator } from "@/components/game/LetterIndicator";
 import { TurnOverlay } from "@/components/game/TurnOverlay";
 import { TrickRecorder } from "@/components/game/TrickRecorder";
 import { ResultScreen } from "@/components/game/ResultScreen";
 import { SlowMoReplay } from "@/components/game/SlowMoReplay";
 import { VideoErrorBoundary } from "@/components/common/VideoErrorBoundary";
-import { logEvent } from "@/lib/analytics/logEvent";
 import { useCacheGameSession } from "@/hooks/useOfflineCache";
-import type { GameOverlay, SkateLetter } from "@/types";
+import { useGameEffects } from "@/hooks/useGameEffects";
 
 /** Firestore auto-generated IDs: exactly 20 alphanumeric characters. */
 const VALID_GAME_ID = /^[a-zA-Z0-9]{20}$/;
@@ -54,21 +53,18 @@ export default function GameScreen() {
   const { gameSession, isLoading } = useGameSession(gameId);
 
   // Local UI state from Zustand
-  const { initGame, resetGame, showOverlay, dismissOverlay, pendingUpload } = useGameStore();
-
+  const { dismissOverlay, pendingUpload } = useGameStore();
   const activeOverlay = useActiveOverlay();
   const { isAttacker, isDefender, isMyTurn } = usePlayerRole(gameSession);
 
   // Cache game session to AsyncStorage for offline access
   useCacheGameSession(gameSession);
 
-  // Network state for offline handling
-  const { setActiveGame, resetReconnectState } = useNetworkStore();
-  const { isConnected, expired: reconnectExpired } = useReconnectionStatus();
+  // Network state
+  const { isConnected } = useReconnectionStatus();
 
   // Local state
   const [showRecorder, setShowRecorder] = useState(false);
-  const [lastAnnouncedLetter, setLastAnnouncedLetter] = useState<SkateLetter | null>(null);
 
   // Mutations
   const submitTrickMutation = useSubmitTrick(gameId || "");
@@ -76,183 +72,15 @@ export default function GameScreen() {
   const joinGameMutation = useJoinGame(gameId || "");
   const abandonGameMutation = useAbandonGame(gameId || "");
 
-  // Initialize game store
-  useEffect(() => {
-    if (gameId && user?.uid) {
-      initGame(gameId, user.uid);
-    }
-
-    return () => {
-      resetGame();
-    };
-  }, [gameId, user?.uid, initGame, resetGame]);
-
-  // Log invalid deep link attempts for security monitoring
-  useEffect(() => {
-    if (isInvalidId) {
-      logEvent("deep_link_invalid", { raw_id: rawGameId, route: "game" });
-    }
-  }, [isInvalidId, rawGameId]);
-
-  // Track active game for offline handling (120-second reconnection window)
-  useEffect(() => {
-    if (gameId && gameSession?.status === "active") {
-      setActiveGame(gameId);
-    } else {
-      setActiveGame(null);
-    }
-
-    return () => {
-      setActiveGame(null);
-      resetReconnectState();
-    };
-  }, [gameId, gameSession?.status, setActiveGame, resetReconnectState]);
-
-  // Handle reconnection window expiry - forfeit the game
-  useEffect(() => {
-    if (reconnectExpired && gameSession?.status === "active") {
-      // Log the disconnection event
-      logEvent("game_forfeited", {
-        battle_id: gameId,
-        reason: "reconnect_timeout",
-      });
-
-      // Forfeit the game due to connection loss
-      abandonGameMutation.mutate();
-
-      // Reset reconnect state after forfeiting
-      resetReconnectState();
-    }
-  }, [reconnectExpired, gameSession?.status, gameId, abandonGameMutation, resetReconnectState]);
-
-  // Track battle joined event
-  useEffect(() => {
-    if (gameSession?.status === "active" && user?.uid) {
-      logEvent("battle_joined", {
-        battle_id: gameId,
-        creator_id: gameSession?.player1Id === user.uid ? undefined : gameSession?.player1Id,
-      });
-    }
-  }, [gameSession?.status, gameId, user?.uid, gameSession?.player1Id]);
-
-  // Show turn announcements
-  useEffect(() => {
-    if (gameSession?.status !== "active" || !user?.uid) return;
-
-    const turnPhase = gameSession?.turnPhase;
-    const currentTurn = gameSession?.currentTurn;
-    const currentAttacker = gameSession?.currentAttacker;
-    const trickName = gameSession?.currentSetMove?.trickName;
-    const isMe = currentTurn === user.uid;
-    const iAmAttacker = currentAttacker === user.uid;
-
-    // Determine overlay based on turn phase
-    let overlay: GameOverlay | null = null;
-
-    if (turnPhase === "attacker_recording" && isMe && iAmAttacker) {
-      overlay = {
-        type: "turn_start",
-        title: "YOUR SET",
-        subtitle: "Record the trick your opponent must match",
-        playerId: user.uid,
-        letter: null,
-        autoDismissMs: 2500,
-      };
-    } else if (turnPhase === "defender_recording" && isMe && !iAmAttacker) {
-      overlay = {
-        type: "turn_start",
-        title: "YOUR TURN",
-        subtitle: trickName ? `Match: ${trickName}` : "Match the trick!",
-        playerId: user.uid,
-        letter: null,
-        autoDismissMs: 2500,
-      };
-    } else if (turnPhase === "defender_recording" && !isMe) {
-      overlay = {
-        type: "waiting_opponent",
-        title: "WAITING",
-        subtitle: "Opponent is recording their attempt...",
-        playerId: null,
-        letter: null,
-        autoDismissMs: null,
-      };
-    } else if ((turnPhase as string) === "attacker_uploaded" && !isMe) {
-      overlay = {
-        type: "waiting_opponent",
-        title: "WAITING",
-        subtitle: "Opponent is setting a trick...",
-        playerId: null,
-        letter: null,
-        autoDismissMs: null,
-      };
-    }
-
-    if (overlay) {
-      showOverlay(overlay);
-    }
-  }, [
-    gameSession?.turnPhase,
-    gameSession?.currentTurn,
-    gameSession?.currentAttacker,
-    gameSession?.status,
-    user?.uid,
-    showOverlay,
-    gameSession?.currentSetMove?.trickName,
-  ]);
-
-  // Announce new letters
-  useEffect(() => {
-    if (!gameSession?.player1Id || !user?.uid) return;
-
-    const myLetters =
-      gameSession?.player1Id === user.uid
-        ? (gameSession?.player1Letters ?? [])
-        : (gameSession?.player2Letters ?? []);
-
-    const opponentLetters =
-      gameSession?.player1Id === user.uid
-        ? (gameSession?.player2Letters ?? [])
-        : (gameSession?.player1Letters ?? []);
-
-    // Check for new letter (compare with last announced)
-    const allLetters = [...myLetters, ...opponentLetters];
-    const latestLetter = allLetters[allLetters.length - 1];
-
-    if (latestLetter && latestLetter !== lastAnnouncedLetter) {
-      setLastAnnouncedLetter(latestLetter);
-
-      const gotLetter = myLetters.length > 0 && myLetters[myLetters.length - 1] === latestLetter;
-
-      if (gotLetter) {
-        showOverlay({
-          type: "letter_gained",
-          title: "YOU GOT A LETTER",
-          subtitle: myLetters.length === 5 ? "You've been S.K.A.T.E.d!" : null,
-          playerId: user.uid,
-          letter: latestLetter,
-          autoDismissMs: 3000,
-        });
-      }
-    }
-  }, [
-    gameSession?.player1Letters,
-    gameSession?.player2Letters,
-    gameSession?.player1Id,
-    user?.uid,
-    lastAnnouncedLetter,
-    showOverlay,
-  ]);
-
-  // Handle game completion
-  useEffect(() => {
-    if (gameSession?.status === "completed" && gameId) {
-      logEvent("battle_completed", {
-        battle_id: gameId,
-        winner_id: gameSession.winnerId || undefined,
-        total_rounds: gameSession.roundNumber,
-      });
-    }
-  }, [gameSession?.status, gameSession?.winnerId, gameSession?.roundNumber, gameId]);
+  // All side effects: store init, analytics, overlays, offline handling
+  useGameEffects({
+    gameId,
+    rawGameId,
+    isInvalidId,
+    userId: user?.uid,
+    gameSession,
+    abandonGameMutation,
+  });
 
   // Handlers
   const handleRecordTrick = useCallback(() => {

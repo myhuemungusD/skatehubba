@@ -70,6 +70,8 @@ export default function RootLayout() {
           headerTintColor: "#ff6600",
           headerTitleStyle: { fontWeight: "bold" },
           contentStyle: { backgroundColor: "#0a0a0a" },
+          animation: "slide_from_right",
+          gestureEnabled: true,
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -78,7 +80,11 @@ export default function RootLayout() {
         <Stack.Screen name="profile/[uid]" options={{ title: "Profile" }} />
         <Stack.Screen
           name="game/[id]"
-          options={{ title: "S.K.A.T.E. Battle", headerShown: false }}
+          options={{
+            title: "S.K.A.T.E. Battle",
+            headerShown: false,
+            animation: "slide_from_bottom",
+          }}
         />
         <Stack.Screen name="demo" options={{ title: "Investor Demo", headerShown: false }} />
       </Stack>

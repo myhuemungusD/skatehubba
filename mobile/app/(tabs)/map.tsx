@@ -3,7 +3,6 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Modal,
   ActivityIndicator,
   FlatList,
 } from "react-native";
@@ -17,6 +16,7 @@ import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
 import { showMessage } from "react-native-flash-message";
 import { AddSpotModal } from "@/components/AddSpotModal";
+import { SpotDetailModal } from "@/components/SpotDetailModal";
 import { MapSkeleton } from "@/components/common/Skeleton";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 import { isExpoGo } from "@/lib/isExpoGo";
@@ -238,52 +238,11 @@ function MapScreenContent() {
           />
         )}
 
-        {/* Spot Detail Modal */}
-        {selectedSpot && (
-          <Modal
-            visible={!!selectedSpot}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setSelectedSpot(null)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedSpot(null)}>
-                  <Ionicons name="close" size={24} color={SKATE.colors.white} />
-                </TouchableOpacity>
-
-                <Text testID="map-spot-title" style={styles.modalTitle}>
-                  {selectedSpot.name}
-                </Text>
-                <Text style={styles.modalDescription}>{selectedSpot.description ?? ""}</Text>
-
-                <View style={styles.modalDifficulty}>
-                  <View
-                    style={[styles.legendDot, { backgroundColor: getTierColor(selectedSpot.tier) }]}
-                  />
-                  <Text style={styles.modalDifficultyText}>
-                    {(() => {
-                      const tierValue = selectedSpot.tier ?? "bronze";
-                      return tierValue.charAt(0).toUpperCase() + tierValue.slice(1);
-                    })()}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  testID="map-check-in"
-                  style={styles.checkInButton}
-                  onPress={() => {
-                    handleCheckIn(selectedSpot);
-                    setSelectedSpot(null);
-                  }}
-                >
-                  <Ionicons name="location" size={20} color={SKATE.colors.white} />
-                  <Text style={styles.checkInButtonText}>Check In Here</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
-        )}
+        <SpotDetailModal
+          spot={selectedSpot}
+          onClose={() => setSelectedSpot(null)}
+          onCheckIn={handleCheckIn}
+        />
 
         {/* Add Spot Modal */}
         <AddSpotModal
@@ -372,55 +331,11 @@ function MapScreenContent() {
             </View>
           </View>
 
-          {/* Spot Detail Modal */}
-          {selectedSpot && (
-            <Modal
-              visible={!!selectedSpot}
-              transparent
-              animationType="slide"
-              onRequestClose={() => setSelectedSpot(null)}
-            >
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
-                  <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedSpot(null)}>
-                    <Ionicons name="close" size={24} color={SKATE.colors.white} />
-                  </TouchableOpacity>
-
-                  <Text testID="map-spot-title" style={styles.modalTitle}>
-                    {selectedSpot.name}
-                  </Text>
-                  <Text style={styles.modalDescription}>{selectedSpot.description ?? ""}</Text>
-
-                  <View style={styles.modalDifficulty}>
-                    <View
-                      style={[
-                        styles.legendDot,
-                        { backgroundColor: getTierColor(selectedSpot.tier) },
-                      ]}
-                    />
-                    <Text style={styles.modalDifficultyText}>
-                      {(() => {
-                        const tierValue = selectedSpot.tier ?? "bronze";
-                        return tierValue.charAt(0).toUpperCase() + tierValue.slice(1);
-                      })()}
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    testID="map-check-in"
-                    style={styles.checkInButton}
-                    onPress={() => {
-                      handleCheckIn(selectedSpot);
-                      setSelectedSpot(null);
-                    }}
-                  >
-                    <Ionicons name="location" size={20} color={SKATE.colors.white} />
-                    <Text style={styles.checkInButtonText}>Check In Here</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-          )}
+          <SpotDetailModal
+            spot={selectedSpot}
+            onClose={() => setSelectedSpot(null)}
+            onCheckIn={handleCheckIn}
+          />
 
           {/* Add Spot Modal */}
           <AddSpotModal
@@ -527,62 +442,6 @@ const styles = StyleSheet.create({
   legendText: {
     color: SKATE.colors.lightGray,
     fontSize: 11,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: SKATE.colors.grime,
-    borderTopLeftRadius: SKATE.borderRadius.lg,
-    borderTopRightRadius: SKATE.borderRadius.lg,
-    padding: SKATE.spacing.xl,
-    paddingBottom: 40,
-  },
-  modalClose: {
-    position: "absolute",
-    top: SKATE.spacing.lg,
-    right: SKATE.spacing.lg,
-    zIndex: 1,
-  },
-  modalTitle: {
-    color: SKATE.colors.white,
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: SKATE.spacing.md,
-    marginTop: SKATE.spacing.lg,
-  },
-  modalDescription: {
-    color: SKATE.colors.lightGray,
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: SKATE.spacing.lg,
-  },
-  modalDifficulty: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SKATE.spacing.sm,
-    marginBottom: SKATE.spacing.xl,
-  },
-  modalDifficultyText: {
-    color: SKATE.colors.white,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  checkInButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: SKATE.colors.orange,
-    padding: SKATE.spacing.lg,
-    borderRadius: SKATE.borderRadius.lg,
-    gap: SKATE.spacing.sm,
-  },
-  checkInButtonText: {
-    color: SKATE.colors.white,
-    fontSize: 16,
-    fontWeight: "bold",
   },
   expoGoBanner: {
     flexDirection: "row",
