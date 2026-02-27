@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, Animated } from "react-native";
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useReconnectionStatus } from "@/store/networkStore";
@@ -10,7 +10,7 @@ import { SKATE } from "@/theme";
  * Displays a countdown timer during the 120-second reconnection window.
  * Shows an error state when the reconnection window expires.
  */
-export function OfflineBanner() {
+export const OfflineBanner = memo(function OfflineBanner() {
   const insets = useSafeAreaInsets();
   const { isConnected, isReconnecting, secondsRemaining, expired } = useReconnectionStatus();
   const slideAnim = useRef(new Animated.Value(-100)).current;
@@ -120,7 +120,7 @@ export function OfflineBanner() {
       </View>
     </Animated.View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

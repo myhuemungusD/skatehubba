@@ -1,9 +1,17 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, FlatList } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  ActivityIndicator,
+  FlatList,
+} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Spot } from "@/types";
 import * as Location from "expo-location";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -157,6 +165,33 @@ function MapScreenContent() {
     }
   };
 
+  const renderSpotItem = useCallback(
+    ({ item: spot }: { item: Spot }) => (
+      <TouchableOpacity style={styles.spotCard} onPress={() => setSelectedSpot(spot)}>
+        <View style={[styles.legendDot, { backgroundColor: getTierColor(spot.tier) }]} />
+        <View style={styles.spotCardContent}>
+          <Text style={styles.spotCardName}>{spot.name}</Text>
+          {spot.description ? (
+            <Text style={styles.spotCardDesc} numberOfLines={1}>
+              {spot.description}
+            </Text>
+          ) : null}
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
+      </TouchableOpacity>
+    ),
+    []
+  );
+
+  const getSpotItemLayout = useCallback(
+    (_data: unknown, index: number) => ({
+      length: 64,
+      offset: 64 * index,
+      index,
+    }),
+    []
+  );
+
   // Unauthenticated users are redirected to sign-in by the root layout guard.
   if (!isAuthenticated) {
     return (
@@ -198,23 +233,8 @@ function MapScreenContent() {
             ListEmptyComponent={
               <Text style={styles.emptyText}>No spots yet. Be the first to add one!</Text>
             }
-            renderItem={({ item: spot }) => (
-              <TouchableOpacity
-                style={styles.spotCard}
-                onPress={() => setSelectedSpot(spot)}
-              >
-                <View style={[styles.legendDot, { backgroundColor: getTierColor(spot.tier) }]} />
-                <View style={styles.spotCardContent}>
-                  <Text style={styles.spotCardName}>{spot.name}</Text>
-                  {spot.description ? (
-                    <Text style={styles.spotCardDesc} numberOfLines={1}>
-                      {spot.description}
-                    </Text>
-                  ) : null}
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
-              </TouchableOpacity>
-            )}
+            renderItem={renderSpotItem}
+            getItemLayout={getSpotItemLayout}
           />
         )}
 
@@ -239,10 +259,7 @@ function MapScreenContent() {
 
                 <View style={styles.modalDifficulty}>
                   <View
-                    style={[
-                      styles.legendDot,
-                      { backgroundColor: getTierColor(selectedSpot.tier) },
-                    ]}
+                    style={[styles.legendDot, { backgroundColor: getTierColor(selectedSpot.tier) }]}
                   />
                   <Text style={styles.modalDifficultyText}>
                     {(() => {

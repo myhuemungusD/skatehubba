@@ -6,10 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   TextInput,
-  Image,
   ActivityIndicator,
   Modal,
 } from "react-native";
+import { Image } from "expo-image";
 import { Ionicons } from "@expo/vector-icons";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Video, ResizeMode } from "expo-av";
@@ -64,15 +64,13 @@ function TrickMintScreenContent() {
   // Queries
   const myClipsQuery = useQuery({
     queryKey: ["trickmint", "my-clips"],
-    queryFn: () =>
-      apiRequest<ClipListResponse>("/api/trickmint/my-clips?limit=50&offset=0"),
+    queryFn: () => apiRequest<ClipListResponse>("/api/trickmint/my-clips?limit=50&offset=0"),
     enabled: activeTab === "my-clips" && isAuthenticated,
   });
 
   const feedQuery = useQuery({
     queryKey: ["trickmint", "feed"],
-    queryFn: () =>
-      apiRequest<ClipListResponse>("/api/trickmint/feed?limit=50&offset=0"),
+    queryFn: () => apiRequest<ClipListResponse>("/api/trickmint/feed?limit=50&offset=0"),
     enabled: activeTab === "feed" && isAuthenticated,
   });
 
@@ -279,9 +277,7 @@ function TrickMintScreenContent() {
             size={18}
             color={activeTab === "feed" ? SKATE.colors.white : SKATE.colors.lightGray}
           />
-          <Text style={[styles.tabText, activeTab === "feed" && styles.tabTextActive]}>
-            Feed
-          </Text>
+          <Text style={[styles.tabText, activeTab === "feed" && styles.tabTextActive]}>Feed</Text>
         </TouchableOpacity>
       </View>
 
@@ -330,20 +326,13 @@ function TrickMintScreenContent() {
                 onPress={() => setIsPublic(!isPublic)}
                 disabled={isUploading}
               >
-                <View
-                  style={[styles.visibilityBadge, isPublic && styles.visibilityBadgePublic]}
-                >
+                <View style={[styles.visibilityBadge, isPublic && styles.visibilityBadgePublic]}>
                   <Ionicons
                     name={isPublic ? "globe" : "lock-closed"}
                     size={14}
                     color={isPublic ? "#10b981" : SKATE.colors.lightGray}
                   />
-                  <Text
-                    style={[
-                      styles.visibilityText,
-                      isPublic && styles.visibilityTextPublic,
-                    ]}
-                  >
+                  <Text style={[styles.visibilityText, isPublic && styles.visibilityTextPublic]}>
                     {isPublic ? "Public" : "Private"}
                   </Text>
                 </View>
@@ -394,10 +383,7 @@ function TrickMintScreenContent() {
                 <Ionicons name="film" size={48} color={SKATE.colors.gray} />
                 <Text style={styles.emptyTitle}>No clips yet</Text>
                 <Text style={styles.emptyText}>Record your first trick to get started.</Text>
-                <TouchableOpacity
-                  style={styles.emptyButton}
-                  onPress={() => setActiveTab("upload")}
-                >
+                <TouchableOpacity style={styles.emptyButton} onPress={() => setActiveTab("upload")}>
                   <Ionicons name="cloud-upload" size={20} color={SKATE.colors.white} />
                   <Text style={styles.emptyButtonText}>Upload a Trick</Text>
                 </TouchableOpacity>

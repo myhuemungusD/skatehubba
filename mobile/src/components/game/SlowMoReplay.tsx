@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useState, useRef, useCallback, useEffect } from "react";
+import { memo, useState, useRef, useCallback, useEffect } from "react";
 import { Video, AVPlaybackStatus, ResizeMode } from "expo-av";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
@@ -38,7 +38,7 @@ interface SlowMoReplayProps {
  * whether a trick was landed or bailed. The slow-mo helps resolve
  * disputes by showing the landing frame-by-frame.
  */
-export function SlowMoReplay({
+export const SlowMoReplay = memo(function SlowMoReplay({
   clipUrl,
   trickName,
   defaultSlowMo = false,
@@ -291,7 +291,7 @@ export function SlowMoReplay({
       </Text>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {

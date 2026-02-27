@@ -1,8 +1,9 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, TextInput } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput } from "react-native";
+import { Image } from "expo-image";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { UsersSkeleton } from "@/components/common/Skeleton";
@@ -23,38 +24,49 @@ function UsersScreenContent() {
     queryFn: () => apiRequest<User[]>("/api/users"),
   });
 
-  const filteredUsers = users?.filter(
-    (user: User) =>
-      user.displayName?.toLowerCase().includes(search.toLowerCase())
+  const filteredUsers = users?.filter((user: User) =>
+    user.displayName?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const renderUser = ({ item }: { item: User }) => (
-    <TouchableOpacity style={styles.userCard} onPress={() => router.push(`/profile/${item.id}`)}>
-      {item.photoURL ? (
-        <Image source={{ uri: item.photoURL }} style={styles.avatar} />
-      ) : (
-        <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarInitial}>
-            {item.displayName?.charAt(0).toUpperCase() || "S"}
-          </Text>
+  const renderUser = useCallback(
+    ({ item }: { item: User }) => (
+      <TouchableOpacity style={styles.userCard} onPress={() => router.push(`/profile/${item.id}`)}>
+        {item.photoURL ? (
+          <Image source={{ uri: item.photoURL }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <Text style={styles.avatarInitial}>
+              {item.displayName?.charAt(0).toUpperCase() || "S"}
+            </Text>
+          </View>
+        )}
+        <View style={styles.info}>
+          <Text style={styles.name}>{item.displayName || "Skater"}</Text>
         </View>
-      )}
-      <View style={styles.info}>
-        <Text style={styles.name}>{item.displayName || "Skater"}</Text>
-      </View>
-      <TouchableOpacity
-        style={styles.challengeButton}
-        onPress={(e) => {
-          e.stopPropagation();
-          router.push({
-            pathname: "/challenge/new",
-            params: { opponentUid: item.id },
-          });
-        }}
-      >
-        <Ionicons name="videocam" size={20} color={SKATE.colors.white} />
+        <TouchableOpacity
+          style={styles.challengeButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            router.push({
+              pathname: "/challenge/new",
+              params: { opponentUid: item.id },
+            });
+          }}
+        >
+          <Ionicons name="videocam" size={20} color={SKATE.colors.white} />
+        </TouchableOpacity>
       </TouchableOpacity>
-    </TouchableOpacity>
+    ),
+    [router]
+  );
+
+  const getItemLayout = useCallback(
+    (_data: unknown, index: number) => ({
+      length: 82,
+      offset: 82 * index,
+      index,
+    }),
+    []
   );
 
   return (
@@ -90,6 +102,7 @@ function UsersScreenContent() {
           data={filteredUsers}
           renderItem={renderUser}
           keyExtractor={(item) => item.id}
+          getItemLayout={getItemLayout}
           contentContainerStyle={styles.list}
         />
       )}
