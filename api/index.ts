@@ -7,9 +7,48 @@
  *
  * Environment variables (DATABASE_URL, SESSION_SECRET, Firebase keys, etc.)
  * must be configured in the Vercel dashboard under Project Settings → Environment Variables.
+ *
+ * IMPORTANT: Uses dynamic import so that env-validation errors in server code
+ * don't crash the entire serverless function. When initialization fails, the
+ * function returns a structured JSON diagnostic instead of Vercel's opaque 500.
  */
-import { createApp } from "../server/app.ts";
+import type { IncomingMessage, ServerResponse } from "node:http";
 
-const app = createApp();
+type Handler = (req: IncomingMessage, res: ServerResponse) => void;
 
-export default app;
+let handler: Handler | null = null;
+let initError: Error | null = null;
+
+try {
+  // Dynamic import is NOT needed here because Vercel compiles the function
+  // at build time. But the try-catch around createApp() catches runtime
+  // initialization errors (env validation, missing secrets, etc.) that would
+  // otherwise produce Vercel's opaque 500 with no JSON body.
+  const { createApp } = await import("../server/app.ts");
+  const app = createApp();
+  handler = app as unknown as Handler;
+} catch (error) {
+  initError = error instanceof Error ? error : new Error(String(error));
+}
+
+export default function serverHandler(req: IncomingMessage, res: ServerResponse) {
+  if (handler) {
+    return handler(req, res);
+  }
+
+  // Initialization failed — return a structured JSON diagnostic so the
+  // client-side error normalizer can extract a meaningful message instead
+  // of falling back to the generic "Something went wrong" default.
+  const body = JSON.stringify({
+    error: "SERVER_INIT_FAILED",
+    message: "Server failed to start. Check environment variables in Vercel dashboard.",
+    detail: process.env.NODE_ENV === "production" ? undefined : initError?.message,
+    hint: "Visit /api/env-check for a detailed environment diagnostic.",
+  });
+
+  res.writeHead(500, {
+    "Content-Type": "application/json",
+    "Content-Length": Buffer.byteLength(body),
+  });
+  res.end(body);
+}
