@@ -122,7 +122,9 @@ describe("admin.ts", () => {
 
   it("should handle invalid FIREBASE_ADMIN_KEY JSON gracefully", async () => {
     vi.resetModules();
-    mockEnv.FIREBASE_ADMIN_KEY = "not-valid-json";
+    // Value must be >100 chars and start with '{' to bypass isPlaceholder,
+    // but still be invalid JSON so the parse fails.
+    mockEnv.FIREBASE_ADMIN_KEY = "{" + "x".repeat(200);
 
     const admin = (await import("firebase-admin")).default;
     (admin as any).apps = [];
@@ -131,13 +133,17 @@ describe("admin.ts", () => {
     await import("../../admin");
 
     expect(logger.warn).toHaveBeenCalledWith(
-      "Failed to parse FIREBASE_ADMIN_KEY:",
-      expect.any(Object)
+      "FIREBASE_ADMIN_KEY is set but contains invalid JSON — skipping",
+      expect.objectContaining({ length: 201 })
     );
   });
 
   it("should handle initialization failure gracefully", async () => {
     vi.resetModules();
+    // Provide valid explicit credentials so the init path is attempted
+    mockEnv.FIREBASE_PROJECT_ID = "my-project";
+    mockEnv.FIREBASE_CLIENT_EMAIL = "test@test.iam.gserviceaccount.com";
+    mockEnv.FIREBASE_PRIVATE_KEY = "-----BEGIN MOCK KEY-----\\ntest\\n-----END MOCK KEY-----\\n";
 
     const admin = (await import("firebase-admin")).default;
     (admin as any).apps = [];
@@ -168,9 +174,17 @@ describe("admin.ts", () => {
   it("should log App Check message in production", async () => {
     vi.resetModules();
     mockEnv.NODE_ENV = "production";
+    // Provide valid explicit credentials so init succeeds
+    mockEnv.FIREBASE_PROJECT_ID = "my-project";
+    mockEnv.FIREBASE_CLIENT_EMAIL = "test@test.iam.gserviceaccount.com";
+    mockEnv.FIREBASE_PRIVATE_KEY = "-----BEGIN MOCK KEY-----\\ntest\\n-----END MOCK KEY-----\\n";
 
     const admin = (await import("firebase-admin")).default;
     (admin as any).apps = [];
+    // Make initializeApp populate apps so the App Check branch triggers
+    mockInitializeApp.mockImplementationOnce(() => {
+      (admin as any).apps.push({ name: "[DEFAULT]" });
+    });
     const logger = (await import("../../logger")).default;
 
     await import("../../admin");
