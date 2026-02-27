@@ -1,5 +1,12 @@
-import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from "react-native";
-import { Image } from "expo-image";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Image,
+} from "react-native";
 import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
