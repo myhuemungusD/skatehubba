@@ -53,8 +53,14 @@ export function ActiveGames({ onResumeGame }: ActiveGamesProps) {
       );
       // Sort by most recent activity
       activeOrWaiting.sort((a, b) => {
-        const aTime = a.lastMoveAt && "toMillis" in (a.lastMoveAt as object) ? (a.lastMoveAt as { toMillis: () => number }).toMillis() : 0;
-        const bTime = b.lastMoveAt && "toMillis" in (b.lastMoveAt as object) ? (b.lastMoveAt as { toMillis: () => number }).toMillis() : 0;
+        const aTime =
+          a.lastMoveAt && "toMillis" in (a.lastMoveAt as object)
+            ? (a.lastMoveAt as { toMillis: () => number }).toMillis()
+            : 0;
+        const bTime =
+          b.lastMoveAt && "toMillis" in (b.lastMoveAt as object)
+            ? (b.lastMoveAt as { toMillis: () => number }).toMillis()
+            : 0;
         return bTime - aTime;
       });
       setGames(activeOrWaiting);

@@ -37,6 +37,7 @@ export default function TabLayout() {
         options={opts({
           title: "SkateHubba",
           tabBarLabel: "Hub",
+          tabBarAccessibilityLabel: "Hub tab",
           tabBarTestID: "tab-hub",
           tabBarIcon: ({ color, size }) => <Ionicons name="home" size={size} color={color} />,
         })}
@@ -46,6 +47,7 @@ export default function TabLayout() {
         options={opts({
           title: "Spots",
           tabBarLabel: "Map",
+          tabBarAccessibilityLabel: "Spots map tab",
           tabBarTestID: "tab-map",
           tabBarIcon: ({ color, size }) => <Ionicons name="map" size={size} color={color} />,
         })}
@@ -55,6 +57,7 @@ export default function TabLayout() {
         options={opts({
           title: "Play S.K.A.T.E.",
           tabBarLabel: "Play",
+          tabBarAccessibilityLabel: "Play S.K.A.T.E. tab",
           tabBarTestID: "tab-play",
           tabBarIcon: ({ color, size, focused }) => (
             <View style={[styles.playButton, focused && styles.playButtonActive]}>
@@ -68,6 +71,7 @@ export default function TabLayout() {
         options={opts({
           title: "Shop",
           tabBarLabel: "Shop",
+          tabBarAccessibilityLabel: "Shop tab",
           tabBarTestID: "tab-shop",
           tabBarIcon: ({ color, size }) => <Ionicons name="cart" size={size} color={color} />,
         })}
@@ -77,6 +81,7 @@ export default function TabLayout() {
         options={opts({
           title: "My Closet",
           tabBarLabel: "Closet",
+          tabBarAccessibilityLabel: "Closet tab",
           tabBarTestID: "tab-closet",
           tabBarIcon: ({ color, size }) => <Ionicons name="shirt" size={size} color={color} />,
         })}

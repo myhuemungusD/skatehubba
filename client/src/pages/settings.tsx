@@ -305,7 +305,9 @@ export default function SettingsPage() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-white">Help & FAQ</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">Get answers to common questions</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      Get answers to common questions
+                    </p>
                   </div>
                 </div>
                 {faqOpen ? (

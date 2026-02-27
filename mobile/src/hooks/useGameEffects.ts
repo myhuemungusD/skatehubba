@@ -35,7 +35,7 @@ export function useGameEffects({
 }: UseGameEffectsOptions) {
   const { initGame, resetGame, showOverlay } = useGameStore();
   const { setActiveGame, resetReconnectState } = useNetworkStore();
-  const { isConnected: _isConnected, expired: reconnectExpired } = useReconnectionStatus();
+  const { expired: reconnectExpired } = useReconnectionStatus();
 
   // Cache game session to AsyncStorage for offline access
   useCacheGameSession(gameSession);
@@ -72,7 +72,7 @@ export function useGameEffects({
     };
   }, [gameId, gameSession?.status, setActiveGame, resetReconnectState]);
 
-  // Handle reconnection window expiry — forfeit the game
+  // Handle reconnection window expiry -- forfeit the game
   useEffect(() => {
     if (reconnectExpired && gameSession?.status === "active") {
       logEvent("game_forfeited", {

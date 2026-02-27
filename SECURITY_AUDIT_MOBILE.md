@@ -99,6 +99,7 @@ No SSL/TLS certificate pinning is configured for any network requests. This make
 The Expo config does not set `android.allowBackup: false`. Firebase auth tokens persisted in AsyncStorage could be extracted via `adb backup` on rooted devices or when USB debugging is enabled.
 
 **Recommendation:** Add to `app.config.js`:
+
 ```js
 android: {
   ...
@@ -171,10 +172,10 @@ The following security controls are well-implemented:
 
 ## Files Modified
 
-| File | Changes |
-|------|---------|
-| `mobile/src/lib/queryClient.ts` | Added Firebase auth token injection to `apiRequest` |
+| File                                 | Changes                                                                     |
+| ------------------------------------ | --------------------------------------------------------------------------- |
+| `mobile/src/lib/queryClient.ts`      | Added Firebase auth token injection to `apiRequest`                         |
 | `mobile/src/hooks/useGameSession.ts` | Replaced direct Firestore writes with Cloud Function calls for join/abandon |
-| `mobile/src/store/authStore.ts` | Clear analytics session on sign-out; guard console.error |
-| `mobile/src/lib/firebase.config.ts` | Guard console.log/error behind `__DEV__`; remove projectId from logs |
-| `mobile/app/auth/sign-in.tsx` | Add input constraints; guard console.error; sanitize error messages |
+| `mobile/src/store/authStore.ts`      | Clear analytics session on sign-out; guard console.error                    |
+| `mobile/src/lib/firebase.config.ts`  | Guard console.log/error behind `__DEV__`; remove projectId from logs        |
+| `mobile/app/auth/sign-in.tsx`        | Add input constraints; guard console.error; sanitize error messages         |

@@ -127,7 +127,11 @@ const envSchema = z.object({
   APP_CHECK_MODE: z.enum(["monitor", "warn", "enforce"]).default("monitor"),
 
   // Spot check-in radius in metres (service hard cap: 150m)
-  CHECK_IN_RADIUS_METERS: z.coerce.number().positive().max(150, "CHECK_IN_RADIUS_METERS cannot exceed 150m (service hard cap)").default(100),
+  CHECK_IN_RADIUS_METERS: z.coerce
+    .number()
+    .positive()
+    .max(150, "CHECK_IN_RADIUS_METERS cannot exceed 150m (service hard cap)")
+    .default(100),
 
   // Database pool tuning (all optional with safe defaults)
   DB_POOL_MAX: z.coerce.number().int().positive().default(20),

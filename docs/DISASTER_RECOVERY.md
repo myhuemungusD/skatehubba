@@ -8,25 +8,25 @@
 
 ## 1. Recovery Objectives
 
-| Metric | Target | Notes |
-|--------|--------|-------|
-| **RTO** (Recovery Time Objective) | 1 hour | Time to restore service after an incident |
-| **RPO** (Recovery Point Objective) | 24 hours | Maximum acceptable data loss window |
-| **MTTR** (Mean Time To Recover) | 30 minutes | Average recovery time for common failures |
+| Metric                             | Target     | Notes                                     |
+| ---------------------------------- | ---------- | ----------------------------------------- |
+| **RTO** (Recovery Time Objective)  | 1 hour     | Time to restore service after an incident |
+| **RPO** (Recovery Point Objective) | 24 hours   | Maximum acceptable data loss window       |
+| **MTTR** (Mean Time To Recover)    | 30 minutes | Average recovery time for common failures |
 
 ---
 
 ## 2. System Architecture
 
-| Component | Provider | Recovery Method |
-|-----------|----------|-----------------|
-| Web Frontend | Vercel | Instant rollback via Vercel dashboard |
-| API Server | Vercel Serverless | Instant rollback via Vercel dashboard |
-| Database (PostgreSQL) | Managed provider | Restore from backup (`scripts/backup-database.sh`) |
-| Redis (Cache/Rate Limiting) | Managed provider | Ephemeral — auto-recovers on restart |
-| Firebase Auth | Google Cloud | Managed by Google — no action needed |
-| Firebase Storage | Google Cloud | Managed by Google with built-in redundancy |
-| DNS | Domain registrar | TTL-based propagation (5-30 min) |
+| Component                   | Provider          | Recovery Method                                    |
+| --------------------------- | ----------------- | -------------------------------------------------- |
+| Web Frontend                | Vercel            | Instant rollback via Vercel dashboard              |
+| API Server                  | Vercel Serverless | Instant rollback via Vercel dashboard              |
+| Database (PostgreSQL)       | Managed provider  | Restore from backup (`scripts/backup-database.sh`) |
+| Redis (Cache/Rate Limiting) | Managed provider  | Ephemeral — auto-recovers on restart               |
+| Firebase Auth               | Google Cloud      | Managed by Google — no action needed               |
+| Firebase Storage            | Google Cloud      | Managed by Google with built-in redundancy         |
+| DNS                         | Domain registrar  | TTL-based propagation (5-30 min)                   |
 
 ---
 
@@ -41,6 +41,7 @@
 - **Verification:** Automatic integrity check (`gzip -t`) after each backup
 
 **Cron entry:**
+
 ```
 0 3 * * * cd /app && ./scripts/backup-database.sh >> /var/log/skatehubba-backup.log 2>&1
 ```
@@ -149,22 +150,22 @@
 
 ## 5. Communication Plan
 
-| Audience | Channel | Who |
-|----------|---------|-----|
-| Engineering team | Slack / Discord | On-call engineer |
-| Users (major outage) | Status page / Twitter | Product lead |
-| Affected users (security) | Email | Legal / Product |
+| Audience                  | Channel               | Who              |
+| ------------------------- | --------------------- | ---------------- |
+| Engineering team          | Slack / Discord       | On-call engineer |
+| Users (major outage)      | Status page / Twitter | Product lead     |
+| Affected users (security) | Email                 | Legal / Product  |
 
 ---
 
 ## 6. Testing Schedule
 
-| Test | Frequency | Last Tested |
-|------|-----------|-------------|
-| Backup restore drill | Quarterly | Not yet |
-| Vercel rollback drill | Quarterly | Not yet |
-| Health check monitoring | Continuous | Active |
-| Failover simulation | Bi-annually | Not yet |
+| Test                    | Frequency   | Last Tested |
+| ----------------------- | ----------- | ----------- |
+| Backup restore drill    | Quarterly   | Not yet     |
+| Vercel rollback drill   | Quarterly   | Not yet     |
+| Health check monitoring | Continuous  | Active      |
+| Failover simulation     | Bi-annually | Not yet     |
 
 ---
 

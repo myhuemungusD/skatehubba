@@ -40,7 +40,11 @@ export const gameTrickSchema = z.object({
   gameId: safeUuid,
   odv: safeId,
   trickName: z.string().min(1).max(200),
-  clipUrl: z.string().url().refine((url) => /^https?:\/\//.test(url), "URL must use HTTP(S)").optional(),
+  clipUrl: z
+    .string()
+    .url()
+    .refine((url) => /^https?:\/\//.test(url), "URL must use HTTP(S)")
+    .optional(),
 });
 
 // ============================================================================

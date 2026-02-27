@@ -221,13 +221,13 @@ export default defineConfig({
 
 ### Additional Tools
 
-| Tool                       | Purpose                 | Usage                                                    |
-| -------------------------- | ----------------------- | -------------------------------------------------------- |
-| **Cypress**                | Web E2E tests           | `pnpm --filter skatehubba-client exec cypress run`       |
-| **Playwright**             | Web E2E tests           | Tests in `/e2e/` directory                               |
-| **Detox**                  | Mobile E2E tests        | Integrated in CI via `mobile-e2e.yml`                    |
-| **@testing-library/react** | React component testing | Included in Vitest setup                                 |
-| **vitest-axe**             | Accessibility testing   | Included in client dev dependencies                      |
+| Tool                       | Purpose                 | Usage                                              |
+| -------------------------- | ----------------------- | -------------------------------------------------- |
+| **Cypress**                | Web E2E tests           | `pnpm --filter skatehubba-client exec cypress run` |
+| **Playwright**             | Web E2E tests           | Tests in `/e2e/` directory                         |
+| **Detox**                  | Mobile E2E tests        | Integrated in CI via `mobile-e2e.yml`              |
+| **@testing-library/react** | React component testing | Included in Vitest setup                           |
+| **vitest-axe**             | Accessibility testing   | Included in client dev dependencies                |
 
 ---
 

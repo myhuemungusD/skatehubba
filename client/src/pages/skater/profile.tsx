@@ -169,7 +169,9 @@ export default function SkaterProfile() {
             <p className="text-xs text-neutral-400 uppercase tracking-wide">Win Rate</p>
           </Card>
           <Card className="bg-neutral-900 border-neutral-700 p-4 text-center">
-            <p className="text-2xl font-bold text-orange-400">{(profile.xp ?? 0).toLocaleString()}</p>
+            <p className="text-2xl font-bold text-orange-400">
+              {(profile.xp ?? 0).toLocaleString()}
+            </p>
             <p className="text-xs text-neutral-400 uppercase tracking-wide">XP</p>
           </Card>
         </div>

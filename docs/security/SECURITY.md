@@ -42,24 +42,24 @@ _Trigger conditions for revisiting these items:_
 
 ### 4. Subsequent Audit History
 
-| Date | Audit Type | Key Outcomes |
-| ---- | ---------- | ------------ |
-| 2026-02-06 | Initial Health Check | Grade B+. 3 critical/high fixed. Established baseline. |
-| 2026-02-12 | Mobile Security Audit | 2 critical + 3 high fixed. 4 recommendations open. |
-| 2026-02-18 | API Third Pass | Additional route-level fixes. |
+| Date       | Audit Type                | Key Outcomes                                                                      |
+| ---------- | ------------------------- | --------------------------------------------------------------------------------- |
+| 2026-02-06 | Initial Health Check      | Grade B+. 3 critical/high fixed. Established baseline.                            |
+| 2026-02-12 | Mobile Security Audit     | 2 critical + 3 high fixed. 4 recommendations open.                                |
+| 2026-02-18 | API Third Pass            | Additional route-level fixes.                                                     |
 | 2026-02-24 | Full E2E Production Audit | Grade A-. 44 findings identified, all remediated. 5 deferred as design decisions. |
-| 2026-02-26 | Verification Pass | All remediations confirmed current. Security documentation updated. |
+| 2026-02-26 | Verification Pass         | All remediations confirmed current. Security documentation updated.               |
 
 ### 5. Open Items & Accepted Risks (as of 2026-02-26)
 
-| Item | Severity | Decision | Rationale |
-| ---- | -------- | -------- | --------- |
-| M10: Admin data over-exposure | Medium | DEFERRED | Requires sub-role architecture; admin routes already require full admin auth |
-| M11: Concurrent purchase requests | Medium | DEFERRED | Idempotency keys + DB transaction prevent double-upgrades; Redis lock is optimization |
-| M14: Socket error info leaks | Medium | ACCEPTED | Error codes needed for client UX; specifics logged server-side only |
-| M15: Legacy MFA cipher | Medium | DEFERRED | Deprecation deadline: December 2026. Requires coordinated re-enrollment campaign |
-| L12: Challenge self-voting | Low | DEFERRED | Requires Cloud Function enforcement; Firestore rules alone insufficient |
-| styleSrc unsafe-inline | Low | DEFERRED | Pending CSS-in-JS migration or nonce-based approach |
-| Mobile: Certificate pinning | High | DEFERRED | App Check attestation in gradual rollout partially mitigates |
-| Mobile: Android backup | High | DEFERRED | Tracked in mobile backlog |
-| Mobile: Jailbreak detection | Medium | DEFERRED | Tracked in mobile backlog |
+| Item                              | Severity | Decision | Rationale                                                                             |
+| --------------------------------- | -------- | -------- | ------------------------------------------------------------------------------------- |
+| M10: Admin data over-exposure     | Medium   | DEFERRED | Requires sub-role architecture; admin routes already require full admin auth          |
+| M11: Concurrent purchase requests | Medium   | DEFERRED | Idempotency keys + DB transaction prevent double-upgrades; Redis lock is optimization |
+| M14: Socket error info leaks      | Medium   | ACCEPTED | Error codes needed for client UX; specifics logged server-side only                   |
+| M15: Legacy MFA cipher            | Medium   | DEFERRED | Deprecation deadline: December 2026. Requires coordinated re-enrollment campaign      |
+| L12: Challenge self-voting        | Low      | DEFERRED | Requires Cloud Function enforcement; Firestore rules alone insufficient               |
+| styleSrc unsafe-inline            | Low      | DEFERRED | Pending CSS-in-JS migration or nonce-based approach                                   |
+| Mobile: Certificate pinning       | High     | DEFERRED | App Check attestation in gradual rollout partially mitigates                          |
+| Mobile: Android backup            | High     | DEFERRED | Tracked in mobile backlog                                                             |
+| Mobile: Jailbreak detection       | Medium   | DEFERRED | Tracked in mobile backlog                                                             |

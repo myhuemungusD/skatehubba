@@ -1,6 +1,5 @@
-import { memo } from "react";
 import { View, Text, StyleSheet, Animated } from "react-native";
-import { useRef, useEffect } from "react";
+import { memo, useRef, useEffect } from "react";
 import { SKATE } from "@/theme";
 import type { SkateLetter } from "@/types";
 import { SKATE_LETTERS } from "@/types";
@@ -13,7 +12,7 @@ interface LetterIndicatorProps {
   layout?: "horizontal" | "vertical";
 }
 
-/** Color escalation: green → yellow → orange → red based on letter count (matches web) */
+/** Color escalation: green -> yellow -> orange -> red based on letter count (matches web) */
 function getLetterColor(letterCount: number): string {
   if (letterCount === 0) return SKATE.colors.neon; // green — clean
   if (letterCount <= 2) return "#eab308"; // yellow

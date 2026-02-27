@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### In Progress
+
 - Mobile app implementation (React Native/Expo)
 - Admin moderation dashboard UI
 - Tournament mode (bracket-style S.K.A.T.E. competitions)
@@ -24,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🎮 Added - Core Features
 
 #### S.K.A.T.E. Game (Primary Differentiator)
+
 - **Async turn-based video game** for remote S.K.A.T.E. battles
 - Video recording and upload (up to 30s per trick)
 - Turn submission with trick descriptions
@@ -40,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Tie-breaking logic (challenger wins on tie)
 
 #### TrickMint (Video Upload System)
+
 - Upload skateboarding trick videos
 - Public trick feed with infinite scroll
 - Firebase Storage integration
@@ -48,6 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Trick metadata (description, location, timestamp)
 
 #### Spot Map
+
 - Interactive Leaflet map with React Leaflet
 - OpenStreetMap data integration
 - Spot filtering by type (ledge, rail, stair set, park, etc.)
@@ -57,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add new spots (user-generated content)
 
 #### Check-ins
+
 - Geo-verified check-ins (30-meter radius requirement)
 - Daily check-in limits to prevent abuse
 - Streak tracking (consecutive days)
@@ -65,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Check-in history per user and per spot
 
 #### Leaderboard
+
 - Real-time rankings by XP
 - Rankings by spot count
 - Rankings by check-in streaks
@@ -72,6 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Live updates via Socket.io
 
 #### User System
+
 - Firebase Authentication (email/password)
 - Email verification requirement for posting content
 - User profiles with username, stance, experience level
@@ -81,6 +88,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - User settings and preferences
 
 #### Social Features
+
 - Activity feed with real-time updates (Firestore)
 - User following system
 - "Bolts" (likes/kudos) for content
@@ -92,6 +100,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🏗️ Added - Infrastructure
 
 #### Development Workflow
+
 - **Monorepo architecture** with pnpm workspaces
 - Turborepo for build caching and task orchestration
 - TypeScript 5.9.3 strict mode across all packages
@@ -103,6 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - 294 test files (Vitest + Cypress + Playwright + Detox)
 
 #### CI/CD Pipeline
+
 - **GitHub Actions workflows** for all PRs and commits:
   - Lockfile integrity verification (fail-fast)
   - TypeScript type checking across all packages
@@ -120,6 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Mobile preview build generation (Expo)
 
 #### Security
+
 - **Multi-layer secret scanning** (CI hooks, Gitleaks, Secretlint)
 - Firestore security rules (27,951 bytes, comprehensive)
 - Firebase Storage security rules
@@ -133,6 +144,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Security audit documentation (SECURITY_HEALTH_CHECK.md)
 
 #### Database
+
 - **PostgreSQL** with Drizzle ORM for type-safe queries
 - 8 migration files with SQL schema definitions
 - Database connection pooling
@@ -142,6 +154,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Audit logging for sensitive operations
 
 #### Monitoring & Logging
+
 - Sentry error tracking integration (basic setup)
 - Structured logging with Winston
 - Analytics event tracking system
@@ -189,6 +202,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🔧 Technical Stack
 
 #### Frontend
+
 - React 18
 - Vite 6
 - TypeScript 5.9.3
@@ -202,6 +216,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Leaflet maps
 
 #### Backend
+
 - Express.js
 - Node.js 20+
 - TypeScript 5.9.3
@@ -216,6 +231,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fluent-ffmpeg (video processing)
 
 #### DevOps
+
 - pnpm 10.28.1+ (package manager)
 - Turborepo (monorepo builds)
 - Vercel (web hosting)
@@ -265,6 +281,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Version History
 
 ### [0.9.0] - 2026-02-11
+
 Pre-production release with full S.K.A.T.E. game, spot map, check-ins, and leaderboard.
 
 ---
@@ -285,6 +302,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow and commit conve
 ---
 
 **Legend:**
+
 - 🎮 Game features
 - 🏗️ Infrastructure
 - 📱 Mobile

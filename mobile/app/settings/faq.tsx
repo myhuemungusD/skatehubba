@@ -32,7 +32,7 @@ const FAQ_ITEMS: FaqItem[] = [
   {
     question: "How do I report inappropriate content?",
     answer:
-      "Tap the three-dot menu on any post, profile, or game clip and select \"Report.\" Our moderation team reviews all reports and takes action within 24 hours. You can also email support@skatehubba.com for urgent issues.",
+      'Tap the three-dot menu on any post, profile, or game clip and select "Report." Our moderation team reviews all reports and takes action within 24 hours. You can also email support@skatehubba.com for urgent issues.',
   },
   {
     question: "Can I delete a spot I added?",

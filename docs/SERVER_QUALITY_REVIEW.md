@@ -16,24 +16,25 @@ That said, there are **architectural friction points, missing production hardeni
 
 ## Grade: B+
 
-| Category | Grade | Notes |
-|---|---|---|
-| Security | A- | Strong fundamentals; a few gaps noted below |
-| Architecture | B | Clear separation, but some structural debt |
-| Error Handling | B+ | Consistent patterns, some inconsistencies |
-| Database | B | Drizzle well-used; pool management is good; seeding is naive |
-| Auth | A- | Dual-path (session + Firebase), lockout, MFA, re-auth |
-| Observability | B+ | Good logging, metrics, health checks; missing tracing depth |
-| Testing | A- | Extensive test files; quantity is strong |
-| Resilience | B | Circuit breakers, graceful shutdown; some missing pieces |
-| API Design | B- | Inconsistent response shapes; no versioning |
-| WebSocket | B+ | Typed, auth'd, rate-limited; some concerns |
+| Category       | Grade | Notes                                                        |
+| -------------- | ----- | ------------------------------------------------------------ |
+| Security       | A-    | Strong fundamentals; a few gaps noted below                  |
+| Architecture   | B     | Clear separation, but some structural debt                   |
+| Error Handling | B+    | Consistent patterns, some inconsistencies                    |
+| Database       | B     | Drizzle well-used; pool management is good; seeding is naive |
+| Auth           | A-    | Dual-path (session + Firebase), lockout, MFA, re-auth        |
+| Observability  | B+    | Good logging, metrics, health checks; missing tracing depth  |
+| Testing        | A-    | Extensive test files; quantity is strong                     |
+| Resilience     | B     | Circuit breakers, graceful shutdown; some missing pieces     |
+| API Design     | B-    | Inconsistent response shapes; no versioning                  |
+| WebSocket      | B+    | Typed, auth'd, rate-limited; some concerns                   |
 
 ---
 
 ## What's Done Well
 
 ### 1. Security Fundamentals Are Solid
+
 - **CSRF protection** via double-submit cookie with timing-safe HMAC comparison (`middleware/csrf.ts`) — correctly skips Bearer-token auth and safe methods.
 - **Session tokens stored as SHA-256 hashes** in the database (`auth/service.ts:231`). Raw JWTs never persisted. This is a detail most teams miss.
 - **bcrypt with 12 rounds** — appropriate cost factor.
@@ -46,9 +47,11 @@ That said, there are **architectural friction points, missing production hardeni
 - **Log redaction** of sensitive keys (password, token, secret, email).
 
 ### 2. Environment Validation
+
 - `config/env.ts` uses Zod schemas with meaningful error messages and **minimum length enforcement** on secrets (32 chars). The test-mode bypass is pragmatic and well-scoped.
 
 ### 3. Operational Maturity
+
 - **Structured JSON logging** in production with hostname/PID/timestamp.
 - **Health check differentiation**: `/api/health/live` (liveness), `/api/health/ready` (readiness), `/api/health` (strict), `/api/health/env` (diagnostics).
 - **Request tracing** with `X-Request-ID` propagation.
@@ -57,6 +60,7 @@ That said, there are **architectural friction points, missing production hardeni
 - **Graceful shutdown** with SIGTERM/SIGINT handlers that drain sockets, disconnect Redis, and close the HTTP server.
 
 ### 4. Rate Limiting Architecture
+
 - **Centralized config** in `config/rateLimits.ts` with Redis-backed stores and automatic memory fallback.
 - **Per-user key generation** using composite key (userId + device fingerprint + IP).
 - **Layered limits**: global API limit, per-endpoint limits, per-user limits, socket connection limits.
@@ -108,7 +112,7 @@ Each seed record is a separate round-trip. With `defaultSpots` containing potent
 
 ```typescript
 // db.ts:38
-client.query(`SET statement_timeout = '${env.DB_STATEMENT_TIMEOUT_MS}'`)
+client.query(`SET statement_timeout = '${env.DB_STATEMENT_TIMEOUT_MS}'`);
 ```
 
 While `env.DB_STATEMENT_TIMEOUT_MS` is Zod-validated as a number (so SQL injection is unlikely here), **the pattern is dangerous**. String interpolation in SQL is a habit that will eventually produce a vulnerability when copied to a less-validated context.
@@ -122,11 +126,13 @@ While `env.DB_STATEMENT_TIMEOUT_MS` is Zod-validated as a number (so SQL injecti
 ### S1. Inconsistent error response shapes
 
 The codebase has three different error response patterns:
+
 1. `utils/apiError.ts` — `{ error: "CODE", message: "...", details?: {} }` (the correct one)
 2. Route handlers — `{ message: "..." }` (no error code)
 3. Middleware — `{ error: "..." }` (no message field)
 
 Example from `routes/spots.ts:99`:
+
 ```typescript
 return res.status(404).json({ message: "Spot not found" });
 ```
@@ -141,7 +147,7 @@ But `utils/apiError.ts` defines `Errors.notFound()` which returns `{ error: "NOT
 
 ```typescript
 // db.ts:100
-export async function getUserDisplayName(db: Database, userId: string): Promise<string>
+export async function getUserDisplayName(db: Database, userId: string): Promise<string>;
 ```
 
 This is business logic living in the database connection module. It takes `db` as a parameter despite the module already exporting `db`. This signals a layering confusion.
@@ -151,6 +157,7 @@ This is business logic living in the database connection module. It takes `db` a
 ### S3. `AuthService` is a static class — untestable
 
 Every method on `AuthService` is `static`, making it a glorified namespace. This means:
+
 - **No dependency injection** — tests must mock module-level imports.
 - **No interface** — can't substitute implementations.
 - **Circular coupling** — `AuthService` imports `getDb()`, `admin`, `env` at module scope.
@@ -174,7 +181,8 @@ The HTTP CORS in `app.ts` uses a callback function with `DEV_ORIGINS`. The socke
 
 ```typescript
 // middleware/security.ts:362-366
-const ip = req.headers["x-forwarded-for"] ||
+const ip =
+  req.headers["x-forwarded-for"] ||
   req.headers["x-real-ip"] ||
   req.connection.remoteAddress ||
   req.socket.remoteAddress;
@@ -192,6 +200,7 @@ const botPatterns = [/bot/i, /crawler/i, /spider/i, /scraper/i, /curl/i, /wget/i
 ```
 
 This blocks:
+
 - Legitimate monitoring tools (UptimeRobot, Pingdom, Datadog)
 - CI/CD health checks
 - Any client with "python" in the UA (legitimate API consumers, testing frameworks)
@@ -202,6 +211,7 @@ This blocks:
 ### S7. In-memory fallbacks will silently diverge in multi-instance deployments
 
 The server correctly falls back to in-memory stores when Redis is unavailable:
+
 - `recentAuthsFallback` in `auth/middleware.ts`
 - `connectionAttemptsFallback` in `socket/auth.ts`
 - `createMemoryReplayStore` in `services/replayProtection.ts`
@@ -267,6 +277,7 @@ const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
 ```
 
 This only matches the fully-expanded 8-group IPv6 form. It won't match:
+
 - Compressed (`::1`, `fe80::1`)
 - IPv4-mapped (`::ffff:192.168.1.1`)
 - Link-local with zone ID (`fe80::1%eth0`)
@@ -301,8 +312,8 @@ The second COPY overwrites the first. This wastes build cache and layer space.
 ```typescript
 // socket/index.ts:53,99,155
 let connectedSockets = 0;
-connectedSockets++;  // on connect
-connectedSockets--;  // on disconnect
+connectedSockets++; // on connect
+connectedSockets--; // on disconnect
 ```
 
 If `connect` fires without a corresponding `disconnect` (crash, timeout edge cases), the counter drifts permanently. Use `io.engine.clientsCount` or `(await io.fetchSockets()).length` for accuracy.
@@ -336,6 +347,7 @@ The honeypot field is named `company`. If any legitimate form ever has a "compan
 ## Architecture Observations
 
 ### Positive Patterns
+
 - **Centralized config** (`config/env.ts`, `config/constants.ts`, `config/rateLimits.ts`, `config/server.ts`) — easy to find and change values.
 - **Route decomposition** — `routes/games.ts` delegates to `games-challenges.ts`, `games-turns.ts`, etc. Good separation of concerns.
 - **Service layer** exists (`services/`) and is generally used for business logic.
@@ -343,6 +355,7 @@ The honeypot field is named `company`. If any legitimate form ever has a "compan
 - **Middleware composition** in route definitions is readable and consistent.
 
 ### Structural Debt
+
 - **Two audit systems**: `middleware/auditLog.ts` (middleware-based) and `services/auditLog.ts` (function-based). They use different types, different loggers, and different field names. Consolidate.
 - **Two security modules**: `security.ts` (root-level constants + helpers) and `middleware/security.ts` (rate limiters + validators). The boundary is unclear.
 - **Mixed auth model**: Firebase + custom JWT + session cookies creates a large surface area. Every auth path must be tested independently. Consider converging on one primary path.
@@ -367,4 +380,4 @@ The honeypot field is named `company`. If any legitimate form ever has a "compan
 
 ---
 
-*This review is based on a static read of the server source code. A runtime audit (load testing, penetration testing, dependency vulnerability scanning) would surface additional findings.*
+_This review is based on a static read of the server source code. A runtime audit (load testing, penetration testing, dependency vulnerability scanning) would surface additional findings._

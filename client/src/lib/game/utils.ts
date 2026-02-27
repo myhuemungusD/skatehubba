@@ -13,9 +13,7 @@ export function getLettersString(count: number): string {
 /** Check if game is over based on letters */
 export function isGameOver(state: GameState): boolean {
   return (
-    state.status === "COMPLETED" ||
-    state.p1Letters >= MAX_LETTERS ||
-    state.p2Letters >= MAX_LETTERS
+    state.status === "COMPLETED" || state.p1Letters >= MAX_LETTERS || state.p2Letters >= MAX_LETTERS
   );
 }
 

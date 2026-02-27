@@ -1,13 +1,6 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  Image,
-  RefreshControl,
-  TouchableOpacity,
-} from "react-native";
-import { useState } from "react";
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity } from "react-native";
+import { Image } from "expo-image";
+import { useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { LeaderboardEntry } from "@/types";
@@ -75,8 +68,20 @@ function LeaderboardScreenContent() {
     queryFn: () => apiRequest<LeaderboardEntry[]>("/api/leaderboard"),
   });
 
-  const renderItem = ({ item, index }: { item: LeaderboardEntry; index: number }) => (
-    <LeaderboardRow item={item} index={index} />
+  const renderItem = useCallback(
+    ({ item, index }: { item: LeaderboardEntry; index: number }) => (
+      <LeaderboardRow item={item} index={index} />
+    ),
+    []
+  );
+
+  const getItemLayout = useCallback(
+    (_data: unknown, index: number) => ({
+      length: 64,
+      offset: 64 * index,
+      index,
+    }),
+    []
   );
 
   const hasNoData = !isLoading && (!leaderboard || leaderboard.length === 0);
@@ -115,6 +120,7 @@ function LeaderboardScreenContent() {
           data={leaderboard}
           renderItem={renderItem}
           keyExtractor={(item) => item.userId}
+          getItemLayout={getItemLayout}
           ListHeaderComponent={
             <View style={styles.header}>
               <Text testID="leaderboard-header" style={styles.headerText}>

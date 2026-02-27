@@ -1,3 +1,4 @@
+import { useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 
 interface VideoPlayerModalProps {
@@ -6,8 +7,25 @@ interface VideoPlayerModalProps {
 }
 
 export function VideoPlayerModal({ videoUrl, onClose }: VideoPlayerModalProps) {
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    },
+    [onClose]
+  );
+
+  useEffect(() => {
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [handleKeyDown]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Video player"
+    >
       <button
         className="absolute inset-0 bg-black/90 backdrop-blur-sm"
         onClick={onClose}

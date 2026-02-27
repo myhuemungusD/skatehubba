@@ -12,7 +12,6 @@ import {
   KeyboardAvoidingView,
   ScrollView,
 } from "react-native";
-import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import * as Google from "expo-auth-session/providers/google";
@@ -33,7 +32,6 @@ WebBrowser.maybeCompleteAuthSession();
 type AuthMode = "sign-in" | "sign-up";
 
 export default function SignIn() {
-  const router = useRouter();
   const [mode, setMode] = useState<AuthMode>("sign-in");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -177,7 +175,10 @@ export default function SignIn() {
   const handleForgotPassword = async () => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedEmail) {
-      Alert.alert("Reset Password", "Enter your email address above, then tap 'Forgot password?' again.");
+      Alert.alert(
+        "Reset Password",
+        "Enter your email address above, then tap 'Forgot password?' again."
+      );
       return;
     }
 
@@ -285,16 +286,19 @@ export default function SignIn() {
                 {isSignUp ? "Create Account" : "Welcome Back"}
               </Text>
               <Text style={styles.welcomeSub}>
-                {isSignUp
-                  ? "Join the skate community"
-                  : "Sign in to your account to continue"}
+                {isSignUp ? "Join the skate community" : "Sign in to your account to continue"}
               </Text>
 
               {isSignUp && (
                 <>
                   <Text style={styles.label}>Skater Name</Text>
                   <View style={styles.inputContainer}>
-                    <Ionicons name="person-outline" size={20} color="#666" style={styles.inputIcon} />
+                    <Ionicons
+                      name="person-outline"
+                      size={20}
+                      color="#666"
+                      style={styles.inputIcon}
+                    />
                     <TextInput
                       ref={displayNameRef}
                       style={styles.input}
@@ -347,7 +351,12 @@ export default function SignIn() {
                 )}
               </View>
               <View style={styles.inputContainer}>
-                <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color="#666"
+                  style={styles.inputIcon}
+                />
                 <TextInput
                   ref={passwordRef}
                   style={styles.input}
@@ -361,9 +370,7 @@ export default function SignIn() {
                   maxLength={128}
                   returnKeyType={isSignUp ? "next" : "done"}
                   onSubmitEditing={() =>
-                    isSignUp
-                      ? confirmPasswordRef.current?.focus()
-                      : handleEmailSignIn()
+                    isSignUp ? confirmPasswordRef.current?.focus() : handleEmailSignIn()
                   }
                   testID="auth-password"
                 />
@@ -383,7 +390,12 @@ export default function SignIn() {
                 <>
                   <Text style={styles.label}>Confirm Password</Text>
                   <View style={styles.inputContainer}>
-                    <Ionicons name="lock-closed-outline" size={20} color="#666" style={styles.inputIcon} />
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={20}
+                      color="#666"
+                      style={styles.inputIcon}
+                    />
                     <TextInput
                       ref={confirmPasswordRef}
                       style={styles.input}

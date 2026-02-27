@@ -9,11 +9,11 @@ The Security Audit workflow performs comprehensive security checks on the SkateH
 
 ## Workflow Files
 
-| Workflow | File | Purpose |
-| -------- | ---- | ------- |
-| Security Audit | `.github/workflows/security.yml` | Dependency audit, Gitleaks, license compliance |
-| CodeQL | `.github/workflows/codeql.yml` | Static analysis (JavaScript/TypeScript) |
-| CI | `.github/workflows/ci.yml` | Build, test, lint, Firebase rules validation |
+| Workflow       | File                                   | Purpose                                        |
+| -------------- | -------------------------------------- | ---------------------------------------------- |
+| Security Audit | `.github/workflows/security.yml`       | Dependency audit, Gitleaks, license compliance |
+| CodeQL         | `.github/workflows/codeql.yml`         | Static analysis (JavaScript/TypeScript)        |
+| CI             | `.github/workflows/ci.yml`             | Build, test, lint, Firebase rules validation   |
 | Deploy Staging | `.github/workflows/deploy-staging.yml` | Docker build with Trivy vulnerability scanning |
 
 ## Triggers
@@ -42,15 +42,18 @@ The Security Audit workflow performs comprehensive security checks on the SkateH
 The platform uses multiple complementary scanning tools:
 
 **Gitleaks** (`.gitleaks.toml`):
+
 - Scans on push and PR events
 - Allowlists test files, example env files, Firebase config templates
 - No blanket exclusions
 
 **Secretlint** (`.secretlintrc.json`):
+
 - Detects database connection strings, API keys
 - Allows test credential patterns only
 
 **Custom Scanner** (`scripts/scan-secrets.mjs`):
+
 - Orchestrates Secretlint, hardcoded secret patterns, Gitleaks, detect-secrets, ggshield
 - Runs as `pnpm scan:secrets`
 
@@ -93,18 +96,18 @@ The platform uses multiple complementary scanning tools:
 
 Platform compliance verified across all categories:
 
-| Category | Status | Implementation |
-| -------- | ------ | -------------- |
-| A01: Broken Access Control | **Pass** | Auth middleware on all routes, role checks, ownership validation |
-| A02: Cryptographic Failures | **Pass** | AES-256-GCM, bcrypt (12 rounds), SHA-256 session hashing |
-| A03: Injection | **Pass** | Drizzle ORM, Zod validation, strict socket schemas |
-| A04: Insecure Design | **Pass** | Defense-in-depth, rate limiting, re-authentication |
-| A05: Security Misconfiguration | **Pass** | Helmet, strict CSP, env validation at boot |
-| A06: Vulnerable Components | **Pass** | Node 22, pinned actions, Dependabot, audit scripts |
-| A07: Auth Failures | **Pass** | MFA, lockout, re-auth, session invalidation |
-| A08: Software/Data Integrity | Needs Work | Docker image signing recommended |
-| A09: Logging/Monitoring | **Pass** | Comprehensive audit logging, Sentry |
-| A10: SSRF | **Pass** | No user-controlled HTTP requests |
+| Category                       | Status     | Implementation                                                   |
+| ------------------------------ | ---------- | ---------------------------------------------------------------- |
+| A01: Broken Access Control     | **Pass**   | Auth middleware on all routes, role checks, ownership validation |
+| A02: Cryptographic Failures    | **Pass**   | AES-256-GCM, bcrypt (12 rounds), SHA-256 session hashing         |
+| A03: Injection                 | **Pass**   | Drizzle ORM, Zod validation, strict socket schemas               |
+| A04: Insecure Design           | **Pass**   | Defense-in-depth, rate limiting, re-authentication               |
+| A05: Security Misconfiguration | **Pass**   | Helmet, strict CSP, env validation at boot                       |
+| A06: Vulnerable Components     | **Pass**   | Node 22, pinned actions, Dependabot, audit scripts               |
+| A07: Auth Failures             | **Pass**   | MFA, lockout, re-auth, session invalidation                      |
+| A08: Software/Data Integrity   | Needs Work | Docker image signing recommended                                 |
+| A09: Logging/Monitoring        | **Pass**   | Comprehensive audit logging, Sentry                              |
+| A10: SSRF                      | **Pass**   | No user-controlled HTTP requests                                 |
 
 ## Report Distribution
 
@@ -177,6 +180,7 @@ pnpm validate:env
 The security workflows run in parallel with build/test jobs. Findings are reported but do not block merges by default — this allows development velocity while maintaining security visibility.
 
 **Deployment pipeline security:**
+
 1. PR opened → Security audit + CodeQL + CI (Firebase rules validation)
 2. Merge to main → Same checks + staging deployment trigger
 3. Deploy staging → Docker build with Trivy scanning, SSH deployment
@@ -196,6 +200,7 @@ Edit `scripts/audit-dependencies.mjs` to adjust failure severity levels.
 ### Pinning GitHub Actions
 
 When updating actions, always pin to specific SHAs or exact versions:
+
 ```yaml
 # Good
 - uses: aquasecurity/trivy-action@0.28.0
@@ -205,12 +210,12 @@ When updating actions, always pin to specific SHAs or exact versions:
 
 ## Audit Schedule
 
-| Cadence | Type | Next Date |
-| ------- | ---- | --------- |
-| Continuous | Automated CI/CD scans | Every PR/push |
-| Weekly | Dependabot updates | Ongoing |
-| Quarterly | Full E2E production audit | May 2026 |
-| As needed | Mobile-specific audit | TBD |
+| Cadence    | Type                      | Next Date     |
+| ---------- | ------------------------- | ------------- |
+| Continuous | Automated CI/CD scans     | Every PR/push |
+| Weekly     | Dependabot updates        | Ongoing       |
+| Quarterly  | Full E2E production audit | May 2026      |
+| As needed  | Mobile-specific audit     | TBD           |
 
 ## Related Documentation
 

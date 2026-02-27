@@ -41,10 +41,6 @@ export const ensureFilmerEligible = async (filmerUid: string): Promise<void> => 
   const isEligible = Boolean(profile?.filmerVerified) || Boolean(profile?.roles?.filmer);
 
   if (!isEligible) {
-    throw new FilmerRequestError(
-      "FILMER_NOT_ELIGIBLE",
-      "Filmer is not eligible for requests",
-      403
-    );
+    throw new FilmerRequestError("FILMER_NOT_ELIGIBLE", "Filmer is not eligible for requests", 403);
   }
 };

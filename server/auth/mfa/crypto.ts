@@ -92,10 +92,7 @@ export function decrypt(encryptedText: string): string {
     const salt = Buffer.from(payload.slice(0, SALT_LENGTH * 2), "hex");
     const iv = Buffer.from(payload.slice(SALT_LENGTH * 2, (SALT_LENGTH + IV_LENGTH) * 2), "hex");
     const authTag = Buffer.from(
-      payload.slice(
-        (SALT_LENGTH + IV_LENGTH) * 2,
-        (SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH) * 2
-      ),
+      payload.slice((SALT_LENGTH + IV_LENGTH) * 2, (SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH) * 2),
       "hex"
     );
     const encrypted = payload.slice((SALT_LENGTH + IV_LENGTH + AUTH_TAG_LENGTH) * 2);

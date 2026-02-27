@@ -46,9 +46,7 @@ export const ensureQuota = async (
     await tx
       .update(filmerDailyCounters)
       .set({ count: sql`${filmerDailyCounters.count} + 1`, updatedAt: new Date() })
-      .where(
-        and(eq(filmerDailyCounters.counterKey, counterKey), eq(filmerDailyCounters.day, day))
-      );
+      .where(and(eq(filmerDailyCounters.counterKey, counterKey), eq(filmerDailyCounters.day, day)));
     return;
   }
 

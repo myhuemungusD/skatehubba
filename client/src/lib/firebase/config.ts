@@ -58,9 +58,7 @@ function getFirebaseConfig(): FirebaseConfig {
     | string
     | undefined;
   const appId = import.meta.env.EXPO_PUBLIC_FIREBASE_APP_ID as string | undefined;
-  const measurementId = import.meta.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID as
-    | string
-    | undefined;
+  const measurementId = import.meta.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID as string | undefined;
 
   if (!apiKey || !projectId || !appId) {
     const missing = (
@@ -122,7 +120,11 @@ function initFirebase() {
   }
 
   // L9: Only log Firebase config in true local development
-  if (import.meta.env.DEV && typeof window !== "undefined" && window.location.hostname === "localhost") {
+  if (
+    import.meta.env.DEV &&
+    typeof window !== "undefined" &&
+    window.location.hostname === "localhost"
+  ) {
     const banner = getEnvBanner();
     logger.log(`[Firebase] ${banner}`);
     logger.log("[Firebase] Environment:", getAppEnv());

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Trophy, Skull, RotateCcw } from "lucide-react";
 import { SocialShare } from "./SocialShare";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,7 @@ interface GameOverScreenProps {
   rematchPending?: boolean;
 }
 
-export function GameOverScreen({
+export const GameOverScreen = memo(function GameOverScreen({
   iWon,
   myLetters,
   oppLetters,
@@ -75,4 +76,4 @@ export function GameOverScreen({
       </div>
     </div>
   );
-}
+});

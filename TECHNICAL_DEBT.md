@@ -7,10 +7,10 @@
 
 ## Summary
 
-| Severity | Count | Description |
-|----------|-------|-------------|
-| HIGH     | 3     | Broken builds, security risks (1 resolved: migration renumbered) |
-| MEDIUM   | 5     | Type safety gaps, code duplication, maintainability |
+| Severity | Count | Description                                                            |
+| -------- | ----- | ---------------------------------------------------------------------- |
+| HIGH     | 3     | Broken builds, security risks (1 resolved: migration renumbered)       |
+| MEDIUM   | 5     | Type safety gaps, code duplication, maintainability                    |
 | LOW      | 4     | Minor inconsistencies, polish items (1 resolved: pnpm version aligned) |
 
 **Overall health:** The codebase is well-structured with strict TypeScript, strong CI,
@@ -69,17 +69,18 @@ migration has been renumbered to `0011_trickmint_video_pipeline.sql`.
 
 ### 5. ~2,200 `as any` casts across test files
 
-| Area | Occurrences | Files |
-|------|-------------|-------|
-| Server tests | ~1,424 | 135 |
-| Functions tests | ~319 | 5 |
-| Client tests | ~197 | 17 |
+| Area            | Occurrences | Files |
+| --------------- | ----------- | ----- |
+| Server tests    | ~1,424      | 135   |
+| Functions tests | ~319        | 5     |
+| Client tests    | ~197        | 17    |
 
 While tests are exempted from the strict `no-explicit-any` lint rule, pervasive
 `as any` hides type mismatches between mocks and real implementations. When
 interfaces change, tests won't catch the breakage at compile time.
 
 Worst offenders:
+
 - `server/routes/__tests__/stripeWebhook.test.ts` — 65 occurrences
 - `server/__tests__/routes/routes-branches.test.ts` — 60
 - `server/__tests__/routes/routes-edge-cases.test.ts` — 50+
@@ -90,21 +91,21 @@ Worst offenders:
 
 ### 6. 13 files exceed 500 lines
 
-| File | Lines |
-|------|-------|
-| `functions/src/index.ts` | 1,118 |
-| `mobile/app/(tabs)/trickmint.tsx` | 881 |
-| `mobile/src/components/game/TrickRecorder.tsx` | 824 |
-| `client/src/components/ui/sidebar.tsx` | 756 |
-| `client/src/pages/skate-game.tsx` | 638 |
-| `server/services/filmerRequests.ts` | 541 |
-| `server/services/moderationStore.ts` | 536 |
-| `server/auth/mfa.ts` | 535 |
-| `server/services/battleStateService.ts` | 534 |
-| `client/src/lib/game/GameService.ts` | 528 |
-| `server/socket/handlers/game.ts` | 515 |
-| `functions/src/commerce/stripeWebhook.ts` | 510 |
-| `server/services/videoTranscoder.ts` | 505 |
+| File                                           | Lines |
+| ---------------------------------------------- | ----- |
+| `functions/src/index.ts`                       | 1,118 |
+| `mobile/app/(tabs)/trickmint.tsx`              | 881   |
+| `mobile/src/components/game/TrickRecorder.tsx` | 824   |
+| `client/src/components/ui/sidebar.tsx`         | 756   |
+| `client/src/pages/skate-game.tsx`              | 638   |
+| `server/services/filmerRequests.ts`            | 541   |
+| `server/services/moderationStore.ts`           | 536   |
+| `server/auth/mfa.ts`                           | 535   |
+| `server/services/battleStateService.ts`        | 534   |
+| `client/src/lib/game/GameService.ts`           | 528   |
+| `server/socket/handlers/game.ts`               | 515   |
+| `functions/src/commerce/stripeWebhook.ts`      | 510   |
+| `server/services/videoTranscoder.ts`           | 505   |
 
 **Fix:** Decompose incrementally. Priority targets are the game-related files
 (TrickRecorder, skate-game, GameService) since they have the most cross-cutting
@@ -185,6 +186,7 @@ Other occurrences in `server/logger.ts` and `server/config/env.ts` are acceptabl
 
 Mobile has ~35 test files vs. server's ~182 and client's ~47. Large untested
 components:
+
 - `TrickRecorder.tsx` (824 lines) — no tests
 - `AddSpotModal.tsx` — no tests
 - `ResultScreen.tsx` — no tests
@@ -217,17 +219,20 @@ All workspace packages now specify `"pnpm": ">=10.0.0"`.
 ## Recommended Action Plan
 
 ### Phase 1: Fix broken/risky items (1-2 days)
+
 1. Remove `web/package.json` COPY from Dockerfile
 2. Rename `.env.staging` to `.env.staging.example`, add `.env.staging` to `.gitignore`
 3. ~~Renumber duplicate `0007` migration~~ ✅ Done (now `0011`)
 4. Begin splitting `functions/src/index.ts` into modules
 
 ### Phase 2: Reduce drift risk (1-2 weeks)
+
 5. Extract shared game logic into `packages/shared/game/`
 6. Create typed mock factories to reduce `as any` in tests
 7. Decompose largest files (start with game-related components)
 
 ### Phase 3: Polish (ongoing)
+
 8. Replace raw `console.log` with structured logger
 9. Add mobile component tests
 10. ~~Align pnpm engine versions~~ ✅ Done

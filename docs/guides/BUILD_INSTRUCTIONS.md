@@ -166,11 +166,11 @@ eas login
 
 ## Production Readiness
 
-| Component            | Status                               |
-| -------------------- | ------------------------------------ |
-| **app.config.js**    | Valid (clean JavaScript config)      |
-| **eas.json**         | Build profiles configured            |
-| **Firebase Configs** | Both Android & iOS files in place    |
-| **Google OAuth**     | All platform client IDs configured   |
-| **Package Name**     | com.skathubba.app                    |
-| **Dependencies**     | Managed via pnpm workspace           |
+| Component            | Status                             |
+| -------------------- | ---------------------------------- |
+| **app.config.js**    | Valid (clean JavaScript config)    |
+| **eas.json**         | Build profiles configured          |
+| **Firebase Configs** | Both Android & iOS files in place  |
+| **Google OAuth**     | All platform client IDs configured |
+| **Package Name**     | com.skathubba.app                  |
+| **Dependencies**     | Managed via pnpm workspace         |

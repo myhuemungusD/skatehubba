@@ -163,10 +163,10 @@ npx vercel --prod
 
 ## Workflow Triggers
 
-| Workflow | Trigger | Action |
-|----------|---------|--------|
-| `deploy.yml` | Push to `main`, PRs | Typecheck guard (Vercel auto-deploys from `main`) |
-| `deploy-staging.yml` | Push to `staging`, manual dispatch | Full Docker build + deploy to staging server |
+| Workflow             | Trigger                            | Action                                            |
+| -------------------- | ---------------------------------- | ------------------------------------------------- |
+| `deploy.yml`         | Push to `main`, PRs                | Typecheck guard (Vercel auto-deploys from `main`) |
+| `deploy-staging.yml` | Push to `staging`, manual dispatch | Full Docker build + deploy to staging server      |
 
 ## Troubleshooting
 

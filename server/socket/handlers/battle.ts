@@ -375,7 +375,10 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
 
       // Verify user is a participant
       if (data.odv !== battle.creatorId && data.odv !== battle.opponentId) {
-        socket.emit("error", { code: "not_participant", message: "Only battle participants can ready up" });
+        socket.emit("error", {
+          code: "not_participant",
+          message: "Only battle participants can ready up",
+        });
         return;
       }
 

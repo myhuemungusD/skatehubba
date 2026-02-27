@@ -1,9 +1,74 @@
+import { useRef } from "react";
 import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { Activity, Clock, MapPin, WifiOff } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useRealtimeFeed } from "@/features/feed/useRealtimeFeed";
+import { useRealtimeFeed, type FeedCheckIn } from "@/features/feed/useRealtimeFeed";
+import { useVirtualizer } from "@tanstack/react-virtual";
+
+const FEED_ROW_HEIGHT = 120;
+
+function VirtualizedFeed({ items }: { items: FeedCheckIn[] }) {
+  const parentRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => FEED_ROW_HEIGHT,
+    overscan: 5,
+  });
+
+  if (items.length === 0) return null;
+
+  return (
+    <div ref={parentRef} className="max-h-[70vh] overflow-y-auto">
+      <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+        {virtualizer.getVirtualItems().map((virtualRow) => {
+          const item = items[virtualRow.index];
+          return (
+            <div
+              key={item.id}
+              ref={virtualizer.measureElement}
+              data-index={virtualRow.index}
+              className="absolute top-0 left-0 w-full"
+              style={{ transform: `translateY(${virtualRow.start}px)` }}
+            >
+              <div className="pb-4">
+                <Card className="bg-neutral-900/70 border-neutral-800">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base text-white">{item.displayName}</CardTitle>
+                      {item.xp !== undefined ? (
+                        <Badge className="bg-yellow-500/20 text-yellow-300">+{item.xp} XP</Badge>
+                      ) : null}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-3 text-sm text-neutral-300">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="h-4 w-4 text-yellow-400" />
+                      <Link
+                        href={`/spots/${item.spotId}`}
+                        className="text-yellow-200 hover:text-yellow-100"
+                      >
+                        {item.spotName}
+                      </Link>
+                    </div>
+                    {item.trick ? <p className="text-neutral-400">Landed: {item.trick}</p> : null}
+                    <div className="flex items-center gap-2 text-xs text-neutral-500">
+                      <Clock className="h-3 w-3" />
+                      {formatDistanceToNow(item.checkedInAt, { addSuffix: true })}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function FeedPage() {
   const { items, isLoading, error, isOffline } = useRealtimeFeed();
@@ -48,36 +113,7 @@ export default function FeedPage() {
         </Card>
       ) : null}
 
-      <div className="space-y-4">
-        {items.map((item) => (
-          <Card key={item.id} className="bg-neutral-900/70 border-neutral-800">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base text-white">{item.displayName}</CardTitle>
-                {item.xp !== undefined ? (
-                  <Badge className="bg-yellow-500/20 text-yellow-300">+{item.xp} XP</Badge>
-                ) : null}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-neutral-300">
-              <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-yellow-400" />
-                <Link
-                  href={`/spots/${item.spotId}`}
-                  className="text-yellow-200 hover:text-yellow-100"
-                >
-                  {item.spotName}
-                </Link>
-              </div>
-              {item.trick ? <p className="text-neutral-400">Landed: {item.trick}</p> : null}
-              <div className="flex items-center gap-2 text-xs text-neutral-500">
-                <Clock className="h-3 w-3" />
-                {formatDistanceToNow(item.checkedInAt, { addSuffix: true })}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <VirtualizedFeed items={items} />
     </div>
   );
 }

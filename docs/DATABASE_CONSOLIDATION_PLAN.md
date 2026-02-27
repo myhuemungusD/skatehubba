@@ -21,10 +21,10 @@ However, rapid feature development created **two areas of genuine duplication** 
 
 ### Games — Two Systems, Two Stores
 
-| System | Store | Tables/Collections | Status |
-|--------|-------|--------------------|--------|
-| **Turn-Based S.K.A.T.E.** (text-based, async) | PostgreSQL | `games`, `gameTurns`, `gameDisputes`, `challenges`, `gameSessions` | Active, Drizzle ORM |
-| **Remote S.K.A.T.E.** (video-based, real-time) | Firestore | `games/{id}`, `games/{id}/rounds/{roundId}`, `videos/{id}` | Active, Cloud Functions + Express route |
+| System                                         | Store      | Tables/Collections                                                 | Status                                  |
+| ---------------------------------------------- | ---------- | ------------------------------------------------------------------ | --------------------------------------- |
+| **Turn-Based S.K.A.T.E.** (text-based, async)  | PostgreSQL | `games`, `gameTurns`, `gameDisputes`, `challenges`, `gameSessions` | Active, Drizzle ORM                     |
+| **Remote S.K.A.T.E.** (video-based, real-time) | Firestore  | `games/{id}`, `games/{id}/rounds/{roundId}`, `videos/{id}`         | Active, Cloud Functions + Express route |
 
 The PostgreSQL `games` table and the Firestore `games` collection represent **different game modes** that evolved independently. The Firestore game system has no PostgreSQL backing store — game results, round history, and video metadata exist only in Firestore. This means:
 
@@ -35,10 +35,10 @@ The PostgreSQL `games` table and the Firestore `games` collection represent **di
 
 ### Commerce — Two Schemas, Two Stores
 
-| System | Store | Tables/Collections | Status |
-|--------|-------|--------------------|--------|
-| **Simple shop** (catalog, basic orders) | PostgreSQL | `products`, `orders`, `donations`, `consumedPaymentIntents` | Active, Drizzle ORM |
-| **Inventory-managed shop** (sharded stock, holds, Stripe integration) | Firestore | `products`, `holds`, `orders`, `processedEvents`, `products/{id}/stockShards/{id}` | Active, Cloud Functions |
+| System                                                                | Store      | Tables/Collections                                                                 | Status                  |
+| --------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------- | ----------------------- |
+| **Simple shop** (catalog, basic orders)                               | PostgreSQL | `products`, `orders`, `donations`, `consumedPaymentIntents`                        | Active, Drizzle ORM     |
+| **Inventory-managed shop** (sharded stock, holds, Stripe integration) | Firestore  | `products`, `holds`, `orders`, `processedEvents`, `products/{id}/stockShards/{id}` | Active, Cloud Functions |
 
 The Firestore commerce system is the more sophisticated version (sharded counters for contention-free stock reservation, TTL-based holds, webhook deduplication). But it shares no data with the PostgreSQL `products`/`orders` tables. Neither store knows about the other.
 
@@ -48,36 +48,36 @@ The Firestore commerce system is the more sophisticated version (sharded counter
 
 ### Firestore Collections → Disposition
 
-| Collection | Current Role | Target | Migration Phase |
-|------------|-------------|--------|-----------------|
-| **`users`** | Display projection (badges, XP, role) | **Keep as projection.** Read-only mirror of PostgreSQL `userProfiles`. Already correctly documented. | — (no change) |
-| **`presence`** | Online/offline status | **Keep as authoritative.** Ephemeral real-time data. No value in PostgreSQL. | — (no change) |
-| **`chatMessages`** | AI Skate Buddy conversations | **Keep as authoritative.** Ephemeral chat. No long-term analytics value. | — (no change) |
-| **`activeCheckins`** | Currently checked-in users | **Keep as authoritative.** Ephemeral presence state. Historical check-ins already in PostgreSQL. | — (no change) |
-| **`notifications`** | Server-generated alerts | **Keep as projection.** Server writes after PostgreSQL events. Already correctly architected. | — (no change) |
-| **`leaderboardLive`** | Computed ranking for real-time display | **Keep as projection.** Computed from PostgreSQL, projected for client subscriptions. | — (no change) |
-| **`challengeVotes`** | Real-time vote tallies | **Keep as projection.** Mirror of PostgreSQL `battleVotes` for live display. | — (no change) |
-| **`challenges`** (Remote S.K.A.T.E.) | Challenge requests between players | **Migrate to PostgreSQL.** Persistent data with relational needs (join to user profiles, game history). Firestore becomes projection for real-time status updates. | Phase 1 |
-| **`games`** (Remote S.K.A.T.E.) | Full game state, rounds, results | **Migrate to PostgreSQL.** Core business data that needs SQL analytics, cross-mode leaderboards, and long-term history. Firestore becomes real-time projection of active game state only. | Phase 2 |
-| **`games/{id}/rounds`** | Round-by-round state | **Migrate to PostgreSQL** as `remoteSkateRounds` table. Firestore projection for active rounds only. | Phase 2 |
-| **`videos`** | Video metadata (URLs, status, game/round links) | **Migrate to PostgreSQL** as `remoteSkateVideos` table. Video *files* stay in Firebase Storage. | Phase 2 |
-| **`products`** (commerce) | Product catalog with sharded stock | **Consolidate into PostgreSQL.** Product catalog is relational. Stock management moves to PostgreSQL with `SELECT ... FOR UPDATE` or advisory locks (Neon supports both). | Phase 3 |
-| **`holds`** | Inventory reservation with TTL | **Migrate to PostgreSQL.** Hold expiration via scheduled job (already have cron infrastructure in `server/routes/games-cron.ts`). | Phase 3 |
-| **`orders`** (commerce) | Order records with Stripe metadata | **Consolidate with PostgreSQL `orders` table.** Merge schemas, single source of truth. | Phase 3 |
-| **`processedEvents`** | Webhook deduplication | **Migrate to PostgreSQL.** Simple idempotency table. | Phase 3 |
-| **`products/{id}/stockShards`** | Sharded stock counters | **Remove.** PostgreSQL `SELECT ... FOR UPDATE` on a `productStock` table eliminates need for application-level sharding. Neon handles this contention level (sub-1000 TPS checkout is not a hot-path). | Phase 3 |
-| **`gameSessions`** (Firestore) | Legacy real-time game state | **Deprecate.** PostgreSQL `gameSessions` table already replaces this (schema comment confirms). Remove Firestore rules. | Phase 1 |
-| **`signups`** | Beta email collection | **Deprecate.** Legacy pre-launch collection. Export data, drop collection. | Phase 1 |
-| **`mail`**, **`mailList`**, **`subscriptions`** | Legacy email/subscription docs | **Deprecate.** Already server-only (`allow read, write: if false`). Remove rules. | Phase 1 |
-| **`moderation_users`**, **`reports`**, **`mod_actions`**, **`moderation_quotas`** | Moderation data | **Migrate to PostgreSQL** `moderation` schema (if not already there). Server-only data with no real-time client need. | Phase 1 |
+| Collection                                                                        | Current Role                                    | Target                                                                                                                                                                                                 | Migration Phase |
+| --------------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
+| **`users`**                                                                       | Display projection (badges, XP, role)           | **Keep as projection.** Read-only mirror of PostgreSQL `userProfiles`. Already correctly documented.                                                                                                   | — (no change)   |
+| **`presence`**                                                                    | Online/offline status                           | **Keep as authoritative.** Ephemeral real-time data. No value in PostgreSQL.                                                                                                                           | — (no change)   |
+| **`chatMessages`**                                                                | AI Skate Buddy conversations                    | **Keep as authoritative.** Ephemeral chat. No long-term analytics value.                                                                                                                               | — (no change)   |
+| **`activeCheckins`**                                                              | Currently checked-in users                      | **Keep as authoritative.** Ephemeral presence state. Historical check-ins already in PostgreSQL.                                                                                                       | — (no change)   |
+| **`notifications`**                                                               | Server-generated alerts                         | **Keep as projection.** Server writes after PostgreSQL events. Already correctly architected.                                                                                                          | — (no change)   |
+| **`leaderboardLive`**                                                             | Computed ranking for real-time display          | **Keep as projection.** Computed from PostgreSQL, projected for client subscriptions.                                                                                                                  | — (no change)   |
+| **`challengeVotes`**                                                              | Real-time vote tallies                          | **Keep as projection.** Mirror of PostgreSQL `battleVotes` for live display.                                                                                                                           | — (no change)   |
+| **`challenges`** (Remote S.K.A.T.E.)                                              | Challenge requests between players              | **Migrate to PostgreSQL.** Persistent data with relational needs (join to user profiles, game history). Firestore becomes projection for real-time status updates.                                     | Phase 1         |
+| **`games`** (Remote S.K.A.T.E.)                                                   | Full game state, rounds, results                | **Migrate to PostgreSQL.** Core business data that needs SQL analytics, cross-mode leaderboards, and long-term history. Firestore becomes real-time projection of active game state only.              | Phase 2         |
+| **`games/{id}/rounds`**                                                           | Round-by-round state                            | **Migrate to PostgreSQL** as `remoteSkateRounds` table. Firestore projection for active rounds only.                                                                                                   | Phase 2         |
+| **`videos`**                                                                      | Video metadata (URLs, status, game/round links) | **Migrate to PostgreSQL** as `remoteSkateVideos` table. Video _files_ stay in Firebase Storage.                                                                                                        | Phase 2         |
+| **`products`** (commerce)                                                         | Product catalog with sharded stock              | **Consolidate into PostgreSQL.** Product catalog is relational. Stock management moves to PostgreSQL with `SELECT ... FOR UPDATE` or advisory locks (Neon supports both).                              | Phase 3         |
+| **`holds`**                                                                       | Inventory reservation with TTL                  | **Migrate to PostgreSQL.** Hold expiration via scheduled job (already have cron infrastructure in `server/routes/games-cron.ts`).                                                                      | Phase 3         |
+| **`orders`** (commerce)                                                           | Order records with Stripe metadata              | **Consolidate with PostgreSQL `orders` table.** Merge schemas, single source of truth.                                                                                                                 | Phase 3         |
+| **`processedEvents`**                                                             | Webhook deduplication                           | **Migrate to PostgreSQL.** Simple idempotency table.                                                                                                                                                   | Phase 3         |
+| **`products/{id}/stockShards`**                                                   | Sharded stock counters                          | **Remove.** PostgreSQL `SELECT ... FOR UPDATE` on a `productStock` table eliminates need for application-level sharding. Neon handles this contention level (sub-1000 TPS checkout is not a hot-path). | Phase 3         |
+| **`gameSessions`** (Firestore)                                                    | Legacy real-time game state                     | **Deprecate.** PostgreSQL `gameSessions` table already replaces this (schema comment confirms). Remove Firestore rules.                                                                                | Phase 1         |
+| **`signups`**                                                                     | Beta email collection                           | **Deprecate.** Legacy pre-launch collection. Export data, drop collection.                                                                                                                             | Phase 1         |
+| **`mail`**, **`mailList`**, **`subscriptions`**                                   | Legacy email/subscription docs                  | **Deprecate.** Already server-only (`allow read, write: if false`). Remove rules.                                                                                                                      | Phase 1         |
+| **`moderation_users`**, **`reports`**, **`mod_actions`**, **`moderation_quotas`** | Moderation data                                 | **Migrate to PostgreSQL** `moderation` schema (if not already there). Server-only data with no real-time client need.                                                                                  | Phase 1         |
 
 ### Summary
 
-| Disposition | Count | Collections |
-|-------------|-------|-------------|
-| **Keep (no change)** | 7 | `users`, `presence`, `chatMessages`, `activeCheckins`, `notifications`, `leaderboardLive`, `challengeVotes` |
-| **Migrate to PostgreSQL** | 8 | `games` (remote), `rounds`, `videos`, `challenges` (remote), `products`, `holds`, `orders`, `processedEvents` |
-| **Deprecate/Remove** | 6 | `gameSessions` (Firestore), `signups`, `mail`, `mailList`, `subscriptions`, `stockShards` |
+| Disposition               | Count | Collections                                                                                                   |
+| ------------------------- | ----- | ------------------------------------------------------------------------------------------------------------- |
+| **Keep (no change)**      | 7     | `users`, `presence`, `chatMessages`, `activeCheckins`, `notifications`, `leaderboardLive`, `challengeVotes`   |
+| **Migrate to PostgreSQL** | 8     | `games` (remote), `rounds`, `videos`, `challenges` (remote), `products`, `holds`, `orders`, `processedEvents` |
+| **Deprecate/Remove**      | 6     | `gameSessions` (Firestore), `signups`, `mail`, `mailList`, `subscriptions`, `stockShards`                     |
 
 ---
 
@@ -104,6 +104,7 @@ The Firestore commerce system is the more sophisticated version (sharded counter
    - Client reads from Firestore for live updates (no change to UX)
 
 **Deliverables:**
+
 - [ ] Firestore rules trimmed from 536 lines → ~400 lines
 - [ ] Zero orphaned collections
 - [ ] `challenges` table unified across game modes
@@ -115,6 +116,7 @@ The Firestore commerce system is the more sophisticated version (sharded counter
 **Goal:** PostgreSQL becomes the source of truth for all S.K.A.T.E. game data across both modes. Firestore retains only the active-game projection for real-time subscriptions.
 
 1. **Create PostgreSQL tables for Remote S.K.A.T.E.**
+
    ```sql
    -- Remote S.K.A.T.E. games (mirrors Firestore games collection)
    CREATE TABLE remote_skate_games (
@@ -159,7 +161,7 @@ The Firestore commerce system is the more sophisticated version (sharded counter
    ```
 
 2. **Implement write-through in `server/routes/remoteSkate.ts`**
-   - Every Firestore transaction in `resolve` and `confirm` endpoints gets a corresponding PostgreSQL write *first*
+   - Every Firestore transaction in `resolve` and `confirm` endpoints gets a corresponding PostgreSQL write _first_
    - Pattern: `BEGIN → PostgreSQL write → COMMIT → Firestore projection update`
    - If Firestore projection fails, PostgreSQL still has the truth (eventually-consistent sync catches up)
 
@@ -177,6 +179,7 @@ The Firestore commerce system is the more sophisticated version (sharded counter
    - Leaderboard computation uses PostgreSQL, projects to `leaderboardLive` in Firestore
 
 **Deliverables:**
+
 - [ ] All Remote S.K.A.T.E. game results queryable in PostgreSQL
 - [ ] Cross-mode leaderboard and analytics
 - [ ] Firestore `games` collection becomes a projection (not source of truth)
@@ -189,6 +192,7 @@ The Firestore commerce system is the more sophisticated version (sharded counter
 **Goal:** Single commerce system in PostgreSQL. Cloud Functions move to Express API routes.
 
 1. **Extend PostgreSQL `products` table**
+
    ```sql
    ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 0;
    ALTER TABLE products ADD COLUMN max_per_user INTEGER;
@@ -197,6 +201,7 @@ The Firestore commerce system is the more sophisticated version (sharded counter
    ```
 
 2. **Create `product_holds` table**
+
    ```sql
    CREATE TABLE product_holds (
      id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -223,6 +228,7 @@ The Firestore commerce system is the more sophisticated version (sharded counter
    - Hold expiration via existing cron infrastructure
 
 5. **Extend PostgreSQL `orders` table** to include shipping, tax, and Stripe fields from Firestore schema
+
    ```sql
    ALTER TABLE orders ADD COLUMN shipping_address JSONB;
    ALTER TABLE orders ADD COLUMN subtotal_cents INTEGER;
@@ -234,6 +240,7 @@ The Firestore commerce system is the more sophisticated version (sharded counter
    ```
 
 6. **Create `processed_webhook_events` table** for Stripe idempotency
+
    ```sql
    CREATE TABLE processed_webhook_events (
      event_id VARCHAR(255) PRIMARY KEY,
@@ -247,6 +254,7 @@ The Firestore commerce system is the more sophisticated version (sharded counter
    - Single Express-based commerce API
 
 **Deliverables:**
+
 - [ ] Zero Firestore commerce collections
 - [ ] All orders, products, holds in PostgreSQL
 - [ ] Cloud Functions reduced to auth/RBAC concerns only
@@ -258,25 +266,25 @@ The Firestore commerce system is the more sophisticated version (sharded counter
 
 These collections have legitimate real-time or ephemeral characteristics that Firestore handles well and PostgreSQL doesn't need to own:
 
-| Collection | Reason |
-|------------|--------|
-| `presence` | Inherently ephemeral — no historical value, needs real-time push |
-| `chatMessages` | AI chat history — ephemeral, no analytics need, real-time display |
-| `activeCheckins` | Temporary state — expires on checkout, real-time map overlay |
-| `users` | **Projection only** — read-optimized subset of PostgreSQL `userProfiles` for client subscriptions |
-| `notifications` | **Projection only** — server-generated, real-time delivery to client |
-| `leaderboardLive` | **Projection only** — computed from PostgreSQL, pushed for real-time display |
-| `challengeVotes` | **Projection only** — mirrors PostgreSQL votes for live tallies |
+| Collection        | Reason                                                                                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `presence`        | Inherently ephemeral — no historical value, needs real-time push                                                    |
+| `chatMessages`    | AI chat history — ephemeral, no analytics need, real-time display                                                   |
+| `activeCheckins`  | Temporary state — expires on checkout, real-time map overlay                                                        |
+| `users`           | **Projection only** — read-optimized subset of PostgreSQL `userProfiles` for client subscriptions                   |
+| `notifications`   | **Projection only** — server-generated, real-time delivery to client                                                |
+| `leaderboardLive` | **Projection only** — computed from PostgreSQL, pushed for real-time display                                        |
+| `challengeVotes`  | **Projection only** — mirrors PostgreSQL votes for live tallies                                                     |
 | Active game state | **Projection only** — Firestore retains the real-time view of active games (after Phase 2, not the source of truth) |
 
 ### Firebase Services That Remain
 
-| Service | Role | Consolidation Impact |
-|---------|------|---------------------|
-| **Firebase Auth** | Identity provider | No change. Handles OAuth, MFA, phone auth. |
-| **Firebase Storage** | Video/image blob store | No change. PostgreSQL stores metadata; Storage stores files. |
-| **FCM** | Push notifications | No change. |
-| **Cloud Functions** | After Phase 3, reduced to: auth triggers (custom claims), App Check enforcement | Commerce and game logic moves to Express. |
+| Service              | Role                                                                            | Consolidation Impact                                         |
+| -------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **Firebase Auth**    | Identity provider                                                               | No change. Handles OAuth, MFA, phone auth.                   |
+| **Firebase Storage** | Video/image blob store                                                          | No change. PostgreSQL stores metadata; Storage stores files. |
+| **FCM**              | Push notifications                                                              | No change.                                                   |
+| **Cloud Functions**  | After Phase 3, reduced to: auth triggers (custom claims), App Check enforcement | Commerce and game logic moves to Express.                    |
 
 ---
 
@@ -306,12 +314,12 @@ Each phase uses a **write-through transition period**:
 
 ## Cost Impact
 
-| Phase | Firestore Cost Change | PostgreSQL Cost Change | Net |
-|-------|----------------------|----------------------|-----|
-| Phase 1 (cleanup) | -$5/mo (fewer stored docs) | $0 | -$5/mo |
-| Phase 2 (games) | -$15-30/mo (fewer writes, reads shift to projection-only) | +$5/mo (more rows) | -$10-25/mo |
-| Phase 3 (commerce) | -$20-40/mo (remove commerce collections + Cloud Functions invocations) | +$5/mo | -$15-35/mo |
-| **Total** | **-$40-75/mo** | **+$10/mo** | **-$30-65/mo** |
+| Phase              | Firestore Cost Change                                                  | PostgreSQL Cost Change | Net            |
+| ------------------ | ---------------------------------------------------------------------- | ---------------------- | -------------- |
+| Phase 1 (cleanup)  | -$5/mo (fewer stored docs)                                             | $0                     | -$5/mo         |
+| Phase 2 (games)    | -$15-30/mo (fewer writes, reads shift to projection-only)              | +$5/mo (more rows)     | -$10-25/mo     |
+| Phase 3 (commerce) | -$20-40/mo (remove commerce collections + Cloud Functions invocations) | +$5/mo                 | -$15-35/mo     |
+| **Total**          | **-$40-75/mo**                                                         | **+$10/mo**            | **-$30-65/mo** |
 
 Cloud Functions invocation costs also decrease as game and commerce logic moves to the Express server (already running, no per-invocation charge).
 
@@ -319,12 +327,12 @@ Cloud Functions invocation costs also decrease as game and commerce logic moves 
 
 ## Decision Log
 
-| Date | Decision | Rationale |
-|------|----------|-----------|
-| 2026-02-24 | Hybrid architecture is intentional, not accidental | PostgreSQL for relational data, Firestore for real-time. Each store plays to its strengths. |
-| 2026-02-24 | Consolidate Remote S.K.A.T.E. to PostgreSQL | Game results are core business data. Must be SQL-queryable for analytics, leaderboards, and cross-mode stats. |
-| 2026-02-24 | Consolidate commerce to PostgreSQL | ACID transactions with `FOR UPDATE` are simpler and more correct than Firestore sharded counters at our scale. |
-| 2026-02-24 | Keep presence, chat, active checkins in Firestore | Ephemeral data with real-time requirements. No analytical or relational value. |
+| Date       | Decision                                                 | Rationale                                                                                                                                |
+| ---------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-02-24 | Hybrid architecture is intentional, not accidental       | PostgreSQL for relational data, Firestore for real-time. Each store plays to its strengths.                                              |
+| 2026-02-24 | Consolidate Remote S.K.A.T.E. to PostgreSQL              | Game results are core business data. Must be SQL-queryable for analytics, leaderboards, and cross-mode stats.                            |
+| 2026-02-24 | Consolidate commerce to PostgreSQL                       | ACID transactions with `FOR UPDATE` are simpler and more correct than Firestore sharded counters at our scale.                           |
+| 2026-02-24 | Keep presence, chat, active checkins in Firestore        | Ephemeral data with real-time requirements. No analytical or relational value.                                                           |
 | 2026-02-24 | Firestore remains as projection layer post-consolidation | Client real-time UX depends on `onSnapshot`. We're not replacing Firestore — we're removing it as a source of truth for persistent data. |
 
 ---

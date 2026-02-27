@@ -10,7 +10,7 @@
  * - game over: Locked permanently
  */
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useSearch, useLocation } from "wouter";
 import { AlertCircle, Clock } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -85,32 +85,41 @@ export default function SkateGamePage() {
     onSuccess: () => setTrickDescription(""),
   });
 
-  const handleJudge = (result: "landed" | "missed") => {
-    if (!gameId || !pendingTurnId) return;
-    judgeTurn.mutate({ turnId: pendingTurnId, result, gameId });
-  };
+  const handleJudge = useCallback(
+    (result: "landed" | "missed") => {
+      if (!gameId || !pendingTurnId) return;
+      judgeTurn.mutate({ turnId: pendingTurnId, result, gameId });
+    },
+    [gameId, pendingTurnId, judgeTurn]
+  );
 
-  const handleDispute = (turnId: number) => {
-    if (!gameId) return;
-    fileDispute.mutate({ gameId, turnId });
-  };
+  const handleDispute = useCallback(
+    (turnId: number) => {
+      if (!gameId) return;
+      fileDispute.mutate({ gameId, turnId });
+    },
+    [gameId, fileDispute]
+  );
 
-  const handleResolveDispute = (disputeId: number, finalResult: "landed" | "missed") => {
-    if (!gameId) return;
-    resolveDispute.mutate({ disputeId, finalResult, gameId });
-  };
+  const handleResolveDispute = useCallback(
+    (disputeId: number, finalResult: "landed" | "missed") => {
+      if (!gameId) return;
+      resolveDispute.mutate({ disputeId, finalResult, gameId });
+    },
+    [gameId, resolveDispute]
+  );
 
-  const handleSetterBail = () => {
+  const handleSetterBail = useCallback(() => {
     if (!gameId) return;
     setterBailMutation.mutate(gameId);
-  };
+  }, [gameId, setterBailMutation]);
 
-  const handleForfeit = () => {
+  const handleForfeit = useCallback(() => {
     if (!gameId) return;
     forfeitGame.mutate(gameId);
-  };
+  }, [gameId, forfeitGame]);
 
-  const handleRematch = () => {
+  const handleRematch = useCallback(() => {
     if (!game) return;
     const opponentId = game.player1Id === user?.uid ? game.player2Id : game.player1Id;
     createGame.mutate(opponentId, {
@@ -118,9 +127,9 @@ export default function SkateGamePage() {
         setLocation(`/play?gameId=${data.game.id}`);
       },
     });
-  };
+  }, [game, user?.uid, createGame, setLocation]);
 
-  const handleBackToLobby = () => setLocation("/play");
+  const handleBackToLobby = useCallback(() => setLocation("/play"), [setLocation]);
 
   if (!gameId) {
     return (
@@ -149,7 +158,6 @@ export default function SkateGamePage() {
   const isPending = game.status === "pending";
   const isActive = game.status === "active";
 
-  // Find most recent BAIL'd turns that can be disputed
   const disputeableTurns =
     turns?.filter(
       (t) =>
@@ -160,7 +168,6 @@ export default function SkateGamePage() {
         !disputes?.some((d) => d.turnId === t.id)
     ) ?? [];
 
-  // Find unresolved disputes against the current user
   const pendingDisputesAgainstMe =
     disputes?.filter((d) => d.againstPlayerId === user.uid && !d.finalResult) ?? [];
 

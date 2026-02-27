@@ -9,9 +9,11 @@ This directory contains core utilities, API clients, Firebase configuration, and
 ## Directory Structure
 
 ### API (`api/`)
+
 HTTP client, error handling, and domain-specific API modules.
 
 **Files:**
+
 - `client.ts` - API request wrapper with auth, CSRF, and timeout handling
 - `errors.ts` - API error normalization and user-friendly messages
 - `client.test.ts`, `csrf.test.ts`, `errors.test.ts` - Tests
@@ -19,6 +21,7 @@ HTTP client, error handling, and domain-specific API modules.
 - `trickmint/` - TrickMint API service and types
 
 **Features:**
+
 - Automatic auth token injection
 - CSRF token management
 - Request timeout handling (default 30s)
@@ -26,16 +29,20 @@ HTTP client, error handling, and domain-specific API modules.
 - Nonce support for replay attack prevention
 
 ### Analytics (`analytics/`)
+
 Event tracking and analytics.
 
 **Files:**
+
 - `logEvent.ts` - Event logging utilities
 - `logEvent.test.ts` - Tests
 
 ### Firebase (`firebase/`)
+
 Firebase configuration and services.
 
 **Files:**
+
 - `config.ts` - Firebase app initialization
 - `auth.types.ts` - Authentication type definitions
 - `auth-errors.ts` - Firebase auth error code → user-friendly message mapper
@@ -43,23 +50,28 @@ Firebase configuration and services.
 - `index.ts` - Barrel export
 
 ### Firestore (`firestore/`)
+
 Firestore utilities and hooks.
 
 **Files:**
+
 - `hooks.ts` - Firestore React hooks
 - `listeners.ts` - Real-time Firestore listeners
 - `operations.ts` - CRUD operations
 - `index.ts` - Barrel export
 
 **Features:**
+
 - Real-time listeners
 - CRUD operations
 - Type-safe queries
 
 ### Game (`game/`)
+
 S.K.A.T.E. game service and logic.
 
 **Files:**
+
 - `GameService.ts` - SKATE game business logic
 - `gameActions.ts` - Game action dispatchers
 - `matchmaking.ts` - Game matchmaking logic
@@ -71,36 +83,45 @@ S.K.A.T.E. game service and logic.
 - `index.ts` - Barrel export
 
 ### Remote Skate (`remoteSkate/`)
+
 Remote S.K.A.T.E. game service (async turn-based battles).
 
 **Files:**
+
 - `remoteSkateService.ts` - Remote S.K.A.T.E. API and state management
 - `videoUpload.ts` - Video upload for game turns
 - `index.ts` - Barrel export
 
 ### Video (`video/`)
+
 Video processing utilities.
 
 **Files:**
+
 - `thumbnailExtractor.ts` - Client-side video thumbnail extraction
 - `thumbnailExtractor.test.ts` - Tests
 
 ### Stores (`stores/`)
+
 Zustand state management.
 
 **Files:**
+
 - `user.ts` - User profile store
 - `user.test.ts` - Store tests
 
 ### Validation (`validation/`)
+
 Input validation and sanitization.
 
 **Files:**
+
 - `betaSignup.ts` - Beta signup validation
 - `sanitize.ts` - Input sanitization utilities (XSS prevention)
 - `sanitize.test.ts` - Sanitization tests
 
 **Available Sanitizers:**
+
 - `sanitizeHTML()` - Escape HTML entities
 - `sanitizeUsername()` - Validate/clean usernames
 - `sanitizeDisplayName()` - Clean display names
@@ -129,14 +150,18 @@ Input validation and sanitization.
 ## Key Features
 
 ### Retry Logic
+
 React Query, configured in `queryClient.ts`, provides intelligent retry logic for API requests:
+
 - Retries network errors and 5xx server errors
 - Does NOT retry client errors (4xx)
 - Exponential backoff (1s, 2s, 4s)
 - Special handling for rate limits (longer delays)
 
 ### Error Handling
+
 Normalized error codes:
+
 - `RATE_LIMIT` - Rate limiting (429)
 - `REPLAY_DETECTED` - Nonce replay attack
 - `QUOTA_EXCEEDED` - Quota exceeded
@@ -146,6 +171,7 @@ Normalized error codes:
 - `UNKNOWN` - Other errors
 
 ### Security Features
+
 - **CSRF Protection** - Automatic CSRF token handling
 - **Input Sanitization** - XSS prevention utilities
 - **Nonce Support** - Replay attack prevention

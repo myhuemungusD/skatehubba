@@ -306,11 +306,7 @@ export const SpotMap = memo(function SpotMap({
   }, [visibleSpots]);
 
   return (
-    <div
-      role="region"
-      aria-label="Interactive skate spots map"
-      className="relative w-full h-full"
-    >
+    <div role="region" aria-label="Interactive skate spots map" className="relative w-full h-full">
       <div
         ref={mapContainerRef}
         className="w-full h-full bg-gray-900"
