@@ -71,6 +71,9 @@ describe("analytics batch — all invalid events (line 158)", () => {
         internal: (res: any, code: string, msg: string) => res.status(500).json({ error: code }),
       },
     }));
+    vi.doMock("../../middleware/security", () => ({
+      analyticsIngestLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+    }));
 
     const routeHandlers: Record<string, any[]> = {};
     vi.doMock("express", () => ({
@@ -873,6 +876,10 @@ describe("remoteSkate — error mapping branches (lines 129-131)", () => {
           error: vi.fn(),
           debug: vi.fn(),
         })),
+      }));
+
+      vi.doMock("../../middleware/security", () => ({
+        remoteSkateLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
       }));
 
       const routeHandlers: Record<string, any[]> = {};

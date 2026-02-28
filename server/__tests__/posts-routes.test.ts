@@ -24,6 +24,10 @@ vi.mock("../middleware/trustSafety", () => ({
   enforceTrustAction: vi.fn(() => (_r: any, _s: any, n: any) => n()),
 }));
 
+vi.mock("../middleware/security", () => ({
+  postCreateLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
+
 // Capture route handlers via mock Router
 const routeHandlers: Record<string, any[]> = {};
 
