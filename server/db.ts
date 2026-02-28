@@ -1,20 +1,21 @@
-import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
-import pg from "pg";
+import { Pool, neonConfig } from "@neondatabase/serverless";
+import { drizzle, NeonDatabase } from "drizzle-orm/neon-serverless";
 import * as schema from "../packages/shared/schema/index";
 import { eq } from "drizzle-orm";
 import { env } from "./config/env";
 import logger from "./logger";
 import { defaultSpots } from "./seeds/defaultSpots";
 
-const { Pool } = pg;
+// Node 24 ships a built-in WebSocket global — no extra `ws` dependency needed
+neonConfig.webSocketConstructor = WebSocket;
 
 // Properly typed Drizzle database instance
 type DatabaseSchema = typeof schema;
-type Database = NodePgDatabase<DatabaseSchema>;
+type Database = NeonDatabase<DatabaseSchema>;
 
 // Database instance - will be null if not configured
 let db: Database | null = null;
-let pool: pg.Pool | null = null;
+let pool: Pool | null = null;
 
 try {
   if (env.DATABASE_URL && env.DATABASE_URL !== "postgresql://dummy:dummy@localhost:5432/dummy") {
@@ -26,14 +27,14 @@ try {
     });
 
     // Prevent unhandled rejections from idle clients disconnecting
-    pool.on("error", (err) => {
+    pool.on("error", (err: Error) => {
       logger.error("Unexpected error on idle database client", {
-        error: err instanceof Error ? err.message : String(err),
+        error: err.message,
       });
     });
 
     // Apply connection-level settings (e.g. statement_timeout) to every new connection
-    pool.on("connect", (client) => {
+    pool.on("connect", (client: { query: (sql: string) => Promise<unknown> }) => {
       client
         .query(`SET statement_timeout = '${env.DB_STATEMENT_TIMEOUT_MS}'`)
         .catch((err: unknown) => {
@@ -44,7 +45,7 @@ try {
     });
 
     db = drizzle(pool, { schema });
-    logger.info("Database connection pool created", {
+    logger.info("Neon serverless database pool created", {
       max: env.DB_POOL_MAX,
       idleTimeoutMillis: env.DB_POOL_IDLE_TIMEOUT_MS,
       connectionTimeoutMillis: env.DB_POOL_CONNECTION_TIMEOUT_MS,

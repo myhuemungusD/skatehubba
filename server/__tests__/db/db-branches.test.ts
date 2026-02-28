@@ -13,14 +13,13 @@ describe("db.ts — Pool constructor error (line 27)", () => {
   });
 
   it("sets db/pool to null when Pool constructor throws", async () => {
-    vi.doMock("pg", () => ({
-      default: {
-        Pool: vi.fn(() => {
-          throw new Error("Connection refused");
-        }),
-      },
+    vi.doMock("@neondatabase/serverless", () => ({
+      Pool: vi.fn(() => {
+        throw new Error("Connection refused");
+      }),
+      neonConfig: {},
     }));
-    vi.doMock("drizzle-orm/node-postgres", () => ({
+    vi.doMock("drizzle-orm/neon-serverless", () => ({
       drizzle: vi.fn(() => ({})),
     }));
     vi.doMock("../../config/env", () => ({
@@ -77,11 +76,11 @@ describe("db.ts — initializeDatabase production error rethrow (line 156-160)",
     });
     const fakeDb = { select: mockSelectFn, insert: mockInsertFn };
 
-    vi.doMock("pg", () => {
+    vi.doMock("@neondatabase/serverless", () => {
       const MockPool = vi.fn(() => ({}));
-      return { default: { Pool: MockPool }, Pool: MockPool };
+      return { Pool: MockPool, neonConfig: {} };
     });
-    vi.doMock("drizzle-orm/node-postgres", () => ({
+    vi.doMock("drizzle-orm/neon-serverless", () => ({
       drizzle: vi.fn(() => fakeDb),
     }));
     vi.doMock("../../config/env", () => ({

@@ -86,13 +86,13 @@ e2e/         Playwright E2E tests
 
 ### Prerequisites
 
-- Node.js 20+ (`.nvmrc` included)
+- Node.js 24+ (`.nvmrc` included)
 - pnpm 10+ (enforced — `npm install` and `yarn` will fail)
 
 ### Install
 
 ```bash
-# Prerequisites: Node.js 20+, pnpm 10+
+# Prerequisites: Node.js 24+, pnpm 10+
 pnpm install
 ```
 

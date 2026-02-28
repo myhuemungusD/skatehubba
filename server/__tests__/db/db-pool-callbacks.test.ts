@@ -9,7 +9,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // We need to capture the pool.on handlers registered by db.ts module-level code.
-// db.ts imports pg as default import and destructures { Pool } from it,
+// db.ts imports { Pool, neonConfig } from @neondatabase/serverless,
 // then calls new Pool(...) and pool.on("error", ...) / pool.on("connect", ...).
 
 /**
@@ -20,7 +20,7 @@ function setupDbMocks() {
   const eventHandlers: Record<string, (...args: any[]) => void> = {};
   const mockLogger = { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() };
 
-  vi.doMock("pg", () => {
+  vi.doMock("@neondatabase/serverless", () => {
     const poolInstance = {
       on: (event: string, handler: any) => {
         eventHandlers[event] = handler;
@@ -28,14 +28,13 @@ function setupDbMocks() {
       },
     };
     return {
-      default: {
-        Pool: function () {
-          return poolInstance;
-        },
+      Pool: function () {
+        return poolInstance;
       },
+      neonConfig: {},
     };
   });
-  vi.doMock("drizzle-orm/node-postgres", () => ({
+  vi.doMock("drizzle-orm/neon-serverless", () => ({
     drizzle: vi.fn(() => ({ _db: true })),
   }));
   vi.doMock("../../config/env", () => ({
