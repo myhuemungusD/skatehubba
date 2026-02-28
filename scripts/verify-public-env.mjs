@@ -13,8 +13,13 @@ const OPTIONAL_KEYS = ["FIREBASE_MEASUREMENT_ID"];
 
 const isProd = process.env.NODE_ENV === "production";
 const isVercel = process.env.VERCEL === "1";
+const vercelEnv = process.env.VERCEL_ENV || "unknown";
 const allowMissing = process.env.ALLOW_MISSING_PUBLIC_ENV === "true";
-const strict = (isVercel || isProd) && !allowMissing;
+// Preview/development deploys should warn but NOT fail the build — the env
+// vars are often only configured for the production environment.  Failing
+// preview deploys blocks PR checks and redeploy-from-dashboard flows.
+const isProductionDeploy = vercelEnv === "production";
+const strict = isProductionDeploy && !allowMissing;
 
 /**
  * Resolve a key by checking EXPO_PUBLIC_ first, then VITE_ fallback.
@@ -74,15 +79,14 @@ console.log(`  NODE_ENV:   ${process.env.NODE_ENV || "(not set)"}`);
 console.log(`  strict:     ${strict}  (allowMissing=${allowMissing})`);
 
 if (isVercel) {
-  const vercelEnv = process.env.VERCEL_ENV || "unknown";
   console.log("");
   console.log(`  Vercel is building for the "${vercelEnv}" environment.`);
   if (vercelEnv === "preview") {
     console.log("");
-    console.log("  *** IMPORTANT: PR/branch deploys use the \"preview\" environment. ***");
-    console.log("  Vars set for \"Production\" ONLY will NOT be available here.");
-    console.log("  In Vercel → Project → Settings → Environment Variables,");
-    console.log("  ensure each var has the \"Preview\" checkbox enabled.");
+    console.log("  Preview deploys run in non-strict mode — missing public vars");
+    console.log("  will produce a warning but will NOT fail the build.");
+    console.log("  To supply them, enable the \"Preview\" checkbox in");
+    console.log("  Vercel → Project → Settings → Environment Variables.");
   } else if (vercelEnv === "production") {
     console.log("  Ensure each var has the \"Production\" checkbox enabled in Vercel.");
   }
@@ -132,8 +136,13 @@ if (missing.length > 0) {
     }
     process.exit(1);
   } else {
+    const reason = vercelEnv === "preview"
+      ? `preview environment ("${vercelEnv}")`
+      : allowMissing
+        ? "ALLOW_MISSING_PUBLIC_ENV=true"
+        : "non-production build";
     console.warn(
-      "⚠️  Non-strict mode: continuing despite missing vars. Build may fail at runtime.\n"
+      `⚠️  Skipping strict check (${reason}): continuing despite missing vars. Build may fail at runtime.\n`
     );
     // Still print server-var diagnostics when running on Vercel — the server
     // function needs these vars regardless of whether the client-side check is
