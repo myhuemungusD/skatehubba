@@ -132,7 +132,7 @@ if (missing.length > 0) {
     }
     process.exit(1);
   } else {
-    console.warn(
+    console.error(
       "⚠️  Non-strict mode: continuing despite missing vars. Build may fail at runtime.\n"
     );
     // Still print server-var diagnostics when running on Vercel — the server
@@ -205,7 +205,7 @@ function printServerVarChecklist() {
   }
 
   if (!firebaseAdminOk) {
-    console.warn(`
+    console.error(`
   ⚠️  Firebase Admin credentials not configured.
      Auth token verification will fail — users cannot log in or create profiles.
      Option A (recommended): Set FIREBASE_ADMIN_KEY to the full service account JSON.
