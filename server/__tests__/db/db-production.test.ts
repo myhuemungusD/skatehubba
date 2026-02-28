@@ -39,15 +39,14 @@ vi.mock("../../../packages/shared/schema/index", () => ({
   spots: { _table: "spots" },
 }));
 
-// pg uses `new Pool()` so we need a class, not a plain function
-vi.mock("pg", () => {
+vi.mock("@neondatabase/serverless", () => {
   class MockPool {
     connect = vi.fn();
     end = vi.fn();
     query = vi.fn();
     on = vi.fn();
   }
-  return { default: { Pool: MockPool } };
+  return { Pool: MockPool, neonConfig: {} };
 });
 
 vi.mock("../../config/env", () => ({
@@ -61,7 +60,7 @@ vi.mock("../../config/env", () => ({
   },
 }));
 
-vi.mock("drizzle-orm/node-postgres", () => ({
+vi.mock("drizzle-orm/neon-serverless", () => ({
   drizzle: vi.fn().mockReturnValue(fakeDb),
 }));
 

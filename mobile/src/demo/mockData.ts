@@ -403,8 +403,8 @@ export const DEMO_SPOTS = [
     id: "spot-3",
     name: "Stoner Plaza",
     description: "West LA ledge paradise with perfect marble",
-    lat: 34.0350,
-    lng: -118.4640,
+    lat: 34.035,
+    lng: -118.464,
     tier: "gold" as const,
   },
   {
@@ -412,7 +412,7 @@ export const DEMO_SPOTS = [
     name: "FDR Skatepark",
     description: "DIY concrete bowl under a highway bridge",
     lat: 39.9263,
-    lng: -75.1830,
+    lng: -75.183,
     tier: "silver" as const,
   },
   {

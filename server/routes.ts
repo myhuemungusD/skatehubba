@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { setupAuthRoutes } from "./auth/routes";
-import { authenticateUser } from "./auth/middleware";
+import { authenticateUser, requireAdmin } from "./auth/middleware";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
+import { emailSignupLimiter, profileReadLimiter, remoteSkateLimiter } from "./middleware/security";
 import { bandwidthDetection } from "./middleware/bandwidth";
 import { analyticsRouter } from "./routes/analytics";
 import { metricsRouter } from "./routes/metrics";
@@ -26,11 +27,11 @@ export function registerRoutes(app: Express): void {
   setupAuthRoutes(app);
 
   app.use("/api/analytics", analyticsRouter);
-  app.use("/api/metrics", metricsRouter);
+  app.use("/api/metrics", authenticateUser, requireAdmin, metricsRouter);
   app.use("/api", moderationRouter);
   app.use("/api/admin", adminRouter);
-  app.use("/api/profile", profileRouter);
-  app.use("/api/games", authenticateUser, requirePaidOrPro, gamesRouter);
+  app.use("/api/profile", profileReadLimiter, profileRouter);
+  app.use("/api/games", authenticateUser, gamesRouter);
   app.use(
     "/api/trickmint",
     authenticateUser,
@@ -41,12 +42,12 @@ export function registerRoutes(app: Express): void {
   app.use("/api/tier", tierRouter);
   app.use("/webhooks/stripe", stripeWebhookRouter);
   app.use("/api/notifications", notificationsRouter);
-  app.use("/api/remote-skate", remoteSkateRouter);
+  app.use("/api/remote-skate", remoteSkateLimiter, remoteSkateRouter);
   app.use("/api/spots", spotsRouter);
   app.use("/api/posts", postsRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/matchmaking", matchmakingRouter);
-  app.use("/api/beta-signup", betaSignupRouter);
+  app.use("/api/beta-signup", emailSignupLimiter, betaSignupRouter);
   app.use("/api/stats", statsRouter);
   app.use("/api/cron", cronRouter);
 }

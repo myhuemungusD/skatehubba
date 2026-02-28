@@ -94,7 +94,7 @@ export function assertEnvWiring(): void {
   }
 
   // Log successful validation
-  // eslint-disable-next-line no-console
+  // eslint-disable-next-line no-console -- startup diagnostic confirming env wiring passed; this shared config package has no structured logger dependency to avoid circular imports
   console.log(`✅ Environment wiring validated: ${env}`);
 }
 

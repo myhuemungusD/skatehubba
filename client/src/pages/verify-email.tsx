@@ -44,10 +44,8 @@ export default function VerifyEmailPage() {
 
     async function verifyToken() {
       try {
-        const csrfToken = document.cookie
-          .split("; ")
-          .find((row) => row.startsWith("csrfToken="))
-          ?.split("=")[1];
+        const csrfMatch = document.cookie.match(/(?:^|;\s*)csrfToken=([^;]*)/);
+        const csrfToken = csrfMatch?.[1] ? decodeURIComponent(csrfMatch[1]) : undefined;
 
         const response = await fetch(buildApiUrl("/api/auth/verify-email"), {
           method: "POST",

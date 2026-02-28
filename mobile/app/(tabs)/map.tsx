@@ -1,9 +1,9 @@
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ActivityIndicator, FlatList } from "react-native";
+import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Spot } from "@/types";
 import * as Location from "expo-location";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -12,6 +12,10 @@ import { AddSpotModal } from "@/components/AddSpotModal";
 import { MapSkeleton } from "@/components/common/Skeleton";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 import { isExpoGo } from "@/lib/isExpoGo";
+import { getTierColor } from "@/lib/getTierColor";
+import { SpotDetailModal } from "@/components/map/SpotDetailModal";
+import { SpotListFallback } from "@/components/map/SpotListFallback";
+import { MapLegend } from "@/components/map/MapLegend";
 
 // Minimal prop types for conditionally-loaded native map components
 interface NativeMapViewProps {
@@ -42,13 +46,28 @@ let MapView: React.ComponentType<NativeMapViewProps> | null = null;
 let Marker: React.ComponentType<NativeMarkerProps> | null = null;
 if (!isExpoGo) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require needed for conditional native module loading; static import would crash Expo Go since the native module is unavailable there
     const maps = require("react-native-maps");
     MapView = maps.default;
     Marker = maps.Marker;
   } catch {
     // Native module not available
   }
+}
+
+/** Haversine distance in meters between two lat/lng points. */
+function calculateDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371; // Earth's radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c * 1000;
 }
 
 function MapScreenContent() {
@@ -59,11 +78,20 @@ function MapScreenContent() {
 
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") return;
 
-      const location = await Location.getCurrentPositionAsync({});
-      setLocation(location);
+        const loc = await Location.getCurrentPositionAsync({});
+        setLocation(loc);
+      } catch {
+        showMessage({
+          message: "Location Unavailable",
+          description: "Could not determine your location. Check-in requires location.",
+          type: "warning",
+          duration: 3000,
+        });
+      }
     })();
   }, []);
 
@@ -73,89 +101,91 @@ function MapScreenContent() {
     enabled: isAuthenticated,
   });
 
-  const handleAddSpot = () => {
+  const handleAddSpot = useCallback(() => {
     if (!checkAuth({ message: "Sign in to add spots" })) return;
     setShowAddSpotModal(true);
-  };
+  }, [checkAuth]);
 
-  const handleCheckIn = async (spot: Spot) => {
-    if (!checkAuth({ message: "Sign in to check in" })) return;
+  const handleCheckIn = useCallback(
+    async (spot: Spot) => {
+      if (!checkAuth({ message: "Sign in to check in" })) return;
 
-    if (!location) {
-      showMessage({
-        message: "Location Required",
-        description: "Turn on location services to verify your check-in.",
-        type: "warning",
-        duration: 2000,
-      });
-      return;
-    }
-
-    // Calculate distance to spot (Haversine formula)
-    const calculateDistance = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-      const R = 6371; // Earth's radius in km
-      const dLat = ((lat2 - lat1) * Math.PI) / 180;
-      const dLng = ((lng2 - lng1) * Math.PI) / 180;
-      const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos((lat1 * Math.PI) / 180) *
-          Math.cos((lat2 * Math.PI) / 180) *
-          Math.sin(dLng / 2) *
-          Math.sin(dLng / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c * 1000; // distance in meters
-    };
-
-    const distance = calculateDistance(
-      location.coords.latitude,
-      location.coords.longitude,
-      spot.lat,
-      spot.lng
-    );
-
-    // Check if user is within 100 meters of the spot
-    if (distance > 100) {
-      showMessage({
-        message: "Too Far Away",
-        description: `You need to be within 100m of ${spot.name} to check in. You're ${Math.round(distance)}m away.`,
-        type: "warning",
-        duration: 3000,
-      });
-      return;
-    }
-
-    try {
-      const nonce = crypto.randomUUID();
-      const data = await apiRequest<{ success: boolean; message?: string }>("/api/spots/check-in", {
-        method: "POST",
-        body: JSON.stringify({
-          spotId: spot.id,
-          lat: location.coords.latitude,
-          lng: location.coords.longitude,
-          accuracy: location.coords.accuracy,
-          nonce,
-        }),
-      });
-
-      if (data.success) {
+      if (!location) {
         showMessage({
-          message: "✅ Check-in Confirmed!",
-          description: `You're now checked in at ${spot.name}`,
-          type: "success",
+          message: "Location Required",
+          description: "Turn on location services to verify your check-in.",
+          type: "warning",
           duration: 2000,
         });
-      } else {
-        throw new Error(data.message || "Check-in failed");
+        return;
       }
-    } catch (error) {
-      showMessage({
-        message: "Check-in Failed",
-        description: error instanceof Error ? error.message : "Unable to check in right now.",
-        type: "danger",
-        duration: 2000,
-      });
-    }
-  };
+
+      const distance = calculateDistance(
+        location.coords.latitude,
+        location.coords.longitude,
+        spot.lat,
+        spot.lng
+      );
+
+      if (distance > 100) {
+        showMessage({
+          message: "Too Far Away",
+          description: `You need to be within 100m of ${spot.name} to check in. You're ${Math.round(distance)}m away.`,
+          type: "warning",
+          duration: 3000,
+        });
+        return;
+      }
+
+      try {
+        const nonce = crypto.randomUUID();
+        const data = await apiRequest<{ success: boolean; message?: string }>(
+          "/api/spots/check-in",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              spotId: spot.id,
+              lat: location.coords.latitude,
+              lng: location.coords.longitude,
+              accuracy: location.coords.accuracy,
+              nonce,
+            }),
+          }
+        );
+
+        if (data.success) {
+          showMessage({
+            message: "Check-in Confirmed!",
+            description: `You're now checked in at ${spot.name}`,
+            type: "success",
+            duration: 2000,
+          });
+        } else {
+          throw new Error(data.message || "Check-in failed");
+        }
+      } catch (error) {
+        showMessage({
+          message: "Check-in Failed",
+          description: error instanceof Error ? error.message : "Unable to check in right now.",
+          type: "danger",
+          duration: 2000,
+        });
+      }
+    },
+    [checkAuth, location]
+  );
+
+  const handleSelectSpot = useCallback((spot: Spot) => {
+    setSelectedSpot(spot);
+  }, []);
+
+  const handleCloseSpotDetail = useCallback(() => {
+    setSelectedSpot(null);
+  }, []);
+
+  const handleCloseAddSpot = useCallback(() => {
+    setShowAddSpotModal(false);
+  }, []);
 
   // Unauthenticated users are redirected to sign-in by the root layout guard.
   if (!isAuthenticated) {
@@ -166,121 +196,35 @@ function MapScreenContent() {
     );
   }
 
+  const userLocation = location
+    ? {
+        lat: location.coords.latitude,
+        lng: location.coords.longitude,
+        accuracy: location.coords.accuracy ?? undefined,
+      }
+    : null;
+
   // Expo Go fallback: show spots as a list instead of a native map
   if (!MapView || !Marker) {
     return (
       <View testID="map-screen" style={styles.container}>
-        <View style={styles.expoGoBanner}>
-          <Ionicons name="information-circle" size={20} color={SKATE.colors.orange} />
-          <Text style={styles.expoGoBannerText}>
-            Map view requires a dev build. Showing spots as a list.
-          </Text>
-        </View>
+        <SpotListFallback
+          spots={spots}
+          isLoading={isLoading}
+          onAddSpot={handleAddSpot}
+          onSelectSpot={handleSelectSpot}
+        />
 
-        {/* Add Spot FAB */}
-        <TouchableOpacity
-          testID="map-add-spot"
-          style={styles.expoGoAddButton}
-          onPress={handleAddSpot}
-          accessibilityLabel="Add new skate spot"
-        >
-          <Ionicons name="add" size={20} color={SKATE.colors.white} />
-          <Text style={styles.expoGoAddButtonText}>Add Spot</Text>
-        </TouchableOpacity>
+        <SpotDetailModal
+          spot={selectedSpot}
+          onClose={handleCloseSpotDetail}
+          onCheckIn={handleCheckIn}
+        />
 
-        {isLoading ? (
-          <MapSkeleton />
-        ) : (
-          <FlatList
-            data={spots ?? []}
-            keyExtractor={(item) => String(item.id)}
-            contentContainerStyle={styles.spotList}
-            ListEmptyComponent={
-              <Text style={styles.emptyText}>No spots yet. Be the first to add one!</Text>
-            }
-            renderItem={({ item: spot }) => (
-              <TouchableOpacity
-                style={styles.spotCard}
-                onPress={() => setSelectedSpot(spot)}
-              >
-                <View style={[styles.legendDot, { backgroundColor: getTierColor(spot.tier) }]} />
-                <View style={styles.spotCardContent}>
-                  <Text style={styles.spotCardName}>{spot.name}</Text>
-                  {spot.description ? (
-                    <Text style={styles.spotCardDesc} numberOfLines={1}>
-                      {spot.description}
-                    </Text>
-                  ) : null}
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
-              </TouchableOpacity>
-            )}
-          />
-        )}
-
-        {/* Spot Detail Modal */}
-        {selectedSpot && (
-          <Modal
-            visible={!!selectedSpot}
-            transparent
-            animationType="slide"
-            onRequestClose={() => setSelectedSpot(null)}
-          >
-            <View style={styles.modalOverlay}>
-              <View style={styles.modalContent}>
-                <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedSpot(null)}>
-                  <Ionicons name="close" size={24} color={SKATE.colors.white} />
-                </TouchableOpacity>
-
-                <Text testID="map-spot-title" style={styles.modalTitle}>
-                  {selectedSpot.name}
-                </Text>
-                <Text style={styles.modalDescription}>{selectedSpot.description ?? ""}</Text>
-
-                <View style={styles.modalDifficulty}>
-                  <View
-                    style={[
-                      styles.legendDot,
-                      { backgroundColor: getTierColor(selectedSpot.tier) },
-                    ]}
-                  />
-                  <Text style={styles.modalDifficultyText}>
-                    {(() => {
-                      const tierValue = selectedSpot.tier ?? "bronze";
-                      return tierValue.charAt(0).toUpperCase() + tierValue.slice(1);
-                    })()}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  testID="map-check-in"
-                  style={styles.checkInButton}
-                  onPress={() => {
-                    handleCheckIn(selectedSpot);
-                    setSelectedSpot(null);
-                  }}
-                >
-                  <Ionicons name="location" size={20} color={SKATE.colors.white} />
-                  <Text style={styles.checkInButtonText}>Check In Here</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
-        )}
-
-        {/* Add Spot Modal */}
         <AddSpotModal
           isOpen={showAddSpotModal}
-          onClose={() => setShowAddSpotModal(false)}
-          userLocation={
-            location
-              ? {
-                  lat: location.coords.latitude,
-                  lng: location.coords.longitude,
-                  accuracy: location.coords.accuracy ?? undefined,
-                }
-              : null
-          }
+          onClose={handleCloseAddSpot}
+          userLocation={userLocation}
         />
       </View>
     );
@@ -320,7 +264,7 @@ function MapScreenContent() {
             ))}
           </MapView>
 
-          {/* Floating Action Buttons */}
+          {/* Floating Action Button */}
           <View style={styles.fabContainer}>
             <TouchableOpacity
               testID="map-add-spot"
@@ -332,92 +276,18 @@ function MapScreenContent() {
             </TouchableOpacity>
           </View>
 
-          {/* Legend */}
-          <View testID="map-legend" style={styles.legend}>
-            <Text style={styles.legendTitle}>Tier</Text>
-            <View style={styles.legendItems}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#cd7f32" }]} />
-                <Text style={styles.legendText}>Bronze</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#c0c0c0" }]} />
-                <Text style={styles.legendText}>Silver</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#ffd700" }]} />
-                <Text style={styles.legendText}>Gold</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: "#ff6600" }]} />
-                <Text style={styles.legendText}>Legendary</Text>
-              </View>
-            </View>
-          </View>
+          <MapLegend />
 
-          {/* Spot Detail Modal */}
-          {selectedSpot && (
-            <Modal
-              visible={!!selectedSpot}
-              transparent
-              animationType="slide"
-              onRequestClose={() => setSelectedSpot(null)}
-            >
-              <View style={styles.modalOverlay}>
-                <View style={styles.modalContent}>
-                  <TouchableOpacity style={styles.modalClose} onPress={() => setSelectedSpot(null)}>
-                    <Ionicons name="close" size={24} color={SKATE.colors.white} />
-                  </TouchableOpacity>
+          <SpotDetailModal
+            spot={selectedSpot}
+            onClose={handleCloseSpotDetail}
+            onCheckIn={handleCheckIn}
+          />
 
-                  <Text testID="map-spot-title" style={styles.modalTitle}>
-                    {selectedSpot.name}
-                  </Text>
-                  <Text style={styles.modalDescription}>{selectedSpot.description ?? ""}</Text>
-
-                  <View style={styles.modalDifficulty}>
-                    <View
-                      style={[
-                        styles.legendDot,
-                        { backgroundColor: getTierColor(selectedSpot.tier) },
-                      ]}
-                    />
-                    <Text style={styles.modalDifficultyText}>
-                      {(() => {
-                        const tierValue = selectedSpot.tier ?? "bronze";
-                        return tierValue.charAt(0).toUpperCase() + tierValue.slice(1);
-                      })()}
-                    </Text>
-                  </View>
-
-                  <TouchableOpacity
-                    testID="map-check-in"
-                    style={styles.checkInButton}
-                    onPress={() => {
-                      handleCheckIn(selectedSpot);
-                      setSelectedSpot(null);
-                    }}
-                  >
-                    <Ionicons name="location" size={20} color={SKATE.colors.white} />
-                    <Text style={styles.checkInButtonText}>Check In Here</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </Modal>
-          )}
-
-          {/* Add Spot Modal */}
           <AddSpotModal
             isOpen={showAddSpotModal}
-            onClose={() => setShowAddSpotModal(false)}
-            userLocation={
-              location
-                ? {
-                    lat: location.coords.latitude,
-                    lng: location.coords.longitude,
-                    accuracy: location.coords.accuracy ?? undefined,
-                  }
-                : null
-            }
+            onClose={handleCloseAddSpot}
+            userLocation={userLocation}
           />
         </>
       )}
@@ -431,21 +301,6 @@ export default function MapScreen() {
       <MapScreenContent />
     </ScreenErrorBoundary>
   );
-}
-
-function getTierColor(tier: Spot["tier"]): string {
-  switch (tier) {
-    case "bronze":
-      return "#cd7f32";
-    case "silver":
-      return "#c0c0c0";
-    case "gold":
-      return "#ffd700";
-    case "legendary":
-      return "#ff6600";
-    default:
-      return "#cd7f32"; // Default to bronze
-  }
 }
 
 const styles = StyleSheet.create({
@@ -479,156 +334,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
-  },
-  legend: {
-    position: "absolute",
-    bottom: SKATE.spacing.lg,
-    left: SKATE.spacing.lg,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
-    borderRadius: SKATE.borderRadius.lg,
-    padding: SKATE.spacing.md,
-  },
-  legendTitle: {
-    color: SKATE.colors.white,
-    fontSize: 12,
-    fontWeight: "bold",
-    marginBottom: SKATE.spacing.sm,
-  },
-  legendItems: {
-    gap: SKATE.spacing.xs,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SKATE.spacing.sm,
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-  },
-  legendText: {
-    color: SKATE.colors.lightGray,
-    fontSize: 11,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "flex-end",
-  },
-  modalContent: {
-    backgroundColor: SKATE.colors.grime,
-    borderTopLeftRadius: SKATE.borderRadius.lg,
-    borderTopRightRadius: SKATE.borderRadius.lg,
-    padding: SKATE.spacing.xl,
-    paddingBottom: 40,
-  },
-  modalClose: {
-    position: "absolute",
-    top: SKATE.spacing.lg,
-    right: SKATE.spacing.lg,
-    zIndex: 1,
-  },
-  modalTitle: {
-    color: SKATE.colors.white,
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: SKATE.spacing.md,
-    marginTop: SKATE.spacing.lg,
-  },
-  modalDescription: {
-    color: SKATE.colors.lightGray,
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: SKATE.spacing.lg,
-  },
-  modalDifficulty: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SKATE.spacing.sm,
-    marginBottom: SKATE.spacing.xl,
-  },
-  modalDifficultyText: {
-    color: SKATE.colors.white,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  checkInButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: SKATE.colors.orange,
-    padding: SKATE.spacing.lg,
-    borderRadius: SKATE.borderRadius.lg,
-    gap: SKATE.spacing.sm,
-  },
-  checkInButtonText: {
-    color: SKATE.colors.white,
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  expoGoBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SKATE.spacing.sm,
-    backgroundColor: SKATE.colors.grime,
-    padding: SKATE.spacing.md,
-    margin: SKATE.spacing.md,
-    borderRadius: SKATE.borderRadius.md,
-    borderWidth: 1,
-    borderColor: SKATE.colors.darkGray,
-  },
-  expoGoBannerText: {
-    color: SKATE.colors.lightGray,
-    fontSize: 13,
-    flex: 1,
-  },
-  expoGoAddButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: SKATE.spacing.sm,
-    backgroundColor: SKATE.colors.orange,
-    paddingVertical: SKATE.spacing.sm,
-    paddingHorizontal: SKATE.spacing.lg,
-    borderRadius: SKATE.borderRadius.md,
-    alignSelf: "flex-end",
-    marginRight: SKATE.spacing.md,
-    marginBottom: SKATE.spacing.sm,
-  },
-  expoGoAddButtonText: {
-    color: SKATE.colors.white,
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  spotList: {
-    padding: SKATE.spacing.md,
-    gap: SKATE.spacing.sm,
-  },
-  spotCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: SKATE.colors.grime,
-    padding: SKATE.spacing.lg,
-    borderRadius: SKATE.borderRadius.md,
-    gap: SKATE.spacing.md,
-  },
-  spotCardContent: {
-    flex: 1,
-  },
-  spotCardName: {
-    color: SKATE.colors.white,
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  spotCardDesc: {
-    color: SKATE.colors.lightGray,
-    fontSize: 13,
-    marginTop: 2,
-  },
-  emptyText: {
-    color: SKATE.colors.gray,
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: SKATE.spacing.xl,
   },
 });

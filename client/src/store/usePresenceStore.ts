@@ -22,14 +22,17 @@ export interface UserPresence {
 interface PresenceState {
   onlineUsers: UserPresence[];
   isConnected: boolean;
-  
+
   // Actions
   setUserOnline: (userId: string, userName: string, currentPage?: string) => Promise<void>;
   setUserOffline: (userId: string) => Promise<void>;
   updateUserPage: (userId: string, currentPage: string) => Promise<void>;
   listenToPresence: () => () => void;
+  disconnect: () => void;
   getOnlineCount: () => number;
 }
+
+let presenceUnsubscribe: (() => void) | null = null;
 
 export const usePresenceStore = create<PresenceState>((set, get) => ({
   onlineUsers: [],
@@ -76,14 +79,19 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
   },
 
   listenToPresence: () => {
+    // Clean up any existing listener before creating a new one
+    if (presenceUnsubscribe) {
+      presenceUnsubscribe();
+      presenceUnsubscribe = null;
+    }
+
     const q = query(collection(db, "user_presence"));
 
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
-        // Calculate freshness window on each snapshot to properly expire stale sessions
         const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-        
+
         const onlineUsers = snapshot.docs
           .map((doc) => {
             const data = doc.data();
@@ -96,7 +104,6 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
             };
           })
           .filter((user) => {
-            // Only show users active in the last 5 minutes and marked as online
             return user.lastSeen > fiveMinutesAgo && user.status === "online";
           });
 
@@ -104,12 +111,20 @@ export const usePresenceStore = create<PresenceState>((set, get) => ({
       },
       (error) => {
         logger.error("Error listening to presence:", error);
-        // Mark as disconnected on listener error
         set({ isConnected: false });
       }
     );
 
+    presenceUnsubscribe = unsubscribe;
     return unsubscribe;
+  },
+
+  disconnect: () => {
+    if (presenceUnsubscribe) {
+      presenceUnsubscribe();
+      presenceUnsubscribe = null;
+    }
+    set({ isConnected: false, onlineUsers: [] });
   },
 
   getOnlineCount: () => {

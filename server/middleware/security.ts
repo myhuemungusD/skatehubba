@@ -8,14 +8,23 @@ import { RATE_LIMIT_CONFIG } from "../config/rateLimits";
 /**
  * Build a RedisStore for express-rate-limit if Redis is available.
  * Returns undefined (uses default MemoryStore) when Redis is not configured.
+ * When Redis is configured but unreachable, errors are caught so requests
+ * pass through instead of triggering a 500 from the global error handler.
  */
 function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined {
   const redis = getRedisClient();
   if (!redis) return undefined;
 
   return new RedisStore({
-    sendCommand: (...args: string[]) =>
-      redis.call(...(args as [string, ...string[]])) as Promise<number>,
+    sendCommand: async (...args: string[]) => {
+      try {
+        return (await redis.call(...(args as [string, ...string[]]))) as number;
+      } catch {
+        // Redis unreachable — return 0 so the rate limiter allows the request
+        // through rather than crashing the request with a 500.
+        return 0;
+      }
+    },
     prefix,
   });
 }
@@ -229,6 +238,134 @@ export const proAwardLimiter = rateLimit({
   legacyHeaders: false,
   keyGenerator: userKeyGenerator,
   store: buildStore(RL.proAward.prefix),
+});
+
+/**
+ * Rate limiter for profile read/fetch requests
+ * Prevents scraping of user profiles
+ */
+export const profileReadLimiter = rateLimit({
+  windowMs: RL.profileRead.windowMs,
+  max: RL.profileRead.max,
+  message: { error: RL.profileRead.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: buildStore(RL.profileRead.prefix),
+});
+
+/**
+ * Rate limiter for MFA verification attempts (brute-force protection)
+ * 6-digit TOTP codes have only 1M combinations — strict limiting required
+ */
+export const mfaVerifyLimiter = rateLimit({
+  windowMs: RL.mfaVerify.windowMs,
+  max: RL.mfaVerify.max,
+  message: { error: RL.mfaVerify.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.mfaVerify.prefix),
+});
+
+/**
+ * Rate limiter for sensitive auth actions (change-password, verify-identity)
+ */
+export const sensitiveAuthLimiter = rateLimit({
+  windowMs: RL.sensitiveAuth.windowMs,
+  max: RL.sensitiveAuth.max,
+  message: { error: RL.sensitiveAuth.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.sensitiveAuth.prefix),
+});
+
+/**
+ * Rate limiter for remote S.K.A.T.E. round actions
+ */
+export const remoteSkateLimiter = rateLimit({
+  windowMs: RL.remoteSkate.windowMs,
+  max: RL.remoteSkate.max,
+  message: { error: RL.remoteSkate.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: buildStore(RL.remoteSkate.prefix),
+});
+
+/**
+ * Rate limiter for post creation
+ */
+export const postCreateLimiter = rateLimit({
+  windowMs: RL.postCreate.windowMs,
+  max: RL.postCreate.max,
+  message: { error: RL.postCreate.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.postCreate.prefix),
+});
+
+/**
+ * Rate limiter for analytics event ingestion
+ */
+export const analyticsIngestLimiter = rateLimit({
+  windowMs: RL.analyticsIngest.windowMs,
+  max: RL.analyticsIngest.max,
+  message: { error: RL.analyticsIngest.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: buildStore(RL.analyticsIngest.prefix),
+});
+
+/**
+ * Rate limiter for Stripe checkout / payment actions
+ */
+export const paymentLimiter = rateLimit({
+  windowMs: RL.payment.windowMs,
+  max: RL.payment.max,
+  message: { error: RL.payment.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.payment.prefix),
+});
+
+/**
+ * Rate limiter for game creation and write actions
+ */
+export const gameWriteLimiter = rateLimit({
+  windowMs: RL.gameWrite.windowMs,
+  max: RL.gameWrite.max,
+  message: { error: RL.gameWrite.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.gameWrite.prefix),
+});
+
+/**
+ * Rate limiter for TrickMint video upload requests
+ */
+export const trickmintUploadLimiter = rateLimit({
+  windowMs: RL.trickmintUpload.windowMs,
+  max: RL.trickmintUpload.max,
+  message: { error: RL.trickmintUpload.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.trickmintUpload.prefix),
+});
+
+/**
+ * Rate limiter for user search/listing — prevents scraping
+ */
+export const userSearchLimiter = rateLimit({
+  windowMs: RL.userSearch.windowMs,
+  max: RL.userSearch.max,
+  message: { error: RL.userSearch.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: buildStore(RL.userSearch.prefix),
 });
 
 /**

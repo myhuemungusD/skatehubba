@@ -31,7 +31,9 @@ export function useNetworkStatus() {
           isInitialized.current = true;
         }
       } catch (error) {
-        console.error("[useNetworkStatus] Failed to check network state:", error);
+        if (__DEV__) {
+          console.error("[useNetworkStatus] Failed to check network state:", error);
+        }
         // Assume connected on error to avoid false positives
         if (mounted) {
           setConnected(true);

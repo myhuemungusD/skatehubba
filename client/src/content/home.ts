@@ -16,14 +16,14 @@ export const homeContent = {
       text: "Platform Active",
       variant: "success" as const,
     },
-    title: "Welcome Back",
     quickActions: [
       {
         icon: Gamepad2,
-        label: "S.K.A.T.E",
+        label: "Play S.K.A.T.E.",
         href: "/play",
         description: "Challenge someone",
         color: "bg-purple-500",
+        featured: true,
       },
       {
         icon: MapPin,
@@ -31,6 +31,7 @@ export const homeContent = {
         href: "/map",
         description: "Find spots near you",
         color: "bg-blue-500",
+        featured: false,
       },
       {
         icon: User,
@@ -38,6 +39,7 @@ export const homeContent = {
         href: "/me",
         description: "View your progress",
         color: "bg-green-500",
+        featured: false,
       },
       {
         icon: Trophy,
@@ -45,6 +47,7 @@ export const homeContent = {
         href: "/leaderboard",
         description: "Rankings & battles",
         color: "bg-yellow-500",
+        featured: false,
       },
     ],
   },

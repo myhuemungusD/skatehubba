@@ -289,7 +289,6 @@ export function AddSpotModal({
               placeholder="e.g., Hollywood High 16, Love Park ledge"
               className="bg-neutral-800 border-neutral-700 text-white placeholder:text-gray-500"
               data-testid="input-spot-name"
-              autoFocus
               maxLength={100}
             />
           </div>

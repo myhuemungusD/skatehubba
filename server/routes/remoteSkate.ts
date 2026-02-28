@@ -1,19 +1,31 @@
 /**
  * Remote S.K.A.T.E. API Routes
  *
- * Server-trusted endpoint for resolving rounds.
+ * Server-trusted endpoints for remote SKATE game management.
  * Uses Firebase Admin SDK for atomic Firestore transactions.
  *
- * POST /api/remote-skate/:gameId/rounds/:roundId/resolve
+ * POST /api/remote-skate/find-or-create  — matchmaking
+ * POST /api/remote-skate/:gameId/join     — join a waiting game
+ * POST /api/remote-skate/:gameId/cancel   — cancel a waiting game
+ * POST /api/remote-skate/:gameId/rounds/:roundId/set-complete   — mark set done
+ * POST /api/remote-skate/:gameId/rounds/:roundId/reply-complete — mark reply done
+ * POST /api/remote-skate/:gameId/rounds/:roundId/resolve  — offense claims
+ * POST /api/remote-skate/:gameId/rounds/:roundId/confirm  — defense confirms
  */
 
 import { Router } from "express";
 import { z } from "zod";
 import { admin } from "../admin";
+import type { Transaction } from "firebase-admin/firestore";
 import logger from "../logger";
 import type { Request, Response } from "express";
+import { remoteSkateLimiter } from "../middleware/security";
+import { sendGameNotificationToUser } from "../services/gameNotificationService";
 
 const router = Router();
+
+// Apply rate limiting to all remote-skate write endpoints
+router.use(remoteSkateLimiter);
 const SKATE_LETTERS = "SKATE";
 const MAX_LETTERS = 5;
 
@@ -30,6 +42,21 @@ const ERROR_MAP: Record<string, { status: number; code: string; message: string 
     status: 400,
     code: "INVALID_STATE",
     message: "This action cannot be performed right now.",
+  },
+  "Game is not waiting for players": {
+    status: 400,
+    code: "INVALID_STATE",
+    message: "This game is no longer available.",
+  },
+  "Game is full": {
+    status: 400,
+    code: "INVALID_STATE",
+    message: "This game already has two players.",
+  },
+  "Cannot join your own game": {
+    status: 400,
+    code: "INVALID_STATE",
+    message: "You cannot join your own game.",
   },
   "Only offense can submit a round result": {
     status: 403,
@@ -55,6 +82,11 @@ const ERROR_MAP: Record<string, { status: number; code: string; message: string 
     status: 400,
     code: "INVALID_STATE",
     message: "This action cannot be performed right now.",
+  },
+  "Only the game creator can cancel": {
+    status: 403,
+    code: "ACCESS_DENIED",
+    message: "You do not have permission to cancel this game.",
   },
 };
 
@@ -89,6 +121,405 @@ async function verifyFirebaseAuth(req: Request, res: Response): Promise<string |
   }
 }
 
+// =============================================================================
+// POST /find-or-create
+//
+// Server-side matchmaking: find a joinable waiting game or create a new one.
+// Uses Admin SDK to bypass Firestore read rules (clients can't query other
+// users' waiting games because only participants can read game docs).
+// =============================================================================
+
+router.post("/find-or-create", async (req: Request, res: Response) => {
+  const uid = await verifyFirebaseAuth(req, res);
+  if (!uid) return;
+
+  try {
+    const firestore = admin.firestore();
+
+    // Look for waiting games that aren't ours
+    const waitingGamesSnap = await firestore
+      .collection("games")
+      .where("status", "==", "waiting")
+      .limit(10)
+      .get();
+
+    for (const gameDoc of waitingGamesSnap.docs) {
+      const data = gameDoc.data();
+      if (data.playerAUid !== uid && !data.playerBUid) {
+        // Atomically join this game
+        const gameId = gameDoc.id;
+        const roundId = await joinGameTransaction(firestore, gameId, uid);
+
+        logger.info("[RemoteSkate] Quick match: joined existing game", { gameId, uid });
+
+        // Notify the game creator that someone joined
+        sendGameNotificationToUser(data.playerAUid, "your_turn", {
+          gameId,
+        }).catch((err: unknown) =>
+          logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
+        );
+
+        return res.json({ success: true, gameId, matched: true, roundId });
+      }
+    }
+
+    // Check if we already have a waiting game
+    const myWaitingSnap = await firestore
+      .collection("games")
+      .where("status", "==", "waiting")
+      .where("playerAUid", "==", uid)
+      .limit(1)
+      .get();
+
+    if (!myWaitingSnap.empty) {
+      const existingId = myWaitingSnap.docs[0].id;
+      logger.info("[RemoteSkate] Rejoining own waiting game", { gameId: existingId });
+      return res.json({ success: true, gameId: existingId, matched: false });
+    }
+
+    // Create a new game
+    const gameRef = firestore.collection("games").doc();
+    const gameId = gameRef.id;
+
+    await gameRef.set({
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdByUid: uid,
+      playerAUid: uid,
+      playerBUid: null,
+      letters: { [uid]: "" },
+      status: "waiting",
+      currentTurnUid: uid,
+      lastMoveAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    logger.info("[RemoteSkate] Quick match: created new game", { gameId });
+    res.json({ success: true, gameId, matched: false });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Matchmaking failed";
+    logger.error("[RemoteSkate] find-or-create failed", { error: msg, uid });
+    res.status(500).json({ error: "INTERNAL_ERROR", message: "Matchmaking failed." });
+  }
+});
+
+// =============================================================================
+// POST /:gameId/join
+//
+// Atomically join a waiting game as Player B.
+// Creates the first round in the same transaction.
+// =============================================================================
+
+async function joinGameTransaction(
+  firestore: FirebaseFirestore.Firestore,
+  gameId: string,
+  uid: string
+): Promise<string> {
+  return firestore.runTransaction(async (transaction: Transaction) => {
+    const gameRef = firestore.collection("games").doc(gameId);
+    const gameSnap = await transaction.get(gameRef);
+
+    if (!gameSnap.exists) {
+      throw new Error("Game not found");
+    }
+
+    const game = gameSnap.data()!;
+
+    if (game.playerAUid === uid) {
+      throw new Error("Cannot join your own game");
+    }
+
+    if (game.playerBUid) {
+      throw new Error("Game is full");
+    }
+
+    if (game.status !== "waiting") {
+      throw new Error("Game is not waiting for players");
+    }
+
+    // Create first round
+    const roundRef = gameRef.collection("rounds").doc();
+
+    transaction.update(gameRef, {
+      playerBUid: uid,
+      [`letters.${uid}`]: "",
+      status: "active",
+      currentTurnUid: game.playerAUid,
+      lastMoveAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    transaction.set(roundRef, {
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      offenseUid: game.playerAUid,
+      defenseUid: uid,
+      status: "awaiting_set",
+      setVideoId: null,
+      replyVideoId: null,
+      result: null,
+      offenseClaim: null,
+      defenseClaim: null,
+    });
+
+    return roundRef.id;
+  });
+}
+
+router.post("/:gameId/join", async (req: Request, res: Response) => {
+  const uid = await verifyFirebaseAuth(req, res);
+  if (!uid) return;
+
+  const { gameId } = req.params;
+
+  try {
+    const firestore = admin.firestore();
+    const roundId = await joinGameTransaction(firestore, gameId, uid);
+
+    logger.info("[RemoteSkate] Game joined via API", { gameId, playerB: uid });
+
+    // Notify player A
+    const gameSnap = await firestore.collection("games").doc(gameId).get();
+    if (gameSnap.exists) {
+      const game = gameSnap.data()!;
+      sendGameNotificationToUser(game.playerAUid, "your_turn", {
+        gameId,
+      }).catch((err: unknown) =>
+        logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
+      );
+    }
+
+    res.json({ success: true, gameId, roundId });
+  } catch (error) {
+    const internalMessage = error instanceof Error ? error.message : "Failed to join game";
+    logger.error("[RemoteSkate] Join failed", { error: internalMessage, gameId, uid });
+
+    const mapped = error instanceof Error ? ERROR_MAP[error.message] : undefined;
+    if (mapped) {
+      return res.status(mapped.status).json({ error: mapped.code, message: mapped.message });
+    }
+
+    res.status(500).json({ error: "INTERNAL_ERROR", message: "Failed to join game." });
+  }
+});
+
+// =============================================================================
+// POST /:gameId/cancel
+//
+// Cancel a waiting game. Sets status to "cancelled" instead of deleting
+// (Firestore rules block delete on games).
+// =============================================================================
+
+router.post("/:gameId/cancel", async (req: Request, res: Response) => {
+  const uid = await verifyFirebaseAuth(req, res);
+  if (!uid) return;
+
+  const { gameId } = req.params;
+
+  try {
+    const firestore = admin.firestore();
+
+    await firestore.runTransaction(async (transaction: Transaction) => {
+      const gameRef = firestore.collection("games").doc(gameId);
+      const gameSnap = await transaction.get(gameRef);
+
+      if (!gameSnap.exists) {
+        throw new Error("Game not found");
+      }
+
+      const game = gameSnap.data()!;
+
+      if (game.playerAUid !== uid) {
+        throw new Error("Only the game creator can cancel");
+      }
+
+      if (game.status !== "waiting") {
+        // Already active/cancelled/complete — no-op
+        return;
+      }
+
+      transaction.update(gameRef, {
+        status: "cancelled",
+        lastMoveAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    logger.info("[RemoteSkate] Waiting game cancelled", { gameId, uid });
+    res.json({ success: true });
+  } catch (error) {
+    const internalMessage = error instanceof Error ? error.message : "Failed to cancel game";
+    logger.error("[RemoteSkate] Cancel failed", { error: internalMessage, gameId, uid });
+
+    const mapped = error instanceof Error ? ERROR_MAP[error.message] : undefined;
+    if (mapped) {
+      return res.status(mapped.status).json({ error: mapped.code, message: mapped.message });
+    }
+
+    res.status(500).json({ error: "INTERNAL_ERROR", message: "Failed to cancel game." });
+  }
+});
+
+// =============================================================================
+// POST /:gameId/rounds/:roundId/set-complete
+//
+// Atomically transition round to awaiting_reply and update game turn
+// after set video upload completes.
+// =============================================================================
+
+router.post("/:gameId/rounds/:roundId/set-complete", async (req: Request, res: Response) => {
+  const uid = await verifyFirebaseAuth(req, res);
+  if (!uid) return;
+
+  const { gameId, roundId } = req.params;
+
+  try {
+    const firestore = admin.firestore();
+
+    await firestore.runTransaction(async (transaction: Transaction) => {
+      const gameRef = firestore.collection("games").doc(gameId);
+      const gameSnap = await transaction.get(gameRef);
+
+      if (!gameSnap.exists) throw new Error("Game not found");
+      const game = gameSnap.data()!;
+
+      if (game.playerAUid !== uid && game.playerBUid !== uid) {
+        throw new Error("You don't have access to this game");
+      }
+
+      if (game.status !== "active") throw new Error("Game is not active");
+
+      const roundRef = gameRef.collection("rounds").doc(roundId);
+      const roundSnap = await transaction.get(roundRef);
+
+      if (!roundSnap.exists) throw new Error("Round not found");
+      const round = roundSnap.data()!;
+
+      if (round.offenseUid !== uid) {
+        throw new Error("Only offense can submit a round result");
+      }
+
+      if (round.status !== "awaiting_set") {
+        throw new Error("Round is not in a resolvable state");
+      }
+
+      transaction.update(roundRef, { status: "awaiting_reply" });
+      transaction.update(gameRef, {
+        currentTurnUid: round.defenseUid,
+        lastMoveAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    logger.info("[RemoteSkate] Set complete", { gameId, roundId, uid });
+
+    // Notify defense it's their turn (best-effort)
+    const gameSnap = await firestore.collection("games").doc(gameId).get();
+    if (gameSnap.exists) {
+      const game = gameSnap.data()!;
+      const defenseUid = game.playerAUid === uid ? game.playerBUid : game.playerAUid;
+      if (defenseUid) {
+        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err: unknown) =>
+          logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
+        );
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    const internalMessage = error instanceof Error ? error.message : "Failed to mark set complete";
+    logger.error("[RemoteSkate] set-complete failed", {
+      error: internalMessage,
+      gameId,
+      roundId,
+      uid,
+    });
+
+    const mapped = error instanceof Error ? ERROR_MAP[error.message] : undefined;
+    if (mapped) {
+      return res.status(mapped.status).json({ error: mapped.code, message: mapped.message });
+    }
+
+    res.status(500).json({ error: "INTERNAL_ERROR", message: "Failed to mark set complete." });
+  }
+});
+
+// =============================================================================
+// POST /:gameId/rounds/:roundId/reply-complete
+//
+// Atomically update game turn back to offense after reply video upload.
+// =============================================================================
+
+router.post("/:gameId/rounds/:roundId/reply-complete", async (req: Request, res: Response) => {
+  const uid = await verifyFirebaseAuth(req, res);
+  if (!uid) return;
+
+  const { gameId, roundId } = req.params;
+
+  try {
+    const firestore = admin.firestore();
+
+    await firestore.runTransaction(async (transaction: Transaction) => {
+      const gameRef = firestore.collection("games").doc(gameId);
+      const gameSnap = await transaction.get(gameRef);
+
+      if (!gameSnap.exists) throw new Error("Game not found");
+      const game = gameSnap.data()!;
+
+      if (game.playerAUid !== uid && game.playerBUid !== uid) {
+        throw new Error("You don't have access to this game");
+      }
+
+      if (game.status !== "active") throw new Error("Game is not active");
+
+      const roundRef = gameRef.collection("rounds").doc(roundId);
+      const roundSnap = await transaction.get(roundRef);
+
+      if (!roundSnap.exists) throw new Error("Round not found");
+      const round = roundSnap.data()!;
+
+      if (round.defenseUid !== uid) {
+        throw new Error("Only defense can confirm a round result");
+      }
+
+      if (round.status !== "awaiting_reply") {
+        throw new Error("Round is not in a resolvable state");
+      }
+
+      transaction.update(gameRef, {
+        currentTurnUid: round.offenseUid,
+        lastMoveAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+
+    logger.info("[RemoteSkate] Reply complete", { gameId, roundId, uid });
+
+    // Notify offense it's their turn to judge (best-effort)
+    const gameSnap = await firestore.collection("games").doc(gameId).get();
+    if (gameSnap.exists) {
+      const game = gameSnap.data()!;
+      const offenseUid = game.playerAUid === uid ? game.playerBUid : game.playerAUid;
+      if (offenseUid) {
+        sendGameNotificationToUser(offenseUid, "your_turn", { gameId }).catch((err: unknown) =>
+          logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
+        );
+      }
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    const internalMessage =
+      error instanceof Error ? error.message : "Failed to mark reply complete";
+    logger.error("[RemoteSkate] reply-complete failed", {
+      error: internalMessage,
+      gameId,
+      roundId,
+      uid,
+    });
+
+    const mapped = error instanceof Error ? ERROR_MAP[error.message] : undefined;
+    if (mapped) {
+      return res.status(mapped.status).json({ error: mapped.code, message: mapped.message });
+    }
+
+    res.status(500).json({ error: "INTERNAL_ERROR", message: "Failed to mark reply complete." });
+  }
+});
+
 /**
  * POST /:gameId/rounds/:roundId/resolve
  *
@@ -111,7 +542,7 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
   try {
     const firestore = admin.firestore();
 
-    await firestore.runTransaction(async (transaction) => {
+    await firestore.runTransaction(async (transaction: Transaction) => {
       const gameRef = firestore.collection("games").doc(gameId);
       const gameSnap = await transaction.get(gameRef);
 
@@ -164,6 +595,18 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
       });
     });
 
+    // Notify defense to confirm (best-effort)
+    const gameSnap2 = await firestore.collection("games").doc(gameId).get();
+    if (gameSnap2.exists) {
+      const gameData = gameSnap2.data()!;
+      const defenseUid = gameData.playerAUid === uid ? gameData.playerBUid : gameData.playerAUid;
+      if (defenseUid) {
+        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err: unknown) =>
+          logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
+        );
+      }
+    }
+
     res.json({ success: true, status: "awaiting_confirmation", offenseClaim: result });
   } catch (error) {
     const internalMessage = error instanceof Error ? error.message : "Failed to resolve round";
@@ -201,7 +644,7 @@ router.post("/:gameId/rounds/:roundId/confirm", async (req: Request, res: Respon
   try {
     const firestore = admin.firestore();
 
-    const txResult = await firestore.runTransaction(async (transaction) => {
+    const txResult = await firestore.runTransaction(async (transaction: Transaction) => {
       const gameRef = firestore.collection("games").doc(gameId);
       const gameSnap = await transaction.get(gameRef);
 

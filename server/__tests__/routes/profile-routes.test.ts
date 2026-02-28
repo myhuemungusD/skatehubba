@@ -16,6 +16,7 @@ mockDbChain.limit = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.insert = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.values = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.returning = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.delete = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
 
 const mockGetDbFn = vi.fn();
@@ -46,6 +47,8 @@ vi.mock("../../config/env", () => ({
 
 vi.mock("@shared/schema", () => ({
   onboardingProfiles: { uid: "uid" },
+  userProfiles: { id: "id" },
+  closetItems: { userId: "userId" },
 }));
 
 vi.mock("@shared/validation/profile", () => ({
@@ -99,6 +102,18 @@ vi.mock("../../services/profileService", () => ({
   createProfileWithRollback: (...args: any[]) => mockCreateProfileWithRollback(...args),
 }));
 
+const mockDeleteUser = vi.fn().mockResolvedValue(undefined);
+vi.mock("../../services/userService", () => ({
+  deleteUser: (...args: any[]) => mockDeleteUser(...args),
+}));
+
+vi.mock("../../auth/middleware", () => ({
+  authenticateUser: (req: any, _res: any, next: any) => {
+    req.currentUser = req.currentUser || { id: "user-1" };
+    next();
+  },
+}));
+
 vi.mock("../../logger", () => ({
   default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
   createChildLogger: vi.fn(() => ({
@@ -146,7 +161,9 @@ vi.mock("express", () => ({
       routeHandlers[`POST ${path}`] = handlers;
     }),
     put: vi.fn(),
-    delete: vi.fn(),
+    delete: vi.fn((path: string, ...handlers: any[]) => {
+      routeHandlers[`DELETE ${path}`] = handlers;
+    }),
     use: vi.fn(),
   }),
 }));
@@ -171,6 +188,7 @@ function createRes() {
   const res: any = {};
   res.status = vi.fn().mockReturnValue(res);
   res.json = vi.fn().mockReturnValue(res);
+  res.send = vi.fn().mockReturnValue(res);
   return res;
 }
 
@@ -279,14 +297,16 @@ describe("Profile Routes", () => {
   });
 
   describe("POST /create", () => {
-    it("should throw when db unavailable (global handler returns 503)", async () => {
+    it("should return 503 when db unavailable", async () => {
       mockGetDbFn.mockImplementation(() => {
         throw new Error("Database not configured");
       });
       const req = createReq({ body: { username: "newuser", stance: "regular" } });
       const res = createRes();
-      await expect(callHandler("POST /create", req, res)).rejects.toThrow(
-        "Database not configured"
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
       );
     });
 
@@ -297,13 +317,17 @@ describe("Profile Routes", () => {
       expect(res.status).toHaveBeenCalledWith(400);
     });
 
-    it("should throw when getDb throws (global handler returns 503)", async () => {
+    it("should return 503 when getDb throws", async () => {
       mockGetDbFn.mockImplementation(() => {
         throw new Error("No DB connection");
       });
       const req = createReq({ body: { username: "newuser", stance: "regular" } });
       const res = createRes();
-      await expect(callHandler("POST /create", req, res)).rejects.toThrow("No DB connection");
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+      );
     });
 
     it("should return 500 when db select throws during profile check", async () => {
@@ -510,6 +534,41 @@ describe("Profile Routes", () => {
         "[Profile] Failed to clean up avatar after error",
         expect.any(Object)
       );
+    });
+  });
+
+  describe("DELETE /", () => {
+    it("should delete user and all related data — returns 204", async () => {
+      const req = createReq();
+      const res = createRes();
+      await callHandler("DELETE /", req, res);
+
+      expect(mockDbChain.delete).toHaveBeenCalled();
+      expect(mockDeleteUser).toHaveBeenCalledWith("user-1");
+      expect(res.status).toHaveBeenCalledWith(204);
+      expect(res.send).toHaveBeenCalled();
+    });
+
+    it("should return 503 when db is unavailable", async () => {
+      mockGetDbFn.mockImplementation(() => {
+        throw new Error("Database not configured");
+      });
+      const req = createReq();
+      const res = createRes();
+      await callHandler("DELETE /", req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+      );
+    });
+
+    it("should return 500 when deleteUser throws", async () => {
+      mockDeleteUser.mockRejectedValue(new Error("Delete failed"));
+      const req = createReq();
+      const res = createRes();
+      await callHandler("DELETE /", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
     });
   });
 });

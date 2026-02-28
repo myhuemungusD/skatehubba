@@ -13,6 +13,7 @@
  */
 
 import { globals } from "./globals";
+import { REQUIRED_PUBLIC_VARS } from "./envContract";
 
 type EnvRecord = Record<string, string | undefined>;
 
@@ -252,16 +253,7 @@ export function getFeatureFlags() {
  * Call this at app startup
  */
 export function validateEnv(): void {
-  const required = [
-    "EXPO_PUBLIC_FIREBASE_API_KEY",
-    "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
-    "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
-    "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
-    "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-    "EXPO_PUBLIC_FIREBASE_APP_ID",
-  ];
-
-  const missing = required.filter((name) => !readEnv(name));
+  const missing = REQUIRED_PUBLIC_VARS.filter((name) => !readEnv(name));
 
   if (missing.length > 0) {
     console.warn(

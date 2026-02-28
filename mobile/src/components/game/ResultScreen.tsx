@@ -45,7 +45,7 @@ export function ResultScreen({ gameSession, currentUserId, onExit, onRematch }: 
 
   // Entrance animations
   useEffect(() => {
-    Animated.sequence([
+    const animation = Animated.sequence([
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 300,
@@ -64,7 +64,15 @@ export function ResultScreen({ gameSession, currentUserId, onExit, onRematch }: 
           useNativeDriver: true,
         }),
       ]),
-    ]).start();
+    ]);
+    animation.start();
+
+    return () => {
+      animation.stop();
+      fadeAnim.setValue(0);
+      trophyScale.setValue(0);
+      statsSlide.setValue(50);
+    };
   }, [fadeAnim, trophyScale, statsSlide]);
 
   // Calculate stats
@@ -229,7 +237,7 @@ export function ResultScreen({ gameSession, currentUserId, onExit, onRematch }: 
               onPress={onRematch}
             >
               <Ionicons name="refresh" size={20} color={SKATE.colors.white} />
-              <Text style={styles.buttonText}>Rematch</Text>
+              <Text style={styles.buttonText}>Run it back?</Text>
             </TouchableOpacity>
           )}
 

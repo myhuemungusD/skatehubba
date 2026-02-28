@@ -70,6 +70,68 @@ vi.mock("../../config/rateLimits", () => ({
       prefix: "rl:discovery:",
     },
     proAward: { windowMs: 60000, max: 10, message: "Too many awards", prefix: "rl:award:" },
+    authLogin: { windowMs: 3600000, max: 5, message: "Too many logins", prefix: "rl:auth:" },
+    ai: { windowMs: 900000, max: 10, message: "Too many AI requests", prefix: "rl:ai:" },
+    profileRead: {
+      windowMs: 60000,
+      max: 60,
+      message: "Too many profile reads",
+      prefix: "rl:profileread:",
+    },
+    remoteSkate: {
+      windowMs: 60000,
+      max: 20,
+      message: "Too many game requests",
+      prefix: "rl:remoteskate:",
+    },
+    mfaVerify: {
+      windowMs: 900000,
+      max: 10,
+      message: "Too many MFA attempts",
+      prefix: "rl:mfa:",
+    },
+    sensitiveAuth: {
+      windowMs: 900000,
+      max: 5,
+      message: "Too many attempts",
+      prefix: "rl:sensitive:",
+    },
+    postCreate: {
+      windowMs: 600000,
+      max: 10,
+      message: "Too many posts",
+      prefix: "rl:postcreate:",
+    },
+    analyticsIngest: {
+      windowMs: 60000,
+      max: 60,
+      message: "Too many analytics requests",
+      prefix: "rl:analytics:",
+    },
+    payment: {
+      windowMs: 900000,
+      max: 10,
+      message: "Too many payment requests",
+      prefix: "rl:payment:",
+    },
+    gameWrite: {
+      windowMs: 600000,
+      max: 10,
+      message: "Too many game actions",
+      prefix: "rl:gamewrite:",
+    },
+    trickmintUpload: {
+      windowMs: 3600000,
+      max: 15,
+      message: "Too many uploads",
+      prefix: "rl:trickmint:",
+    },
+    userSearch: {
+      windowMs: 60000,
+      max: 30,
+      message: "Too many searches",
+      prefix: "rl:usersearch:",
+    },
   },
 }));
 
@@ -98,6 +160,7 @@ const {
   spotRatingLimiter,
   spotDiscoveryLimiter,
   proAwardLimiter,
+  remoteSkateLimiter,
 } = await import("../../middleware/security");
 
 // Helpers
@@ -599,6 +662,7 @@ describe("Security Middleware", () => {
       expect(spotRatingLimiter).toBeDefined();
       expect(spotDiscoveryLimiter).toBeDefined();
       expect(proAwardLimiter).toBeDefined();
+      expect(remoteSkateLimiter).toBeDefined();
     });
   });
 });

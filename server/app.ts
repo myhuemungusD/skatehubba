@@ -16,11 +16,11 @@ import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { apiLimiter } from "./middleware/security.ts";
 import { requestTracing } from "./middleware/requestTracing.ts";
 import { metricsMiddleware, registerMonitoringRoutes } from "./monitoring/index.ts";
-import { DEV_ORIGINS, BODY_PARSE_LIMIT } from "./config/server.ts";
+import { getAllowedOrigins, BODY_PARSE_LIMIT } from "./config/server.ts";
 import { registerRoutes } from "./routes.ts";
 import { DatabaseUnavailableError } from "./db.ts";
-import swaggerUi from "swagger-ui-express";
 import { generateOpenAPISpec } from "./api-docs/index.ts";
+import { generateSitemapXml } from "../packages/shared/sitemap-config";
 
 export function createApp(): express.Express {
   const app = express();
@@ -76,7 +76,7 @@ export function createApp(): express.Express {
           },
         },
         crossOriginEmbedderPolicy: false, // required for cross-origin images/media
-        crossOriginOpenerPolicy: { policy: "same-origin" },
+        crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
         crossOriginResourcePolicy: { policy: "same-site" },
       })
     );
@@ -91,17 +91,17 @@ export function createApp(): express.Express {
     });
   }
 
-  // CORS configuration
+  // CORS configuration — delegates to centralized getAllowedOrigins() which
+  // hardcodes https://skatehubba.com, merges ALLOWED_ORIGINS env, and adds
+  // localhost variants in development.
+  const allowedOrigins = getAllowedOrigins();
   const corsOptions = {
     origin: function (
       origin: string | undefined,
       callback: (err: Error | null, allow?: boolean) => void
     ) {
-      const allowed = process.env.ALLOWED_ORIGINS?.split(",") || [];
-      const allAllowed =
-        process.env.NODE_ENV === "production" ? allowed : [...allowed, ...DEV_ORIGINS];
       // Allow requests with no origin (mobile apps, server-to-server) or matching allowed domains
-      if (!origin || allAllowed.indexOf(origin) !== -1) {
+      if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -114,20 +114,31 @@ export function createApp(): express.Express {
   // Compression
   app.use(compression());
 
-  // OpenAPI / Swagger UI — disabled in production to prevent API surface exposure
-  const openApiSpec = generateOpenAPISpec();
+  // OpenAPI / Swagger UI — disabled in production to prevent API surface exposure.
+  // Dynamic import avoids loading swagger-ui-express (and generating the spec)
+  // in production, cutting ~1-2 MB of cold-start weight from the serverless function.
   if (process.env.NODE_ENV !== "production") {
+    const openApiSpec = generateOpenAPISpec();
     app.get("/api/docs/openapi.json", (_req, res) => res.json(openApiSpec));
-    app.use(
-      "/api/docs",
-      swaggerUi.serve,
-      swaggerUi.setup(openApiSpec, {
-        customSiteTitle: "SkateHubba API Docs",
-        customCss: ".swagger-ui .topbar { background-color: #667eea; }",
-        swaggerOptions: { persistAuthorization: true },
-      })
-    );
+    import("swagger-ui-express").then((swaggerUi) => {
+      app.use(
+        "/api/docs",
+        swaggerUi.serve,
+        swaggerUi.setup(openApiSpec, {
+          customSiteTitle: "SkateHubba API Docs",
+          customCss: ".swagger-ui .topbar { background-color: #667eea; }",
+          swaggerOptions: { persistAuthorization: true },
+        })
+      );
+    });
   }
+
+  // Sitemap.xml — generated from shared config for SEO discoverability
+  app.get("/sitemap.xml", (_req, res) => {
+    res.setHeader("Content-Type", "application/xml");
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=86400");
+    res.send(generateSitemapXml());
+  });
 
   // Raw body for Stripe webhook signature verification (MUST precede express.json())
   app.use("/webhooks/stripe", express.raw({ type: "application/json" }));
@@ -145,8 +156,19 @@ export function createApp(): express.Express {
   // Global rate limiting for all API routes (before CSRF validation for better error handling)
   app.use("/api", apiLimiter);
 
-  // Global CSRF validation for all state-changing API requests
-  app.use("/api", requireCsrfToken);
+  // Global CSRF validation for all state-changing API requests.
+  // Unauthenticated password endpoints are exempt: they don't use cookie-based
+  // auth (so CSRF adds no security), they're rate-limited by authLimiter, and
+  // reset-password already requires a secret token from the user's email.
+  // Without this exemption, users arriving from an email link (no prior cookies)
+  // would always receive a 403 on their first POST.
+  // NOTE: req.path is relative to the mount point ("/api"), so exempt paths
+  // must NOT include the "/api" prefix.
+  const csrfExemptPaths = new Set(["/auth/forgot-password", "/auth/reset-password"]);
+  app.use("/api", (req, res, next) => {
+    if (csrfExemptPaths.has(req.path)) return next();
+    return requireCsrfToken(req, res, next);
+  });
 
   // Register all API routes
   registerRoutes(app);

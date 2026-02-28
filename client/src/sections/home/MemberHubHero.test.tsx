@@ -31,7 +31,6 @@ const MockIcon: LucideIcon = (({ className }: { className?: string }) => (
 
 describe("MemberHubHero", () => {
   const baseProps = {
-    title: "Welcome Home",
     quickActions: [
       {
         icon: MockIcon,
@@ -39,21 +38,18 @@ describe("MemberHubHero", () => {
         href: "/map",
         description: "Find skate spots",
         color: "text-blue-500",
+        featured: false,
       },
       {
         icon: MockIcon,
-        label: "Play SKATE",
+        label: "Play S.K.A.T.E.",
         href: "/play",
         description: "Challenge friends",
         color: "text-orange-500",
+        featured: true,
       },
     ],
   };
-
-  it("renders the title", () => {
-    render(<MemberHubHero {...baseProps} />);
-    expect(screen.getByText("Welcome Home")).toBeDefined();
-  });
 
   it("renders quick action cards as navigable links", () => {
     render(<MemberHubHero {...baseProps} />);
@@ -62,7 +58,7 @@ describe("MemberHubHero", () => {
     expect(mapLink).not.toBeNull();
     expect(mapLink!.getAttribute("href")).toBe("/map");
 
-    const playLink = screen.getByText("Play SKATE").closest("a");
+    const playLink = screen.getByText("Play S.K.A.T.E.").closest("a");
     expect(playLink).not.toBeNull();
     expect(playLink!.getAttribute("href")).toBe("/play");
   });
@@ -73,7 +69,7 @@ describe("MemberHubHero", () => {
     const mapLink = screen.getByText("Map").closest("a")!;
     expect(mapLink.querySelectorAll("a").length).toBe(0);
 
-    const playLink = screen.getByText("Play SKATE").closest("a")!;
+    const playLink = screen.getByText("Play S.K.A.T.E.").closest("a")!;
     expect(playLink.querySelectorAll("a").length).toBe(0);
   });
 
@@ -81,6 +77,16 @@ describe("MemberHubHero", () => {
     render(<MemberHubHero {...baseProps} />);
     expect(screen.getByText("Find skate spots")).toBeDefined();
     expect(screen.getByText("Challenge friends")).toBeDefined();
+  });
+
+  it("applies featured class to featured actions", () => {
+    render(<MemberHubHero {...baseProps} />);
+
+    const playLink = screen.getByText("Play S.K.A.T.E.").closest("a")!;
+    expect(playLink.className).toContain("featured");
+
+    const mapLink = screen.getByText("Map").closest("a")!;
+    expect(mapLink.className).not.toContain("featured");
   });
 
   it("renders badge when provided", () => {

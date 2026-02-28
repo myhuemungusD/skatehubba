@@ -47,7 +47,7 @@ let JailMonkey: {
 
 if (!isExpoGo) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require needed for conditional native module loading; static import would crash Expo Go since jail-monkey's native module is unavailable there
     const mod = require("jail-monkey");
     JailMonkey = mod.default ?? mod;
   } catch {

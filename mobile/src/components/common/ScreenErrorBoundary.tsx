@@ -36,11 +36,13 @@ export class ScreenErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
-    console.error(
-      `[ScreenErrorBoundary${this.props.screenName ? ` – ${this.props.screenName}` : ""}] Caught error:`,
-      error,
-      errorInfo
-    );
+    if (__DEV__) {
+      console.error(
+        `[ScreenErrorBoundary${this.props.screenName ? ` – ${this.props.screenName}` : ""}] Caught error:`,
+        error,
+        errorInfo
+      );
+    }
   }
 
   handleRetry = (): void => {
@@ -57,16 +59,10 @@ export class ScreenErrorBoundary extends Component<
           accessibilityLabel={`Something went wrong${this.props.screenName ? ` on the ${this.props.screenName} screen` : ""}. Tap retry to reload.`}
         >
           <View style={styles.iconContainer}>
-            <Ionicons
-              name="warning"
-              size={48}
-              color={SKATE.colors.orange}
-            />
+            <Ionicons name="warning" size={48} color={SKATE.colors.orange} />
           </View>
           <Text style={styles.title}>Something went wrong</Text>
-          {this.props.screenName && (
-            <Text style={styles.screenName}>{this.props.screenName}</Text>
-          )}
+          {this.props.screenName && <Text style={styles.screenName}>{this.props.screenName}</Text>}
           <Text style={styles.message}>{this.state.errorMessage}</Text>
           <TouchableOpacity
             accessible

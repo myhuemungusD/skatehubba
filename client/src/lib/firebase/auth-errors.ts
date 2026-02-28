@@ -34,7 +34,7 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   "auth/popup-closed-by-user": "Sign-in was cancelled. Please try again.",
   "auth/popup-blocked": "Pop-up was blocked by your browser. Allow pop-ups and try again.",
   "auth/cancelled-popup-request": "Sign-in was cancelled. Please try again.",
-  "auth/unauthorized-domain": "This domain is not authorized for sign-in. Please contact support.",
+  "auth/unauthorized-domain": `This domain (${typeof window !== "undefined" ? window.location.hostname : "unknown"}) is not authorized for Google Sign-In. Add it to Firebase Console → Authentication → Settings → Authorized domains.`,
   "auth/operation-not-supported-in-this-environment":
     "This sign-in method is not supported in your current browser. Try opening in Safari or Chrome.",
 
@@ -52,7 +52,8 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
 
   // Network / generic errors
   "auth/network-request-failed": "Network error. Check your connection and try again.",
-  "auth/internal-error": "Something went wrong on our end. Please try again.",
+  "auth/internal-error":
+    "Google Sign-In is not configured. Ensure the Google provider is enabled in Firebase Console → Authentication → Sign-in method.",
   "auth/requires-recent-login": "For security, please sign in again to complete this action.",
 };
 
@@ -79,6 +80,24 @@ function extractFirebaseErrorCode(error: unknown): string | null {
   }
 
   return null;
+}
+
+/**
+ * Check if a Firebase Auth error is a configuration/domain issue
+ * that requires admin action rather than user action.
+ */
+export function isAuthConfigError(error: unknown): boolean {
+  const code = extractFirebaseErrorCode(error);
+  if (!code) return false;
+  const shortCode = code.replace(/^(auth\/[a-z-]+)\..*$/, "$1");
+  const configCodes = [
+    "auth/unauthorized-domain",
+    "auth/internal-error",
+    "auth/api-key-not-valid",
+    "auth/invalid-api-key",
+    "auth/operation-not-allowed",
+  ];
+  return configCodes.includes(code) || configCodes.includes(shortCode);
 }
 
 /**

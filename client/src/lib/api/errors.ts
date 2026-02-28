@@ -79,6 +79,15 @@ export const isApiError = (error: unknown): error is ApiError => {
   return error instanceof ApiError;
 };
 
+/** Provide an informative fallback message based on HTTP status code. */
+const statusFallbackMessage = (status?: number): string => {
+  if (status === 500) return "Server error. Please try again later.";
+  if (status === 502 || status === 503)
+    return "Service temporarily unavailable. Please try again shortly.";
+  if (status === 504) return "Request timed out. Please try again.";
+  return "Something went wrong. Please try again.";
+};
+
 export const normalizeApiError = (options: {
   status?: number;
   payload?: unknown;
@@ -88,7 +97,7 @@ export const normalizeApiError = (options: {
   const code = extractedCode ? toCode(extractedCode) : statusToCode(options.status);
   const message =
     extractMessage(options.payload) ??
-    (options.statusText ? options.statusText : "Something went wrong. Please try again.");
+    (options.statusText ? options.statusText : statusFallbackMessage(options.status));
 
   return new ApiError(message, code, options.status, options.payload);
 };

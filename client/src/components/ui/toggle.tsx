@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components -- shadcn/ui: exports both Toggle component and toggleVariants helper from the same file; splitting them would break the shadcn/ui convention and the HMR impact is negligible for a UI primitive */
 import * as React from "react";
 import * as TogglePrimitive from "@radix-ui/react-toggle";
 import { cva, type VariantProps } from "class-variance-authority";

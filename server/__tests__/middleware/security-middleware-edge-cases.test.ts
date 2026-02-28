@@ -78,6 +78,18 @@ vi.mock("../../config/rateLimits", () => ({
     spotRating: { windowMs: 1000, max: 10, message: "test", prefix: "sr:" },
     spotDiscovery: { windowMs: 1000, max: 20, message: "test", prefix: "sd:" },
     proAward: { windowMs: 1000, max: 5, message: "test", prefix: "pa:" },
+    authLogin: { windowMs: 1000, max: 5, message: "test", prefix: "al:" },
+    ai: { windowMs: 1000, max: 10, message: "test", prefix: "ai:" },
+    profileRead: { windowMs: 1000, max: 60, message: "test", prefix: "prd:" },
+    mfaVerify: { windowMs: 1000, max: 10, message: "test", prefix: "mfa:" },
+    sensitiveAuth: { windowMs: 1000, max: 5, message: "test", prefix: "sa:" },
+    remoteSkate: { windowMs: 1000, max: 10, message: "test", prefix: "rs:" },
+    postCreate: { windowMs: 1000, max: 10, message: "test", prefix: "pcr:" },
+    analyticsIngest: { windowMs: 1000, max: 60, message: "test", prefix: "ain:" },
+    payment: { windowMs: 1000, max: 10, message: "test", prefix: "pay:" },
+    gameWrite: { windowMs: 1000, max: 10, message: "test", prefix: "gw:" },
+    trickmintUpload: { windowMs: 1000, max: 15, message: "test", prefix: "tu:" },
+    userSearch: { windowMs: 1000, max: 30, message: "test", prefix: "us:" },
   },
 }));
 
@@ -162,8 +174,8 @@ describe("Security middleware — uncovered lines", () => {
     it("should use the correct prefix for each rate limiter store", () => {
       // All rateLimit() calls should have produced a store via buildStore,
       // so we expect RedisStore to have been called once per limiter.
-      // security.ts has 14 rateLimit() calls.
-      expect(MockRedisStore.calls.length).toBe(14);
+      // security.ts has 24 rateLimit() calls.
+      expect(MockRedisStore.calls.length).toBe(24);
 
       // Verify some known prefixes are present
       const prefixes = MockRedisStore.calls.map((c: any) => c.prefix);

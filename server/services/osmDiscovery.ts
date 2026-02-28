@@ -34,6 +34,13 @@ export interface DiscoveredSpot {
 
 const OVERPASS_API = "https://overpass-api.de/api/interpreter";
 
+/** Minimal Fetch API Response — avoids @types/node version variance. */
+interface FetchResponse {
+  ok: boolean;
+  status: number;
+  json(): Promise<unknown>;
+}
+
 /**
  * Cache to prevent hammering the Overpass API for the same area.
  * Uses Redis when available, falls back to in-memory Map.
@@ -130,12 +137,12 @@ export async function discoverSkateparks(
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 12000);
 
-    const response = await fetch(OVERPASS_API, {
+    const response = (await fetch(OVERPASS_API, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: `data=${encodeURIComponent(query)}`,
       signal: controller.signal,
-    });
+    })) as FetchResponse;
 
     clearTimeout(timeout);
 

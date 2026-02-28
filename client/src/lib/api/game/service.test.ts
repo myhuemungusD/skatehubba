@@ -107,4 +107,20 @@ describe("gameApi", () => {
       path: "/api/games/game-1",
     });
   });
+
+  it("setterBail calls apiRequest with correct params", async () => {
+    await gameApi.setterBail("game-1");
+    expect(mockApiRequest).toHaveBeenCalledWith({
+      method: "POST",
+      path: "/api/games/game-1/setter-bail",
+    });
+  });
+
+  it("getMyStats calls apiRequest with correct params", async () => {
+    await gameApi.getMyStats();
+    expect(mockApiRequest).toHaveBeenCalledWith({
+      method: "GET",
+      path: "/api/games/stats/me",
+    });
+  });
 });

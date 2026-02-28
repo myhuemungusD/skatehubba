@@ -175,7 +175,9 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
     <div className={cn("flex flex-col items-center gap-4", className)}>
       {/* Camera viewfinder — only visible during recording */}
       <div className="relative w-full aspect-[9/16] max-h-[400px] bg-black rounded-lg overflow-hidden">
-        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+        <video ref={videoRef} className="w-full h-full object-cover" playsInline muted>
+          <track kind="captions" />
+        </video>
 
         {state === "recording" && (
           <>
@@ -188,7 +190,11 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
             </div>
 
             {/* Time remaining */}
-            <div className="absolute top-3 right-3 px-2 py-1 rounded bg-black/60 font-mono text-xs text-red-400">
+            <div
+              className="absolute top-3 right-3 px-2 py-1 rounded bg-black/60 font-mono text-xs text-red-400"
+              aria-live="polite"
+              aria-label={`${remainingS} seconds remaining`}
+            >
               {remainingS}s
             </div>
 
@@ -229,6 +235,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
             disabled && "opacity-50 cursor-not-allowed"
           )}
           type="button"
+          aria-label="Start recording"
         >
           <Circle className="w-10 h-10 text-red-500 fill-red-500" />
         </button>
@@ -239,6 +246,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
           onClick={stopRecording}
           className="w-16 h-16 rounded-full border-4 border-red-500 flex items-center justify-center transition-all active:scale-95"
           type="button"
+          aria-label="Stop recording"
         >
           <Square className="w-6 h-6 text-red-500 fill-red-500" />
         </button>

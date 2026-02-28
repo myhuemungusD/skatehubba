@@ -13,12 +13,18 @@ import { OrganizationStructuredData, WebAppStructuredData } from "./components/S
 import { analytics as firebaseAnalytics } from "./lib/firebase";
 import { usePerformanceMonitor } from "./hooks/usePerformanceMonitor";
 import { useSkipLink } from "./hooks/useSkipLink";
+import { useRouteAnnouncer } from "./hooks/useRouteAnnouncer";
+import { MotionConfig } from "framer-motion";
 import { FeedbackButton } from "./components/FeedbackButton";
+import { OfflineBanner } from "./components/OfflineBanner";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { logger } from "./lib/logger";
 import AppRoutes from "./routes/AppRoutes";
 
+/** L9: Only render build stamp in development to prevent info leakage */
 function BuildStamp() {
+  if (!import.meta.env.DEV) return null;
+
   const commit = import.meta.env.VITE_COMMIT_SHA || "dev";
   const buildTime = import.meta.env.VITE_BUILD_TIME || new Date().toISOString();
   return (
@@ -76,6 +82,11 @@ function GoogleRedirectWelcome() {
   return null;
 }
 
+function RouteAccessibility() {
+  useRouteAnnouncer();
+  return null;
+}
+
 export default function App() {
   // Monitor performance in development
   usePerformanceMonitor();
@@ -92,58 +103,49 @@ export default function App() {
     }
   }, []);
 
-  // Expose UID only in dev, Cypress, or explicit E2E mode
-  const { user, isInitialized } = useAuth();
-  useEffect(() => {
-    if (!isInitialized) return;
-    const exposeUid =
-      import.meta.env.DEV ||
-      (typeof window !== "undefined" && window.Cypress) ||
-      import.meta.env.VITE_E2E === "true";
-    if (exposeUid && typeof window !== "undefined") {
-      window.__SKATEHUBBA_UID__ = user?.uid ?? null;
-    }
-  }, [isInitialized, user]);
-
   return (
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
-          {/* Environment indicator - shows in staging/local only */}
-          <StagingBanner />
-          <GoogleRedirectWelcome />
-          <OrganizationStructuredData
-            data={{
-              name: "SkateHubba",
-              url: "https://skatehubba.com",
-              logo: "https://skatehubba.com/icon-512.png",
-              description:
-                "Remote SKATE battles, legendary spot check-ins, and live lobbies. Join the ultimate skateboarding social platform.",
-              sameAs: ["https://twitter.com/skatehubba_app", "https://instagram.com/skatehubba"],
-            }}
-          />
-          <WebAppStructuredData
-            data={{
-              name: "SkateHubba",
-              url: "https://skatehubba.com",
-              description: "Stream. Connect. Skate. Your skateboarding social universe.",
-              applicationCategory: "SportsApplication",
-              operatingSystem: "Any",
-              offers: {
-                price: "0",
-                priceCurrency: "USD",
-              },
-            }}
-          />
-          <Router>
-            <AppRoutes />
-          </Router>
-          <BuildStamp />
-          <Toaster />
-          <PWAInstallPrompt />
-          <FeedbackButton />
-        </TooltipProvider>
-      </QueryClientProvider>
+      <MotionConfig reducedMotion="user">
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider>
+            {/* Environment indicator - shows in staging/local only */}
+            <StagingBanner />
+            <OfflineBanner />
+            <GoogleRedirectWelcome />
+            <OrganizationStructuredData
+              data={{
+                name: "SkateHubba",
+                url: "https://skatehubba.com",
+                logo: "https://skatehubba.com/icon-512.png",
+                description:
+                  "Remote SKATE battles, legendary spot check-ins, and live lobbies. Join the ultimate skateboarding social platform.",
+                sameAs: ["https://twitter.com/skatehubba_app", "https://instagram.com/skatehubba"],
+              }}
+            />
+            <WebAppStructuredData
+              data={{
+                name: "SkateHubba",
+                url: "https://skatehubba.com",
+                description: "Stream. Connect. Skate. Your skateboarding social universe.",
+                applicationCategory: "SportsApplication",
+                operatingSystem: "Any",
+                offers: {
+                  price: "0",
+                  priceCurrency: "USD",
+                },
+              }}
+            />
+            <Router>
+              <RouteAccessibility />
+              <AppRoutes />
+            </Router>
+            <BuildStamp />
+            <Toaster />
+            <PWAInstallPrompt />
+            <FeedbackButton />
+          </TooltipProvider>
+        </QueryClientProvider>
+      </MotionConfig>
     </ErrorBoundary>
   );
 }

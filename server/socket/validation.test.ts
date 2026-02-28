@@ -55,7 +55,7 @@ describe("battleCreateSchema", () => {
 describe("battleVoteSchema", () => {
   it("accepts valid vote", () => {
     const result = battleVoteSchema.safeParse({
-      battleId: "b1",
+      battleId: "b1234567",
       odv: "user1",
       vote: "clean",
     });
@@ -64,13 +64,15 @@ describe("battleVoteSchema", () => {
 
   it("accepts all vote types", () => {
     for (const vote of ["clean", "sketch", "redo"]) {
-      expect(battleVoteSchema.safeParse({ battleId: "b1", odv: "u1", vote }).success).toBe(true);
+      expect(battleVoteSchema.safeParse({ battleId: "b1234567", odv: "u1", vote }).success).toBe(
+        true
+      );
     }
   });
 
   it("rejects invalid vote type", () => {
     const result = battleVoteSchema.safeParse({
-      battleId: "b1",
+      battleId: "b1234567",
       odv: "user1",
       vote: "invalid",
     });
@@ -102,7 +104,7 @@ describe("gameCreateSchema", () => {
 describe("gameTrickSchema", () => {
   it("accepts valid trick submission", () => {
     const result = gameTrickSchema.safeParse({
-      gameId: "g1",
+      gameId: "g1234567",
       odv: "u1",
       trickName: "kickflip",
     });
@@ -111,7 +113,7 @@ describe("gameTrickSchema", () => {
 
   it("accepts optional clipUrl", () => {
     const result = gameTrickSchema.safeParse({
-      gameId: "g1",
+      gameId: "g1234567",
       odv: "u1",
       trickName: "kickflip",
       clipUrl: "https://example.com/clip.mp4",
@@ -121,7 +123,7 @@ describe("gameTrickSchema", () => {
 
   it("rejects invalid clipUrl", () => {
     const result = gameTrickSchema.safeParse({
-      gameId: "g1",
+      gameId: "g1234567",
       odv: "u1",
       trickName: "kickflip",
       clipUrl: "not-a-url",
@@ -131,7 +133,7 @@ describe("gameTrickSchema", () => {
 
   it("rejects trickName over 200 chars", () => {
     const result = gameTrickSchema.safeParse({
-      gameId: "g1",
+      gameId: "g1234567",
       odv: "u1",
       trickName: "x".repeat(201),
     });
@@ -142,12 +144,14 @@ describe("gameTrickSchema", () => {
 describe("roomJoinSchema", () => {
   it("accepts all valid room types", () => {
     for (const roomType of ["battle", "game", "spot", "global"]) {
-      expect(roomJoinSchema.safeParse({ roomType, roomId: "r1" }).success).toBe(true);
+      expect(roomJoinSchema.safeParse({ roomType, roomId: "r1234567" }).success).toBe(true);
     }
   });
 
   it("rejects invalid room type", () => {
-    expect(roomJoinSchema.safeParse({ roomType: "invalid", roomId: "r1" }).success).toBe(false);
+    expect(roomJoinSchema.safeParse({ roomType: "invalid", roomId: "r1234567" }).success).toBe(
+      false
+    );
   });
 });
 

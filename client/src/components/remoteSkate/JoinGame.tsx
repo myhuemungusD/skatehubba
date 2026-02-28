@@ -68,7 +68,6 @@ export function JoinGame({ onGameJoined }: JoinGameProps) {
           disabled={isJoining}
           className="w-full px-4 py-2.5 rounded-lg bg-neutral-900 border border-neutral-700 text-white text-sm font-mono placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 disabled:opacity-50"
           autoComplete="off"
-          autoFocus
         />
 
         <button

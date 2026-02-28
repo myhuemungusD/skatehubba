@@ -63,7 +63,7 @@ router.post(
       }
 
       return res.status(200).json({ ok: true });
-    } catch (error) {
+    } catch {
       return res.status(500).json({ ok: false, error: "SERVER_ERROR" });
     }
   }

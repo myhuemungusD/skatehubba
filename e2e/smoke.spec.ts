@@ -6,20 +6,14 @@ import { test, expect, type Page } from "@playwright/test";
 
 /** Assert the React error boundary is NOT showing on the current page. */
 async function expectNoErrorBoundary(page: Page) {
-  await expect(
-    page.locator('text="Oops! Something went wrong"'),
-  ).not.toBeVisible();
-  await expect(
-    page.locator('text="Configuration Required"'),
-  ).not.toBeVisible();
+  await expect(page.locator('text="Oops! Something went wrong"')).not.toBeVisible();
+  await expect(page.locator('text="Configuration Required"')).not.toBeVisible();
 }
 
 /** Filter out known harmless console errors (React DevTools promotions). */
 function filterConsoleNoise(errors: string[]): string[] {
   return errors.filter(
-    (e) =>
-      !e.includes("React DevTools") &&
-      !e.includes("Download the React DevTools"),
+    (e) => !e.includes("React DevTools") && !e.includes("Download the React DevTools")
   );
 }
 
@@ -68,9 +62,7 @@ test.describe("Production Smoke Test", () => {
     await expect(root).toBeAttached();
     await expect(root).not.toBeEmpty();
 
-    const clientElement = page.locator(
-      '[data-testid="app-shell"], nav, [role="navigation"]',
-    );
+    const clientElement = page.locator('[data-testid="app-shell"], nav, [role="navigation"]');
     await expect(clientElement.first()).toBeVisible();
   });
 
@@ -87,10 +79,7 @@ test.describe("Production Smoke Test", () => {
     await page.waitForLoadState("networkidle");
 
     const criticalFailures = failedRequests.filter(
-      (r) =>
-        !r.includes("service-worker") &&
-        !r.includes("analytics") &&
-        !r.includes("sentry"),
+      (r) => !r.includes("service-worker") && !r.includes("analytics") && !r.includes("sentry")
     );
 
     expect(criticalFailures).toHaveLength(0);
@@ -110,7 +99,7 @@ test.describe("Public Route Smoke Tests", () => {
 
     // Proves the auth bundle loaded and rendered an interactive element.
     const authContent = page.locator(
-      'input[type="email"], input[type="password"], [data-testid="auth-email"], [data-testid="google-signin"], button:has-text("Sign")',
+      'input[type="email"], input[type="password"], [data-testid="auth-email"], [data-testid="google-signin"], button:has-text("Sign")'
     );
     await expect(authContent.first()).toBeVisible();
   });
@@ -149,6 +138,7 @@ test.describe("Legacy Route Redirects", () => {
     "/dashboard",
     "/game",
     "/skate-game",
+    "/remote-skate",
     "/closet",
     "/settings",
     "/showcase",
@@ -195,9 +185,7 @@ test.describe("SEO & Meta Tags", () => {
 
   test("charset is declared", async ({ page }) => {
     await page.goto("/");
-    const charset = page.locator(
-      'meta[charset], meta[http-equiv="Content-Type"]',
-    );
+    const charset = page.locator('meta[charset], meta[http-equiv="Content-Type"]');
     await expect(charset.first()).toBeAttached();
   });
 

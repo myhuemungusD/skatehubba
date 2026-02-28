@@ -26,15 +26,21 @@ interface CameraRef {
 // react-native-vision-camera requires native code unavailable in Expo Go
 let Camera: React.ComponentType<Record<string, unknown>> | null = null;
 let useCameraDevice: (position: string) => CameraDevice | null = () => null;
-let useCameraPermission: () => { hasPermission: boolean; requestPermission: () => Promise<boolean> } =
-  () => ({ hasPermission: false, requestPermission: async () => false });
-let useMicrophonePermission: () => { hasPermission: boolean; requestPermission: () => Promise<boolean> } =
-  () => ({ hasPermission: false, requestPermission: async () => false });
-let useCameraFormat: (device: CameraDevice | null, filters: Array<Record<string, unknown>>) => CameraFormat | null =
-  () => null;
+let useCameraPermission: () => {
+  hasPermission: boolean;
+  requestPermission: () => Promise<boolean>;
+} = () => ({ hasPermission: false, requestPermission: async () => false });
+let useMicrophonePermission: () => {
+  hasPermission: boolean;
+  requestPermission: () => Promise<boolean>;
+} = () => ({ hasPermission: false, requestPermission: async () => false });
+let useCameraFormat: (
+  device: CameraDevice | null,
+  filters: Array<Record<string, unknown>>
+) => CameraFormat | null = () => null;
 if (!isExpoGo) {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require needed for conditional native module loading; static import would crash Expo Go since the native module is unavailable there
     const vc = require("react-native-vision-camera");
     Camera = vc.Camera;
     useCameraDevice = vc.useCameraDevice;
@@ -166,7 +172,7 @@ export default function NewChallengeScreen() {
           setVideoUri(video.path);
         },
         onRecordingError: (error: unknown) => {
-          console.error("[NewChallenge] Recording error:", error);
+          if (__DEV__) console.error("[NewChallenge] Recording error:", error);
           setRecording(false);
           showMessage({
             message: "Recording failed. Please try again.",
@@ -182,7 +188,7 @@ export default function NewChallengeScreen() {
         }
       }, MAX_RECORDING_DURATION * 1000);
     } catch (error) {
-      console.error("[NewChallenge] Failed to start recording:", error);
+      if (__DEV__) console.error("[NewChallenge] Failed to start recording:", error);
       setRecording(false);
       showMessage({
         message: "Failed to start recording",

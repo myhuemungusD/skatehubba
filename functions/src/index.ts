@@ -1,37 +1,36 @@
 /**
- * Firebase Cloud Functions - Entry Point
+ * Firebase Cloud Functions — Entry Point
  *
- * Secure serverless functions for SkateHubba.
- * Each domain is implemented in its own module; this file re-exports
- * all Cloud Functions so Firebase can discover and deploy them.
+ * This file re-exports all Cloud Functions from their respective modules.
+ * Each functional domain lives in its own directory:
  *
- * Modules:
- * - admin/       Role management (RBAC with custom claims)
- * - game/        S.K.A.T.E. battle logic (tricks, judging)
- * - video/       Video validation and signed URL generation
- * - scheduling/  Vote timeout processing
- * - commerce/    Payments, inventory holds, Stripe webhooks
+ *   admin/   — Role management (manageUserRole, getUserRoles)
+ *   game/    — S.K.A.T.E. battle logic (submitTrick, judgeTrick, getVideoUrl, voteTimeouts)
+ *   video/   — Storage triggers (validateChallengeVideo)
+ *   commerce/ — Stripe / payment functions (holdAndCreatePaymentIntent, etc.)
+ *
+ * Security Features:
+ * - App Check enforcement for abuse prevention
+ * - Firestore-backed rate limiting (multi-instance safe)
+ * - RBAC with custom claims
+ * - Comprehensive audit logging
+ * - Firestore transactions for race condition prevention
  */
 
-// Ensure Firebase Admin SDK is initialized before any function runs
-import "./firebaseAdmin";
-
 // Admin functions
-export { manageUserRole } from "./admin/manageUserRole";
-export { getUserRoles } from "./admin/getUserRoles";
+export { manageUserRole, getUserRoles } from "./admin/roles";
 
-// S.K.A.T.E. game functions
+// Game functions
 export { submitTrick } from "./game/submitTrick";
 export { judgeTrick } from "./game/judgeTrick";
+export { setterBail } from "./game/setterBail";
+export { getVideoUrl } from "./game/getVideoUrl";
+export { processVoteTimeouts } from "./game/voteTimeouts";
 
 // Video functions
-export { validateChallengeVideo } from "./video/validateChallengeVideo";
-export { getVideoUrl } from "./video/getVideoUrl";
+export { validateChallengeVideo } from "./video/validateVideo";
 
-// Scheduling
-export { processVoteTimeouts } from "./scheduling/processVoteTimeouts";
-
-// Commerce
+// Commerce functions
 export { holdAndCreatePaymentIntent } from "./commerce/holdAndCreateIntent";
 export { stripeWebhook } from "./commerce/stripeWebhook";
 export { expireHolds } from "./commerce/expireHolds";

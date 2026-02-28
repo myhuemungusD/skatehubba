@@ -19,6 +19,7 @@ vi.mock("../../auth/routes", () => ({ setupAuthRoutes: vi.fn() }));
 // -- auth middleware --
 vi.mock("../../auth/middleware", () => ({
   authenticateUser: vi.fn((_r: any, _s: any, n: any) => n()),
+  requireAdmin: vi.fn((_r: any, _s: any, n: any) => n()),
   requireEmailVerification: vi.fn((_r: any, _s: any, n: any) => n()),
   requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
@@ -29,6 +30,11 @@ vi.mock("../../middleware/requirePaidOrPro", () => ({
 }));
 vi.mock("../../middleware/bandwidth", () => ({
   bandwidthDetection: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
+vi.mock("../../middleware/security", () => ({
+  emailSignupLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+  profileReadLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+  remoteSkateLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
 }));
 
 // -- sub-routers (existing) --

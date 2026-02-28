@@ -84,9 +84,16 @@
       .transition-colors{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke;transition-timing-function:cubic-bezier(0.4,0,0.2,1);transition-duration:150ms}
     </style>
 
-    <!-- Fonts loaded via CSS @font-face with CDN fallback -->
+    <!-- Font optimization: preload + font-display swap to prevent FOIT -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" as="style" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" />
 
-    <!-- Resource hints for performance -->
+    <!-- Resource hints for third-party origins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="dns-prefetch" href="https://firebasestorage.googleapis.com" />
+    <link rel="dns-prefetch" href="https://tile.openstreetmap.org" />
+    <link rel="dns-prefetch" href="https://unpkg.com" />
   </head>
   <body>
     <div id="root">
@@ -120,13 +127,13 @@
     </div>
     <script type="module" src="/src/main.tsx"></script>
     
-    <!-- Service Worker Registration -->
+    <!-- Service Worker Registration (L10: silent failure - app works without SW) -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-            .then(reg => reg.update())
-            .catch(err => console.error('SW registration failed:', err));
+            .then(reg => reg.update().catch(() => {}))
+            .catch(() => {});
         });
       }
     </script>

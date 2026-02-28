@@ -6,6 +6,7 @@
  * - joinGame
  * - markSetComplete / markReplyComplete
  * - subscribeToGame / subscribeToRounds / subscribeToVideo / subscribeToMyGames
+ * - findRandomGame / cancelWaitingGame
  * - resolveRound
  */
 
@@ -14,12 +15,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // Mock firebase/firestore
 const mockSetDoc = vi.fn().mockResolvedValue(undefined);
 const mockUpdateDoc = vi.fn().mockResolvedValue(undefined);
+const mockDeleteDoc = vi.fn().mockResolvedValue(undefined);
 const mockGetDocResult = { exists: vi.fn(() => true), data: vi.fn(), id: "mock-id" };
 const mockGetDoc = vi.fn().mockResolvedValue(mockGetDocResult);
+const mockGetDocs = vi.fn().mockResolvedValue({ docs: [], empty: true });
 const mockOnSnapshot = vi.fn(() => vi.fn()); // returns unsubscribe
 const mockQuery = vi.fn();
 const mockWhere = vi.fn();
 const mockOrderBy = vi.fn();
+const mockLimit = vi.fn();
 const mockServerTimestamp = vi.fn(() => ({ _serverTimestamp: true }));
 const mockCollection = vi.fn(() => ({ id: "generated-id" }));
 const mockDoc = vi.fn((..._args: any[]) => ({ id: "generated-id" }));
@@ -29,11 +33,14 @@ vi.mock("firebase/firestore", () => ({
   doc: (...args: any[]) => mockDoc(...args),
   setDoc: (...args: any[]) => mockSetDoc(...args),
   updateDoc: (...args: any[]) => mockUpdateDoc(...args),
+  deleteDoc: (...args: any[]) => mockDeleteDoc(...args),
   getDoc: (...args: any[]) => mockGetDoc(...args),
+  getDocs: (...args: any[]) => mockGetDocs(...args),
   onSnapshot: (...args: any[]) => mockOnSnapshot(...args),
   query: (...args: any[]) => mockQuery(...args),
   where: (...args: any[]) => mockWhere(...args),
   orderBy: (...args: any[]) => mockOrderBy(...args),
+  limit: (...args: any[]) => mockLimit(...args),
   serverTimestamp: () => mockServerTimestamp(),
   Timestamp: { now: vi.fn() },
   FieldValue: {},
@@ -56,17 +63,34 @@ vi.mock("../logger", () => ({
   },
 }));
 
+const mockApiRequest = vi.fn().mockResolvedValue({
+  success: true,
+  match: { opponentId: "random-user", opponentName: "RandomSkater", challengeId: "qm-123" },
+});
+vi.mock("../api/client", () => ({
+  apiRequest: (...args: any[]) => mockApiRequest(...args),
+}));
+
 const { RemoteSkateService } = await import("../remoteSkate/remoteSkateService");
 
 describe("RemoteSkateService", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // Restore getIdToken mock (cleared by clearAllMocks)
+    const { auth } = await import("../firebase");
+    if (auth.currentUser) {
+      (auth.currentUser as any).getIdToken = vi.fn().mockResolvedValue("mock-token");
+    }
     mockGetDocResult.exists.mockReturnValue(true);
     mockGetDocResult.data.mockReturnValue({
       playerAUid: "user-1",
       playerBUid: null,
       status: "waiting",
       letters: { "user-1": "" },
+    });
+    mockApiRequest.mockResolvedValue({
+      success: true,
+      match: { opponentId: "random-user", opponentName: "RandomSkater", challengeId: "qm-123" },
     });
   });
 
@@ -80,121 +104,107 @@ describe("RemoteSkateService", () => {
     it("should throw when not logged in", async () => {
       const { auth } = await import("../firebase");
       const original = auth.currentUser;
-      (auth as any).currentUser = null;
-
-      await expect(RemoteSkateService.createGame()).rejects.toThrow(
-        "Must be logged in to create a game"
-      );
-
-      (auth as any).currentUser = original;
+      try {
+        (auth as any).currentUser = null;
+        await expect(RemoteSkateService.createGame()).rejects.toThrow(
+          "Must be logged in to create a game"
+        );
+      } finally {
+        (auth as any).currentUser = original;
+      }
     });
   });
 
   describe("joinGame", () => {
-    it("should join an existing game", async () => {
-      mockGetDocResult.data.mockReturnValue({
-        playerAUid: "other-user",
-        playerBUid: null,
-        status: "waiting",
-        letters: { "other-user": "" },
+    it("should join an existing game via server API", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true, gameId: "game-1" }),
       });
 
       await RemoteSkateService.joinGame("game-1");
 
-      expect(mockUpdateDoc).toHaveBeenCalled();
-      expect(mockSetDoc).toHaveBeenCalled(); // Creates first round
-    });
-
-    it("should throw when game not found", async () => {
-      mockGetDocResult.exists.mockReturnValue(false);
-
-      await expect(RemoteSkateService.joinGame("nonexistent")).rejects.toThrow("Game not found");
-    });
-
-    it("should throw when joining own game", async () => {
-      mockGetDocResult.data.mockReturnValue({
-        playerAUid: "user-1",
-        playerBUid: null,
-        status: "waiting",
-      });
-
-      await expect(RemoteSkateService.joinGame("game-1")).rejects.toThrow(
-        "You cannot join your own game"
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/remote-skate/game-1/join",
+        expect.objectContaining({ method: "POST" })
       );
     });
 
-    it("should throw when game is full", async () => {
-      mockGetDocResult.data.mockReturnValue({
-        playerAUid: "other-user",
-        playerBUid: "third-user",
-        status: "active",
+    it("should throw on server error", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: vi.fn().mockResolvedValue({ error: "GAME_FULL", message: "Game is full" }),
       });
 
       await expect(RemoteSkateService.joinGame("game-1")).rejects.toThrow("Game is full");
     });
 
-    it("should throw when game is no longer available", async () => {
-      mockGetDocResult.data.mockReturnValue({
-        playerAUid: "other-user",
-        playerBUid: null,
-        status: "active",
-      });
-
-      await expect(RemoteSkateService.joinGame("game-1")).rejects.toThrow(
-        "Game is no longer available"
-      );
-    });
-
     it("should throw when not logged in", async () => {
       const { auth } = await import("../firebase");
       const original = auth.currentUser;
-      (auth as any).currentUser = null;
-
-      await expect(RemoteSkateService.joinGame("game-1")).rejects.toThrow(
-        "Must be logged in to join a game"
-      );
-
-      (auth as any).currentUser = original;
+      try {
+        (auth as any).currentUser = null;
+        await expect(RemoteSkateService.joinGame("game-1")).rejects.toThrow("Must be logged in");
+      } finally {
+        (auth as any).currentUser = original;
+      }
     });
   });
 
   describe("markSetComplete", () => {
-    it("should update round status and game turn", async () => {
-      mockGetDocResult.data.mockReturnValue({
-        defenseUid: "other-user",
-        offenseUid: "user-1",
+    it("should call server API to mark set complete", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true }),
       });
 
       await RemoteSkateService.markSetComplete("game-1", "round-1");
 
-      expect(mockUpdateDoc).toHaveBeenCalled();
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/remote-skate/game-1/rounds/round-1/set-complete",
+        expect.objectContaining({ method: "POST" })
+      );
     });
 
-    it("should handle missing round gracefully", async () => {
-      mockGetDocResult.exists.mockReturnValue(false);
+    it("should throw on server error", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: vi.fn().mockResolvedValue({ message: "Round not found" }),
+      });
 
-      // Should not throw
-      await RemoteSkateService.markSetComplete("game-1", "round-1");
+      await expect(RemoteSkateService.markSetComplete("game-1", "round-1")).rejects.toThrow(
+        "Round not found"
+      );
     });
   });
 
   describe("markReplyComplete", () => {
-    it("should update game turn to offense", async () => {
-      mockGetDocResult.data.mockReturnValue({
-        offenseUid: "user-1",
-        defenseUid: "other-user",
+    it("should call server API to update turn", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true }),
       });
 
       await RemoteSkateService.markReplyComplete("game-1", "round-1");
 
-      expect(mockUpdateDoc).toHaveBeenCalled();
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/remote-skate/game-1/rounds/round-1/reply-complete",
+        expect.objectContaining({ method: "POST" })
+      );
     });
 
-    it("should handle missing round gracefully", async () => {
-      mockGetDocResult.exists.mockReturnValue(false);
+    it("should throw on server error", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: vi.fn().mockResolvedValue({ message: "Invalid state" }),
+      });
 
-      await RemoteSkateService.markReplyComplete("game-1", "round-1");
-      // updateDoc should not be called for game update
+      await expect(RemoteSkateService.markReplyComplete("game-1", "round-1")).rejects.toThrow(
+        "Invalid state"
+      );
     });
   });
 
@@ -450,6 +460,112 @@ describe("RemoteSkateService", () => {
     });
   });
 
+  describe("findRandomGame", () => {
+    it("should match with existing waiting game via server API", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true, gameId: "waiting-game-1", matched: true }),
+      });
+
+      const result = await RemoteSkateService.findRandomGame();
+
+      expect(result).toEqual({ gameId: "waiting-game-1", matched: true });
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/remote-skate/find-or-create",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    it("should create game and notify opponent when no match", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true, gameId: "new-game-1", matched: false }),
+      });
+
+      const result = await RemoteSkateService.findRandomGame();
+
+      expect(result.gameId).toBe("new-game-1");
+      expect(result.matched).toBe(false);
+      expect(result.opponentName).toBe("RandomSkater");
+      // Should call server to notify a random opponent
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/matchmaking/quick-match",
+          body: { gameId: "new-game-1" },
+        })
+      );
+    });
+
+    it("should throw when not logged in", async () => {
+      const { auth } = await import("../firebase");
+      const original = auth.currentUser;
+      try {
+        (auth as any).currentUser = null;
+        await expect(RemoteSkateService.findRandomGame()).rejects.toThrow(
+          "Must be logged in to play"
+        );
+      } finally {
+        (auth as any).currentUser = original;
+      }
+    });
+
+    it("should still return gameId when opponent notification fails", async () => {
+      // Notification fails (non-blocking)
+      mockApiRequest.mockRejectedValueOnce(new Error("No opponents available"));
+
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true, gameId: "new-game-2", matched: false }),
+      });
+
+      const result = await RemoteSkateService.findRandomGame();
+
+      expect(result.matched).toBe(false);
+      expect(result.gameId).toBe("new-game-2");
+      expect(result.opponentName).toBeUndefined();
+    });
+  });
+
+  describe("cancelWaitingGame", () => {
+    it("should cancel a waiting game via server API", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ success: true }),
+      });
+
+      await RemoteSkateService.cancelWaitingGame("game-1");
+
+      expect(fetch).toHaveBeenCalledWith(
+        "/api/remote-skate/game-1/cancel",
+        expect.objectContaining({ method: "POST" })
+      );
+    });
+
+    it("should throw on server error", async () => {
+      global.fetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: vi.fn().mockResolvedValue({ message: "Access denied" }),
+      });
+
+      await expect(RemoteSkateService.cancelWaitingGame("game-1")).rejects.toThrow("Access denied");
+    });
+
+    it("should throw when not logged in", async () => {
+      const { auth } = await import("../firebase");
+      const original = auth.currentUser;
+      try {
+        (auth as any).currentUser = null;
+        await expect(RemoteSkateService.cancelWaitingGame("game-1")).rejects.toThrow(
+          "Must be logged in"
+        );
+      } finally {
+        (auth as any).currentUser = original;
+      }
+    });
+  });
+
   describe("confirmRound", () => {
     it("should call confirm API with correct parameters", async () => {
       global.fetch = vi.fn().mockResolvedValue({
@@ -487,13 +603,14 @@ describe("RemoteSkateService", () => {
     it("should throw when not logged in for confirm", async () => {
       const { auth } = await import("../firebase");
       const original = auth.currentUser;
-      (auth as any).currentUser = null;
-
-      await expect(RemoteSkateService.confirmRound("game-1", "round-1", "landed")).rejects.toThrow(
-        "Must be logged in"
-      );
-
-      (auth as any).currentUser = original;
+      try {
+        (auth as any).currentUser = null;
+        await expect(
+          RemoteSkateService.confirmRound("game-1", "round-1", "landed")
+        ).rejects.toThrow("Must be logged in");
+      } finally {
+        (auth as any).currentUser = original;
+      }
     });
 
     it("should handle JSON parse failure on confirm error response", async () => {
@@ -545,13 +662,14 @@ describe("RemoteSkateService", () => {
     it("should throw when not logged in", async () => {
       const { auth } = await import("../firebase");
       const original = auth.currentUser;
-      (auth as any).currentUser = null;
-
-      await expect(RemoteSkateService.resolveRound("game-1", "round-1", "landed")).rejects.toThrow(
-        "Must be logged in"
-      );
-
-      (auth as any).currentUser = original;
+      try {
+        (auth as any).currentUser = null;
+        await expect(
+          RemoteSkateService.resolveRound("game-1", "round-1", "landed")
+        ).rejects.toThrow("Must be logged in");
+      } finally {
+        (auth as any).currentUser = original;
+      }
     });
 
     it("should handle JSON parse failure on error response", async () => {

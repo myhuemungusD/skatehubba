@@ -12,6 +12,7 @@ import { gameApi } from "@/lib/api/game";
 const QUERY_KEYS = {
   myGames: ["games", "my-games"] as const,
   gameDetails: (id: string) => ["games", id] as const,
+  myStats: ["games", "stats", "me"] as const,
 };
 
 export function useMyGames() {
@@ -106,6 +107,7 @@ export function useJudgeTurn() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      if (data.gameOver) queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
       toast({ title: data.message });
     },
     onError: (error: Error) => {
@@ -147,11 +149,38 @@ export function useResolveDispute() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
       toast({ title: data.message });
     },
     onError: (error: Error) => {
       toast({ title: "Failed", description: error.message, variant: "destructive" });
     },
+  });
+}
+
+export function useSetterBail() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (gameId: string) => gameApi.setterBail(gameId),
+    onSuccess: (data, gameId) => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      if (data.gameOver) queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+      toast({ title: data.message });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Failed", description: error.message, variant: "destructive" });
+    },
+  });
+}
+
+export function useMyStats() {
+  return useQuery({
+    queryKey: QUERY_KEYS.myStats,
+    queryFn: () => gameApi.getMyStats(),
+    staleTime: 30000,
   });
 }
 
@@ -164,6 +193,7 @@ export function useForfeitGame() {
     onSuccess: (_data, gameId) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
       toast({ title: "You forfeited." });
     },
     onError: (error: Error) => {

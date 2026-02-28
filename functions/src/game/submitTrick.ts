@@ -1,19 +1,41 @@
 /**
- * submitTrick Cloud Function
+ * Submit Trick
  *
- * Submit a trick (set or match) with transaction to prevent race conditions.
- * Uses idempotency key to prevent duplicate submissions from flaky connections.
- * Sets voteDeadline when transitioning to judging phase for timeout handling.
+ * Cloud Function for submitting a trick (set or match) in a S.K.A.T.E. battle.
+ * Uses Firestore transactions to prevent race conditions and idempotency keys
+ * to deduplicate submissions from flaky network connections.
  */
 
 import * as crypto from "crypto";
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import { monitoredTransaction } from "../shared/monitoredTransaction";
-import { STORAGE_PATH_RE } from "../shared/validation";
+import { monitoredTransaction } from "../shared/transaction";
+import { checkRateLimit } from "../shared/rateLimit";
 import { VOTE_TIMEOUT_MS } from "./constants";
-import { SubmitTrickRequest, SubmitTrickResponse } from "./types";
 
+interface SubmitTrickRequest {
+  gameId: string;
+  clipUrl: string;
+  /** Firebase Storage path for signed-URL resolution (preferred over clipUrl) */
+  storagePath?: string;
+  trickName: string | null;
+  isSetTrick: boolean;
+  /** Client-generated idempotency key to prevent duplicate submissions */
+  idempotencyKey: string;
+}
+
+interface SubmitTrickResponse {
+  success: boolean;
+  moveId: string;
+  /** True if this was a duplicate submission (already processed) */
+  duplicate: boolean;
+}
+
+/**
+ * Submit a trick (set or match) with transaction to prevent race conditions.
+ * Uses idempotency key to prevent duplicate submissions from flaky connections.
+ * Sets voteDeadline when transitioning to judging phase for timeout handling.
+ */
 export const submitTrick = functions.https.onCall(
   async (
     data: SubmitTrickRequest,
@@ -22,6 +44,8 @@ export const submitTrick = functions.https.onCall(
     if (!context.auth?.uid) {
       throw new functions.https.HttpsError("unauthenticated", "Not logged in");
     }
+
+    await checkRateLimit(context.auth.uid);
 
     const { gameId, clipUrl, storagePath, trickName, isSetTrick, idempotencyKey } = data;
 
@@ -34,6 +58,8 @@ export const submitTrick = functions.https.onCall(
 
     // Validate storagePath format when provided
     if (storagePath) {
+      const STORAGE_PATH_RE =
+        /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/round_[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
       if (
         !STORAGE_PATH_RE.test(storagePath) ||
         storagePath.includes("..") ||

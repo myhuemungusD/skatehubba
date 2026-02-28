@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useLocation } from "wouter";
 import {
   LogOut,
@@ -12,12 +12,15 @@ import {
   HelpCircle,
   MessageSquare,
   Trash2,
-  Construction,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
+import { deleteUser } from "firebase/auth";
 import { useAuth } from "../hooks/useAuth";
 import { Button } from "../components/ui/button";
 import {
   AlertDialog,
+  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -29,6 +32,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../lib/queryClient";
 import { type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@shared/schema";
+import { useToast } from "../hooks/use-toast";
 
 function ToggleRow({
   icon,
@@ -73,34 +77,76 @@ function ToggleRow({
   );
 }
 
-function ComingSoonBadge() {
-  return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-medium">
-      <Construction className="h-3 w-3" />
-      Coming Soon
-    </span>
-  );
-}
+const FAQ_ITEMS = [
+  {
+    q: "What is SkateHubba?",
+    a: "SkateHubba is a platform for skaters to discover spots, challenge friends to S.K.A.T.E. games, and build their skate crew.",
+  },
+  {
+    q: "How do I add a skate spot?",
+    a: "Tap the map and long-press any location to drop a pin. Fill in the spot name, type, and difficulty, then save it as a draft — it'll be submitted once you're online.",
+  },
+  {
+    q: "How do S.K.A.T.E. challenges work?",
+    a: "Challenge any skater on their profile. Each player takes turns filming a trick. If the other player lands it, you get a letter. Spell S.K.A.T.E. and you lose.",
+  },
+  {
+    q: "How is my XP calculated?",
+    a: "You earn XP for winning games, completing challenges, and contributing spots. Your XP and win rate appear on your public profile.",
+  },
+  {
+    q: "Is SkateHubba free to use?",
+    a: "Yes — the core features are free. Some collectible items and cosmetics may be available through the closet in a future update.",
+  },
+] as const;
 
 export default function SettingsPage() {
-  const auth = useAuth();
+  const { user, isAuthenticated, signOut } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [faqOpen, setFaqOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleLogout = useCallback(async () => {
     try {
-      await auth?.signOut?.();
+      await signOut?.();
     } catch {
       // Best-effort logout
     } finally {
       setLocation("/");
     }
-  }, [auth, setLocation]);
+  }, [signOut, setLocation]);
+
+  const handleDeleteAccount = useCallback(async () => {
+    if (!user) return;
+
+    setIsDeleting(true);
+    try {
+      // Delete Firebase Auth account first — if this fails (e.g. requires-recent-login)
+      // nothing is deleted and the user can retry after re-authenticating.
+      await deleteUser(user);
+      // Firebase account is gone; now remove the DB record best-effort.
+      await apiRequest("DELETE", "/api/profile");
+      setLocation("/");
+    } catch (err) {
+      const code = (err as { code?: string }).code;
+      const description =
+        code === "auth/requires-recent-login"
+          ? "Please sign out and sign back in, then try again."
+          : err instanceof Error
+            ? err.message
+            : "Could not delete your account. Please try again.";
+      toast({ title: "Deletion failed", description, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [user, setLocation, toast]);
 
   // Fetch notification preferences
   const { data: prefs, isLoading } = useQuery<NotificationPrefs>({
     queryKey: ["/api/notifications/preferences"],
-    enabled: auth.isAuthenticated,
+    enabled: isAuthenticated,
   });
 
   // Update preferences mutation
@@ -245,19 +291,49 @@ export default function SettingsPage() {
         <div>
           <h2 className="text-lg font-semibold mb-3 text-white">Support</h2>
           <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-4">
-            <div className="flex items-center justify-between py-3 border-b border-neutral-800">
-              <div className="flex items-center gap-3">
-                <div className="text-neutral-400">
-                  <HelpCircle className="h-4 w-4" />
+            {/* Help & FAQ */}
+            <div className="border-b border-neutral-800">
+              <button
+                type="button"
+                onClick={() => setFaqOpen((o) => !o)}
+                className="flex w-full items-center justify-between py-3 text-left"
+                aria-expanded={faqOpen}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="text-neutral-400">
+                    <HelpCircle className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-white">Help & FAQ</p>
+                    <p className="text-xs text-neutral-500 mt-0.5">
+                      Get answers to common questions
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-white">Help & FAQ</p>
-                  <p className="text-xs text-neutral-500 mt-0.5">Get answers to common questions</p>
+                {faqOpen ? (
+                  <ChevronDown className="h-4 w-4 text-neutral-400 shrink-0" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
+                )}
+              </button>
+
+              {faqOpen && (
+                <div className="pb-4 space-y-4">
+                  {FAQ_ITEMS.map((item) => (
+                    <div key={item.q}>
+                      <p className="text-sm font-medium text-white">{item.q}</p>
+                      <p className="text-xs text-neutral-400 mt-1">{item.a}</p>
+                    </div>
+                  ))}
                 </div>
-              </div>
-              <ComingSoonBadge />
+              )}
             </div>
-            <div className="flex items-center justify-between py-3">
+
+            {/* Contact Us */}
+            <a
+              href="mailto:support@skatehubba.com"
+              className="flex items-center justify-between py-3 hover:opacity-80 transition-opacity"
+            >
               <div className="flex items-center gap-3">
                 <div className="text-neutral-400">
                   <MessageSquare className="h-4 w-4" />
@@ -267,8 +343,8 @@ export default function SettingsPage() {
                   <p className="text-xs text-neutral-500 mt-0.5">Reach out for support</p>
                 </div>
               </div>
-              <ComingSoonBadge />
-            </div>
+              <ChevronRight className="h-4 w-4 text-neutral-400 shrink-0" />
+            </a>
           </div>
         </div>
 
@@ -290,6 +366,7 @@ export default function SettingsPage() {
                 <Button
                   variant="outline"
                   className="border-red-900/50 text-red-400 hover:bg-red-950 hover:text-red-300"
+                  disabled={isDeleting}
                 >
                   <Trash2 className="w-4 h-4 mr-2" aria-hidden="true" />
                   Delete Account
@@ -299,17 +376,20 @@ export default function SettingsPage() {
                 <AlertDialogHeader>
                   <AlertDialogTitle className="text-white">Delete Account</AlertDialogTitle>
                   <AlertDialogDescription className="text-neutral-400">
-                    Account deletion is not yet available. When launched, this will permanently
-                    remove all your data, game history, and profile information.
+                    This will permanently delete your account, game history, spots, and all profile
+                    data. This action cannot be undone.
                   </AlertDialogDescription>
-                  <div className="pt-2">
-                    <ComingSoonBadge />
-                  </div>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel className="border-neutral-700 text-neutral-300 hover:bg-neutral-800 hover:text-white">
-                    Close
+                    Cancel
                   </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteAccount}
+                    className="bg-red-700 hover:bg-red-800 text-white"
+                  >
+                    {isDeleting ? "Deleting…" : "Delete My Account"}
+                  </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>

@@ -93,16 +93,16 @@ describe("config/env — CRON_SECRET validation", () => {
     process.env = originalEnv;
   });
 
-  it("accepts a secret that meets the 16-character minimum", async () => {
+  it("accepts a secret that meets the 32-character minimum", async () => {
     delete process.env.VITEST;
     Object.assign(process.env, VALID_BASE);
-    process.env.CRON_SECRET = "exactly16chars!!";
+    process.env.CRON_SECRET = "exactly32characters_long_secret!";
 
     const { env } = await import("../../config/env");
-    expect(env.CRON_SECRET).toBe("exactly16chars!!");
+    expect(env.CRON_SECRET).toBe("exactly32characters_long_secret!");
   });
 
-  it("rejects a secret shorter than 16 characters", async () => {
+  it("rejects a secret shorter than 32 characters", async () => {
     delete process.env.VITEST;
     Object.assign(process.env, VALID_BASE);
     process.env.CRON_SECRET = "tooshort";

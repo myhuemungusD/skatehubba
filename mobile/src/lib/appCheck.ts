@@ -75,8 +75,10 @@ export function initAppCheck(firebaseApp: FirebaseApp): void {
         isTokenAutoRefreshEnabled: false,
       });
 
-      // eslint-disable-next-line no-console
-      console.log("[AppCheck] Initialized with debug provider");
+      if (__DEV__) {
+        // eslint-disable-next-line no-console -- startup diagnostic emitted only in local/debug builds; confirms which App Check provider is active
+        console.log("[AppCheck] Initialized with debug provider");
+      }
     } else {
       // Production and staging: use a custom provider that integrates
       // with the native attestation APIs.
@@ -109,7 +111,7 @@ export function initAppCheck(firebaseApp: FirebaseApp): void {
       });
 
       if (__DEV__) {
-        // eslint-disable-next-line no-console
+        // eslint-disable-next-line no-console -- startup diagnostic guarded by __DEV__; confirms App Check is active in non-production builds
         console.log(`[AppCheck] Initialized for ${env}`);
       }
     }
@@ -117,7 +119,9 @@ export function initAppCheck(firebaseApp: FirebaseApp): void {
     // App Check initialization failures should not crash the app.
     // The server should enforce App Check as a soft requirement
     // initially, becoming strict once all clients are updated.
-    console.error("[AppCheck] Initialization failed:", error);
+    if (__DEV__) {
+      console.error("[AppCheck] Initialization failed:", error);
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components -- shadcn/ui: exports both Badge component and badgeVariants helper from the same file; splitting them would break the shadcn/ui convention and the HMR impact is negligible for a UI primitive */
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 

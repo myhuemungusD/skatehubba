@@ -1,12 +1,20 @@
 # Security Audit Workflow Documentation
 
+**Last Updated:** 2026-02-26
+**Workflow Version:** 2.0.0
+
 ## Overview
 
 The Security Audit workflow performs comprehensive security checks on the SkateHubba application. It runs automatically on pull requests and pushes to the main branch, providing continuous security monitoring.
 
-## Workflow File
+## Workflow Files
 
-`.github/workflows/security-audit.yml`
+| Workflow       | File                                   | Purpose                                        |
+| -------------- | -------------------------------------- | ---------------------------------------------- |
+| Security Audit | `.github/workflows/security.yml`       | Dependency audit, Gitleaks, license compliance |
+| CodeQL         | `.github/workflows/codeql.yml`         | Static analysis (JavaScript/TypeScript)        |
+| CI             | `.github/workflows/ci.yml`             | Build, test, lint, Firebase rules validation   |
+| Deploy Staging | `.github/workflows/deploy-staging.yml` | Docker build with Trivy vulnerability scanning |
 
 ## Triggers
 
@@ -16,22 +24,38 @@ The Security Audit workflow performs comprehensive security checks on the SkateH
 
 ## Security Checks Performed
 
-### 1. NPM Audit (Production Dependencies)
+### 1. Dependency Audit (pnpm)
 
-- Runs `npm audit --production` to check for known vulnerabilities
+- Runs `pnpm audit` to check for known vulnerabilities across all workspaces
 - Reports severity levels: Critical, High, Moderate, Low
-- Provides actionable recommendations for fixing issues
-- Does not fail the build, only warns
+- Configurable failure thresholds via `scripts/audit-dependencies.mjs`
+- CI mode (`audit:deps:ci`) enforces stricter thresholds
 
 **What it checks:**
 
-- Known security vulnerabilities in production dependencies
+- Known security vulnerabilities in production and dev dependencies
 - CVEs (Common Vulnerabilities and Exposures)
-- Package integrity issues
+- Package integrity via `--frozen-lockfile`
 
-### 2. API Key and Secret Detection
+### 2. Secret Detection (Multi-Layer)
 
-Scans the codebase for exposed secrets including:
+The platform uses multiple complementary scanning tools:
+
+**Gitleaks** (`.gitleaks.toml`):
+
+- Scans on push and PR events
+- Allowlists test files, example env files, Firebase config templates
+- No blanket exclusions
+
+**Secretlint** (`.secretlintrc.json`):
+
+- Detects database connection strings, API keys
+- Allows test credential patterns only
+
+**Custom Scanner** (`scripts/scan-secrets.mjs`):
+
+- Orchestrates Secretlint, hardcoded secret patterns, Gitleaks, detect-secrets, ggshield
+- Runs as `pnpm scan:secrets`
 
 **Patterns detected:**
 
@@ -42,197 +66,166 @@ Scans the codebase for exposed secrets including:
 - GitHub tokens: `ghp_*`, `github_pat_*`
 - GitLab tokens: `glpat-*`
 - Google OAuth: `*.apps.googleusercontent.com`
-- Google tokens: `ya29.*`
+- Database connection strings
+- Generic high-entropy strings
 
-**Additional checks:**
+### 3. Static Analysis (CodeQL)
 
-- Detects if `.env` file is committed to git (CRITICAL)
-- Finds Firebase config initialization in source files
-- Verifies Firebase configs use environment variables
+- Automated code scanning for JavaScript/TypeScript
+- Detects injection vulnerabilities, insecure data handling, auth issues
+- Results appear as GitHub Security alerts
 
-### 3. OWASP Top 10 Compliance Analysis
+### 4. Container Scanning (Trivy)
 
-Analyzes the codebase against OWASP Top 10 2021 standards:
+- Runs on Docker image builds during staging deployment
+- Scans for OS package vulnerabilities and application dependencies
+- Pinned to `trivy-action@0.28.0` (supply chain hardened)
 
-#### A01:2021 - Broken Access Control
+### 5. License Compliance
 
-- ✅ Checks for authentication middleware
-- ✅ Checks for user session/context usage
+- Checks dependency licenses for compatibility
+- Part of the security workflow
 
-#### A02:2021 - Cryptographic Failures
+### 6. Firebase Rules Validation
 
-- ✅ Checks for Helmet security headers
-- ✅ Checks for password hashing libraries (bcrypt, argon2)
+- Validates Firestore and Storage rules syntax
+- Runs on PR and main branch pushes (added Feb 2026)
+- Uses `scripts/verify-firebase-rules.mjs`
 
-#### A03:2021 - Injection
+### 7. OWASP Top 10 Compliance
 
-- ✅ Checks for ORM usage (Drizzle, Prisma, Sequelize)
-- ✅ Checks for input validation libraries (Zod, Joi, Validator)
+Platform compliance verified across all categories:
 
-#### A04:2021 - Insecure Design
+| Category                       | Status     | Implementation                                                   |
+| ------------------------------ | ---------- | ---------------------------------------------------------------- |
+| A01: Broken Access Control     | **Pass**   | Auth middleware on all routes, role checks, ownership validation |
+| A02: Cryptographic Failures    | **Pass**   | AES-256-GCM, bcrypt (12 rounds), SHA-256 session hashing         |
+| A03: Injection                 | **Pass**   | Drizzle ORM, Zod validation, strict socket schemas               |
+| A04: Insecure Design           | **Pass**   | Defense-in-depth, rate limiting, re-authentication               |
+| A05: Security Misconfiguration | **Pass**   | Helmet, strict CSP, env validation at boot                       |
+| A06: Vulnerable Components     | **Pass**   | Node 22, pinned actions, Dependabot, audit scripts               |
+| A07: Auth Failures             | **Pass**   | MFA, lockout, re-auth, session invalidation                      |
+| A08: Software/Data Integrity   | Needs Work | Docker image signing recommended                                 |
+| A09: Logging/Monitoring        | **Pass**   | Comprehensive audit logging, Sentry                              |
+| A10: SSRF                      | **Pass**   | No user-controlled HTTP requests                                 |
 
-- ✅ Checks for rate limiting implementation
+## Report Distribution
 
-#### A05:2021 - Security Misconfiguration
+1. **PR Comments**: Security findings posted as comments on pull requests
+2. **GitHub Security Tab**: CodeQL alerts appear in repository security dashboard
+3. **Workflow Artifacts**: Full reports available for download from workflow runs
+4. **Audit Documents**: Comprehensive reports maintained in `SECURITY_AUDIT.md` and `SECURITY_AUDIT_MOBILE.md`
 
-- ✅ Checks for CORS configuration
-- ✅ Checks for Content Security Policy (CSP)
-- ✅ Checks for Helmet middleware
+## Current Security Status (2026-02-26)
 
-#### A06:2021 - Vulnerable and Outdated Components
+### Strengths
 
-- ✅ References NPM Audit section for details
+- Helmet security headers with strict CSP (no `unsafe-inline` for scripts)
+- 15+ rate limiting configurations across all layers
+- Input validation with Zod on all write endpoints
+- Drizzle ORM prevents SQL injection
+- Comprehensive audit logging with Pino + dual storage
+- Sentry error monitoring in production
+- Firebase Auth + custom session management with MFA
+- pnpm lockfile integrity enforced in CI
+- Multi-tool secret scanning (Gitleaks + Secretlint + CodeQL + Trivy)
+- Default-deny Firestore/Storage rules with field whitelisting
+- Non-root Docker container (user `skatehubba:1001`)
+- Node.js 22 LTS (EOL: April 2027)
 
-#### A07:2021 - Identification and Authentication Failures
+### Open Items
 
-- ✅ Checks for session management (express-session)
-- ✅ Checks for JWT libraries
-
-#### A08:2021 - Software and Data Integrity Failures
-
-- ✅ Checks for package lock files (ensures dependency integrity)
-
-#### A09:2021 - Security Logging and Monitoring Failures
-
-- ✅ Checks for logging libraries (Winston, Pino, Morgan)
-- ✅ Checks for error monitoring (Sentry, Datadog, NewRelic)
-
-#### A10:2021 - Server-Side Request Forgery (SSRF)
-
-- ✅ Checks for HTTP request usage and warns about URL validation
-
-## Report Generation
-
-### Format
-
-The workflow generates a comprehensive markdown report containing:
-
-1. NPM Audit results with vulnerability counts
-2. Secret detection findings with file locations
-3. OWASP Top 10 compliance status for each category
-4. Overall security summary
-5. Actionable recommendations
-
-### Distribution
-
-1. **PR Comments**: Posted as a comment on pull requests
-   - Updates existing comment instead of creating duplicates
-   - Includes full security report
-2. **Workflow Artifacts**: Uploaded as `security-audit-report`
-   - Available for download from workflow run
-   - Retained for historical analysis
-
-## Current Security Status
-
-Based on the latest scan:
-
-### ✅ Strengths
-
-- Helmet security headers configured
-- Rate limiting implemented (express-rate-limit)
-- Input validation with Zod
-- ORM usage (Drizzle) prevents SQL injection
-- Logging library (Pino) present
-- Error monitoring (Sentry) configured
-- JWT authentication implemented
-- Package integrity maintained (lock files present)
-
-### ⚠️ Warnings
-
-- 2 low severity npm vulnerabilities (fast-redact)
-- .env file is tracked in git (SHOULD BE FIXED)
-- Firebase config found in source files (verified using env vars)
-
-### 📋 Recommendations
-
-1. Run `npm audit fix` to address the fast-redact vulnerability
-2. Remove .env from git tracking:
-   ```bash
-   git rm --cached .env
-   git commit -m "Remove .env from git tracking"
-   ```
-3. Ensure .env is in .gitignore (it already is, but file was previously committed)
-4. Keep all dependencies up to date
-5. Continue monitoring security reports on each PR
+- `unsafe-inline` in `styleSrc` — deferred (low risk, pending CSS approach)
+- Docker image signing — recommended for OWASP A08
+- Mobile certificate pinning — in backlog (App Check partially mitigates)
 
 ## Usage
 
 ### Viewing Reports
 
 **On Pull Requests:**
-The workflow automatically comments on PRs with the security report. Look for the comment titled "🔒 Security Audit Report".
+Security findings are automatically commented on PRs. CodeQL alerts appear in the Security tab.
 
 **In Workflow Runs:**
 
 1. Go to Actions tab in GitHub
-2. Click on "Security Audit" workflow
-3. Select a workflow run
-4. Download the "security-audit-report" artifact
+2. Click on the relevant workflow (Security, CodeQL, CI)
+3. Review logs or download artifacts
 
 ### Manual Trigger
 
-To manually run the security audit:
-
 1. Go to Actions tab
-2. Select "Security Audit" workflow
+2. Select "Security" or "CodeQL" workflow
 3. Click "Run workflow"
 4. Select branch and run
 
+### Running Locally
+
+```bash
+# Dependency audit
+pnpm audit:deps
+
+# Secret scanning
+pnpm scan:secrets
+
+# Firebase rules validation
+pnpm verify:firebase-rules
+
+# Environment validation
+pnpm validate:env
+```
+
 ## Integration with CI/CD
 
-The security audit runs in parallel with other CI jobs and does not block deployments. Instead, it provides visibility into security issues that should be addressed.
+The security workflows run in parallel with build/test jobs. Findings are reported but do not block merges by default — this allows development velocity while maintaining security visibility.
 
-### Why it doesn't fail builds:
+**Deployment pipeline security:**
 
-- Low severity vulnerabilities may not require immediate action
-- Some findings need manual review (false positives)
-- Allows development to continue while security issues are triaged
-- Provides warnings instead of hard failures
+1. PR opened → Security audit + CodeQL + CI (Firebase rules validation)
+2. Merge to main → Same checks + staging deployment trigger
+3. Deploy staging → Docker build with Trivy scanning, SSH deployment
 
 ## Maintenance
 
 ### Updating Secret Patterns
 
-To add new secret patterns, edit `.github/workflows/security-audit.yml` and add patterns to the `secret-patterns.txt` section around line 103.
+- **Gitleaks:** Edit `.gitleaks.toml`
+- **Secretlint:** Edit `.secretlintrc.json`
+- **Custom scanner:** Edit `scripts/scan-hardcoded-secrets.mjs`
 
-### Customizing OWASP Checks
+### Updating Dependency Audit Thresholds
 
-OWASP compliance checks can be customized by modifying the grep patterns in the "OWASP Top 10 Compliance Check" step.
+Edit `scripts/audit-dependencies.mjs` to adjust failure severity levels.
 
-### Adjusting Thresholds
+### Pinning GitHub Actions
 
-To make the workflow fail on certain conditions, modify the final check step and change:
-
-```yaml
-exit 0 # Always succeed
-```
-
-to:
+When updating actions, always pin to specific SHAs or exact versions:
 
 ```yaml
-exit 1 # Fail the workflow
+# Good
+- uses: aquasecurity/trivy-action@0.28.0
+# Bad
+- uses: aquasecurity/trivy-action@master
 ```
 
-## Best Practices
+## Audit Schedule
 
-1. **Review every security report** - Don't ignore warnings
-2. **Fix critical/high vulnerabilities promptly** - Within 1-2 days
-3. **Keep dependencies updated** - Run `npm update` regularly
-4. **Never commit secrets** - Always use environment variables
-5. **Monitor trends** - Compare reports over time to track improvements
+| Cadence    | Type                      | Next Date     |
+| ---------- | ------------------------- | ------------- |
+| Continuous | Automated CI/CD scans     | Every PR/push |
+| Weekly     | Dependabot updates        | Ongoing       |
+| Quarterly  | Full E2E production audit | May 2026      |
+| As needed  | Mobile-specific audit     | TBD           |
 
 ## Related Documentation
 
-- [SECURITY.md](../SECURITY.md) - Security policy
-- [SECURITY_NOTES.md](../SECURITY_NOTES.md) - Security review notes
-- [OWASP Top 10](https://owasp.org/www-project-top-ten/)
-- [npm audit docs](https://docs.npmjs.com/cli/v8/commands/npm-audit)
+- [SECURITY.md](../../SECURITY.md) — Public security policy
+- [SECURITY_AUDIT.md](../../SECURITY_AUDIT.md) — Full E2E production audit report
+- [SECURITY_AUDIT_MOBILE.md](../../SECURITY_AUDIT_MOBILE.md) — Mobile security audit
+- [SECURITY_HEALTH_CHECK.md](../../SECURITY_HEALTH_CHECK.md) — Initial health check
+- [docs/security/SECURITY.md](SECURITY.md) — Hardening log and risk decisions
+- [docs/security/SECURITY_NOTES.md](SECURITY_NOTES.md) — Security controls inventory
 
 ## Support
 
-For questions or issues with the security audit workflow, please open an issue or contact the security team.
-
----
-
-**Last Updated:** November 3, 2025
-**Workflow Version:** 1.0.0
+For questions or issues with the security audit workflow, open an issue or email security@skatehubba.com.

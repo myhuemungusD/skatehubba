@@ -715,9 +715,12 @@ describe("Auth & Profile Smoke Tests", () => {
       });
       const res = mockResponse();
 
-      // getDb() is called outside the route's try/catch, so it throws
-      // In production Express catches this via error middleware
-      await expect(callHandlers(handlers, req, res)).rejects.toThrow("Database not configured");
+      // getDb() is wrapped in a try/catch — the handler returns 503 directly
+      await callHandlers(handlers, req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+      );
     });
 
     it("should reject username shorter than 3 characters", async () => {

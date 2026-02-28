@@ -30,11 +30,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
  * Sends a dummy Bearer header so CSRF is bypassed but the request carries no
  * valid credentials — letting route-level auth/validation do its job.
  */
-async function postBypassCsrf(
-  request: APIRequestContext,
-  path: string,
-  data?: unknown,
-) {
+async function postBypassCsrf(request: APIRequestContext, path: string, data?: unknown) {
   return request.post(path, {
     data: data ?? {},
     headers: {
@@ -52,7 +48,7 @@ async function postWithAuth(
   request: APIRequestContext,
   path: string,
   authHeader: string,
-  data?: unknown,
+  data?: unknown
 ) {
   return request.post(path, {
     data: data ?? {},
@@ -72,7 +68,7 @@ test.describe("Login Endpoint (POST /api/auth/login)", () => {
     const res = await postWithAuth(
       request,
       "/api/auth/login",
-      "Bearer totally-invalid-firebase-token-abc123",
+      "Bearer totally-invalid-firebase-token-abc123"
     );
     expect(res.status()).toBe(401);
 
@@ -82,11 +78,7 @@ test.describe("Login Endpoint (POST /api/auth/login)", () => {
   });
 
   test("rejects request with empty Bearer token", async ({ request }) => {
-    const res = await postWithAuth(
-      request,
-      "/api/auth/login",
-      "Bearer ",
-    );
+    const res = await postWithAuth(request, "/api/auth/login", "Bearer ");
     // Empty token after trim fails Firebase verification → 401
     expect(res.status()).toBe(401);
 
@@ -94,9 +86,7 @@ test.describe("Login Endpoint (POST /api/auth/login)", () => {
     expect(body.error).toBe("Authentication failed");
   });
 
-  test("rejects request without Authorization header (CSRF gate)", async ({
-    request,
-  }) => {
+  test("rejects request without Authorization header (CSRF gate)", async ({ request }) => {
     // No Bearer header → CSRF middleware blocks with 403
     const res = await request.post("/api/auth/login", {
       data: {},
@@ -105,13 +95,11 @@ test.describe("Login Endpoint (POST /api/auth/login)", () => {
     expect(res.status()).toBe(403);
   });
 
-  test("returns generic error message (no info leakage)", async ({
-    request,
-  }) => {
+  test("returns generic error message (no info leakage)", async ({ request }) => {
     const res = await postWithAuth(
       request,
       "/api/auth/login",
-      "Bearer some-fake-token-that-does-not-exist",
+      "Bearer some-fake-token-that-does-not-exist"
     );
 
     const body = await res.json();
@@ -123,11 +111,7 @@ test.describe("Login Endpoint (POST /api/auth/login)", () => {
   });
 
   test("error response has consistent JSON shape", async ({ request }) => {
-    const res = await postWithAuth(
-      request,
-      "/api/auth/login",
-      "Bearer invalid",
-    );
+    const res = await postWithAuth(request, "/api/auth/login", "Bearer invalid");
 
     const body = await res.json();
     expect(body).toHaveProperty("error");
@@ -197,10 +181,7 @@ test.describe("MFA Endpoints", () => {
 
   for (const { method, path } of mfaEndpoints) {
     test(`${method} ${path} returns 401 without auth`, async ({ request }) => {
-      const res =
-        method === "GET"
-          ? await request.get(path)
-          : await postBypassCsrf(request, path);
+      const res = method === "GET" ? await request.get(path) : await postBypassCsrf(request, path);
       expect(res.status()).toBe(401);
 
       const body = await res.json();
@@ -214,9 +195,7 @@ test.describe("MFA Endpoints", () => {
 // =============================================================================
 
 test.describe("Password Management", () => {
-  test("POST /api/auth/forgot-password rejects empty body", async ({
-    request,
-  }) => {
+  test("POST /api/auth/forgot-password rejects empty body", async ({ request }) => {
     const res = await postBypassCsrf(request, "/api/auth/forgot-password");
     expect(res.status()).toBe(400);
 
@@ -227,11 +206,9 @@ test.describe("Password Management", () => {
   test("POST /api/auth/forgot-password returns 200 even for unknown email (no enumeration)", async ({
     request,
   }) => {
-    const res = await postBypassCsrf(
-      request,
-      "/api/auth/forgot-password",
-      { email: "definitely-does-not-exist@example.com" },
-    );
+    const res = await postBypassCsrf(request, "/api/auth/forgot-password", {
+      email: "definitely-does-not-exist@example.com",
+    });
     // Always returns 200 to prevent email enumeration
     expect(res.status()).toBe(200);
 
@@ -241,9 +218,7 @@ test.describe("Password Management", () => {
     expect(body.message).toContain("If an account");
   });
 
-  test("POST /api/auth/reset-password rejects missing token", async ({
-    request,
-  }) => {
+  test("POST /api/auth/reset-password rejects missing token", async ({ request }) => {
     const res = await postBypassCsrf(request, "/api/auth/reset-password");
     expect(res.status()).toBe(400);
 
@@ -251,9 +226,7 @@ test.describe("Password Management", () => {
     expect(body).toHaveProperty("error");
   });
 
-  test("POST /api/auth/reset-password rejects weak password", async ({
-    request,
-  }) => {
+  test("POST /api/auth/reset-password rejects weak password", async ({ request }) => {
     const res = await postBypassCsrf(request, "/api/auth/reset-password", {
       token: "a".repeat(64),
       newPassword: "short",
@@ -264,9 +237,7 @@ test.describe("Password Management", () => {
     expect(body.code).toBe("INVALID_PASSWORD");
   });
 
-  test("POST /api/auth/reset-password rejects password without complexity", async ({
-    request,
-  }) => {
+  test("POST /api/auth/reset-password rejects password without complexity", async ({ request }) => {
     const res = await postBypassCsrf(request, "/api/auth/reset-password", {
       token: "a".repeat(64),
       newPassword: "alllowercasenodigits",
@@ -277,9 +248,7 @@ test.describe("Password Management", () => {
     expect(body.code).toBe("WEAK_PASSWORD");
   });
 
-  test("POST /api/auth/change-password returns 401 without auth", async ({
-    request,
-  }) => {
+  test("POST /api/auth/change-password returns 401 without auth", async ({ request }) => {
     const res = await postBypassCsrf(request, "/api/auth/change-password", {
       currentPassword: "old",
       newPassword: "NewPass123",
@@ -293,9 +262,7 @@ test.describe("Password Management", () => {
 // =============================================================================
 
 test.describe("Email Verification", () => {
-  test("POST /api/auth/verify-email rejects missing token", async ({
-    request,
-  }) => {
+  test("POST /api/auth/verify-email rejects missing token", async ({ request }) => {
     const res = await postBypassCsrf(request, "/api/auth/verify-email");
     expect(res.status()).toBe(400);
 
@@ -303,9 +270,7 @@ test.describe("Email Verification", () => {
     expect(body).toHaveProperty("error");
   });
 
-  test("POST /api/auth/verify-email rejects malformed token format", async ({
-    request,
-  }) => {
+  test("POST /api/auth/verify-email rejects malformed token format", async ({ request }) => {
     const res = await postBypassCsrf(request, "/api/auth/verify-email", {
       token: "not-hex-and-too-long-!@#$%",
     });
@@ -315,9 +280,7 @@ test.describe("Email Verification", () => {
     expect(body.code).toBe("INVALID_TOKEN");
   });
 
-  test("POST /api/auth/verify-email rejects invalid/expired token", async ({
-    request,
-  }) => {
+  test("POST /api/auth/verify-email rejects invalid/expired token", async ({ request }) => {
     // Valid hex format but doesn't match any real token
     const res = await postBypassCsrf(request, "/api/auth/verify-email", {
       token: "a".repeat(64),
@@ -328,13 +291,8 @@ test.describe("Email Verification", () => {
     expect(body.code).toBe("INVALID_TOKEN");
   });
 
-  test("POST /api/auth/resend-verification returns 401 without auth", async ({
-    request,
-  }) => {
-    const res = await postBypassCsrf(
-      request,
-      "/api/auth/resend-verification",
-    );
+  test("POST /api/auth/resend-verification returns 401 without auth", async ({ request }) => {
+    const res = await postBypassCsrf(request, "/api/auth/resend-verification");
     expect(res.status()).toBe(401);
   });
 });
@@ -344,9 +302,7 @@ test.describe("Email Verification", () => {
 // =============================================================================
 
 test.describe("Re-authentication", () => {
-  test("POST /api/auth/verify-identity returns 401 without auth", async ({
-    request,
-  }) => {
+  test("POST /api/auth/verify-identity returns 401 without auth", async ({ request }) => {
     const res = await postBypassCsrf(request, "/api/auth/verify-identity", {
       password: "test",
     });
@@ -359,14 +315,11 @@ test.describe("Re-authentication", () => {
 // =============================================================================
 
 test.describe("Auth Security Properties", () => {
-  test("all auth error responses use application/json", async ({
-    request,
-  }) => {
+  test("all auth error responses use application/json", async ({ request }) => {
     const endpoints = [
       () => request.get("/api/auth/me"),
       () => postBypassCsrf(request, "/api/auth/logout"),
-      () =>
-        postWithAuth(request, "/api/auth/login", "Bearer fake-token"),
+      () => postWithAuth(request, "/api/auth/login", "Bearer fake-token"),
     ];
 
     for (const call of endpoints) {
@@ -377,11 +330,7 @@ test.describe("Auth Security Properties", () => {
   });
 
   test("auth errors never expose stack traces", async ({ request }) => {
-    const res = await postWithAuth(
-      request,
-      "/api/auth/login",
-      "Bearer garbage",
-    );
+    const res = await postWithAuth(request, "/api/auth/login", "Bearer garbage");
     const text = await res.text();
     expect(text).not.toContain("at Function");
     expect(text).not.toContain("at Object");
@@ -389,23 +338,17 @@ test.describe("Auth Security Properties", () => {
     expect(text).not.toContain(".js:");
   });
 
-  test("POST /api/auth/login is not a 404 (route is registered)", async ({
-    request,
-  }) => {
+  test("POST /api/auth/login is not a 404 (route is registered)", async ({ request }) => {
     const res = await postBypassCsrf(request, "/api/auth/login");
     expect(res.status()).not.toBe(404);
   });
 
-  test("GET /api/auth/me is not a 404 (route is registered)", async ({
-    request,
-  }) => {
+  test("GET /api/auth/me is not a 404 (route is registered)", async ({ request }) => {
     const res = await request.get("/api/auth/me");
     expect(res.status()).not.toBe(404);
   });
 
-  test("POST /api/auth/logout is not a 404 (route is registered)", async ({
-    request,
-  }) => {
+  test("POST /api/auth/logout is not a 404 (route is registered)", async ({ request }) => {
     const res = await postBypassCsrf(request, "/api/auth/logout");
     expect(res.status()).not.toBe(404);
   });

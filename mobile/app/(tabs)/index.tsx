@@ -45,7 +45,13 @@ function HomeScreenContent() {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Explore</Text>
         <View style={styles.grid}>
-          <TouchableOpacity style={styles.card} onPress={() => router.push("/(tabs)/map")}>
+          <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Find Spots"
+            style={styles.card}
+            onPress={() => router.push("/(tabs)/map")}
+          >
             <View style={styles.cardIconContainer}>
               <Ionicons name="map" size={32} color={SKATE.colors.orange} />
             </View>
@@ -53,7 +59,13 @@ function HomeScreenContent() {
             <Text style={styles.cardDesc}>Discover nearby skate spots</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.card} onPress={() => router.push("/(tabs)/challenges")}>
+          <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Play S.K.A.T.E."
+            style={styles.card}
+            onPress={() => router.push("/(tabs)/challenges")}
+          >
             <View style={[styles.cardIconContainer, styles.playIconContainer]}>
               <Ionicons name="play" size={32} color={SKATE.colors.white} />
             </View>
@@ -61,7 +73,13 @@ function HomeScreenContent() {
             <Text style={styles.cardDesc}>Challenge skaters worldwide</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.card} onPress={() => router.push("/(tabs)/leaderboard")}>
+          <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Leaderboard"
+            style={styles.card}
+            onPress={() => router.push("/(tabs)/leaderboard")}
+          >
             <View style={styles.cardIconContainer}>
               <Ionicons name="trophy" size={32} color={SKATE.colors.orange} />
             </View>
@@ -69,7 +87,13 @@ function HomeScreenContent() {
             <Text style={styles.cardDesc}>See top skaters</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.card} onPress={() => router.push("/(tabs)/trickmint")}>
+          <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="TrickMint"
+            style={styles.card}
+            onPress={() => router.push("/(tabs)/trickmint")}
+          >
             <View style={styles.cardIconContainer}>
               <Ionicons name="film" size={32} color={SKATE.colors.orange} />
             </View>
@@ -77,7 +101,13 @@ function HomeScreenContent() {
             <Text style={styles.cardDesc}>Upload and share tricks</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.card} onPress={() => router.push("/(tabs)/shop")}>
+          <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Shop"
+            style={styles.card}
+            onPress={() => router.push("/(tabs)/shop")}
+          >
             <View style={styles.cardIconContainer}>
               <Ionicons name="cart" size={32} color={SKATE.colors.orange} />
             </View>
@@ -92,6 +122,9 @@ function HomeScreenContent() {
         <Text style={styles.sectionTitle}>Your Activity</Text>
         <View style={styles.activityList}>
           <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="My Profile"
             style={styles.activityItem}
             onPress={() => router.push(`/profile/${user.uid}`)}
           >
@@ -106,6 +139,9 @@ function HomeScreenContent() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="My Closet"
             style={styles.activityItem}
             onPress={() => router.push("/(tabs)/closet")}
           >
@@ -120,6 +156,9 @@ function HomeScreenContent() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Find Skaters"
             style={styles.activityItem}
             onPress={() => router.push("/(tabs)/users")}
           >
@@ -133,23 +172,6 @@ function HomeScreenContent() {
             <Ionicons name="chevron-forward" size={20} color={SKATE.colors.gray} />
           </TouchableOpacity>
         </View>
-      </View>
-
-      {/* Investor Demo Access */}
-      <View style={styles.section}>
-        <TouchableOpacity
-          style={styles.demoCard}
-          onPress={() => router.push("/demo")}
-        >
-          <View style={styles.demoIconContainer}>
-            <Ionicons name="eye" size={24} color={SKATE.colors.orange} />
-          </View>
-          <View style={styles.demoContent}>
-            <Text style={styles.demoTitle}>Investor Demo</Text>
-            <Text style={styles.demoSubtitle}>Preview all screens with mock data</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={SKATE.colors.orange} />
-        </TouchableOpacity>
       </View>
 
       <View style={styles.bottomPadding} />
@@ -272,38 +294,6 @@ const styles = StyleSheet.create({
   },
   activitySubtitle: {
     color: SKATE.colors.gray,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  demoCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: SKATE.colors.grime,
-    borderRadius: SKATE.borderRadius.lg,
-    padding: SKATE.spacing.lg,
-    borderWidth: 1,
-    borderColor: SKATE.colors.orange,
-    borderStyle: "dashed",
-  },
-  demoIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 102, 0, 0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: SKATE.spacing.md,
-  },
-  demoContent: {
-    flex: 1,
-  },
-  demoTitle: {
-    color: SKATE.colors.orange,
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  demoSubtitle: {
-    color: SKATE.colors.lightGray,
     fontSize: 12,
     marginTop: 2,
   },

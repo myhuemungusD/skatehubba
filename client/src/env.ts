@@ -1,13 +1,10 @@
-const REQUIRED_PUBLIC_ENV = [
-  "EXPO_PUBLIC_FIREBASE_API_KEY",
-  "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",
-  "EXPO_PUBLIC_FIREBASE_PROJECT_ID",
-  "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET",
-  "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID",
-  "EXPO_PUBLIC_FIREBASE_APP_ID",
-] as const;
+import { REQUIRED_PUBLIC_VARS, type RequiredPublicVar } from "@skatehubba/config";
 
-type RequiredEnvKey = (typeof REQUIRED_PUBLIC_ENV)[number];
+// Re-export from the contract — single source of truth.
+// DO NOT duplicate this list. Add new required vars to envContract.ts.
+const REQUIRED_PUBLIC_ENV = REQUIRED_PUBLIC_VARS;
+
+type RequiredEnvKey = RequiredPublicVar;
 
 export function getMissingRequiredEnv(): RequiredEnvKey[] {
   return REQUIRED_PUBLIC_ENV.filter((key) => {

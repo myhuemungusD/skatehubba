@@ -8,7 +8,7 @@ import { eq, count } from "drizzle-orm";
 import logger from "../logger";
 import { validateOrigin } from "../config/server";
 import { Errors, sendError } from "../utils/apiError";
-import { proAwardLimiter } from "../middleware/security";
+import { proAwardLimiter, paymentLimiter } from "../middleware/security";
 
 const router = Router();
 
@@ -150,10 +150,15 @@ router.post("/award-pro", authenticateUser, requirePaidOrPro, proAwardLimiter, a
  * Uses idempotency keys to prevent duplicate sessions.
  */
 const createCheckoutSchema = z.object({
-  idempotencyKey: z.string().min(1).max(255),
+  // L7: Require minimum entropy in idempotency keys to prevent prediction
+  idempotencyKey: z
+    .string()
+    .min(16)
+    .max(255)
+    .regex(/^[a-zA-Z0-9_-]+$/, "Invalid key format"),
 });
 
-router.post("/create-checkout-session", authenticateUser, async (req, res) => {
+router.post("/create-checkout-session", authenticateUser, paymentLimiter, async (req, res) => {
   const parsed = createCheckoutSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());
@@ -243,7 +248,7 @@ const purchasePremiumSchema = z.object({
   paymentIntentId: z.string().min(1, "Payment intent ID is required"),
 });
 
-router.post("/purchase-premium", authenticateUser, async (req, res) => {
+router.post("/purchase-premium", authenticateUser, paymentLimiter, async (req, res) => {
   const parsed = purchasePremiumSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());
@@ -288,6 +293,17 @@ router.post("/purchase-premium", authenticateUser, async (req, res) => {
           paymentIntentId,
         });
         return sendError(res, 402, "PAYMENT_AMOUNT_INVALID", "Payment amount invalid.");
+      }
+
+      // H6: Verify currency to prevent cheap-currency bypass
+      if (intent.currency !== "usd") {
+        logger.error("Payment intent currency mismatch", {
+          userId: user.id,
+          expected: "usd",
+          received: intent.currency,
+          paymentIntentId,
+        });
+        return sendError(res, 402, "PAYMENT_CURRENCY_INVALID", "Payment currency invalid.");
       }
 
       // Verify payment intent belongs to current user

@@ -133,78 +133,105 @@ export default function AppRoutes() {
   }
 
   return (
-    <Suspense fallback={<LoadingScreen />}>
-      <Switch>
-        {/* Auth Routes */}
-        <Route path="/auth" component={AuthPage} />
-        <Route path="/login" component={LoginPage} />
-        <Route path="/signup" component={SignupPage} />
-        <Route path="/signin" component={SigninPage} />
-        <Route path="/forgot-password" component={ForgotPasswordPage} />
-        <Route path="/reset-password" component={ResetPasswordPage} />
-        <Route path="/verify" component={VerifyPage} />
-        <Route path="/auth/verify" component={AuthVerifyPage} />
-        <Route path="/verify-email" component={VerifyEmailPage} />
-        <Route path="/verified" component={VerifiedPage} />
-        <Route path="/profile/setup" component={ProfileSetupRoute} />
+    <>
+      {/* Skip to main content link for keyboard navigation */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:bg-white focus:text-black focus:px-4 focus:py-2 focus:rounded focus:text-sm focus:font-semibold"
+      >
+        Skip to main content
+      </a>
+      <main id="main-content">
+        <Suspense fallback={<LoadingScreen />}>
+          <Switch>
+            {/* Auth Routes */}
+            <Route path="/auth" component={AuthPage} />
+            <Route path="/login" component={LoginPage} />
+            <Route path="/signup" component={SignupPage} />
+            <Route path="/signin" component={SigninPage} />
+            <Route path="/forgot-password" component={ForgotPasswordPage} />
+            <Route path="/reset-password" component={ResetPasswordPage} />
+            <Route path="/verify" component={VerifyPage} />
+            <Route path="/auth/verify" component={AuthVerifyPage} />
+            <Route path="/verify-email" component={VerifyEmailPage} />
+            <Route path="/verified" component={VerifiedPage} />
+            <Route path="/profile/setup" component={ProfileSetupRoute} />
 
-        {/* Public Routes */}
-        <Route path="/landing" component={UnifiedLanding} />
-        <Route path="/demo" component={Demo} />
-        <Route path="/privacy" component={PrivacyPage} />
-        <Route path="/terms" component={TermsPage} />
-        <Route path="/specs" component={SpecsPage} />
-        <Route path="/skater/:handle" component={AppShellSkaterProfileRoute} />
-        <Route path="/p/:username" component={AppShellPublicProfileRoute} />
+            {/* Public Routes */}
+            <Route path="/landing" component={UnifiedLanding} />
+            <Route path="/demo" component={Demo} />
+            <Route path="/privacy" component={PrivacyPage} />
+            <Route path="/terms" component={TermsPage} />
+            <Route path="/specs" component={SpecsPage} />
+            <Route path="/skater/:handle" component={AppShellSkaterProfileRoute} />
+            <Route path="/p/:username" component={AppShellPublicProfileRoute} />
 
-        {/* ============================================================== */}
-        {/* ADMIN ROUTES (Role-gated: admin only)                         */}
-        {/* Sub-routes MUST come before /admin — wouter Switch uses        */}
-        {/* first-match and /admin would greedily match /admin/reports     */}
-        {/* ============================================================== */}
-        <AdminRoute path="/admin/reports" component={AdminReportsRoute} />
-        <AdminRoute path="/admin/users" component={AdminUsersRoute} />
-        <AdminRoute path="/admin/metrics" component={AdminMetricsRoute} />
-        <AdminRoute path="/admin/audit-log" component={AdminAuditLogRoute} />
-        <AdminRoute path="/admin" component={AdminDashboardRoute} />
+            {/* ============================================================== */}
+            {/* ADMIN ROUTES (Role-gated: admin only)                         */}
+            {/* Sub-routes MUST come before /admin — wouter Switch uses        */}
+            {/* first-match and /admin would greedily match /admin/reports     */}
+            {/* ============================================================== */}
+            <AdminRoute path="/admin/reports" component={AdminReportsRoute} />
+            <AdminRoute path="/admin/users" component={AdminUsersRoute} />
+            <AdminRoute path="/admin/metrics" component={AdminMetricsRoute} />
+            <AdminRoute path="/admin/audit-log" component={AdminAuditLogRoute} />
+            <AdminRoute path="/admin" component={AdminDashboardRoute} />
 
-        {/* ============================================================== */}
-        {/* NEW CONSOLIDATED ROUTES (DashboardLayout) */}
-        {/* ============================================================== */}
-        <ProtectedRoute path="/hub" component={DashboardHubRoute} allowMissingProfile />
-        <ProtectedRoute path="/play" component={DashboardPlayRoute} allowMissingProfile />
-        <ProtectedRoute path="/me" component={DashboardProfileRoute} allowMissingProfile />
-        <ProtectedRoute path="/map" component={DashboardMapRoute} allowMissingProfile />
-        <ProtectedRoute
-          path="/leaderboard"
-          component={DashboardLeaderboardRoute}
-          allowMissingProfile
-        />
+            {/* ============================================================== */}
+            {/* NEW CONSOLIDATED ROUTES (DashboardLayout) */}
+            {/* ============================================================== */}
+            <ProtectedRoute path="/hub" component={DashboardHubRoute} allowMissingProfile />
+            <ProtectedRoute path="/play" component={DashboardPlayRoute} allowMissingProfile />
+            <ProtectedRoute path="/me" component={DashboardProfileRoute} allowMissingProfile />
+            <ProtectedRoute path="/map" component={DashboardMapRoute} allowMissingProfile />
+            <ProtectedRoute
+              path="/leaderboard"
+              component={DashboardLeaderboardRoute}
+              allowMissingProfile
+            />
 
-        {/* Spot Detail - still uses AppShell for full-screen modal experience */}
-        <ProtectedRoute path="/spots/:id" component={AppShellSpotDetailRoute} allowMissingProfile />
+            {/* Spot Detail - still uses AppShell for full-screen modal experience */}
+            <ProtectedRoute
+              path="/spots/:id"
+              component={AppShellSpotDetailRoute}
+              allowMissingProfile
+            />
 
-        {/* ============================================================== */}
-        {/* LEGACY ROUTES (Redirect to new structure for backward compat) */}
-        {/* ============================================================== */}
-        <ProtectedRoute path="/home" component={DashboardHubRoute} allowMissingProfile />
-        <ProtectedRoute path="/feed" component={DashboardHubRoute} allowMissingProfile />
-        <ProtectedRoute path="/dashboard" component={DashboardHubRoute} allowMissingProfile />
-        <ProtectedRoute path="/closet" component={DashboardProfileRoute} allowMissingProfile />
-        <ProtectedRoute path="/settings" component={DashboardProfileRoute} allowMissingProfile />
-        <ProtectedRoute path="/checkins" component={DashboardProfileRoute} allowMissingProfile />
-        <ProtectedRoute path="/game/active" component={DashboardPlayRoute} allowMissingProfile />
-        <ProtectedRoute path="/game" component={DashboardPlayRoute} allowMissingProfile />
-        <ProtectedRoute path="/skate-game" component={DashboardPlayRoute} allowMissingProfile />
-        <ProtectedRoute path="/showcase" component={DashboardHubRoute} allowMissingProfile />
+            {/* ============================================================== */}
+            {/* LEGACY ROUTES (Redirect to new structure for backward compat) */}
+            {/* ============================================================== */}
+            <ProtectedRoute path="/home" component={DashboardHubRoute} allowMissingProfile />
+            <ProtectedRoute path="/feed" component={DashboardHubRoute} allowMissingProfile />
+            <ProtectedRoute path="/dashboard" component={DashboardHubRoute} allowMissingProfile />
+            <ProtectedRoute path="/closet" component={DashboardProfileRoute} allowMissingProfile />
+            <ProtectedRoute
+              path="/settings"
+              component={DashboardProfileRoute}
+              allowMissingProfile
+            />
+            <ProtectedRoute
+              path="/checkins"
+              component={DashboardProfileRoute}
+              allowMissingProfile
+            />
+            <ProtectedRoute
+              path="/game/active"
+              component={DashboardPlayRoute}
+              allowMissingProfile
+            />
+            <ProtectedRoute path="/game" component={DashboardPlayRoute} allowMissingProfile />
+            <ProtectedRoute path="/skate-game" component={DashboardPlayRoute} allowMissingProfile />
+            <ProtectedRoute path="/showcase" component={DashboardHubRoute} allowMissingProfile />
 
-        {/* Protected legacy routes */}
-        <ProtectedRoute path="/trickmint" component={AppShellTrickmintRoute} />
-        <ProtectedRoute path="/tutorial" component={AppShellTutorialRoute} />
+            {/* Protected legacy routes */}
+            <ProtectedRoute path="/trickmint" component={AppShellTrickmintRoute} />
+            <ProtectedRoute path="/tutorial" component={AppShellTutorialRoute} />
 
-        {/* Root redirect */}
-        <Route path="/" component={RootRedirect} />
-      </Switch>
-    </Suspense>
+            {/* Root redirect */}
+            <Route path="/" component={RootRedirect} />
+          </Switch>
+        </Suspense>
+      </main>
+    </>
   );
 }
