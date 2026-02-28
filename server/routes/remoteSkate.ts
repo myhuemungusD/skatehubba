@@ -20,6 +20,7 @@ import type { Transaction } from "firebase-admin/firestore";
 import logger from "../logger";
 import type { Request, Response } from "express";
 import { remoteSkateLimiter } from "../middleware/security";
+import { sendGameNotificationToUser } from "../services/gameNotificationService";
 
 const router = Router();
 
@@ -154,7 +155,9 @@ router.post("/find-or-create", async (req: Request, res: Response) => {
         // Notify the game creator that someone joined
         sendGameNotificationToUser(data.playerAUid, "your_turn", {
           gameId,
-        }).catch((err) => logger.warn("[RemoteSkate] Notification failed", { error: String(err) }));
+        }).catch((err: unknown) =>
+          logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
+        );
 
         return res.json({ success: true, gameId, matched: true, roundId });
       }
@@ -277,7 +280,9 @@ router.post("/:gameId/join", async (req: Request, res: Response) => {
       const game = gameSnap.data()!;
       sendGameNotificationToUser(game.playerAUid, "your_turn", {
         gameId,
-      }).catch((err) => logger.warn("[RemoteSkate] Notification failed", { error: String(err) }));
+      }).catch((err: unknown) =>
+        logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
+      );
     }
 
     res.json({ success: true, gameId, roundId });
@@ -408,7 +413,7 @@ router.post("/:gameId/rounds/:roundId/set-complete", async (req: Request, res: R
       const game = gameSnap.data()!;
       const defenseUid = game.playerAUid === uid ? game.playerBUid : game.playerAUid;
       if (defenseUid) {
-        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err) =>
+        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err: unknown) =>
           logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
         );
       }
@@ -489,7 +494,7 @@ router.post("/:gameId/rounds/:roundId/reply-complete", async (req: Request, res:
       const game = gameSnap.data()!;
       const offenseUid = game.playerAUid === uid ? game.playerBUid : game.playerAUid;
       if (offenseUid) {
-        sendGameNotificationToUser(offenseUid, "your_turn", { gameId }).catch((err) =>
+        sendGameNotificationToUser(offenseUid, "your_turn", { gameId }).catch((err: unknown) =>
           logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
         );
       }
@@ -596,7 +601,7 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
       const gameData = gameSnap2.data()!;
       const defenseUid = gameData.playerAUid === uid ? gameData.playerBUid : gameData.playerAUid;
       if (defenseUid) {
-        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err) =>
+        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err: unknown) =>
           logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
         );
       }
