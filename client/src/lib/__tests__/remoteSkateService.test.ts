@@ -117,25 +117,20 @@ describe("RemoteSkateService", () => {
 
   describe("joinGame", () => {
     it("should join an existing game via server API", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true, gameId: "game-1" }),
-      });
+      mockApiRequest.mockResolvedValueOnce({ success: true, gameId: "game-1" });
 
       await RemoteSkateService.joinGame("game-1");
 
-      expect(fetch).toHaveBeenCalledWith(
-        "/api/remote-skate/game-1/join",
-        expect.objectContaining({ method: "POST" })
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/remote-skate/game-1/join",
+        })
       );
     });
 
     it("should throw on server error", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 400,
-        json: vi.fn().mockResolvedValue({ error: "GAME_FULL", message: "Game is full" }),
-      });
+      mockApiRequest.mockRejectedValueOnce(new Error("Game is full"));
 
       await expect(RemoteSkateService.joinGame("game-1")).rejects.toThrow("Game is full");
     });
@@ -154,25 +149,20 @@ describe("RemoteSkateService", () => {
 
   describe("markSetComplete", () => {
     it("should call server API to mark set complete", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true }),
-      });
+      mockApiRequest.mockResolvedValueOnce({ success: true });
 
       await RemoteSkateService.markSetComplete("game-1", "round-1");
 
-      expect(fetch).toHaveBeenCalledWith(
-        "/api/remote-skate/game-1/rounds/round-1/set-complete",
-        expect.objectContaining({ method: "POST" })
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/remote-skate/game-1/rounds/round-1/set-complete",
+        })
       );
     });
 
     it("should throw on server error", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 400,
-        json: vi.fn().mockResolvedValue({ message: "Round not found" }),
-      });
+      mockApiRequest.mockRejectedValueOnce(new Error("Round not found"));
 
       await expect(RemoteSkateService.markSetComplete("game-1", "round-1")).rejects.toThrow(
         "Round not found"
@@ -182,25 +172,20 @@ describe("RemoteSkateService", () => {
 
   describe("markReplyComplete", () => {
     it("should call server API to update turn", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true }),
-      });
+      mockApiRequest.mockResolvedValueOnce({ success: true });
 
       await RemoteSkateService.markReplyComplete("game-1", "round-1");
 
-      expect(fetch).toHaveBeenCalledWith(
-        "/api/remote-skate/game-1/rounds/round-1/reply-complete",
-        expect.objectContaining({ method: "POST" })
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/remote-skate/game-1/rounds/round-1/reply-complete",
+        })
       );
     });
 
     it("should throw on server error", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 400,
-        json: vi.fn().mockResolvedValue({ message: "Invalid state" }),
-      });
+      mockApiRequest.mockRejectedValueOnce(new Error("Invalid state"));
 
       await expect(RemoteSkateService.markReplyComplete("game-1", "round-1")).rejects.toThrow(
         "Invalid state"
@@ -462,24 +447,30 @@ describe("RemoteSkateService", () => {
 
   describe("findRandomGame", () => {
     it("should match with existing waiting game via server API", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true, gameId: "waiting-game-1", matched: true }),
+      mockApiRequest.mockResolvedValueOnce({
+        success: true,
+        gameId: "waiting-game-1",
+        matched: true,
       });
 
       const result = await RemoteSkateService.findRandomGame();
 
       expect(result).toEqual({ gameId: "waiting-game-1", matched: true });
-      expect(fetch).toHaveBeenCalledWith(
-        "/api/remote-skate/find-or-create",
-        expect.objectContaining({ method: "POST" })
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/remote-skate/find-or-create",
+        })
       );
     });
 
     it("should create game and notify opponent when no match", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true, gameId: "new-game-1", matched: false }),
+      // First call: find-or-create returns unmatched
+      mockApiRequest.mockResolvedValueOnce({ success: true, gameId: "new-game-1", matched: false });
+      // Second call: quick-match notification succeeds
+      mockApiRequest.mockResolvedValueOnce({
+        success: true,
+        match: { opponentId: "random-user", opponentName: "RandomSkater", challengeId: "qm-123" },
       });
 
       const result = await RemoteSkateService.findRandomGame();
@@ -511,13 +502,10 @@ describe("RemoteSkateService", () => {
     });
 
     it("should still return gameId when opponent notification fails", async () => {
-      // Notification fails (non-blocking)
+      // First call: find-or-create returns unmatched
+      mockApiRequest.mockResolvedValueOnce({ success: true, gameId: "new-game-2", matched: false });
+      // Second call: notification fails (non-blocking)
       mockApiRequest.mockRejectedValueOnce(new Error("No opponents available"));
-
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true, gameId: "new-game-2", matched: false }),
-      });
 
       const result = await RemoteSkateService.findRandomGame();
 
@@ -529,25 +517,20 @@ describe("RemoteSkateService", () => {
 
   describe("cancelWaitingGame", () => {
     it("should cancel a waiting game via server API", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ success: true }),
-      });
+      mockApiRequest.mockResolvedValueOnce({ success: true });
 
       await RemoteSkateService.cancelWaitingGame("game-1");
 
-      expect(fetch).toHaveBeenCalledWith(
-        "/api/remote-skate/game-1/cancel",
-        expect.objectContaining({ method: "POST" })
+      expect(mockApiRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: "POST",
+          path: "/api/remote-skate/game-1/cancel",
+        })
       );
     });
 
     it("should throw on server error", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 403,
-        json: vi.fn().mockResolvedValue({ message: "Access denied" }),
-      });
+      mockApiRequest.mockRejectedValueOnce(new Error("Access denied"));
 
       await expect(RemoteSkateService.cancelWaitingGame("game-1")).rejects.toThrow("Access denied");
     });
@@ -568,32 +551,22 @@ describe("RemoteSkateService", () => {
 
   describe("confirmRound", () => {
     it("should call confirm API with correct parameters", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({ disputed: false, result: "landed" }),
-      });
+      mockApiRequest.mockResolvedValueOnce({ disputed: false, result: "landed" });
 
       const result = await RemoteSkateService.confirmRound("game-1", "round-1", "landed");
 
-      expect(fetch).toHaveBeenCalledWith(
-        "/api/remote-skate/game-1/rounds/round-1/confirm",
+      expect(mockApiRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           method: "POST",
-          headers: expect.objectContaining({
-            Authorization: "Bearer mock-token",
-          }),
-          body: JSON.stringify({ result: "landed" }),
+          path: "/api/remote-skate/game-1/rounds/round-1/confirm",
+          body: { result: "landed" },
         })
       );
       expect(result).toEqual({ disputed: false, result: "landed" });
     });
 
     it("should throw on confirm API error", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 400,
-        json: vi.fn().mockResolvedValue({ error: "Only defense can confirm" }),
-      });
+      mockApiRequest.mockRejectedValueOnce(new Error("Only defense can confirm"));
 
       await expect(RemoteSkateService.confirmRound("game-1", "round-1", "missed")).rejects.toThrow(
         "Only defense can confirm"
@@ -613,46 +586,32 @@ describe("RemoteSkateService", () => {
       }
     });
 
-    it("should handle JSON parse failure on confirm error response", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-        json: vi.fn().mockRejectedValue(new Error("parse error")),
-      });
+    it("should propagate apiRequest errors", async () => {
+      mockApiRequest.mockRejectedValueOnce(new Error("Network error"));
 
       await expect(RemoteSkateService.confirmRound("game-1", "round-1", "landed")).rejects.toThrow(
-        "Unknown error"
+        "Network error"
       );
     });
   });
 
   describe("resolveRound", () => {
     it("should call API with correct parameters", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({}),
-      });
+      mockApiRequest.mockResolvedValueOnce({});
 
       await RemoteSkateService.resolveRound("game-1", "round-1", "landed");
 
-      expect(fetch).toHaveBeenCalledWith(
-        "/api/remote-skate/game-1/rounds/round-1/resolve",
+      expect(mockApiRequest).toHaveBeenCalledWith(
         expect.objectContaining({
           method: "POST",
-          headers: expect.objectContaining({
-            Authorization: "Bearer mock-token",
-          }),
-          body: JSON.stringify({ result: "landed" }),
+          path: "/api/remote-skate/game-1/rounds/round-1/resolve",
+          body: { result: "landed" },
         })
       );
     });
 
     it("should throw on API error", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 400,
-        json: vi.fn().mockResolvedValue({ error: "Invalid result" }),
-      });
+      mockApiRequest.mockRejectedValueOnce(new Error("Invalid result"));
 
       await expect(RemoteSkateService.resolveRound("game-1", "round-1", "missed")).rejects.toThrow(
         "Invalid result"
@@ -672,15 +631,11 @@ describe("RemoteSkateService", () => {
       }
     });
 
-    it("should handle JSON parse failure on error response", async () => {
-      global.fetch = vi.fn().mockResolvedValue({
-        ok: false,
-        status: 500,
-        json: vi.fn().mockRejectedValue(new Error("parse error")),
-      });
+    it("should propagate apiRequest errors", async () => {
+      mockApiRequest.mockRejectedValueOnce(new Error("Network error"));
 
       await expect(RemoteSkateService.resolveRound("game-1", "round-1", "landed")).rejects.toThrow(
-        "Unknown error"
+        "Network error"
       );
     });
   });
