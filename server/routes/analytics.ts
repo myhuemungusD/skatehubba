@@ -13,8 +13,12 @@ import { analyticsEvents } from "../../packages/shared/schema-analytics";
 import logger from "../logger";
 import { validateBody } from "../middleware/validation";
 import { Errors } from "../utils/apiError";
+import { analyticsIngestLimiter } from "../middleware/security";
 
 export const analyticsRouter = Router();
+
+// Rate limit analytics ingestion to prevent flood abuse
+analyticsRouter.use(analyticsIngestLimiter);
 
 /**
  * POST /api/analytics/events

@@ -30,6 +30,7 @@ vi.mock("../routes/games", () => ({
 
 vi.mock("../middleware/security", () => ({
   apiLimiter: (_req: any, _res: any, next: any) => next(),
+  gameWriteLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
 }));
 
 vi.mock("../logger", () => ({

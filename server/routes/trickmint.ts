@@ -30,6 +30,7 @@ import {
 } from "../services/videoProcessingService";
 import type { QualityTier } from "../services/videoTranscoder";
 import { feedCache } from "../middleware/feedCache";
+import { trickmintUploadLimiter } from "../middleware/security";
 
 const router = Router();
 
@@ -140,7 +141,7 @@ const paginationSchema = z.object({
 // POST /api/trickmint/request-upload — Get signed upload URLs
 // ============================================================================
 
-router.post("/request-upload", authenticateUser, async (req, res) => {
+router.post("/request-upload", authenticateUser, trickmintUploadLimiter, async (req, res) => {
   const parsed = requestUploadSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
@@ -181,7 +182,7 @@ router.post("/request-upload", authenticateUser, async (req, res) => {
 // POST /api/trickmint/confirm-upload — Validate signed URL upload, create record
 // ============================================================================
 
-router.post("/confirm-upload", authenticateUser, async (req, res) => {
+router.post("/confirm-upload", authenticateUser, trickmintUploadLimiter, async (req, res) => {
   const parsed = confirmUploadSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
@@ -242,7 +243,7 @@ router.post("/confirm-upload", authenticateUser, async (req, res) => {
 // POST /api/trickmint/submit — Direct Firebase upload flow (client SDK upload)
 // ============================================================================
 
-router.post("/submit", authenticateUser, async (req, res) => {
+router.post("/submit", authenticateUser, trickmintUploadLimiter, async (req, res) => {
   const parsed = submitDirectSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });

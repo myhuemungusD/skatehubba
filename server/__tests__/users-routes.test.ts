@@ -23,6 +23,10 @@ vi.mock("../auth/middleware", () => ({
   }),
 }));
 
+vi.mock("../middleware/security", () => ({
+  userSearchLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
+
 vi.mock("@shared/schema", () => ({
   customUsers: {
     id: "id",

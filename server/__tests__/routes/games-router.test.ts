@@ -41,6 +41,10 @@ vi.mock("../../routes/games-cron", () => ({
   notifyDeadlineWarnings: vi.fn(),
 }));
 
+vi.mock("../../middleware/security", () => ({
+  gameWriteLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
+
 const { gamesRouter, forfeitExpiredGames, notifyDeadlineWarnings } =
   await import("../../routes/games");
 
@@ -54,7 +58,8 @@ describe("Games Router", () => {
   });
 
   it("should mount sub-routers via use()", () => {
-    expect(mockRouter.use).toHaveBeenCalledTimes(4);
+    // 4 sub-routers + 1 rate-limit middleware
+    expect(mockRouter.use).toHaveBeenCalledTimes(5);
   });
 
   it("should re-export cron functions", () => {

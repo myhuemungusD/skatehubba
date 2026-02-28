@@ -4,8 +4,12 @@ import { ilike, or, eq, and, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { userDiscoveryBreaker } from "../utils/circuitBreaker";
+import { userSearchLimiter } from "../middleware/security";
 
 const router = Router();
+
+// Prevent user list scraping
+router.use(userSearchLimiter);
 
 // GET /api/users/search — search users by name
 router.get("/search", authenticateUser, async (req, res) => {
