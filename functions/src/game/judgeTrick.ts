@@ -55,8 +55,11 @@ export const judgeTrick = functions.https.onCall(
 
     const { gameId, moveId, vote, idempotencyKey } = data;
 
-    if (!gameId || !moveId || !vote) {
-      throw new functions.https.HttpsError("invalid-argument", "Missing gameId, moveId, or vote");
+    if (!gameId || !moveId || !vote || !idempotencyKey) {
+      throw new functions.https.HttpsError(
+        "invalid-argument",
+        "Missing gameId, moveId, vote, or idempotencyKey"
+      );
     }
 
     if (vote !== "landed" && vote !== "bailed") {

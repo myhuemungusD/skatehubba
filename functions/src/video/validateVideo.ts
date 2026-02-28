@@ -16,6 +16,9 @@ import ffprobeInstaller from "@ffprobe-installer/ffprobe";
 
 ffmpeg.setFfprobePath(ffprobeInstaller.path);
 
+/** Maximum allowed file size in bytes (500 MB) — prevents /tmp disk exhaustion */
+const MAX_FILE_SIZE_BYTES = 500 * 1024 * 1024;
+
 export const validateChallengeVideo = functions.storage.object().onFinalize(async (object) => {
   const filePath = object.name;
   if (!filePath || !filePath.startsWith("challenges/")) {
@@ -23,6 +26,17 @@ export const validateChallengeVideo = functions.storage.object().onFinalize(asyn
   }
 
   if (object.contentType && !object.contentType.startsWith("video/")) {
+    return;
+  }
+
+  // Guard against oversized uploads that could exhaust /tmp disk space
+  const fileSize = Number(object.size ?? 0);
+  if (fileSize > MAX_FILE_SIZE_BYTES) {
+    const oversizeBucket = admin.storage().bucket(object.bucket);
+    await oversizeBucket.file(filePath).delete();
+    functions.logger.warn(
+      `[validateChallengeVideo] Deleted oversized file ${filePath} (${fileSize} bytes)`
+    );
     return;
   }
 

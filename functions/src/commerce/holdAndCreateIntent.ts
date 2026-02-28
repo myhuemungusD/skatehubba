@@ -315,7 +315,8 @@ export const holdAndCreatePaymentIntent = onCall<
 
       // Initialize Stripe
       if (!STRIPE_SECRET_KEY) {
-        await rollbackReservedStock(allReserved);
+        // Don't rollback here — the outer catch block handles it.
+        // Rolling back here AND in catch would double-release stock.
         throw new HttpsError("internal", "Stripe not configured");
       }
 
