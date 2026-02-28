@@ -68,6 +68,7 @@ vi.mock("../../config/rateLimits", () => {
       authLogin: stub,
       ai: stub,
       profileRead: stub,
+      remoteSkate: stub,
     },
   };
 });

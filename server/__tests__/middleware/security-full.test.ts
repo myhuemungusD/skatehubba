@@ -78,6 +78,12 @@ vi.mock("../../config/rateLimits", () => ({
       message: "Too many profile reads",
       prefix: "rl:profileread:",
     },
+    remoteSkate: {
+      windowMs: 60000,
+      max: 20,
+      message: "Too many game requests",
+      prefix: "rl:remoteskate:",
+    },
   },
 }));
 
@@ -106,6 +112,7 @@ const {
   spotRatingLimiter,
   spotDiscoveryLimiter,
   proAwardLimiter,
+  remoteSkateLimiter,
 } = await import("../../middleware/security");
 
 // Helpers
@@ -607,6 +614,7 @@ describe("Security Middleware", () => {
       expect(spotRatingLimiter).toBeDefined();
       expect(spotDiscoveryLimiter).toBeDefined();
       expect(proAwardLimiter).toBeDefined();
+      expect(remoteSkateLimiter).toBeDefined();
     });
   });
 });
