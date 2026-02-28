@@ -84,6 +84,54 @@ vi.mock("../../config/rateLimits", () => ({
       message: "Too many game requests",
       prefix: "rl:remoteskate:",
     },
+    mfaVerify: {
+      windowMs: 900000,
+      max: 10,
+      message: "Too many MFA attempts",
+      prefix: "rl:mfa:",
+    },
+    sensitiveAuth: {
+      windowMs: 900000,
+      max: 5,
+      message: "Too many attempts",
+      prefix: "rl:sensitive:",
+    },
+    postCreate: {
+      windowMs: 600000,
+      max: 10,
+      message: "Too many posts",
+      prefix: "rl:postcreate:",
+    },
+    analyticsIngest: {
+      windowMs: 60000,
+      max: 60,
+      message: "Too many analytics requests",
+      prefix: "rl:analytics:",
+    },
+    payment: {
+      windowMs: 900000,
+      max: 10,
+      message: "Too many payment requests",
+      prefix: "rl:payment:",
+    },
+    gameWrite: {
+      windowMs: 600000,
+      max: 10,
+      message: "Too many game actions",
+      prefix: "rl:gamewrite:",
+    },
+    trickmintUpload: {
+      windowMs: 3600000,
+      max: 15,
+      message: "Too many uploads",
+      prefix: "rl:trickmint:",
+    },
+    userSearch: {
+      windowMs: 60000,
+      max: 30,
+      message: "Too many searches",
+      prefix: "rl:usersearch:",
+    },
   },
 }));
 
