@@ -1074,6 +1074,71 @@ describe("Remote Skate Routes", () => {
       await callHandler("POST /:gameId/rounds/:roundId/set-complete", req, res);
       expect(res.json).toHaveBeenCalledWith({ success: true });
     });
+
+    it("should return 400 when round is not in awaiting_set state", async () => {
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+            status: "active",
+          }),
+        };
+        const roundSnap = {
+          exists: true,
+          data: () => ({
+            offenseUid: "user-1",
+            defenseUid: "user-2",
+            status: "awaiting_reply", // Not awaiting_set
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+        };
+        await fn(transaction);
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/set-complete", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "INVALID_STATE",
+        message: "This action cannot be performed right now.",
+      });
+    });
+
+    it("should return 403 when non-offense player calls set-complete", async () => {
+      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+            status: "active",
+          }),
+        };
+        const roundSnap = {
+          exists: true,
+          data: () => ({
+            offenseUid: "user-1",
+            defenseUid: "user-2",
+            status: "awaiting_set",
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+        };
+        await fn(transaction);
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/set-complete", req, res);
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
   });
 
   describe("POST /:gameId/rounds/:roundId/reply-complete", () => {
@@ -1100,6 +1165,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             offenseUid: "user-1",
             defenseUid: "user-2",
+            status: "awaiting_reply",
           }),
         };
         const transaction = {
@@ -1117,6 +1183,72 @@ describe("Remote Skate Routes", () => {
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.json).toHaveBeenCalledWith({ success: true });
+    });
+
+    it("should return 403 when offense player calls reply-complete", async () => {
+      mockVerifyIdToken.mockResolvedValue({ uid: "user-1" });
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+            status: "active",
+          }),
+        };
+        const roundSnap = {
+          exists: true,
+          data: () => ({
+            offenseUid: "user-1",
+            defenseUid: "user-2",
+            status: "awaiting_reply",
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+        };
+        await fn(transaction);
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it("should return 400 when round is not in awaiting_reply state", async () => {
+      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+            status: "active",
+          }),
+        };
+        const roundSnap = {
+          exists: true,
+          data: () => ({
+            offenseUid: "user-1",
+            defenseUid: "user-2",
+            status: "awaiting_set", // Not awaiting_reply
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+        };
+        await fn(transaction);
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "INVALID_STATE",
+        message: "This action cannot be performed right now.",
+      });
     });
   });
 });

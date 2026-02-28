@@ -7,7 +7,7 @@
  */
 
 import { useState } from "react";
-import { Play, Loader2, AlertCircle } from "lucide-react";
+import { Play, Loader2, AlertCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useVideoUrl } from "@/hooks/useVideoUrl";
 import type { VideoDoc } from "@/lib/remoteSkate";
@@ -25,6 +25,7 @@ export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
     url: signedUrl,
     isLoading: isUrlLoading,
     error: urlError,
+    retry: retryUrl,
   } = useVideoUrl({
     gameId: video?.status === "ready" ? video.gameId : null,
     storagePath: video?.status === "ready" ? video.storagePath : null,
@@ -102,6 +103,17 @@ export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
         <AlertCircle className="h-6 w-6 text-red-400" />
         <span className="text-sm text-red-400">Failed to play video</span>
         {urlError && <span className="text-xs text-red-400/70">{urlError}</span>}
+        <button
+          type="button"
+          onClick={() => {
+            setHasPlaybackError(false);
+            retryUrl();
+          }}
+          className="flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300 transition-colors mt-1"
+        >
+          <RotateCcw className="h-3 w-3" />
+          Retry
+        </button>
       </div>
     );
   }

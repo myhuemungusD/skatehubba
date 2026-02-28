@@ -442,8 +442,11 @@ service cloud.firestore {
            && resource.data.playerAUid == request.auth.uid
            && request.resource.data.status == 'cancelled'
            && request.resource.data.playerAUid == resource.data.playerAUid
+           && request.resource.data.playerBUid == resource.data.playerBUid
            && request.resource.data.createdByUid == resource.data.createdByUid
-           && request.resource.data.createdAt == resource.data.createdAt)
+           && request.resource.data.createdAt == resource.data.createdAt
+           && request.resource.data.letters == resource.data.letters
+           && request.resource.data.currentTurnUid == resource.data.currentTurnUid)
         );
 
       allow delete: if false;

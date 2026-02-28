@@ -262,6 +262,7 @@ export const remoteSkateLimiter = rateLimit({
   message: { error: RL.remoteSkate.message },
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
   store: buildStore(RL.remoteSkate.prefix),
 });
 

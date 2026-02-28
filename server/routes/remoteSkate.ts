@@ -151,7 +151,7 @@ router.post("/find-or-create", async (req: Request, res: Response) => {
         // Notify the game creator that someone joined
         sendGameNotificationToUser(data.playerAUid, "your_turn", {
           gameId,
-        }).catch(() => {});
+        }).catch((err) => logger.warn("[RemoteSkate] Notification failed", { error: String(err) }));
 
         return res.json({ success: true, gameId, matched: true, roundId });
       }
@@ -274,7 +274,7 @@ router.post("/:gameId/join", async (req: Request, res: Response) => {
       const game = gameSnap.data()!;
       sendGameNotificationToUser(game.playerAUid, "your_turn", {
         gameId,
-      }).catch(() => {});
+      }).catch((err) => logger.warn("[RemoteSkate] Notification failed", { error: String(err) }));
     }
 
     res.json({ success: true, gameId, roundId });
@@ -386,6 +386,10 @@ router.post("/:gameId/rounds/:roundId/set-complete", async (req: Request, res: R
         throw new Error("Only offense can submit a round result");
       }
 
+      if (round.status !== "awaiting_set") {
+        throw new Error("Round is not in a resolvable state");
+      }
+
       transaction.update(roundRef, { status: "awaiting_reply" });
       transaction.update(gameRef, {
         currentTurnUid: round.defenseUid,
@@ -401,7 +405,9 @@ router.post("/:gameId/rounds/:roundId/set-complete", async (req: Request, res: R
       const game = gameSnap.data()!;
       const defenseUid = game.playerAUid === uid ? game.playerBUid : game.playerAUid;
       if (defenseUid) {
-        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch(() => {});
+        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err) =>
+          logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
+        );
       }
     }
 
@@ -458,6 +464,14 @@ router.post("/:gameId/rounds/:roundId/reply-complete", async (req: Request, res:
       if (!roundSnap.exists) throw new Error("Round not found");
       const round = roundSnap.data()!;
 
+      if (round.defenseUid !== uid) {
+        throw new Error("Only defense can confirm a round result");
+      }
+
+      if (round.status !== "awaiting_reply") {
+        throw new Error("Round is not in a resolvable state");
+      }
+
       transaction.update(gameRef, {
         currentTurnUid: round.offenseUid,
         lastMoveAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -472,7 +486,9 @@ router.post("/:gameId/rounds/:roundId/reply-complete", async (req: Request, res:
       const game = gameSnap.data()!;
       const offenseUid = game.playerAUid === uid ? game.playerBUid : game.playerAUid;
       if (offenseUid) {
-        sendGameNotificationToUser(offenseUid, "your_turn", { gameId }).catch(() => {});
+        sendGameNotificationToUser(offenseUid, "your_turn", { gameId }).catch((err) =>
+          logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
+        );
       }
     }
 
@@ -577,7 +593,9 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
       const gameData = gameSnap2.data()!;
       const defenseUid = gameData.playerAUid === uid ? gameData.playerBUid : gameData.playerAUid;
       if (defenseUid) {
-        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch(() => {});
+        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err) =>
+          logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
+        );
       }
     }
 
