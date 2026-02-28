@@ -65,6 +65,7 @@ vi.mock("../../middleware/requirePaidOrPro", () => ({
 
 vi.mock("../../middleware/security", () => ({
   proAwardLimiter: vi.fn((_req: any, _res: any, next: any) => next()),
+  paymentLimiter: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -552,7 +553,7 @@ describe("Tier Routes", () => {
 
     it("returns 409 when user already has premium", async () => {
       const req = mockRequest({
-        body: { idempotencyKey: "key-123" },
+        body: { idempotencyKey: "abcdefghijklmnop" },
         currentUser: {
           id: "user-1",
           accountTier: "premium",
@@ -577,7 +578,7 @@ describe("Tier Routes", () => {
       delete process.env.STRIPE_SECRET_KEY;
 
       const req = mockRequest({
-        body: { idempotencyKey: "key-123" },
+        body: { idempotencyKey: "abcdefghijklmnop" },
       });
       const res = mockResponse();
 
@@ -599,7 +600,7 @@ describe("Tier Routes", () => {
       });
 
       const req = mockRequest({
-        body: { idempotencyKey: "key-123" },
+        body: { idempotencyKey: "abcdefghijklmnop" },
         currentUser: {
           id: "user-1",
           email: "test@test.com",
@@ -629,7 +630,7 @@ describe("Tier Routes", () => {
           customer_email: "test@test.com",
         }),
         expect.objectContaining({
-          idempotencyKey: "checkout_user-1_key-123",
+          idempotencyKey: "checkout_user-1_abcdefghijklmnop",
         })
       );
 
@@ -646,7 +647,7 @@ describe("Tier Routes", () => {
 
       const req = mockRequest({
         headers: { referer: "https://myapp.com/settings" },
-        body: { idempotencyKey: "key-456" },
+        body: { idempotencyKey: "abcdefghij456789" },
         currentUser: {
           id: "user-1",
           email: "test@test.com",
@@ -675,7 +676,7 @@ describe("Tier Routes", () => {
 
       const req = mockRequest({
         headers: { origin: "https://evil-site.com" },
-        body: { idempotencyKey: "key-evil" },
+        body: { idempotencyKey: "abcdefghij_evil_k" },
         currentUser: {
           id: "user-1",
           email: "test@test.com",
@@ -704,7 +705,7 @@ describe("Tier Routes", () => {
       mockStripeCheckoutCreate.mockRejectedValue(new Error("Stripe API error"));
 
       const req = mockRequest({
-        body: { idempotencyKey: "key-123" },
+        body: { idempotencyKey: "abcdefghijklmnop" },
       });
       const res = mockResponse();
 
@@ -777,6 +778,7 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 999,
+        currency: "usd",
         metadata: { userId: "user-1" },
       });
 
@@ -886,6 +888,7 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 999,
+        currency: "usd",
         metadata: { userId: "other-user" },
       });
 
@@ -914,6 +917,7 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 999,
+        currency: "usd",
         metadata: { userId: "user-1" },
       });
       // Simulate that the payment intent already exists in consumed_payment_intents
@@ -939,6 +943,7 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 999,
+        currency: "usd",
         metadata: { userId: "user-1" },
       });
       // No existing consumed payment intent
@@ -967,6 +972,7 @@ describe("Tier Routes", () => {
       mockStripePaymentIntentsRetrieve.mockResolvedValue({
         status: "succeeded",
         amount: 999,
+        currency: "usd",
         metadata: { userId: "user-1" },
       });
 

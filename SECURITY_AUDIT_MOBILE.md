@@ -1,8 +1,9 @@
 # Mobile Security Audit Report
 
-**Date:** 2026-02-12
+**Date:** 2026-02-12 (reviewed 2026-02-26)
 **Scope:** `/mobile` (React Native/Expo), Firestore rules, Storage rules, server auth middleware
 **Framework:** Expo 54 + React Native 0.83 + Firebase Auth + Firestore
+**Last Reviewed:** 2026-02-26 — All critical/high fixes verified; recommendations re-evaluated.
 
 ---
 
@@ -78,24 +79,27 @@ Without `maxLength`, a user (or automated tool) could paste extremely long strin
 
 ---
 
-## High Findings (Recommendations - Not Fixed)
+## High Findings (Recommendations - Open)
 
 ### H4. No certificate pinning
 
 **Severity:** HIGH
+**Status:** OPEN — Tracked in backlog. Firebase App Check attestation is in gradual rollout (monitor → warn → enforce) which partially mitigates this.
 
 No SSL/TLS certificate pinning is configured for any network requests. This makes the app vulnerable to MITM attacks, especially on untrusted networks (public Wi-Fi at skate parks). An attacker with a rogue CA certificate could intercept Firebase tokens and API requests.
 
-**Recommendation:** Implement certificate pinning for the API server domain using `expo-certificate-transparency` or a native pinning module. Consider using Firebase App Check with attestation for additional protection.
+**Recommendation:** Implement certificate pinning for the API server domain using `expo-certificate-transparency` or a native pinning module. Firebase App Check with attestation (currently in rollout) provides additional protection.
 
 ### H5. Android backup not disabled
 
 **File:** `mobile/app.config.js`
 **Severity:** HIGH
+**Status:** OPEN — Tracked in backlog.
 
 The Expo config does not set `android.allowBackup: false`. Firebase auth tokens persisted in AsyncStorage could be extracted via `adb backup` on rooted devices or when USB debugging is enabled.
 
 **Recommendation:** Add to `app.config.js`:
+
 ```js
 android: {
   ...
@@ -105,11 +109,12 @@ android: {
 
 ---
 
-## Medium Findings (Recommendations)
+## Medium Findings (Recommendations - Open)
 
 ### M1. No jailbreak/root detection
 
 **Severity:** MEDIUM
+**Status:** OPEN — Tracked in backlog.
 
 The app does not detect rooted (Android) or jailbroken (iOS) devices. Game integrity features (video verification, trick judging) and payment flows (Stripe) are at higher risk on tampered devices where SSL pinning can be bypassed and app memory can be inspected.
 
@@ -119,6 +124,7 @@ The app does not detect rooted (Android) or jailbroken (iOS) devices. Game integ
 
 **File:** `mobile/app/game/[id].tsx`
 **Severity:** MEDIUM
+**Status:** OPEN — Tracked in backlog.
 
 The `skatehubba://` scheme with expo-router's `game/[id]` route accepts arbitrary game IDs from deep links without validation. A malicious link could navigate a user to an arbitrary game session. The Firestore rules do enforce participant checks on read, so data exposure is limited, but the UX could be confusing.
 
@@ -128,6 +134,7 @@ The `skatehubba://` scheme with expo-router's `game/[id]` route accepts arbitrar
 
 **File:** `mobile/src/hooks/useGameSession.ts:251`
 **Severity:** MEDIUM
+**Status:** OPEN — Partially mitigated by storage rules tightening in Feb 2026 audit (M6 fix: strict MIME matching).
 
 The storage path `game_sessions/${gameId}/move_${userId}_${Date.now()}.mp4` uses predictable components. While Storage rules require authentication for reads, any authenticated user can read any other user's trick videos via the `/videos/{userId}/...` path (which has `allow read: if isAuthenticated()`).
 
@@ -137,6 +144,7 @@ The storage path `game_sessions/${gameId}/move_${userId}_${Date.now()}.mp4` uses
 
 **File:** `mobile/src/hooks/useNetworkStatus.ts:47`
 **Severity:** LOW
+**Status:** OPEN — Low priority.
 
 The 3-second network polling interval is aggressive and impacts battery life. This runs continuously via `setInterval`.
 
@@ -164,10 +172,10 @@ The following security controls are well-implemented:
 
 ## Files Modified
 
-| File | Changes |
-|------|---------|
-| `mobile/src/lib/queryClient.ts` | Added Firebase auth token injection to `apiRequest` |
+| File                                 | Changes                                                                     |
+| ------------------------------------ | --------------------------------------------------------------------------- |
+| `mobile/src/lib/queryClient.ts`      | Added Firebase auth token injection to `apiRequest`                         |
 | `mobile/src/hooks/useGameSession.ts` | Replaced direct Firestore writes with Cloud Function calls for join/abandon |
-| `mobile/src/store/authStore.ts` | Clear analytics session on sign-out; guard console.error |
-| `mobile/src/lib/firebase.config.ts` | Guard console.log/error behind `__DEV__`; remove projectId from logs |
-| `mobile/app/auth/sign-in.tsx` | Add input constraints; guard console.error; sanitize error messages |
+| `mobile/src/store/authStore.ts`      | Clear analytics session on sign-out; guard console.error                    |
+| `mobile/src/lib/firebase.config.ts`  | Guard console.log/error behind `__DEV__`; remove projectId from logs        |
+| `mobile/app/auth/sign-in.tsx`        | Add input constraints; guard console.error; sanitize error messages         |

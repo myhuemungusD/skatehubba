@@ -4,6 +4,7 @@
  * Tests:
  * - POST /api/cron/forfeit-expired-games
  * - POST /api/cron/deadline-warnings
+ * - POST /api/cron/forfeit-stalled-games
  * - POST /api/cron/cleanup-sessions
  */
 
@@ -24,6 +25,12 @@ vi.mock("../middleware/cronAuth", () => ({
 vi.mock("../routes/games", () => ({
   forfeitExpiredGames: vi.fn(),
   notifyDeadlineWarnings: vi.fn(),
+  forfeitStalledGames: vi.fn(),
+}));
+
+vi.mock("../middleware/security", () => ({
+  apiLimiter: (_req: any, _res: any, next: any) => next(),
+  gameWriteLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
 }));
 
 vi.mock("../logger", () => ({
@@ -62,7 +69,8 @@ await import("../routes/cron");
 
 const { getDb } = await import("../db");
 const { verifyCronSecret } = await import("../middleware/cronAuth");
-const { forfeitExpiredGames, notifyDeadlineWarnings } = await import("../routes/games");
+const { forfeitExpiredGames, notifyDeadlineWarnings, forfeitStalledGames } =
+  await import("../routes/games");
 const logger = (await import("../logger")).default;
 
 // ============================================================================
@@ -256,5 +264,49 @@ describe("POST /api/cron/cleanup-sessions", () => {
     await callHandler("POST /cleanup-sessions", req, res);
 
     expect(res.json).toHaveBeenCalledWith({ success: true, deleted: 0 });
+  });
+});
+
+describe("POST /api/cron/forfeit-stalled-games", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should forfeit stalled games with valid cron secret", async () => {
+    vi.mocked(verifyCronSecret).mockReturnValue(true);
+    vi.mocked(forfeitStalledGames).mockResolvedValue({ forfeited: 2 } as any);
+
+    const req = mockReq({ headers: { authorization: "Bearer secret" } });
+    const res = mockRes();
+    await callHandler("POST /forfeit-stalled-games", req, res);
+
+    expect(forfeitStalledGames).toHaveBeenCalled();
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true, forfeited: 2 }));
+    expect(logger.info).toHaveBeenCalled();
+  });
+
+  it("should return 401 with invalid authorization", async () => {
+    vi.mocked(verifyCronSecret).mockReturnValue(false);
+
+    const req = mockReq({ headers: { authorization: "Bearer wrong" } });
+    const res = mockRes();
+    await callHandler("POST /forfeit-stalled-games", req, res);
+
+    expect(res.status).toHaveBeenCalledWith(401);
+    expect(res.json).toHaveBeenCalledWith({ error: "Unauthorized" });
+    expect(forfeitStalledGames).not.toHaveBeenCalled();
+  });
+
+  it("should return 500 when forfeitStalledGames throws", async () => {
+    vi.mocked(verifyCronSecret).mockReturnValue(true);
+    vi.mocked(forfeitStalledGames).mockRejectedValue(new Error("DB timeout"));
+
+    const req = mockReq({ headers: { authorization: "Bearer secret" } });
+    const res = mockRes();
+    await callHandler("POST /forfeit-stalled-games", req, res);
+
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith({ error: "Failed to process stalled game forfeit" });
+    expect(logger.error).toHaveBeenCalled();
   });
 });

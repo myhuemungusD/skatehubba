@@ -26,5 +26,13 @@
     }
   },
   "include": ["client/src", "server", "packages"],
-  "exclude": ["node_modules", "dist", "**/dist/**", "mobile/**", "**/__tests__/**", "**/*.test.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/dist/**",
+    "mobile/**",
+    "**/__tests__/**",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
 }

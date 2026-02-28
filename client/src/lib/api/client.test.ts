@@ -459,11 +459,13 @@ describe("client", () => {
 
       await expect(apiRequestRaw({ method: "GET", path: "/api/test" })).rejects.toThrow();
 
+      // Short non-HTML text bodies are extracted as a synthetic { message } payload
+      // so the error normalizer can produce a meaningful message.
       expect(normalizeApiError).toHaveBeenCalledWith(
         expect.objectContaining({
           status: 504,
           statusText: "Gateway Timeout",
-          payload: undefined, // text/plain content-type returns undefined
+          payload: { message: "Gateway Timeout" },
         })
       );
     });

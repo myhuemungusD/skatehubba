@@ -1,24 +1,28 @@
-# ✅ EAS Build for Monorepo - Correct Setup
+# EAS Build for Monorepo
 
-## ⚠️ CRITICAL: DO NOT Move Files to Root
+## Monorepo Structure
 
-Your project is a **monorepo**:
+SkateHubba is a pnpm workspace monorepo. The mobile app lives in the `mobile/` subdirectory:
 
 ```
-/workspace/
-├── client/          ← React web app
-├── mobile/          ← React Native mobile app (Expo)
-├── server/          ← Express backend
-└── shared/          ← Shared types/code
+skatehubba/
+├── client/          # React web app (Vite)
+├── mobile/          # React Native / Expo app
+├── server/          # Express API backend
+├── functions/       # Firebase Cloud Functions
+├── packages/        # Shared code (config, db, firebase, shared, types, utils)
+├── migrations/      # PostgreSQL migrations
+├── scripts/         # Build, validation, deploy scripts
+└── docs/            # Documentation
 ```
 
-**Moving `mobile/*` to root would destroy your entire project!**
+Do **not** move `mobile/*` to root — this would break the monorepo workspace.
 
 ---
 
-## ✅ How EAS Works with Subdirectories
+## How EAS Works with Subdirectories
 
-EAS **fully supports** apps in subdirectories. You just need to:
+EAS fully supports apps in subdirectories. You just need to:
 
 1. **Navigate to the mobile directory first**
 2. **Run all EAS commands from there**
@@ -27,7 +31,7 @@ That's it! EAS will detect your app correctly.
 
 ---
 
-## Build Commands (Correct Method)
+## Build Commands
 
 ### Step 1: Navigate to Mobile Directory
 
@@ -35,7 +39,7 @@ That's it! EAS will detect your app correctly.
 cd mobile
 ```
 
-**IMPORTANT:** Always run EAS commands from `/workspace/mobile/`, not from `/workspace/`
+Always run EAS commands from the `mobile/` directory.
 
 ### Step 2: Login to Expo
 
@@ -67,35 +71,56 @@ eas build --platform android --profile production
 
 ---
 
-## Why Your Current Setup is Correct
+## Configuration Files
 
-✅ **Files in `/workspace/mobile/`:**
+**Location:** `mobile/app.config.js`
 
-- `app.config.js` ✅ Clean JavaScript config
-- `eas.json` ✅ Build profiles
-- `google-services.json` ✅ Android Firebase
-- `GoogleService-Info.plist` ✅ iOS Firebase
-- `package.json` ✅ Mobile dependencies
-- `app/` ✅ Source code
+The mobile app uses a JavaScript config file (not `app.json`):
 
-✅ **Commands run from `/workspace/mobile/`:**
-
-```bash
-cd mobile
-eas login
-eas init
-eas build --platform android
+```javascript
+export default {
+  expo: {
+    name: "SkateHubba",
+    slug: "skatehubba",
+    version: "1.0.0",
+    android: {
+      package: "com.skathubba.app",
+      googleServicesFile: "./google-services.json",
+      // ...
+    },
+    ios: {
+      bundleIdentifier: "com.skathubba.app",
+      googleServicesFile: "./GoogleService-Info.plist",
+      // ...
+    },
+    plugins: [
+      "expo-router",
+      ["expo-build-properties", { ... }],
+      ["expo-camera", { ... }],
+      ["expo-location", { ... }]
+    ]
+  }
+};
 ```
+
+**Location:** `mobile/eas.json`
+
+Build profiles:
+
+- `development` — Dev client with simulator support
+- `preview` — Internal distribution, `preview` channel
+- `production` — Release builds, `production` channel
 
 ---
 
 ## Common Mistakes to Avoid
 
-❌ **Running EAS from root:** `cd /workspace && eas build`
-✅ **Running EAS from mobile:** `cd /workspace/mobile && eas build`
-
-❌ **Moving mobile files to root** (breaks monorepo)
-✅ **Keeping files in mobile/** (correct)
+| Mistake                          | Correct Approach                                                              |
+| -------------------------------- | ----------------------------------------------------------------------------- |
+| Running EAS from repo root       | Run from `mobile/` directory                                                  |
+| Moving mobile files to root      | Keep files in `mobile/`                                                       |
+| Using `app.json`                 | Config is in `app.config.js` (JavaScript format)                              |
+| Forgetting Firebase config files | Ensure `google-services.json` and `GoogleService-Info.plist` are in `mobile/` |
 
 ---
 
@@ -103,10 +128,10 @@ eas build --platform android
 
 ```bash
 # 1. Go to mobile directory
-cd /home/runner/workspace/mobile
+cd mobile
 
 # 2. Clean any corrupted metadata (if needed)
-rm -rf .eas .expo android ios
+rm -rf .eas .expo
 
 # 3. Login
 eas login
@@ -140,87 +165,23 @@ cd mobile
 npx expo config --type public
 ```
 
-Read the error message - it will tell you exactly what's wrong.
-
 ### "google-services.json not found"
 
 Make sure you're in the `mobile/` directory when building.
 
-### "Unexpected token" or "typeof" errors
+### "Unexpected token" errors in config
 
-Your `app.config.js` is clean now. If you see this, check for hidden characters:
+Check `app.config.js` for syntax errors:
 
 ```bash
 cd mobile
-file app.config.js
-head -20 app.config.js
+node -e "require('./app.config.js')"
 ```
 
 ---
 
-## Your Current Configuration
+## CI Integration
 
-**Location:** `/workspace/mobile/app.config.js`
-
-```javascript
-export default {
-  expo: {
-    name: "SkateHubba",
-    slug: "skatehubba",
-    version: "1.0.0",
-    android: {
-      package: "com.skathubba.app",
-      googleServicesFile: "./google-services.json",
-      // ...
-    },
-    ios: {
-      bundleIdentifier: "com.skathubba.app",
-      googleServicesFile: "./GoogleService-Info.plist",
-      // ...
-    },
-    plugins: [
-      "expo-router",
-      ["expo-build-properties", {...}],
-      ["expo-camera", {...}],
-      ["expo-location", {...}]
-    ]
-  }
-};
-```
-
-This is **correct and valid!**
-
----
-
-## Quick Start (Copy/Paste)
-
-```bash
-# Navigate to mobile app
-cd /home/runner/workspace/mobile
-
-# Login to Expo
-eas login
-
-# Initialize project (first time)
-eas init
-
-# Build for Android
-eas build --platform android --profile production
-
-# Check build status
-eas build:list
-```
-
----
-
-## Status: Ready to Build ✅
-
-Your setup is **100% correct** for a monorepo:
-
-- ✅ Mobile app in `mobile/` subdirectory
-- ✅ Config files in correct location
-- ✅ Firebase configs in place
-- ✅ Dependencies installed
-- ✅ Google Sign-In configured
-
-**Just run the commands from the `mobile/` directory and it will work!** 🚀🛹
+- **EAS preview builds** are generated on PRs via `.github/workflows/mobile-preview.yml`
+- **Quality gates**: `mobile_quality` CI job runs typecheck + lint
+- **Detox E2E**: `mobile_detox_smoke` CI job runs Android smoke tests

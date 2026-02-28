@@ -40,7 +40,7 @@ vi.mock("drizzle-orm", () => ({
   eq: (col: any, val: any) => ({ _op: "eq", col, val }),
 }));
 
-vi.mock("drizzle-orm/node-postgres", () => ({
+vi.mock("drizzle-orm/neon-serverless", () => ({
   drizzle: vi.fn(() => ({
     select: vi.fn(() => ({
       from: vi.fn(() => ({
@@ -59,13 +59,13 @@ vi.mock("drizzle-orm/node-postgres", () => ({
   })),
 }));
 
-vi.mock("pg", () => {
+vi.mock("@neondatabase/serverless", () => {
   const MockPool = vi.fn(function (this: any) {
     this.end = vi.fn();
     this.on = vi.fn();
     return this;
   });
-  return { default: { Pool: MockPool } };
+  return { Pool: MockPool, neonConfig: {} };
 });
 
 vi.mock("../../../packages/shared/schema/index", () => ({
@@ -148,7 +148,7 @@ describe("db module - configured database", () => {
     it("should handle initialization error gracefully in test env", async () => {
       vi.resetModules();
       // Override select to throw
-      vi.doMock("drizzle-orm/node-postgres", () => ({
+      vi.doMock("drizzle-orm/neon-serverless", () => ({
         drizzle: vi.fn(() => ({
           select: vi.fn(() => ({
             from: vi.fn(() => ({
@@ -164,7 +164,7 @@ describe("db module - configured database", () => {
       await mod.initializeDatabase();
 
       // Restore original mock
-      vi.doMock("drizzle-orm/node-postgres", () => ({
+      vi.doMock("drizzle-orm/neon-serverless", () => ({
         drizzle: vi.fn(() => ({
           select: vi.fn(() => ({
             from: vi.fn(() => ({

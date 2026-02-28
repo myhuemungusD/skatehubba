@@ -5,7 +5,8 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { useToast } from "../hooks/use-toast";
-import { buildApiUrl } from "../lib/api/client";
+import { apiRequestRaw } from "../lib/api/client";
+import { isApiError } from "../lib/api/errors";
 
 const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
@@ -64,31 +65,11 @@ export default function ResetPasswordPage() {
     setStatus("submitting");
 
     try {
-      const csrfToken = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("csrfToken="))
-        ?.split("=")[1];
-
-      const response = await fetch(buildApiUrl("/api/auth/reset-password"), {
+      await apiRequestRaw({
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
-        },
-        credentials: "include",
-        body: JSON.stringify({ token, newPassword: password }),
+        path: "/api/auth/reset-password",
+        body: { token, newPassword: password },
       });
-
-      let data: { error?: string; message?: string };
-      try {
-        data = await response.json();
-      } catch {
-        throw new Error("Unexpected server response. Please try again later.");
-      }
-
-      if (!response.ok) {
-        throw new Error(data.error || "Password reset failed");
-      }
 
       setStatus("success");
       toast({
@@ -97,7 +78,11 @@ export default function ResetPasswordPage() {
       });
     } catch (error) {
       setStatus("error");
-      const msg = error instanceof Error ? error.message : "Password reset failed.";
+      const msg = isApiError(error)
+        ? error.message
+        : error instanceof Error
+          ? error.message
+          : "Password reset failed.";
       setErrorMessage(msg);
       toast({
         title: "Reset Failed",
@@ -136,7 +121,8 @@ export default function ResetPasswordPage() {
             {status === "success" && (
               <div className="text-center space-y-4">
                 <p className="text-green-400 text-sm">
-                  Your password has been reset. All other sessions have been logged out for security.
+                  Your password has been reset. All other sessions have been logged out for
+                  security.
                 </p>
                 <Button
                   onClick={() => setLocation("/signin")}
@@ -193,11 +179,7 @@ export default function ResetPasswordPage() {
                       className="absolute right-3 top-3 text-gray-400 hover:text-gray-300"
                       tabIndex={-1}
                     >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                   {passwordError && (

@@ -141,9 +141,9 @@ describe("Spot Check-in Integration", () => {
 
 Test complete user workflows from browser to database.
 
-**Framework**: Cypress (web), Detox (mobile - not yet integrated)
+**Frameworks**: Cypress and Playwright (web), Detox (mobile)
 
-**Location**: `/client/cypress/` (web), `/mobile/e2e/` (mobile)
+**Location**: `/client/cypress/` (Cypress), `/e2e/` (Playwright), `/mobile/e2e/` (Detox)
 
 **Examples**:
 
@@ -193,13 +193,28 @@ export default defineConfig({
   test: {
     globals: true,
     environment: "node",
+    setupFiles: ["./vitest.setup.ts"],
     include: ["**/*.test.ts", "**/*.test.tsx"],
-    exclude: ["node_modules", "dist", "e2e", "mobile"],
+    exclude: ["**/node_modules/**", "**/dist/**", "**/e2e/**", "mobile/**"],
     coverage: {
       provider: "v8",
-      reporter: ["text", "json", "html"],
-      exclude: ["node_modules/", "**/*.test.ts", "**/*.config.ts"],
+      reporter: ["text", "json", "json-summary", "html", "lcov"],
+      include: [
+        "server/**/*.ts",
+        "packages/shared/**/*.ts",
+        "client/src/lib/**/*.ts",
+        "functions/src/**/*.ts",
+      ],
+      // Extensive exclusions for: type-only files, infrastructure/entry points,
+      // schema definitions, barrel re-exports, test helpers, etc.
+      thresholds: {
+        statements: 98,
+        branches: 93,
+        functions: 99,
+        lines: 99,
+      },
     },
+    testTimeout: 10000,
   },
 });
 ```
@@ -209,22 +224,25 @@ export default defineConfig({
 | Tool                       | Purpose                 | Usage                                              |
 | -------------------------- | ----------------------- | -------------------------------------------------- |
 | **Cypress**                | Web E2E tests           | `pnpm --filter skatehubba-client exec cypress run` |
-| **Detox**                  | Mobile E2E tests        | Not yet integrated                                 |
+| **Playwright**             | Web E2E tests           | Tests in `/e2e/` directory                         |
+| **Detox**                  | Mobile E2E tests        | Integrated in CI via `mobile-e2e.yml`              |
 | **@testing-library/react** | React component testing | Included in Vitest setup                           |
-| **Supertest**              | HTTP endpoint testing   | API integration tests                              |
+| **vitest-axe**             | Accessibility testing   | Included in client dev dependencies                |
 
 ---
 
 ## Coverage Goals
 
-### Current Status (as of Q1 2026)
+### Enforced Thresholds
 
-| Metric     | Current | Target (Q2 2026) |
-| ---------- | ------- | ---------------- |
-| Statements | 50%     | 60%              |
-| Branches   | 43%     | 60%              |
-| Functions  | 55%     | 60%              |
-| Lines      | 50%     | 60%              |
+Coverage thresholds are enforced by `vitest.config.mts` and CI. Builds fail if coverage drops below these minimums:
+
+| Metric     | Threshold |
+| ---------- | --------- |
+| Statements | 98%       |
+| Branches   | 93%       |
+| Functions  | 99%       |
+| Lines      | 99%       |
 
 ### Critical Paths: 100% Coverage Required
 
@@ -571,44 +589,25 @@ describe("Vote Counting with Row Locking", () => {
 
 ## CI/CD Integration
 
-### GitHub Actions Workflow
+### GitHub Actions
 
-```yaml
-# .github/workflows/test.yml
-name: Test Suite
+Tests run as part of the main `ci.yml` workflow on every push to `main` and every PR. The `build_lint_typecheck` job runs:
 
-on: [push, pull_request]
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 10
-      - uses: actions/setup-node@v3
-        with:
-          node-version: "20"
-          cache: "pnpm"
-
-      - name: Install dependencies
-        run: pnpm install
-
-      - name: Run tests with coverage
-        run: pnpm test:coverage
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+```bash
+pnpm vitest run --coverage
 ```
+
+This enforces the coverage thresholds defined in `vitest.config.mts`. If any threshold is not met, the CI job fails and the PR cannot be merged.
+
+Coverage artifacts (HTML report, JSON summary, badge) are uploaded to GitHub Actions and retained for 30 days.
 
 ### Quality Gates
 
 Tests must pass before:
 
-- ✅ Merging pull requests
-- ✅ Deploying to staging
-- ✅ Deploying to production
+- Merging pull requests (CI required status check)
+- Deploying to staging (staging workflow depends on CI passing)
+- Deploying to production (Vercel deploys from `main` which requires CI green)
 
 ---
 
@@ -656,16 +655,16 @@ describe("Spot Query Performance", () => {
 ### Current Status
 
 - **Detox**: Configured and integrated into CI (`.github/workflows/mobile-e2e.yml`)
-- **Smoke Test**: Basic test exists in `/mobile/e2e/`
-- **Android E2E**: Runs automatically on PRs and pushes to main (ubuntu runner)
+- **Smoke Tests**: Basic smoke tests in `/mobile/e2e/`
+- **Android E2E**: Runs via `mobile_detox_smoke` job in CI (ubuntu runner)
 - **iOS E2E**: Gated behind `e2e` label or manual dispatch (macOS runner cost optimization)
+- **Mobile Quality**: Typecheck + lint run in the `mobile_quality` CI job
 
-### Future Mobile Testing Strategy
+### Mobile Testing Strategy
 
-1. **Unit Tests**: Jest for React Native components
-2. **Integration Tests**: Test API interactions
-3. **E2E Tests**: Detox for full user workflows
-4. **Platform Testing**: Test on both iOS and Android simulators/devices
+1. **Static Analysis**: TypeScript typecheck + ESLint (enforced in CI)
+2. **E2E Tests**: Detox for Android smoke tests (CI), iOS on demand
+3. **EAS Preview Builds**: Preview builds generated on PRs via `mobile-preview.yml`
 
 ---
 

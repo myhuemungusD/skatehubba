@@ -1,12 +1,5 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-  Pressable,
-  Modal,
-} from "react-native";
-import { useRef, useEffect } from "react";
+import { memo, useRef, useEffect } from "react";
+import { View, Text, StyleSheet, Animated, Pressable, Modal } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import type { GameOverlay } from "@/types";
@@ -17,7 +10,7 @@ interface TurnOverlayProps {
   dismissible?: boolean;
 }
 
-export function TurnOverlay({
+export const TurnOverlay = memo(function TurnOverlay({
   overlay,
   onDismiss,
   dismissible = true,
@@ -77,16 +70,9 @@ export function TurnOverlay({
         accessibilityRole="alert"
         accessibilityLabel={`${overlay.title}. ${overlay.subtitle || ""}`}
       >
-        <Pressable
-          style={styles.backdropPressable}
-          onPress={dismissible ? onDismiss : undefined}
-        >
+        <Pressable style={styles.backdropPressable} onPress={dismissible ? onDismiss : undefined}>
           <Animated.View
-            style={[
-              styles.content,
-              config.containerStyle,
-              { transform: [{ scale: scaleAnim }] },
-            ]}
+            style={[styles.content, config.containerStyle, { transform: [{ scale: scaleAnim }] }]}
           >
             {config.icon && (
               <View style={styles.iconContainer}>
@@ -100,16 +86,11 @@ export function TurnOverlay({
 
             <Text style={[styles.title, config.titleStyle]}>{overlay.title}</Text>
 
-            {overlay.subtitle && (
-              <Text style={styles.subtitle}>{overlay.subtitle}</Text>
-            )}
+            {overlay.subtitle && <Text style={styles.subtitle}>{overlay.subtitle}</Text>}
 
             {overlay.type === "letter_gained" && overlay.letter && (
               <Animated.View
-                style={[
-                  styles.letterDisplay,
-                  { transform: [{ scale: letterScaleAnim }] },
-                ]}
+                style={[styles.letterDisplay, { transform: [{ scale: letterScaleAnim }] }]}
               >
                 <Text style={styles.letterText}>{overlay.letter}</Text>
               </Animated.View>
@@ -129,7 +110,7 @@ export function TurnOverlay({
       </Animated.View>
     </Modal>
   );
-}
+});
 
 function LoadingDots() {
   const animations = useRef([

@@ -16,6 +16,8 @@ import { apiRequest } from "../lib/api/client";
 import { logger } from "../lib/logger";
 
 import type { AuthState, BootStatus, UserRole } from "./authStore.types";
+import { usePresenceStore } from "./usePresenceStore";
+import { useChatStore } from "./useChatStore";
 export type { UserProfile, UserRole, ProfileStatus } from "./authStore.types";
 
 import {
@@ -352,6 +354,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null });
     try {
       const currentUid = get().user?.uid;
+      // Clean up real-time listeners before signing out
+      usePresenceStore.getState().disconnect();
+      useChatStore.getState().disconnect();
       try {
         await apiRequest({
           method: "POST",

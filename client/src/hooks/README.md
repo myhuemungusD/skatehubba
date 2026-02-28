@@ -9,29 +9,38 @@ This directory contains reusable React hooks that encapsulate common functionali
 ## Available Hooks
 
 ### Authentication & Authorization
+
 - **`useAuth.ts`** - Core authentication hook with user state management
 - **`useAuthListener.ts`** - Firebase auth state listener
 - **`useUserRoles.ts`** - User role management and permission checks
 - **`useEmailVerification.ts`** - Email verification flow
 
 ### Account & Profile
+
 - **`useAccountTier.ts`** - User account tier (free/pro/premium) detection
 - **`useBetaSignup.ts`** - Beta signup flow management
 
 ### Location & Map
+
 - **`useGeolocation.ts`** - Browser geolocation with permission handling and browse mode fallback
 
 ### Game
+
 - **`useSkateGame.ts`** - SKATE game state management
+- **`useSkateGameApi.ts`** - SKATE game API interactions
 - **`useSkateGameRealtime.ts`** - Real-time game updates via Firestore
+- **`useRemoteSkateGame.ts`** - Remote S.K.A.T.E. game logic
+- **`useGameVideoUpload.ts`** - Video upload during game turns
 
 ### UI & UX
+
 - **`use-toast.ts`** - Toast notification system
 - **`use-mobile.ts`** - Mobile viewport detection
 - **`use-tricks.ts`** - Trick selection and management
 - **`useSkipLink.ts`** - Accessibility skip link handler
 
 ### Performance
+
 - **`usePerformanceMonitor.ts`** - Performance metrics tracking
 
 ## Testing

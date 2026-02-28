@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, FlatList, TouchableOpacity } from "react-native";
+import { useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { DEMO_CHALLENGES, DEMO_PLAYERS } from "@/demo/mockData";
@@ -12,7 +13,7 @@ type ChallengeStatus = "pending" | "accepted" | "completed" | "forfeit";
  * Demonstrates the matchmaking and game management UI.
  */
 export default function DemoLobbyScreen() {
-  const renderChallenge = ({ item }: { item: (typeof DEMO_CHALLENGES)[number] }) => {
+  const renderChallenge = useCallback(({ item }: { item: (typeof DEMO_CHALLENGES)[number] }) => {
     const statusConfig = getStatusConfig(item.status as ChallengeStatus);
     const isMyTurn = item.isMyTurn;
 
@@ -90,7 +91,7 @@ export default function DemoLobbyScreen() {
         )}
       </TouchableOpacity>
     );
-  };
+  }, []);
 
   return (
     <View style={styles.container}>

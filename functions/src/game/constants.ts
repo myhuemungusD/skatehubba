@@ -1,5 +1,7 @@
 /**
  * S.K.A.T.E. Game Constants
+ *
+ * Shared constants for game logic across all game functions.
  */
 
 export const SKATE_LETTERS = ["S", "K", "A", "T", "E"] as const;

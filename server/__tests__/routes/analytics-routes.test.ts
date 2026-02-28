@@ -56,6 +56,10 @@ vi.mock("../../middleware/validation", () => ({
   validateBody: () => (_req: any, _res: any, next: any) => next(),
 }));
 
+vi.mock("../../middleware/security", () => ({
+  analyticsIngestLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
+
 vi.mock("../../../packages/shared/analytics-events", () => ({
   AnalyticsIngestSchema: {},
   AnalyticsBatchSchema: {},

@@ -1,3 +1,4 @@
+/* eslint-disable no-console -- this IS the logger; console output is intentional */
 import { inspect } from "node:util";
 import { hostname } from "node:os";
 

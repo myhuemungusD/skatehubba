@@ -8,12 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "../co
 import { Link, useLocation } from "wouter";
 import { Mail, Lock } from "lucide-react";
 import { SiGoogle } from "react-icons/si";
-import { getAuthErrorMessage } from "../lib/firebase/auth-errors";
+import { getAuthErrorMessage, isAuthConfigError } from "../lib/firebase/auth-errors";
 
 export default function SigninPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
   const { toast } = useToast();
   const auth = useAuth();
   const [, setLocation] = useLocation();
@@ -99,6 +100,7 @@ export default function SigninPage() {
 
   async function handleGoogleSignIn() {
     setIsLoading(true);
+    setGoogleError(null);
 
     try {
       await auth?.signInWithGoogle();
@@ -108,9 +110,13 @@ export default function SigninPage() {
       });
       redirectAfterSignIn();
     } catch (err: unknown) {
+      const message = getAuthErrorMessage(err);
+      if (isAuthConfigError(err)) {
+        setGoogleError(message);
+      }
       toast({
         title: "Google sign-in failed",
-        description: getAuthErrorMessage(err),
+        description: message,
         variant: "destructive",
       });
       setIsLoading(false);
@@ -127,6 +133,13 @@ export default function SigninPage() {
           </div>
           <p className="text-gray-400">Welcome back, skater!</p>
         </div>
+
+        {googleError && (
+          <div className="bg-red-900/30 border border-red-600/50 rounded-lg p-4 mb-4">
+            <p className="text-red-200 text-sm font-semibold mb-1">Google Sign-In Error</p>
+            <p className="text-red-300/80 text-sm">{googleError}</p>
+          </div>
+        )}
 
         <Card className="bg-[#232323] border-gray-700">
           <CardHeader>

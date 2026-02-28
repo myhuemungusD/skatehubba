@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { useRequireAuth } from "@/hooks/useRequireAuth";
@@ -16,6 +17,7 @@ import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
 function ClosetScreenContent() {
   const { user, isAuthenticated } = useRequireAuth();
   const router = useRouter();
+  const [avatarError, setAvatarError] = useState(false);
 
   // Unauthenticated users are redirected to sign-in by the root layout guard.
   if (!isAuthenticated) {
@@ -32,8 +34,12 @@ function ClosetScreenContent() {
       {/* Profile Header */}
       <View style={styles.profileHeader}>
         <View style={styles.avatarContainer}>
-          {user?.photoURL ? (
-            <Image source={{ uri: user.photoURL }} style={styles.avatar} />
+          {user?.photoURL && !avatarError ? (
+            <Image
+              source={{ uri: user.photoURL }}
+              style={styles.avatar}
+              onError={() => setAvatarError(true)}
+            />
           ) : (
             <View style={styles.avatarPlaceholder}>
               <Text style={styles.avatarInitial}>
@@ -68,6 +74,9 @@ function ClosetScreenContent() {
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsGrid}>
           <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="My Profile"
             style={styles.actionCard}
             onPress={() => router.push(`/profile/${user?.uid}`)}
           >
@@ -76,6 +85,9 @@ function ClosetScreenContent() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Leaderboard"
             style={styles.actionCard}
             onPress={() => router.push("/(tabs)/leaderboard")}
           >
@@ -83,12 +95,21 @@ function ClosetScreenContent() {
             <Text style={styles.actionText}>Leaderboard</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.actionCard} onPress={() => router.push("/(tabs)/users")}>
+          <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Find Skaters"
+            style={styles.actionCard}
+            onPress={() => router.push("/(tabs)/users")}
+          >
             <Ionicons name="people" size={28} color={SKATE.colors.orange} />
             <Text style={styles.actionText}>Find Skaters</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
+            accessible
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
             style={styles.actionCard}
             onPress={() => router.push("/(tabs)/settings")}
           >

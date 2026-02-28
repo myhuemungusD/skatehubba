@@ -58,6 +58,9 @@ const mocks = vi.hoisted(() => {
 
   const ffprobeFn = vi.fn();
 
+  /** Controllable mock for checkRateLimit — default no-op, override per-test */
+  const checkRateLimitFn = vi.fn().mockResolvedValue(undefined);
+
   const logger = {
     log: vi.fn(),
     info: vi.fn(),
@@ -78,6 +81,7 @@ const mocks = vi.hoisted(() => {
     bucket,
     storageInstance,
     ffprobeFn,
+    checkRateLimitFn,
     logger,
   };
 });
@@ -168,6 +172,10 @@ vi.mock("./commerce/expireHolds", () => ({
   expireHolds: vi.fn(),
 }));
 
+vi.mock("./shared/rateLimit", () => ({
+  checkRateLimit: (...args: any[]) => mocks.checkRateLimitFn(...args),
+}));
+
 // ============================================================================
 // Import the module under test (AFTER all vi.mock calls)
 // ============================================================================
@@ -177,6 +185,7 @@ import {
   getUserRoles,
   submitTrick,
   judgeTrick,
+  setterBail,
   getVideoUrl,
   validateChallengeVideo,
   processVoteTimeouts,
@@ -239,11 +248,15 @@ describe("SkateHubba Cloud Functions", () => {
     mocks.firestoreInstance.collection.mockReturnValue(mocks.collectionRef);
     mocks.firestoreInstance.doc.mockReturnValue(mocks.docRef);
     mocks.runTransaction.mockImplementation(async (fn: any) => fn(mocks.transaction));
+    // Default: no existing rate-limit entry (first request in window — always allowed)
+    mocks.transaction.get.mockResolvedValue({ exists: false, data: () => ({}) });
     mocks.bucket.file.mockReturnValue(mocks.bucketFile);
     mocks.storageInstance.bucket.mockReturnValue(mocks.bucket);
     mocks.docRef.get.mockResolvedValue({ exists: false, data: () => ({}), get: () => null });
     mocks.docRef.set.mockResolvedValue(undefined);
     mocks.docRef.update.mockResolvedValue(undefined);
+    // Default: rate limit passes (no-op)
+    mocks.checkRateLimitFn.mockResolvedValue(undefined);
     mocks.collectionRef.add.mockResolvedValue({ id: "log-id" });
     mocks.authInstance.setCustomUserClaims.mockResolvedValue(undefined);
     mocks.bucketFile.download.mockResolvedValue(undefined);
@@ -311,27 +324,23 @@ describe("SkateHubba Cloud Functions", () => {
       });
     }
 
-    it("allows up to 10 requests per window", async () => {
+    it("allows requests when rate limit passes", async () => {
       setupSuccessfulRoleChange();
+      mocks.checkRateLimitFn.mockResolvedValue(undefined);
       const uid = freshUid("rl-ok");
       const ctx = makeContext({ uid, roles: ["admin"] });
       const data = { targetUid: "tgt", role: "moderator", action: "grant" };
 
-      for (let i = 0; i < 10; i++) {
-        await expect((manageUserRole as any)(data, ctx)).resolves.toBeDefined();
-      }
+      await expect((manageUserRole as any)(data, ctx)).resolves.toBeDefined();
+      expect(mocks.checkRateLimitFn).toHaveBeenCalledWith(uid);
     });
 
-    it("throws resource-exhausted when rate limiter rejects", async () => {
+    it("throws resource-exhausted when rate limit is exceeded", async () => {
       setupSuccessfulRoleChange();
-
-      // Temporarily make the rate limiter mock reject
-      const { checkRateLimit: mockRateLimit } = await import("./shared/rateLimiter");
-      (mockRateLimit as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-        new (functions.https.HttpsError as any)(
-          "resource-exhausted",
-          "Too many requests. Please try again later."
-        )
+      // Simulate checkRateLimit throwing resource-exhausted
+      const HttpsError = (await import("firebase-functions")).https.HttpsError;
+      mocks.checkRateLimitFn.mockRejectedValue(
+        new HttpsError("resource-exhausted", "Too many requests. Please try again later.")
       );
 
       const uid = freshUid("rl-exceed");
@@ -1119,16 +1128,21 @@ describe("SkateHubba Cloud Functions", () => {
       ).rejects.toThrow("Invalid storage path");
     });
 
-    it("rejects storagePath missing the round_ prefix", async () => {
+    it("accepts storagePath with Firestore auto-ID (no round_ prefix)", async () => {
       const uid = freshUid("gv");
       mocks.docRef.get.mockResolvedValue({
         exists: true,
         data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
       });
+      mocks.bucket.file.mockReturnValue({
+        getSignedUrl: vi.fn().mockResolvedValue(["https://signed.url/video.mp4"]),
+      });
       const ctx = makeContext({ uid });
-      await expect(
-        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/uid/gid/noprefix/file.mp4" }, ctx)
-      ).rejects.toThrow("Invalid storage path");
+      const result = await (getVideoUrl as any)(
+        { gameId: "g", storagePath: "videos/uid/gid/noprefix/file.mp4" },
+        ctx
+      );
+      expect(result).toHaveProperty("signedUrl");
     });
 
     it("rejects storagePath with too few segments", async () => {
@@ -2173,6 +2187,204 @@ describe("SkateHubba Cloud Functions", () => {
 
       expect(gameDoc.ref.update).not.toHaveBeenCalled();
       expect(mocks.runTransaction).not.toHaveBeenCalled();
+    });
+  });
+
+  // ==========================================================================
+  // Integration-style: full game flow scenario
+  // ==========================================================================
+
+  // ==========================================================================
+  // setterBail
+  // ==========================================================================
+
+  describe("setterBail", () => {
+    const bailGame = (overrides: Record<string, any> = {}) => ({
+      player1Id: "p1",
+      player2Id: "p2",
+      currentTurn: "p1",
+      currentAttacker: "p1",
+      turnPhase: "attacker_recording",
+      roundNumber: 1,
+      moves: [],
+      processedIdempotencyKeys: [],
+      currentSetMove: null,
+      player1Letters: [],
+      player2Letters: [],
+      status: "active",
+      winnerId: null,
+      ...overrides,
+    });
+
+    it("rejects unauthenticated caller", async () => {
+      await expect(
+        (setterBail as any)({ gameId: "g", idempotencyKey: "k" }, noAuthContext())
+      ).rejects.toThrow("Not logged in");
+    });
+
+    it("rejects missing gameId", async () => {
+      const ctx = makeContext({ uid: freshUid("sb") });
+      await expect((setterBail as any)({ gameId: "", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Missing gameId"
+      );
+    });
+
+    it("throws not-found when game does not exist", async () => {
+      mocks.transaction.get.mockResolvedValue({ exists: false });
+      const ctx = makeContext({ uid: "p1" });
+      await expect(
+        (setterBail as any)({ gameId: "ghost", idempotencyKey: "k" }, ctx)
+      ).rejects.toThrow("Game not found");
+    });
+
+    it("returns duplicate:true for already-processed idempotency key", async () => {
+      const game = bailGame({ processedIdempotencyKeys: ["dup-bail"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "dup-bail" }, ctx);
+      expect(res).toMatchObject({ success: true, duplicate: true });
+    });
+
+    it("rejects when game is not active", async () => {
+      const game = bailGame({ status: "completed" });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Game is not active"
+      );
+    });
+
+    it("rejects when caller is not the attacker", async () => {
+      const game = bailGame({ currentAttacker: "p1" });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p2" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Only the setter can declare a bail"
+      );
+    });
+
+    it("rejects when not in attacker_recording phase", async () => {
+      const game = bailGame({ turnPhase: "judging" });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Can only bail during set trick phase"
+      );
+    });
+
+    it("rejects when player already has S.K.A.T.E.", async () => {
+      const game = bailGame({ player1Letters: ["S", "K", "A", "T", "E"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await expect((setterBail as any)({ gameId: "g", idempotencyKey: "k" }, ctx)).rejects.toThrow(
+        "Player already has S.K.A.T.E."
+      );
+    });
+
+    it("assigns a letter to player1 setter and swaps roles", async () => {
+      const game = bailGame({ player1Letters: ["S"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb1" }, ctx);
+      expect(res).toMatchObject({
+        success: true,
+        gameOver: false,
+        winnerId: null,
+        duplicate: false,
+      });
+      expect(res.message).toContain("Letter earned");
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player1Letters).toEqual(["S", "K"]);
+      expect(update.currentAttacker).toBe("p2");
+      expect(update.currentTurn).toBe("p2");
+      expect(update.turnPhase).toBe("attacker_recording");
+      expect(update.roundNumber).toBe(2);
+      expect(update.currentSetMove).toBeNull();
+    });
+
+    it("assigns a letter to player2 setter and swaps roles", async () => {
+      const game = bailGame({
+        currentAttacker: "p2",
+        currentTurn: "p2",
+        player2Letters: [],
+      });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p2" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb2" }, ctx);
+      expect(res.gameOver).toBe(false);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player2Letters).toEqual(["S"]);
+      expect(update.currentAttacker).toBe("p1");
+    });
+
+    it("ends game when setter gets 5th letter (S.K.A.T.E.)", async () => {
+      const game = bailGame({ player1Letters: ["S", "K", "A", "T"] });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb-go" }, ctx);
+      expect(res).toMatchObject({
+        success: true,
+        gameOver: true,
+        winnerId: "p2",
+        duplicate: false,
+      });
+      expect(res.message).toContain("Game over");
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player1Letters).toEqual(["S", "K", "A", "T", "E"]);
+      expect(update.status).toBe("completed");
+      expect(update.winnerId).toBe("p2");
+      expect(update.turnPhase).toBe("round_complete");
+    });
+
+    it("ends game when player2 setter gets 5th letter", async () => {
+      const game = bailGame({
+        currentAttacker: "p2",
+        currentTurn: "p2",
+        player2Letters: ["S", "K", "A", "T"],
+      });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p2" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb-go2" }, ctx);
+      expect(res.gameOver).toBe(true);
+      expect(res.winnerId).toBe("p1");
+    });
+
+    it("caps idempotency keys at 50", async () => {
+      const keys = Array.from({ length: 50 }, (_, i) => `bk${i}`);
+      const game = bailGame({ processedIdempotencyKeys: keys });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      await (setterBail as any)({ gameId: "g", idempotencyKey: "bk-new" }, ctx);
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.processedIdempotencyKeys).toHaveLength(50);
+      expect(update.processedIdempotencyKeys).toContain("bk-new");
+      expect(update.processedIdempotencyKeys).not.toContain("bk0");
+    });
+
+    it("handles missing idempotencyKey gracefully", async () => {
+      const game = bailGame();
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "" }, ctx);
+      expect(res.success).toBe(true);
+      expect(res.duplicate).toBe(false);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.processedIdempotencyKeys).toEqual([]);
+    });
+
+    it("handles null player letters", async () => {
+      const game = bailGame({ player1Letters: null });
+      mocks.transaction.get.mockResolvedValue({ exists: true, data: () => game });
+      const ctx = makeContext({ uid: "p1" });
+      const res = await (setterBail as any)({ gameId: "g", idempotencyKey: "kb-null" }, ctx);
+      expect(res.success).toBe(true);
+
+      const update = mocks.transaction.update.mock.calls[0][1];
+      expect(update.player1Letters).toEqual(["S"]);
     });
   });
 

@@ -1,18 +1,47 @@
 /**
- * judgeTrick Cloud Function
+ * Judge Trick
  *
+ * Cloud Function for submitting a vote on whether a trick was landed.
+ * Both players must vote; if they disagree, defender gets benefit of the doubt.
+ * Uses Firestore transactions to prevent race conditions on simultaneous votes.
+ */
+
+import * as functions from "firebase-functions";
+import * as admin from "firebase-admin";
+import { monitoredTransaction } from "../shared/transaction";
+import { checkRateLimit } from "../shared/rateLimit";
+import { SKATE_LETTERS } from "./constants";
+
+interface JudgeTrickRequest {
+  gameId: string;
+  moveId: string;
+  vote: "landed" | "bailed";
+  /** Client-generated idempotency key */
+  idempotencyKey: string;
+}
+
+interface JudgeTrickResponse {
+  success: boolean;
+  vote: "landed" | "bailed";
+  finalResult: "landed" | "bailed" | null;
+  waitingForOtherVote: boolean;
+  winnerId: string | null;
+  gameCompleted: boolean;
+  /** True if this was a duplicate vote (already processed) */
+  duplicate: boolean;
+}
+
+export interface JudgmentVotes {
+  attackerVote: "landed" | "bailed" | null;
+  defenderVote: "landed" | "bailed" | null;
+}
+
+/**
  * Submit a vote for whether the defender landed the trick.
  * Uses transaction to prevent race conditions when both players vote simultaneously.
  * Both attacker and defender must vote. If they disagree, defender gets
  * benefit of the doubt (result = "landed").
  */
-
-import * as functions from "firebase-functions";
-import * as admin from "firebase-admin";
-import { monitoredTransaction } from "../shared/monitoredTransaction";
-import { SKATE_LETTERS } from "./constants";
-import { JudgeTrickRequest, JudgeTrickResponse, JudgmentVotes } from "./types";
-
 export const judgeTrick = functions.https.onCall(
   async (
     data: JudgeTrickRequest,
@@ -21,6 +50,8 @@ export const judgeTrick = functions.https.onCall(
     if (!context.auth?.uid) {
       throw new functions.https.HttpsError("unauthenticated", "Not logged in");
     }
+
+    await checkRateLimit(context.auth.uid);
 
     const { gameId, moveId, vote, idempotencyKey } = data;
 

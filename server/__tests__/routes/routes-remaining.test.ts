@@ -234,6 +234,10 @@ vi.mock("../../services/notificationService", () => ({
   notifyUser: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../../middleware/security", () => ({
+  trickmintUploadLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
+
 // Capture route handlers from trickmint (the Router mock)
 const routeHandlers: Record<string, any[]> = {};
 
@@ -310,6 +314,11 @@ function resetDbChain() {
   mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
   mockDbChain.delete = vi.fn().mockReturnValue(mockDbChain);
   mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
+  mockDbChain.transaction = vi.fn().mockImplementation(async (cb: any) => {
+    const tx = Object.create(mockDbChain);
+    tx.execute = vi.fn().mockResolvedValue(undefined);
+    return cb(tx);
+  });
 }
 
 // ============================================================================
@@ -596,7 +605,7 @@ describe("Games-cron — additional branch coverage", () => {
     let selectCallCount = 0;
     mockDbChain.then = (resolve: any) => {
       selectCallCount++;
-      if (selectCallCount === 1) return Promise.resolve([expiredGame]).then(resolve);
+      if (selectCallCount <= 2) return Promise.resolve([expiredGame]).then(resolve);
       return Promise.resolve(undefined).then(resolve);
     };
 

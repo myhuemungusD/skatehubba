@@ -187,8 +187,8 @@ async function executeMigration(filePath, migrationName) {
   }
 }
 
-// Get all migration files
-function getMigrationFiles() {
+// List migration files without validation
+function listMigrationFiles() {
   const files = fs.readdirSync(MIGRATIONS_DIR)
     .filter(file => /^\d{4}_.*\.sql$/.test(file) && !file.endsWith('_down.sql'))
     .sort();
@@ -198,6 +198,24 @@ function getMigrationFiles() {
     name: file.replace('.sql', ''),
     path: path.join(MIGRATIONS_DIR, file),
   }));
+}
+
+// Get migration files, aborting on duplicate sequence numbers
+function getMigrationFiles() {
+  const migrations = listMigrationFiles();
+
+  const seen = new Map();
+  for (const migration of migrations) {
+    if (seen.has(migration.number)) {
+      throw new Error(
+        `Duplicate migration sequence number ${migration.number}: ` +
+        `${seen.get(migration.number).name} and ${migration.name}`
+      );
+    }
+    seen.set(migration.number, migration);
+  }
+
+  return migrations;
 }
 
 // Run migrations up
@@ -371,18 +389,33 @@ async function validateMigrations() {
   logInfo('Validating migrations...');
 
   let errors = 0;
-  const migrations = getMigrationFiles();
+  const migrations = listMigrationFiles();
 
-  // Check for gaps in migration numbers
-  let prevNum = 0;
+  // Check for duplicate sequence numbers
+  const numberGroups = new Map();
   for (const migration of migrations) {
-    const num = parseInt(migration.number, 10);
+    const group = numberGroups.get(migration.number);
+    if (group) {
+      group.push(migration.name);
+    } else {
+      numberGroups.set(migration.number, [migration.name]);
+    }
+  }
+  for (const [number, names] of numberGroups) {
+    if (names.length > 1) {
+      logError(`Duplicate migration sequence number ${number}: ${names.join(', ')}`);
+      errors++;
+    }
+  }
 
+  // Check for gaps in migration numbers (deduplicated)
+  const uniqueNumbers = [...new Set(migrations.map(m => parseInt(m.number, 10)))].sort((a, b) => a - b);
+  let prevNum = 0;
+  for (const num of uniqueNumbers) {
     if (num !== prevNum + 1 && prevNum !== 0) {
       logError(`Gap in migration sequence: ${prevNum} -> ${num}`);
       errors++;
     }
-
     prevNum = num;
   }
 

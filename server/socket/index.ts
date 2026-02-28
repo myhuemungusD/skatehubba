@@ -18,7 +18,7 @@ import { socketAuthMiddleware } from "./auth";
 import { joinRoom, leaveRoom, leaveAllRooms, getRoomStats } from "./rooms";
 import { registerBattleHandlers, cleanupBattleSubscriptions } from "./handlers/battle";
 import { registerGameHandlers, cleanupGameSubscriptions } from "./handlers/game";
-import { cleanupRateLimits } from "./socketRateLimit";
+import { cleanupRateLimits, registerRateLimitRules, checkRateLimit } from "./socketRateLimit";
 import {
   registerPresenceHandlers,
   handlePresenceDisconnect,
@@ -48,6 +48,13 @@ import {
 
 // Re-export types for convenience
 export type { ClientToServerEvents, ServerToClientEvents, SocketData } from "./types";
+
+// Register rate-limit rules for room management and typing events
+registerRateLimitRules({
+  "room:join": { maxPerWindow: 20, windowMs: 60_000 },
+  "room:leave": { maxPerWindow: 20, windowMs: 60_000 },
+  typing: { maxPerWindow: 30, windowMs: 60_000 },
+});
 
 // Track connected sockets for metrics
 let connectedSockets = 0;
@@ -124,6 +131,10 @@ export function initializeSocketServer(
     socket.on(
       "room:join",
       async (roomType: "battle" | "game" | "spot" | "global", roomId: string) => {
+        if (!checkRateLimit(socket.id, "room:join")) {
+          socket.emit("error", { code: "rate_limited", message: "Too many room joins, slow down" });
+          return;
+        }
         await joinRoom(socket, roomType, roomId);
       }
     );
@@ -131,12 +142,17 @@ export function initializeSocketServer(
     socket.on(
       "room:leave",
       async (roomType: "battle" | "game" | "spot" | "global", roomId: string) => {
+        if (!checkRateLimit(socket.id, "room:leave")) {
+          socket.emit("error", { code: "rate_limited", message: "Too many room leaves, slow down" });
+          return;
+        }
         await leaveRoom(socket, roomType, roomId);
       }
     );
 
     // Typing indicators — only broadcast if the sender is actually in the room
     socket.on("typing", (roomId: string, isTyping: boolean) => {
+      if (!checkRateLimit(socket.id, "typing")) return;
       if (!data.rooms || !data.rooms.has(roomId)) return;
       socket.to(roomId).emit("typing", {
         odv: data.odv,

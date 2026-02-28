@@ -49,20 +49,18 @@ export function feedCache(ttlSeconds: number = DEFAULT_TTL_SECONDS) {
       const hasErrorField =
         body !== null &&
         typeof body === "object" &&
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- `in` operator requires object type; body is `unknown` at this point and narrowing via `as any` is the standard pattern here
         "error" in (body as any);
       const shouldCache = res.statusCode === 200 && !hasErrorField;
 
       if (shouldCache) {
         // Cache asynchronously — don't block the response
         const serialized = JSON.stringify(body);
-        redis
-          .setex(cacheKey, ttlSeconds, serialized)
-          .catch((writeErr: unknown) => {
-            logger.warn("[FeedCache] Redis write failed", {
-              error: String(writeErr),
-            });
+        redis.setex(cacheKey, ttlSeconds, serialized).catch((writeErr: unknown) => {
+          logger.warn("[FeedCache] Redis write failed", {
+            error: String(writeErr),
           });
+        });
       }
       res.setHeader("X-Cache", "MISS");
       return originalJson(body);

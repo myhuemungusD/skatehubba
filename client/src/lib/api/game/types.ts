@@ -140,6 +140,36 @@ export interface ResolveDisputeResponse {
   message: string;
 }
 
+export interface SetterBailResponse {
+  game: Game;
+  gameOver: boolean;
+  winnerId?: string;
+  message: string;
+}
+
+export interface GameStats {
+  totalGames: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+  currentStreak: number;
+  bestStreak: number;
+  opponentRecords: {
+    opponentId: string;
+    name: string;
+    wins: number;
+    losses: number;
+    streak: number;
+  }[];
+  topTricks: { trick: string; count: number }[];
+  recentGames: {
+    id: string;
+    won: boolean;
+    opponentName: string;
+    completedAt?: string;
+  }[];
+}
+
 export interface AvailablePlayer {
   id: string;
   username: string;

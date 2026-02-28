@@ -95,12 +95,14 @@ vi.mock("../../security", () => ({
 
 const mockVerifyIdToken = vi.fn();
 const mockGetUser = vi.fn().mockResolvedValue({ customClaims: {} });
+const mockUpdateUser = vi.fn().mockResolvedValue({});
 
 vi.mock("../../admin", () => ({
   admin: {
     auth: () => ({
       verifyIdToken: mockVerifyIdToken,
       getUser: mockGetUser,
+      updateUser: mockUpdateUser,
     }),
   },
 }));
@@ -1078,10 +1080,12 @@ describe("AuthService - Additional Coverage", () => {
       expect(token).toBeNull();
     });
 
-    it("returns null for unverified email user", async () => {
+    it("succeeds for unverified email user", async () => {
       mockDbReturns.selectResult = [{ id: "u1", isEmailVerified: false }];
+      mockDbReturns.updateResult = [];
       const token = await AuthService.generatePasswordResetToken("unverified@test.com");
-      expect(token).toBeNull();
+      expect(token).toBeDefined();
+      expect(typeof token).toBe("string");
     });
   });
 

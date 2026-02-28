@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Offline — SkateHubba</title>
+    <meta name="theme-color" content="#ff6a00" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background: #0a0a0a;
+        color: #fafafa;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 2rem;
+      }
+      .container { max-width: 480px; }
+      .icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.6;
+      }
+      h1 {
+        font-family: 'Bebas Neue', sans-serif;
+        font-size: 2.5rem;
+        color: #f97316;
+        margin-bottom: 0.75rem;
+        letter-spacing: 0.05em;
+      }
+      p {
+        color: #a3a3a3;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        margin-bottom: 2rem;
+      }
+      .retry-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: #f97316;
+        color: white;
+        border: none;
+        padding: 0.875rem 2rem;
+        border-radius: 0.75rem;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 150ms ease;
+      }
+      .retry-btn:hover { background: #ea580c; }
+      .retry-btn:focus-visible {
+        outline: 3px solid #f97316;
+        outline-offset: 2px;
+      }
+      .brand {
+        margin-top: 3rem;
+        font-size: 0.875rem;
+        color: #525252;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container" role="main">
+      <div class="icon" aria-hidden="true">&#x1F4F6;</div>
+      <h1>You're Offline</h1>
+      <p>
+        It looks like you've lost your internet connection.
+        Check your Wi-Fi or mobile data and try again.
+      </p>
+      <button class="retry-btn" onclick="window.location.reload()">
+        Retry Connection
+      </button>
+      <div class="brand">SkateHubba &mdash; Own the Spot</div>
+    </div>
+  </body>
+</html>

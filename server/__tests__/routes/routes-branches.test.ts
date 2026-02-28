@@ -1,3 +1,5 @@
+import { createMockRequest, createMockResponse } from "../helpers";
+
 /**
  * Branch coverage tests for route files:
  *
@@ -69,6 +71,9 @@ describe("analytics batch — all invalid events (line 158)", () => {
         internal: (res: any, code: string, msg: string) => res.status(500).json({ error: code }),
       },
     }));
+    vi.doMock("../../middleware/security", () => ({
+      analyticsIngestLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+    }));
 
     const routeHandlers: Record<string, any[]> = {};
     vi.doMock("express", () => ({
@@ -77,6 +82,7 @@ describe("analytics batch — all invalid events (line 158)", () => {
           routeHandlers[`POST ${path}`] = handlers;
         }),
         get: vi.fn(),
+        use: vi.fn(),
       }),
     }));
 
@@ -86,17 +92,13 @@ describe("analytics batch — all invalid events (line 158)", () => {
     expect(handlers).toBeDefined();
 
     // Create request with all invalid events
-    const req: any = {
+    const req = createMockRequest({
       body: [
         { event_id: "e1", event_name: "bad", properties: {}, occurred_at: "2025-01-01T00:00:00Z" },
       ],
       firebaseUid: "uid-1",
-    };
-    const res: any = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn().mockReturnThis(),
-      send: vi.fn().mockReturnThis(),
-    };
+    });
+    const res = createMockResponse();
 
     // Run all middleware + handler
     for (const handler of handlers) {
@@ -128,14 +130,22 @@ describe("games-disputes — skip notification when no opponentId (line 53)", ()
       opponentId: null, // No opponent to notify
     });
 
+    const dbChain: any = {};
+    dbChain.select = vi.fn().mockReturnValue(dbChain);
+    dbChain.from = vi.fn().mockReturnValue(dbChain);
+    dbChain.where = vi.fn().mockReturnValue(dbChain);
+    dbChain.limit = vi.fn().mockResolvedValue([{ player1Id: "user-1", player2Id: "user-2" }]);
+    dbChain.transaction = mockTransaction;
+
     vi.doMock("../../db", () => ({
-      getDb: () => ({ transaction: mockTransaction }),
+      getDb: () => dbChain,
     }));
     vi.doMock("../../auth/middleware", () => ({
       authenticateUser: (req: any, _res: any, next: any) => {
         req.currentUser = req.currentUser || { id: "user-1" };
         next();
       },
+      requireAdmin: (_req: any, _res: any, next: any) => next(),
     }));
     vi.doMock("@shared/schema", () => ({ games: {} }));
     vi.doMock("drizzle-orm", () => ({ eq: vi.fn(), and: vi.fn() }));
@@ -178,15 +188,12 @@ describe("games-disputes — skip notification when no opponentId (line 53)", ()
     await import("../../routes/games-disputes");
 
     const handlers = routeHandlers["POST /:id/dispute"];
-    const req: any = {
-      currentUser: { id: "user-1" },
+    const req = createMockRequest({
+      currentUser: { id: "user-1", email: "user@test.com" },
       params: { id: "game-1" },
       body: { turnId: 1 },
-    };
-    const res: any = {
-      status: vi.fn().mockReturnThis(),
-      json: vi.fn().mockReturnThis(),
-    };
+    });
+    const res = createMockResponse();
 
     for (const handler of handlers) {
       await handler(req, res, () => {});
@@ -269,8 +276,10 @@ describe("metrics — db null for kpi and response-rate error (lines 89, 120-121
     await import("../../routes/metrics");
 
     // Test /kpi with db = null
-    const reqAdmin: any = { currentUser: { id: "a1", roles: ["admin"] } };
-    const res1: any = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    const reqAdmin = createMockRequest({
+      currentUser: { id: "a1", email: "a@test.com", roles: ["admin"] },
+    });
+    const res1 = createMockResponse();
 
     for (const h of routeHandlers["GET /kpi"]) {
       await h(reqAdmin, res1, () => {});
@@ -279,7 +288,7 @@ describe("metrics — db null for kpi and response-rate error (lines 89, 120-121
 
     // Test /response-rate with db error
     mockDb = { execute: mockExecute };
-    const res2: any = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    const res2 = createMockResponse();
 
     for (const h of routeHandlers["GET /response-rate"]) {
       await h({ ...reqAdmin }, res2, () => {});
@@ -288,7 +297,7 @@ describe("metrics — db null for kpi and response-rate error (lines 89, 120-121
 
     // Test /votes-per-battle with db null
     mockDb = null;
-    const res3: any = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    const res3 = createMockResponse();
     for (const h of routeHandlers["GET /votes-per-battle"]) {
       await h({ ...reqAdmin }, res3, () => {});
     }
@@ -394,6 +403,9 @@ describe("trickmint — feed and single clip db errors", () => {
       feedCache: () => (_req: any, _res: any, next: any) => next(),
     }));
     vi.doMock("../../services/videoTranscoder", () => ({}));
+    vi.doMock("../../middleware/security", () => ({
+      trickmintUploadLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+    }));
 
     const routeHandlers: Record<string, any[]> = {};
     vi.doMock("express", () => ({
@@ -522,16 +534,15 @@ describe("filmer — parseCheckInId & array query params", () => {
 
     const { handleFilmerRequestsList } = await import("../../routes/filmer");
 
-    const req: any = {
-      currentUser: { id: "user-1" },
+    const req = createMockRequest({
+      currentUser: { id: "user-1", email: "user@test.com" },
       query: {
-        status: ["pending", "accepted"], // Array form
-        role: ["requester", "filmer"], // Array form
-        limit: ["10", "20"], // Array form
+        status: ["pending", "accepted"] as unknown as string, // Array form
+        role: ["requester", "filmer"] as unknown as string, // Array form
+        limit: ["10", "20"] as unknown as string, // Array form
       },
-      get: () => undefined,
-    };
-    const res: any = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    });
+    const res = createMockResponse();
 
     await handleFilmerRequestsList(req, res);
 
@@ -569,12 +580,11 @@ describe("filmer — parseCheckInId & array query params", () => {
 
     const { handleFilmerRequest } = await import("../../routes/filmer");
 
-    const req: any = {
-      currentUser: { id: "user-1", trustLevel: 0, isActive: true },
+    const req = createMockRequest({
+      currentUser: { id: "user-1", email: "user@test.com", trustLevel: 0, isActive: true },
       body: { checkInId: "abc", filmerUid: "f1" },
-      get: () => undefined,
-    };
-    const res: any = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    });
+    const res = createMockResponse();
 
     await handleFilmerRequest(req, res);
 
@@ -698,15 +708,11 @@ describe("stripeWebhook — additional branches", () => {
     await import("../../routes/stripeWebhook");
 
     const handlers = routeHandlers["POST /"];
-    const req: any = {
+    const req = createMockRequest({
       headers: { "stripe-signature": "sig_valid" },
       body: "raw-body",
-    };
-    const res: any = {
-      status: vi.fn().mockReturnThis(),
-      send: vi.fn().mockReturnThis(),
-      json: vi.fn().mockReturnThis(),
-    };
+    });
+    const res = createMockResponse();
 
     for (const h of handlers) {
       await h(req, res, () => {});
@@ -810,12 +816,12 @@ describe("games-challenges — player2Name fallback (line 150)", () => {
     await import("../../routes/games-challenges");
 
     const handlers = routeHandlers["POST /:id/respond"];
-    const req: any = {
-      currentUser: { id: "user-2" },
+    const req = createMockRequest({
+      currentUser: { id: "user-2", email: "user2@test.com" },
       params: { id: "game-1" },
       body: { accept: true },
-    };
-    const res: any = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
+    });
+    const res = createMockResponse();
 
     for (const h of handlers) {
       await h(req, res, () => {});
@@ -873,6 +879,10 @@ describe("remoteSkate — error mapping branches (lines 129-131)", () => {
         })),
       }));
 
+      vi.doMock("../../middleware/security", () => ({
+        remoteSkateLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+      }));
+
       const routeHandlers: Record<string, any[]> = {};
       vi.doMock("express", () => ({
         Router: () => ({
@@ -880,21 +890,19 @@ describe("remoteSkate — error mapping branches (lines 129-131)", () => {
             routeHandlers[`POST ${path}`] = h;
           }),
           get: vi.fn(),
+          use: vi.fn(),
         }),
       }));
 
       await import("../../routes/remoteSkate");
 
       const handlers = routeHandlers["POST /:gameId/rounds/:roundId/resolve"];
-      const req: any = {
+      const req = createMockRequest({
         headers: { authorization: "Bearer token" },
         params: { gameId: "g1", roundId: "r1" },
         body: { result: "landed" },
-      };
-      const res: any = {
-        status: vi.fn().mockReturnThis(),
-        json: vi.fn().mockReturnThis(),
-      };
+      });
+      const res = createMockResponse();
 
       for (const h of handlers) {
         await h(req, res, () => {});

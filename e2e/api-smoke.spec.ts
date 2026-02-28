@@ -24,11 +24,7 @@ import { test, expect, type APIRequestContext } from "@playwright/test";
  * request carries no valid credentials — letting route-level auth/validation
  * middleware do its job.
  */
-async function postBypassCsrf(
-  request: APIRequestContext,
-  path: string,
-  data?: unknown,
-) {
+async function postBypassCsrf(request: APIRequestContext, path: string, data?: unknown) {
   return request.post(path, {
     data: data ?? {},
     headers: {
@@ -49,9 +45,7 @@ test.describe("Health & Monitoring", () => {
     expect(await res.json()).toEqual({ status: "ok" });
   });
 
-  test("GET /api/health/ready returns readiness structure", async ({
-    request,
-  }) => {
+  test("GET /api/health/ready returns readiness structure", async ({ request }) => {
     const res = await request.get("/api/health/ready");
     expect([200, 503]).toContain(res.status());
 
@@ -62,24 +56,18 @@ test.describe("Health & Monitoring", () => {
     expect(body).toHaveProperty("checks");
   });
 
-  test("GET /api/health deep check returns component detail", async ({
-    request,
-  }) => {
+  test("GET /api/health deep check returns component detail", async ({ request }) => {
     const res = await request.get("/api/health");
     expect([200, 503]).toContain(res.status());
 
     const body = await res.json();
     for (const component of ["database", "redis", "ffmpeg"]) {
       expect(body.checks).toHaveProperty(component);
-      expect(["up", "down", "unconfigured"]).toContain(
-        body.checks[component].status,
-      );
+      expect(["up", "down", "unconfigured"]).toContain(body.checks[component].status);
     }
   });
 
-  test("GET /api/health/env returns environment diagnostics", async ({
-    request,
-  }) => {
+  test("GET /api/health/env returns environment diagnostics", async ({ request }) => {
     const res = await request.get("/api/health/env");
     expect([200, 503]).toContain(res.status());
 
@@ -113,9 +101,7 @@ test.describe("Public Endpoints", () => {
     expect(Array.isArray(await res.json())).toBe(true);
   });
 
-  test("GET /api/spots/:id with invalid ID returns 400", async ({
-    request,
-  }) => {
+  test("GET /api/spots/:id with invalid ID returns 400", async ({ request }) => {
     const res = await request.get("/api/spots/not-a-number");
     expect(res.status()).toBe(400);
 
@@ -123,16 +109,12 @@ test.describe("Public Endpoints", () => {
     expect(body).toHaveProperty("message");
   });
 
-  test("GET /api/spots/:id with non-existent ID returns 404", async ({
-    request,
-  }) => {
+  test("GET /api/spots/:id with non-existent ID returns 404", async ({ request }) => {
     const res = await request.get("/api/spots/999999999");
     expect(res.status()).toBe(404);
   });
 
-  test("GET /api/spots/discover rejects invalid coordinates", async ({
-    request,
-  }) => {
+  test("GET /api/spots/discover rejects invalid coordinates", async ({ request }) => {
     const res = await request.get("/api/spots/discover?lat=999&lng=999");
     expect(res.status()).toBe(400);
 
@@ -140,9 +122,7 @@ test.describe("Public Endpoints", () => {
     expect(body).toHaveProperty("message");
   });
 
-  test("GET /api/spots/discover rejects missing coordinates", async ({
-    request,
-  }) => {
+  test("GET /api/spots/discover rejects missing coordinates", async ({ request }) => {
     const res = await request.get("/api/spots/discover");
     expect(res.status()).toBe(400);
   });
@@ -153,41 +133,29 @@ test.describe("Public Endpoints", () => {
 // =============================================================================
 
 test.describe("Auth Boundary", () => {
-  test("protected GET endpoints return 401 without auth", async ({
-    request,
-  }) => {
-    const endpoints = [
-      "/api/profile/me",
-      "/api/users",
-      "/api/users/search?q=test",
-    ];
+  test("protected GET endpoints return 401 without auth", async ({ request }) => {
+    const endpoints = ["/api/profile/me", "/api/users", "/api/users/search?q=test"];
 
     for (const path of endpoints) {
       const res = await request.get(path);
       expect(
         [401, 403].includes(res.status()),
-        `GET ${path} returned ${res.status()}, expected 401 or 403`,
+        `GET ${path} returned ${res.status()}, expected 401 or 403`
       ).toBe(true);
     }
   });
 
-  test("protected POST endpoints return 401 or 403 without auth", async ({
-    request,
-  }) => {
+  test("protected POST endpoints return 401 or 403 without auth", async ({ request }) => {
     // postBypassCsrf sends a dummy Bearer so CSRF middleware doesn't mask
     // the route-level auth check. The dummy Bearer has no valid session, so
     // authenticateUser rejects with 401.
-    const endpoints = [
-      "/api/matchmaking/quick-match",
-      "/api/spots/check-in",
-      "/api/posts",
-    ];
+    const endpoints = ["/api/matchmaking/quick-match", "/api/spots/check-in", "/api/posts"];
 
     for (const path of endpoints) {
       const res = await postBypassCsrf(request, path);
       expect(
         [401, 403].includes(res.status()),
-        `POST ${path} returned ${res.status()}, expected 401 or 403`,
+        `POST ${path} returned ${res.status()}, expected 401 or 403`
       ).toBe(true);
     }
   });
@@ -210,9 +178,7 @@ test.describe("Cron Endpoint Security", () => {
   ];
 
   for (const path of cronPaths) {
-    test(`POST ${path} rejects without valid CRON_SECRET`, async ({
-      request,
-    }) => {
+    test(`POST ${path} rejects without valid CRON_SECRET`, async ({ request }) => {
       // postBypassCsrf sends Authorization: "Bearer __smoke_test__" which
       // bypasses CSRF but fails the timing-safe cron secret comparison.
       const res = await postBypassCsrf(request, path);
@@ -261,6 +227,96 @@ test.describe("Webhook Routes", () => {
 });
 
 // =============================================================================
+// Remote S.K.A.T.E. API — Route Registration & Auth Boundary
+// =============================================================================
+
+test.describe("Remote S.K.A.T.E. API", () => {
+  test("POST /api/remote-skate/:gameId/rounds/:roundId/resolve is reachable (not 404)", async ({
+    request,
+  }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/nonexistent-game/rounds/nonexistent-round/resolve",
+      { result: "landed" }
+    );
+    // Route exists → auth middleware rejects with 401 (not 404)
+    expect(res.status()).not.toBe(404);
+  });
+
+  test("POST /api/remote-skate/:gameId/rounds/:roundId/confirm is reachable (not 404)", async ({
+    request,
+  }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/nonexistent-game/rounds/nonexistent-round/confirm",
+      { result: "landed" }
+    );
+    expect(res.status()).not.toBe(404);
+  });
+
+  test("resolve endpoint returns 401 without valid auth", async ({ request }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/game-id/rounds/round-id/resolve",
+      { result: "landed" }
+    );
+    expect(res.status()).toBe(401);
+  });
+
+  test("confirm endpoint returns 401 without valid auth", async ({ request }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/game-id/rounds/round-id/confirm",
+      { result: "landed" }
+    );
+    expect(res.status()).toBe(401);
+  });
+
+  test("resolve endpoint rejects invalid result value", async ({ request }) => {
+    // Send an invalid result enum — should fail validation before auth
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/game-id/rounds/round-id/resolve",
+      { result: "invalid-value" }
+    );
+    // Either 400 (validation) or 401 (auth checked first) — both acceptable
+    expect([400, 401]).toContain(res.status());
+  });
+
+  test("confirm endpoint rejects invalid result value", async ({ request }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/game-id/rounds/round-id/confirm",
+      { result: "not-a-valid-option" }
+    );
+    expect([400, 401]).toContain(res.status());
+  });
+
+  test("remote-skate error responses use application/json", async ({ request }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/fake/rounds/fake/resolve",
+      { result: "landed" }
+    );
+    const contentType = res.headers()["content-type"] || "";
+    expect(contentType).toContain("application/json");
+  });
+
+  test("remote-skate errors never expose stack traces", async ({ request }) => {
+    const res = await postBypassCsrf(
+      request,
+      "/api/remote-skate/fake/rounds/fake/resolve",
+      { result: "landed" }
+    );
+    const text = await res.text();
+    expect(text).not.toContain("at Function");
+    expect(text).not.toContain("at Object");
+    expect(text).not.toContain(".ts:");
+    expect(text).not.toContain(".js:");
+  });
+});
+
+// =============================================================================
 // 404 Handling
 // =============================================================================
 
@@ -289,9 +345,7 @@ test.describe("Security Headers", () => {
     expect(res.headers()["x-frame-options"]).toBeTruthy();
   });
 
-  test("API responses use application/json content-type", async ({
-    request,
-  }) => {
+  test("API responses use application/json content-type", async ({ request }) => {
     const res = await request.get("/api/health/live");
     expect(res.headers()["content-type"]).toContain("application/json");
   });

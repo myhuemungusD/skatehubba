@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, FlatList } from "react-native";
+import { useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { DEMO_LEADERBOARD } from "@/demo/mockData";
@@ -9,88 +10,55 @@ import { DEMO_LEADERBOARD } from "@/demo/mockData";
  * Uses hardcoded mock data for investor demos.
  */
 export default function DemoLeaderboardScreen() {
-  const renderItem = ({
-    item,
-    index,
-  }: {
-    item: (typeof DEMO_LEADERBOARD)[number];
-    index: number;
-  }) => {
-    const isTopThree = index < 3;
-    const isFirst = index === 0;
+  const renderItem = useCallback(
+    ({ item, index }: { item: (typeof DEMO_LEADERBOARD)[number]; index: number }) => {
+      const isTopThree = index < 3;
+      const isFirst = index === 0;
 
-    return (
-      <View
-        style={[
-          styles.row,
-          isTopThree && styles.topThreeRow,
-          isFirst && styles.firstRow,
-        ]}
-      >
-        {/* Rank */}
-        <View style={styles.rankContainer}>
-          {index === 0 && (
-            <Ionicons name="trophy" size={28} color={SKATE.colors.gold} />
-          )}
-          {index === 1 && (
-            <Ionicons name="trophy" size={24} color="#c0c0c0" />
-          )}
-          {index === 2 && (
-            <Ionicons name="trophy" size={24} color="#cd7f32" />
-          )}
-          {index > 2 && (
-            <Text style={styles.rank}>{item.rank}</Text>
-          )}
-        </View>
+      return (
+        <View style={[styles.row, isTopThree && styles.topThreeRow, isFirst && styles.firstRow]}>
+          {/* Rank */}
+          <View style={styles.rankContainer}>
+            {index === 0 && <Ionicons name="trophy" size={28} color={SKATE.colors.gold} />}
+            {index === 1 && <Ionicons name="trophy" size={24} color="#c0c0c0" />}
+            {index === 2 && <Ionicons name="trophy" size={24} color="#cd7f32" />}
+            {index > 2 && <Text style={styles.rank}>{item.rank}</Text>}
+          </View>
 
-        {/* Avatar */}
-        <View
-          style={[
-            styles.avatarPlaceholder,
-            isFirst && styles.avatarFirst,
-          ]}
-        >
-          <Text
-            style={[
-              styles.avatarInitial,
-              isFirst && styles.avatarInitialFirst,
-            ]}
-          >
-            {item.displayName.charAt(0)}
-          </Text>
-        </View>
+          {/* Avatar */}
+          <View style={[styles.avatarPlaceholder, isFirst && styles.avatarFirst]}>
+            <Text style={[styles.avatarInitial, isFirst && styles.avatarInitialFirst]}>
+              {item.displayName.charAt(0)}
+            </Text>
+          </View>
 
-        {/* Info */}
-        <View style={styles.info}>
-          <Text style={[styles.name, isFirst && styles.nameFirst]}>
-            {item.displayName}
-          </Text>
-          <View style={styles.statsRow}>
-            <View style={styles.miniStat}>
-              <Ionicons name="trophy" size={12} color={SKATE.colors.gray} />
-              <Text style={styles.miniStatText}>{item.wins}W - {item.losses}L</Text>
-            </View>
-            <View style={styles.miniStat}>
-              <Ionicons name="stats-chart" size={12} color={SKATE.colors.gray} />
-              <Text style={styles.miniStatText}>
-                {item.winRate}%
-              </Text>
+          {/* Info */}
+          <View style={styles.info}>
+            <Text style={[styles.name, isFirst && styles.nameFirst]}>{item.displayName}</Text>
+            <View style={styles.statsRow}>
+              <View style={styles.miniStat}>
+                <Ionicons name="trophy" size={12} color={SKATE.colors.gray} />
+                <Text style={styles.miniStatText}>
+                  {item.wins}W - {item.losses}L
+                </Text>
+              </View>
+              <View style={styles.miniStat}>
+                <Ionicons name="stats-chart" size={12} color={SKATE.colors.gray} />
+                <Text style={styles.miniStatText}>{item.winRate}%</Text>
+              </View>
             </View>
           </View>
-        </View>
 
-        {/* Wins */}
-        <View style={styles.pointsContainer}>
-          <Text
-            style={[styles.points, isFirst && styles.pointsFirst]}
-          >
-            {item.wins}
-          </Text>
-          <Text style={styles.pointsLabel}>wins</Text>
+          {/* Wins */}
+          <View style={styles.pointsContainer}>
+            <Text style={[styles.points, isFirst && styles.pointsFirst]}>{item.wins}</Text>
+            <Text style={styles.pointsLabel}>wins</Text>
+          </View>
         </View>
-      </View>
-    );
-  };
+      );
+    },
+    []
+  );
 
   return (
     <View style={styles.container}>

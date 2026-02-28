@@ -142,6 +142,26 @@ describe("POST /api/matchmaking/quick-match", () => {
     );
   });
 
+  it("should use gameId from request body as challengeId when provided", async () => {
+    const opponents = [{ id: "opponent1", firstName: "Opponent", pushToken: "expo-token-1" }];
+    vi.mocked(getDb).mockReturnValue(buildMatchmakingDb(opponents) as any);
+    vi.mocked(sendQuickMatchNotification).mockResolvedValue(undefined);
+
+    const req = mockReq({ body: { gameId: "game-abc-123" } });
+    const res = mockRes();
+    await callHandler("POST /quick-match", req, res);
+
+    expect(sendQuickMatchNotification).toHaveBeenCalledWith("expo-token-1", "Test", "game-abc-123");
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        match: expect.objectContaining({
+          challengeId: "game-abc-123",
+        }),
+      })
+    );
+  });
+
   it("should return 404 when no eligible opponents (only current user)", async () => {
     const users = [{ id: "user1", firstName: "Test", pushToken: "tok" }];
     vi.mocked(getDb).mockReturnValue(buildMatchmakingDb(users) as any);

@@ -10,7 +10,7 @@ import logger from "../logger";
 
 const router = Router();
 
-// POST /api/matchmaking/quick-match — find a random opponent
+// POST /api/matchmaking/quick-match — find a random opponent and notify them
 router.post("/quick-match", authenticateUser, quickMatchLimiter, async (req, res) => {
   const currentUserId = req.currentUser?.id;
   const currentUserName = req.currentUser?.firstName || "Skater";
@@ -18,6 +18,9 @@ router.post("/quick-match", authenticateUser, quickMatchLimiter, async (req, res
   if (!currentUserId) {
     return res.status(401).json({ error: "Authentication required" });
   }
+
+  // Accept optional gameId so the notification can link directly to the game
+  const { gameId } = req.body as { gameId?: string };
 
   try {
     const database = getDb();
@@ -57,19 +60,18 @@ router.post("/quick-match", authenticateUser, quickMatchLimiter, async (req, res
     const randomIndex = randomValue % eligibleOpponents.length;
     const opponent = eligibleOpponents[randomIndex];
 
-    // In production, you would create a challenge record here
-    // For now, we'll create a temporary challenge ID
-    const challengeId = `qm-${Date.now()}-${currentUserId}-${opponent.id}`;
+    const challengeId = gameId || `qm-${Date.now()}-${currentUserId}-${opponent.id}`;
 
     // Send push notification to opponent
     if (opponent.pushToken) {
       await sendQuickMatchNotification(opponent.pushToken, currentUserName, challengeId);
     }
 
-    logger.info("[Quick Match] Match found", {
+    logger.info("[Quick Match] Match found and notified", {
       requesterId: currentUserId,
       opponentId: opponent.id,
       challengeId,
+      gameId: gameId || null,
     });
 
     res.json({

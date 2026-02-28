@@ -5,6 +5,7 @@
  * and result badges.
  */
 
+import { memo } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { Check, X, Clock, Play, Target, Shield, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,7 +18,12 @@ interface TurnHistoryProps {
   className?: string;
 }
 
-export function TurnHistory({ turns, currentUserId, onVideoClick, className }: TurnHistoryProps) {
+export const TurnHistory = memo(function TurnHistory({
+  turns,
+  currentUserId,
+  onVideoClick,
+  className,
+}: TurnHistoryProps) {
   if (turns.length === 0) {
     return <div className={cn("text-center py-8 text-neutral-500", className)}>No turns yet.</div>;
   }
@@ -48,6 +54,7 @@ export function TurnHistory({ turns, currentUserId, onVideoClick, className }: T
                   onClick={() => onVideoClick?.(turn.videoUrl)}
                   className="relative flex-shrink-0 w-16 h-20 rounded bg-black overflow-hidden group"
                   type="button"
+                  aria-label={`Play video: ${turn.trickDescription}`}
                 >
                   {turn.thumbnailUrl ? (
                     <img
@@ -95,6 +102,7 @@ export function TurnHistory({ turns, currentUserId, onVideoClick, className }: T
                     onClick={() => onVideoClick?.(turn.videoUrl)}
                     className="inline-flex items-center gap-1.5 text-xs text-yellow-400 hover:text-yellow-300 transition-colors"
                     type="button"
+                    aria-label={`Watch video: ${turn.trickDescription}`}
                   >
                     <Play className="w-3 h-3" />
                     Watch
@@ -132,4 +140,4 @@ export function TurnHistory({ turns, currentUserId, onVideoClick, className }: T
       })}
     </div>
   );
-}
+});

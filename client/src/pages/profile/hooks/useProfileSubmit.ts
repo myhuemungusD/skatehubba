@@ -61,7 +61,11 @@ export function useProfileSubmit(
       setSubmitError(null);
 
       try {
-        if (!skip && (usernameStatus === "unverified" || usernameStatus === "idle") && values.username?.trim()) {
+        if (
+          !skip &&
+          (usernameStatus === "unverified" || usernameStatus === "idle") &&
+          values.username?.trim()
+        ) {
           const result = await checkUsernameAvailability(values.username, 2500);
           if (result === "taken") {
             setUsernameStatus("taken");

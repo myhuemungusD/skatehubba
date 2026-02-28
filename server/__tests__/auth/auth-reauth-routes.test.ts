@@ -55,6 +55,9 @@ vi.mock("../../auth/audit", () => ({
   AuditLogger: {
     log: vi.fn(),
   },
+  AUDIT_EVENTS: {
+    REAUTH_SUCCESS: "AUTH_REAUTH_SUCCESS",
+  },
   getClientIP: vi.fn(() => "127.0.0.1"),
 }));
 

@@ -43,7 +43,8 @@ module.exports = {
         "ACCESS_COARSE_LOCATION",
         "RECORD_AUDIO",
         "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE"
+        "WRITE_EXTERNAL_STORAGE",
+        "POST_NOTIFICATIONS"
       ],
 
       intentFilters: [
@@ -69,7 +70,16 @@ module.exports = {
       [
         "expo-build-properties",
         {
-          android: { compileSdkVersion: 36, targetSdkVersion: 36, minSdkVersion: 24 }
+          android: {
+            compileSdkVersion: 36,
+            targetSdkVersion: 36,
+            minSdkVersion: 24,
+            kotlinVersion: "2.1.20",
+            jsEngine: "hermes",
+          },
+          ios: {
+            jsEngine: "hermes",
+          },
         }
       ],
       [

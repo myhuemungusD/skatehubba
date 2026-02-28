@@ -14,7 +14,13 @@ mockDbChain.from = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.where = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.update = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.limit = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
+mockDbChain.transaction = vi.fn().mockImplementation(async (cb: any) => {
+  const tx = Object.create(mockDbChain);
+  tx.execute = vi.fn().mockResolvedValue(undefined);
+  return cb(tx);
+});
 
 let shouldGetDbThrow = false;
 
@@ -38,6 +44,7 @@ vi.mock("@shared/schema", () => ({
     _table: "games",
     status: "status",
     deadlineAt: "deadlineAt",
+    createdAt: "createdAt",
     id: "id",
   },
 }));
@@ -46,6 +53,10 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
   and: vi.fn(),
   lt: vi.fn(),
+  sql: Object.assign(
+    (strings: TemplateStringsArray, ..._values: any[]) => ({ _sql: true, strings }),
+    { raw: (s: string) => ({ _sql: true, raw: s }) }
+  ),
 }));
 
 vi.mock("../../logger", () => ({
@@ -73,9 +84,11 @@ vi.mock("../../routes/games-shared", () => ({
   deadlineWarningsSent: mockDeadlineWarningsSent,
   DEADLINE_WARNING_COOLDOWN_MS: 30 * 60 * 1000,
   TURN_DEADLINE_MS: 24 * 60 * 60 * 1000,
+  GAME_HARD_CAP_MS: 7 * 24 * 60 * 60 * 1000,
 }));
 
-const { forfeitExpiredGames, notifyDeadlineWarnings } = await import("../../routes/games-cron");
+const { forfeitExpiredGames, notifyDeadlineWarnings, forfeitStalledGames } =
+  await import("../../routes/games-cron");
 
 // ============================================================================
 // Tests
@@ -111,11 +124,11 @@ describe("Games Cron", () => {
         player2Id: "player-2",
       };
 
-      // First call is select (returns expired games), subsequent is update chain
+      // Call 1: outer select (expired games), Call 2: inner re-read (FOR UPDATE), Call 3: update
       let selectCallCount = 0;
       mockDbChain.then = (resolve: any) => {
         selectCallCount++;
-        if (selectCallCount === 1) {
+        if (selectCallCount <= 2) {
           return Promise.resolve([expiredGame]).then(resolve);
         }
         return Promise.resolve(undefined).then(resolve);
@@ -158,7 +171,7 @@ describe("Games Cron", () => {
       let selectCallCount = 0;
       mockDbChain.then = (resolve: any) => {
         selectCallCount++;
-        if (selectCallCount === 1) {
+        if (selectCallCount <= 2) {
           return Promise.resolve([expiredGame]).then(resolve);
         }
         return Promise.resolve(undefined).then(resolve);
@@ -264,6 +277,133 @@ describe("Games Cron", () => {
       });
       const result = await notifyDeadlineWarnings();
       expect(result).toEqual({ notified: 0 });
+      mockDbChain.select = vi.fn().mockReturnValue(mockDbChain);
+    });
+  });
+
+  describe("forfeitStalledGames", () => {
+    it("should throw when db is unavailable", async () => {
+      shouldGetDbThrow = true;
+      await expect(forfeitStalledGames()).rejects.toThrow("Database not configured");
+    });
+
+    it("should return { forfeited: 0 } when no stalled games", async () => {
+      mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
+      const result = await forfeitStalledGames();
+      expect(result).toEqual({ forfeited: 0 });
+    });
+
+    it("should forfeit game where player1 has more letters (player1 loses)", async () => {
+      const now = new Date();
+      const stalledGame = {
+        id: "game-stale-1",
+        status: "active",
+        createdAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000), // 8 days ago
+        currentTurn: "player-2",
+        player1Id: "player-1",
+        player2Id: "player-2",
+        player1Letters: "SKA", // 3 letters — closer to losing
+        player2Letters: "S", // 1 letter
+      };
+
+      let selectCallCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        selectCallCount++;
+        if (selectCallCount <= 2) {
+          return Promise.resolve([stalledGame]).then(resolve);
+        }
+        return Promise.resolve(undefined).then(resolve);
+      };
+
+      const result = await forfeitStalledGames();
+      expect(result).toEqual({ forfeited: 1 });
+
+      // player1 has more letters so player1 loses, player2 wins
+      expect(mockDbChain.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "forfeited",
+          winnerId: "player-2",
+        })
+      );
+    });
+
+    it("should make currentTurn holder lose on tie", async () => {
+      const now = new Date();
+      const stalledGame = {
+        id: "game-stale-2",
+        status: "active",
+        createdAt: new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000),
+        currentTurn: "player-1",
+        player1Id: "player-1",
+        player2Id: "player-2",
+        player1Letters: "SK", // 2 letters each — tie
+        player2Letters: "SK",
+      };
+
+      let selectCallCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        selectCallCount++;
+        if (selectCallCount <= 2) {
+          return Promise.resolve([stalledGame]).then(resolve);
+        }
+        return Promise.resolve(undefined).then(resolve);
+      };
+
+      const result = await forfeitStalledGames();
+      expect(result).toEqual({ forfeited: 1 });
+
+      // Tie — currentTurn holder (player-1) loses, player-2 wins
+      expect(mockDbChain.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "forfeited",
+          winnerId: "player-2",
+        })
+      );
+    });
+
+    it("should send notifications to both players", async () => {
+      const now = new Date();
+      const stalledGame = {
+        id: "game-stale-3",
+        status: "active",
+        createdAt: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
+        currentTurn: "player-2",
+        player1Id: "player-1",
+        player2Id: "player-2",
+        player1Letters: "SKAT", // 4 letters — player1 loses
+        player2Letters: "SK", // 2 letters
+      };
+
+      let selectCallCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        selectCallCount++;
+        if (selectCallCount <= 2) {
+          return Promise.resolve([stalledGame]).then(resolve);
+        }
+        return Promise.resolve(undefined).then(resolve);
+      };
+
+      await forfeitStalledGames();
+
+      expect(mockSendNotification).toHaveBeenCalledTimes(2);
+      expect(mockSendNotification).toHaveBeenCalledWith(
+        "player-1",
+        "game_forfeited_timeout",
+        expect.objectContaining({ gameId: "game-stale-3" })
+      );
+      expect(mockSendNotification).toHaveBeenCalledWith(
+        "player-2",
+        "game_forfeited_timeout",
+        expect.objectContaining({ gameId: "game-stale-3" })
+      );
+    });
+
+    it("should return { forfeited: 0 } on error", async () => {
+      mockDbChain.select = vi.fn(() => {
+        throw new Error("DB error");
+      });
+      const result = await forfeitStalledGames();
+      expect(result).toEqual({ forfeited: 0 });
       mockDbChain.select = vi.fn().mockReturnValue(mockDbChain);
     });
   });

@@ -7,6 +7,21 @@ import { useAccountTier } from "../hooks/useAccountTier";
 import { useToast } from "../hooks/use-toast";
 import { apiRequest } from "../lib/api/client";
 
+/** C7: Validate checkout URL is from an allowed payment provider */
+const ALLOWED_CHECKOUT_HOSTS = ["checkout.stripe.com"];
+
+function isAllowedCheckoutUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      ALLOWED_CHECKOUT_HOSTS.some((host) => parsed.hostname === host)
+    );
+  } catch {
+    return false;
+  }
+}
+
 interface UpgradePromptProps {
   isOpen: boolean;
   onClose: () => void;
@@ -32,10 +47,10 @@ export function UpgradePrompt({ isOpen, onClose, feature }: UpgradePromptProps) 
         body: { idempotencyKey },
       });
 
-      if (url) {
+      if (url && isAllowedCheckoutUrl(url)) {
         window.location.href = url;
       } else {
-        throw new Error("No checkout URL returned");
+        throw new Error("Invalid or missing checkout URL");
       }
     } catch {
       toast({

@@ -6,7 +6,7 @@
   "types": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./publicEnv": "./src/publicEnv.ts",
+    "./envContract": "./src/envContract.ts",
     "./runtime": "./src/runtime.ts",
     "./guardrails": "./src/guardrails.ts",
     "./firebase": "./src/firebase.ts",
@@ -14,7 +14,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run --config ../vitest.config.mts --dir ."
+    "test": "vitest run --config ../../vitest.config.mts --dir ."
   },
   "dependencies": {
     "firebase": "^11.2.0"

@@ -65,6 +65,18 @@ vi.mock("../../config/rateLimits", () => {
       spotRating: stub,
       spotDiscovery: stub,
       proAward: stub,
+      authLogin: stub,
+      ai: stub,
+      profileRead: stub,
+      mfaVerify: stub,
+      sensitiveAuth: stub,
+      remoteSkate: stub,
+      postCreate: stub,
+      analyticsIngest: stub,
+      payment: stub,
+      gameWrite: stub,
+      trickmintUpload: stub,
+      userSearch: stub,
     },
   };
 });

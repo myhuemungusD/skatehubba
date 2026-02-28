@@ -5,25 +5,23 @@
 import { render } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { axe } from "vitest-axe";
-import { toHaveNoViolations } from "vitest-axe/matchers";
+
 import { EmptyState, LoadingEmptyState, ErrorEmptyState } from "./EmptyState";
 import { LoadingScreen, PageLoadingSkeleton } from "./LoadingScreen";
 import { Footer } from "./Footer";
 import { Search } from "lucide-react";
 
-expect.extend({ toHaveNoViolations });
-
 describe("Accessibility (axe-core)", () => {
   it("LoadingScreen has no accessibility violations", async () => {
     const { container } = render(<LoadingScreen />);
     const results = await axe(container);
-    expect(results).toHaveNoViolations();
+    expect(results.violations).toEqual([]);
   });
 
   it("PageLoadingSkeleton has no accessibility violations", async () => {
     const { container } = render(<PageLoadingSkeleton />);
     const results = await axe(container);
-    expect(results).toHaveNoViolations();
+    expect(results.violations).toEqual([]);
   });
 
   it("EmptyState has no accessibility violations", async () => {
@@ -37,13 +35,13 @@ describe("Accessibility (axe-core)", () => {
       />
     );
     const results = await axe(container);
-    expect(results).toHaveNoViolations();
+    expect(results.violations).toEqual([]);
   });
 
   it("LoadingEmptyState has no accessibility violations", async () => {
     const { container } = render(<LoadingEmptyState message="Fetching data..." />);
     const results = await axe(container);
-    expect(results).toHaveNoViolations();
+    expect(results.violations).toEqual([]);
   });
 
   it("ErrorEmptyState has no accessibility violations", async () => {
@@ -51,12 +49,12 @@ describe("Accessibility (axe-core)", () => {
       <ErrorEmptyState message="Something went wrong" onRetry={() => {}} />
     );
     const results = await axe(container);
-    expect(results).toHaveNoViolations();
+    expect(results.violations).toEqual([]);
   });
 
   it("Footer has no accessibility violations", async () => {
     const { container } = render(<Footer />);
     const results = await axe(container);
-    expect(results).toHaveNoViolations();
+    expect(results.violations).toEqual([]);
   });
 });
