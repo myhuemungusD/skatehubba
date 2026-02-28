@@ -307,6 +307,38 @@ describe("queryClient module", () => {
       expect(retryDelayFn(5, rl)).toBe(30000); // 32s capped to 30s
       expect(retryDelayFn(10, rl)).toBe(30000);
     });
+
+    it("uses longer backoff for NETWORK_ERROR", () => {
+      const ne = new ApiError("Network error", "NETWORK_ERROR");
+      expect(retryDelayFn(0, ne)).toBe(1000);
+      expect(retryDelayFn(1, ne)).toBe(2000);
+      expect(retryDelayFn(2, ne)).toBe(4000);
+    });
+
+    it("caps NETWORK_ERROR delay at 15 seconds", () => {
+      const ne = new ApiError("Network error", "NETWORK_ERROR");
+      expect(retryDelayFn(4, ne)).toBe(15000); // 16s capped to 15s
+      expect(retryDelayFn(10, ne)).toBe(15000);
+    });
+
+    it("uses longer backoff for TIMEOUT", () => {
+      const to = new ApiError("Timeout", "TIMEOUT");
+      expect(retryDelayFn(0, to)).toBe(1000);
+      expect(retryDelayFn(3, to)).toBe(8000);
+    });
+
+    it("caps TIMEOUT delay at 15 seconds", () => {
+      const to = new ApiError("Timeout", "TIMEOUT");
+      expect(retryDelayFn(4, to)).toBe(15000);
+    });
+
+    it("retries TIMEOUT ApiError", () => {
+      expect(retryFn(0, new ApiError("Timeout", "TIMEOUT"))).toBe(true);
+    });
+
+    it("retries NETWORK_ERROR ApiError", () => {
+      expect(retryFn(0, new ApiError("Network fail", "NETWORK_ERROR"))).toBe(true);
+    });
   });
 
   // ──────────────────── QueryClient config ───────────────────────────────

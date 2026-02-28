@@ -160,6 +160,22 @@ describe("admin.ts", () => {
     );
   });
 
+  it("should warn when FIREBASE_ADMIN_KEY is a placeholder (short string)", async () => {
+    vi.resetModules();
+    // A non-empty key shorter than 100 chars is treated as a placeholder
+    mockEnv.FIREBASE_ADMIN_KEY = "short-key";
+
+    const admin = (await import("firebase-admin")).default;
+    (admin as any).apps = [];
+    const logger = (await import("../../logger")).default;
+
+    await import("../../admin");
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("FIREBASE_ADMIN_KEY appears to be a placeholder")
+    );
+  });
+
   it("should not re-initialize when apps already exist", async () => {
     vi.resetModules();
 
