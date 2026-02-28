@@ -115,6 +115,23 @@ describe("normalizeApiError", () => {
     expect(err.message).toBe("Something went wrong. Please try again.");
   });
 
+  it("uses 502/503 status fallback message for service unavailable", () => {
+    const err502 = normalizeApiError({ status: 502 });
+    expect(err502.message).toBe("Service temporarily unavailable. Please try again shortly.");
+    const err503 = normalizeApiError({ status: 503 });
+    expect(err503.message).toBe("Service temporarily unavailable. Please try again shortly.");
+  });
+
+  it("uses 500 status fallback message for server error", () => {
+    const err = normalizeApiError({ status: 500 });
+    expect(err.message).toBe("Server error. Please try again later.");
+  });
+
+  it("uses 504 status fallback message for gateway timeout", () => {
+    const err = normalizeApiError({ status: 504 });
+    expect(err.message).toBe("Request timed out. Please try again.");
+  });
+
   it("returns undefined message from extractMessage when object has no message or error fields", () => {
     // payload is an object but has neither .message nor .error as strings
     const err = normalizeApiError({ payload: { data: 123 }, statusText: "Fallback" });
@@ -187,6 +204,16 @@ describe("getUserFriendlyMessage", () => {
   it("returns fallback for UNKNOWN", () => {
     const err = new ApiError("test", "UNKNOWN");
     expect(getUserFriendlyMessage(err)).toContain("Unexpected");
+  });
+
+  it("returns correct message for TIMEOUT", () => {
+    const err = new ApiError("test", "TIMEOUT");
+    expect(getUserFriendlyMessage(err)).toContain("took too long");
+  });
+
+  it("returns correct message for NETWORK_ERROR", () => {
+    const err = new ApiError("test", "NETWORK_ERROR");
+    expect(getUserFriendlyMessage(err)).toContain("Network error");
   });
 
   it("returns distance/radius message for TOO_FAR with valid numeric details", () => {

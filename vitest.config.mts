@@ -61,6 +61,8 @@ export default defineConfig({
         // Deprecated re-export shims — no logic
         'server/socket/handlers/game.ts',
         'server/auth/mfa.ts',
+        // Barrel re-export — no logic, re-exports MfaService from ./service
+        'server/auth/mfa/index.ts',
         // Functions barrel (re-exports only)
         'functions/src/index.ts',
         // Firestore-backed rate limiter — requires deep Firestore transaction mocking, tested via integration

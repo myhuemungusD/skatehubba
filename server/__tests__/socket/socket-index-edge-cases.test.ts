@@ -110,6 +110,12 @@ vi.mock("../../socket/health", () => ({
   getHealthStats: (...args: any[]) => mockGetHealthStats(...args),
 }));
 
+vi.mock("../../socket/socketRateLimit", () => ({
+  registerRateLimitRules: vi.fn(),
+  checkRateLimit: vi.fn().mockReturnValue(true),
+  cleanupRateLimits: vi.fn(),
+}));
+
 vi.mock("../../services/timeoutScheduler", () => ({
   startTimeoutScheduler: vi.fn(),
   stopTimeoutScheduler: vi.fn(),
@@ -201,5 +207,94 @@ describe("Socket Index — edge cases (lines 165, 175)", () => {
         message: "Transport error",
       })
     );
+  });
+
+  it("room:join rate limit emits error when throttled (lines 134-136)", async () => {
+    // Mock checkRateLimit to return false for room:join
+    const { checkRateLimit } = await import("../../socket/socketRateLimit");
+    vi.mocked(checkRateLimit).mockReturnValue(false);
+
+    initializeSocketServer({} as any);
+
+    const connectionCall = _mockServerOn.mock.calls.find((call: any[]) => call[0] === "connection");
+    const connectionHandler = connectionCall![1];
+
+    const socketHandlers = new Map<string, Function>();
+    const mockSocket = {
+      id: "socket-rl-join-test",
+      data: { odv: "user-rl", rooms: new Set() },
+      conn: { transport: { name: "websocket" } },
+      on: vi.fn((event: string, handler: Function) => {
+        socketHandlers.set(event, handler);
+      }),
+      emit: vi.fn(),
+      join: vi.fn(),
+    };
+
+    await connectionHandler(mockSocket);
+
+    const roomJoinHandler = socketHandlers.get("room:join");
+    expect(roomJoinHandler).toBeDefined();
+    await roomJoinHandler!("battle", "room-1");
+
+    expect(mockSocket.emit).toHaveBeenCalledWith("error", {
+      code: "rate_limited",
+      message: "Too many room joins, slow down",
+    });
+
+    // Restore checkRateLimit
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+  });
+
+  it("room:leave rate limit emits error when throttled (lines 146-147)", async () => {
+    const { checkRateLimit } = await import("../../socket/socketRateLimit");
+    vi.mocked(checkRateLimit).mockReturnValue(false);
+
+    initializeSocketServer({} as any);
+
+    const connectionCall = _mockServerOn.mock.calls.find((call: any[]) => call[0] === "connection");
+    const connectionHandler = connectionCall![1];
+
+    const socketHandlers = new Map<string, Function>();
+    const mockSocket = {
+      id: "socket-rl-leave-test",
+      data: { odv: "user-rl", rooms: new Set() },
+      conn: { transport: { name: "websocket" } },
+      on: vi.fn((event: string, handler: Function) => {
+        socketHandlers.set(event, handler);
+      }),
+      emit: vi.fn(),
+      join: vi.fn(),
+    };
+
+    await connectionHandler(mockSocket);
+
+    const roomLeaveHandler = socketHandlers.get("room:leave");
+    expect(roomLeaveHandler).toBeDefined();
+    await roomLeaveHandler!("battle", "room-1");
+
+    expect(mockSocket.emit).toHaveBeenCalledWith("error", {
+      code: "rate_limited",
+      message: "Too many room leaves, slow down",
+    });
+
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+  });
+
+  it("logs warning when ALLOWED_ORIGINS is not set in production (line 204)", () => {
+    const origEnv = process.env.NODE_ENV;
+    const origOrigins = process.env.ALLOWED_ORIGINS;
+    delete process.env.ALLOWED_ORIGINS;
+    process.env.NODE_ENV = "production";
+
+    initializeSocketServer({} as any);
+
+    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("ALLOWED_ORIGINS is not set"));
+
+    // Restore
+    process.env.NODE_ENV = origEnv;
+    if (origOrigins !== undefined) {
+      process.env.ALLOWED_ORIGINS = origOrigins;
+    }
   });
 });
