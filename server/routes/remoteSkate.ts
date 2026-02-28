@@ -418,9 +418,9 @@ router.post("/:gameId/rounds/:roundId/set-complete", async (req: Request, res: R
     logger.info("[RemoteSkate] Set complete", { gameId, roundId, uid });
 
     // Notify defense it's their turn (best-effort)
-    const gameSnap = await firestore.collection("games").doc(gameId).get();
-    if (gameSnap.exists) {
-      const game = gameSnap.data()!;
+    const gameSnapAfter = await admin.firestore().collection("games").doc(gameId).get();
+    if (gameSnapAfter.exists) {
+      const game = gameSnapAfter.data()!;
       const defenseUid = game.playerAUid === uid ? game.playerBUid : game.playerAUid;
       if (defenseUid) {
         sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err: unknown) =>
@@ -499,9 +499,9 @@ router.post("/:gameId/rounds/:roundId/reply-complete", async (req: Request, res:
     logger.info("[RemoteSkate] Reply complete", { gameId, roundId, uid });
 
     // Notify offense it's their turn to judge (best-effort)
-    const gameSnap = await firestore.collection("games").doc(gameId).get();
-    if (gameSnap.exists) {
-      const game = gameSnap.data()!;
+    const gameSnapAfter = await admin.firestore().collection("games").doc(gameId).get();
+    if (gameSnapAfter.exists) {
+      const game = gameSnapAfter.data()!;
       const offenseUid = game.playerAUid === uid ? game.playerBUid : game.playerAUid;
       if (offenseUid) {
         sendGameNotificationToUser(offenseUid, "your_turn", { gameId }).catch((err: unknown) =>
@@ -606,7 +606,7 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
     });
 
     // Notify defense to confirm (best-effort)
-    const gameSnap2 = await firestore.collection("games").doc(gameId).get();
+    const gameSnap2 = await admin.firestore().collection("games").doc(gameId).get();
     if (gameSnap2.exists) {
       const gameData = gameSnap2.data()!;
       const defenseUid = gameData.playerAUid === uid ? gameData.playerBUid : gameData.playerAUid;

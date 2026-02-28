@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useLocation } from 'wouter';
+import { useEffect, useState } from "react";
+import { useLocation } from "wouter";
 
 interface PageTransitionProps {
   children: React.ReactNode;
@@ -8,11 +8,11 @@ interface PageTransitionProps {
 export function PageTransition({ children }: PageTransitionProps) {
   const [location] = useLocation();
   const [displayLocation, setDisplayLocation] = useState(location);
-  const [transitionStage, setTransitionStage] = useState<'fadeIn' | 'fadeOut'>('fadeIn');
+  const [transitionStage, setTransitionStage] = useState<"fadeIn" | "fadeOut">("fadeIn");
 
   useEffect(() => {
     if (location !== displayLocation) {
-      setTransitionStage('fadeOut');
+      setTransitionStage("fadeOut");
     }
   }, [location, displayLocation]);
 
@@ -20,13 +20,13 @@ export function PageTransition({ children }: PageTransitionProps) {
     <div
       className={`page-transition ${transitionStage}`}
       onAnimationEnd={() => {
-        if (transitionStage === 'fadeOut') {
+        if (transitionStage === "fadeOut") {
           setDisplayLocation(location);
-          setTransitionStage('fadeIn');
+          setTransitionStage("fadeIn");
         }
       }}
     >
-      {transitionStage === 'fadeOut' ? displayLocation : children}
+      {children}
     </div>
   );
 }

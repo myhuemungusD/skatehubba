@@ -340,9 +340,11 @@ router.delete("/", authenticateUser, async (req, res) => {
   }
 
   try {
-    await database.delete(closetItems).where(eq(closetItems.userId, uid));
-    await database.delete(onboardingProfiles).where(eq(onboardingProfiles.uid, uid));
-    await database.delete(userProfiles).where(eq(userProfiles.id, uid));
+    await database.transaction(async (tx) => {
+      await tx.delete(closetItems).where(eq(closetItems.userId, uid));
+      await tx.delete(onboardingProfiles).where(eq(onboardingProfiles.uid, uid));
+      await tx.delete(userProfiles).where(eq(userProfiles.id, uid));
+    });
     await deleteUser(uid); // deletes customUsers row; cascades authSessions + mfaSecrets
     logger.info("[Profile] Account and all related data deleted", { uid });
     return res.status(204).send();

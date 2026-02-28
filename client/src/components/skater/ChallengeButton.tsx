@@ -27,9 +27,13 @@ export function ChallengeButton({ challengedId, challengedHandle }: ChallengeBut
         return;
       }
 
+      const token = await user.getIdToken();
       const response = await fetch("/api/challenges", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({ challengedId }),
       });
       if (!response.ok) throw new Error("Failed to send challenge");

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Trophy, Flame, Target, Timer, Users } from "lucide-react";
 
@@ -42,37 +42,37 @@ export default function TrickBattleArena({ spotId }: TrickBattleArenaProps) {
     { id: "1", name: "You", score: 0, combo: 0, letters: "", avatar: "" },
     { id: "2", name: "Opponent", score: 0, combo: 0, letters: "", avatar: "" },
   ]);
-  const [currentTrick, setCurrentTrick] = useState<Trick | null>(null);
   const [timeLeft, setTimeLeft] = useState(30);
   const [roundNumber, setRoundNumber] = useState(1);
   const [showTrickPicker, setShowTrickPicker] = useState(false);
   const [lastLanded, setLastLanded] = useState<Trick | null>(null);
+  const opponentTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Cleanup opponent simulation timer on unmount
+  useEffect(() => {
+    return () => {
+      if (opponentTimerRef.current) clearTimeout(opponentTimerRef.current);
+    };
+  }, []);
 
   const handleMiss = useCallback(() => {
     setPlayers((prevPlayers) => {
-      const updatedPlayers = [...prevPlayers];
-      const playerIndex = updatedPlayers.findIndex((p) => p.id === "1");
-
-      // Reset combo on miss
-      updatedPlayers[playerIndex].combo = 0;
-
-      // Add a letter
       const skateLetters = ["S", "K", "A", "T", "E"];
-      const currentLetterCount = updatedPlayers[playerIndex].letters.length;
-
-      if (currentLetterCount < 5) {
-        updatedPlayers[playerIndex].letters += skateLetters[currentLetterCount];
-      }
-
-      if (updatedPlayers[playerIndex].letters.length >= 5) {
-        setGameState("ended");
-      } else {
-        setRoundNumber((round) => round + 1);
-        setShowTrickPicker(true);
-        setTimeLeft(30);
-      }
-
-      return updatedPlayers;
+      return prevPlayers.map((player) => {
+        if (player.id !== "1") return player;
+        const newLetters =
+          player.letters.length < 5
+            ? player.letters + skateLetters[player.letters.length]
+            : player.letters;
+        if (newLetters.length >= 5) {
+          setGameState("ended");
+        } else {
+          setRoundNumber((round) => round + 1);
+          setShowTrickPicker(true);
+          setTimeLeft(30);
+        }
+        return { ...player, combo: 0, letters: newLetters };
+      });
     });
   }, []);
 
@@ -81,7 +81,6 @@ export default function TrickBattleArena({ spotId }: TrickBattleArenaProps) {
       const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else if (timeLeft === 0 && gameState === "active") {
-      // Time's up - opponent gets the letter
       handleMiss();
     }
   }, [gameState, timeLeft, handleMiss]);
@@ -94,59 +93,46 @@ export default function TrickBattleArena({ spotId }: TrickBattleArenaProps) {
   };
 
   const landTrick = (trick: Trick) => {
-    const updatedPlayers = [...players];
-    const playerIndex = updatedPlayers.findIndex((p) => p.id === "1");
-
-    // Add points with combo multiplier
-    const comboMultiplier = 1 + updatedPlayers[playerIndex].combo * 0.5;
-    const points = Math.floor(trick.points * comboMultiplier);
-
-    updatedPlayers[playerIndex].score += points;
-    updatedPlayers[playerIndex].combo += 1;
-
-    setPlayers(updatedPlayers);
+    setPlayers((prevPlayers) =>
+      prevPlayers.map((player) => {
+        if (player.id !== "1") return player;
+        const comboMultiplier = 1 + player.combo * 0.5;
+        const points = Math.floor(trick.points * comboMultiplier);
+        return { ...player, score: player.score + points, combo: player.combo + 1 };
+      })
+    );
     setLastLanded(trick);
-    setCurrentTrick(trick);
     setShowTrickPicker(false);
     setTimeLeft(30);
 
-    // Opponent's turn - simulate AI opponent
-    setTimeout(() => {
-      simulateOpponentTrick();
+    // Opponent's turn - simulate AI opponent using functional state update
+    opponentTimerRef.current = setTimeout(() => {
+      setPlayers((prevPlayers) => {
+        const skateLetters = ["S", "K", "A", "T", "E"];
+        const success = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000 > 0.3;
+
+        return prevPlayers.map((player) => {
+          if (player.id !== "2") return player;
+          if (success) {
+            const comboMultiplier = 1 + player.combo * 0.5;
+            const points = Math.floor(trick.points * comboMultiplier);
+            return { ...player, score: player.score + points, combo: player.combo + 1 };
+          } else {
+            const newLetters =
+              player.letters.length < 5
+                ? player.letters + skateLetters[player.letters.length]
+                : player.letters;
+            if (newLetters.length >= 5) {
+              setGameState("ended");
+            }
+            return { ...player, combo: 0, letters: newLetters };
+          }
+        });
+      });
+      setRoundNumber((round) => round + 1);
+      setShowTrickPicker(true);
+      setTimeLeft(30);
     }, 2000);
-  };
-
-  const simulateOpponentTrick = () => {
-    const updatedPlayers = [...players];
-    const opponentIndex = updatedPlayers.findIndex((p) => p.id === "2");
-
-    // 70% chance opponent lands the trick (crypto-secure randomness)
-    const success = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000 > 0.3;
-
-    if (success && currentTrick) {
-      const comboMultiplier = 1 + updatedPlayers[opponentIndex].combo * 0.5;
-      const points = Math.floor(currentTrick.points * comboMultiplier);
-      updatedPlayers[opponentIndex].score += points;
-      updatedPlayers[opponentIndex].combo += 1;
-    } else {
-      // Opponent missed
-      updatedPlayers[opponentIndex].combo = 0;
-      const skateLetters = ["S", "K", "A", "T", "E"];
-      const currentLetterCount = updatedPlayers[opponentIndex].letters.length;
-
-      if (currentLetterCount < 5) {
-        updatedPlayers[opponentIndex].letters += skateLetters[currentLetterCount];
-      }
-
-      if (updatedPlayers[opponentIndex].letters.length >= 5) {
-        setGameState("ended");
-      }
-    }
-
-    setPlayers(updatedPlayers);
-    setRoundNumber(roundNumber + 1);
-    setShowTrickPicker(true);
-    setTimeLeft(30);
   };
 
   const getDifficultyColor = (difficulty: number) => {
