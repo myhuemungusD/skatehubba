@@ -20,7 +20,7 @@ import { getAllowedOrigins, BODY_PARSE_LIMIT } from "./config/server.ts";
 import { registerRoutes } from "./routes.ts";
 import { DatabaseUnavailableError } from "./db.ts";
 import { generateOpenAPISpec } from "./api-docs/index.ts";
-import { generateSitemapXml } from "@shared/sitemap-config";
+import { generateSitemapXml } from "../packages/shared/sitemap-config";
 
 export function createApp(): express.Express {
   const app = express();
