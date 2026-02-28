@@ -68,7 +68,17 @@ const ERROR_MAP: Record<string, { status: number; code: string; message: string 
     code: "ACCESS_DENIED",
     message: "You do not have permission to perform this action.",
   },
+  "Only defense can submit a reply": {
+    status: 403,
+    code: "ACCESS_DENIED",
+    message: "You do not have permission to perform this action.",
+  },
   "Round is not in a resolvable state": {
+    status: 400,
+    code: "INVALID_STATE",
+    message: "This action cannot be performed right now.",
+  },
+  "Round is not awaiting a reply": {
     status: 400,
     code: "INVALID_STATE",
     message: "This action cannot be performed right now.",
@@ -473,11 +483,11 @@ router.post("/:gameId/rounds/:roundId/reply-complete", async (req: Request, res:
       const round = roundSnap.data()!;
 
       if (round.defenseUid !== uid) {
-        throw new Error("Only defense can confirm a round result");
+        throw new Error("Only defense can submit a reply");
       }
 
       if (round.status !== "awaiting_reply") {
-        throw new Error("Round is not in a resolvable state");
+        throw new Error("Round is not awaiting a reply");
       }
 
       transaction.update(gameRef, {

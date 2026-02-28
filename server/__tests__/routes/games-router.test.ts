@@ -66,4 +66,22 @@ describe("Games Router", () => {
     expect(forfeitExpiredGames).toBeDefined();
     expect(notifyDeadlineWarnings).toBeDefined();
   });
+
+  it("should skip rate limiter for GET requests", () => {
+    // The first router.use() call registers the rate-limit middleware
+    const rateLimitMiddleware = mockRouter.use.mock.calls[0][0];
+    const next = vi.fn();
+    rateLimitMiddleware({ method: "GET" }, {}, next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it("should apply rate limiter for non-GET requests", async () => {
+    const { gameWriteLimiter } = await import("../../middleware/security");
+    const rateLimitMiddleware = mockRouter.use.mock.calls[0][0];
+    const next = vi.fn();
+    const req = { method: "POST" };
+    const res = {};
+    rateLimitMiddleware(req, res, next);
+    expect(gameWriteLimiter).toHaveBeenCalledWith(req, res, next);
+  });
 });
