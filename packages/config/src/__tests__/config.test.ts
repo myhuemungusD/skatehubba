@@ -89,6 +89,17 @@ describe("@skatehubba/config", () => {
       expect(() => assertEnvWiring()).toThrow("staging build pointing at prod API");
     });
 
+    it("should throw EnvMismatchError when staging build points at skatehubba.com", () => {
+      mockGetAppEnv.mockReturnValue("staging");
+      mockGetEnvOptional.mockImplementation((key: string) => {
+        if (key === "EXPO_PUBLIC_API_BASE_URL") return "https://skatehubba.com";
+        return "";
+      });
+
+      expect(() => assertEnvWiring()).toThrow(EnvMismatchError);
+      expect(() => assertEnvWiring()).toThrow("staging build pointing at prod API");
+    });
+
     it("should throw EnvMismatchError when prod build uses wrong Firebase appId", () => {
       mockGetAppEnv.mockReturnValue("prod");
       mockGetEnvOptional.mockImplementation((key: string) => {

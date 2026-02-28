@@ -46,7 +46,7 @@ export function assertEnvWiring(): void {
       const host = parsed.hostname;
 
       // Treat the canonical production API host as prod.
-      apiLooksProd = host === "api.skatehubba.com";
+      apiLooksProd = host === "api.skatehubba.com" || host === "skatehubba.com";
 
       // Treat known staging hosts as staging. Adjust if additional staging hosts are introduced.
       apiLooksStaging = host === "staging-api.skatehubba.com";

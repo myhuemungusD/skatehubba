@@ -29,6 +29,13 @@ try {
   handler = app as unknown as Handler;
 } catch (error) {
   initError = error instanceof Error ? error : new Error(String(error));
+  // Log the actual error so it appears in Vercel runtime logs.
+  // Without this, production init failures are completely invisible —
+  // the JSON response suppresses the detail and nothing else logs it.
+  console.error("[api/index] Server initialization failed:", initError.message);
+  if (initError.stack) {
+    console.error("[api/index] Stack trace:", initError.stack);
+  }
 }
 
 export default function serverHandler(req: IncomingMessage, res: ServerResponse) {
