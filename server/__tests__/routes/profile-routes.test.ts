@@ -17,6 +17,7 @@ mockDbChain.insert = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.values = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.returning = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.delete = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.transaction = vi.fn().mockImplementation(async (fn: any) => fn(mockDbChain));
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
 
 const mockGetDbFn = vi.fn();

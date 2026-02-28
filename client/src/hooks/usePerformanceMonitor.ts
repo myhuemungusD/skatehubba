@@ -63,9 +63,11 @@ export function usePerformanceMonitor() {
       logger.warn("Performance monitoring not fully supported", error);
     }
 
-    if (window.performance && window.performance.timing) {
-      const timing = window.performance.timing;
-      metrics.ttfb = timing.responseStart - timing.requestStart;
+    // Use Navigation Timing Level 2 API (performance.timing is deprecated)
+    const navEntries = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
+    if (navEntries.length > 0) {
+      const nav = navEntries[0];
+      metrics.ttfb = nav.responseStart - nav.requestStart;
       logPerformance("TTFB", metrics.ttfb);
     }
 

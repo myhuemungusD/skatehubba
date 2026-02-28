@@ -117,6 +117,7 @@ export default function NotificationBell() {
     queryKey: ["/api/notifications/unread-count"],
     enabled: isAuthenticated,
     refetchInterval: 30000,
+    refetchIntervalInBackground: false,
     staleTime: 10000,
   });
 
@@ -156,7 +157,8 @@ export default function NotificationBell() {
     (id: number) => {
       markReadMutation.mutate(id);
     },
-    [markReadMutation]
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mutate is stable across renders
+    [markReadMutation.mutate]
   );
 
   // Close on outside click

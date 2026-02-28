@@ -136,7 +136,7 @@ export function getEnv(name: string): string {
  * Get environment variable with fallback
  */
 export function getEnvOptional(name: string, fallback?: string): string | undefined {
-  return readEnv(name) || fallback;
+  return readEnv(name) ?? fallback;
 }
 
 /**

@@ -47,6 +47,7 @@ interface FetchResponse {
  * Key: rounded lat/lng grid cell (0.25 degree grid ~= 28km).
  */
 const discoveryCacheFallback = new Map<string, number>();
+const MAX_MEMORY_CACHE_SIZE = 500;
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
 const CACHE_TTL_SECONDS = Math.ceil(CACHE_TTL_MS / 1000);
 const GRID_SIZE = 0.25; // ~28km grid cells
@@ -200,6 +201,11 @@ export async function discoverSkateparks(
           });
         });
     } else {
+      // Evict oldest entries when over capacity to prevent unbounded growth
+      if (discoveryCacheFallback.size >= MAX_MEMORY_CACHE_SIZE) {
+        const oldest = discoveryCacheFallback.keys().next().value;
+        if (oldest !== undefined) discoveryCacheFallback.delete(oldest);
+      }
       discoveryCacheFallback.set(cacheKey, Date.now());
     }
 

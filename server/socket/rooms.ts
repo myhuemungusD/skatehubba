@@ -85,8 +85,24 @@ export function cleanupEmptyRooms(): void {
   }
 }
 
-// Run cleanup every 5 minutes
-setInterval(cleanupEmptyRooms, 5 * 60 * 1000);
+// Run cleanup every 5 minutes (exported for graceful shutdown)
+let cleanupInterval: NodeJS.Timeout | null = null;
+
+export function startRoomCleanup(): void {
+  if (!cleanupInterval) {
+    cleanupInterval = setInterval(cleanupEmptyRooms, 5 * 60 * 1000);
+  }
+}
+
+export function stopRoomCleanup(): void {
+  if (cleanupInterval) {
+    clearInterval(cleanupInterval);
+    cleanupInterval = null;
+  }
+}
+
+// Auto-start on import (backwards compatible)
+startRoomCleanup();
 
 /**
  * Get room member count

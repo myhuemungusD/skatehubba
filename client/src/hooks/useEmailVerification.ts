@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "./useAuth";
 import { apiRequest } from "../lib/api/client";
 import { isDevAdmin } from "../lib/devAdmin";
@@ -9,8 +9,16 @@ export function useEmailVerification() {
   const authContext = useAuth();
   const user = authContext?.user ?? null;
   const isAuthenticated = authContext?.isAuthenticated ?? false;
-  const [lastResendTime, setLastResendTime] = useState<number>(0);
   const [isResending, setIsResending] = useState(false);
+  const [cooldownActive, setCooldownActive] = useState(false);
+  const cooldownTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  // Clean up cooldown timer on unmount
+  useEffect(() => {
+    return () => {
+      if (cooldownTimerRef.current) clearTimeout(cooldownTimerRef.current);
+    };
+  }, []);
 
   const isEmailUser = useMemo(() => {
     if (!user) return false;
@@ -27,18 +35,15 @@ export function useEmailVerification() {
     return isAuthenticated && isEmailUser && !user?.emailVerified;
   }, [isAuthenticated, isEmailUser, user?.emailVerified]);
 
-  const canResend = useMemo(() => {
-    return Date.now() - lastResendTime > RESEND_COOLDOWN_MS;
-  }, [lastResendTime]);
+  const canResend = !cooldownActive;
 
   const resendVerificationEmail = useCallback(async () => {
     if (!user) {
       throw new Error("No user signed in");
     }
 
-    if (!canResend) {
-      const waitTime = Math.ceil((RESEND_COOLDOWN_MS - (Date.now() - lastResendTime)) / 1000);
-      throw new Error(`Please wait ${waitTime} seconds before resending`);
+    if (cooldownActive) {
+      throw new Error("Please wait before resending");
     }
 
     setIsResending(true);
@@ -47,11 +52,14 @@ export function useEmailVerification() {
         method: "POST",
         path: "/api/auth/resend-verification",
       });
-      setLastResendTime(Date.now());
+      setCooldownActive(true);
+      cooldownTimerRef.current = setTimeout(() => {
+        setCooldownActive(false);
+      }, RESEND_COOLDOWN_MS);
     } finally {
       setIsResending(false);
     }
-  }, [user, canResend, lastResendTime]);
+  }, [user, cooldownActive]);
 
   // Dev admin bypass — skip verification gate entirely
   if (isDevAdmin()) {

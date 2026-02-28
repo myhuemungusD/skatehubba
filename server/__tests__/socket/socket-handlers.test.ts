@@ -138,6 +138,7 @@ vi.mock("../../socket/rooms", () => ({
   parseRoomId: vi.fn(),
   cleanupEmptyRooms: vi.fn(),
   getRoomsByType: vi.fn(),
+  stopRoomCleanup: vi.fn(),
 }));
 
 vi.mock("../../socket/health", () => ({

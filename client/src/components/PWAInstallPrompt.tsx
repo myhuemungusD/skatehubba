@@ -13,6 +13,8 @@ export function PWAInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
+    let timerId: ReturnType<typeof setTimeout> | undefined;
+
     const handler = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -20,12 +22,15 @@ export function PWAInstallPrompt() {
       // Show prompt after 30 seconds if user hasn't dismissed it before
       const dismissed = localStorage.getItem("pwa-install-dismissed");
       if (!dismissed) {
-        setTimeout(() => setShowPrompt(true), 30000);
+        timerId = setTimeout(() => setShowPrompt(true), 30000);
       }
     };
 
     window.addEventListener("beforeinstallprompt", handler);
-    return () => window.removeEventListener("beforeinstallprompt", handler);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handler);
+      if (timerId !== undefined) clearTimeout(timerId);
+    };
   }, []);
 
   const handleInstall = async () => {

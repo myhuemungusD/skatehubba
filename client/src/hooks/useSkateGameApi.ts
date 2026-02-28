@@ -20,6 +20,7 @@ export function useMyGames() {
     queryKey: QUERY_KEYS.myGames,
     queryFn: () => gameApi.getMyGames(),
     refetchInterval: 10000,
+    refetchIntervalInBackground: false,
     staleTime: 5000,
   });
 }
@@ -30,6 +31,7 @@ export function useGameDetails(gameId: string | null) {
     queryFn: () => (gameId ? gameApi.getGameDetails(gameId) : null),
     enabled: !!gameId,
     refetchInterval: 10000,
+    refetchIntervalInBackground: false,
     staleTime: 5000,
   });
 }

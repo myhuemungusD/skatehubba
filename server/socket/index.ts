@@ -32,6 +32,7 @@ import {
   getHealthStats,
 } from "./health";
 import { startTimeoutScheduler, stopTimeoutScheduler } from "../services/timeoutScheduler";
+import { stopRoomCleanup } from "./rooms";
 import type {
   ClientToServerEvents,
   ServerToClientEvents,
@@ -143,7 +144,10 @@ export function initializeSocketServer(
       "room:leave",
       async (roomType: "battle" | "game" | "spot" | "global", roomId: string) => {
         if (!checkRateLimit(socket.id, "room:leave")) {
-          socket.emit("error", { code: "rate_limited", message: "Too many room leaves, slow down" });
+          socket.emit("error", {
+            code: "rate_limited",
+            message: "Too many room leaves, slow down",
+          });
           return;
         }
         await leaveRoom(socket, roomType, roomId);
@@ -262,8 +266,9 @@ export async function shutdownSocketServer(
     healthMonitorInterval = null;
   }
 
-  // Stop timeout scheduler
+  // Stop timeout scheduler and room cleanup
   stopTimeoutScheduler();
+  stopRoomCleanup();
 
   // Notify all clients
   broadcastSystemNotification(

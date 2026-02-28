@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 
@@ -41,35 +41,40 @@ export function AuthGuard({
   const auth = useAuth();
   const [, setLocation] = useLocation();
 
-  // Still loading auth state
-  if (auth.loading || !auth.isInitialized) {
+  const isLoading = auth.loading || !auth.isInitialized;
+  const isResolvingProfile = auth.profileStatus === "unknown";
+
+  // Determine redirect target (null means no redirect needed)
+  let redirectTo: string | null = null;
+
+  if (!isLoading) {
+    const currentPath =
+      typeof window !== "undefined" ? window.location.pathname + window.location.search : "/hub";
+    const nextParam = encodeURIComponent(currentPath);
+
+    if (!auth.isAuthenticated) {
+      redirectTo = `/signin?next=${nextParam}`;
+    } else if (!isResolvingProfile) {
+      if (auth.profileStatus === "missing" && !allowMissingProfile) {
+        redirectTo = `/profile/setup?next=${nextParam}`;
+      } else if (requireVerified && !auth.isEmailVerified) {
+        redirectTo = "/verify";
+      }
+    }
+  }
+
+  // Perform navigation in an effect to avoid side effects during render
+  useEffect(() => {
+    if (redirectTo) {
+      setLocation(redirectTo, { replace: true });
+    }
+  }, [redirectTo, setLocation]);
+
+  if (isLoading || isResolvingProfile) {
     return <FullScreenSpinner />;
   }
 
-  const currentPath =
-    typeof window !== "undefined" ? window.location.pathname + window.location.search : "/hub";
-  const nextParam = encodeURIComponent(currentPath);
-
-  // 1. Not authenticated -> redirect to signin
-  if (!auth.isAuthenticated) {
-    setLocation(`/signin?next=${nextParam}`, { replace: true });
-    return null;
-  }
-
-  // Still resolving profile status
-  if (auth.profileStatus === "unknown") {
-    return <FullScreenSpinner />;
-  }
-
-  // 2. Profile missing -> redirect to profile setup
-  if (auth.profileStatus === "missing" && !allowMissingProfile) {
-    setLocation(`/profile/setup?next=${nextParam}`, { replace: true });
-    return null;
-  }
-
-  // 3. Email not verified -> redirect to verify page
-  if (requireVerified && !auth.isEmailVerified) {
-    setLocation("/verify", { replace: true });
+  if (redirectTo) {
     return null;
   }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Camera, Lock, XCircle, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
@@ -30,11 +30,15 @@ export function ARTrickViewer({
   );
   const [arMode, setArMode] = useState(false);
   const [isLoadingModel, setIsLoadingModel] = useState(false);
+  const arTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const hasAccess = hasValidAccess(spotId);
 
   useEffect(() => {
     checkARSupport();
+    return () => {
+      if (arTimerRef.current) clearTimeout(arTimerRef.current);
+    };
   }, []);
 
   const checkARSupport = async () => {
@@ -99,10 +103,10 @@ export function ARTrickViewer({
     setIsLoadingModel(true);
     setArMode(true);
 
-    setTimeout(() => {
+    arTimerRef.current = setTimeout(() => {
       setIsLoadingModel(false);
       toast({
-        title: " AR Mode Active",
+        title: "AR Mode Active",
         description: "Point your camera at a flat surface to view the trick hologram.",
       });
     }, 1500);

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import { io, Socket } from "socket.io-client";
 import { logger } from "../lib/logger";
+import { useToast } from "../hooks/use-toast";
 
 interface Game {
   id: string;
@@ -12,16 +13,19 @@ interface Game {
 
 interface PlaySkateGameProps {
   spotId: string;
-  userToken: { uid: string } | null;
+  userToken: { uid: string; getIdToken?: () => Promise<string> } | null;
 }
 
 export default function PlaySkateGame({ spotId, userToken }: PlaySkateGameProps) {
   const [game, setGame] = useState<Game | null>(null);
   const [trick, setTrick] = useState("");
   const socketRef = useRef<Socket | null>(null);
+  const { toast } = useToast();
 
-  // Initialize socket connection
+  // Initialize socket connection only when authenticated
   useEffect(() => {
+    if (!userToken?.uid) return;
+
     socketRef.current = io();
     const socket = socketRef.current;
 
@@ -30,44 +34,75 @@ export default function PlaySkateGame({ spotId, userToken }: PlaySkateGameProps)
     return () => {
       socket.off("update");
       socket.disconnect();
+      socketRef.current = null;
     };
-  }, []);
+  }, [userToken?.uid]);
+
+  const getAuthHeader = async (): Promise<string | null> => {
+    if (!userToken) return null;
+    if (userToken.getIdToken) {
+      return `Bearer ${await userToken.getIdToken()}`;
+    }
+    // Fallback for contexts where getIdToken is unavailable
+    return `Bearer ${userToken.uid}`;
+  };
 
   const create = async () => {
     if (!userToken?.uid) return;
 
     try {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) return;
+
       const response = await fetch("/api/playskate/create", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${userToken.uid}`,
+          Authorization: authHeader,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ spotId }),
       });
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}`);
+      }
       const data: { gameId: string } = await response.json();
       setGame({ id: data.gameId });
       socketRef.current?.emit("joinGame", data.gameId);
     } catch (error) {
       logger.error("Failed to create game:", error);
+      toast({
+        title: "Failed to create game",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   const sendClip = async () => {
-    if (!game || !userToken?.uid) return;
+    if (!game || !userToken?.uid || !trick.trim()) return;
 
     try {
-      // In real app you'd upload to Firebase Storage first
-      await fetch(`/api/playskate/${game.id}/clip`, {
+      const authHeader = await getAuthHeader();
+      if (!authHeader) return;
+
+      const response = await fetch(`/api/playskate/${game.id}/clip`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${userToken.uid}`,
+          Authorization: authHeader,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ clipUrl: "https://example.com/clip.mp4", trickName: trick }),
+        body: JSON.stringify({ trickName: trick }),
       });
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}`);
+      }
     } catch (error) {
       logger.error("Failed to send clip:", error);
+      toast({
+        title: "Failed to submit trick",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -83,7 +118,8 @@ export default function PlaySkateGame({ spotId, userToken }: PlaySkateGameProps)
     );
   }
 
-  const myIdx = game.players?.indexOf(userToken?.uid || "") ?? 0;
+  const rawIdx = game.players?.indexOf(userToken?.uid || "") ?? -1;
+  const myIdx = rawIdx >= 0 ? rawIdx : 0;
   const myLetters = game.letters?.[myIdx] || "";
 
   return (
