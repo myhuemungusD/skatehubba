@@ -41,6 +41,10 @@ vi.mock("../../routes/games-cron", () => ({
   notifyDeadlineWarnings: vi.fn(),
 }));
 
+vi.mock("../../middleware/security", () => ({
+  gameWriteLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
+
 const { gamesRouter, forfeitExpiredGames, notifyDeadlineWarnings } =
   await import("../../routes/games");
 

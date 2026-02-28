@@ -67,6 +67,10 @@ vi.mock("../../auth/middleware", () => ({
   requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
+vi.mock("../../middleware/security", () => ({
+  trickmintUploadLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
+
 vi.mock("../../logger", () => ({
   default: {
     info: vi.fn(),

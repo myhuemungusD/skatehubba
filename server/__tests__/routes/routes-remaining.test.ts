@@ -234,6 +234,10 @@ vi.mock("../../services/notificationService", () => ({
   notifyUser: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../../middleware/security", () => ({
+  trickmintUploadLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
+
 // Capture route handlers from trickmint (the Router mock)
 const routeHandlers: Record<string, any[]> = {};
 

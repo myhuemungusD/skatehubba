@@ -39,7 +39,16 @@ export async function checkRateLimit(uid: string): Promise<void> {
     }
 
     const data = doc.data()!;
-    const resetAt = data.resetAt as Timestamp;
+    const resetAt = data.resetAt as Timestamp | undefined;
+
+    // Guard against missing or corrupt resetAt field
+    if (!resetAt || typeof resetAt.toMillis !== "function") {
+      tx.update(rateLimitRef, {
+        count: 1,
+        resetAt: Timestamp.fromMillis(now + RATE_LIMIT.windowMs),
+      });
+      return;
+    }
 
     if (now > resetAt.toMillis()) {
       // Window expired — reset counter

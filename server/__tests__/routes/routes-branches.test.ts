@@ -399,6 +399,9 @@ describe("trickmint — feed and single clip db errors", () => {
       feedCache: () => (_req: any, _res: any, next: any) => next(),
     }));
     vi.doMock("../../services/videoTranscoder", () => ({}));
+    vi.doMock("../../middleware/security", () => ({
+      trickmintUploadLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+    }));
 
     const routeHandlers: Record<string, any[]> = {};
     vi.doMock("express", () => ({

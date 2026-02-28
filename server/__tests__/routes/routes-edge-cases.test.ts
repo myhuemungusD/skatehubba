@@ -338,6 +338,8 @@ vi.mock("../../middleware/firebaseUid", () => ({
 vi.mock("../../middleware/security", () => ({
   profileCreateLimiter: (_req: any, _res: any, next: any) => next(),
   usernameCheckLimiter: (_req: any, _res: any, next: any) => next(),
+  trickmintUploadLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+  gameWriteLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
 }));
 
 vi.mock("../../services/profileService", () => ({
