@@ -110,6 +110,10 @@ vi.mock("firebase-functions", () => ({
   },
 }));
 
+vi.mock("firebase-functions/v2", () => ({
+  logger: mocks.logger,
+}));
+
 vi.mock("firebase-functions/v2/scheduler", () => ({
   onSchedule: vi.fn((_schedule: string, handler: any) => handler),
 }));
@@ -1314,14 +1318,14 @@ describe("SkateHubba Cloud Functions", () => {
       const ctx = makeContext({ uid: freshUid("jt") });
       await expect(
         (judgeTrick as any)({ gameId: "", moveId: "m", vote: "landed", idempotencyKey: "k" }, ctx)
-      ).rejects.toThrow("Missing gameId, moveId, or vote");
+      ).rejects.toThrow("Missing gameId, moveId, vote, or idempotencyKey");
     });
 
     it("rejects missing moveId", async () => {
       const ctx = makeContext({ uid: freshUid("jt") });
       await expect(
         (judgeTrick as any)({ gameId: "g", moveId: "", vote: "landed", idempotencyKey: "k" }, ctx)
-      ).rejects.toThrow("Missing gameId, moveId, or vote");
+      ).rejects.toThrow("Missing gameId, moveId, vote, or idempotencyKey");
     });
 
     it("rejects invalid vote value", async () => {
