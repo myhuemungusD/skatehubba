@@ -169,9 +169,12 @@ export type AppEnv = "prod" | "staging" | "local";
 
 export function getAppEnv(): AppEnv {
   const env = getEnvOptional("EXPO_PUBLIC_APP_ENV", "local");
-  if (env === "prod" || env === "staging" || env === "local") {
-    return env;
-  }
+  // Accept "production" as an alias for "prod" — Vercel and many CI systems
+  // use "production" by convention, so this prevents silent misconfiguration
+  // where isProd() returns false in production.
+  if (env === "production" || env === "prod") return "prod";
+  if (env === "staging") return "staging";
+  if (env === "local") return "local";
   return "local";
 }
 

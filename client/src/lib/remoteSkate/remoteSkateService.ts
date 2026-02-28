@@ -95,23 +95,11 @@ async function remoteSkateApi<T = unknown>(
   const user = auth.currentUser;
   if (!user) throw new Error("Must be logged in");
 
-  const idToken = await user.getIdToken();
-
-  const res = await fetch(`/api/remote-skate${path}`, {
+  return apiRequest<T>({
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${idToken}`,
-    },
-    body: body ? JSON.stringify(body) : undefined,
+    path: `/api/remote-skate${path}`,
+    body,
   });
-
-  if (!res.ok) {
-    const errBody = await res.json().catch(() => ({ message: "Unknown error" }));
-    throw new Error(errBody.message || errBody.error || `Request failed (${res.status})`);
-  }
-
-  return res.json() as Promise<T>;
 }
 
 // =============================================================================
