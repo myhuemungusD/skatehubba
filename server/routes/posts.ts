@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authenticateUser } from "../auth/middleware";
 import { requirePaidOrPro } from "../middleware/requirePaidOrPro";
 import { enforceTrustAction } from "../middleware/trustSafety";
+import { postCreateLimiter } from "../middleware/security";
 import { createPost } from "../services/moderationStore";
 
 const router = Router();
@@ -23,6 +24,7 @@ router.post(
   "/",
   authenticateUser,
   requirePaidOrPro,
+  postCreateLimiter,
   enforceTrustAction("post"),
   async (req, res) => {
     const parsed = postSchema.safeParse(req.body);

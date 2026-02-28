@@ -71,6 +71,9 @@ describe("analytics batch — all invalid events (line 158)", () => {
         internal: (res: any, code: string, msg: string) => res.status(500).json({ error: code }),
       },
     }));
+    vi.doMock("../../middleware/security", () => ({
+      analyticsIngestLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+    }));
 
     const routeHandlers: Record<string, any[]> = {};
     vi.doMock("express", () => ({
@@ -79,6 +82,7 @@ describe("analytics batch — all invalid events (line 158)", () => {
           routeHandlers[`POST ${path}`] = handlers;
         }),
         get: vi.fn(),
+        use: vi.fn(),
       }),
     }));
 
@@ -399,6 +403,9 @@ describe("trickmint — feed and single clip db errors", () => {
       feedCache: () => (_req: any, _res: any, next: any) => next(),
     }));
     vi.doMock("../../services/videoTranscoder", () => ({}));
+    vi.doMock("../../middleware/security", () => ({
+      trickmintUploadLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+    }));
 
     const routeHandlers: Record<string, any[]> = {};
     vi.doMock("express", () => ({
@@ -872,6 +879,10 @@ describe("remoteSkate — error mapping branches (lines 129-131)", () => {
         })),
       }));
 
+      vi.doMock("../../middleware/security", () => ({
+        remoteSkateLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+      }));
+
       const routeHandlers: Record<string, any[]> = {};
       vi.doMock("express", () => ({
         Router: () => ({
@@ -879,6 +890,7 @@ describe("remoteSkate — error mapping branches (lines 129-131)", () => {
             routeHandlers[`POST ${path}`] = h;
           }),
           get: vi.fn(),
+          use: vi.fn(),
         }),
       }));
 

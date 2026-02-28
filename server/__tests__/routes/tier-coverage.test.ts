@@ -62,6 +62,7 @@ vi.mock("../../middleware/requirePaidOrPro", () => ({
 
 vi.mock("../../middleware/security", () => ({
   proAwardLimiter: vi.fn((_req: any, _res: any, next: any) => next()),
+  paymentLimiter: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 
 vi.mock("drizzle-orm", () => ({

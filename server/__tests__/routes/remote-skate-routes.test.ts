@@ -93,6 +93,10 @@ vi.mock("../../logger", () => ({
   })),
 }));
 
+vi.mock("../../middleware/security", () => ({
+  remoteSkateLimiter: vi.fn((_r: any, _s: any, n: any) => n()),
+}));
+
 // Capture route handlers
 const routeHandlers: Record<string, any[]> = {};
 
