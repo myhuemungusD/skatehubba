@@ -55,7 +55,7 @@ export default function Demo() {
     <div
       className="min-h-screen bg-[#181818]"
       style={{
-        backgroundImage: `url('/attached_assets/graffwallskateboardrack_1754296307132.png')`,
+        backgroundImage: `url('/images/backgrounds/hubbagraffwall.png')`,
         backgroundSize: "cover",
         backgroundPosition: "center",
         backgroundAttachment: "fixed",
