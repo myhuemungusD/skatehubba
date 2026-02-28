@@ -123,11 +123,14 @@ export default function SettingsPage() {
 
     setIsDeleting(true);
     try {
-      // Delete Firebase Auth account first — if this fails (e.g. requires-recent-login)
-      // nothing is deleted and the user can retry after re-authenticating.
-      await deleteUser(user);
-      // Firebase account is gone; now remove the DB record best-effort.
+      // Delete backend data FIRST while the auth token is still valid.
+      // The server endpoint deletes closet items, onboarding profiles,
+      // user profiles, and the custom auth user row in a transaction.
       await apiRequest("DELETE", "/api/profile");
+      // Now delete Firebase Auth account. If this fails (requires-recent-login),
+      // backend data is already gone but the Firebase account persists —
+      // re-signing-in routes them to profile setup as a fresh user.
+      await deleteUser(user);
       setLocation("/");
     } catch (err) {
       const code = (err as { code?: string }).code;

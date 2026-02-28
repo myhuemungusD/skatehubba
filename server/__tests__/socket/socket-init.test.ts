@@ -64,6 +64,7 @@ vi.mock("../../socket/rooms", () => ({
   leaveRoom: mockLeaveRoom,
   leaveAllRooms: mockLeaveAllRooms,
   getRoomStats: mockGetRoomStats,
+  stopRoomCleanup: vi.fn(),
 }));
 
 // -- ../socket/handlers/battle -----------------------------------------------

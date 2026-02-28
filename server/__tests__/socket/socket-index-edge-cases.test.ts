@@ -81,6 +81,7 @@ vi.mock("../../socket/rooms", () => ({
   sendToUser: vi.fn(),
   getRoomInfo: vi.fn(),
   getRoomsByType: vi.fn(),
+  stopRoomCleanup: vi.fn(),
 }));
 
 vi.mock("../../socket/handlers/battle", () => ({
