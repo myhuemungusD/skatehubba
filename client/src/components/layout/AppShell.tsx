@@ -7,7 +7,7 @@ interface AppShellProps {
   hideNav?: boolean;
 }
 
-const BACKDROP_IMAGE = "/attached_assets/screenshots/hero-480.webp";
+const BACKDROP_IMAGE = "/images/hero/hero-480.webp";
 
 export default function AppShell({ children, hideNav = false }: AppShellProps) {
   return (
