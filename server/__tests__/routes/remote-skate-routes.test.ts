@@ -1,7 +1,14 @@
 /**
  * @fileoverview Unit tests for remote S.K.A.T.E. routes
  *
- * Tests POST /:gameId/rounds/:roundId/resolve
+ * Tests all remote skate endpoints:
+ * - POST /find-or-create
+ * - POST /:gameId/join
+ * - POST /:gameId/cancel
+ * - POST /:gameId/rounds/:roundId/set-complete
+ * - POST /:gameId/rounds/:roundId/reply-complete
+ * - POST /:gameId/rounds/:roundId/resolve
+ * - POST /:gameId/rounds/:roundId/confirm
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -11,11 +18,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ============================================================================
 
 const mockVerifyIdToken = vi.fn();
-const mockGet = vi.fn();
-const mockUpdate = vi.fn();
-const mockSet = vi.fn();
-
 const mockTransaction = vi.fn();
+const mockCollectionGet = vi.fn();
+
+// Chainable query mock
+const mockQueryChain = () => {
+  const chain: any = {
+    where: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+    get: mockCollectionGet,
+  };
+  return chain;
+};
 
 vi.mock("../../admin", () => ({
   admin: {
@@ -24,15 +38,23 @@ vi.mock("../../admin", () => ({
     }),
     firestore: Object.assign(
       () => ({
-        collection: (name: string) => ({
-          doc: (id: string) => ({
-            collection: (subName: string) => ({
-              doc: (subId?: string) => ({
-                id: subId || "new-round-id",
+        collection: (name: string) => {
+          const qChain = mockQueryChain();
+          return {
+            doc: (id?: string) => ({
+              id: id || "new-game-id",
+              collection: (subName: string) => ({
+                doc: (subId?: string) => ({
+                  id: subId || "new-round-id",
+                }),
               }),
+              get: vi.fn().mockResolvedValue({ exists: false }),
             }),
-          }),
-        }),
+            where: qChain.where,
+            limit: qChain.limit,
+            get: qChain.get,
+          };
+        },
         runTransaction: mockTransaction,
       }),
       {
@@ -42,6 +64,10 @@ vi.mock("../../admin", () => ({
       }
     ),
   },
+}));
+
+vi.mock("../../services/gameNotificationService", () => ({
+  sendGameNotificationToUser: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../../logger", () => ({
@@ -806,6 +832,291 @@ describe("Remote Skate Routes", () => {
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
+
+  // ==========================================================================
+  // NEW ENDPOINTS
+  // ==========================================================================
+
+  describe("POST /find-or-create", () => {
+    it("should return 401 with no auth header", async () => {
+      const req = createReq({ headers: {}, params: {}, body: {} });
+      const res = createRes();
+      await callHandler("POST /find-or-create", req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it("should return 500 when no waiting games exist and game creation fails", async () => {
+      // The mock doesn't support full doc().set() chain, so creation
+      // triggers an error. Validates error handling path.
+      mockCollectionGet.mockResolvedValueOnce({ docs: [] }); // no waiting games
+      mockCollectionGet.mockResolvedValueOnce({ empty: true, docs: [] }); // no own waiting
+
+      const req = createReq({ params: {}, body: {} });
+      const res = createRes();
+      await callHandler("POST /find-or-create", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
+
+    it("should match with existing waiting game from another player", async () => {
+      mockCollectionGet.mockResolvedValueOnce({
+        docs: [
+          {
+            id: "existing-game-1",
+            data: () => ({
+              playerAUid: "other-user",
+              playerBUid: null,
+              status: "waiting",
+            }),
+          },
+        ],
+      });
+
+      // Mock joinGameTransaction
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "other-user",
+            playerBUid: null,
+            status: "waiting",
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValue(gameSnap),
+          update: vi.fn(),
+          set: vi.fn(),
+        };
+        return await fn(transaction);
+      });
+
+      const req = createReq({ params: {}, body: {} });
+      const res = createRes();
+      await callHandler("POST /find-or-create", req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, gameId: "existing-game-1", matched: true })
+      );
+    });
+  });
+
+  describe("POST /:gameId/join", () => {
+    it("should return 401 with no auth header", async () => {
+      const req = createReq({ headers: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/join", req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it("should join a waiting game successfully", async () => {
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "other-user",
+            playerBUid: null,
+            status: "waiting",
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValue(gameSnap),
+          update: vi.fn(),
+          set: vi.fn(),
+        };
+        return await fn(transaction);
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/join", req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, gameId: "game-1" })
+      );
+    });
+
+    it("should return 400 when trying to join own game", async () => {
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1", // Same as authenticated user
+            playerBUid: null,
+            status: "waiting",
+          }),
+        };
+        const transaction = { get: vi.fn().mockResolvedValue(gameSnap) };
+        await fn(transaction);
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/join", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return 400 when game is full", async () => {
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "other-user",
+            playerBUid: "another-user",
+            status: "active",
+          }),
+        };
+        const transaction = { get: vi.fn().mockResolvedValue(gameSnap) };
+        await fn(transaction);
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/join", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+  });
+
+  describe("POST /:gameId/cancel", () => {
+    it("should return 401 with no auth header", async () => {
+      const req = createReq({ headers: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/cancel", req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it("should cancel a waiting game", async () => {
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: null,
+            status: "waiting",
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValue(gameSnap),
+          update: vi.fn(),
+        };
+        await fn(transaction);
+        expect(transaction.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ status: "cancelled" })
+        );
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/cancel", req, res);
+      expect(res.json).toHaveBeenCalledWith({ success: true });
+    });
+
+    it("should return 403 when non-creator tries to cancel", async () => {
+      mockVerifyIdToken.mockResolvedValue({ uid: "other-user" });
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: null,
+            status: "waiting",
+          }),
+        };
+        const transaction = { get: vi.fn().mockResolvedValue(gameSnap) };
+        await fn(transaction);
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/cancel", req, res);
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+  });
+
+  describe("POST /:gameId/rounds/:roundId/set-complete", () => {
+    it("should return 401 with no auth header", async () => {
+      const req = createReq({ headers: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/set-complete", req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it("should mark set complete and update turn", async () => {
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+            status: "active",
+          }),
+        };
+        const roundSnap = {
+          exists: true,
+          data: () => ({
+            offenseUid: "user-1",
+            defenseUid: "user-2",
+            status: "awaiting_set",
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+          update: vi.fn(),
+        };
+        await fn(transaction);
+        expect(transaction.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ status: "awaiting_reply" })
+        );
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/set-complete", req, res);
+      expect(res.json).toHaveBeenCalledWith({ success: true });
+    });
+  });
+
+  describe("POST /:gameId/rounds/:roundId/reply-complete", () => {
+    it("should return 401 with no auth header", async () => {
+      const req = createReq({ headers: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it("should update turn back to offense", async () => {
+      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+            status: "active",
+          }),
+        };
+        const roundSnap = {
+          exists: true,
+          data: () => ({
+            offenseUid: "user-1",
+            defenseUid: "user-2",
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+          update: vi.fn(),
+        };
+        await fn(transaction);
+        expect(transaction.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ currentTurnUid: "user-1" })
+        );
+      });
+
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
+      expect(res.json).toHaveBeenCalledWith({ success: true });
     });
   });
 });

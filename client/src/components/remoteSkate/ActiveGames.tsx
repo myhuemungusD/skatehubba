@@ -23,7 +23,8 @@ export function ActiveGames({ onResumeGame }: ActiveGamesProps) {
       return;
     }
 
-    const allGames: Map<string, GameDoc & { id: string }> = new Map();
+    let playerAGames: (GameDoc & { id: string })[] = [];
+    let playerBGames: (GameDoc & { id: string })[] = [];
     let aLoaded = false;
     let bLoaded = false;
 
@@ -33,7 +34,7 @@ export function ActiveGames({ onResumeGame }: ActiveGamesProps) {
 
     // Subscribe to games where user is Player A
     const unsubA = RemoteSkateService.subscribeToMyGames(uid, "playerA", (gamesA) => {
-      for (const g of gamesA) allGames.set(g.id, g);
+      playerAGames = gamesA;
       aLoaded = true;
       checkDone();
       updateGames();
@@ -41,14 +42,20 @@ export function ActiveGames({ onResumeGame }: ActiveGamesProps) {
 
     // Subscribe to games where user is Player B
     const unsubB = RemoteSkateService.subscribeToMyGames(uid, "playerB", (gamesB) => {
-      for (const g of gamesB) allGames.set(g.id, g);
+      playerBGames = gamesB;
       bLoaded = true;
       checkDone();
       updateGames();
     });
 
     function updateGames() {
-      const activeOrWaiting = Array.from(allGames.values()).filter(
+      // Merge both subscription snapshots, deduplicating by ID.
+      // Using a fresh Map each time ensures removed games don't linger.
+      const merged = new Map<string, GameDoc & { id: string }>();
+      for (const g of playerAGames) merged.set(g.id, g);
+      for (const g of playerBGames) merged.set(g.id, g);
+
+      const activeOrWaiting = Array.from(merged.values()).filter(
         (g) => g.status === "active" || g.status === "waiting"
       );
       // Sort by most recent activity

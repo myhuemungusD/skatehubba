@@ -7,6 +7,9 @@
  *   games/{gameId}/rounds/{roundId}
  *   videos/{videoId}
  *
+ * Game mutations (join, cancel, round transitions) go through the server
+ * API for atomicity and security. Reads use Firestore real-time subscriptions.
+ *
  * @module lib/remoteSkate/remoteSkateService
  */
 
@@ -14,15 +17,10 @@ import {
   collection,
   doc,
   setDoc,
-  updateDoc,
-  getDoc,
-  getDocs,
-  deleteDoc,
   onSnapshot,
   query,
   where,
   orderBy,
-  limit,
   serverTimestamp,
   Timestamp,
   FieldValue,
@@ -36,7 +34,7 @@ import { apiRequest } from "../api/client";
 // TYPES (matching exact spec)
 // =============================================================================
 
-export type GameStatus = "waiting" | "active" | "complete";
+export type GameStatus = "waiting" | "active" | "complete" | "cancelled";
 export type RoundStatus =
   | "awaiting_set"
   | "awaiting_reply"
@@ -87,13 +85,43 @@ export interface VideoDoc {
 }
 
 // =============================================================================
+// HELPERS — authenticated fetch to the remote-skate API
+// =============================================================================
+
+async function remoteSkateApi<T = unknown>(
+  path: string,
+  body?: Record<string, unknown>
+): Promise<T> {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Must be logged in");
+
+  const idToken = await user.getIdToken();
+
+  const res = await fetch(`/api/remote-skate${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({ message: "Unknown error" }));
+    throw new Error(errBody.message || errBody.error || `Request failed (${res.status})`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+// =============================================================================
 // SERVICE
 // =============================================================================
 
 export const RemoteSkateService = {
   /**
    * Create a new game. Player A = current user.
-   * Creates game doc + first round doc.
+   * Creates game doc via Firestore client SDK (allowed by rules).
    * Returns gameId.
    */
   async createGame(): Promise<string> {
@@ -121,94 +149,30 @@ export const RemoteSkateService = {
   },
 
   /**
-   * Join an existing game as Player B.
-   * Sets playerBUid, flips status to "active", creates first round.
+   * Join an existing game as Player B via the server API.
+   * The server uses a Firestore transaction to atomically:
+   * - Set playerBUid, status=active, currentTurnUid
+   * - Create the first round
    */
   async joinGame(gameId: string): Promise<void> {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Must be logged in to join a game");
-
-    const gameRef = doc(db, "games", gameId);
-    const gameSnap = await getDoc(gameRef);
-
-    if (!gameSnap.exists()) {
-      throw new Error("Game not found");
-    }
-
-    const game = gameSnap.data() as GameDoc;
-
-    if (game.playerAUid === user.uid) {
-      throw new Error("You cannot join your own game");
-    }
-
-    if (game.playerBUid) {
-      throw new Error("Game is full");
-    }
-
-    if (game.status !== "waiting") {
-      throw new Error("Game is no longer available");
-    }
-
-    // Update game: set Player B, status=active, currentTurnUid=playerA (offense)
-    await updateDoc(gameRef, {
-      playerBUid: user.uid,
-      [`letters.${user.uid}`]: "",
-      status: "active",
-      currentTurnUid: game.playerAUid,
-      lastMoveAt: serverTimestamp(),
-    });
-
-    // Create first round: playerA = offense, playerB = defense
-    const roundRef = doc(collection(db, "games", gameId, "rounds"));
-    await setDoc(roundRef, {
-      createdAt: serverTimestamp(),
-      offenseUid: game.playerAUid,
-      defenseUid: user.uid,
-      status: "awaiting_set",
-      setVideoId: null,
-      replyVideoId: null,
-      result: null,
-    });
-
-    logger.info("[RemoteSkate] Game joined", { gameId, playerB: user.uid });
+    await remoteSkateApi(`/${gameId}/join`);
+    logger.info("[RemoteSkate] Game joined", { gameId });
   },
 
   /**
-   * After set video upload completes and round doc has setVideoId,
-   * transition round status to awaiting_reply and update turn.
+   * After set video upload completes, call the server to atomically
+   * transition round status to awaiting_reply and update game turn.
    */
   async markSetComplete(gameId: string, roundId: string): Promise<void> {
-    const roundRef = doc(db, "games", gameId, "rounds", roundId);
-    await updateDoc(roundRef, {
-      status: "awaiting_reply",
-    });
-
-    // Update game: currentTurn = defense
-    const roundSnap = await getDoc(roundRef);
-    if (roundSnap.exists()) {
-      const round = roundSnap.data() as RoundDoc;
-      const gameRef = doc(db, "games", gameId);
-      await updateDoc(gameRef, {
-        currentTurnUid: round.defenseUid,
-        lastMoveAt: serverTimestamp(),
-      });
-    }
+    await remoteSkateApi(`/${gameId}/rounds/${roundId}/set-complete`);
   },
 
   /**
-   * After reply video upload completes, update turn back to offense for resolution.
+   * After reply video upload completes, call the server to atomically
+   * update game turn back to offense for resolution.
    */
   async markReplyComplete(gameId: string, roundId: string): Promise<void> {
-    const roundRef = doc(db, "games", gameId, "rounds", roundId);
-    const roundSnap = await getDoc(roundRef);
-    if (roundSnap.exists()) {
-      const round = roundSnap.data() as RoundDoc;
-      const gameRef = doc(db, "games", gameId);
-      await updateDoc(gameRef, {
-        currentTurnUid: round.offenseUid,
-        lastMoveAt: serverTimestamp(),
-      });
-    }
+    await remoteSkateApi(`/${gameId}/rounds/${roundId}/reply-complete`);
   },
 
   // ---------------------------------------------------------------------------
@@ -318,12 +282,14 @@ export const RemoteSkateService = {
   },
 
   // ---------------------------------------------------------------------------
-  // QUICK PLAY — Find or create a game for instant matchmaking
+  // QUICK PLAY — Server-side matchmaking
   // ---------------------------------------------------------------------------
 
   /**
-   * Find a random waiting game to join, or create one and notify a random
-   * opponent via the server matchmaking endpoint.
+   * Find a random waiting game to join, or create one, via the server API.
+   * The server uses Admin SDK (bypasses Firestore read rules) to query all
+   * waiting games, not just the current user's.
+   *
    * Returns { gameId, matched: true } if joined an existing game,
    * or { gameId, matched: false, opponentName? } if created one (waiting).
    */
@@ -335,50 +301,24 @@ export const RemoteSkateService = {
     const user = auth.currentUser;
     if (!user) throw new Error("Must be logged in to play");
 
-    // Look for waiting games that aren't ours
-    const gamesRef = collection(db, "games");
-    const q = query(gamesRef, where("status", "==", "waiting"), limit(10));
+    const result = await remoteSkateApi<{
+      success: boolean;
+      gameId: string;
+      matched: boolean;
+    }>("/find-or-create");
 
-    const snapshot = await getDocs(q);
-
-    // Find a game we can join (not created by us)
-    for (const gameDoc of snapshot.docs) {
-      const data = gameDoc.data() as GameDoc;
-      if (data.playerAUid !== user.uid && !data.playerBUid) {
-        // Join this game
-        await this.joinGame(gameDoc.id);
-        logger.info("[RemoteSkate] Quick match found", { gameId: gameDoc.id });
-        return { gameId: gameDoc.id, matched: true };
-      }
+    if (result.matched) {
+      logger.info("[RemoteSkate] Quick match found", { gameId: result.gameId });
+      return { gameId: result.gameId, matched: true };
     }
 
-    // Check if we already have a waiting game we created
-    const myWaitingQuery = query(
-      gamesRef,
-      where("status", "==", "waiting"),
-      where("playerAUid", "==", user.uid),
-      limit(1)
-    );
-    const myWaitingSnap = await getDocs(myWaitingQuery);
-    if (!myWaitingSnap.empty) {
-      const existingId = myWaitingSnap.docs[0].id;
-      logger.info("[RemoteSkate] Rejoining own waiting game", { gameId: existingId });
-
-      // Re-notify a random opponent so they know the game is still open
-      await this.notifyRandomOpponent(existingId);
-
-      return { gameId: existingId, matched: false };
-    }
-
-    // No games available — create one and notify a random opponent
-    const gameId = await this.createGame();
-    const opponentName = await this.notifyRandomOpponent(gameId);
-
-    logger.info("[RemoteSkate] Quick match: created game, notified opponent", {
-      gameId,
+    // Created or re-joined our own waiting game — notify a random opponent
+    const opponentName = await this.notifyRandomOpponent(result.gameId);
+    logger.info("[RemoteSkate] Quick match: created/rejoined game", {
+      gameId: result.gameId,
       opponentName,
     });
-    return { gameId, matched: false, opponentName: opponentName ?? undefined };
+    return { gameId: result.gameId, matched: false, opponentName: opponentName ?? undefined };
   },
 
   /**
@@ -409,23 +349,11 @@ export const RemoteSkateService = {
   },
 
   /**
-   * Cancel a waiting game (delete it if still in waiting status).
+   * Cancel a waiting game via the server API.
+   * Sets status to "cancelled" (Firestore rules block delete on games).
    */
   async cancelWaitingGame(gameId: string): Promise<void> {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Must be logged in");
-
-    const gameRef = doc(db, "games", gameId);
-    const gameSnap = await getDoc(gameRef);
-    if (!gameSnap.exists()) return;
-
-    const game = gameSnap.data() as GameDoc;
-    if (game.playerAUid !== user.uid) {
-      throw new Error("Cannot cancel another player's game");
-    }
-    if (game.status !== "waiting") return;
-
-    await deleteDoc(gameRef);
+    await remoteSkateApi(`/${gameId}/cancel`);
     logger.info("[RemoteSkate] Waiting game cancelled", { gameId });
   },
 
@@ -438,24 +366,7 @@ export const RemoteSkateService = {
    * Only offense can call this. Transitions round to "awaiting_confirmation".
    */
   async resolveRound(gameId: string, roundId: string, result: "landed" | "missed"): Promise<void> {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Must be logged in");
-
-    const idToken = await user.getIdToken();
-
-    const res = await fetch(`/api/remote-skate/${gameId}/rounds/${roundId}/resolve`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({ result }),
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({ message: "Unknown error" }));
-      throw new Error(body.message || body.error || `Resolve failed (${res.status})`);
-    }
+    await remoteSkateApi(`/${gameId}/rounds/${roundId}/resolve`, { result });
   },
 
   /**
@@ -468,25 +379,9 @@ export const RemoteSkateService = {
     roundId: string,
     result: "landed" | "missed"
   ): Promise<{ disputed: boolean; result?: string }> {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Must be logged in");
-
-    const idToken = await user.getIdToken();
-
-    const res = await fetch(`/api/remote-skate/${gameId}/rounds/${roundId}/confirm`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`,
-      },
-      body: JSON.stringify({ result }),
-    });
-
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({ error: "Unknown error" }));
-      throw new Error(body.error || `Confirm failed (${res.status})`);
-    }
-
-    return res.json();
+    return remoteSkateApi<{ disputed: boolean; result?: string }>(
+      `/${gameId}/rounds/${roundId}/confirm`,
+      { result }
+    );
   },
 };

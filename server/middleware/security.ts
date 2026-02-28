@@ -254,6 +254,18 @@ export const profileReadLimiter = rateLimit({
 });
 
 /**
+ * Rate limiter for Remote S.K.A.T.E. game actions
+ */
+export const remoteSkateLimiter = rateLimit({
+  windowMs: RL.remoteSkate.windowMs,
+  max: RL.remoteSkate.max,
+  message: { error: RL.remoteSkate.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: buildStore(RL.remoteSkate.prefix),
+});
+
+/**
  * Honeypot validation middleware to catch bots
  *
  * Checks for a hidden form field named 'company' that humans won't fill but bots will.

@@ -157,6 +157,14 @@ export const RATE_LIMIT_CONFIG = {
     message: "Too many profile requests, please slow down.",
     prefix: "rl:profileread:",
   },
+
+  /** Remote S.K.A.T.E. game actions per IP */
+  remoteSkate: {
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 20,
+    message: "Too many game requests, please slow down.",
+    prefix: "rl:remoteskate:",
+  },
 } as const;
 
 export type RateLimitKey = keyof typeof RATE_LIMIT_CONFIG;

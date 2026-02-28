@@ -414,7 +414,7 @@ service cloud.firestore {
         && request.resource.data.playerBUid == null
         && request.resource.data.status == 'waiting';
 
-      // Participants can update (join, turn changes)
+      // Participants can update (join, turn changes, cancel)
       // Resolution and letter changes are server-trusted via Admin SDK
       allow update: if isAuthenticated()
         && (
@@ -434,6 +434,14 @@ service cloud.firestore {
            && request.resource.data.status == 'active'
            && request.resource.data.playerAUid == resource.data.playerAUid
            && request.resource.data.playerBUid == resource.data.playerBUid
+           && request.resource.data.createdByUid == resource.data.createdByUid
+           && request.resource.data.createdAt == resource.data.createdAt)
+          ||
+          // Creator cancelling their own waiting game
+          (resource.data.status == 'waiting'
+           && resource.data.playerAUid == request.auth.uid
+           && request.resource.data.status == 'cancelled'
+           && request.resource.data.playerAUid == resource.data.playerAUid
            && request.resource.data.createdByUid == resource.data.createdByUid
            && request.resource.data.createdAt == resource.data.createdAt)
         );

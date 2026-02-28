@@ -69,7 +69,6 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
     opponentUid,
     isGameOver,
     winnerUid,
-    loserUid,
     uploadSetVideo,
     uploadReplyVideo,
     resolveRound,
@@ -160,14 +159,7 @@ export function GameRound({ gameId, onBackToLobby }: GameRoundProps) {
 
   // Game complete
   if (isGameOver) {
-    return (
-      <GameComplete
-        game={game}
-        winnerUid={winnerUid}
-        loserUid={loserUid}
-        onNewGame={onBackToLobby}
-      />
-    );
+    return <GameComplete game={game} winnerUid={winnerUid} onNewGame={onBackToLobby} />;
   }
 
   // Waiting for opponent — improved with copy + share
