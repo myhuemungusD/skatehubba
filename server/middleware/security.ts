@@ -331,6 +331,44 @@ export const paymentLimiter = rateLimit({
 });
 
 /**
+ * Rate limiter for game creation and write actions
+ */
+export const gameWriteLimiter = rateLimit({
+  windowMs: RL.gameWrite.windowMs,
+  max: RL.gameWrite.max,
+  message: { error: RL.gameWrite.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.gameWrite.prefix),
+});
+
+/**
+ * Rate limiter for TrickMint video upload requests
+ */
+export const trickmintUploadLimiter = rateLimit({
+  windowMs: RL.trickmintUpload.windowMs,
+  max: RL.trickmintUpload.max,
+  message: { error: RL.trickmintUpload.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.trickmintUpload.prefix),
+});
+
+/**
+ * Rate limiter for user search/listing — prevents scraping
+ */
+export const userSearchLimiter = rateLimit({
+  windowMs: RL.userSearch.windowMs,
+  max: RL.userSearch.max,
+  message: { error: RL.userSearch.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  store: buildStore(RL.userSearch.prefix),
+});
+
+/**
  * Honeypot validation middleware to catch bots
  *
  * Checks for a hidden form field named 'company' that humans won't fill but bots will.

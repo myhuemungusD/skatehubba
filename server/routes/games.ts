@@ -18,8 +18,15 @@ import { gamesChallengesRouter } from "./games-challenges";
 import { gamesTurnsRouter } from "./games-turns";
 import { gamesDisputesRouter } from "./games-disputes";
 import { gamesManagementRouter } from "./games-management";
+import { gameWriteLimiter } from "../middleware/security";
 
 const router = Router();
+
+// Rate limit all game write operations (POST/PUT/PATCH/DELETE)
+router.use((req, res, next) => {
+  if (req.method === "GET") return next();
+  return gameWriteLimiter(req, res, next);
+});
 
 // Mount subrouters
 router.use("/", gamesChallengesRouter);

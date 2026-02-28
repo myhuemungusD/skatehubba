@@ -205,6 +205,30 @@ export const RATE_LIMIT_CONFIG = {
     message: "Too many payment requests, please try again later.",
     prefix: "rl:payment:",
   },
+
+  /** Game creation and write actions */
+  gameWrite: {
+    windowMs: 10 * 60 * 1000, // 10 minutes
+    max: 10,
+    message: "Too many game actions, please slow down.",
+    prefix: "rl:gamewrite:",
+  },
+
+  /** TrickMint video upload requests per user */
+  trickmintUpload: {
+    windowMs: 60 * 60 * 1000, // 1 hour
+    max: 15,
+    message: "Too many upload requests, please try again later.",
+    prefix: "rl:trickmint:",
+  },
+
+  /** User search/listing requests per IP — prevents scraping */
+  userSearch: {
+    windowMs: 1 * 60 * 1000, // 1 minute
+    max: 30,
+    message: "Too many search requests, please slow down.",
+    prefix: "rl:usersearch:",
+  },
 } as const;
 
 export type RateLimitKey = keyof typeof RATE_LIMIT_CONFIG;
