@@ -27,6 +27,9 @@ jobs:
         with:
           node-version: '24'
 
+      - name: Install Firebase CLI
+        run: curl -sL https://firebase.tools | bash
+
       - name: Verify rules against Firebase
         env:
           FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
