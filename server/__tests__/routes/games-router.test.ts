@@ -58,7 +58,8 @@ describe("Games Router", () => {
   });
 
   it("should mount sub-routers via use()", () => {
-    expect(mockRouter.use).toHaveBeenCalledTimes(4);
+    // 4 sub-routers + 1 rate-limit middleware
+    expect(mockRouter.use).toHaveBeenCalledTimes(5);
   });
 
   it("should re-export cron functions", () => {

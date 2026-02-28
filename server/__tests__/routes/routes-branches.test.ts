@@ -82,6 +82,7 @@ describe("analytics batch — all invalid events (line 158)", () => {
           routeHandlers[`POST ${path}`] = handlers;
         }),
         get: vi.fn(),
+        use: vi.fn(),
       }),
     }));
 
@@ -889,6 +890,7 @@ describe("remoteSkate — error mapping branches (lines 129-131)", () => {
             routeHandlers[`POST ${path}`] = h;
           }),
           get: vi.fn(),
+          use: vi.fn(),
         }),
       }));
 

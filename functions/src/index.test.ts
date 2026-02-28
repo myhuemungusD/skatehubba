@@ -58,6 +58,9 @@ const mocks = vi.hoisted(() => {
 
   const ffprobeFn = vi.fn();
 
+  /** Controllable mock for checkRateLimit — default no-op, override per-test */
+  const checkRateLimitFn = vi.fn().mockResolvedValue(undefined);
+
   const logger = {
     log: vi.fn(),
     info: vi.fn(),
@@ -78,6 +81,7 @@ const mocks = vi.hoisted(() => {
     bucket,
     storageInstance,
     ffprobeFn,
+    checkRateLimitFn,
     logger,
   };
 });
@@ -161,6 +165,10 @@ vi.mock("./commerce/expireHolds", () => ({
   expireHolds: vi.fn(),
 }));
 
+vi.mock("./shared/rateLimit", () => ({
+  checkRateLimit: (...args: any[]) => mocks.checkRateLimitFn(...args),
+}));
+
 // ============================================================================
 // Import the module under test (AFTER all vi.mock calls)
 // ============================================================================
@@ -240,6 +248,8 @@ describe("SkateHubba Cloud Functions", () => {
     mocks.docRef.get.mockResolvedValue({ exists: false, data: () => ({}), get: () => null });
     mocks.docRef.set.mockResolvedValue(undefined);
     mocks.docRef.update.mockResolvedValue(undefined);
+    // Default: rate limit passes (no-op)
+    mocks.checkRateLimitFn.mockResolvedValue(undefined);
     mocks.collectionRef.add.mockResolvedValue({ id: "log-id" });
     mocks.authInstance.setCustomUserClaims.mockResolvedValue(undefined);
     mocks.bucketFile.download.mockResolvedValue(undefined);
@@ -306,28 +316,27 @@ describe("SkateHubba Cloud Functions", () => {
       });
     }
 
-    it("allows up to 10 requests per window", async () => {
+    it("allows requests when rate limit passes", async () => {
       setupSuccessfulRoleChange();
+      mocks.checkRateLimitFn.mockResolvedValue(undefined);
       const uid = freshUid("rl-ok");
       const ctx = makeContext({ uid, roles: ["admin"] });
       const data = { targetUid: "tgt", role: "moderator", action: "grant" };
 
-      for (let i = 0; i < 10; i++) {
-        await expect((manageUserRole as any)(data, ctx)).resolves.toBeDefined();
-      }
+      await expect((manageUserRole as any)(data, ctx)).resolves.toBeDefined();
+      expect(mocks.checkRateLimitFn).toHaveBeenCalledWith(uid);
     });
 
-    it("throws resource-exhausted on the 11th request", async () => {
+    it("throws resource-exhausted when rate limit is exceeded", async () => {
       setupSuccessfulRoleChange();
+      // Simulate checkRateLimit throwing resource-exhausted
+      const HttpsError = (await import("firebase-functions")).https.HttpsError;
+      mocks.checkRateLimitFn.mockRejectedValue(
+        new HttpsError("resource-exhausted", "Too many requests. Please try again later.")
+      );
       const uid = freshUid("rl-exceed");
       const ctx = makeContext({ uid, roles: ["admin"] });
       const data = { targetUid: "tgt", role: "moderator", action: "grant" };
-
-      // Simulate Firestore state: rate-limit window is full (10/10 requests used)
-      mocks.transaction.get.mockResolvedValue({
-        exists: true,
-        data: () => ({ count: 10, resetAt: { toMillis: () => Date.now() + 60_000 } }),
-      });
 
       await expect((manageUserRole as any)(data, ctx)).rejects.toThrow("Too many requests");
     });
