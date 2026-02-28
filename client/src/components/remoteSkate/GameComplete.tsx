@@ -13,16 +13,10 @@ import { auth } from "@/lib/firebase";
 interface GameCompleteProps {
   game: GameDoc & { id: string };
   winnerUid: string | null;
-  loserUid: string | null;
   onNewGame: () => void;
 }
 
-export function GameComplete({
-  game,
-  winnerUid,
-  loserUid: _loserUid,
-  onNewGame,
-}: GameCompleteProps) {
+export function GameComplete({ game, winnerUid, onNewGame }: GameCompleteProps) {
   const uid = auth.currentUser?.uid;
   const iWon = winnerUid === uid;
 

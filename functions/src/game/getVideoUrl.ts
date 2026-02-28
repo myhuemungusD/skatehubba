@@ -69,9 +69,10 @@ export const getVideoUrl = functions.https.onCall(
 
     // Validate storagePath format after authorization checks.
     // Must match videos/{uid}/{gameId}/{roundId}/{filename}.{ext}
+    // Round IDs can be Firestore auto-IDs (alphanumeric) or prefixed with "round_".
     // Reject path traversal, null bytes, and malformed paths.
     const STORAGE_PATH_RE =
-      /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/round_[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
+      /^videos\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+\.\w+$/;
     if (
       !storagePath.startsWith("videos/") ||
       storagePath.includes("..") ||

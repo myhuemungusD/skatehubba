@@ -1,10 +1,15 @@
 /**
  * VideoPlayer - Displays uploaded trick video with loading states
+ *
+ * Uses signed URLs via the getVideoUrl Cloud Function for secure video access.
+ * downloadURL in the video doc is always null — video access is mediated
+ * through signed URLs that verify game participant membership.
  */
 
 import { useState } from "react";
-import { Play, Loader2, AlertCircle } from "lucide-react";
+import { Play, Loader2, AlertCircle, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useVideoUrl } from "@/hooks/useVideoUrl";
 import type { VideoDoc } from "@/lib/remoteSkate";
 
 interface VideoPlayerProps {
@@ -14,7 +19,17 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
-  const [hasError, setHasError] = useState(false);
+  const [hasPlaybackError, setHasPlaybackError] = useState(false);
+
+  const {
+    url: signedUrl,
+    isLoading: isUrlLoading,
+    error: urlError,
+    retry: retryUrl,
+  } = useVideoUrl({
+    gameId: video?.status === "ready" ? video.gameId : null,
+    storagePath: video?.status === "ready" ? video.storagePath : null,
+  });
 
   if (!video) {
     return (
@@ -61,7 +76,23 @@ export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
     );
   }
 
-  if (hasError) {
+  // Loading signed URL
+  if (isUrlLoading) {
+    return (
+      <div
+        className={cn(
+          "flex flex-col items-center justify-center gap-2 rounded-lg bg-neutral-900 border border-neutral-800 p-6 min-h-[180px]",
+          className
+        )}
+      >
+        <Loader2 className="h-6 w-6 text-neutral-400 animate-spin" />
+        <span className="text-sm text-neutral-400">Loading {label}...</span>
+      </div>
+    );
+  }
+
+  // Signed URL fetch error or playback error
+  if (urlError || hasPlaybackError) {
     return (
       <div
         className={cn(
@@ -71,6 +102,18 @@ export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
       >
         <AlertCircle className="h-6 w-6 text-red-400" />
         <span className="text-sm text-red-400">Failed to play video</span>
+        {urlError && <span className="text-xs text-red-400/70">{urlError}</span>}
+        <button
+          type="button"
+          onClick={() => {
+            setHasPlaybackError(false);
+            retryUrl();
+          }}
+          className="flex items-center gap-1 text-xs text-yellow-400 hover:text-yellow-300 transition-colors mt-1"
+        >
+          <RotateCcw className="h-3 w-3" />
+          Retry
+        </button>
       </div>
     );
   }
@@ -82,12 +125,12 @@ export function VideoPlayer({ video, label, className }: VideoPlayerProps) {
           {label}
         </p>
         <video
-          src={video.downloadURL || undefined}
+          src={signedUrl || undefined}
           controls
           playsInline
           preload="metadata"
           className="w-full max-h-[300px] object-contain"
-          onError={() => setHasError(true)}
+          onError={() => setHasPlaybackError(true)}
         >
           <track kind="captions" />
         </video>

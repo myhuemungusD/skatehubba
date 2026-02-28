@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { setupAuthRoutes } from "./auth/routes";
 import { authenticateUser, requireAdmin } from "./auth/middleware";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
-import { emailSignupLimiter, profileReadLimiter } from "./middleware/security";
+import { emailSignupLimiter, profileReadLimiter, remoteSkateLimiter } from "./middleware/security";
 import { bandwidthDetection } from "./middleware/bandwidth";
 import { analyticsRouter } from "./routes/analytics";
 import { metricsRouter } from "./routes/metrics";
@@ -42,7 +42,7 @@ export function registerRoutes(app: Express): void {
   app.use("/api/tier", tierRouter);
   app.use("/webhooks/stripe", stripeWebhookRouter);
   app.use("/api/notifications", notificationsRouter);
-  app.use("/api/remote-skate", remoteSkateRouter);
+  app.use("/api/remote-skate", remoteSkateLimiter, remoteSkateRouter);
   app.use("/api/spots", spotsRouter);
   app.use("/api/posts", postsRouter);
   app.use("/api/users", usersRouter);

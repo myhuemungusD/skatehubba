@@ -1119,16 +1119,21 @@ describe("SkateHubba Cloud Functions", () => {
       ).rejects.toThrow("Invalid storage path");
     });
 
-    it("rejects storagePath missing the round_ prefix", async () => {
+    it("accepts storagePath with Firestore auto-ID (no round_ prefix)", async () => {
       const uid = freshUid("gv");
       mocks.docRef.get.mockResolvedValue({
         exists: true,
         data: () => ({ player1Id: uid, player2Id: "p2", status: "active" }),
       });
+      mocks.bucket.file.mockReturnValue({
+        getSignedUrl: vi.fn().mockResolvedValue(["https://signed.url/video.mp4"]),
+      });
       const ctx = makeContext({ uid });
-      await expect(
-        (getVideoUrl as any)({ gameId: "g", storagePath: "videos/uid/gid/noprefix/file.mp4" }, ctx)
-      ).rejects.toThrow("Invalid storage path");
+      const result = await (getVideoUrl as any)(
+        { gameId: "g", storagePath: "videos/uid/gid/noprefix/file.mp4" },
+        ctx
+      );
+      expect(result).toHaveProperty("signedUrl");
     });
 
     it("rejects storagePath with too few segments", async () => {

@@ -59,9 +59,15 @@ export default function RemoteSkatePage() {
     }
   }, [toast]);
 
-  // Subscribe to waiting game — auto-transition when opponent joins
+  // Subscribe to waiting game — auto-transition when opponent joins.
+  // After 2 minutes of searching, show a "still looking" hint.
+  const [searchTimedOut, setSearchTimedOut] = useState(false);
+
   useEffect(() => {
-    if (view !== "searching" || !activeGameId) return;
+    if (view !== "searching" || !activeGameId) {
+      setSearchTimedOut(false);
+      return;
+    }
 
     const unsub = RemoteSkateService.subscribeToGame(activeGameId, (game) => {
       if (game && game.status === "active") {
@@ -70,7 +76,12 @@ export default function RemoteSkatePage() {
       }
     });
 
-    return unsub;
+    const timer = setTimeout(() => setSearchTimedOut(true), 2 * 60 * 1000);
+
+    return () => {
+      unsub();
+      clearTimeout(timer);
+    };
   }, [view, activeGameId, toast]);
 
   const handleCancelSearch = useCallback(async () => {
@@ -153,8 +164,14 @@ export default function RemoteSkatePage() {
         </div>
 
         <div className="text-center space-y-2">
-          <h2 className="text-xl font-bold text-white">Finding Opponent...</h2>
-          {notifiedOpponent ? (
+          <h2 className="text-xl font-bold text-white">
+            {searchTimedOut ? "Still Looking..." : "Finding Opponent..."}
+          </h2>
+          {searchTimedOut ? (
+            <p className="text-sm text-neutral-400">
+              No opponent found yet. You can keep waiting or cancel and try again later.
+            </p>
+          ) : notifiedOpponent ? (
             <p className="text-sm text-neutral-400">
               Challenged <span className="text-purple-400 font-medium">{notifiedOpponent}</span> —
               waiting for them to accept!
