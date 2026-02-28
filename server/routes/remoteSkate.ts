@@ -16,7 +16,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { admin } from "../admin";
-import type { Transaction } from "firebase-admin/firestore";
+import type { Firestore, Transaction } from "firebase-admin/firestore";
 import logger from "../logger";
 import type { Request, Response } from "express";
 import { remoteSkateLimiter } from "../middleware/security";
@@ -219,7 +219,7 @@ router.post("/find-or-create", async (req: Request, res: Response) => {
 // =============================================================================
 
 async function joinGameTransaction(
-  firestore: FirebaseFirestore.Firestore,
+  firestore: Firestore,
   gameId: string,
   uid: string
 ): Promise<string> {
