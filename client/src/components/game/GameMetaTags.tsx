@@ -31,7 +31,7 @@ export function GameMetaTags({
 
   const url = gameId ? `https://skatehubba.com/play?game=${gameId}` : "https://skatehubba.com/play";
 
-  const image = thumbnailUrl || "https://skatehubba.com/images/og/skatehubba-game-og.png";
+  const image = thumbnailUrl || "https://skatehubba.com/images/og/skatehubba-og.png";
 
   return (
     <Helmet>

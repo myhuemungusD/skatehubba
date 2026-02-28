@@ -57,10 +57,10 @@ This playbook documents the end-to-end process for preparing, validating, and sh
    - Category: `Sports` → Subcategory `Social`.
    - Age rating questionnaire: 12+ due to user-generated content and social features.
 2. **Store Assets**
-   - Icon: 512×512 PNG, no transparency, stored in `/attached_assets/play/icon.png`.
-   - Feature graphic: 1024×500 JPG, stored in `/attached_assets/play/feature-graphic.jpg`.
-   - Phone screenshots: 1080×1920 PNG (≥ 4 images) in `/attached_assets/play/screenshots/phone/`.
-   - Tablet screenshots: 1920×1080 PNG (≥ 2 images) in `/attached_assets/play/screenshots/tablet/`.
+   - Icon: 512×512 PNG, no transparency, stored in `mobile/store-assets/play/icon.png`.
+   - Feature graphic: 1024×500 JPG, stored in `mobile/store-assets/play/feature-graphic.jpg`.
+   - Phone screenshots: 1080×1920 PNG (≥ 4 images) in `mobile/store-assets/play/screenshots/phone/`.
+   - Tablet screenshots: 1920×1080 PNG (≥ 2 images) in `mobile/store-assets/play/screenshots/tablet/`.
    - Verify filenames avoid spaces and match Play Console requirements.
 3. **Policy Links**
    - Privacy Policy URL: <https://skatehubba.com/privacy> (ensure HTTPS and up-to-date content).
