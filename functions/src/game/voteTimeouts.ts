@@ -8,8 +8,8 @@
  * This handles the edge case where both players fail to vote.
  */
 
-import * as functions from "firebase-functions";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { logger } from "firebase-functions/v2";
 import * as admin from "firebase-admin";
 import type { DocumentData } from "firebase-admin/firestore";
 import { monitoredTransaction } from "../shared/transaction";
@@ -122,10 +122,10 @@ async function sendVoteReminderNotifications(gameId: string, game: GameDocument)
             },
           },
         });
-        functions.logger.log(`[VoteReminder] Sent notification to ${playerId} for game ${gameId}`);
+        logger.log(`[VoteReminder] Sent notification to ${playerId} for game ${gameId}`);
       }
     } catch (error) {
-      functions.logger.error(`[VoteReminder] Failed to send notification to ${playerId}:`, error);
+      logger.error(`[VoteReminder] Failed to send notification to ${playerId}:`, error);
     }
   }
 }
@@ -194,7 +194,7 @@ async function autoResolveVoteTimeout(gameId: string, game: GameDocument): Promi
 
     transaction.update(gameRef, updateData);
 
-    functions.logger.log(`[VoteTimeout] Auto-resolved game ${gameId}: defender wins by timeout`);
+    logger.log(`[VoteTimeout] Auto-resolved game ${gameId}: defender wins by timeout`);
   });
 
   // Send notifications about timeout resolution
@@ -227,7 +227,7 @@ async function sendTimeoutNotifications(gameId: string, game: GameDocument): Pro
         });
       }
     } catch (error) {
-      functions.logger.error(`[VoteTimeout] Failed to notify ${playerId}:`, error);
+      logger.error(`[VoteTimeout] Failed to notify ${playerId}:`, error);
     }
   }
 }

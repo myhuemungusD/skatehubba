@@ -38,9 +38,18 @@ const ALL_REQUIRED_VITE: NodeJS.ProcessEnv = {
 
 /**
  * Run the verify script with the given env vars merged into a clean environment.
- * Returns stdout, stderr, and the exit code.
+ * Returns stdout, stderr, combined (stdout+stderr), and the exit code.
+ *
+ * NOTE: `combined` exists because console.warn may route to stdout or stderr
+ * depending on the Node.js version. Use `combined` for assertions about
+ * warn-level messages to keep tests resilient across Node 22 → 24+.
  */
-function run(env: NodeJS.ProcessEnv): { stdout: string; stderr: string; exitCode: number } {
+function run(env: NodeJS.ProcessEnv): {
+  stdout: string;
+  stderr: string;
+  combined: string;
+  exitCode: number;
+} {
   // Build a minimal env — don't inherit test runner's VITEST/NODE_ENV so
   // the script doesn't accidentally see test-mode env from the parent process.
   const scriptEnv: NodeJS.ProcessEnv = {
@@ -53,9 +62,12 @@ function run(env: NodeJS.ProcessEnv): { stdout: string; stderr: string; exitCode
     env: scriptEnv,
     encoding: "utf-8",
   });
+  const stdout = result.stdout ?? "";
+  const stderr = result.stderr ?? "";
   return {
-    stdout: result.stdout ?? "",
-    stderr: result.stderr ?? "",
+    stdout,
+    stderr,
+    combined: stdout + stderr,
     exitCode: result.status ?? 1,
   };
 }
@@ -123,8 +135,8 @@ describe("verify-public-env — missing vars, non-strict mode", () => {
   });
 
   it("prints non-strict warning", () => {
-    const { stderr } = run({});
-    expect(stderr).toContain("Non-strict mode");
+    const { combined } = run({});
+    expect(combined).toContain("Non-strict mode");
   });
 });
 
@@ -271,23 +283,22 @@ describe("verify-public-env — server var checklist (Vercel mode)", () => {
       ALLOW_MISSING_PUBLIC_ENV: "true",
       FIREBASE_PROJECT_ID: "my-project",
       FIREBASE_CLIENT_EMAIL: "svc@my-project.iam.gserviceaccount.com",
-      FIREBASE_PRIVATE_KEY: "-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----",
+      FIREBASE_PRIVATE_KEY: "test-private-key-placeholder-value",
     });
     expect(stdout).toContain("Firebase Admin credentials: OK");
   });
 
   it("emits a warning when Firebase Admin credentials are not configured", () => {
-    // stderr receives console.warn output
-    const { stderr } = run({ VERCEL: "1", ALLOW_MISSING_PUBLIC_ENV: "true" });
-    expect(stderr).toContain("Firebase Admin credentials not configured");
+    const { combined } = run({ VERCEL: "1", ALLOW_MISSING_PUBLIC_ENV: "true" });
+    expect(combined).toContain("Firebase Admin credentials not configured");
   });
 
   it("does not emit Firebase Admin warning when FIREBASE_ADMIN_KEY is set", () => {
-    const { stderr } = run({
+    const { combined } = run({
       VERCEL: "1",
       ALLOW_MISSING_PUBLIC_ENV: "true",
       FIREBASE_ADMIN_KEY: '{"type":"service_account"}',
     });
-    expect(stderr).not.toContain("Firebase Admin credentials not configured");
+    expect(combined).not.toContain("Firebase Admin credentials not configured");
   });
 });

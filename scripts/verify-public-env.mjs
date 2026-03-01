@@ -214,7 +214,7 @@ function printServerVarChecklist() {
   }
 
   if (!firebaseAdminOk) {
-    console.warn(`
+    console.error(`
   ⚠️  Firebase Admin credentials not configured.
      Auth token verification will fail — users cannot log in or create profiles.
      Option A (recommended): Set FIREBASE_ADMIN_KEY to the full service account JSON.
