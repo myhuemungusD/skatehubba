@@ -104,7 +104,7 @@ describe("Socket Room Manager", () => {
     });
 
     it("works with different room types", () => {
-      expect(getRoomId("game", "g1")).toBe("game:g1");
+      expect(getRoomId("battle", "g1")).toBe("game:g1");
       expect(getRoomId("spot", "s1")).toBe("spot:s1");
       expect(getRoomId("global", "main")).toBe("global:main");
     });
@@ -121,8 +121,8 @@ describe("Socket Room Manager", () => {
     });
 
     it("handles IDs with colons in the id portion", () => {
-      const result = parseRoomId("game:some:complex:id");
-      expect(result).toEqual({ type: "game", id: "some:complex:id" });
+      const result = parseRoomId("spot:some:complex:id");
+      expect(result).toEqual({ type: "spot", id: "some:complex:id" });
     });
 
     it("returns null for invalid room ID (no colon)", () => {
@@ -193,10 +193,10 @@ describe("Socket Room Manager", () => {
 
     it("tracks room membership in socket.data.rooms", async () => {
       const socket = createMockSocket("user-track-1");
-      await joinRoom(socket, "game", "g-track");
+      await joinRoom(socket, "spot", "g-track");
       await joinRoom(socket, "spot", "s-track");
 
-      expect(socket.data.rooms.has("game:g-track")).toBe(true);
+      expect(socket.data.rooms.has("spot:g-track")).toBe(true);
       expect(socket.data.rooms.has("spot:s-track")).toBe(true);
     });
   });
@@ -249,7 +249,7 @@ describe("Socket Room Manager", () => {
     it("leaves all rooms the socket has joined", async () => {
       const socket = createMockSocket("user-leaveall-1");
       await joinRoom(socket, "spot", "s1");
-      await joinRoom(socket, "game", "g1");
+      await joinRoom(socket, "spot", "g1");
 
       expect(socket.data.rooms.size).toBe(2);
 
@@ -340,11 +340,11 @@ describe("Socket Room Manager", () => {
   describe("getRoomInfo", () => {
     it("returns room info for an existing room", async () => {
       const socket = createMockSocket("user-info-1");
-      await joinRoom(socket, "game", "g-info");
+      await joinRoom(socket, "spot", "g-info");
 
-      const info = getRoomInfo("game", "g-info");
+      const info = getRoomInfo("spot", "g-info");
       expect(info).toBeDefined();
-      expect(info!.type).toBe("game");
+      expect(info!.type).toBe("spot");
       expect(info!.id).toBe("g-info");
       expect(info!.members.has("user-info-1")).toBe(true);
       expect(info!.createdAt).toBeInstanceOf(Date);
@@ -368,15 +368,15 @@ describe("Socket Room Manager", () => {
 
       await joinRoom(s1, "spot", "s-type-1");
       await joinRoom(s2, "spot", "s-type-2");
-      await joinRoom(s3, "game", "g-type-1");
+      await joinRoom(s3, "spot", "g-type-1");
 
       const spotRooms = getRoomsByType("spot");
       expect(spotRooms.length).toBeGreaterThanOrEqual(2);
       spotRooms.forEach((r) => expect(r.type).toBe("spot"));
 
-      const gameRooms = getRoomsByType("game");
+      const gameRooms = getRoomsByType("spot");
       expect(gameRooms.length).toBeGreaterThanOrEqual(1);
-      gameRooms.forEach((r) => expect(r.type).toBe("game"));
+      gameRooms.forEach((r) => expect(r.type).toBe("spot"));
     });
 
     it("returns empty array when no rooms of that type exist", () => {
@@ -396,7 +396,7 @@ describe("Socket Room Manager", () => {
       const s2 = createMockSocket("user-stats-2");
 
       await joinRoom(s1, "spot", "s-stats-1");
-      await joinRoom(s2, "game", "g-stats-1");
+      await joinRoom(s2, "spot", "g-stats-1");
 
       const stats = getRoomStats();
       expect(stats.totalRooms).toBeGreaterThanOrEqual(2);
@@ -404,7 +404,6 @@ describe("Socket Room Manager", () => {
       expect(stats.byType).toEqual(
         expect.objectContaining({
           battle: expect.any(Number),
-          game: expect.any(Number),
           spot: expect.any(Number),
           global: expect.any(Number),
         })

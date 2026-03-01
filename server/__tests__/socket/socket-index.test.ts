@@ -91,16 +91,6 @@ vi.mock("../../socket/handlers/battle", () => ({
   cleanupBattleSubscriptions: mockCleanupBattleSubscriptions,
 }));
 
-// -- ./handlers/game ---------------------------------------------------------
-
-const mockRegisterGameHandlers = vi.fn();
-const mockCleanupGameSubscriptions = vi.fn().mockResolvedValue(undefined);
-
-vi.mock("../../socket/handlers/game", () => ({
-  registerGameHandlers: mockRegisterGameHandlers,
-  cleanupGameSubscriptions: mockCleanupGameSubscriptions,
-}));
-
 // -- ./handlers/presence -----------------------------------------------------
 
 const mockRegisterPresenceHandlers = vi.fn();
@@ -137,12 +127,12 @@ vi.mock("../../socket/health", () => ({
   getHealthStats: mockGetHealthStats,
 }));
 
-// -- ../services/timeoutScheduler -------------------------------------------
+// -- ../services/battleTimeoutScheduler -------------------------------------------
 
 const mockStartTimeoutScheduler = vi.fn();
 const mockStopTimeoutScheduler = vi.fn();
 
-vi.mock("../../services/timeoutScheduler", () => ({
+vi.mock("../../services/battleTimeoutScheduler", () => ({
   startTimeoutScheduler: mockStartTimeoutScheduler,
   stopTimeoutScheduler: mockStopTimeoutScheduler,
   forceTimeoutCheck: vi.fn().mockResolvedValue(undefined),

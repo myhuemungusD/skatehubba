@@ -7,7 +7,7 @@
 
 import { useState, useRef, useCallback, useEffect, useId } from "react";
 import { Input } from "@/components/ui/input";
-import { searchTricks } from "@/lib/game/trickDictionary";
+import { searchTricks } from "@/lib/trickDictionary";
 import { cn } from "@/lib/utils";
 
 interface TrickAutocompleteProps {

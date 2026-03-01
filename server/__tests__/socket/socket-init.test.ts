@@ -77,16 +77,6 @@ vi.mock("../../socket/handlers/battle", () => ({
   cleanupBattleSubscriptions: mockCleanupBattleSubscriptions,
 }));
 
-// -- ../socket/handlers/game -------------------------------------------------
-
-const mockRegisterGameHandlers = vi.fn();
-const mockCleanupGameSubscriptions = vi.fn().mockResolvedValue(undefined);
-
-vi.mock("../../socket/handlers/game", () => ({
-  registerGameHandlers: mockRegisterGameHandlers,
-  cleanupGameSubscriptions: mockCleanupGameSubscriptions,
-}));
-
 // -- ../socket/handlers/presence ---------------------------------------------
 
 const mockRegisterPresenceHandlers = vi.fn();
@@ -115,12 +105,12 @@ vi.mock("../../socket/health", () => ({
   getHealthStats: mockGetHealthStats,
 }));
 
-// -- ../services/timeoutScheduler --------------------------------------------
+// -- ../services/battleTimeoutScheduler --------------------------------------------
 
 const mockStartTimeoutScheduler = vi.fn();
 const mockStopTimeoutScheduler = vi.fn();
 
-vi.mock("../../services/timeoutScheduler", () => ({
+vi.mock("../../services/battleTimeoutScheduler", () => ({
   startTimeoutScheduler: mockStartTimeoutScheduler,
   stopTimeoutScheduler: mockStopTimeoutScheduler,
 }));
@@ -215,7 +205,6 @@ describe("Socket Server Initialization (socket/index.ts)", () => {
     mockFetchSockets.mockResolvedValue([]);
     mockClose.mockImplementation((cb: Function) => cb());
     mockCleanupBattleSubscriptions.mockResolvedValue(undefined);
-    mockCleanupGameSubscriptions.mockResolvedValue(undefined);
   });
 
   // ==========================================================================
@@ -302,7 +291,6 @@ describe("Socket Server Initialization (socket/index.ts)", () => {
       // Feature handlers registered
       expect(mockRegisterPresenceHandlers).toHaveBeenCalledWith(expect.anything(), mockSocket);
       expect(mockRegisterBattleHandlers).toHaveBeenCalledWith(expect.anything(), mockSocket);
-      expect(mockRegisterGameHandlers).toHaveBeenCalledWith(expect.anything(), mockSocket);
     });
 
     it("emits a 'connected' event to the socket with userId and serverTime", async () => {
@@ -411,7 +399,6 @@ describe("Socket Server Initialization (socket/index.ts)", () => {
 
       // Cleanup functions called
       expect(mockCleanupBattleSubscriptions).toHaveBeenCalledWith(mockSocket);
-      expect(mockCleanupGameSubscriptions).toHaveBeenCalledWith(expect.anything(), mockSocket);
       expect(mockLeaveAllRooms).toHaveBeenCalledWith(mockSocket);
       expect(mockHandlePresenceDisconnect).toHaveBeenCalledWith(expect.anything(), mockSocket);
       expect(mockCleanupSocketHealth).toHaveBeenCalledWith("socket-1");

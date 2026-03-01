@@ -43,7 +43,9 @@ describe("stripeWebhook line 101 — constructEvent throws non-Error", () => {
       throw "string_error"; // non-Error throw
     });
     vi.doMock("stripe", () => ({
-      default: class { webhooks = { constructEvent: mockConstructEvent }; },
+      default: class {
+        webhooks = { constructEvent: mockConstructEvent };
+      },
     }));
 
     await import("../../routes/stripeWebhook");
@@ -74,7 +76,9 @@ describe("stripeWebhook line 146 — event handler throws non-Error", () => {
     vi.doMock("../../logger", () => ({ default: mockLogger }));
 
     vi.doMock("../../db", () => ({
-      getDb: () => { throw "db_string_error"; },
+      getDb: () => {
+        throw "db_string_error";
+      },
     }));
     vi.doMock("../../services/emailService", () => ({ sendPaymentReceiptEmail: vi.fn() }));
     vi.doMock("../../services/notificationService", () => ({ notifyUser: vi.fn() }));
@@ -99,13 +103,18 @@ describe("stripeWebhook line 146 — event handler throws non-Error", () => {
       type: "checkout.session.completed",
       data: {
         object: {
-          id: "cs_1", currency: "usd", amount_total: 999,
-          payment_status: "paid", metadata: { userId: "u1", type: "premium_upgrade" },
+          id: "cs_1",
+          currency: "usd",
+          amount_total: 999,
+          payment_status: "paid",
+          metadata: { userId: "u1", type: "premium_upgrade" },
         },
       },
     });
     vi.doMock("stripe", () => ({
-      default: class { webhooks = { constructEvent: mockConstructEvent }; },
+      default: class {
+        webhooks = { constructEvent: mockConstructEvent };
+      },
     }));
 
     await import("../../routes/stripeWebhook");
@@ -118,123 +127,6 @@ describe("stripeWebhook line 146 — event handler throws non-Error", () => {
     await handler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(500);
-  });
-});
-
-// ===========================================================================
-// 3-4. server/socket/handlers/game/actions.ts — lines 134, 203
-// ===========================================================================
-describe("game actions socket handlers — lines 134, 203", () => {
-  beforeEach(() => {
-    vi.resetModules();
-    vi.clearAllMocks();
-  });
-
-  it("line 134: game:pass — letters fallback to empty string when letterGained is falsy", async () => {
-    const mockPassTrick = vi.fn().mockResolvedValue({
-      success: true,
-      alreadyProcessed: false,
-      letterGained: undefined,
-      game: {
-        status: "active",
-        winnerId: null,
-        currentTurnIndex: 0,
-        currentAction: "set",
-        players: [{ odv: "p1", letters: "" }, { odv: "p2", letters: "" }],
-      },
-    });
-
-    vi.doMock("../../socket/handlers/../../../logger", () => ({
-      default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-    }));
-    vi.doMock("../../../logger", () => ({
-      default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-    }));
-
-    const broadcastFn = vi.fn();
-    vi.doMock("../../socket/rooms", () => ({ broadcastToRoom: broadcastFn }));
-
-    vi.doMock("../../services/gameStateService", () => ({
-      passTrick: mockPassTrick,
-      submitTrick: vi.fn(),
-      forfeitGame: vi.fn(),
-      generateEventId: vi.fn().mockReturnValue("eid"),
-    }));
-    vi.doMock("../../socket/socketRateLimit", () => ({
-      checkRateLimit: vi.fn().mockReturnValue(true),
-    }));
-
-    const { registerActionsHandler } = await import(
-      "../../socket/handlers/game/actions"
-    );
-
-    const handlers: Record<string, Function> = {};
-    const socket = {
-      id: "sock1",
-      data: { odv: "p2" },
-      on: vi.fn((event: string, cb: Function) => { handlers[event] = cb; }),
-      emit: vi.fn(),
-    } as any;
-
-    registerActionsHandler({} as any, socket);
-    await handlers["game:pass"]("game-1");
-
-    expect(broadcastFn).toHaveBeenCalledWith(
-      expect.anything(), "game", "game-1", "game:letter",
-      expect.objectContaining({ letters: "" }),
-    );
-  });
-
-  it("line 203: game:forfeit — winnerId fallback to empty string when game.winnerId is falsy", async () => {
-    const mockForfeitGame = vi.fn().mockResolvedValue({
-      success: true,
-      alreadyProcessed: false,
-      game: {
-        status: "completed",
-        winnerId: null,
-        players: [{ odv: "p1", letters: "" }, { odv: "p2", letters: "SKATE" }],
-      },
-    });
-
-    vi.doMock("../../socket/handlers/../../../logger", () => ({
-      default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-    }));
-    vi.doMock("../../../logger", () => ({
-      default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-    }));
-
-    const broadcastFn = vi.fn();
-    vi.doMock("../../socket/rooms", () => ({ broadcastToRoom: broadcastFn }));
-
-    vi.doMock("../../services/gameStateService", () => ({
-      passTrick: vi.fn(),
-      submitTrick: vi.fn(),
-      forfeitGame: mockForfeitGame,
-      generateEventId: vi.fn().mockReturnValue("eid"),
-    }));
-    vi.doMock("../../socket/socketRateLimit", () => ({
-      checkRateLimit: vi.fn().mockReturnValue(true),
-    }));
-
-    const { registerActionsHandler } = await import(
-      "../../socket/handlers/game/actions"
-    );
-
-    const handlers: Record<string, Function> = {};
-    const socket = {
-      id: "sock1",
-      data: { odv: "p1" },
-      on: vi.fn((event: string, cb: Function) => { handlers[event] = cb; }),
-      emit: vi.fn(),
-    } as any;
-
-    registerActionsHandler({} as any, socket);
-    await handlers["game:forfeit"]("game-1");
-
-    expect(broadcastFn).toHaveBeenCalledWith(
-      expect.anything(), "game", "game-1", "game:ended",
-      expect.objectContaining({ winnerId: "" }),
-    );
   });
 });
 
@@ -252,9 +144,14 @@ describe("videoProcessingService lines 146-147 — metadata nullish coalescing",
       getDb: () => ({
         insert: vi.fn().mockReturnValue({
           values: vi.fn().mockReturnValue({
-            returning: vi.fn().mockResolvedValue([{
-              id: 1, videoUrl: "url", thumbnailUrl: null, status: "ready",
-            }]),
+            returning: vi.fn().mockResolvedValue([
+              {
+                id: 1,
+                videoUrl: "url",
+                thumbnailUrl: null,
+                status: "ready",
+              },
+            ]),
           }),
         }),
       }),
@@ -277,7 +174,9 @@ describe("videoProcessingService lines 146-147 — metadata nullish coalescing",
 
     const { processUpload } = await import("../../services/videoProcessingService");
     const result = await processUpload({
-      userId: "u1", userName: "Test", trickName: "Kickflip",
+      userId: "u1",
+      userName: "Test",
+      trickName: "Kickflip",
       videoPath: "videos/test.mp4",
     });
 
@@ -298,7 +197,9 @@ describe("emailService lines 203, 283", () => {
     // Clear any prior mocks on emailService from stripe tests
     vi.doUnmock("../../services/emailService");
     vi.doMock("resend", () => ({
-      Resend: class { emails = { send: vi.fn().mockResolvedValue({ data: { id: "1" } }) }; },
+      Resend: class {
+        emails = { send: vi.fn().mockResolvedValue({ data: { id: "1" } }) };
+      },
     }));
     vi.doMock("../../config/env", () => ({
       env: { RESEND_API_KEY: "re_test", NODE_ENV: "test", PRODUCTION_URL: "https://test.com" },
@@ -309,7 +210,10 @@ describe("emailService lines 203, 283", () => {
 
     const mod = await import("../../services/emailService");
     const result = await mod.sendWeeklyDigestEmail("a@b.com", "Tester", {
-      gamesPlayed: 3, gamesWon: 1, spotsVisited: 2, pendingChallenges: 5,
+      gamesPlayed: 3,
+      gamesWon: 1,
+      spotsVisited: 2,
+      pendingChallenges: 5,
     });
 
     expect(result.success).toBe(true);
@@ -318,7 +222,9 @@ describe("emailService lines 203, 283", () => {
   it("line 283: opponentName fallback in your_turn email", async () => {
     vi.doUnmock("../../services/emailService");
     vi.doMock("resend", () => ({
-      Resend: class { emails = { send: vi.fn().mockResolvedValue({ data: { id: "1" } }) }; },
+      Resend: class {
+        emails = { send: vi.fn().mockResolvedValue({ data: { id: "1" } }) };
+      },
     }));
     vi.doMock("../../config/env", () => ({
       env: { RESEND_API_KEY: "re_test", NODE_ENV: "test", PRODUCTION_URL: "https://test.com" },
@@ -363,98 +269,9 @@ describe("presence handler line 210 — malformed JSON in Redis hvals", () => {
 
     expect(mockLogger.warn).toHaveBeenCalledWith(
       "[Presence] Malformed presence entry in Redis",
-      expect.any(Object),
+      expect.any(Object)
     );
     expect(stats.online).toBe(0);
-  });
-});
-
-// ===========================================================================
-// 9. server/socket/handlers/game/cleanup.ts — line 35
-// ===========================================================================
-describe("game cleanup line 35 — game.status paused after disconnect", () => {
-  beforeEach(() => {
-    vi.resetModules();
-    vi.clearAllMocks();
-  });
-
-  it("broadcasts game:paused when disconnect result has paused game", async () => {
-    vi.doMock("../../logger", () => ({
-      default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-    }));
-
-    const broadcastFn = vi.fn();
-    vi.doMock("../../socket/rooms", () => ({
-      leaveRoom: vi.fn().mockResolvedValue(undefined),
-      broadcastToRoom: broadcastFn,
-    }));
-
-    vi.doMock("../../services/gameStateService", () => ({
-      handleDisconnect: vi.fn().mockResolvedValue({
-        success: true,
-        alreadyProcessed: false,
-        game: { status: "paused" },
-      }),
-      generateEventId: vi.fn().mockReturnValue("eid"),
-    }));
-    vi.doMock("../../socket/handlers/game/roomManagement", () => ({
-      getSocketGames: vi.fn().mockReturnValue(["game-1"]),
-      untrackSocket: vi.fn(),
-    }));
-
-    const { cleanupGameSubscriptions } = await import(
-      "../../socket/handlers/game/cleanup"
-    );
-
-    const socket = {
-      id: "sock-1",
-      data: { odv: "player1" },
-    } as any;
-
-    await cleanupGameSubscriptions({} as any, socket);
-
-    expect(broadcastFn).toHaveBeenCalledWith(
-      expect.anything(), "game", "game-1", "game:paused",
-      expect.objectContaining({ disconnectedPlayer: "player1", reconnectTimeout: 120 }),
-    );
-  });
-
-  it("does NOT broadcast game:paused when game.status is not paused", async () => {
-    vi.doMock("../../logger", () => ({
-      default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
-    }));
-
-    const broadcastFn = vi.fn();
-    vi.doMock("../../socket/rooms", () => ({
-      leaveRoom: vi.fn().mockResolvedValue(undefined),
-      broadcastToRoom: broadcastFn,
-    }));
-
-    vi.doMock("../../services/gameStateService", () => ({
-      handleDisconnect: vi.fn().mockResolvedValue({
-        success: true,
-        alreadyProcessed: false,
-        game: { status: "active" },
-      }),
-      generateEventId: vi.fn().mockReturnValue("eid"),
-    }));
-    vi.doMock("../../socket/handlers/game/roomManagement", () => ({
-      getSocketGames: vi.fn().mockReturnValue(["game-2"]),
-      untrackSocket: vi.fn(),
-    }));
-
-    const { cleanupGameSubscriptions } = await import(
-      "../../socket/handlers/game/cleanup"
-    );
-
-    const socket = {
-      id: "sock-2",
-      data: { odv: "player2" },
-    } as any;
-
-    await cleanupGameSubscriptions({} as any, socket);
-
-    expect(broadcastFn).not.toHaveBeenCalled();
   });
 });
 
@@ -519,9 +336,7 @@ describe("gameNotificationService line 45 — trickName in your_turn notificatio
     }));
     vi.doMock("@shared/schema", () => ({}));
 
-    const { sendGameNotification } = await import(
-      "../../services/gameNotificationService"
-    );
+    const { sendGameNotification } = await import("../../services/gameNotificationService");
 
     await sendGameNotification("push-token", "your_turn", {
       gameId: "g1",
@@ -532,7 +347,7 @@ describe("gameNotificationService line 45 — trickName in your_turn notificatio
     expect(mockSendPush).toHaveBeenCalledWith(
       expect.objectContaining({
         body: expect.stringContaining("Kickflip"),
-      }),
+      })
     );
   });
 });
@@ -559,9 +374,13 @@ describe("battle service line 164 — castVote with no vote state", () => {
         }),
         select: vi.fn().mockReturnValue({
           from: vi.fn().mockReturnValue({
-            where: vi.fn().mockResolvedValue([{
-              id: "battle1", creatorId: "c1", opponentId: "o1",
-            }]),
+            where: vi.fn().mockResolvedValue([
+              {
+                id: "battle1",
+                creatorId: "c1",
+                opponentId: "o1",
+              },
+            ]),
           }),
         }),
         insert: vi.fn().mockReturnValue({
@@ -672,7 +491,9 @@ describe("logger line 83 — empty context after redaction", () => {
   beforeEach(() => {
     vi.resetModules();
   });
-  afterEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it("outputs line without context when sanitized object is empty", async () => {
     // We need NODE_ENV !== "production" to get the non-JSON path
@@ -695,9 +516,7 @@ describe("logger line 83 — empty context after redaction", () => {
     // Redact returns empty result → serialized = "" on line 83
     mod.default.info("test message no context");
 
-    expect(infoSpy).toHaveBeenCalledWith(
-      expect.stringContaining("test message no context"),
-    );
+    expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining("test message no context"));
 
     process.env.NODE_ENV = origEnv;
   });
@@ -781,7 +600,11 @@ describe("lockout line 186 — recordAttempt catch block", () => {
       accountLockouts: { email: "email", unlockAt: "unlockAt" },
     }));
     vi.doMock("drizzle-orm", () => ({
-      eq: vi.fn(), and: vi.fn(), gt: vi.fn(), sql: vi.fn(), count: vi.fn(),
+      eq: vi.fn(),
+      and: vi.fn(),
+      gt: vi.fn(),
+      sql: vi.fn(),
+      count: vi.fn(),
     }));
 
     const { default: LockoutService } = await import("../../auth/lockout");
@@ -929,9 +752,7 @@ describe("server admin.ts line 10", () => {
 // ===========================================================================
 describe("sitemap-config line 257 — validateAllEntries with errors", () => {
   it("validateEntry returns errors for bad entries", async () => {
-    const { validateEntry } = await import(
-      "../../../packages/shared/sitemap-config"
-    );
+    const { validateEntry } = await import("../../../packages/shared/sitemap-config");
     const errors = validateEntry({
       path: "no-leading-slash",
       changefreq: "weekly",
@@ -980,7 +801,9 @@ describe("filmerRequests operations — deviceId optional spread", () => {
             }
             if (selectCallCount === 1) {
               // First select: check-in lookup (must not have filmerUid/filmerRequestId)
-              chain.limit.mockResolvedValue([{ id: 1, userId: "req1", filmerUid: null, filmerRequestId: null }]);
+              chain.limit.mockResolvedValue([
+                { id: 1, userId: "req1", filmerUid: null, filmerRequestId: null },
+              ]);
             } else {
               // Second select: existing request lookup — none found
               chain.limit.mockResolvedValue([]);
@@ -1014,7 +837,10 @@ describe("filmerRequests operations — deviceId optional spread", () => {
       customUsers: { id: "id", isActive: "isActive", email: "email" },
     }));
     vi.doMock("drizzle-orm", () => ({
-      and: vi.fn(), desc: vi.fn(), eq: vi.fn(), or: vi.fn(),
+      and: vi.fn(),
+      desc: vi.fn(),
+      eq: vi.fn(),
+      or: vi.fn(),
     }));
     vi.doMock("../../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -1033,9 +859,7 @@ describe("filmerRequests operations — deviceId optional spread", () => {
       formatDateKey: vi.fn().mockReturnValue("2026-03-01"),
     }));
 
-    const { createFilmerRequest } = await import(
-      "../../services/filmerRequests/operations"
-    );
+    const { createFilmerRequest } = await import("../../services/filmerRequests/operations");
 
     const result = await createFilmerRequest({
       requesterId: "req1",
@@ -1050,7 +874,7 @@ describe("filmerRequests operations — deviceId optional spread", () => {
     expect(mockAuditLog).toHaveBeenCalledWith(
       expect.objectContaining({
         metadata: expect.objectContaining({ deviceId: "device-123" }),
-      }),
+      })
     );
   });
 
@@ -1077,10 +901,15 @@ describe("filmerRequests operations — deviceId optional spread", () => {
             chain[m] = vi.fn().mockReturnValue(chain);
           }
           // limit query returns the filmer request
-          chain.limit.mockResolvedValue([{
-            id: "req-1", checkInId: 1, requesterId: "req1",
-            filmerId: "filmer1", status: "pending",
-          }]);
+          chain.limit.mockResolvedValue([
+            {
+              id: "req-1",
+              checkInId: 1,
+              requesterId: "req1",
+              filmerId: "filmer1",
+              status: "pending",
+            },
+          ]);
           chain.returning.mockResolvedValue([{ id: "req-1" }]);
 
           tx.select = vi.fn(() => chain);
@@ -1095,7 +924,10 @@ describe("filmerRequests operations — deviceId optional spread", () => {
       customUsers: { id: "id", isActive: "isActive", email: "email" },
     }));
     vi.doMock("drizzle-orm", () => ({
-      and: vi.fn(), desc: vi.fn(), eq: vi.fn(), or: vi.fn(),
+      and: vi.fn(),
+      desc: vi.fn(),
+      eq: vi.fn(),
+      or: vi.fn(),
     }));
     vi.doMock("../../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -1114,9 +946,7 @@ describe("filmerRequests operations — deviceId optional spread", () => {
       formatDateKey: vi.fn().mockReturnValue("2026-03-01"),
     }));
 
-    const { respondToFilmerRequest } = await import(
-      "../../services/filmerRequests/operations"
-    );
+    const { respondToFilmerRequest } = await import("../../services/filmerRequests/operations");
 
     const result = await respondToFilmerRequest({
       requestId: "req-1",
@@ -1133,7 +963,7 @@ describe("filmerRequests operations — deviceId optional spread", () => {
           deviceId: "device-456",
           reason: "Not available",
         }),
-      }),
+      })
     );
   });
 });

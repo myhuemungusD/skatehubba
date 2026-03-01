@@ -4,7 +4,6 @@
  * - server/routes/filmer.ts (2 uncovered)
  * - server/monitoring/index.ts (lines 269, 293)
  * - server/logger.ts (lines 83, 155)
- * - server/services/game/tricks.ts (lines 117, 174)
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
@@ -65,123 +64,6 @@ describe("Logger branches", () => {
 });
 
 // ===========================================================================
-// game/tricks.ts — branch coverage (lines 117, 174)
-// ===========================================================================
-describe("game/tricks branches", () => {
-  beforeEach(() => {
-    vi.resetModules();
-    vi.clearAllMocks();
-  });
-
-  it("Line 117: submitTrick during attempt phase — continues to next attempter", async () => {
-    const gameBefore = {
-      id: "game-1",
-      status: "active",
-      currentAction: "attempt",
-      currentTurnIndex: 1,
-      setterId: "p1",
-      players: [
-        { odv: "p1", letters: "", connected: true },
-        { odv: "p2", letters: "", connected: true },
-        { odv: "p3", letters: "", connected: true },
-      ],
-      processedEventIds: [],
-      maxPlayers: 3,
-      spotId: "spot-1",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      turnDeadlineAt: new Date(),
-      winnerId: null,
-      currentTrick: "kickflip",
-      pausedAt: null,
-    };
-
-    const mockTx: any = {};
-    mockTx.select = vi.fn(() => mockTx);
-    mockTx.from = vi.fn(() => mockTx);
-    mockTx.where = vi.fn(() => mockTx);
-    mockTx.for = vi.fn().mockResolvedValue([gameBefore]);
-    mockTx.update = vi.fn(() => mockTx);
-    mockTx.set = vi.fn(() => mockTx);
-    mockTx.returning = vi.fn().mockResolvedValue([{
-      ...gameBefore,
-      currentTurnIndex: 2,
-      currentAction: "attempt",
-    }]);
-
-    const mockDb: any = { transaction: vi.fn(async (fn: any) => fn(mockTx)) };
-
-    vi.doMock("../../db", () => ({ getDb: vi.fn().mockReturnValue(mockDb) }));
-    vi.doMock("@shared/schema", () => ({ gameSessions: { id: "id" } }));
-    vi.doMock("drizzle-orm", () => ({ eq: vi.fn() }));
-    vi.doMock("../../logger", () => ({
-      default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-    }));
-    vi.doMock("../../services/analyticsService", () => ({
-      logServerEvent: vi.fn().mockResolvedValue(undefined),
-    }));
-    vi.doMock("../../services/game/constants", () => ({
-      MAX_PROCESSED_EVENTS: 100,
-      TURN_TIMEOUT_MS: 60000,
-    }));
-    vi.doMock("../../services/game/helpers", () => ({
-      getNextLetter: vi.fn((letters: string) => letters + "S"),
-      isEliminated: vi.fn((letters: string) => letters === "SKATE"),
-      rowToGameState: vi.fn((row: any) => row),
-    }));
-
-    const { submitTrick } = await import("../../services/game/tricks");
-    const result = await submitTrick({
-      eventId: "evt-1",
-      gameId: "game-1",
-      odv: "p2",
-      trickName: "kickflip",
-    });
-
-    expect(result.success).toBe(true);
-  });
-
-  it("Line 174: passTrick — game not found returns error", async () => {
-    const mockTx: any = {};
-    mockTx.select = vi.fn(() => mockTx);
-    mockTx.from = vi.fn(() => mockTx);
-    mockTx.where = vi.fn(() => mockTx);
-    mockTx.for = vi.fn().mockResolvedValue([]); // No game found
-
-    const mockDb: any = { transaction: vi.fn(async (fn: any) => fn(mockTx)) };
-
-    vi.doMock("../../db", () => ({ getDb: vi.fn().mockReturnValue(mockDb) }));
-    vi.doMock("@shared/schema", () => ({ gameSessions: { id: "id" } }));
-    vi.doMock("drizzle-orm", () => ({ eq: vi.fn() }));
-    vi.doMock("../../logger", () => ({
-      default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-    }));
-    vi.doMock("../../services/analyticsService", () => ({
-      logServerEvent: vi.fn().mockResolvedValue(undefined),
-    }));
-    vi.doMock("../../services/game/constants", () => ({
-      MAX_PROCESSED_EVENTS: 100,
-      TURN_TIMEOUT_MS: 60000,
-    }));
-    vi.doMock("../../services/game/helpers", () => ({
-      getNextLetter: vi.fn(),
-      isEliminated: vi.fn(),
-      rowToGameState: vi.fn((row: any) => row),
-    }));
-
-    const { passTrick } = await import("../../services/game/tricks");
-    const result = await passTrick({
-      eventId: "evt-2",
-      gameId: "nonexistent-game",
-      odv: "p1",
-    });
-
-    expect(result.success).toBe(false);
-    expect(result.error).toBe("Game not found");
-  });
-});
-
-// ===========================================================================
 // admin.ts — branch coverage (using same pattern as admin-routes.test.ts)
 // ===========================================================================
 describe("admin routes branches", () => {
@@ -210,7 +92,10 @@ describe("admin routes branches", () => {
     vi.doMock("../../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
       createChildLogger: vi.fn(() => ({
-        info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn(),
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
       })),
     }));
 
@@ -231,31 +116,53 @@ describe("admin routes branches", () => {
     }));
 
     vi.doMock("drizzle-orm", () => ({
-      eq: vi.fn(), desc: vi.fn(), and: vi.fn(), sql: vi.fn(),
-      count: vi.fn(), ilike: vi.fn(), or: vi.fn(),
-      inArray: vi.fn(), gte: vi.fn(), lte: vi.fn(),
+      eq: vi.fn(),
+      desc: vi.fn(),
+      and: vi.fn(),
+      sql: vi.fn(),
+      count: vi.fn(),
+      ilike: vi.fn(),
+      or: vi.fn(),
+      inArray: vi.fn(),
+      gte: vi.fn(),
+      lte: vi.fn(),
     }));
 
     vi.doMock("@shared/schema", () => ({
       customUsers: {
-        id: "id", email: "email", firstName: "firstName",
-        lastName: "lastName", accountTier: "accountTier",
-        trustLevel: "trustLevel", isActive: "isActive",
-        isEmailVerified: "isEmailVerified", lastLoginAt: "lastLoginAt",
-        createdAt: "createdAt", updatedAt: "updatedAt",
-        proAwardedBy: "proAwardedBy", premiumPurchasedAt: "premiumPurchasedAt",
+        id: "id",
+        email: "email",
+        firstName: "firstName",
+        lastName: "lastName",
+        accountTier: "accountTier",
+        trustLevel: "trustLevel",
+        isActive: "isActive",
+        isEmailVerified: "isEmailVerified",
+        lastLoginAt: "lastLoginAt",
+        createdAt: "createdAt",
+        updatedAt: "updatedAt",
+        proAwardedBy: "proAwardedBy",
+        premiumPurchasedAt: "premiumPurchasedAt",
       },
       moderationProfiles: {
-        userId: "userId", isBanned: "isBanned", banExpiresAt: "banExpiresAt",
-        reputationScore: "reputationScore", proVerificationStatus: "proVerificationStatus",
-        isProVerified: "isProVerified", trustLevel: "trustLevel",
-        createdAt: "createdAt", updatedAt: "updatedAt",
+        userId: "userId",
+        isBanned: "isBanned",
+        banExpiresAt: "banExpiresAt",
+        reputationScore: "reputationScore",
+        proVerificationStatus: "proVerificationStatus",
+        isProVerified: "isProVerified",
+        trustLevel: "trustLevel",
+        createdAt: "createdAt",
+        updatedAt: "updatedAt",
       },
       moderationReports: { id: "id", status: "status" },
       modActions: { id: "id", createdAt: "createdAt" },
       auditLogs: {
-        id: "id", eventType: "eventType", userId: "userId",
-        success: "success", createdAt: "createdAt",
+        id: "id",
+        eventType: "eventType",
+        userId: "userId",
+        success: "success",
+        createdAt: "createdAt",
       },
       orders: {},
     }));
@@ -305,8 +212,17 @@ describe("admin routes branches", () => {
 
   it("should handle tier override — set to 'pro' sets proAwardedBy", async () => {
     const chain: any = {};
-    const methods = ["select", "from", "where", "orderBy", "limit", "offset",
-      "update", "set", "returning"];
+    const methods = [
+      "select",
+      "from",
+      "where",
+      "orderBy",
+      "limit",
+      "offset",
+      "update",
+      "set",
+      "returning",
+    ];
     for (const m of methods) chain[m] = vi.fn().mockReturnValue(chain);
     chain.returning.mockResolvedValue([{ id: "user-1", accountTier: "pro" }]);
 
@@ -323,15 +239,22 @@ describe("admin routes branches", () => {
 
     await callHandler("PATCH", "/users/:userId/tier", req, res);
 
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({ success: true })
-    );
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
   });
 
   it("should handle tier override — set to 'free' sets proAwardedBy null", async () => {
     const chain: any = {};
-    const methods = ["select", "from", "where", "orderBy", "limit", "offset",
-      "update", "set", "returning"];
+    const methods = [
+      "select",
+      "from",
+      "where",
+      "orderBy",
+      "limit",
+      "offset",
+      "update",
+      "set",
+      "returning",
+    ];
     for (const m of methods) chain[m] = vi.fn().mockReturnValue(chain);
     chain.returning.mockResolvedValue([{ id: "user-1", accountTier: "free" }]);
 
