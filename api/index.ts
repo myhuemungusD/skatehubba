@@ -46,16 +46,23 @@ export default function serverHandler(req: IncomingMessage, res: ServerResponse)
   // Initialization failed — return a structured JSON diagnostic so the
   // client-side error normalizer can extract a meaningful message instead
   // of falling back to the generic "Something went wrong" default.
+  // Hide error detail in all deployed environments (production AND preview).
+  // VERCEL_ENV is set on every Vercel deployment; NODE_ENV alone is insufficient
+  // because preview deploys often run with NODE_ENV=development.
+  const isDeployed = !!process.env.VERCEL_ENV;
   const body = JSON.stringify({
     error: "SERVER_INIT_FAILED",
     message: "Server failed to start. Check environment variables in Vercel dashboard.",
-    detail: process.env.NODE_ENV === "production" ? undefined : initError?.message,
+    detail: isDeployed ? undefined : initError?.message,
     hint: "Visit /api/env-check for a detailed environment diagnostic.",
   });
 
   res.writeHead(500, {
     "Content-Type": "application/json",
     "Content-Length": Buffer.byteLength(body),
+    "X-Frame-Options": "DENY",
+    "X-Content-Type-Options": "nosniff",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
   });
   res.end(body);
 }

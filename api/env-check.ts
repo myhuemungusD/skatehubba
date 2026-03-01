@@ -14,6 +14,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import crypto from "node:crypto";
 
 const VARS_TO_CHECK = [
   // Server required — app crashes without these
@@ -53,11 +54,48 @@ function checkVar(name: string, mask: boolean) {
   if (raw.trim() === "") {
     return { name, status: "empty_string" as const, length: 0 };
   }
-  const preview = mask ? `${raw.slice(0, 4)}...` : raw;
+  const preview = mask ? `${raw.slice(0, 2)}***` : raw;
   return { name, status: "set" as const, length: raw.length, preview };
 }
 
+const SECURITY_HEADERS = {
+  "Content-Type": "application/json",
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+};
+
+/**
+ * Constant-time string comparison using HMAC to avoid leaking length info.
+ * Uses only the node:crypto built-in — no server code imports.
+ */
+function timingSafeTokenEqual(a: string, b: string): boolean {
+  const key = crypto.randomBytes(32);
+  const hmacA = crypto.createHmac("sha256", key).update(a).digest();
+  const hmacB = crypto.createHmac("sha256", key).update(b).digest();
+  return crypto.timingSafeEqual(hmacA, hmacB);
+}
+
 export default function handler(req: IncomingMessage, res: ServerResponse) {
+  // Fail closed: reject all requests when CRON_SECRET is not configured.
+  // This matches the pattern established in server/middleware/cronAuth.ts
+  // and prevents silent auth bypass on misconfigured deployments.
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    res.writeHead(403, SECURITY_HEADERS);
+    res.end(JSON.stringify({ error: "Forbidden. Env-check is disabled until CRON_SECRET is configured." }));
+    return;
+  }
+
+  const authHeader = req.headers.authorization ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
+  if (!token || !timingSafeTokenEqual(token, cronSecret)) {
+    res.writeHead(401, SECURITY_HEADERS);
+    res.end(JSON.stringify({ error: "Unauthorized" }));
+    return;
+  }
+
   const results = VARS_TO_CHECK.map((v) => checkVar(v.name, v.mask));
 
   const requiredNames: string[] = VARS_TO_CHECK.filter((v) => v.required).map((v) => v.name);
@@ -81,6 +119,6 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
   };
 
   const status = failing.length === 0 ? 200 : 503;
-  res.writeHead(status, { "Content-Type": "application/json" });
+  res.writeHead(status, SECURITY_HEADERS);
   res.end(JSON.stringify(payload, null, 2));
 }
