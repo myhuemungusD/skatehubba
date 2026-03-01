@@ -626,6 +626,39 @@ describe("Game State Transitions - Critical Paths", () => {
       expect(result.success).toBe(false);
       expect(result.error).toContain("not in game");
     });
+
+    it("forfeit with all other players eliminated yields winnerId=null (line 62)", async () => {
+      const gameId = "game-forfeit-no-winner";
+      const now = new Date();
+      stores.gameSessions.set(gameId, {
+        id: gameId,
+        spotId: "spot-1",
+        creatorId: "player-A",
+        players: [
+          { odv: "player-A", letters: "" },
+          { odv: "player-B", letters: "SKATE" },
+        ],
+        maxPlayers: 4,
+        currentTurnIndex: 0,
+        currentAction: "set",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+        processedEventIds: [],
+      });
+
+      const result = await forfeitGame({
+        eventId: "evt-forfeit-no-winner",
+        gameId,
+        odv: "player-A",
+        reason: "voluntary",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.game!.status).toBe("completed");
+      // No active players remain, so winnerId is null in DB but mapped to undefined by rowToGameState
+      expect(result.game!.winnerId).toBeUndefined();
+    });
   });
 
   // ==========================================================================

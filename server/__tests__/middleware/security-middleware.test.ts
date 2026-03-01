@@ -411,6 +411,41 @@ describe("validateEmail", () => {
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith({ error: "Please enter a valid email address" });
   });
+
+  it("should reject email with empty local part (user@ form triggers !domain false path)", () => {
+    // "x@" has length 2, caught by length < 3. Use "xx@" instead — at=2, domain=""
+    const req = mockRequest({ body: { email: "xx@" } });
+    validateEmail(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Please enter a valid email address" });
+  });
+
+  it("should reject email with invalid characters in local part (line 426)", () => {
+    const req = mockRequest({ body: { email: "user!name@example.com" } });
+    validateEmail(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Please enter a valid email address" });
+  });
+
+  it("should reject email with special characters in domain (line 430)", () => {
+    // $ is printable ASCII but not in [A-Za-z0-9-], so domain regex fails
+    const req = mockRequest({ body: { email: "user@exam$ple.com" } });
+    validateEmail(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Please enter a valid email address" });
+  });
+
+  it("should reject email with domain label exceeding 63 characters (line 431)", () => {
+    const longLabel = "a".repeat(64);
+    const req = mockRequest({ body: { email: `user@${longLabel}.com` } });
+    validateEmail(req, res, next);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith({ error: "Please enter a valid email address" });
+  });
 });
 
 // ===========================================================================

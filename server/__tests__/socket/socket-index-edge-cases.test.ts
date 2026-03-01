@@ -135,7 +135,7 @@ vi.mock("../../config/constants", () => ({
 // Imports
 // ============================================================================
 
-const { initializeSocketServer } = await import("../../socket/index");
+const { initializeSocketServer, shutdownSocketServer } = await import("../../socket/index");
 const logger = (await import("../../logger")).default;
 
 // ============================================================================
@@ -186,6 +186,40 @@ describe("Socket Index — edge cases (lines 165, 175)", () => {
       expect.objectContaining({
         socketId: "socket-error-test",
         error: "test socket error",
+      })
+    );
+  });
+
+  it("socket error handler handles non-Error values (line 193)", async () => {
+    initializeSocketServer({} as any);
+
+    const connectionCall = _mockServerOn.mock.calls.find((call: any[]) => call[0] === "connection");
+    const connectionHandler = connectionCall![1];
+
+    const socketHandlers = new Map<string, Function>();
+    const mockSocket = {
+      id: "socket-nonerror-test",
+      data: { odv: "user-nonerror", rooms: new Set() },
+      conn: { transport: { name: "websocket" } },
+      on: vi.fn((event: string, handler: Function) => {
+        socketHandlers.set(event, handler);
+      }),
+      emit: vi.fn(),
+      join: vi.fn(),
+    };
+
+    await connectionHandler(mockSocket);
+
+    const errorHandler = socketHandlers.get("error");
+    expect(errorHandler).toBeDefined();
+    // Pass a non-Error value
+    errorHandler!("string error value");
+
+    expect(logger.error).toHaveBeenCalledWith(
+      "[Socket] Socket error",
+      expect.objectContaining({
+        socketId: "socket-nonerror-test",
+        error: "Unknown error",
       })
     );
   });
@@ -280,6 +314,296 @@ describe("Socket Index — edge cases (lines 165, 175)", () => {
     });
 
     vi.mocked(checkRateLimit).mockReturnValue(true);
+  });
+
+  it("typing handler broadcasts when user is in the room (line 161-165)", async () => {
+    const { checkRateLimit } = await import("../../socket/socketRateLimit");
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+
+    initializeSocketServer({} as any);
+
+    const connectionCall = _mockServerOn.mock.calls.find((call: any[]) => call[0] === "connection");
+    const connectionHandler = connectionCall![1];
+
+    const socketHandlers = new Map<string, Function>();
+    const toEmitMock = vi.fn();
+    const mockSocket = {
+      id: "socket-typing-test",
+      data: { odv: "user-typing", rooms: new Set(["spot:room-abc"]) },
+      conn: { transport: { name: "websocket" } },
+      on: vi.fn((event: string, handler: Function) => {
+        socketHandlers.set(event, handler);
+      }),
+      emit: vi.fn(),
+      join: vi.fn(),
+      to: vi.fn().mockReturnValue({ emit: toEmitMock }),
+    };
+
+    await connectionHandler(mockSocket);
+
+    const typingHandler = socketHandlers.get("typing");
+    expect(typingHandler).toBeDefined();
+
+    // When user IS in the room, it should broadcast
+    typingHandler!("spot:room-abc", true);
+    expect(mockSocket.to).toHaveBeenCalledWith("spot:room-abc");
+    expect(toEmitMock).toHaveBeenCalledWith("typing", {
+      odv: "user-typing",
+      roomId: "spot:room-abc",
+      isTyping: true,
+    });
+
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+  });
+
+  it("typing handler does not broadcast when user is NOT in the room (line 160)", async () => {
+    const { checkRateLimit } = await import("../../socket/socketRateLimit");
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+
+    initializeSocketServer({} as any);
+
+    const connectionCall = _mockServerOn.mock.calls.find((call: any[]) => call[0] === "connection");
+    const connectionHandler = connectionCall![1];
+
+    const socketHandlers = new Map<string, Function>();
+    const toEmitMock = vi.fn();
+    const mockSocket = {
+      id: "socket-typing-noroom",
+      data: { odv: "user-typing-2", rooms: new Set(["spot:other-room"]) },
+      conn: { transport: { name: "websocket" } },
+      on: vi.fn((event: string, handler: Function) => {
+        socketHandlers.set(event, handler);
+      }),
+      emit: vi.fn(),
+      join: vi.fn(),
+      to: vi.fn().mockReturnValue({ emit: toEmitMock }),
+    };
+
+    await connectionHandler(mockSocket);
+
+    const typingHandler = socketHandlers.get("typing");
+    typingHandler!("spot:room-xyz", true);
+
+    // Should NOT broadcast since user isn't in "spot:room-xyz"
+    expect(toEmitMock).not.toHaveBeenCalled();
+
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+  });
+
+  it("typing handler is silenced by rate limit (line 159)", async () => {
+    const { checkRateLimit } = await import("../../socket/socketRateLimit");
+    vi.mocked(checkRateLimit).mockReturnValue(false);
+
+    initializeSocketServer({} as any);
+
+    const connectionCall = _mockServerOn.mock.calls.find((call: any[]) => call[0] === "connection");
+    const connectionHandler = connectionCall![1];
+
+    const socketHandlers = new Map<string, Function>();
+    const toEmitMock = vi.fn();
+    const mockSocket = {
+      id: "socket-typing-rl",
+      data: { odv: "user-rl-typing", rooms: new Set(["spot:room-abc"]) },
+      conn: { transport: { name: "websocket" } },
+      on: vi.fn((event: string, handler: Function) => {
+        socketHandlers.set(event, handler);
+      }),
+      emit: vi.fn(),
+      join: vi.fn(),
+      to: vi.fn().mockReturnValue({ emit: toEmitMock }),
+    };
+
+    await connectionHandler(mockSocket);
+
+    const typingHandler = socketHandlers.get("typing");
+    typingHandler!("spot:room-abc", true);
+
+    // Rate limited - should NOT broadcast
+    expect(toEmitMock).not.toHaveBeenCalled();
+
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+  });
+
+  it("disconnect handler runs full cleanup sequence (lines 170-186)", async () => {
+    const { checkRateLimit, cleanupRateLimits: mockCleanupRL } = await import(
+      "../../socket/socketRateLimit"
+    );
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+
+    initializeSocketServer({} as any);
+
+    const connectionCall = _mockServerOn.mock.calls.find((call: any[]) => call[0] === "connection");
+    const connectionHandler = connectionCall![1];
+
+    const socketHandlers = new Map<string, Function>();
+    const mockSocket = {
+      id: "socket-disconnect-test",
+      data: { odv: "user-disconnect", rooms: new Set() },
+      conn: { transport: { name: "websocket" } },
+      on: vi.fn((event: string, handler: Function) => {
+        socketHandlers.set(event, handler);
+      }),
+      emit: vi.fn(),
+      join: vi.fn(),
+    };
+
+    await connectionHandler(mockSocket);
+
+    const disconnectHandler = socketHandlers.get("disconnect");
+    expect(disconnectHandler).toBeDefined();
+
+    await disconnectHandler!("transport close");
+
+    // Verify cleanup functions were called
+    const { cleanupBattleSubscriptions } = await import("../../socket/handlers/battle");
+    const { cleanupGameSubscriptions } = await import("../../socket/handlers/game");
+    const { leaveAllRooms } = await import("../../socket/rooms");
+    const { handlePresenceDisconnect } = await import("../../socket/handlers/presence");
+
+    expect(cleanupBattleSubscriptions).toHaveBeenCalledWith(mockSocket);
+    expect(cleanupGameSubscriptions).toHaveBeenCalled();
+    expect(leaveAllRooms).toHaveBeenCalledWith(mockSocket);
+    expect(handlePresenceDisconnect).toHaveBeenCalled();
+    expect(mockCleanupSocketHealth).toHaveBeenCalledWith("socket-disconnect-test");
+    expect(mockCleanupRL).toHaveBeenCalledWith("socket-disconnect-test");
+
+    expect(logger.info).toHaveBeenCalledWith(
+      "[Socket] Client disconnected",
+      expect.objectContaining({
+        socketId: "socket-disconnect-test",
+        reason: "transport close",
+      })
+    );
+  });
+
+  it("connection handler emits 'connected' and registers handlers (lines 121-129)", async () => {
+    const { checkRateLimit } = await import("../../socket/socketRateLimit");
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+
+    initializeSocketServer({} as any);
+
+    const connectionCall = _mockServerOn.mock.calls.find((call: any[]) => call[0] === "connection");
+    const connectionHandler = connectionCall![1];
+
+    const socketHandlers = new Map<string, Function>();
+    const mockSocket = {
+      id: "socket-connect-test",
+      data: { odv: "user-connect", rooms: new Set() },
+      conn: { transport: { name: "websocket" } },
+      on: vi.fn((event: string, handler: Function) => {
+        socketHandlers.set(event, handler);
+      }),
+      emit: vi.fn(),
+      join: vi.fn(),
+    };
+
+    await connectionHandler(mockSocket);
+
+    // Should emit 'connected' event
+    expect(mockSocket.emit).toHaveBeenCalledWith(
+      "connected",
+      expect.objectContaining({
+        userId: "user-connect",
+        serverTime: expect.any(String),
+      })
+    );
+
+    // Should have registered handlers for room:join, room:leave, typing, disconnect, error
+    expect(socketHandlers.has("room:join")).toBe(true);
+    expect(socketHandlers.has("room:leave")).toBe(true);
+    expect(socketHandlers.has("typing")).toBe(true);
+    expect(socketHandlers.has("disconnect")).toBe(true);
+    expect(socketHandlers.has("error")).toBe(true);
+
+    // Should have called registerPresenceHandlers, registerBattleHandlers, registerGameHandlers
+    const { registerPresenceHandlers } = await import("../../socket/handlers/presence");
+    const { registerBattleHandlers } = await import("../../socket/handlers/battle");
+    const { registerGameHandlers } = await import("../../socket/handlers/game");
+
+    expect(registerPresenceHandlers).toHaveBeenCalled();
+    expect(registerBattleHandlers).toHaveBeenCalled();
+    expect(registerGameHandlers).toHaveBeenCalled();
+
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+  });
+
+  it("room:join calls joinRoom when not rate limited", async () => {
+    const { checkRateLimit } = await import("../../socket/socketRateLimit");
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+
+    initializeSocketServer({} as any);
+
+    const connectionCall = _mockServerOn.mock.calls.find((call: any[]) => call[0] === "connection");
+    const connectionHandler = connectionCall![1];
+
+    const socketHandlers = new Map<string, Function>();
+    const mockSocket = {
+      id: "socket-join-test",
+      data: { odv: "user-join", rooms: new Set() },
+      conn: { transport: { name: "websocket" } },
+      on: vi.fn((event: string, handler: Function) => {
+        socketHandlers.set(event, handler);
+      }),
+      emit: vi.fn(),
+      join: vi.fn(),
+    };
+
+    await connectionHandler(mockSocket);
+
+    const roomJoinHandler = socketHandlers.get("room:join");
+    await roomJoinHandler!("battle", "room-1");
+
+    const { joinRoom } = await import("../../socket/rooms");
+    expect(joinRoom).toHaveBeenCalledWith(mockSocket, "battle", "room-1");
+
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+  });
+
+  it("room:leave calls leaveRoom when not rate limited", async () => {
+    const { checkRateLimit } = await import("../../socket/socketRateLimit");
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+
+    initializeSocketServer({} as any);
+
+    const connectionCall = _mockServerOn.mock.calls.find((call: any[]) => call[0] === "connection");
+    const connectionHandler = connectionCall![1];
+
+    const socketHandlers = new Map<string, Function>();
+    const mockSocket = {
+      id: "socket-leave-test",
+      data: { odv: "user-leave", rooms: new Set() },
+      conn: { transport: { name: "websocket" } },
+      on: vi.fn((event: string, handler: Function) => {
+        socketHandlers.set(event, handler);
+      }),
+      emit: vi.fn(),
+      join: vi.fn(),
+    };
+
+    await connectionHandler(mockSocket);
+
+    const roomLeaveHandler = socketHandlers.get("room:leave");
+    await roomLeaveHandler!("game", "room-2");
+
+    const { leaveRoom } = await import("../../socket/rooms");
+    expect(leaveRoom).toHaveBeenCalledWith(mockSocket, "game", "room-2");
+
+    vi.mocked(checkRateLimit).mockReturnValue(true);
+  });
+
+  it("shutdownSocketServer skips stopHealthMonitor when healthMonitorInterval is null (line 264)", async () => {
+    const io = initializeSocketServer({} as any);
+
+    // First shutdown sets healthMonitorInterval to null
+    await shutdownSocketServer(io as any);
+
+    vi.clearAllMocks();
+    mockStartHealthMonitor.mockReturnValue(42);
+
+    // Second shutdown — healthMonitorInterval is already null, so stopHealthMonitor should NOT be called
+    await shutdownSocketServer(io as any);
+
+    expect(mockStopHealthMonitor).not.toHaveBeenCalled();
   });
 
   it("logs warning when ALLOWED_ORIGINS is not set in production (line 204)", () => {

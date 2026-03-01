@@ -152,6 +152,22 @@ describe("Filmer Routes", () => {
       expect(res.status).toHaveBeenCalledWith(500);
     });
 
+    it("lines 51-52: should default trustLevel to 0 and isActive to true when undefined", async () => {
+      mockCreateFilmerRequest.mockResolvedValue({ id: "req-2", alreadyExists: false });
+      const req = createReq({
+        currentUser: { id: "user-1", trustLevel: undefined, isActive: undefined },
+        body: { checkInId: "123", filmerUid: "filmer-1" },
+      });
+      const res = createRes();
+      await handleFilmerRequest(req as any, res as any);
+      expect(mockCreateFilmerRequest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requesterTrustLevel: 0,
+          requesterIsActive: true,
+        })
+      );
+    });
+
     it("should pass device ID from header", async () => {
       mockCreateFilmerRequest.mockResolvedValue({ id: "req-1", alreadyExists: false });
       const req = createReq({

@@ -41,14 +41,13 @@ vi.mock("drizzle-orm", () => ({
   eq: (col: any, val: any) => ({ _op: "eq", col, val }),
 }));
 
-vi.mock("drizzle-orm/node-postgres", () => ({
+vi.mock("drizzle-orm/neon-serverless", () => ({
   drizzle: vi.fn(() => null),
 }));
 
-vi.mock("pg", () => ({
-  default: {
-    Pool: vi.fn(() => ({ on: vi.fn() })),
-  },
+vi.mock("@neondatabase/serverless", () => ({
+  Pool: vi.fn(() => ({ on: vi.fn() })),
+  neonConfig: {},
 }));
 
 // Mock schema

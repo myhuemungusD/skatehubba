@@ -263,6 +263,106 @@ describe("firebase/config", () => {
     });
   });
 
+  describe("config fallback branches (lines 79-82)", () => {
+    it("falls back authDomain to projectId.firebaseapp.com when not set", async () => {
+      vi.stubEnv("EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN", "");
+
+      mockGetApps.mockReturnValue([]);
+      await import("../config");
+
+      expect(mockInitializeApp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          authDomain: "test-project.firebaseapp.com",
+        })
+      );
+    });
+
+    it("falls back storageBucket to projectId.firebasestorage.app when not set", async () => {
+      vi.stubEnv("EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET", "");
+
+      mockGetApps.mockReturnValue([]);
+      await import("../config");
+
+      expect(mockInitializeApp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          storageBucket: "test-project.firebasestorage.app",
+        })
+      );
+    });
+
+    it("falls back messagingSenderId to empty string when not set", async () => {
+      vi.stubEnv("EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID", "");
+
+      mockGetApps.mockReturnValue([]);
+      await import("../config");
+
+      expect(mockInitializeApp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messagingSenderId: "",
+        })
+      );
+    });
+
+    it("passes measurementId as empty string when env var is empty", async () => {
+      vi.stubEnv("EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID", "");
+
+      mockGetApps.mockReturnValue([]);
+      await import("../config");
+
+      expect(mockInitializeApp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          measurementId: "",
+        })
+      );
+    });
+  });
+
+  describe("DEV logging guard — non-localhost branch (lines 123-131)", () => {
+    it("does not log env banner when window.location.hostname is not localhost", async () => {
+      const origWindow = globalThis.window;
+      (globalThis as any).window = { location: { hostname: "skatehubba.com" } };
+
+      try {
+        await import("../config");
+        const { logger } = await import("../../logger");
+
+        const logCalls = vi.mocked(logger.log).mock.calls;
+        const envBannerCalls = logCalls.filter(
+          (call) => typeof call[0] === "string" && call[0].includes("[Firebase]")
+        );
+        expect(envBannerCalls).toHaveLength(0);
+      } finally {
+        if (origWindow === undefined) {
+          delete (globalThis as any).window;
+        } else {
+          globalThis.window = origWindow;
+        }
+      }
+    });
+
+    it("does not log env banner when window is undefined", async () => {
+      const origWindow = globalThis.window;
+      delete (globalThis as any).window;
+
+      try {
+        await import("../config");
+        const { logger } = await import("../../logger");
+
+        const logCalls = vi.mocked(logger.log).mock.calls;
+        const envBannerCalls = logCalls.filter(
+          (call) => typeof call[0] === "string" && call[0].includes("[Firebase]")
+        );
+        expect(envBannerCalls).toHaveLength(0);
+      } finally {
+        if (origWindow === undefined) {
+          delete (globalThis as any).window;
+        } else {
+          globalThis.window = origWindow;
+        }
+      }
+    });
+  });
+
   describe("exports", () => {
     it("exports all expected symbols", async () => {
       const config = await import("../config");

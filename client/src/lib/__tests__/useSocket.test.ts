@@ -490,6 +490,20 @@ describe("useSocket", () => {
       const errorUpdates = getStateUpdatesFor(1);
       expect(errorUpdates).toContain("Too many requests");
     });
+
+    it("uses 'Server error' fallback when data.message is not a string (line 192)", async () => {
+      const { useSocket } = await import("../useSocket");
+      useSocket();
+
+      const connectFn = capturedCallbacks[0];
+      await connectFn();
+
+      const serverErrorHandler = getSocketHandler("error");
+      serverErrorHandler!({ code: "UNKNOWN", message: 12345 });
+
+      const errorUpdates = getStateUpdatesFor(1);
+      expect(errorUpdates).toContain("Server error");
+    });
   });
 
   // -----------------------------------------------------------------------

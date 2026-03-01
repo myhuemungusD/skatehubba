@@ -223,6 +223,25 @@ describe("POST /api/matchmaking/quick-match", () => {
     expect(logger.error).toHaveBeenCalled();
   });
 
+  it("should use 'Skater' when opponent has no firstName (line 81 fallback)", async () => {
+    const opponents = [{ id: "opponent1", firstName: null, pushToken: "expo-token-1" }];
+    vi.mocked(getDb).mockReturnValue(buildMatchmakingDb(opponents) as any);
+    vi.mocked(sendQuickMatchNotification).mockResolvedValue(undefined);
+
+    const req = mockReq();
+    const res = mockRes();
+    await callHandler("POST /quick-match", req, res);
+
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        success: true,
+        match: expect.objectContaining({
+          opponentName: "Skater",
+        }),
+      })
+    );
+  });
+
   it("should return 500 when sendQuickMatchNotification throws", async () => {
     const opponents = [{ id: "opponent1", firstName: "Opponent", pushToken: "expo-token-1" }];
     vi.mocked(getDb).mockReturnValue(buildMatchmakingDb(opponents) as any);

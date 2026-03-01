@@ -172,6 +172,88 @@ const mockApiDocumentation = [
       },
     ],
   },
+  // ── Additional category to cover remaining branches ──────────────
+  {
+    name: "BranchCoverage",
+    description: "Endpoints to exercise uncovered branches",
+    endpoints: [
+      // Covers: requestBody.type falsy (line 94 — || "application/json" fallback)
+      {
+        method: "POST",
+        path: "/api/branch/no-content-type",
+        description: "Endpoint with requestBody but no explicit type",
+        requestBody: {
+          type: "",
+          example: { field: "value" },
+        },
+        responses: [
+          { status: 200, description: "OK", example: { ok: true } },
+        ],
+      },
+      // Covers: empty array inference (line 37 — example.length > 0 is false)
+      {
+        method: "GET",
+        path: "/api/branch/empty-array",
+        description: "Endpoint with empty array response example",
+        responses: [
+          { status: 200, description: "Empty list", example: [] },
+        ],
+      },
+      // Covers: body params with none required (line 111 — required.length === 0)
+      {
+        method: "PATCH",
+        path: "/api/branch/optional-body",
+        description: "Endpoint with all-optional body params",
+        parameters: [
+          {
+            name: "nickname",
+            type: "string",
+            location: "body" as const,
+            required: false,
+            description: "Optional nickname",
+          },
+        ],
+        responses: [
+          { status: 200, description: "OK", example: { ok: true } },
+        ],
+      },
+      // Covers: mapParamType "bool" branch (line 161) and "array" branch (line 162)
+      {
+        method: "POST",
+        path: "/api/branch/param-types",
+        description: "Endpoint with bool and array param types",
+        parameters: [
+          {
+            name: "active",
+            type: "bool",
+            location: "query" as const,
+            required: false,
+            description: "Active flag",
+          },
+          {
+            name: "ids",
+            type: "array",
+            location: "query" as const,
+            required: false,
+            description: "Array of IDs",
+          },
+        ],
+        responses: [
+          { status: 200, description: "OK", example: { ok: true } },
+        ],
+      },
+      // Covers: authentication fallback to both schemes (line 72)
+      {
+        method: "GET",
+        path: "/api/branch/generic-auth",
+        description: "Endpoint with non-specific auth string",
+        authentication: "API key required",
+        responses: [
+          { status: 200, description: "OK", example: { ok: true } },
+        ],
+      },
+    ],
+  },
 ];
 
 vi.mock("../../api-docs/index", () => ({
@@ -226,7 +308,7 @@ describe("generateOpenAPISpec", () => {
 
   // 2. Correct tags from categories
   it("generates correct tags from categories", () => {
-    expect(spec.tags).toHaveLength(2);
+    expect(spec.tags).toHaveLength(3);
     expect(spec.tags[0]).toEqual({
       name: "Users",
       description: "User management endpoints",
@@ -234,6 +316,10 @@ describe("generateOpenAPISpec", () => {
     expect(spec.tags[1]).toEqual({
       name: "Spots",
       description: "Skate spot discovery",
+    });
+    expect(spec.tags[2]).toEqual({
+      name: "BranchCoverage",
+      description: "Endpoints to exercise uncovered branches",
     });
   });
 
@@ -469,5 +555,48 @@ describe("generateOpenAPISpec", () => {
     const resp201 = postOp.responses["201"];
     expect(resp201.content["application/json"].schema.type).toBe("object");
     expect(resp201.content["application/json"].schema.properties.id).toEqual({ type: "string" });
+  });
+
+  // ── Branch coverage: requestBody.type falsy → defaults to "application/json" ──
+  it("defaults requestBody content type to application/json when type is empty", () => {
+    const op = spec.paths["/api/branch/no-content-type"]["post"] as any;
+    expect(op.requestBody).toBeDefined();
+    expect(op.requestBody.content["application/json"]).toBeDefined();
+    expect(op.requestBody.content["application/json"].schema.type).toBe("object");
+  });
+
+  // ── Branch coverage: inferJsonSchema with empty array → items: { type: "object" } ──
+  it("infers empty array example as array of objects (empty array branch)", () => {
+    const op = spec.paths["/api/branch/empty-array"]["get"] as any;
+    const schema = op.responses["200"].content["application/json"].schema;
+    expect(schema.type).toBe("array");
+    expect(schema.items).toEqual({ type: "object" });
+  });
+
+  // ── Branch coverage: body params with none required → no required array in schema ──
+  it("omits required array when all body params are optional", () => {
+    const op = spec.paths["/api/branch/optional-body"]["patch"] as any;
+    expect(op.requestBody).toBeDefined();
+    expect(op.requestBody.required).toBe(false);
+    const schema = op.requestBody.content["application/json"].schema;
+    expect(schema.type).toBe("object");
+    expect(schema.properties.nickname).toBeDefined();
+    expect(schema.required).toBeUndefined();
+  });
+
+  // ── Branch coverage: mapParamType "bool" → "boolean" and "array" → "array" ──
+  it("maps bool param type to boolean and array param type to array", () => {
+    const op = spec.paths["/api/branch/param-types"]["post"] as any;
+    expect(op.parameters).toBeDefined();
+    const activeParam = op.parameters.find((p: any) => p.name === "active");
+    expect(activeParam.schema.type).toBe("boolean");
+    const idsParam = op.parameters.find((p: any) => p.name === "ids");
+    expect(idsParam.schema.type).toBe("array");
+  });
+
+  // ── Branch coverage: generic auth → both BearerAuth and SessionAuth ──
+  it("assigns both BearerAuth and SessionAuth when auth string is generic", () => {
+    const op = spec.paths["/api/branch/generic-auth"]["get"] as any;
+    expect(op.security).toEqual([{ BearerAuth: [] }, { SessionAuth: [] }]);
   });
 });

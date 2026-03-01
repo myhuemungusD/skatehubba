@@ -499,6 +499,36 @@ describe("Admin Routes", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ users: [], total: 0 }));
     });
 
+    it("line 155: returns total 0 when count query returns undefined totalRow", async () => {
+      let selectCall = 0;
+      mockDbInstance.select.mockImplementation(() => {
+        selectCall++;
+        const c: any = {};
+        c.from = vi.fn().mockReturnValue(c);
+        c.where = vi.fn().mockReturnValue(c);
+        c.orderBy = vi.fn().mockReturnValue(c);
+        c.limit = vi.fn().mockReturnValue(c);
+        c.offset = vi.fn().mockReturnValue(c);
+        if (selectCall === 1) {
+          // users query
+          c.then = (resolve: any) => resolve([]);
+        } else if (selectCall === 2) {
+          // count query returns [undefined] — totalRow is undefined
+          c.then = (resolve: any) => resolve([undefined]);
+        } else {
+          c.then = (resolve: any) => resolve([]);
+        }
+        return c;
+      });
+
+      const req = createReq({ query: {} });
+      const res = createRes();
+
+      await callHandler("GET", "/users", req, res);
+
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ total: 0 }));
+    });
+
     it("returns 500 when database is unavailable", async () => {
       mockGetDb = () => {
         throw new Error("Database not configured");
@@ -918,6 +948,33 @@ describe("Admin Routes", () => {
       );
     });
 
+    it("line 340: returns total 0 when count query returns undefined totalRow for audit-logs", async () => {
+      let selectCall = 0;
+      mockDbInstance.select.mockImplementation(() => {
+        selectCall++;
+        const c: any = {};
+        c.from = vi.fn().mockReturnValue(c);
+        c.where = vi.fn().mockReturnValue(c);
+        c.orderBy = vi.fn().mockReturnValue(c);
+        c.limit = vi.fn().mockReturnValue(c);
+        c.offset = vi.fn().mockReturnValue(c);
+        if (selectCall === 1) {
+          c.then = (resolve: any) => resolve([]);
+        } else {
+          // count query returns [undefined]
+          c.then = (resolve: any) => resolve([undefined]);
+        }
+        return c;
+      });
+
+      const req = createReq({ query: {} });
+      const res = createRes();
+
+      await callHandler("GET", "/audit-logs", req, res);
+
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ total: 0 }));
+    });
+
     it("returns 500 when database is unavailable", async () => {
       mockGetDb = () => {
         throw new Error("Database not configured");
@@ -1029,6 +1086,32 @@ describe("Admin Routes", () => {
           limit: 25,
         })
       );
+    });
+
+    it("line 369: returns total 0 when count query returns undefined totalRow for mod-actions", async () => {
+      let selectCall = 0;
+      mockDbInstance.select.mockImplementation(() => {
+        selectCall++;
+        const c: any = {};
+        c.from = vi.fn().mockReturnValue(c);
+        c.where = vi.fn().mockReturnValue(c);
+        c.orderBy = vi.fn().mockReturnValue(c);
+        c.limit = vi.fn().mockReturnValue(c);
+        c.offset = vi.fn().mockReturnValue(c);
+        if (selectCall === 1) {
+          c.then = (resolve: any) => resolve([]);
+        } else {
+          c.then = (resolve: any) => resolve([undefined]);
+        }
+        return c;
+      });
+
+      const req = createReq({ query: {} });
+      const res = createRes();
+
+      await callHandler("GET", "/mod-actions", req, res);
+
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ total: 0 }));
     });
 
     it("returns 500 when database is unavailable", async () => {

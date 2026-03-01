@@ -14,7 +14,7 @@ export default defineConfig({
     environment: 'node',
     setupFiles: [path.resolve(__dirname, './vitest.setup.ts')],
     include: ['**/*.test.ts', '**/*.test.tsx'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', 'mobile/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**', 'mobile/**', '.claude/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
@@ -71,10 +71,10 @@ export default defineConfig({
         'server/__tests__/helpers/**',
       ],
       thresholds: {
-        statements: 99,
-        branches: 93,
-        functions: 99,
-        lines: 99,
+        statements: 99.5,
+        branches: 99.5,
+        functions: 99.5,
+        lines: 99.5,
       },
     },
     testTimeout: 10000,

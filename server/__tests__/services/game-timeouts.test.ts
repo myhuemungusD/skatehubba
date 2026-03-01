@@ -767,4 +767,315 @@ describe("Game Timeouts", () => {
     await processTimeouts();
     expect(mockUpdate).toHaveBeenCalled();
   });
+
+  // =====================================================================
+  // Additional branch coverage tests
+  // =====================================================================
+
+  it("should skip attempt timeout when freshPlayer is undefined (line 51)", async () => {
+    const now = new Date();
+    const expiredGame = {
+      id: "game-bad-index-attempt",
+      status: "active",
+      currentAction: "attempt",
+      currentTurnIndex: 5, // Out of bounds
+      setterId: "player-A",
+      turnDeadlineAt: new Date(now.getTime() - 1000),
+      players: [
+        { odv: "player-A", letters: "", connected: true },
+        { odv: "player-B", letters: "", connected: true },
+      ],
+      processedEventIds: [],
+    };
+
+    let selectCallCount = 0;
+    mockDbChain.then = (resolve: any) => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return Promise.resolve([expiredGame]).then(resolve);
+      }
+      return Promise.resolve([]).then(resolve);
+    };
+
+    mockTransaction.mockImplementation(async (fn: any) => {
+      // Fresh game also has out-of-bounds currentTurnIndex
+      const freshGame = { ...expiredGame };
+      const tx = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              for: vi.fn().mockResolvedValue([freshGame]),
+            }),
+          }),
+        }),
+        update: vi.fn().mockReturnValue({
+          set: vi.fn().mockReturnValue({
+            where: vi.fn().mockResolvedValue(undefined),
+          }),
+        }),
+      };
+      await fn(tx);
+    });
+
+    await processTimeouts();
+    expect(mockTransaction).toHaveBeenCalled();
+    // No update should occur because freshPlayer is undefined
+  });
+
+  it("should skip set timeout when deadline is no longer expired (line 102)", async () => {
+    const now = new Date();
+    const expiredGame = {
+      id: "game-set-deadline-reset",
+      status: "active",
+      currentAction: "set",
+      currentTurnIndex: 0,
+      setterId: null,
+      turnDeadlineAt: new Date(now.getTime() - 1000),
+      players: [
+        { odv: "player-A", letters: "", connected: true },
+        { odv: "player-B", letters: "", connected: true },
+      ],
+      processedEventIds: [],
+    };
+
+    let selectCallCount = 0;
+    mockDbChain.then = (resolve: any) => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return Promise.resolve([expiredGame]).then(resolve);
+      }
+      return Promise.resolve([]).then(resolve);
+    };
+
+    mockTransaction.mockImplementation(async (fn: any) => {
+      // Deadline was reset to a future time in the set phase
+      const freshGame = {
+        ...expiredGame,
+        turnDeadlineAt: new Date(Date.now() + 60000),
+      };
+      const tx = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              for: vi.fn().mockResolvedValue([freshGame]),
+            }),
+          }),
+        }),
+      };
+      return await fn(tx);
+    });
+
+    await processTimeouts();
+    expect(mockForfeitGame).not.toHaveBeenCalled();
+  });
+
+  it("should skip set timeout when action changed from set (line 103)", async () => {
+    const now = new Date();
+    const expiredGame = {
+      id: "game-set-action-changed",
+      status: "active",
+      currentAction: "set",
+      currentTurnIndex: 0,
+      setterId: null,
+      turnDeadlineAt: new Date(now.getTime() - 1000),
+      players: [
+        { odv: "player-A", letters: "", connected: true },
+        { odv: "player-B", letters: "", connected: true },
+      ],
+      processedEventIds: [],
+    };
+
+    let selectCallCount = 0;
+    mockDbChain.then = (resolve: any) => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return Promise.resolve([expiredGame]).then(resolve);
+      }
+      return Promise.resolve([]).then(resolve);
+    };
+
+    mockTransaction.mockImplementation(async (fn: any) => {
+      // Action changed from "set" to "attempt" between outer query and transaction
+      const freshGame = { ...expiredGame, currentAction: "attempt" };
+      const tx = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              for: vi.fn().mockResolvedValue([freshGame]),
+            }),
+          }),
+        }),
+      };
+      return await fn(tx);
+    });
+
+    await processTimeouts();
+    expect(mockForfeitGame).not.toHaveBeenCalled();
+  });
+
+  it("should skip set timeout when freshPlayer is undefined (lines 105-106)", async () => {
+    const now = new Date();
+    const expiredGame = {
+      id: "game-set-bad-index",
+      status: "active",
+      currentAction: "set",
+      currentTurnIndex: 10, // Out of bounds
+      setterId: null,
+      turnDeadlineAt: new Date(now.getTime() - 1000),
+      players: [
+        { odv: "player-A", letters: "", connected: true },
+        { odv: "player-B", letters: "", connected: true },
+      ],
+      processedEventIds: [],
+    };
+
+    let selectCallCount = 0;
+    mockDbChain.then = (resolve: any) => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return Promise.resolve([expiredGame]).then(resolve);
+      }
+      return Promise.resolve([]).then(resolve);
+    };
+
+    mockTransaction.mockImplementation(async (fn: any) => {
+      // Fresh game also has out-of-bounds currentTurnIndex
+      const freshGame = { ...expiredGame };
+      const tx = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              for: vi.fn().mockResolvedValue([freshGame]),
+            }),
+          }),
+        }),
+      };
+      return await fn(tx);
+    });
+
+    await processTimeouts();
+    expect(mockForfeitGame).not.toHaveBeenCalled();
+  });
+
+  it("should skip paused player whose disconnect is within reconnect window (line 141 false branch)", async () => {
+    const now = new Date();
+    const pausedGame = {
+      id: "game-within-window",
+      status: "paused",
+      currentAction: "set",
+      currentTurnIndex: 0,
+      players: [
+        {
+          odv: "player-A",
+          letters: "",
+          connected: false,
+          // Disconnected only 10 seconds ago — well within the 60s mock window
+          disconnectedAt: new Date(now.getTime() - 10000).toISOString(),
+        },
+        { odv: "player-B", letters: "", connected: true },
+      ],
+      processedEventIds: [],
+    };
+
+    let selectCallCount = 0;
+    mockDbChain.then = (resolve: any) => {
+      selectCallCount++;
+      if (selectCallCount === 1) return Promise.resolve([]).then(resolve);
+      if (selectCallCount === 2) return Promise.resolve([pausedGame]).then(resolve);
+      return Promise.resolve([]).then(resolve);
+    };
+
+    await processTimeouts();
+    // Transaction should NOT be called because elapsed < RECONNECT_WINDOW_MS
+    expect(mockTransaction).not.toHaveBeenCalled();
+    expect(mockForfeitGame).not.toHaveBeenCalled();
+  });
+
+  it("should skip set timeout when status no longer active (line 101)", async () => {
+    const now = new Date();
+    const expiredGame = {
+      id: "game-set-completed",
+      status: "active",
+      currentAction: "set",
+      currentTurnIndex: 0,
+      setterId: null,
+      turnDeadlineAt: new Date(now.getTime() - 1000),
+      players: [
+        { odv: "player-A", letters: "", connected: true },
+        { odv: "player-B", letters: "", connected: true },
+      ],
+      processedEventIds: [],
+    };
+
+    let selectCallCount = 0;
+    mockDbChain.then = (resolve: any) => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return Promise.resolve([expiredGame]).then(resolve);
+      }
+      return Promise.resolve([]).then(resolve);
+    };
+
+    mockTransaction.mockImplementation(async (fn: any) => {
+      // Status changed to completed between outer query and transaction
+      const freshGame = { ...expiredGame, status: "completed" };
+      const tx = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              for: vi.fn().mockResolvedValue([freshGame]),
+            }),
+          }),
+        }),
+      };
+      return await fn(tx);
+    });
+
+    await processTimeouts();
+    expect(mockForfeitGame).not.toHaveBeenCalled();
+  });
+
+  it("should skip set timeout when turnDeadlineAt is null (line 102 null branch)", async () => {
+    const now = new Date();
+    const expiredGame = {
+      id: "game-set-null-deadline",
+      status: "active",
+      currentAction: "set",
+      currentTurnIndex: 0,
+      setterId: null,
+      turnDeadlineAt: new Date(now.getTime() - 1000),
+      players: [
+        { odv: "player-A", letters: "", connected: true },
+        { odv: "player-B", letters: "", connected: true },
+      ],
+      processedEventIds: [],
+    };
+
+    let selectCallCount = 0;
+    mockDbChain.then = (resolve: any) => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return Promise.resolve([expiredGame]).then(resolve);
+      }
+      return Promise.resolve([]).then(resolve);
+    };
+
+    mockTransaction.mockImplementation(async (fn: any) => {
+      // turnDeadlineAt was cleared (set to null)
+      const freshGame = { ...expiredGame, turnDeadlineAt: null };
+      const tx = {
+        select: vi.fn().mockReturnValue({
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              for: vi.fn().mockResolvedValue([freshGame]),
+            }),
+          }),
+        }),
+      };
+      return await fn(tx);
+    });
+
+    await processTimeouts();
+    expect(mockForfeitGame).not.toHaveBeenCalled();
+  });
 });

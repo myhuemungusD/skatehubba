@@ -153,3 +153,38 @@ describe("validateAllEntries", () => {
     expect(errors.size).toBe(0);
   });
 });
+
+describe("validateEntry — additional coverage", () => {
+  it("validates entry with lastmod set (line 216 truthy branch)", () => {
+    const entry = {
+      path: "/test",
+      changefreq: "weekly" as const,
+      priority: 0.5,
+      lastmod: "2025-01-01",
+    };
+    const errors = validateEntry(entry);
+    expect(errors).toEqual([]);
+  });
+});
+
+describe("generateSitemapXml — lastmod branch", () => {
+  it("XML does not contain lastmod for entries without lastmod (line 216 false branch)", () => {
+    // All SITEMAP_ENTRIES lack lastmod, so the false branch (empty string) is always taken.
+    // Verify that no <lastmod> tag appears in generated XML.
+    const xml = generateSitemapXml();
+    expect(xml).not.toContain("<lastmod>");
+  });
+});
+
+describe("validateEntry — error cases for validateAllEntries coverage", () => {
+  it("returns errors for invalid path (line 257 truthy branch via direct call)", () => {
+    const errors = validateEntry({ path: "no-slash", changefreq: "weekly", priority: 0.5 });
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0]).toContain("Path must start with /");
+  });
+
+  it("returns errors for both bad path and bad priority", () => {
+    const errors = validateEntry({ path: "bad", changefreq: "daily", priority: 2.0 });
+    expect(errors.length).toBe(2);
+  });
+});

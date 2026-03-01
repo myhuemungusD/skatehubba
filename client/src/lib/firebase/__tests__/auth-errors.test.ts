@@ -347,6 +347,91 @@ describe("auth-errors", () => {
   });
 
   // ────────────────────────────────────────────────────────────────────────
+  // Prefix match — long Firebase error codes (line 122-123)
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe("prefix match for long Firebase error codes (line 122-123)", () => {
+    it("matches auth/api-key-not-valid with extra suffix via prefix match", () => {
+      const msg = getAuthErrorMessage({
+        code: "auth/api-key-not-valid.-please-pass-a-valid-api-key.",
+      });
+      expect(msg).toContain("Firebase is not configured correctly");
+    });
+
+    it("matches auth/invalid-api-key with extra suffix via prefix match", () => {
+      const msg = getAuthErrorMessage({
+        code: "auth/invalid-api-key.some-extra-detail",
+      });
+      expect(msg).toContain("Firebase is not configured correctly");
+    });
+
+    it("matches auth/unauthorized-domain with extra suffix via prefix match", () => {
+      const msg = getAuthErrorMessage({
+        code: "auth/unauthorized-domain.extra-info",
+      });
+      expect(msg).toContain("not authorized");
+    });
+
+    it("falls back to generic when long code prefix does not match any known code", () => {
+      const msg = getAuthErrorMessage({
+        code: "auth/some-unknown-error.with-extra-stuff",
+      });
+      expect(msg).toBe("Something went wrong. Please try again.");
+    });
+
+    it("does not use prefix match when code has no dot suffix (shortCode === code)", () => {
+      // "auth/email-already-in-use" has no dot, so shortCode === code
+      // This means the prefix match condition `shortCode !== code` is false
+      const msg = getAuthErrorMessage({ code: "auth/email-already-in-use" });
+      expect(msg).toContain("already exists");
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Error instance with Firebase-formatted message containing known code
+  // Falls through to Error.message pass-through / generic fallback
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe("Error instance with embedded unknown code then readable fallback", () => {
+    it("uses Error.message for non-Firebase-prefixed message with unknown embedded code", () => {
+      // Has auth code in message but it's unknown, and message doesn't start with "Firebase:"
+      const error = new Error("Something broke (auth/totally-new-error).");
+      // Error.message is "Something broke (auth/totally-new-error)."
+      // extractFirebaseErrorCode will find "auth/totally-new-error" which is not in the map
+      // shortCode regex won't match (no dot in the code portion)
+      // Then it checks: error instanceof Error -> yes, msg doesn't start with "Firebase:" -> yes
+      // msg.length < 200 -> yes. So it returns the Error.message directly.
+      const msg = getAuthErrorMessage(error);
+      // The embedded code "auth/totally-new-error" is unrecognized, but since the
+      // error message is short and doesn't start with "Firebase:", it passes through
+      expect(msg).toBe("Something broke (auth/totally-new-error).");
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Module-level window branch in unauthorized-domain message (line 37)
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe("unauthorized-domain message includes hostname when window is defined", () => {
+    it("includes window.location.hostname in unauthorized-domain message when window exists", async () => {
+      // Reset modules and stub window before re-importing to cover the
+      // `typeof window !== "undefined" ? window.location.hostname : "unknown"` branch
+      vi.resetModules();
+      vi.stubGlobal("window", {
+        location: { hostname: "my-preview-deploy.vercel.app" },
+      });
+
+      const { getAuthErrorMessage: freshGetAuthErrorMessage } = await import("../auth-errors");
+      const msg = freshGetAuthErrorMessage({ code: "auth/unauthorized-domain" });
+
+      expect(msg).toContain("my-preview-deploy.vercel.app");
+      expect(msg).toContain("not authorized");
+
+      vi.unstubAllGlobals();
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────
   // All mapped codes return non-empty strings
   // ────────────────────────────────────────────────────────────────────────
 

@@ -143,6 +143,11 @@ describe("normalizeApiError", () => {
     expect(err.message).toBe("StatusFallback");
   });
 
+  it("returns fallback when payload is a number (not null, not string, not object) (line 53 false branch)", () => {
+    const err = normalizeApiError({ payload: 42, statusText: "NumberFallback" });
+    expect(err.message).toBe("NumberFallback");
+  });
+
   it("returns undefined from extractCode when payload has no code and error is not a string or object", () => {
     // payload.code is a number (not string), payload.error is a number (not string or object)
     const err = normalizeApiError({ payload: { code: 123, error: 456 }, status: 500 });

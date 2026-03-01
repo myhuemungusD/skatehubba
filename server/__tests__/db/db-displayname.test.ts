@@ -25,17 +25,13 @@ vi.mock("../../config/env", () => ({
 
 vi.mock("../../seeds/defaultSpots", () => ({ defaultSpots: [] }));
 
-// Mock pg with a class-based Pool
-vi.mock("pg", () => {
-  class MockPool {
-    connect = vi.fn();
-    end = vi.fn();
-    query = vi.fn();
-  }
-  return { default: { Pool: MockPool } };
-});
+// Mock Neon serverless
+vi.mock("@neondatabase/serverless", () => ({
+  Pool: vi.fn(() => ({ on: vi.fn() })),
+  neonConfig: {},
+}));
 
-vi.mock("drizzle-orm/node-postgres", () => ({
+vi.mock("drizzle-orm/neon-serverless", () => ({
   drizzle: vi.fn(() => null),
 }));
 

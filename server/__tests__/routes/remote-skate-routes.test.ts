@@ -1948,4 +1948,520 @@ describe("Remote Skate Routes", () => {
       expect(res.status).toHaveBeenCalledWith(500);
     });
   });
+
+  // ==========================================================================
+  // Branch coverage: notification edge cases
+  // ==========================================================================
+
+  describe("notification branch coverage", () => {
+    describe("POST /:gameId/join — game not found after join for notification", () => {
+      it("should succeed even when game doc disappears before notification lookup", async () => {
+        mockTransaction.mockImplementation(async (fn: any) => {
+          const gameSnap = {
+            exists: true,
+            data: () => ({
+              playerAUid: "other-user",
+              playerBUid: null,
+              status: "waiting",
+            }),
+          };
+          const transaction = {
+            get: vi.fn().mockResolvedValue(gameSnap),
+            update: vi.fn(),
+            set: vi.fn(),
+          };
+          return await fn(transaction);
+        });
+
+        // After join, the post-transaction game lookup returns non-existent
+        mockDocGet.mockResolvedValueOnce({ exists: false, data: () => null });
+
+        const req = createReq({ body: {} });
+        const res = createRes();
+        await callHandler("POST /:gameId/join", req, res);
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+        // Notification should NOT be sent because game doc wasn't found
+        expect(mockSendNotification).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("POST /:gameId/rounds/:roundId/set-complete — notification branches", () => {
+      it("should skip notification when game doc disappears after set-complete", async () => {
+        mockTransaction.mockImplementation(async (fn: any) => {
+          const gameSnap = {
+            exists: true,
+            data: () => ({
+              playerAUid: "user-1",
+              playerBUid: "user-2",
+              status: "active",
+            }),
+          };
+          const roundSnap = {
+            exists: true,
+            data: () => ({
+              offenseUid: "user-1",
+              defenseUid: "user-2",
+              status: "awaiting_set",
+            }),
+          };
+          const transaction = {
+            get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+            update: vi.fn(),
+          };
+          await fn(transaction);
+        });
+
+        // Post-transaction game lookup returns non-existent
+        mockDocGet.mockResolvedValueOnce({ exists: false, data: () => null });
+
+        const req = createReq({ body: {} });
+        const res = createRes();
+        await callHandler("POST /:gameId/rounds/:roundId/set-complete", req, res);
+        expect(res.json).toHaveBeenCalledWith({ success: true });
+        expect(mockSendNotification).not.toHaveBeenCalled();
+      });
+
+      it("should resolve defenseUid via ternary when caller is playerA", async () => {
+        // user-1 is playerA, so defenseUid = playerBUid
+        mockTransaction.mockImplementation(async (fn: any) => {
+          const gameSnap = {
+            exists: true,
+            data: () => ({
+              playerAUid: "user-1",
+              playerBUid: "user-2",
+              status: "active",
+            }),
+          };
+          const roundSnap = {
+            exists: true,
+            data: () => ({
+              offenseUid: "user-1",
+              defenseUid: "user-2",
+              status: "awaiting_set",
+            }),
+          };
+          const transaction = {
+            get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+            update: vi.fn(),
+          };
+          await fn(transaction);
+        });
+
+        // Post-transaction game lookup: playerAUid === uid, so defenseUid = playerBUid
+        mockDocGet.mockResolvedValueOnce({
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+          }),
+        });
+
+        const req = createReq({ body: {} });
+        const res = createRes();
+        await callHandler("POST /:gameId/rounds/:roundId/set-complete", req, res);
+        expect(res.json).toHaveBeenCalledWith({ success: true });
+        expect(mockSendNotification).toHaveBeenCalledWith("user-2", "your_turn", {
+          gameId: "game-1",
+        });
+      });
+
+      it("should skip notification when defenseUid is null", async () => {
+        mockTransaction.mockImplementation(async (fn: any) => {
+          const gameSnap = {
+            exists: true,
+            data: () => ({
+              playerAUid: "user-1",
+              playerBUid: "user-2",
+              status: "active",
+            }),
+          };
+          const roundSnap = {
+            exists: true,
+            data: () => ({
+              offenseUid: "user-1",
+              defenseUid: "user-2",
+              status: "awaiting_set",
+            }),
+          };
+          const transaction = {
+            get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+            update: vi.fn(),
+          };
+          await fn(transaction);
+        });
+
+        // Post-transaction game has null playerBUid (defenseUid will be null)
+        mockDocGet.mockResolvedValueOnce({
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: null,
+          }),
+        });
+
+        const req = createReq({ body: {} });
+        const res = createRes();
+        await callHandler("POST /:gameId/rounds/:roundId/set-complete", req, res);
+        expect(res.json).toHaveBeenCalledWith({ success: true });
+        expect(mockSendNotification).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("POST /:gameId/rounds/:roundId/reply-complete — notification branches", () => {
+      it("should skip notification when game doc disappears after reply-complete", async () => {
+        mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
+        mockTransaction.mockImplementation(async (fn: any) => {
+          const gameSnap = {
+            exists: true,
+            data: () => ({
+              playerAUid: "user-1",
+              playerBUid: "user-2",
+              status: "active",
+            }),
+          };
+          const roundSnap = {
+            exists: true,
+            data: () => ({
+              offenseUid: "user-1",
+              defenseUid: "user-2",
+              status: "awaiting_reply",
+            }),
+          };
+          const transaction = {
+            get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+            update: vi.fn(),
+          };
+          await fn(transaction);
+        });
+
+        // Post-transaction game lookup returns non-existent
+        mockDocGet.mockResolvedValueOnce({ exists: false, data: () => null });
+
+        const req = createReq({ body: {} });
+        const res = createRes();
+        await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
+        expect(res.json).toHaveBeenCalledWith({ success: true });
+        expect(mockSendNotification).not.toHaveBeenCalled();
+      });
+
+      it("should resolve offenseUid via ternary when caller is playerA", async () => {
+        // user-2 is caller (defense/playerB); playerAUid === uid is false, so offenseUid = playerAUid
+        // But we want to test the other branch: playerAUid === uid is true, so offenseUid = playerBUid
+        mockVerifyIdToken.mockResolvedValue({ uid: "user-1" });
+        mockTransaction.mockImplementation(async (fn: any) => {
+          const gameSnap = {
+            exists: true,
+            data: () => ({
+              playerAUid: "user-1",
+              playerBUid: "user-2",
+              status: "active",
+            }),
+          };
+          const roundSnap = {
+            exists: true,
+            data: () => ({
+              offenseUid: "user-2",
+              defenseUid: "user-1",
+              status: "awaiting_reply",
+            }),
+          };
+          const transaction = {
+            get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+            update: vi.fn(),
+          };
+          await fn(transaction);
+        });
+
+        // Post-transaction: playerAUid === uid (user-1), so offenseUid = playerBUid (user-2)
+        mockDocGet.mockResolvedValueOnce({
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+          }),
+        });
+
+        const req = createReq({ body: {} });
+        const res = createRes();
+        await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
+        expect(res.json).toHaveBeenCalledWith({ success: true });
+        expect(mockSendNotification).toHaveBeenCalledWith("user-2", "your_turn", {
+          gameId: "game-1",
+        });
+      });
+
+      it("should skip notification when offenseUid is null", async () => {
+        mockVerifyIdToken.mockResolvedValue({ uid: "user-1" });
+        mockTransaction.mockImplementation(async (fn: any) => {
+          const gameSnap = {
+            exists: true,
+            data: () => ({
+              playerAUid: "user-1",
+              playerBUid: "user-2",
+              status: "active",
+            }),
+          };
+          const roundSnap = {
+            exists: true,
+            data: () => ({
+              offenseUid: "user-2",
+              defenseUid: "user-1",
+              status: "awaiting_reply",
+            }),
+          };
+          const transaction = {
+            get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+            update: vi.fn(),
+          };
+          await fn(transaction);
+        });
+
+        // Post-transaction: playerAUid === uid (user-1), so offenseUid = playerBUid = null
+        mockDocGet.mockResolvedValueOnce({
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: null,
+          }),
+        });
+
+        const req = createReq({ body: {} });
+        const res = createRes();
+        await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
+        expect(res.json).toHaveBeenCalledWith({ success: true });
+        expect(mockSendNotification).not.toHaveBeenCalled();
+      });
+    });
+
+    describe("POST /:gameId/rounds/:roundId/resolve — notification branches", () => {
+      it("should skip notification when game doc disappears after resolve", async () => {
+        mockTransaction.mockImplementation(async (fn: any) => {
+          const gameSnap = {
+            exists: true,
+            data: () => ({
+              playerAUid: "user-1",
+              playerBUid: "user-2",
+              status: "active",
+              letters: {},
+            }),
+          };
+          const roundSnap = {
+            exists: true,
+            data: () => ({
+              offenseUid: "user-1",
+              defenseUid: "user-2",
+              status: "awaiting_reply",
+              setVideoId: "vid-1",
+              replyVideoId: "vid-2",
+            }),
+          };
+          const transaction = {
+            get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+            update: vi.fn(),
+          };
+          await fn(transaction);
+        });
+
+        // Post-transaction game lookup returns non-existent
+        mockDocGet.mockResolvedValueOnce({ exists: false, data: () => null });
+
+        const req = createReq({ body: { result: "landed" } });
+        const res = createRes();
+        await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
+        expect(res.json).toHaveBeenCalledWith(
+          expect.objectContaining({ success: true, status: "awaiting_confirmation" })
+        );
+        expect(mockSendNotification).not.toHaveBeenCalled();
+      });
+
+      it("should resolve defenseUid via ternary when caller is playerA in resolve", async () => {
+        mockTransaction.mockImplementation(async (fn: any) => {
+          const gameSnap = {
+            exists: true,
+            data: () => ({
+              playerAUid: "user-1",
+              playerBUid: "user-2",
+              status: "active",
+              letters: {},
+            }),
+          };
+          const roundSnap = {
+            exists: true,
+            data: () => ({
+              offenseUid: "user-1",
+              defenseUid: "user-2",
+              status: "awaiting_reply",
+              setVideoId: "vid-1",
+              replyVideoId: "vid-2",
+            }),
+          };
+          const transaction = {
+            get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+            update: vi.fn(),
+          };
+          await fn(transaction);
+        });
+
+        // Post-transaction: playerAUid === uid (user-1), so defenseUid = playerBUid (user-2)
+        mockDocGet.mockResolvedValueOnce({
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+          }),
+        });
+
+        const req = createReq({ body: { result: "landed" } });
+        const res = createRes();
+        await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
+        expect(res.json).toHaveBeenCalledWith(
+          expect.objectContaining({ success: true })
+        );
+        expect(mockSendNotification).toHaveBeenCalledWith("user-2", "your_turn", {
+          gameId: "game-1",
+        });
+      });
+
+      it("should skip notification when defenseUid is null in resolve", async () => {
+        mockTransaction.mockImplementation(async (fn: any) => {
+          const gameSnap = {
+            exists: true,
+            data: () => ({
+              playerAUid: "user-1",
+              playerBUid: "user-2",
+              status: "active",
+              letters: {},
+            }),
+          };
+          const roundSnap = {
+            exists: true,
+            data: () => ({
+              offenseUid: "user-1",
+              defenseUid: "user-2",
+              status: "awaiting_reply",
+              setVideoId: "vid-1",
+              replyVideoId: "vid-2",
+            }),
+          };
+          const transaction = {
+            get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+            update: vi.fn(),
+          };
+          await fn(transaction);
+        });
+
+        // Post-transaction: playerAUid === uid (user-1), so defenseUid = playerBUid = null
+        mockDocGet.mockResolvedValueOnce({
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: null,
+          }),
+        });
+
+        const req = createReq({ body: { result: "landed" } });
+        const res = createRes();
+        await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
+        expect(res.json).toHaveBeenCalledWith(
+          expect.objectContaining({ success: true })
+        );
+        expect(mockSendNotification).not.toHaveBeenCalled();
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Branch coverage: confirm edge cases
+  // ==========================================================================
+
+  describe("confirm branch coverage", () => {
+    it("should use empty string fallback when defense letters are missing from letters map", async () => {
+      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+            status: "active",
+            // letters map does NOT have an entry for user-2 (defense)
+            letters: { "user-1": "" },
+          }),
+        };
+        const roundSnap = {
+          exists: true,
+          data: () => ({
+            offenseUid: "user-1",
+            defenseUid: "user-2",
+            status: "awaiting_confirmation",
+            offenseClaim: "missed",
+            setVideoId: "vid-1",
+            replyVideoId: "vid-2",
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+          update: vi.fn(),
+          set: vi.fn(),
+        };
+        return await fn(transaction);
+      });
+
+      const req = createReq({ body: { result: "missed" } });
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, disputed: false, result: "missed" })
+      );
+    });
+
+    it("should not add letter when defense already has max letters (SKATE)", async () => {
+      mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
+      mockTransaction.mockImplementation(async (fn: any) => {
+        const gameSnap = {
+          exists: true,
+          data: () => ({
+            playerAUid: "user-1",
+            playerBUid: "user-2",
+            status: "active",
+            // Defense already has full SKATE — should trigger game over AND the
+            // nextLetterIndex < MAX_LETTERS else branch
+            letters: { "user-1": "", "user-2": "SKATE" },
+          }),
+        };
+        const roundSnap = {
+          exists: true,
+          data: () => ({
+            offenseUid: "user-1",
+            defenseUid: "user-2",
+            status: "awaiting_confirmation",
+            offenseClaim: "missed",
+            setVideoId: "vid-1",
+            replyVideoId: "vid-2",
+          }),
+        };
+        const transaction = {
+          get: vi.fn().mockResolvedValueOnce(gameSnap).mockResolvedValueOnce(roundSnap),
+          update: vi.fn(),
+          set: vi.fn(),
+        };
+        const result = await fn(transaction);
+        // Game should be marked as complete
+        expect(transaction.update).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.objectContaining({ status: "complete" })
+        );
+        // No new round should be created
+        expect(transaction.set).not.toHaveBeenCalled();
+        return result;
+      });
+
+      const req = createReq({ body: { result: "missed" } });
+      const res = createRes();
+      await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ success: true, disputed: false, result: "missed" })
+      );
+    });
+  });
 });

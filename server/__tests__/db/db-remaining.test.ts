@@ -1,8 +1,9 @@
 /**
- * Coverage tests for server/db.ts — uncovered lines 40, 86
+ * Coverage tests for server/db.ts — null db paths
  *
- * Line 40: getDb() throws "Database not configured" when db is null
- * Line 86: requireDb() throws "Database not configured" when db is null
+ * getDb() throws "Database not configured" when db is null
+ * requireDb() throws "Database not configured" when db is null
+ * DatabaseUnavailableError constructor
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -31,9 +32,7 @@ vi.mock("../../../packages/shared/schema/index", () => ({
   spots: { _table: "spots" },
 }));
 
-vi.mock("pg", () => ({ default: { Pool: vi.fn(() => ({})) } }));
-
-// Mock env with dummy URL that matches the db.ts guard to keep db null
+// Mock env with empty URL to keep db null
 vi.mock("../../config/env", () => ({
   env: {
     DATABASE_URL: "",
@@ -41,20 +40,43 @@ vi.mock("../../config/env", () => ({
   },
 }));
 
-vi.mock("drizzle-orm/node-postgres", () => ({
+// Mock Neon serverless
+vi.mock("@neondatabase/serverless", () => ({
+  Pool: vi.fn(() => ({ on: vi.fn() })),
+  neonConfig: {},
+}));
+
+vi.mock("drizzle-orm/neon-serverless", () => ({
   drizzle: vi.fn(() => null),
 }));
 
 describe("db.ts — null db paths", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("getDb() throws 'Database not configured' when db is null", async () => {
-    const { getDb } = await import("../../db");
+  it("getDb() throws DatabaseUnavailableError when db is null", async () => {
+    const { getDb, DatabaseUnavailableError } = await import("../../db");
     expect(() => getDb()).toThrow("Database not configured");
+    try {
+      getDb();
+    } catch (e: any) {
+      expect(e).toBeInstanceOf(DatabaseUnavailableError);
+      expect(e.name).toBe("DatabaseUnavailableError");
+    }
   });
 
-  it("requireDb() throws 'Database not configured' when db is null", async () => {
-    const { requireDb } = await import("../../db");
+  it("requireDb() throws DatabaseUnavailableError when db is null", async () => {
+    const { requireDb, DatabaseUnavailableError } = await import("../../db");
     expect(() => requireDb()).toThrow("Database not configured");
+    try {
+      requireDb();
+    } catch (e: any) {
+      expect(e).toBeInstanceOf(DatabaseUnavailableError);
+      expect(e.name).toBe("DatabaseUnavailableError");
+    }
+  });
+
+  it("isDatabaseAvailable() returns false when db is null", async () => {
+    const { isDatabaseAvailable } = await import("../../db");
+    expect(isDatabaseAvailable()).toBe(false);
   });
 });
