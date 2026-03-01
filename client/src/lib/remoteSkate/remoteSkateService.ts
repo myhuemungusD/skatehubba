@@ -34,7 +34,7 @@ import { apiRequest } from "../api/client";
 // TYPES (matching exact spec)
 // =============================================================================
 
-export type GameStatus = "waiting" | "active" | "complete" | "cancelled";
+export type GameStatus = "waiting" | "active" | "completed" | "cancelled";
 export type RoundStatus =
   | "awaiting_set"
   | "awaiting_reply"
