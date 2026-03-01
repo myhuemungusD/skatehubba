@@ -53,11 +53,30 @@ function checkVar(name: string, mask: boolean) {
   if (raw.trim() === "") {
     return { name, status: "empty_string" as const, length: 0 };
   }
-  const preview = mask ? `${raw.slice(0, 4)}...` : raw;
+  const preview = mask ? `${raw.slice(0, 2)}***` : raw;
   return { name, status: "set" as const, length: raw.length, preview };
 }
 
 export default function handler(req: IncomingMessage, res: ServerResponse) {
+  // Require CRON_SECRET as a bearer token to prevent unauthenticated access.
+  // Without this, anyone on the internet can probe which env vars are set
+  // and see partial secret values.
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret) {
+    const authHeader = req.headers.authorization ?? "";
+    const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
+    const queryToken = url.searchParams.get("token");
+    const token = authHeader.startsWith("Bearer ")
+      ? authHeader.slice(7)
+      : queryToken;
+
+    if (token !== cronSecret) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Unauthorized. Provide CRON_SECRET as Bearer token or ?token= query param." }));
+      return;
+    }
+  }
+
   const results = VARS_TO_CHECK.map((v) => checkVar(v.name, v.mask));
 
   const requiredNames: string[] = VARS_TO_CHECK.filter((v) => v.required).map((v) => v.name);
