@@ -83,7 +83,18 @@ describe("firebase config line 116 — getFirebaseConfig throws non-Error", () =
     vi.unstubAllGlobals();
   });
 
-  it("logs generic message when getFirebaseConfig throws non-Error", async () => {
+  it("remains uninitialised when getFirebaseConfig throws due to missing env vars", async () => {
+    // The local getFirebaseConfig() reads import.meta.env directly — clear the
+    // vars so it throws and initFirebase() returns early at line 119.
+    const saved = {
+      apiKey: import.meta.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+      projectId: import.meta.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+      appId: import.meta.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+    };
+    delete (import.meta.env as any).EXPO_PUBLIC_FIREBASE_API_KEY;
+    delete (import.meta.env as any).EXPO_PUBLIC_FIREBASE_PROJECT_ID;
+    delete (import.meta.env as any).EXPO_PUBLIC_FIREBASE_APP_ID;
+
     vi.doMock("firebase/app", () => ({
       initializeApp: vi.fn(),
       getApps: vi.fn().mockReturnValue([]),
@@ -97,9 +108,7 @@ describe("firebase config line 116 — getFirebaseConfig throws non-Error", () =
     vi.doMock("firebase/storage", () => ({ getStorage: vi.fn() }));
     vi.doMock("firebase/functions", () => ({ getFunctions: vi.fn() }));
     vi.doMock("@skatehubba/config", () => ({
-      getFirebaseConfig: vi.fn().mockImplementation(() => {
-        throw "string_error"; // non-Error throw triggers line 116 false branch
-      }),
+      getFirebaseConfig: vi.fn(), // unused — local function is what runs
       isProductionBuild: vi.fn().mockReturnValue(false),
       isProd: vi.fn().mockReturnValue(false),
       isStaging: vi.fn().mockReturnValue(false),
@@ -111,14 +120,18 @@ describe("firebase config line 116 — getFirebaseConfig throws non-Error", () =
       getApiBaseUrl: vi.fn().mockReturnValue("http://localhost:5000"),
     }));
 
-    // Mock the client logger
     vi.doMock("../logger", () => ({
       logger: { log: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() },
     }));
 
-    // The module should not throw — it logs and returns early
+    // With env vars cleared, the local getFirebaseConfig() throws → initFirebase returns early
     const mod = await import("../firebase/config");
     expect(mod.isFirebaseInitialized).toBe(false);
+
+    // Restore env vars
+    if (saved.apiKey !== undefined) (import.meta.env as any).EXPO_PUBLIC_FIREBASE_API_KEY = saved.apiKey;
+    if (saved.projectId !== undefined) (import.meta.env as any).EXPO_PUBLIC_FIREBASE_PROJECT_ID = saved.projectId;
+    if (saved.appId !== undefined) (import.meta.env as any).EXPO_PUBLIC_FIREBASE_APP_ID = saved.appId;
   });
 });
 
