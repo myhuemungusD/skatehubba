@@ -4,7 +4,6 @@
  * Targets:
  * - client/src/lib/firebase/config.ts lines 100, 116
  * - client/src/lib/queryClient.ts line 58
- * - client/src/lib/game/gameActions.ts line 131
  * - client/src/lib/devAdmin.ts line 18
  * - client/src/lib/api/client.ts line 43
  */
@@ -48,8 +47,12 @@ describe("firebase config line 100 — isFirebaseInitialized early return", () =
     }));
     vi.doMock("@skatehubba/config", () => ({
       getFirebaseConfig: vi.fn().mockReturnValue({
-        apiKey: "k", authDomain: "d", projectId: "p",
-        storageBucket: "s", messagingSenderId: "m", appId: "a",
+        apiKey: "k",
+        authDomain: "d",
+        projectId: "p",
+        storageBucket: "s",
+        messagingSenderId: "m",
+        appId: "a",
       }),
       isProductionBuild: vi.fn().mockReturnValue(false),
       isProd: vi.fn().mockReturnValue(false),
@@ -129,9 +132,12 @@ describe("firebase config line 116 — getFirebaseConfig throws non-Error", () =
     expect(mod.isFirebaseInitialized).toBe(false);
 
     // Restore env vars
-    if (saved.apiKey !== undefined) (import.meta.env as any).EXPO_PUBLIC_FIREBASE_API_KEY = saved.apiKey;
-    if (saved.projectId !== undefined) (import.meta.env as any).EXPO_PUBLIC_FIREBASE_PROJECT_ID = saved.projectId;
-    if (saved.appId !== undefined) (import.meta.env as any).EXPO_PUBLIC_FIREBASE_APP_ID = saved.appId;
+    if (saved.apiKey !== undefined)
+      (import.meta.env as any).EXPO_PUBLIC_FIREBASE_API_KEY = saved.apiKey;
+    if (saved.projectId !== undefined)
+      (import.meta.env as any).EXPO_PUBLIC_FIREBASE_PROJECT_ID = saved.projectId;
+    if (saved.appId !== undefined)
+      (import.meta.env as any).EXPO_PUBLIC_FIREBASE_APP_ID = saved.appId;
   });
 });
 
@@ -150,7 +156,7 @@ describe("queryClient line 58 — retryDelay TIMEOUT branch", () => {
 
     const retryDelayFn = queryClient.getDefaultOptions().queries!.retryDelay as (
       attempt: number,
-      error: unknown,
+      error: unknown
     ) => number;
 
     const timeoutErr = new ApiError("Timeout", "TIMEOUT");
@@ -159,66 +165,7 @@ describe("queryClient line 58 — retryDelay TIMEOUT branch", () => {
 });
 
 // ===========================================================================
-// 4. client/src/lib/game/gameActions.ts — line 131 (FORFEIT action)
-// ===========================================================================
-describe("gameActions line 131 — FORFEIT action", () => {
-  beforeEach(() => {
-    vi.resetModules();
-  });
-
-  it("submits FORFEIT action", async () => {
-    const mockAuth = { currentUser: { uid: "user-1" } };
-    const mockTransaction = { get: vi.fn(), update: vi.fn() };
-    const mockRunTransaction = vi.fn(async (_db: any, callback: any) => {
-      const mockGameDoc = {
-        exists: () => true,
-        id: "game-1",
-        data: () => ({
-          state: {
-            status: "ACTIVE",
-            phase: "SETTER_RECORDING",
-            turnPlayerId: "user-1",
-            p1Letters: 0,
-            p2Letters: 0,
-            currentTrick: null,
-            roundNumber: 1,
-          },
-          players: ["user-1", "user-2"],
-        }),
-      };
-      mockTransaction.get.mockResolvedValue(mockGameDoc);
-      return callback(mockTransaction);
-    });
-
-    vi.doMock("firebase/firestore", () => ({
-      doc: vi.fn(),
-      runTransaction: mockRunTransaction,
-      serverTimestamp: vi.fn(() => "ts"),
-      increment: vi.fn((n: number) => n),
-    }));
-    vi.doMock("../firebase", () => ({
-      db: {},
-      auth: mockAuth,
-    }));
-    vi.doMock("../game/constants", () => ({
-      COLLECTIONS: { games: "games" },
-      MAX_LETTERS: 5,
-    }));
-
-    const { submitAction } = await import("../game/gameActions");
-    await submitAction("game-1", "FORFEIT");
-
-    // Verify the update was called with FORFEIT-related state changes
-    const updateCall = mockTransaction.update.mock.calls[0][1];
-    expect(updateCall).toEqual(expect.objectContaining({
-      "state.status": "CANCELLED",
-      winnerId: "user-2",
-    }));
-  });
-});
-
-// ===========================================================================
-// 5. client/src/lib/devAdmin.ts — line 18 (expiry check: expired)
+// 4. client/src/lib/devAdmin.ts — line 18 (expiry check: expired)
 // ===========================================================================
 describe("devAdmin line 18 — expired devAdmin", () => {
   beforeEach(() => {
@@ -254,6 +201,6 @@ describe("devAdmin line 18 — expired devAdmin", () => {
 });
 
 // ===========================================================================
-// 6. client/src/lib/api/client.ts — line 43 (content-type || "" fallback)
+// 5. client/src/lib/api/client.ts — line 43 (content-type || "" fallback)
 //    Covered in client/src/lib/api/client.test.ts instead
 // ===========================================================================

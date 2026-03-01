@@ -18,7 +18,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
-      include: ['api/**/*.ts', 'server/**/*.ts', 'packages/shared/**/*.ts', 'client/src/lib/**/*.ts', 'functions/src/**/*.ts'],
+      include: ['server/**/*.ts', 'packages/shared/**/*.ts', 'client/src/lib/**/*.ts', 'functions/src/**/*.ts', 'vercel.ts'],
       exclude: [
         '**/node_modules/**',
         '**/*.test.ts',
@@ -37,29 +37,29 @@ export default defineConfig({
         'server/config/server.ts',
         'server/config/env.ts',
         'functions/src/firebaseAdmin.ts',
-        // Pure schema-definition files — pgTable/pgEnum/references callbacks produce zero branching logic
+        // Pure schema/config-definition files — data declarations produce no meaningful branching logic
         'packages/shared/schema-analytics.ts',
+        'packages/shared/sitemap-config.ts',
         'packages/shared/schema/auth.ts',
         'packages/shared/schema/battles.ts',
         'packages/shared/schema/spots.ts',
+        // Pure data dictionary — no branching logic
+        'client/src/lib/trickDictionary.ts',
         // React hook + dynamic Firebase imports — requires React runtime, store actions tested separately
         'client/src/lib/stores/user.ts',
         // Barrel re-export files — no logic, implicitly tested by underlying modules
         'client/src/lib/validation/betaSignup.ts',
-        'server/services/gameStateService.ts',
         'packages/shared/index.ts',
         'client/src/lib/api/game/index.ts',
         'client/src/lib/api/trickmint/index.ts',
         'client/src/lib/firebase/index.ts',
         'client/src/lib/firestore/index.ts',
-        'client/src/lib/game/index.ts',
         'client/src/lib/remoteSkate/index.ts',
         'server/services/battle/index.ts',
         'server/services/filmerRequests/index.ts',
         'server/services/moderation/index.ts',
         'server/services/video/index.ts',
         // Deprecated re-export shims — no logic
-        'server/socket/handlers/game.ts',
         'server/auth/mfa.ts',
         'server/auth/mfa/index.ts',
         // Functions barrel (re-exports only)

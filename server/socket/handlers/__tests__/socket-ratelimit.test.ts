@@ -1,7 +1,7 @@
 /**
  * Behavior tests for socket handler rate limiting
  *
- * Verifies that game and battle socket handlers reject requests
+ * Verifies that battle socket handlers reject requests
  * with a rate_limited error when the client sends too quickly.
  */
 
@@ -13,17 +13,6 @@ vi.mock("../../rooms", () => ({
   broadcastToRoom: vi.fn(),
   sendToUser: vi.fn(),
   getRoomInfo: vi.fn(),
-}));
-
-vi.mock("../../../services/gameStateService", () => ({
-  createGame: vi.fn(),
-  joinGame: vi.fn(),
-  submitTrick: vi.fn(),
-  passTrick: vi.fn(),
-  forfeitGame: vi.fn(),
-  handleReconnect: vi.fn(),
-  handleDisconnect: vi.fn(),
-  generateEventId: vi.fn(() => "evt-rl"),
 }));
 
 vi.mock("../../../services/battleService", () => ({
@@ -59,37 +48,6 @@ function makeMocks() {
   const io: any = { to: vi.fn().mockReturnThis(), emit: vi.fn() };
   return { socket, io, eventHandlers };
 }
-
-describe("Game socket handlers — rate limiting", () => {
-  let socket: any;
-  let io: any;
-  let eventHandlers: Map<string, Function>;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    ({ socket, io, eventHandlers } = makeMocks());
-  });
-
-  it.each([
-    ["game:create", ["spot-1", 4]],
-    ["game:join", ["game-1"]],
-    ["game:trick", [{ gameId: "g1", odv: "u1", trickName: "Kickflip" }]],
-    ["game:pass", ["game-1"]],
-    ["game:forfeit", ["game-1"]],
-    ["game:reconnect", ["game-1"]],
-  ] as const)("rejects %s with rate_limited error when throttled", async (event, args) => {
-    const { registerGameHandlers } = await import("../game");
-    registerGameHandlers(io, socket);
-
-    const handler = eventHandlers.get(event)!;
-    await handler(...args);
-
-    expect(socket.emit).toHaveBeenCalledWith("error", {
-      code: "rate_limited",
-      message: "Too many requests, slow down",
-    });
-  });
-});
 
 describe("Battle socket handlers — rate limiting", () => {
   let socket: any;

@@ -57,12 +57,12 @@ describe("mockSetup — extractPrimaryId and createQueryChain coverage", () => {
     const chain = createQueryChain();
 
     // Insert a record first
-    stores.gameSessions = stores.gameSessions || new Map();
-    stores.gameSessions.set("s1", { id: "s1", name: "Session 1" });
-    stores.gameSessions.set("s2", { id: "s2", name: "Session 2" });
+    stores.battles = stores.battles || new Map();
+    stores.battles.set("s1", { id: "s1", name: "Session 1" });
+    stores.battles.set("s2", { id: "s2", name: "Session 2" });
 
     // Select without where — should return all values (line 75)
-    const results = await chain.select().from({ _table: "gameSessions" });
+    const results = await chain.select().from({ _table: "battles" });
 
     expect(results).toHaveLength(2);
 
@@ -74,25 +74,25 @@ describe("mockSetup — extractPrimaryId and createQueryChain coverage", () => {
       await import("./game-critical-paths/mockSetup");
 
     clearAllStores();
-    stores.gameSessions = stores.gameSessions || new Map();
+    stores.battles = stores.battles || new Map();
 
     const chain = createQueryChain();
 
     // Insert a record
-    stores.gameSessions.set("s1", { id: "s1", name: "Test" });
+    stores.battles.set("s1", { id: "s1", name: "Test" });
 
     // Delete with where clause matching the ID
-    await chain.delete({ _table: "gameSessions" }).where({
+    await chain.delete({ _table: "battles" }).where({
       _op: "eq",
       col: { _isPrimary: true },
       val: "s1",
     });
 
-    expect(stores.gameSessions.has("s1")).toBe(false);
+    expect(stores.battles.has("s1")).toBe(false);
 
     // Update with non-existent ID and returning (line 92)
     const updateResult = await chain
-      .update({ _table: "gameSessions" })
+      .update({ _table: "battles" })
       .set({ name: "Updated" })
       .where({ _op: "eq", col: { _isPrimary: true }, val: "nonexistent" })
       .returning();
@@ -109,7 +109,7 @@ describe("mockSetup — extractPrimaryId and createQueryChain coverage", () => {
     const chain = createQueryChain();
 
     // Select from a table that exists — should resolve fine
-    const result = await chain.select().from({ _table: "gameSessions" });
+    const result = await chain.select().from({ _table: "battles" });
     expect(result).toEqual([]);
 
     clearAllStores();

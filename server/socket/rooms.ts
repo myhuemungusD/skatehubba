@@ -31,7 +31,6 @@ const roomsFallback = new Map<string, RoomInfo>();
 // Room size limits
 const ROOM_LIMITS: Record<RoomType, number> = {
   battle: 2, // 1v1 battles
-  game: 8, // S.K.A.T.E. can have up to 8 players
   spot: 100, // Spot chat/activity
   global: Infinity, // No limit for global broadcasts
 };
@@ -280,7 +279,6 @@ export function getRoomStats(): {
 } {
   const byType: Record<RoomType, number> = {
     battle: 0,
-    game: 0,
     spot: 0,
     global: 0,
   };
