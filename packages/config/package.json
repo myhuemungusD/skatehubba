@@ -20,7 +20,7 @@
     "firebase": "^11.2.0"
   },
   "devDependencies": {
-    "@types/node": "^22.9.4",
+    "@types/node": "^22.19.13",
     "typescript": "5.9.3",
     "vitest": "^4.0.18"
   }
