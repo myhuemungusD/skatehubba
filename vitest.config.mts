@@ -18,7 +18,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'json-summary', 'html', 'lcov'],
-      include: ['server/**/*.ts', 'packages/shared/**/*.ts', 'client/src/lib/**/*.ts', 'functions/src/**/*.ts'],
+      include: ['server/**/*.ts', 'packages/shared/**/*.ts', 'client/src/lib/**/*.ts', 'functions/src/**/*.ts', 'vercel.ts'],
       exclude: [
         '**/node_modules/**',
         '**/*.test.ts',
