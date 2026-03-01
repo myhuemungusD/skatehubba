@@ -55,6 +55,9 @@ Thumbs.db
 .replit
 replit.md
 
+# Claude Code
+.claude/
+
 # Temporary files
 *.tmp
 *.temp
