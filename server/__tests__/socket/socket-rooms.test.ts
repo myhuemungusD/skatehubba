@@ -104,7 +104,7 @@ describe("Socket Room Manager", () => {
     });
 
     it("works with different room types", () => {
-      expect(getRoomId("battle", "g1")).toBe("game:g1");
+      expect(getRoomId("battle", "g1")).toBe("battle:g1");
       expect(getRoomId("spot", "s1")).toBe("spot:s1");
       expect(getRoomId("global", "main")).toBe("global:main");
     });
