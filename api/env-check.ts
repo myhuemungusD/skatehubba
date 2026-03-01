@@ -14,6 +14,7 @@
  */
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import crypto from "node:crypto";
 
 const VARS_TO_CHECK = [
   // Server required — app crashes without these
@@ -57,24 +58,42 @@ function checkVar(name: string, mask: boolean) {
   return { name, status: "set" as const, length: raw.length, preview };
 }
 
-export default function handler(req: IncomingMessage, res: ServerResponse) {
-  // Require CRON_SECRET as a bearer token to prevent unauthenticated access.
-  // Without this, anyone on the internet can probe which env vars are set
-  // and see partial secret values.
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = req.headers.authorization ?? "";
-    const url = new URL(req.url ?? "/", `http://${req.headers.host}`);
-    const queryToken = url.searchParams.get("token");
-    const token = authHeader.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : queryToken;
+const SECURITY_HEADERS = {
+  "Content-Type": "application/json",
+  "X-Frame-Options": "DENY",
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "strict-origin-when-cross-origin",
+};
 
-    if (token !== cronSecret) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Unauthorized. Provide CRON_SECRET as Bearer token or ?token= query param." }));
-      return;
-    }
+/**
+ * Constant-time string comparison using HMAC to avoid leaking length info.
+ * Uses only the node:crypto built-in — no server code imports.
+ */
+function timingSafeTokenEqual(a: string, b: string): boolean {
+  const key = crypto.randomBytes(32);
+  const hmacA = crypto.createHmac("sha256", key).update(a).digest();
+  const hmacB = crypto.createHmac("sha256", key).update(b).digest();
+  return crypto.timingSafeEqual(hmacA, hmacB);
+}
+
+export default function handler(req: IncomingMessage, res: ServerResponse) {
+  // Fail closed: reject all requests when CRON_SECRET is not configured.
+  // This matches the pattern established in server/middleware/cronAuth.ts
+  // and prevents silent auth bypass on misconfigured deployments.
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    res.writeHead(403, SECURITY_HEADERS);
+    res.end(JSON.stringify({ error: "Forbidden. Env-check is disabled until CRON_SECRET is configured." }));
+    return;
+  }
+
+  const authHeader = req.headers.authorization ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+
+  if (!token || !timingSafeTokenEqual(token, cronSecret)) {
+    res.writeHead(401, SECURITY_HEADERS);
+    res.end(JSON.stringify({ error: "Unauthorized" }));
+    return;
   }
 
   const results = VARS_TO_CHECK.map((v) => checkVar(v.name, v.mask));
@@ -100,6 +119,6 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
   };
 
   const status = failing.length === 0 ? 200 : 503;
-  res.writeHead(status, { "Content-Type": "application/json" });
+  res.writeHead(status, SECURITY_HEADERS);
   res.end(JSON.stringify(payload, null, 2));
 }
