@@ -52,7 +52,7 @@ export const gameTrickSchema = z.object({
 // ============================================================================
 
 export const roomJoinSchema = z.object({
-  roomType: z.enum(["battle", "game", "spot", "global"]),
+  roomType: z.enum(["battle", "spot", "global"]),
   roomId: safeUuid,
 });
 

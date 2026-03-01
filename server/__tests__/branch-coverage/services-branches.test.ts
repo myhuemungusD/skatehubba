@@ -4,7 +4,6 @@
  * - server/services/video/multiQuality.ts (lines 49, 75)
  * - server/services/userService.ts (lines 84, 139)
  * - server/services/storageService.ts (lines 151-152)
- * - server/services/game/connection.ts (lines 62-63)
  * - server/services/emailService.ts (2 uncovered)
  * - server/services/battle/service.ts (lines 164, 312)
  * - server/services/battle/timeout.ts (line 39)
@@ -223,89 +222,6 @@ describe("userService branches", () => {
 });
 
 // ===========================================================================
-// game/connection — branch coverage (lines 62-63)
-// ===========================================================================
-describe("game/connection branches", () => {
-  beforeEach(() => {
-    vi.resetModules();
-    vi.clearAllMocks();
-  });
-
-  it("Lines 62-63: keeps status 'paused' and existing pausedAt when already paused", async () => {
-    const existingPausedAt = new Date(Date.now() - 60000);
-    const mockGame = {
-      id: "game-1",
-      status: "paused",
-      players: [
-        { odv: "p1", connected: true, letters: "" },
-        { odv: "p2", connected: true, letters: "" },
-      ],
-      currentTurnIndex: 0,
-      currentAction: "set",
-      currentTrick: null,
-      setterId: null,
-      processedEventIds: [],
-      pausedAt: existingPausedAt,
-      winnerId: null,
-      maxPlayers: 2,
-      spotId: "spot-1",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      turnDeadlineAt: null,
-    };
-
-    const mockTx: any = {};
-    mockTx.select = vi.fn(() => mockTx);
-    mockTx.from = vi.fn(() => mockTx);
-    mockTx.where = vi.fn(() => mockTx);
-    mockTx.for = vi.fn().mockResolvedValue([mockGame]);
-    mockTx.update = vi.fn(() => mockTx);
-    mockTx.set = vi.fn(() => mockTx);
-    mockTx.returning = vi.fn().mockResolvedValue([{
-      ...mockGame,
-      players: [
-        { odv: "p1", connected: false, disconnectedAt: new Date().toISOString(), letters: "" },
-        { odv: "p2", connected: true, letters: "" },
-      ],
-    }]);
-
-    const mockDb: any = {
-      transaction: vi.fn(async (fn: any) => fn(mockTx)),
-    };
-
-    vi.doMock("../../db", () => ({ getDb: vi.fn().mockReturnValue(mockDb) }));
-    vi.doMock("@shared/schema", () => ({ gameSessions: { id: "id" } }));
-    vi.doMock("drizzle-orm", () => ({ eq: vi.fn() }));
-    vi.doMock("../../logger", () => ({
-      default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
-    }));
-    vi.doMock("../../services/game/constants", () => ({
-      MAX_PROCESSED_EVENTS: 100,
-      TURN_TIMEOUT_MS: 60000,
-    }));
-    vi.doMock("../../services/game/helpers", () => ({
-      rowToGameState: vi.fn((row: any) => row),
-    }));
-
-    const { handleDisconnect } = await import("../../services/game/connection");
-    const result = await handleDisconnect({
-      eventId: "evt-1",
-      gameId: "game-1",
-      odv: "p1",
-    });
-
-    expect(result.success).toBe(true);
-
-    // Verify the set() call kept status 'paused' and didn't overwrite pausedAt
-    const setCall = mockTx.set.mock.calls[0]?.[0];
-    if (setCall) {
-      expect(setCall.status).toBe("paused");
-      expect(setCall.pausedAt).toBe(existingPausedAt);
-    }
-  });
-});
-
-// ===========================================================================
 // battle/service — branch coverage (lines 164, 312)
 // ===========================================================================
 describe("battle/service branches", () => {
@@ -323,8 +239,12 @@ describe("battle/service branches", () => {
 
     const mockDb: any = {
       transaction: vi.fn(async (fn: any) => fn(mockTx)),
-      select: vi.fn(function (this: any) { return this; }),
-      from: vi.fn(function (this: any) { return this; }),
+      select: vi.fn(function (this: any) {
+        return this;
+      }),
+      from: vi.fn(function (this: any) {
+        return this;
+      }),
       where: vi.fn().mockResolvedValue([]), // Legacy: battle not found
     };
 
@@ -377,23 +297,41 @@ describe("battle/service branches", () => {
     let dbSelectCount = 0;
     const mockDb: any = {
       transaction: vi.fn(async (fn: any) => fn(mockTx)),
-      select: vi.fn(function () { return mockDb; }),
-      from: vi.fn(function () { return mockDb; }),
-      insert: vi.fn(function () { return mockDb; }),
-      values: vi.fn(function () { return mockDb; }),
-      onConflictDoUpdate: vi.fn(function () { return mockDb; }),
-      update: vi.fn(function () { return mockDb; }),
-      set: vi.fn(function () { return mockDb; }),
-      returning: vi.fn(function () { return Promise.resolve([battleRow]); }),
+      select: vi.fn(function () {
+        return mockDb;
+      }),
+      from: vi.fn(function () {
+        return mockDb;
+      }),
+      insert: vi.fn(function () {
+        return mockDb;
+      }),
+      values: vi.fn(function () {
+        return mockDb;
+      }),
+      onConflictDoUpdate: vi.fn(function () {
+        return mockDb;
+      }),
+      update: vi.fn(function () {
+        return mockDb;
+      }),
+      set: vi.fn(function () {
+        return mockDb;
+      }),
+      returning: vi.fn(function () {
+        return Promise.resolve([battleRow]);
+      }),
     };
 
     mockDb.where = vi.fn(function () {
       dbSelectCount++;
       if (dbSelectCount === 1) return Promise.resolve([battleRow]); // Battle lookup
-      if (dbSelectCount === 2) return Promise.resolve([ // Both voted
-        { odv: "creator-1", vote: "clean", createdAt: new Date() },
-        { odv: "opponent-1", vote: "sketch", createdAt: new Date() },
-      ]);
+      if (dbSelectCount === 2)
+        return Promise.resolve([
+          // Both voted
+          { odv: "creator-1", vote: "clean", createdAt: new Date() },
+          { odv: "opponent-1", vote: "sketch", createdAt: new Date() },
+        ]);
       return Promise.resolve([]);
     });
 
@@ -471,7 +409,9 @@ describe("battle/timeout branches", () => {
       battleVoteState: { battleId: "battleId", status: "status", voteDeadlineAt: "voteDeadlineAt" },
     }));
     vi.doMock("drizzle-orm", () => ({
-      eq: vi.fn(), and: vi.fn(), lt: vi.fn(),
+      eq: vi.fn(),
+      and: vi.fn(),
+      lt: vi.fn(),
     }));
     vi.doMock("../../logger", () => ({
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -544,7 +484,12 @@ describe("videoProcessingService branches", () => {
         insert: vi.fn(() => ({
           values: vi.fn(() => ({
             returning: vi.fn().mockResolvedValue([
-              { id: 1, videoUrl: "http://example.com/video.webm", thumbnailUrl: null, status: "ready" },
+              {
+                id: 1,
+                videoUrl: "http://example.com/video.webm",
+                thumbnailUrl: null,
+                status: "ready",
+              },
             ]),
           })),
         })),
@@ -556,7 +501,8 @@ describe("videoProcessingService branches", () => {
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     }));
     vi.doMock("../../services/storageService", () => ({
-      validateUploadedFile: vi.fn()
+      validateUploadedFile: vi
+        .fn()
         .mockResolvedValueOnce({ valid: true, metadata: { size: 100, contentType: "video/webm" } })
         .mockResolvedValueOnce({ valid: false, error: "Thumbnail not found" }),
       getPublicUrl: vi.fn().mockReturnValue("http://example.com/video.webm"),
@@ -590,7 +536,8 @@ describe("multiQuality branches", () => {
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     }));
     vi.doMock("../../services/video/ffprobe", () => ({
-      probeVideo: vi.fn()
+      probeVideo: vi
+        .fn()
         .mockResolvedValueOnce({ isCorrupt: false, width: 1920, height: 1080 })
         .mockResolvedValueOnce({ isCorrupt: false, width: 640, height: 360 }),
     }));
@@ -619,7 +566,8 @@ describe("multiQuality branches", () => {
       default: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     }));
     vi.doMock("../../services/video/ffprobe", () => ({
-      probeVideo: vi.fn()
+      probeVideo: vi
+        .fn()
         .mockResolvedValueOnce({ isCorrupt: false, width: 1920, height: 1080 })
         .mockResolvedValueOnce({ isCorrupt: false, width: 640, height: 360 }),
     }));

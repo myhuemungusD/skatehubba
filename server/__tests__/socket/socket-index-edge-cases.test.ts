@@ -89,11 +89,6 @@ vi.mock("../../socket/handlers/battle", () => ({
   cleanupBattleSubscriptions: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../socket/handlers/game", () => ({
-  registerGameHandlers: vi.fn(),
-  cleanupGameSubscriptions: vi.fn().mockResolvedValue(undefined),
-}));
-
 vi.mock("../../socket/handlers/presence", () => ({
   registerPresenceHandlers: vi.fn(),
   handlePresenceDisconnect: vi.fn(),
@@ -117,7 +112,7 @@ vi.mock("../../socket/socketRateLimit", () => ({
   cleanupRateLimits: vi.fn(),
 }));
 
-vi.mock("../../services/timeoutScheduler", () => ({
+vi.mock("../../services/battleTimeoutScheduler", () => ({
   startTimeoutScheduler: vi.fn(),
   stopTimeoutScheduler: vi.fn(),
   forceTimeoutCheck: vi.fn().mockResolvedValue(undefined),
@@ -425,9 +420,8 @@ describe("Socket Index — edge cases (lines 165, 175)", () => {
   });
 
   it("disconnect handler runs full cleanup sequence (lines 170-186)", async () => {
-    const { checkRateLimit, cleanupRateLimits: mockCleanupRL } = await import(
-      "../../socket/socketRateLimit"
-    );
+    const { checkRateLimit, cleanupRateLimits: mockCleanupRL } =
+      await import("../../socket/socketRateLimit");
     vi.mocked(checkRateLimit).mockReturnValue(true);
 
     initializeSocketServer({} as any);
@@ -456,12 +450,10 @@ describe("Socket Index — edge cases (lines 165, 175)", () => {
 
     // Verify cleanup functions were called
     const { cleanupBattleSubscriptions } = await import("../../socket/handlers/battle");
-    const { cleanupGameSubscriptions } = await import("../../socket/handlers/game");
     const { leaveAllRooms } = await import("../../socket/rooms");
     const { handlePresenceDisconnect } = await import("../../socket/handlers/presence");
 
     expect(cleanupBattleSubscriptions).toHaveBeenCalledWith(mockSocket);
-    expect(cleanupGameSubscriptions).toHaveBeenCalled();
     expect(leaveAllRooms).toHaveBeenCalledWith(mockSocket);
     expect(handlePresenceDisconnect).toHaveBeenCalled();
     expect(mockCleanupSocketHealth).toHaveBeenCalledWith("socket-disconnect-test");
@@ -515,14 +507,12 @@ describe("Socket Index — edge cases (lines 165, 175)", () => {
     expect(socketHandlers.has("disconnect")).toBe(true);
     expect(socketHandlers.has("error")).toBe(true);
 
-    // Should have called registerPresenceHandlers, registerBattleHandlers, registerGameHandlers
+    // Should have called registerPresenceHandlers, registerBattleHandlers
     const { registerPresenceHandlers } = await import("../../socket/handlers/presence");
     const { registerBattleHandlers } = await import("../../socket/handlers/battle");
-    const { registerGameHandlers } = await import("../../socket/handlers/game");
 
     expect(registerPresenceHandlers).toHaveBeenCalled();
     expect(registerBattleHandlers).toHaveBeenCalled();
-    expect(registerGameHandlers).toHaveBeenCalled();
 
     vi.mocked(checkRateLimit).mockReturnValue(true);
   });

@@ -143,7 +143,7 @@ describe("gameTrickSchema", () => {
 
 describe("roomJoinSchema", () => {
   it("accepts all valid room types", () => {
-    for (const roomType of ["battle", "game", "spot", "global"]) {
+    for (const roomType of ["battle", "spot", "global"]) {
       expect(roomJoinSchema.safeParse({ roomType, roomId: "r1234567" }).success).toBe(true);
     }
   });
