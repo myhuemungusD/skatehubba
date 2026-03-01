@@ -16,12 +16,12 @@ export interface APIEndpoint {
   }>;
   requestBody?: {
     type: string;
-    example: any;
+    example: unknown;
   };
   responses: Array<{
     status: number;
     description: string;
-    example: any;
+    example: unknown;
   }>;
   notes?: string[];
 }

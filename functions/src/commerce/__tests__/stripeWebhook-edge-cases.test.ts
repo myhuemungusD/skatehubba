@@ -1459,6 +1459,19 @@ describe("stockRelease — releaseHoldAtomic batch processing", () => {
     mockBatchUpdate.mockClear();
     mockBatchCommit.mockClear().mockResolvedValue(undefined);
 
+    // Re-setup transaction mock after clearAllMocks wiped it
+    mockTransactionGet.mockImplementation(async (ref: any) => {
+      const data = mockDocs.get(ref._path);
+      return { exists: !!data, data: () => data };
+    });
+    mockTransactionUpdate.mockImplementation((ref: any, updates: any) => {
+      const current = mockDocs.get(ref._path) || {};
+      mockDocs.set(ref._path, { ...current, ...updates });
+    });
+    mockRunTransaction.mockImplementation(async (cb: any) => {
+      return await cb({ get: mockTransactionGet, update: mockTransactionUpdate });
+    });
+
     useRealStockRelease = true;
   });
 
@@ -1487,11 +1500,11 @@ describe("stockRelease — releaseHoldAtomic batch processing", () => {
     const result = await releaseHoldAtomic("order-batch-1", "order-batch-1");
 
     expect(result).toBe(true);
-    // batch.set should have been called for each item (2 items)
+    // batch.set should have been called for each item (shard stock return)
     expect(mockBatchSet).toHaveBeenCalledTimes(2);
-    // batch.update should have been called once for the hold status update in the last batch
-    expect(mockBatchUpdate).toHaveBeenCalledTimes(1);
-    // batch.commit should have been called once
+    // hold status is updated via transaction.update, not batch.update
+    expect(mockTransactionUpdate).toHaveBeenCalled();
+    // batch.commit should have been called once (for shard ops)
     expect(mockBatchCommit).toHaveBeenCalledTimes(1);
   });
 
@@ -1531,9 +1544,8 @@ describe("stockRelease — releaseHoldAtomic batch processing", () => {
     expect(result).toBe(true);
     // No batch set calls since there are no items
     expect(mockBatchSet).not.toHaveBeenCalled();
-    // Hold should still be marked as released via direct update
-    const holdUpdateFn = mockDocUpdateFns.get("holds/order-empty");
-    expect(holdUpdateFn).toHaveBeenCalled();
+    // Hold status is updated via transaction.update (held → released)
+    expect(mockTransactionUpdate).toHaveBeenCalled();
   });
 
   it("uses default shard count when product doc does not exist", async () => {
@@ -1567,6 +1579,19 @@ describe("stockRelease — restockFromConsumedHold batch processing", () => {
     mockBatchUpdate.mockClear();
     mockBatchCommit.mockClear().mockResolvedValue(undefined);
 
+    // Re-setup transaction mock after clearAllMocks wiped it
+    mockTransactionGet.mockImplementation(async (ref: any) => {
+      const data = mockDocs.get(ref._path);
+      return { exists: !!data, data: () => data };
+    });
+    mockTransactionUpdate.mockImplementation((ref: any, updates: any) => {
+      const current = mockDocs.get(ref._path) || {};
+      mockDocs.set(ref._path, { ...current, ...updates });
+    });
+    mockRunTransaction.mockImplementation(async (cb: any) => {
+      return await cb({ get: mockTransactionGet, update: mockTransactionUpdate });
+    });
+
     useRealStockRelease = true;
   });
 
@@ -1591,11 +1616,11 @@ describe("stockRelease — restockFromConsumedHold batch processing", () => {
     const result = await restockFromConsumedHold("order-restock-1");
 
     expect(result).toBe(true);
-    // batch.set should have been called for each item
+    // batch.set should have been called for each item (shard stock return)
     expect(mockBatchSet).toHaveBeenCalledTimes(2);
-    // batch.update should have been called once for the hold status
-    expect(mockBatchUpdate).toHaveBeenCalledTimes(1);
-    // batch.commit should have been called once
+    // hold status is updated via transaction.update, not batch.update
+    expect(mockTransactionUpdate).toHaveBeenCalled();
+    // batch.commit should have been called once (for shard ops)
     expect(mockBatchCommit).toHaveBeenCalledTimes(1);
   });
 
@@ -1633,9 +1658,8 @@ describe("stockRelease — restockFromConsumedHold batch processing", () => {
 
     expect(result).toBe(true);
     expect(mockBatchSet).not.toHaveBeenCalled();
-    // Hold should still be marked released via direct update
-    const holdUpdateFn = mockDocUpdateFns.get("holds/order-restock-empty");
-    expect(holdUpdateFn).toHaveBeenCalled();
+    // Hold status is updated via transaction.update (consumed → released)
+    expect(mockTransactionUpdate).toHaveBeenCalled();
   });
 
   it("uses default shard count when product doc not found", async () => {

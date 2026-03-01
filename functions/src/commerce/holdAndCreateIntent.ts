@@ -150,7 +150,7 @@ async function rollbackReservedStock(reserved: ReservedStock[]): Promise<void> {
  */
 async function validateAndLoadProducts(
   items: CartItem[],
-  uid: string
+  _uid: string
 ): Promise<Map<string, ProductDoc>> {
   const db = getAdminDb();
   const products = new Map<string, ProductDoc>();

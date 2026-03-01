@@ -99,7 +99,7 @@ export const enforceNotBanned = () => {
         });
       }
       return next();
-    } catch (error) {
+    } catch {
       return res.status(500).json({ error: "MODERATION_CHECK_FAILED" });
     }
   };

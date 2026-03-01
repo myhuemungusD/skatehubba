@@ -10,6 +10,7 @@
     "start": "npm run shell",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run --config ../vitest.config.mts --dir .",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
