@@ -24,7 +24,7 @@ export interface AuthenticatedSocket extends Socket {
 // Room Types
 // ============================================================================
 
-export type RoomType = "battle" | "game" | "spot" | "global";
+export type RoomType = "battle" | "spot" | "global";
 
 export interface RoomInfo {
   type: RoomType;
@@ -72,71 +72,6 @@ export interface BattleUpdatePayload {
   roundNumber?: number;
 }
 
-// ============================================================================
-// S.K.A.T.E. Game Events
-// ============================================================================
-
-export interface GameCreatedPayload {
-  gameId: string;
-  spotId: string;
-  creatorId: string;
-  maxPlayers: number;
-  createdAt: string;
-}
-
-export interface GameJoinedPayload {
-  gameId: string;
-  odv: string;
-  playerCount: number;
-}
-
-export interface GameTrickPayload {
-  gameId: string;
-  odv: string;
-  trickName: string;
-  clipUrl?: string;
-  sentAt: string;
-}
-
-export interface GameLetterPayload {
-  gameId: string;
-  odv: string;
-  letters: string; // e.g., "S", "SK", "SKA", etc.
-}
-
-export interface GameTurnPayload {
-  gameId: string;
-  currentPlayer: string;
-  action: "set" | "attempt";
-  timeLimit?: number;
-}
-
-export interface GameEndedPayload {
-  gameId: string;
-  winnerId: string;
-  finalStandings: Array<{ odv: string; letters: string }>;
-}
-
-export interface GameStatePayload {
-  gameId: string;
-  players: Array<{ odv: string; letters: string; connected: boolean }>;
-  currentPlayer?: string;
-  currentAction: "set" | "attempt";
-  currentTrick?: string;
-  status: "waiting" | "active" | "paused" | "completed";
-}
-
-export interface GamePausedPayload {
-  gameId: string;
-  disconnectedPlayer: string;
-  reconnectTimeout: number; // seconds
-}
-
-export interface GameResumedPayload {
-  gameId: string;
-  reconnectedPlayer: string;
-}
-
 export interface BattleVotingStartedPayload {
   battleId: string;
   timeoutSeconds: number;
@@ -181,14 +116,6 @@ export interface ClientToServerEvents {
   "battle:vote": (data: Omit<BattleVotePayload, "votedAt">) => void;
   "battle:ready": (battleId: string) => void;
 
-  // S.K.A.T.E. game actions
-  "game:create": (spotId: string, maxPlayers?: number) => void;
-  "game:join": (gameId: string) => void;
-  "game:trick": (data: Omit<GameTrickPayload, "sentAt">) => void;
-  "game:pass": (gameId: string) => void;
-  "game:forfeit": (gameId: string) => void;
-  "game:reconnect": (gameId: string) => void;
-
   // Battle voting
   "battle:startVoting": (battleId: string) => void;
 
@@ -214,17 +141,6 @@ export interface ServerToClientEvents {
   "battle:voted": (data: BattleVotePayload) => void;
   "battle:completed": (data: BattleCompletedPayload) => void;
   "battle:update": (data: BattleUpdatePayload) => void;
-
-  // S.K.A.T.E. game events
-  "game:created": (data: GameCreatedPayload) => void;
-  "game:joined": (data: GameJoinedPayload) => void;
-  "game:trick": (data: GameTrickPayload) => void;
-  "game:letter": (data: GameLetterPayload) => void;
-  "game:turn": (data: GameTurnPayload) => void;
-  "game:ended": (data: GameEndedPayload) => void;
-  "game:state": (data: GameStatePayload) => void;
-  "game:paused": (data: GamePausedPayload) => void;
-  "game:resumed": (data: GameResumedPayload) => void;
 
   // Battle voting events
   "battle:votingStarted": (data: BattleVotingStartedPayload) => void;

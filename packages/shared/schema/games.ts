@@ -1,15 +1,5 @@
 import { z } from "zod";
-import {
-  pgTable,
-  text,
-  serial,
-  integer,
-  boolean,
-  timestamp,
-  json,
-  varchar,
-  index,
-} from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
 
@@ -104,46 +94,6 @@ export const challenges = pgTable("challenges", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
-// Game Sessions table — replaces Firestore game_sessions collection
-export const gameSessions = pgTable(
-  "game_sessions",
-  {
-    id: varchar("id")
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    spotId: varchar("spot_id", { length: 255 }).notNull(),
-    creatorId: varchar("creator_id", { length: 255 }).notNull(),
-    players: json("players")
-      .$type<
-        Array<{
-          odv: string;
-          letters: string;
-          connected: boolean;
-          disconnectedAt?: string;
-        }>
-      >()
-      .notNull()
-      .default([]),
-    maxPlayers: integer("max_players").notNull().default(4),
-    currentTurnIndex: integer("current_turn_index").notNull().default(0),
-    currentAction: varchar("current_action", { length: 20 }).notNull().default("set"),
-    currentTrick: text("current_trick"),
-    setterId: varchar("setter_id", { length: 255 }),
-    status: varchar("status", { length: 20 }).notNull().default("waiting"),
-    winnerId: varchar("winner_id", { length: 255 }),
-    turnDeadlineAt: timestamp("turn_deadline_at"),
-    pausedAt: timestamp("paused_at"),
-    processedEventIds: json("processed_event_ids").$type<string[]>().notNull().default([]),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  },
-  (table) => ({
-    statusIdx: index("IDX_game_sessions_status").on(table.status),
-    creatorIdx: index("IDX_game_sessions_creator").on(table.creatorId),
-    deadlineIdx: index("IDX_game_sessions_deadline").on(table.status, table.turnDeadlineAt),
-  })
-);
-
 export const insertGameSchema = createInsertSchema(games).omit({
   id: true,
   createdAt: true,
@@ -173,7 +123,5 @@ export type GameTurn = typeof gameTurns.$inferSelect;
 export type InsertGameTurn = z.infer<typeof insertGameTurnSchema>;
 export type GameDispute = typeof gameDisputes.$inferSelect;
 export type InsertGameDispute = z.infer<typeof insertGameDisputeSchema>;
-export type GameSession = typeof gameSessions.$inferSelect;
-export type InsertGameSession = typeof gameSessions.$inferInsert;
 export type Challenge = typeof challenges.$inferSelect;
 export type InsertChallenge = z.infer<typeof insertChallengeSchema>;

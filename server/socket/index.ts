@@ -17,7 +17,6 @@ import logger from "../logger";
 import { socketAuthMiddleware } from "./auth";
 import { joinRoom, leaveRoom, leaveAllRooms, getRoomStats } from "./rooms";
 import { registerBattleHandlers, cleanupBattleSubscriptions } from "./handlers/battle";
-import { registerGameHandlers, cleanupGameSubscriptions } from "./handlers/game";
 import { cleanupRateLimits, registerRateLimitRules, checkRateLimit } from "./socketRateLimit";
 import {
   registerPresenceHandlers,
@@ -31,7 +30,7 @@ import {
   stopHealthMonitor,
   getHealthStats,
 } from "./health";
-import { startTimeoutScheduler, stopTimeoutScheduler } from "../services/timeoutScheduler";
+import { startTimeoutScheduler, stopTimeoutScheduler } from "../services/battleTimeoutScheduler";
 import { stopRoomCleanup } from "./rooms";
 import type {
   ClientToServerEvents,
@@ -126,33 +125,26 @@ export function initializeSocketServer(
     // Register feature handlers
     registerPresenceHandlers(io, socket);
     registerBattleHandlers(io, socket);
-    registerGameHandlers(io, socket);
 
     // Room management
-    socket.on(
-      "room:join",
-      async (roomType: "battle" | "game" | "spot" | "global", roomId: string) => {
-        if (!checkRateLimit(socket.id, "room:join")) {
-          socket.emit("error", { code: "rate_limited", message: "Too many room joins, slow down" });
-          return;
-        }
-        await joinRoom(socket, roomType, roomId);
+    socket.on("room:join", async (roomType: "battle" | "spot" | "global", roomId: string) => {
+      if (!checkRateLimit(socket.id, "room:join")) {
+        socket.emit("error", { code: "rate_limited", message: "Too many room joins, slow down" });
+        return;
       }
-    );
+      await joinRoom(socket, roomType, roomId);
+    });
 
-    socket.on(
-      "room:leave",
-      async (roomType: "battle" | "game" | "spot" | "global", roomId: string) => {
-        if (!checkRateLimit(socket.id, "room:leave")) {
-          socket.emit("error", {
-            code: "rate_limited",
-            message: "Too many room leaves, slow down",
-          });
-          return;
-        }
-        await leaveRoom(socket, roomType, roomId);
+    socket.on("room:leave", async (roomType: "battle" | "spot" | "global", roomId: string) => {
+      if (!checkRateLimit(socket.id, "room:leave")) {
+        socket.emit("error", {
+          code: "rate_limited",
+          message: "Too many room leaves, slow down",
+        });
+        return;
       }
-    );
+      await leaveRoom(socket, roomType, roomId);
+    });
 
     // Typing indicators — only broadcast if the sender is actually in the room
     socket.on("typing", (roomId: string, isTyping: boolean) => {
@@ -178,7 +170,6 @@ export function initializeSocketServer(
 
       // Cleanup subscriptions
       await cleanupBattleSubscriptions(socket);
-      await cleanupGameSubscriptions(io, socket);
       await leaveAllRooms(socket);
       handlePresenceDisconnect(io, socket);
       cleanupSocketHealth(socket.id);

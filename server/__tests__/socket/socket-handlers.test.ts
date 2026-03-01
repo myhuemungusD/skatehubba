@@ -4,10 +4,9 @@
  * Targets:
  * 1. server/socket/auth.ts (lines 30-33): cleanupRateLimits() — stale fallback entries
  * 2. server/socket/index.ts (lines 168-232): getSocketStats(), broadcastSystemNotification(), shutdownSocketServer()
- * 3. server/socket/handlers/game.ts (lines 239-240,271,295,340,357-358): catch blocks in game:trick, game:pass, game:forfeit, game:reconnect
- * 4. server/socket/handlers/battle.ts (lines 119, 208-209, 244): battle:startVoting error, already-processed+not-complete branch
- * 5. server/socket/handlers/presence.ts (line 203): malformed presence entry in Redis
- * 6. server/socket/rooms.ts (line 201): parseRoomId returns null branch in leaveAllRooms
+ * 3. server/socket/handlers/battle.ts (lines 119, 208-209, 244): battle:startVoting error, already-processed+not-complete branch
+ * 4. server/socket/handlers/presence.ts (line 203): malformed presence entry in Redis
+ * 5. server/socket/rooms.ts (line 201): parseRoomId returns null branch in leaveAllRooms
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -28,16 +27,6 @@ const mockInitializeVoting = vi.fn();
 const mockCastVote = vi.fn();
 const mockBattleGenerateEventId = vi.fn().mockReturnValue("test-event-id");
 
-// Game state service mocks
-const mockCreateGame = vi.fn();
-const mockJoinGame = vi.fn();
-const mockSubmitTrick = vi.fn();
-const mockPassTrick = vi.fn();
-const mockHandleDisconnect = vi.fn();
-const mockHandleReconnect = vi.fn();
-const mockForfeitGame = vi.fn();
-const mockGameGenerateEventId = vi.fn().mockReturnValue("test-event-id");
-
 // Room mocks
 const mockJoinRoom = vi.fn().mockResolvedValue(true);
 const mockLeaveRoom = vi.fn().mockResolvedValue(undefined);
@@ -48,7 +37,7 @@ const mockLeaveAllRooms = vi.fn().mockResolvedValue(undefined);
 const mockGetRoomStats = vi.fn().mockReturnValue({
   totalRooms: 0,
   totalMembers: 0,
-  byType: { battle: 0, game: 0, spot: 0, global: 0 },
+  byType: { battle: 0, spot: 0, global: 0 },
 });
 
 // Health mocks
@@ -115,17 +104,6 @@ vi.mock("../../services/battleStateService", () => ({
   generateEventId: (...args: any[]) => mockBattleGenerateEventId(...args),
 }));
 
-vi.mock("../../services/gameStateService", () => ({
-  createGame: (...args: any[]) => mockCreateGame(...args),
-  joinGame: (...args: any[]) => mockJoinGame(...args),
-  submitTrick: (...args: any[]) => mockSubmitTrick(...args),
-  passTrick: (...args: any[]) => mockPassTrick(...args),
-  handleDisconnect: (...args: any[]) => mockHandleDisconnect(...args),
-  handleReconnect: (...args: any[]) => mockHandleReconnect(...args),
-  forfeitGame: (...args: any[]) => mockForfeitGame(...args),
-  generateEventId: (...args: any[]) => mockGameGenerateEventId(...args),
-}));
-
 vi.mock("../../socket/rooms", () => ({
   joinRoom: (...args: any[]) => mockJoinRoom(...args),
   leaveRoom: (...args: any[]) => mockLeaveRoom(...args),
@@ -158,11 +136,6 @@ vi.mock("../../socket/handlers/battle", () => ({
   cleanupBattleSubscriptions: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../../socket/handlers/game", () => ({
-  registerGameHandlers: vi.fn(),
-  cleanupGameSubscriptions: vi.fn().mockResolvedValue(undefined),
-}));
-
 vi.mock("../../socket/handlers/presence", () => ({
   registerPresenceHandlers: vi.fn(),
   handlePresenceDisconnect: vi.fn(),
@@ -172,7 +145,7 @@ vi.mock("../../socket/handlers/presence", () => ({
   getUserPresence: vi.fn().mockResolvedValue(null),
 }));
 
-vi.mock("../../services/timeoutScheduler", () => ({
+vi.mock("../../services/battleTimeoutScheduler", () => ({
   startTimeoutScheduler: vi.fn(),
   stopTimeoutScheduler: vi.fn(),
   forceTimeoutCheck: vi.fn().mockResolvedValue(undefined),
@@ -211,20 +184,13 @@ vi.mock("socket.io", () => {
 // Imports (after mocks)
 // ============================================================================
 
-// We import the real battle/game/presence handler modules directly (NOT through
+// We import the real battle/presence handler modules directly (NOT through
 // the mocked ../socket/handlers/* paths) because those mocks are only for the
 // index.ts tests. For handler tests we need the real register functions.
 // However, since rooms is mocked, the handlers will use the mocked rooms.
 
-// For handler-level tests, we re-import the actual handler files.
-// We need separate un-mocked imports for handler tests.
-// The trick: vi.mock for ../socket/handlers/* is for index.ts. For direct
-// handler tests we import the modules by their full paths which resolve
-// to the same files but we can use vi.importActual or import directly.
-
-// Actually, vi.mock hoists and applies to all imports in this file.
-// So we need a different approach: use dynamic imports with vi.importActual
-// for handler-level tests.
+// vi.mock hoists and applies to all imports in this file.
+// So we use dynamic imports with vi.importActual for handler-level tests.
 
 const {
   getSocketStats,
@@ -239,9 +205,6 @@ const logger = (await import("../../logger")).default;
 const battleHandlers = (await vi.importActual(
   "../../socket/handlers/battle"
 )) as typeof import("../../socket/handlers/battle");
-const gameHandlers = (await vi.importActual(
-  "../../socket/handlers/game"
-)) as typeof import("../../socket/handlers/game");
 
 // ============================================================================
 // Helpers
@@ -293,7 +256,6 @@ beforeEach(() => {
   mockJoinRoom.mockResolvedValue(true);
   mockLeaveRoom.mockResolvedValue(undefined);
   mockGetRoomInfo.mockReturnValue(null);
-  mockGameGenerateEventId.mockReturnValue("test-event-id");
   mockBattleGenerateEventId.mockReturnValue("test-event-id");
   mockGetPresenceStats.mockResolvedValue({ online: 0, away: 0 });
   mockStartHealthMonitor.mockReturnValue(42);
@@ -306,7 +268,7 @@ beforeEach(() => {
   mockGetRoomStats.mockReturnValue({
     totalRooms: 0,
     totalMembers: 0,
-    byType: { battle: 0, game: 0, spot: 0, global: 0 },
+    byType: { battle: 0, spot: 0, global: 0 },
   });
 });
 
@@ -370,7 +332,7 @@ describe("Socket Index — getSocketStats (lines 192-204)", () => {
     mockGetRoomStats.mockReturnValue({
       totalRooms: 5,
       totalMembers: 10,
-      byType: { battle: 1, game: 2, spot: 1, global: 1 },
+      byType: { battle: 1, spot: 1, global: 1 },
     });
     mockGetPresenceStats.mockResolvedValue({ online: 7, away: 3 });
     mockGetHealthStats.mockReturnValue({
@@ -387,7 +349,7 @@ describe("Socket Index — getSocketStats (lines 192-204)", () => {
       rooms: {
         totalRooms: 5,
         totalMembers: 10,
-        byType: { battle: 1, game: 2, spot: 1, global: 1 },
+        byType: { battle: 1, spot: 1, global: 1 },
       },
       presence: { online: 7, away: 3 },
       health: {
@@ -465,181 +427,7 @@ describe("Socket Index — shutdownSocketServer (lines 226-263)", () => {
 });
 
 // ============================================================================
-// 3. socket/handlers/game.ts — error catch blocks
-// ============================================================================
-
-describe("Game Handlers — game:trick catch block (lines 239-240)", () => {
-  it("emits error when submitTrick throws", async () => {
-    const io = createMockIo();
-    const socket = createMockSocket("trick-fail-user", "game");
-    gameHandlers.registerGameHandlers(io, socket);
-
-    mockSubmitTrick.mockRejectedValue(new Error("DB connection lost"));
-
-    const handler = socket._handlers.get("game:trick");
-    await handler({ gameId: "g1", odv: "trick-fail-user", trickName: "kickflip" });
-
-    expect(socket.emit).toHaveBeenCalledWith("error", {
-      code: "trick_failed",
-      message: "Failed to submit trick",
-    });
-    expect(logger.error).toHaveBeenCalledWith(
-      "[Game] Trick failed",
-      expect.objectContaining({ odv: "trick-fail-user" })
-    );
-  });
-});
-
-describe("Game Handlers — game:pass catch block (line 271 alreadyProcessed, lines 308-313 catch)", () => {
-  it("returns early when result.alreadyProcessed is true (line 271)", async () => {
-    const io = createMockIo();
-    const socket = createMockSocket("pass-idempotent", "game");
-    gameHandlers.registerGameHandlers(io, socket);
-
-    mockPassTrick.mockResolvedValue({
-      success: true,
-      alreadyProcessed: true,
-    });
-
-    const handler = socket._handlers.get("game:pass");
-    await handler("g-pass-1");
-
-    // Should NOT emit any game events (early return)
-    expect(mockBroadcastToRoom).not.toHaveBeenCalled();
-    expect(socket.emit).not.toHaveBeenCalled();
-  });
-
-  it("emits error when passTrick throws (lines 308-313)", async () => {
-    const io = createMockIo();
-    const socket = createMockSocket("pass-fail-user", "game");
-    gameHandlers.registerGameHandlers(io, socket);
-
-    mockPassTrick.mockRejectedValue(new Error("Service unavailable"));
-
-    const handler = socket._handlers.get("game:pass");
-    await handler("g-pass-fail");
-
-    expect(socket.emit).toHaveBeenCalledWith("error", {
-      code: "pass_failed",
-      message: "Failed to pass",
-    });
-    expect(logger.error).toHaveBeenCalledWith(
-      "[Game] Pass failed",
-      expect.objectContaining({ odv: "pass-fail-user" })
-    );
-  });
-
-  it("broadcasts next turn when game is not completed after pass (line 295)", async () => {
-    const io = createMockIo();
-    const socket = createMockSocket("pass-continue-user", "game");
-    gameHandlers.registerGameHandlers(io, socket);
-
-    mockPassTrick.mockResolvedValue({
-      success: true,
-      alreadyProcessed: false,
-      letterGained: "S",
-      game: {
-        id: "g-pass-cont",
-        status: "active",
-        players: [
-          { odv: "pass-continue-user", letters: "S" },
-          { odv: "player-2", letters: "" },
-        ],
-        currentTurnIndex: 1,
-        currentAction: "set",
-      },
-    });
-
-    const handler = socket._handlers.get("game:pass");
-    await handler("g-pass-cont");
-
-    // Should broadcast letter
-    expect(mockBroadcastToRoom).toHaveBeenCalledWith(
-      io,
-      "game",
-      "g-pass-cont",
-      "game:letter",
-      expect.objectContaining({ odv: "pass-continue-user", letters: "S" })
-    );
-
-    // Should broadcast next turn (line 295)
-    expect(mockBroadcastToRoom).toHaveBeenCalledWith(
-      io,
-      "game",
-      "g-pass-cont",
-      "game:turn",
-      expect.objectContaining({
-        gameId: "g-pass-cont",
-        currentPlayer: "player-2",
-        action: "set",
-      })
-    );
-  });
-});
-
-describe("Game Handlers — game:forfeit catch block (lines 340, 357-358)", () => {
-  it("returns early when forfeit result.alreadyProcessed is true (line 340)", async () => {
-    const io = createMockIo();
-    const socket = createMockSocket("forfeit-idempotent", "game");
-    gameHandlers.registerGameHandlers(io, socket);
-
-    mockForfeitGame.mockResolvedValue({
-      success: true,
-      alreadyProcessed: true,
-    });
-
-    const handler = socket._handlers.get("game:forfeit");
-    await handler("g-forfeit-1");
-
-    // Should return early without broadcasting
-    expect(mockBroadcastToRoom).not.toHaveBeenCalled();
-  });
-
-  it("emits error when forfeitGame throws (lines 357-358)", async () => {
-    const io = createMockIo();
-    const socket = createMockSocket("forfeit-fail", "game");
-    gameHandlers.registerGameHandlers(io, socket);
-
-    mockForfeitGame.mockRejectedValue(new Error("Forfeit DB error"));
-
-    const handler = socket._handlers.get("game:forfeit");
-    await handler("g-forfeit-fail");
-
-    expect(socket.emit).toHaveBeenCalledWith("error", {
-      code: "forfeit_failed",
-      message: "Failed to forfeit",
-    });
-    expect(logger.error).toHaveBeenCalledWith(
-      "[Game] Forfeit failed",
-      expect.objectContaining({ odv: "forfeit-fail" })
-    );
-  });
-});
-
-describe("Game Handlers — game:reconnect catch block (lines 427-432)", () => {
-  it("emits error when handleReconnect throws", async () => {
-    const io = createMockIo();
-    const socket = createMockSocket("reconnect-crash", "game");
-    gameHandlers.registerGameHandlers(io, socket);
-
-    mockHandleReconnect.mockRejectedValue(new Error("Reconnect service down"));
-
-    const handler = socket._handlers.get("game:reconnect");
-    await handler("g-reconnect-fail");
-
-    expect(socket.emit).toHaveBeenCalledWith("error", {
-      code: "reconnect_failed",
-      message: "Failed to reconnect",
-    });
-    expect(logger.error).toHaveBeenCalledWith(
-      "[Game] Reconnect failed",
-      expect.objectContaining({ odv: "reconnect-crash" })
-    );
-  });
-});
-
-// ============================================================================
-// 4. socket/handlers/battle.ts — battle:startVoting error, already-processed branch
+// 3. socket/handlers/battle.ts — battle:startVoting error, already-processed branch
 // ============================================================================
 
 describe("Battle Handlers — battle:startVoting error catch (lines 208-209)", () => {
@@ -773,7 +561,7 @@ describe("Battle Handlers — battle:vote already-processed + not complete (line
 });
 
 // ============================================================================
-// 5. socket/handlers/presence.ts — malformed Redis entry (line 203)
+// 4. socket/handlers/presence.ts — malformed Redis entry (line 203)
 // ============================================================================
 
 describe("Presence — malformed presence entry in Redis (line 203)", () => {
@@ -815,7 +603,7 @@ describe("Presence — malformed presence entry in Redis (line 203)", () => {
 });
 
 // ============================================================================
-// 6. socket/rooms.ts — parseRoomId returns null in leaveAllRooms (line 201)
+// 5. socket/rooms.ts — parseRoomId returns null in leaveAllRooms (line 201)
 // ============================================================================
 
 describe("Rooms — leaveAllRooms with unparseable roomId (line 201)", () => {

@@ -5,7 +5,6 @@
  * - server/socket/auth.ts (lines 49-55 — Redis rate limit path)
  * - server/socket/rooms.ts (lines 132-133, 170-171 — Redis error catches)
  * - server/socket/handlers/battle.ts (lines 282-283, 301, 320 — error catches)
- * - server/socket/handlers/game.ts (lines 390, 428-429, 474 — reconnect, cleanup)
  * - server/socket/handlers/presence.ts (lines 125, 220 — fallback remove, away count)
  * - server/socket/health.ts (lines 116, 137 — edge cases)
  * - server/socket/index.ts (lines 165, 175 — see socket-index-coverage.test.ts)
@@ -30,16 +29,6 @@ const mockGetBattle = vi.fn();
 const mockInitializeVoting = vi.fn();
 const mockCastVote = vi.fn();
 const mockBattleGenerateEventId = vi.fn().mockReturnValue("test-event-id");
-
-// Game state service
-const mockCreateGame = vi.fn();
-const mockJoinGame = vi.fn();
-const mockSubmitTrick = vi.fn();
-const mockPassTrick = vi.fn();
-const mockHandleDisconnect = vi.fn();
-const mockHandleReconnect = vi.fn();
-const mockForfeitGame = vi.fn();
-const mockGameGenerateEventId = vi.fn().mockReturnValue("test-event-id");
 
 // Rooms (mocked for handler tests — auth/rooms tests use real modules)
 const mockJoinRoom = vi.fn().mockResolvedValue(true);
@@ -95,17 +84,6 @@ vi.mock("../../services/battleStateService", () => ({
   generateEventId: (...args: any[]) => mockBattleGenerateEventId(...args),
 }));
 
-vi.mock("../../services/gameStateService", () => ({
-  createGame: (...args: any[]) => mockCreateGame(...args),
-  joinGame: (...args: any[]) => mockJoinGame(...args),
-  submitTrick: (...args: any[]) => mockSubmitTrick(...args),
-  passTrick: (...args: any[]) => mockPassTrick(...args),
-  handleDisconnect: (...args: any[]) => mockHandleDisconnect(...args),
-  handleReconnect: (...args: any[]) => mockHandleReconnect(...args),
-  forfeitGame: (...args: any[]) => mockForfeitGame(...args),
-  generateEventId: (...args: any[]) => mockGameGenerateEventId(...args),
-}));
-
 vi.mock("../../socket/rooms", () => ({
   joinRoom: (...args: any[]) => mockJoinRoom(...args),
   leaveRoom: (...args: any[]) => mockLeaveRoom(...args),
@@ -120,7 +98,6 @@ vi.mock("../../socket/rooms", () => ({
 
 const authModule = await import("../../socket/auth");
 const battleModule = await import("../../socket/handlers/battle");
-const gameModule = await import("../../socket/handlers/game");
 const presenceModule = await import("../../socket/handlers/presence");
 const healthModule = await import("../../socket/health");
 const logger = (await import("../../logger")).default;
@@ -168,7 +145,6 @@ beforeEach(() => {
   mockJoinRoom.mockResolvedValue(true);
   mockLeaveRoom.mockResolvedValue(undefined);
   mockGetRoomInfo.mockReturnValue(null);
-  mockGameGenerateEventId.mockReturnValue("test-event-id");
   mockBattleGenerateEventId.mockReturnValue("test-event-id");
   trackedHealthIds = [];
 });
@@ -325,84 +301,7 @@ describe("Battle Handlers — error catch paths (lines 282-283, 301, 320)", () =
 });
 
 // ============================================================================
-// Section 4: socket/handlers/game.ts — reconnect, cleanup (lines 390, 428-429, 474)
-// ============================================================================
-
-describe("Game Handlers — uncovered paths (lines 390, 428-429, 474)", () => {
-  it("game:reconnect creates socketGameMap entry (line 390)", async () => {
-    const io = createIoMock();
-    const socket = createSocketMock("reconnect-user-1", "game");
-    gameModule.registerGameHandlers(io, socket);
-
-    mockHandleReconnect.mockResolvedValue({
-      success: true,
-      game: {
-        id: "game-r1",
-        players: [
-          { odv: "reconnect-user-1", letters: "", connected: true },
-          { odv: "player-2", letters: "", connected: true },
-        ],
-        currentTurnIndex: 0,
-        currentAction: "set",
-        status: "active",
-      },
-      alreadyProcessed: false,
-    });
-
-    const handler = socket._handlers.get("game:reconnect");
-    await handler("game-r1");
-
-    expect(socket.emit).toHaveBeenCalledWith("game:state", expect.any(Object));
-    expect(mockBroadcastToRoom).toHaveBeenCalled();
-  });
-
-  it("game:reconnect error catch emits error (lines 428-429)", async () => {
-    const io = createIoMock();
-    const socket = createSocketMock("reconnect-fail", "game");
-    gameModule.registerGameHandlers(io, socket);
-
-    mockHandleReconnect.mockRejectedValue(new Error("Reconnect DB error"));
-
-    const handler = socket._handlers.get("game:reconnect");
-    await handler("game-fail");
-
-    expect(socket.emit).toHaveBeenCalledWith("error", {
-      code: "reconnect_failed",
-      message: "Failed to reconnect",
-    });
-  });
-
-  it("cleanupGameSubscriptions catches error and continues (line 474)", async () => {
-    const io = createIoMock();
-    const socket = createSocketMock("cleanup-user", "game");
-    gameModule.registerGameHandlers(io, socket);
-
-    mockCreateGame.mockResolvedValue({
-      success: true,
-      game: {
-        id: "cleanup-game-1",
-        spotId: "spot-1",
-        maxPlayers: 4,
-        createdAt: new Date().toISOString(),
-      },
-    });
-
-    const createHandler = socket._handlers.get("game:create");
-    await createHandler("spot-1", 4);
-
-    mockLeaveRoom.mockRejectedValue(new Error("Leave room failed"));
-
-    await gameModule.cleanupGameSubscriptions(io, socket);
-
-    expect(logger.error).toHaveBeenCalledWith(
-      "[Game] Cleanup failed for game",
-      expect.objectContaining({ gameId: "cleanup-game-1" })
-    );
-  });
-});
-
-// ============================================================================
-// Section 5: socket/handlers/presence.ts — fallback remove (line 125), away count (line 220)
+// Section 4: socket/handlers/presence.ts — fallback remove (line 125), away count (line 220)
 // ============================================================================
 
 describe("Presence Handlers — uncovered paths (lines 125, 220)", () => {
@@ -446,7 +345,7 @@ describe("Presence Handlers — uncovered paths (lines 125, 220)", () => {
 });
 
 // ============================================================================
-// Section 6: socket/health.ts — edge cases (lines 116, 137)
+// Section 5: socket/health.ts — edge cases (lines 116, 137)
 // ============================================================================
 
 describe("Socket Health — edge cases (lines 116, 137)", () => {

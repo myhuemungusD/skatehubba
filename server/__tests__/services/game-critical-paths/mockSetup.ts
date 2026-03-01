@@ -1,14 +1,9 @@
 /**
- * Shared mock setup for game critical path tests.
+ * Shared mock setup for battle critical path tests.
  *
  * This module provides:
  * - In-memory store for test data
  * - Drizzle ORM mock chain
- * - All vi.mock() calls needed by game + battle tests
- *
- * IMPORTANT: vi.mock() calls are hoisted by vitest, so they must appear
- * in each test file that needs them. This module exports the shared stores
- * and query chain builder for use after mocks are registered.
  */
 
 import { vi } from "vitest";
@@ -18,7 +13,6 @@ import { vi } from "vitest";
 // ============================================================================
 
 export const stores: Record<string, Map<string, any>> = {
-  gameSessions: new Map(),
   battleVoteState: new Map(),
   battles: new Map(),
   battleVotes: new Map(),
