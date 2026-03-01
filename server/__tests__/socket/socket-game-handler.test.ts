@@ -160,6 +160,21 @@ describe("socket/handlers/game — uncovered error paths", () => {
       });
     });
 
+    it("returns early without broadcasting when alreadyProcessed is true (join.ts line 42)", async () => {
+      vi.mocked(joinGame).mockResolvedValueOnce({
+        success: true,
+        alreadyProcessed: true,
+        game: makeGameState(),
+      });
+
+      const handler = handlers.get("game:join")!;
+      await handler("g1");
+
+      // Should NOT have broadcast anything
+      expect(broadcastToRoom).not.toHaveBeenCalled();
+      expect(mockSocket.emit).not.toHaveBeenCalled();
+    });
+
     it("uses default error message when result.error is undefined", async () => {
       vi.mocked(joinGame).mockResolvedValueOnce({
         success: false,

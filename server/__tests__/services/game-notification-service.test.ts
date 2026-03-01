@@ -174,6 +174,20 @@ describe("Game Notification Service", () => {
       );
     });
 
+    it("sends opponent_forfeited notification with opponentName", async () => {
+      await sendGameNotification(pushToken, "opponent_forfeited", {
+        ...baseData,
+        opponentName: "Tony Hawk",
+      });
+
+      expect(mockSendPushNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Opponent forfeited.",
+          body: "Tony Hawk gave up. You win.",
+        })
+      );
+    });
+
     it("sends game_forfeited_timeout notification", async () => {
       await sendGameNotification(pushToken, "game_forfeited_timeout", baseData);
 
@@ -285,6 +299,20 @@ describe("Game Notification Service", () => {
         expect.objectContaining({
           title: "Your move.",
           body: "@Nyjah Huston is waiting — your move",
+        })
+      );
+    });
+
+    it("sends your_turn notification with trickName but no opponentName uses 'Opponent' fallback", async () => {
+      await sendGameNotification(pushToken, "your_turn", {
+        ...baseData,
+        trickName: "Heelflip",
+      });
+
+      expect(mockSendPushNotification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Your move.",
+          body: "@Opponent set a Heelflip — your move",
         })
       );
     });

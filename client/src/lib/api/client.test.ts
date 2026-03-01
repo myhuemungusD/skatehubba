@@ -585,4 +585,194 @@ describe("client", () => {
       );
     });
   });
+
+  // ────────────────────────────────────────────────────────────────────────
+  // parseJsonSafely — non-JSON error body branches (line 60-66)
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe("parseJsonSafely non-JSON error body branches", () => {
+    it("parses JSON from text/plain error body starting with '['", async () => {
+      // Non-JSON content type, error status, body starts with "[" — should JSON.parse
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        new Response('[{"error":"bad"}]', {
+          status: 500,
+          statusText: "Internal Server Error",
+          headers: { "content-type": "text/plain" },
+        })
+      );
+
+      await expect(apiRequestRaw({ method: "GET", path: "/api/test" })).rejects.toThrow();
+
+      expect(normalizeApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 500,
+          payload: [{ error: "bad" }],
+        })
+      );
+    });
+
+    it("parses JSON from text/plain error body starting with '{'", async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        new Response('{"error":"something"}', {
+          status: 502,
+          statusText: "Bad Gateway",
+          headers: { "content-type": "text/plain" },
+        })
+      );
+
+      await expect(apiRequestRaw({ method: "GET", path: "/api/test" })).rejects.toThrow();
+
+      expect(normalizeApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 502,
+          payload: { error: "something" },
+        })
+      );
+    });
+
+    it("returns { message } for short non-HTML text error body", async () => {
+      // Already tested by "handles non-JSON error responses" above,
+      // but let's verify the exact payload structure for completeness
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        new Response("Service Unavailable", {
+          status: 503,
+          statusText: "Service Unavailable",
+          headers: { "content-type": "text/plain" },
+        })
+      );
+
+      await expect(apiRequestRaw({ method: "GET", path: "/api/test" })).rejects.toThrow();
+
+      expect(normalizeApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: { message: "Service Unavailable" },
+        })
+      );
+    });
+
+    it("returns undefined for HTML error body (contains '<html')", async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        new Response("<html><body>Error</body></html>", {
+          status: 500,
+          statusText: "Internal Server Error",
+          headers: { "content-type": "text/html" },
+        })
+      );
+
+      await expect(apiRequestRaw({ method: "GET", path: "/api/test" })).rejects.toThrow();
+
+      expect(normalizeApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 500,
+          payload: undefined,
+        })
+      );
+    });
+
+    it("returns undefined for empty error body", async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        new Response("", {
+          status: 500,
+          statusText: "Internal Server Error",
+          headers: { "content-type": "text/plain" },
+        })
+      );
+
+      await expect(apiRequestRaw({ method: "GET", path: "/api/test" })).rejects.toThrow();
+
+      expect(normalizeApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 500,
+          payload: undefined,
+        })
+      );
+    });
+
+    it("line 43: falls back to empty string when content-type header is null (error path)", async () => {
+      // A non-ok response with NO content-type header at all.
+      // headers.get("content-type") returns null → `|| ""` fallback on line 43.
+      // Body is short non-HTML text → extracted as { message }.
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        new Response("Server error", {
+          status: 500,
+          statusText: "Internal Server Error",
+          // No content-type header → get("content-type") returns null
+        })
+      );
+
+      await expect(apiRequestRaw({ method: "GET", path: "/api/test" })).rejects.toThrow();
+
+      expect(normalizeApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 500,
+          payload: { message: "Server error" },
+        })
+      );
+    });
+
+    it("returns undefined for very long non-JSON error body (>= 500 chars)", async () => {
+      const longBody = "X".repeat(500);
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        new Response(longBody, {
+          status: 500,
+          statusText: "Internal Server Error",
+          headers: { "content-type": "text/plain" },
+        })
+      );
+
+      await expect(apiRequestRaw({ method: "GET", path: "/api/test" })).rejects.toThrow();
+
+      expect(normalizeApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 500,
+          payload: undefined,
+        })
+      );
+    });
+
+    it("returns undefined when text starts with '{' but is invalid JSON (catch branch)", async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValue(
+        new Response("{not valid json at all", {
+          status: 500,
+          statusText: "Internal Server Error",
+          headers: { "content-type": "text/plain" },
+        })
+      );
+
+      await expect(apiRequestRaw({ method: "GET", path: "/api/test" })).rejects.toThrow();
+
+      // JSON.parse fails, catch block ignores, falls through to return undefined
+      expect(normalizeApiError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 500,
+          payload: undefined,
+        })
+      );
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────
+  // AbortError with external signal — re-throws original (line 150)
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe("abort handling with external signal", () => {
+    it("re-throws AbortError when external signal is provided (not wrapped as TIMEOUT)", async () => {
+      const externalController = new AbortController();
+      const abortError = new DOMException("The operation was aborted", "AbortError");
+      vi.mocked(globalThis.fetch).mockRejectedValue(abortError);
+
+      try {
+        await apiRequestRaw({
+          method: "GET",
+          path: "/api/test",
+          signal: externalController.signal,
+        });
+        expect.unreachable("Should have thrown");
+      } catch (error) {
+        // When external signal is provided, the AbortError is re-thrown as-is
+        // (not wrapped as TIMEOUT ApiError)
+        expect(error).toBe(abortError);
+      }
+    });
+  });
 });

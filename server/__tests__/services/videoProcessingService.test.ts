@@ -214,6 +214,22 @@ describe("VideoProcessingService", () => {
 
       expect(result.success).toBe(true);
     });
+
+    it("should handle undefined metadata (line 146-147 optional chaining)", async () => {
+      // metadata is undefined → ?.size short-circuits to undefined → ?? null
+      mockValidateResult = { valid: true };
+
+      const result = await processUpload(baseInput);
+      expect(result.success).toBe(true);
+    });
+
+    it("should handle metadata with missing size/contentType", async () => {
+      // metadata exists but size/contentType are undefined → ?? null fallback
+      mockValidateResult = { valid: true, metadata: {} };
+
+      const result = await processUpload(baseInput);
+      expect(result.success).toBe(true);
+    });
   });
 
   // ===========================================================================

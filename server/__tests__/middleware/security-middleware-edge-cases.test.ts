@@ -171,6 +171,20 @@ describe("Security middleware — uncovered lines", () => {
       expect(result).toBe(1);
     });
 
+    it("should return 0 when redis.call throws (catch branch — line 25)", async () => {
+      // Get the sendCommand from the first RedisStore instantiation
+      const firstCall = MockRedisStore.calls[0];
+      const sendCommand = firstCall.sendCommand;
+
+      // Make redis.call reject to trigger the catch branch
+      mockRedisCall.fn = vi.fn().mockRejectedValue(new Error("Redis unreachable"));
+
+      const result = await sendCommand("GET", "some-key");
+
+      // The catch block returns 0 so the rate limiter allows the request through
+      expect(result).toBe(0);
+    });
+
     it("should use the correct prefix for each rate limiter store", () => {
       // All rateLimit() calls should have produced a store via buildStore,
       // so we expect RedisStore to have been called once per limiter.
@@ -326,6 +340,99 @@ describe("Security middleware — uncovered lines", () => {
       const key = keyGen(req);
       // Not all fallback => takes the normal return path (line 81)
       expect(key).toBe("anonymous:device-123:unknown-ip");
+    });
+  });
+
+  // =========================================================================
+  // profileCreateLimiter — keyGenerator uses firebaseUid (lines 163-166)
+  // =========================================================================
+  describe("profileCreateLimiter keyGenerator", () => {
+    function findProfileCreateKeyGenerator(): (req: any) => string {
+      // profileCreateLimiter uses a custom keyGenerator that checks firebaseUid
+      // It's distinct from userKeyGenerator. Find an option with keyGenerator
+      // that uses firebaseUid (i.e., not the same as userKeyGenerator).
+      // The profileCreate limiter will be one of the last captured options.
+      const opts = capturedOptions.filter((o) => typeof o.keyGenerator === "function");
+      // profileCreateLimiter is the only one that checks req.firebaseUid
+      // We can identify it by testing with a request that has firebaseUid
+      for (const opt of opts) {
+        const testReq = { firebaseUid: "test-uid", ip: "1.2.3.4", currentUser: null, get: () => undefined };
+        const key = opt.keyGenerator(testReq);
+        if (key === "test-uid") return opt.keyGenerator;
+      }
+      throw new Error("Could not find profileCreateLimiter keyGenerator");
+    }
+
+    it("should use firebaseUid when present", () => {
+      const keyGen = findProfileCreateKeyGenerator();
+      const req = { firebaseUid: "firebase-user-123", ip: "1.2.3.4" };
+      expect(keyGen(req)).toBe("firebase-user-123");
+    });
+
+    it("should fall back to req.ip when firebaseUid is absent", () => {
+      const keyGen = findProfileCreateKeyGenerator();
+      const req = { ip: "10.0.0.1" };
+      expect(keyGen(req)).toBe("10.0.0.1");
+    });
+
+    it("should fall back to 'unknown' when both firebaseUid and ip are absent", () => {
+      const keyGen = findProfileCreateKeyGenerator();
+      const req = {};
+      expect(keyGen(req)).toBe("unknown");
+    });
+  });
+
+  // =========================================================================
+  // staticFileLimiter — skip function (lines 185-189)
+  // =========================================================================
+  describe("staticFileLimiter skip function", () => {
+    function findSkipFunction(): (req: any) => boolean {
+      const withSkip = capturedOptions.find((opts) => typeof opts.skip === "function");
+      if (!withSkip) throw new Error("No capturedOptions have a skip function");
+      return withSkip.skip;
+    }
+
+    it("should skip rate limiting for .css files", () => {
+      const skip = findSkipFunction();
+      expect(skip({ path: "/styles/main.css" })).toBe(true);
+    });
+
+    it("should skip rate limiting for .js files", () => {
+      const skip = findSkipFunction();
+      expect(skip({ path: "/scripts/app.js" })).toBe(true);
+    });
+
+    it("should skip rate limiting for image files", () => {
+      const skip = findSkipFunction();
+      expect(skip({ path: "/images/logo.png" })).toBe(true);
+      expect(skip({ path: "/images/photo.jpg" })).toBe(true);
+      expect(skip({ path: "/images/photo.jpeg" })).toBe(true);
+      expect(skip({ path: "/images/icon.gif" })).toBe(true);
+      expect(skip({ path: "/images/icon.svg" })).toBe(true);
+      expect(skip({ path: "/favicon.ico" })).toBe(true);
+    });
+
+    it("should skip rate limiting for font files", () => {
+      const skip = findSkipFunction();
+      expect(skip({ path: "/fonts/main.woff" })).toBe(true);
+      expect(skip({ path: "/fonts/main.woff2" })).toBe(true);
+      expect(skip({ path: "/fonts/main.ttf" })).toBe(true);
+      expect(skip({ path: "/fonts/main.eot" })).toBe(true);
+    });
+
+    it("should NOT skip rate limiting for HTML files", () => {
+      const skip = findSkipFunction();
+      expect(skip({ path: "/index.html" })).toBe(false);
+    });
+
+    it("should NOT skip rate limiting for API routes", () => {
+      const skip = findSkipFunction();
+      expect(skip({ path: "/api/users" })).toBe(false);
+    });
+
+    it("should NOT skip rate limiting for paths without extensions", () => {
+      const skip = findSkipFunction();
+      expect(skip({ path: "/dashboard" })).toBe(false);
     });
   });
 });

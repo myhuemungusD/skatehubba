@@ -193,6 +193,52 @@ jobs:
       - name: Lint Mobile
         run: pnpm run lint
 
+  # Server quality gates — typecheck + lint + test for all server-side code
+  server_quality:
+    name: "Server Quality Control"
+    needs: lockfile_check
+    runs-on: ubuntu-latest
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-pnpm-env
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck server
+        run: pnpm -C server typecheck
+
+      - name: Lint server
+        run: pnpm -C server lint
+
+      - name: Test server
+        run: pnpm -C server test
+
+      - name: Typecheck api
+        run: pnpm -C api typecheck
+
+      - name: Lint api
+        run: pnpm -C api lint
+
+      - name: Typecheck functions
+        run: pnpm -C functions typecheck
+
+      - name: Lint functions
+        run: pnpm -C functions lint
+
+      - name: Test functions
+        run: pnpm -C functions test
+
+      - name: Build functions
+        run: pnpm -C functions build
+
   rules_scan:
     name: "Security Guardrail"
     runs-on: ubuntu-latest

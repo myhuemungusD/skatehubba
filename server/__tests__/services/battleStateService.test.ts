@@ -401,6 +401,26 @@ describe("BattleStateService", () => {
       expect(result.error).toBe("Voting is not active");
     });
 
+    it("should update existing vote when same player re-votes with different eventId", async () => {
+      const state = stores.battleVoteState.get("voting-battle");
+      // Pre-populate with both players' votes but keep status as "voting"
+      state.votes = [
+        { odv: "player-1", vote: "sketch", votedAt: new Date().toISOString() },
+        { odv: "player-2", vote: "clean", votedAt: new Date().toISOString() },
+      ];
+
+      const result = await castVote({
+        eventId: "re-vote-event",
+        battleId: "voting-battle",
+        odv: "player-1",
+        vote: "clean",
+      });
+
+      // The vote should succeed — this triggers the existingVoteIndex !== -1 branch
+      // and the .map() callback where i !== existingVoteIndex returns v unchanged (line 164)
+      expect(result.success).toBe(true);
+    });
+
     it("should handle idempotent votes", async () => {
       const eventId = "duplicate-vote-event";
       const state = stores.battleVoteState.get("voting-battle");

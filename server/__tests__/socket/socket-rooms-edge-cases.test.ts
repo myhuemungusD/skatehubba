@@ -36,7 +36,13 @@ vi.mock("../../redis", () => ({
 // Imports
 // ============================================================================
 
-const { joinRoom, leaveRoom, cleanupEmptyRooms } = await import("../../socket/rooms");
+const {
+  joinRoom,
+  leaveRoom,
+  cleanupEmptyRooms,
+  startRoomCleanup,
+  stopRoomCleanup,
+} = await import("../../socket/rooms");
 const logger = (await import("../../logger")).default;
 
 // ============================================================================
@@ -59,6 +65,43 @@ function createMockSocket(odv: string) {
     to: vi.fn().mockReturnValue({ emit: vi.fn() }),
   } as any;
 }
+
+describe("Socket Rooms — stopRoomCleanup / startRoomCleanup (lines 98-100)", () => {
+  it("does nothing when cleanupInterval is already null", () => {
+    // Call stopRoomCleanup twice — the second call should be a no-op
+    // because cleanupInterval was already set to null by the first call
+    stopRoomCleanup();
+    // Should not throw
+    stopRoomCleanup();
+  });
+
+  it("startRoomCleanup is a no-op when interval already exists", () => {
+    // startRoomCleanup was already called on module import.
+    // Calling it again should not create a second interval.
+    startRoomCleanup();
+    startRoomCleanup();
+    // Clean up
+    stopRoomCleanup();
+    // Restart for other tests
+    startRoomCleanup();
+  });
+});
+
+describe("Socket Rooms — Redis scard error in getRoomMemberCount (lines 115-116)", () => {
+  it("falls back to local member count when Redis scard throws", async () => {
+    mockRedisClient = {
+      scard: vi.fn().mockRejectedValue(new Error("Redis scard failure")),
+      sadd: vi.fn().mockRejectedValue(new Error("Redis sadd failure")),
+    };
+
+    const socket = createMockSocket("redis-scard-user");
+    // joinRoom calls getRoomMemberCount which uses scard — when it fails,
+    // it should fall through to the in-memory fallback and still succeed
+    const result = await joinRoom(socket, "spot", "redis-spot-scard");
+    expect(result).toBe(true);
+    expect(socket.data.rooms.has("spot:redis-spot-scard")).toBe(true);
+  });
+});
 
 describe("Socket Rooms — Redis error catches", () => {
   describe("joinRoom Redis sadd failure (lines 132-133)", () => {

@@ -45,8 +45,10 @@ vi.mock("../../logger", () => ({
   })),
 }));
 
+let mockRedisClient: any = null;
+
 vi.mock("../../redis", () => ({
-  getRedisClient: vi.fn().mockReturnValue(null),
+  getRedisClient: () => mockRedisClient,
 }));
 
 // ============================================================================
@@ -79,6 +81,7 @@ function createMockSocket(overrides: Record<string, any> = {}) {
 describe("Socket Auth Middleware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRedisClient = null;
 
     // Default: valid token + active user
     mockVerifyIdToken.mockResolvedValue({ uid: "firebase-uid-1", admin: false });
@@ -245,6 +248,131 @@ describe("Socket Auth Middleware", () => {
         expect.objectContaining({ ip: "192.168.1.100" })
       );
     });
+
+    it("uses Redis for rate limiting when available (lines 49-55)", async () => {
+      mockRedisClient = {
+        incr: vi.fn().mockResolvedValue(1),
+        expire: vi.fn().mockResolvedValue(1),
+      };
+
+      const socket = createMockSocket({
+        handshake: { auth: { token: "valid-token" }, address: "10.0.0.1" },
+      });
+      const next = vi.fn();
+
+      await socketAuthMiddleware(socket, next);
+
+      // Should have called Redis incr
+      expect(mockRedisClient.incr).toHaveBeenCalledWith(expect.stringContaining("10.0.0.1"));
+      // count === 1 -> should set expire
+      expect(mockRedisClient.expire).toHaveBeenCalled();
+      // Should succeed
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it("Redis rate limit: does not call expire when count > 1 (line 52)", async () => {
+      mockRedisClient = {
+        incr: vi.fn().mockResolvedValue(5),
+        expire: vi.fn(),
+      };
+
+      const socket = createMockSocket({
+        handshake: { auth: { token: "valid-token" }, address: "10.0.0.2" },
+      });
+      const next = vi.fn();
+
+      await socketAuthMiddleware(socket, next);
+
+      expect(mockRedisClient.incr).toHaveBeenCalled();
+      // count !== 1 -> expire should NOT be called
+      expect(mockRedisClient.expire).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it("Redis rate limit: rejects when count exceeds limit", async () => {
+      mockRedisClient = {
+        incr: vi.fn().mockResolvedValue(11),
+        expire: vi.fn(),
+      };
+
+      const socket = createMockSocket({
+        handshake: { auth: { token: "valid-token" }, address: "10.0.0.3" },
+      });
+      const next = vi.fn();
+
+      await socketAuthMiddleware(socket, next);
+
+      const error = next.mock.calls[0][0] as Error;
+      expect(error.message).toBe("rate_limit_exceeded");
+    });
+
+    it("falls through to in-memory when Redis incr throws (line 56-58)", async () => {
+      mockRedisClient = {
+        incr: vi.fn().mockRejectedValue(new Error("Redis down")),
+        expire: vi.fn(),
+      };
+
+      const socket = createMockSocket({
+        handshake: { auth: { token: "valid-token" }, address: "10.0.0.4" },
+      });
+      const next = vi.fn();
+
+      await socketAuthMiddleware(socket, next);
+
+      // Should fall through to in-memory and succeed
+      expect(next).toHaveBeenCalledWith();
+    });
+
+    it("rejects when handshake.auth is undefined (line 108 hasAuth check)", async () => {
+      const socket = createMockSocket({
+        handshake: { auth: undefined, address: "127.0.0.1" },
+      });
+      const next = vi.fn();
+
+      await socketAuthMiddleware(socket, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      const error = next.mock.calls[0][0] as Error;
+      expect(error.message).toBe("authentication_required");
+    });
+
+    it("handles non-Error thrown during token verification (line 123)", async () => {
+      mockVerifyIdToken.mockRejectedValue("non-error-string");
+
+      const socket = createMockSocket();
+      const next = vi.fn();
+
+      await socketAuthMiddleware(socket, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      const error = next.mock.calls[0][0] as Error;
+      expect(error.message).toBe("invalid_token");
+      expect(logger.warn).toHaveBeenCalledWith(
+        "[Socket] Invalid token",
+        expect.objectContaining({ error: "Unknown error" })
+      );
+    });
+
+    it("handles non-Error thrown in outer catch (line 175)", async () => {
+      // Make findUserByFirebaseUid throw a non-Error value
+      // to trigger the outer catch with a non-Error
+      mockFindUserByFirebaseUid.mockRejectedValue("some non-error value");
+
+      const socket = createMockSocket({
+        handshake: { auth: { token: "valid-token" }, address: "172.16.0.175" },
+      });
+      const next = vi.fn();
+
+      await socketAuthMiddleware(socket, next);
+
+      expect(next).toHaveBeenCalledWith(expect.any(Error));
+      const error = next.mock.calls[0][0] as Error;
+      expect(error.message).toBe("authentication_failed");
+      expect(logger.error).toHaveBeenCalledWith(
+        "[Socket] Auth middleware error",
+        expect.objectContaining({ error: "Unknown error" })
+      );
+    });
   });
 
   // ==========================================================================
@@ -296,6 +424,52 @@ describe("Socket Auth Middleware", () => {
       } as any;
 
       expect(requireSocketAdmin(socket)).toBe(false);
+    });
+  });
+
+  // ==========================================================================
+  // cleanupRateLimits — fallback entry expiration (lines 30-33)
+  // ==========================================================================
+
+  describe("cleanupRateLimits (lines 30-33)", () => {
+    it("removes expired entries from fallback rate limit map", async () => {
+      vi.useFakeTimers();
+
+      try {
+        // Make a connection to create a fallback rate limit entry
+        const socket = createMockSocket({
+          handshake: { auth: { token: "valid-token" }, address: "10.99.99.99" },
+        });
+        const next = vi.fn();
+        await socketAuthMiddleware(socket, next);
+
+        // The entry for 10.99.99.99 should exist and allow connections
+        expect(next).toHaveBeenCalledWith();
+
+        // Advance time past the rate limit window (60 seconds)
+        vi.advanceTimersByTime(61_000);
+
+        // Now make another connection from the same IP — the cleanup interval
+        // should have run and removed the expired entry.
+        // The connection should succeed (fresh entry).
+        vi.clearAllMocks();
+        mockVerifyIdToken.mockResolvedValue({ uid: "firebase-uid-1", admin: false });
+        mockFindUserByFirebaseUid.mockResolvedValue({
+          id: "user-1",
+          isActive: true,
+        });
+
+        const socket2 = createMockSocket({
+          handshake: { auth: { token: "valid-token" }, address: "10.99.99.99" },
+        });
+        const next2 = vi.fn();
+        await socketAuthMiddleware(socket2, next2);
+
+        // Should succeed — the expired entry was cleaned up
+        expect(next2).toHaveBeenCalledWith();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

@@ -290,5 +290,35 @@ describe("Analytics Routes", () => {
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ accepted: 0, rejected: 1 }));
     });
+
+    it("should include errors array when db fails and some events had validation errors (line 160)", async () => {
+      mockOnConflictDoNothing.mockRejectedValue(new Error("DB error"));
+      const req = createReq({
+        body: [
+          {
+            event_id: "evt_b7",
+            event_name: "spot_viewed",
+            occurred_at: "2025-01-01T00:00:00Z",
+            properties: {},
+          },
+          {
+            event_id: "evt_b8",
+            event_name: "invalid_event",
+            occurred_at: "2025-01-01T00:00:00Z",
+            properties: {},
+          },
+        ],
+      });
+      const res = createRes();
+      await callHandler("POST /events/batch", req, res);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accepted: 0,
+          rejected: 2,
+          errors: [{ index: 1, error: "invalid_properties" }],
+        })
+      );
+    });
   });
 });

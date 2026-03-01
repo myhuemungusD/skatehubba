@@ -311,4 +311,29 @@ describe("uploadBattleResponse", () => {
       })
     );
   });
+
+  it("uploads clip for opponent (responseClipUrl branch, line 207)", async () => {
+    const battle = { id: "b1", creatorId: "u1", opponentId: "u2" };
+    const selectWhereFn = vi.fn().mockResolvedValue([battle]);
+    const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
+    const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
+
+    const updateWhereFn = vi.fn().mockResolvedValue(undefined);
+    const updateSetFn = vi.fn().mockReturnValue({ where: updateWhereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: updateSetFn });
+
+    (dbModule as any).db = { select: selectFn, update: updateFn };
+
+    const result = await uploadBattleResponse("u2", "b1", "https://response.mp4");
+    expect(result).toEqual({ success: true });
+    // Verify set was called with responseClipUrl (not clipUrl)
+    expect(updateSetFn).toHaveBeenCalledWith(
+      expect.objectContaining({ responseClipUrl: "https://response.mp4" })
+    );
+    expect(logServerEvent).toHaveBeenCalledWith(
+      "u2",
+      "battle_response_uploaded",
+      expect.objectContaining({ battle_id: "b1" })
+    );
+  });
 });

@@ -251,6 +251,42 @@ describe("Trickmint Routes", () => {
       expect(res.status).toHaveBeenCalledWith(403);
     });
 
+    it("should return 403 when path contains '..' (path traversal)", async () => {
+      const req = createReq({
+        body: {
+          trickName: "Kickflip",
+          videoPath: "trickmint/user-1/../other-user/abc.webm",
+        },
+      });
+      const res = createRes();
+      await callHandler("POST /confirm-upload", req, res);
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it("should return 403 when path contains '//' (double slash)", async () => {
+      const req = createReq({
+        body: {
+          trickName: "Kickflip",
+          videoPath: "trickmint/user-1//abc.webm",
+        },
+      });
+      const res = createRes();
+      await callHandler("POST /confirm-upload", req, res);
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it("should return 403 when path fails safe path regex", async () => {
+      const req = createReq({
+        body: {
+          trickName: "Kickflip",
+          videoPath: "trickmint/user-1/abc file.webm",
+        },
+      });
+      const res = createRes();
+      await callHandler("POST /confirm-upload", req, res);
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
     it("should return 400 when processUpload fails", async () => {
       mockProcessUpload.mockResolvedValue({ success: false, error: "Invalid file" });
       const req = createReq({
@@ -323,6 +359,23 @@ describe("Trickmint Routes", () => {
       );
     });
 
+    it("should return total 0 when count result is empty (line 332)", async () => {
+      let callCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve([]).then(resolve);
+        // countResult is undefined/empty
+        return Promise.resolve([]).then(resolve);
+      };
+
+      const req = createReq({ query: {} });
+      const res = createRes();
+      await callHandler("GET /my-clips", req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ clips: [], total: 0 })
+      );
+    });
+
     it("should return 500 when db unavailable", async () => {
       mockGetDb = () => {
         throw new Error("Database not configured");
@@ -357,6 +410,111 @@ describe("Trickmint Routes", () => {
           total: 1,
         })
       );
+    });
+
+    it("should derive quality variant URL from Firebase storage URL with extension (lines 60-65)", async () => {
+      const firebaseUrl =
+        "https://firebasestorage.googleapis.com/v0/b/bucket/o/trickmint%2Fuser-1%2Fvideo.mp4?alt=media";
+      const clips = [{ id: 2, isPublic: true, status: "ready", videoUrl: firebaseUrl }];
+      let callCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(clips).then(resolve);
+        return Promise.resolve([{ total: 1 }]).then(resolve);
+      };
+
+      // preferredQuality = "low" triggers the variant URL derivation
+      const req = createReq({ query: {}, preferredQuality: "low" });
+      const res = createRes();
+      await callHandler("GET /feed", req, res);
+
+      const result = res.json.mock.calls[0][0];
+      const clip = result.clips[0];
+      expect(clip.preferredQuality).toBe("low");
+      // The variant URL should contain _low.mp4
+      expect(clip.videoUrlForQuality).toContain("_low.mp4");
+    });
+
+    it("should handle Firebase URL without file extension (dotIdx === -1, line 62)", async () => {
+      // URL with an encoded path that has no extension
+      const firebaseUrl =
+        "https://firebasestorage.googleapis.com/v0/b/bucket/o/trickmint%2Fuser-1%2Fnoextfile?alt=media";
+      const clips = [{ id: 3, isPublic: true, status: "ready", videoUrl: firebaseUrl }];
+      let callCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(clips).then(resolve);
+        return Promise.resolve([{ total: 1 }]).then(resolve);
+      };
+
+      const req = createReq({ query: {}, preferredQuality: "low" });
+      const res = createRes();
+      await callHandler("GET /feed", req, res);
+
+      const result = res.json.mock.calls[0][0];
+      const clip = result.clips[0];
+      // When there's no dot, the entire original path is used as the base
+      expect(clip.videoUrlForQuality).toContain("_low.mp4");
+      expect(clip.preferredQuality).toBe("low");
+    });
+
+    it("should skip quality variant derivation when preferredQuality is 'high'", async () => {
+      const firebaseUrl =
+        "https://firebasestorage.googleapis.com/v0/b/bucket/o/trickmint%2Fuser-1%2Fvideo.mp4?alt=media";
+      const clips = [{ id: 4, isPublic: true, status: "ready", videoUrl: firebaseUrl }];
+      let callCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(clips).then(resolve);
+        return Promise.resolve([{ total: 1 }]).then(resolve);
+      };
+
+      const req = createReq({ query: {}, preferredQuality: "high" });
+      const res = createRes();
+      await callHandler("GET /feed", req, res);
+
+      const result = res.json.mock.calls[0][0];
+      const clip = result.clips[0];
+      // When quality is "high", videoUrlForQuality should be the same as videoUrl
+      expect(clip.videoUrlForQuality).toBe(firebaseUrl);
+      expect(clip.preferredQuality).toBe("high");
+    });
+
+    it("should return total 0 when count result is empty (line 375)", async () => {
+      let callCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve([]).then(resolve);
+        // countResult is undefined/empty
+        return Promise.resolve([]).then(resolve);
+      };
+
+      const req = createReq({ query: {} });
+      const res = createRes();
+      await callHandler("GET /feed", req, res);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ clips: [], total: 0 })
+      );
+    });
+
+    it("should return videoUrl unchanged when URL does not match Firebase /o/ pattern", async () => {
+      const nonFirebaseUrl = "https://cdn.example.com/videos/clip.mp4";
+      const clips = [{ id: 5, isPublic: true, status: "ready", videoUrl: nonFirebaseUrl }];
+      let callCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        callCount++;
+        if (callCount === 1) return Promise.resolve(clips).then(resolve);
+        return Promise.resolve([{ total: 1 }]).then(resolve);
+      };
+
+      const req = createReq({ query: {}, preferredQuality: "low" });
+      const res = createRes();
+      await callHandler("GET /feed", req, res);
+
+      const result = res.json.mock.calls[0][0];
+      const clip = result.clips[0];
+      // Non-Firebase URLs should not be modified
+      expect(clip.videoUrlForQuality).toBe(nonFirebaseUrl);
     });
   });
 
@@ -521,6 +679,24 @@ describe("Trickmint Routes", () => {
       expect(logger.error).toHaveBeenCalledWith(
         "[TrickMint] View recording failed",
         expect.objectContaining({ clipId: 42, userId: "user-1" })
+      );
+    });
+
+    it("should stringify non-Error thrown values (line 100)", async () => {
+      const mockInsert = vi.fn().mockReturnValue({
+        values: vi.fn().mockRejectedValue("string error"),
+      });
+      const mockUpdate = vi.fn();
+      const db: any = { insert: mockInsert, update: mockUpdate };
+
+      const logger = (await import("../../logger")).default;
+
+      await recordClipView(db, 99, "user-2");
+
+      expect(mockUpdate).not.toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalledWith(
+        "[TrickMint] View recording failed",
+        expect.objectContaining({ clipId: 99, userId: "user-2", error: "string error" })
       );
     });
   });

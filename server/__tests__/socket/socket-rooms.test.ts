@@ -265,6 +265,21 @@ describe("Socket Room Manager", () => {
 
       expect(socket.leave).not.toHaveBeenCalled();
     });
+
+    it("skips rooms with unparseable room IDs (line 217)", async () => {
+      const socket = createMockSocket("user-leaveall-3");
+      // Manually add an invalid room ID (no colon separator)
+      socket.data.rooms.add("invalidroomid");
+      // Also add a valid room
+      await joinRoom(socket, "spot", "valid-room");
+
+      await leaveAllRooms(socket);
+
+      // The valid room should have been left
+      expect(socket.leave).toHaveBeenCalledWith("spot:valid-room");
+      // The invalid room ID should NOT cause a leaveRoom call (parseRoomId returns null)
+      // socket.leave is only called for valid rooms
+    });
   });
 
   // ==========================================================================

@@ -629,6 +629,19 @@ describe("Game Turn Routes", () => {
       expect(res.json).toHaveBeenCalledWith({ error: "Invalid turn ID" });
     });
 
+    it("returns 400 for turnId=0 (turnId <= 0 branch, line 101)", async () => {
+      const req = createReq({
+        params: { turnId: "0" },
+        body: { result: "landed" },
+      });
+      const res = createRes();
+
+      await callHandler("post", "/turns/:turnId/judge", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ error: "Invalid turn ID" });
+    });
+
     it("returns 404 when turn is not found", async () => {
       setupOuterSelect([]);
 

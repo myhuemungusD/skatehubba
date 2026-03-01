@@ -155,6 +155,16 @@ describe("SpotStorage", () => {
       expect(result[0].creatorName).toBe("Anonymous");
     });
 
+    it("should trim creator name when lastName is null", async () => {
+      const spots = [
+        { id: 1, name: "Park C", creatorFirstName: "Alice", creatorLastName: null },
+      ];
+      mockDbChain.then = (resolve: any) => Promise.resolve(spots).then(resolve);
+
+      const result = await spotStorage.getAllSpots();
+      expect(result[0].creatorName).toBe("Alice");
+    });
+
     it("should apply filters", async () => {
       mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
       await spotStorage.getAllSpots({
@@ -181,6 +191,15 @@ describe("SpotStorage", () => {
       expect(result!.creatorName).toBe("Jane");
     });
 
+    it("should return Anonymous when creatorFirstName is null", async () => {
+      const spot = { id: 2, name: "Park B", creatorFirstName: null, creatorLastName: null };
+      mockDbChain.then = (resolve: any) => Promise.resolve([spot]).then(resolve);
+
+      const result = await spotStorage.getSpotById(2);
+      expect(result).toBeTruthy();
+      expect(result!.creatorName).toBe("Anonymous");
+    });
+
     it("should return null when not found", async () => {
       mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
       const result = await spotStorage.getSpotById(999);
@@ -203,6 +222,24 @@ describe("SpotStorage", () => {
       const result = await spotStorage.getSpotsNearLocation(40.7, -74.0, 50, 10);
       expect(result).toHaveLength(1);
       expect(result[0].creatorName).toBe("X Y");
+    });
+
+    it("should return Anonymous when creatorFirstName is null", async () => {
+      const spots = [{ id: 2, name: "Spot B", creatorFirstName: null, creatorLastName: null }];
+      mockDbChain.then = (resolve: any) => Promise.resolve(spots).then(resolve);
+
+      const result = await spotStorage.getSpotsNearLocation(40.7, -74.0);
+      expect(result).toHaveLength(1);
+      expect(result[0].creatorName).toBe("Anonymous");
+    });
+
+    it("should trim creator name when lastName is null", async () => {
+      const spots = [{ id: 3, name: "Spot C", creatorFirstName: "Bob", creatorLastName: null }];
+      mockDbChain.then = (resolve: any) => Promise.resolve(spots).then(resolve);
+
+      const result = await spotStorage.getSpotsNearLocation(40.7, -74.0);
+      expect(result).toHaveLength(1);
+      expect(result[0].creatorName).toBe("Bob");
     });
 
     it("should return empty when db is null", async () => {
@@ -327,6 +364,24 @@ describe("SpotStorage", () => {
       );
     });
 
+    it("should use zero fallback when aggregate result is null", async () => {
+      let callCount = 0;
+      mockDbChain.then = (resolve: any) => {
+        callCount++;
+        // First thenable is spot existence check — return spot ID
+        if (callCount === 1) {
+          return Promise.resolve([{ id: 1 }]).then(resolve);
+        }
+        // Third thenable is the aggregate select — return null/undefined agg
+        if (callCount === 3) {
+          return Promise.resolve([{ avgRating: null, total: null }]).then(resolve);
+        }
+        return Promise.resolve(undefined).then(resolve);
+      };
+      const result = await spotStorage.updateRating(1, 3, "user-fallback");
+      expect(result).toBe(true);
+    });
+
     it("should throw when db is null", async () => {
       mockDb = null;
       const storage = new SpotStorage();
@@ -364,6 +419,22 @@ describe("SpotStorage", () => {
       expect(result[0].creatorName).toBe("A B");
     });
 
+    it("should return Anonymous when creatorFirstName is null", async () => {
+      const spots = [{ id: 2, creatorFirstName: null, creatorLastName: null }];
+      mockDbChain.then = (resolve: any) => Promise.resolve(spots).then(resolve);
+      const result = await spotStorage.getSpotsByUser("user-1");
+      expect(result).toHaveLength(1);
+      expect(result[0].creatorName).toBe("Anonymous");
+    });
+
+    it("should trim creator name when lastName is null", async () => {
+      const spots = [{ id: 3, creatorFirstName: "Charlie", creatorLastName: null }];
+      mockDbChain.then = (resolve: any) => Promise.resolve(spots).then(resolve);
+      const result = await spotStorage.getSpotsByUser("user-1");
+      expect(result).toHaveLength(1);
+      expect(result[0].creatorName).toBe("Charlie");
+    });
+
     it("should return empty when db is null", async () => {
       mockDb = null;
       const storage = new SpotStorage();
@@ -399,6 +470,12 @@ describe("SpotStorage", () => {
       mockDbChain.then = (resolve: any) => Promise.resolve([stats]).then(resolve);
       const result = await spotStorage.getStats();
       expect(result).toEqual(stats);
+    });
+
+    it("should return default zeros when query returns undefined stats row", async () => {
+      mockDbChain.then = (resolve: any) => Promise.resolve([undefined]).then(resolve);
+      const result = await spotStorage.getStats();
+      expect(result).toEqual({ total: 0, verified: 0, cities: 0 });
     });
 
     it("should return zeros when db is null", async () => {

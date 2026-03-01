@@ -320,6 +320,18 @@ describe("validateEventProps", () => {
     expect(() => validateEventProps("deep_link_invalid", {})).toThrow();
   });
 
+  it("validates device_integrity_warning props (line 223)", () => {
+    const result = validateEventProps("device_integrity_warning", {
+      isJailbroken: true,
+      hookDetected: false,
+    });
+    expect(result).toEqual({ isJailbroken: true, hookDetected: false });
+  });
+
+  it("throws for device_integrity_warning with invalid props", () => {
+    expect(() => validateEventProps("device_integrity_warning", {})).toThrow();
+  });
+
   it("passes through unvalidated events", () => {
     const props = { any: "data" };
     expect(validateEventProps("app_opened", props)).toBe(props);

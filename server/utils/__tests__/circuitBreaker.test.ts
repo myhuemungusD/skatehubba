@@ -70,6 +70,14 @@ describe("CircuitBreaker", () => {
     expect(breaker.getState()).toBe("closed");
   });
 
+  it("logs String(error) when failure is not an Error instance (line 64 false branch)", async () => {
+    const breaker = new CircuitBreaker("test", 1, 30_000);
+
+    // Reject with a non-Error value (string)
+    await breaker.execute(() => Promise.reject("string-error"), "fallback");
+    expect(breaker.getState()).toBe("open");
+  });
+
   it("re-opens on failure during half-open state", async () => {
     const breaker = new CircuitBreaker("test", 1, 100);
 

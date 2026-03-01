@@ -153,6 +153,26 @@ describe("LockoutService — additional coverage", () => {
     expect(status.isLocked).toBe(false);
   });
 
+  it("recordAttempt logs 'Unknown error' when non-Error is thrown (line 186)", async () => {
+    // Make insert().values() throw a non-Error value
+    mockValues.mockRejectedValue("string_error");
+
+    let callCount = 0;
+    mockWhere.mockImplementation(() => {
+      callCount++;
+      if (callCount === 1) return Promise.resolve([]);
+      return Promise.resolve([{ count: 0 }]);
+    });
+
+    const status = await LockoutService.recordAttempt("test@example.com", "1.2.3.4", false);
+
+    expect(logger.error).toHaveBeenCalledWith(
+      "Error recording login attempt",
+      expect.objectContaining({ error: "Unknown error" })
+    );
+    expect(status.isLocked).toBe(false);
+  });
+
   /**
    * Lines 195-204: unlockAccount — already tested but ensuring the full path
    */

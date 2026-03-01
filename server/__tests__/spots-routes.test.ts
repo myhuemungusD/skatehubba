@@ -302,6 +302,44 @@ describe("Spots Routes", () => {
         spots: [],
       });
     });
+
+    it("should handle discovered spots with null address/city/state/country (falsy || branches)", async () => {
+      vi.mocked(isAreaCached).mockResolvedValue(false);
+      const discovered = [
+        {
+          name: "Bare Park",
+          description: "Minimal data",
+          spotType: "skatepark",
+          lat: 41.0,
+          lng: -75.0,
+          address: null,
+          city: null,
+          state: null,
+          country: null,
+        },
+      ];
+      vi.mocked(discoverSkateparks).mockResolvedValue(discovered as any);
+      vi.mocked(spotStorage.checkDuplicate).mockResolvedValue(false);
+      const createdSpot = { id: 20, name: "Bare Park" };
+      vi.mocked(spotStorage.createSpot).mockResolvedValue(createdSpot as any);
+      vi.mocked(spotStorage.verifySpot).mockResolvedValue(createdSpot as any);
+      vi.mocked(spotStorage.getAllSpots).mockResolvedValue([createdSpot] as any);
+
+      const res = mockRes();
+      await callHandler("GET /discover", mockReq({ query: { lat: "41.0", lng: "-75.0" } }), res);
+
+      expect(spotStorage.createSpot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          address: undefined,
+          city: undefined,
+          state: undefined,
+          country: "USA",
+        })
+      );
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ discovered: 1, added: 1 })
+      );
+    });
   });
 
   // --------------------------------------------------------------------------
@@ -346,6 +384,20 @@ describe("Spots Routes", () => {
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({ message: "Failed to load spot" });
       expect(logger.error).toHaveBeenCalled();
+    });
+
+    it("should handle non-Error thrown value in catch block (String(error) branch)", async () => {
+      vi.mocked(spotStorage.getSpotById).mockRejectedValue("string-error");
+
+      const res = mockRes();
+      await callHandler("GET /:spotId", mockReq({ params: { spotId: "1" } }), res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ message: "Failed to load spot" });
+      expect(logger.error).toHaveBeenCalledWith(
+        "Failed to fetch spot",
+        expect.objectContaining({ error: "string-error" })
+      );
     });
   });
 
@@ -561,6 +613,17 @@ describe("Spots Routes", () => {
     it("should return 500 on unexpected error during check-in", async () => {
       vi.mocked(verifyReplayProtection).mockResolvedValue({ ok: true } as any);
       vi.mocked(verifyAndCheckIn).mockRejectedValue(new Error("Unexpected"));
+
+      const res = mockRes();
+      await callHandler("POST /check-in", mockReq({ body: validCheckInBody }), res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith({ message: "Check-in failed" });
+    });
+
+    it("should return 500 when a non-Error value is thrown during check-in", async () => {
+      vi.mocked(verifyReplayProtection).mockResolvedValue({ ok: true } as any);
+      vi.mocked(verifyAndCheckIn).mockRejectedValue("non-error-thrown");
 
       const res = mockRes();
       await callHandler("POST /check-in", mockReq({ body: validCheckInBody }), res);

@@ -136,7 +136,7 @@ describe("verify-public-env — missing vars, non-strict mode", () => {
 
   it("prints non-strict warning", () => {
     const { combined } = run({});
-    expect(combined).toContain("Non-strict mode");
+    expect(combined).toContain("Skipping strict check");
   });
 });
 
@@ -145,18 +145,19 @@ describe("verify-public-env — missing vars, non-strict mode", () => {
 // =============================================================================
 
 describe("verify-public-env — strict mode", () => {
-  it("exits 1 when VERCEL=1 and vars are missing", () => {
-    const { exitCode } = run({ VERCEL: "1" });
+  it("exits 1 when VERCEL_ENV=production and vars are missing", () => {
+    const { exitCode } = run({ VERCEL: "1", VERCEL_ENV: "production" });
     expect(exitCode).toBe(1);
   });
 
-  it("exits 1 when NODE_ENV=production and vars are missing", () => {
+  it("exits 0 in non-production deploy even with NODE_ENV=production", () => {
+    // strict requires VERCEL_ENV=production, not just NODE_ENV=production
     const { exitCode } = run({ NODE_ENV: "production" });
-    expect(exitCode).toBe(1);
+    expect(exitCode).toBe(0);
   });
 
   it("exits 0 when ALLOW_MISSING_PUBLIC_ENV=true bypasses VERCEL strict mode", () => {
-    const { exitCode } = run({ VERCEL: "1", ALLOW_MISSING_PUBLIC_ENV: "true" });
+    const { exitCode } = run({ VERCEL: "1", VERCEL_ENV: "production", ALLOW_MISSING_PUBLIC_ENV: "true" });
     expect(exitCode).toBe(0);
   });
 
@@ -168,7 +169,7 @@ describe("verify-public-env — strict mode", () => {
   });
 
   it("exits 0 in strict mode when all vars are correctly set", () => {
-    const { exitCode } = run({ VERCEL: "1", ...ALL_REQUIRED_EXPO });
+    const { exitCode } = run({ VERCEL: "1", VERCEL_ENV: "production", ...ALL_REQUIRED_EXPO });
     expect(exitCode).toBe(0);
   });
 });
@@ -196,7 +197,7 @@ describe("verify-public-env — rename suggestions", () => {
   });
 
   it("still exits 1 in strict mode even with rename suggestion present", () => {
-    const { exitCode } = run({ VERCEL: "1", FIREBASE_API_KEY: "abc" });
+    const { exitCode } = run({ VERCEL: "1", VERCEL_ENV: "production", FIREBASE_API_KEY: "abc" });
     expect(exitCode).toBe(1);
   });
 

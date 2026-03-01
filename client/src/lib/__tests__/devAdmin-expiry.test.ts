@@ -60,4 +60,28 @@ describe("devAdmin expiry", () => {
     const { isDevAdmin } = await import("../devAdmin");
     expect(isDevAdmin()).toBe(true);
   });
+
+  it("returns true when devAdminExpiry is null (fallback to '0', parsed as 0) — line 25", async () => {
+    // When devAdminExpiry is null, the || "0" fallback kicks in,
+    // parseInt("0", 10) = 0, and the condition `expiry > 0 && Date.now() > expiry`
+    // is false (since expiry = 0, the first clause fails), so it returns true.
+    const mockGetItem = vi.fn((key: string) => {
+      if (key === "devAdmin") return "true";
+      if (key === "devAdminExpiry") return null; // triggers || "0" fallback
+      return null;
+    });
+
+    vi.stubGlobal("window", {
+      location: { hostname: "localhost" },
+      sessionStorage: {
+        getItem: mockGetItem,
+        setItem: vi.fn(),
+        removeItem: vi.fn(),
+      },
+    });
+
+    const { isDevAdmin } = await import("../devAdmin");
+    expect(isDevAdmin()).toBe(true);
+  });
+
 });

@@ -716,5 +716,191 @@ describe("Video Upload", () => {
 
       vi.useRealTimers();
     });
+
+    it("should fall back to generic message when duration catch receives non-Error (line 151)", async () => {
+      // Simulate readVideoDuration rejecting with a non-Error value.
+      // We do this by having the video element's src setter throw a non-Error
+      // through onerror, but actually the catch on line 147-153 is in validateVideo.
+      // The catch receives `err` from readVideoDuration's reject.
+      // To make err NOT be an instanceof Error, we need readVideoDuration to reject
+      // with a non-Error. The timeout and onerror both reject with `new Error(...)`,
+      // so we need to cause a different kind of rejection.
+      // We can trigger this by making the document.createElement call itself throw
+      // a non-Error string, which gets caught by the validateVideo catch.
+      vi.stubGlobal("document", {
+        createElement: () => {
+          throw "non-error string thrown";
+        },
+      });
+
+      const file = { type: "video/mp4", size: 1024 * 1024, name: "test.mp4" } as File;
+      const result = await validateVideo(file);
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe("Could not validate video duration.");
+    });
+
+    it("should use error.code fallback 'unknown' when code is missing (line 249)", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc, updateDoc } = await import("firebase/firestore");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+      (updateDoc as any).mockResolvedValue(undefined);
+
+      let errorCb: any;
+      (uploadBytesResumable as any).mockReturnValue({
+        on: vi.fn((_event: string, _progress: any, onError: any) => {
+          errorCb = onError;
+        }),
+      });
+
+      const onError = vi.fn();
+      const file = { type: "video/mp4", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000,
+        { onError }
+      );
+
+      // Pass an error object WITHOUT code and message properties
+      await errorCb({ message: "Some error" });
+      expect(updateDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          status: "failed",
+          errorCode: "unknown",
+          errorMessage: "Some error",
+        })
+      );
+    });
+
+    it("should use error.message fallback 'Upload failed' when message is missing (line 250)", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc, updateDoc } = await import("firebase/firestore");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+      (updateDoc as any).mockResolvedValue(undefined);
+
+      let errorCb: any;
+      (uploadBytesResumable as any).mockReturnValue({
+        on: vi.fn((_event: string, _progress: any, onError: any) => {
+          errorCb = onError;
+        }),
+      });
+
+      const onError = vi.fn();
+      const file = { type: "video/mp4", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000,
+        { onError }
+      );
+
+      // Pass error with code but no message
+      await errorCb({ code: "storage/retry-limit-exceeded" });
+      expect(updateDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          status: "failed",
+          errorCode: "storage/retry-limit-exceeded",
+          errorMessage: "Upload failed",
+        })
+      );
+    });
+
+    it("should use both fallbacks when error has neither code nor message (lines 249-250)", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc, updateDoc } = await import("firebase/firestore");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+      (updateDoc as any).mockResolvedValue(undefined);
+
+      let errorCb: any;
+      (uploadBytesResumable as any).mockReturnValue({
+        on: vi.fn((_event: string, _progress: any, onError: any) => {
+          errorCb = onError;
+        }),
+      });
+
+      const onError = vi.fn();
+      const file = { type: "video/mp4", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000,
+        { onError }
+      );
+
+      // Pass an error with no code and no message
+      await errorCb({});
+      expect(updateDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          status: "failed",
+          errorCode: "unknown",
+          errorMessage: "Upload failed",
+        })
+      );
+    });
+
+    it("should handle upload success with role 'set' setting setVideoId (line 270)", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc, updateDoc } = await import("firebase/firestore");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+      (updateDoc as any).mockResolvedValue(undefined);
+
+      let successCb: any;
+      (uploadBytesResumable as any).mockReturnValue({
+        on: vi.fn((_event: string, _progress: any, _error: any, onSuccess: any) => {
+          successCb = onSuccess;
+        }),
+      });
+
+      const onComplete = vi.fn();
+      const file = { type: "video/mp4", size: 1024 } as File;
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000,
+        { onComplete }
+      );
+
+      await successCb();
+      // Should have called updateDoc with setVideoId for "set" role
+      expect(updateDoc).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ setVideoId: "v1" })
+      );
+    });
+
+    it("should not call callbacks if they are not provided (optional chaining)", async () => {
+      const { ref, uploadBytesResumable } = await import("firebase/storage");
+      const { doc, updateDoc } = await import("firebase/firestore");
+      (doc as any).mockReturnValue({});
+      (ref as any).mockReturnValue({});
+      (updateDoc as any).mockResolvedValue(undefined);
+
+      let progressCb: any;
+      let errorCb: any;
+      let successCb: any;
+      (uploadBytesResumable as any).mockReturnValue({
+        on: vi.fn((_event: string, onProgress: any, onError: any, onSuccess: any) => {
+          progressCb = onProgress;
+          errorCb = onError;
+          successCb = onSuccess;
+        }),
+      });
+
+      const file = { type: "video/mp4", size: 1024 } as File;
+      // Call with empty callbacks object — no onProgress, onError, or onComplete
+      uploadVideo(
+        { file, uid: "u1", gameId: "g1", roundId: "r1", videoId: "v1", role: "set" },
+        10000,
+        {}
+      );
+
+      // Should not throw when callbacks are not provided
+      expect(() => progressCb({ bytesTransferred: 512, totalBytes: 1024 })).not.toThrow();
+      await expect(successCb()).resolves.not.toThrow();
+    });
   });
 });

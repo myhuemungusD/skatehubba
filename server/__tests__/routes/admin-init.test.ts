@@ -176,6 +176,58 @@ describe("admin.ts", () => {
     );
   });
 
+  it("should warn when FIREBASE_ADMIN_KEY starts with xxxx (placeholder pattern)", async () => {
+    vi.resetModules();
+    // A key of >100 chars starting with xxxx — triggers isPlaceholder line 13
+    mockEnv.FIREBASE_ADMIN_KEY = "xxxx" + "a".repeat(200);
+
+    const admin = (await import("firebase-admin")).default;
+    (admin as any).apps = [];
+    const logger = (await import("../../logger")).default;
+
+    await import("../../admin");
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("FIREBASE_ADMIN_KEY appears to be a placeholder")
+    );
+  });
+
+  it("should warn when FIREBASE_ADMIN_KEY is long but does not start with '{' (line 14)", async () => {
+    vi.resetModules();
+    // A key of >100 chars, does not start with xxxx and does not start with {
+    mockEnv.FIREBASE_ADMIN_KEY = "not-json-" + "a".repeat(200);
+
+    const admin = (await import("firebase-admin")).default;
+    (admin as any).apps = [];
+    const logger = (await import("../../logger")).default;
+
+    await import("../../admin");
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("FIREBASE_ADMIN_KEY appears to be a placeholder")
+    );
+  });
+
+  it("should warn when ADC initialization fails (catch on line 79-83)", async () => {
+    vi.resetModules();
+    // No credentials at all — takes the ADC path
+    // But make initializeApp throw so it enters the catch block
+
+    const admin = (await import("firebase-admin")).default;
+    (admin as any).apps = [];
+    mockInitializeApp.mockImplementationOnce(() => {
+      throw new Error("Could not load the default credentials");
+    });
+    const logger = (await import("../../logger")).default;
+
+    await import("../../admin");
+
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining("Firebase Admin SDK could not initialize"),
+      expect.objectContaining({ adcError: expect.any(Error) })
+    );
+  });
+
   it("should not re-initialize when apps already exist", async () => {
     vi.resetModules();
 

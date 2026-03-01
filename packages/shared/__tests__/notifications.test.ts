@@ -200,4 +200,11 @@ describe("isWithinQuietHours", () => {
     expect(isWithinQuietHours("12:00", "12:00", "12:00")).toBe(false);
     expect(isWithinQuietHours("12:00", "12:00", "11:59")).toBe(false);
   });
+
+  it("uses current time when currentTimeHHMM is not provided (line 175 fallback)", () => {
+    // Use a wide overnight range that covers any time of day
+    // 00:00–23:59 ensures it's always within quiet hours regardless of when test runs
+    const result = isWithinQuietHours("00:00", "23:59");
+    expect(result).toBe(true);
+  });
 });

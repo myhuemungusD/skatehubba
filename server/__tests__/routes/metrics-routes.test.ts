@@ -140,6 +140,20 @@ describe("Metrics Routes", () => {
       await callHandler("GET /wab-au", req, res);
       expect(res.status).toHaveBeenCalledWith(403);
     });
+
+    it("should reject when currentUser is undefined", async () => {
+      const req = createReq({ currentUser: undefined });
+      const res = createRes();
+      await callHandler("GET /wab-au", req, res);
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
+
+    it("should reject when currentUser has null roles", async () => {
+      const req = createReq({ currentUser: { id: "user-1", roles: null } });
+      const res = createRes();
+      await callHandler("GET /wab-au", req, res);
+      expect(res.status).toHaveBeenCalledWith(403);
+    });
   });
 
   describe("GET /wab-au", () => {
@@ -219,6 +233,14 @@ describe("Metrics Routes", () => {
       await callHandler("GET /kpi", req, res);
       expect(res.json).toHaveBeenCalledWith({});
     });
+
+    it("should return 500 on db error", async () => {
+      mockExecute.mockRejectedValue(new Error("KPI query failed"));
+      const req = createReq();
+      const res = createRes();
+      await callHandler("GET /kpi", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
   });
 
   describe("GET /response-rate", () => {
@@ -229,6 +251,22 @@ describe("Metrics Routes", () => {
       const res = createRes();
       await callHandler("GET /response-rate", req, res);
       expect(res.json).toHaveBeenCalledWith(data);
+    });
+
+    it("should return empty object when no rows", async () => {
+      mockExecute.mockResolvedValue({ rows: [] });
+      const req = createReq();
+      const res = createRes();
+      await callHandler("GET /response-rate", req, res);
+      expect(res.json).toHaveBeenCalledWith({});
+    });
+
+    it("should return 500 on db error (lines 108-109)", async () => {
+      mockExecute.mockRejectedValue(new Error("DB error"));
+      const req = createReq();
+      const res = createRes();
+      await callHandler("GET /response-rate", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
   });
 
@@ -241,6 +279,22 @@ describe("Metrics Routes", () => {
       await callHandler("GET /votes-per-battle", req, res);
       expect(res.json).toHaveBeenCalledWith(data);
     });
+
+    it("should return empty object when no rows", async () => {
+      mockExecute.mockResolvedValue({ rows: [] });
+      const req = createReq();
+      const res = createRes();
+      await callHandler("GET /votes-per-battle", req, res);
+      expect(res.json).toHaveBeenCalledWith({});
+    });
+
+    it("should return 500 on db error (lines 130-131)", async () => {
+      mockExecute.mockRejectedValue(new Error("DB error"));
+      const req = createReq();
+      const res = createRes();
+      await callHandler("GET /votes-per-battle", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+    });
   });
 
   describe("GET /crew-join-rate", () => {
@@ -251,6 +305,14 @@ describe("Metrics Routes", () => {
       const res = createRes();
       await callHandler("GET /crew-join-rate", req, res);
       expect(res.json).toHaveBeenCalledWith(data);
+    });
+
+    it("should return empty object when no rows (line 150)", async () => {
+      mockExecute.mockResolvedValue({ rows: [] });
+      const req = createReq();
+      const res = createRes();
+      await callHandler("GET /crew-join-rate", req, res);
+      expect(res.json).toHaveBeenCalledWith({});
     });
 
     it("should return 500 on db error", async () => {
@@ -270,6 +332,22 @@ describe("Metrics Routes", () => {
       const res = createRes();
       await callHandler("GET /retention", req, res);
       expect(res.json).toHaveBeenCalledWith(data);
+    });
+
+    it("should return empty object when no rows (line 172)", async () => {
+      mockExecute.mockResolvedValue({ rows: [] });
+      const req = createReq();
+      const res = createRes();
+      await callHandler("GET /retention", req, res);
+      expect(res.json).toHaveBeenCalledWith({});
+    });
+
+    it("should return 500 on db error", async () => {
+      mockExecute.mockRejectedValue(new Error("Retention DB error"));
+      const req = createReq();
+      const res = createRes();
+      await callHandler("GET /retention", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
     });
 
     it("should return 500 when db is null (getDb throws)", async () => {

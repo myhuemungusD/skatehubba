@@ -356,6 +356,23 @@ describe("Profile Routes", () => {
       expect(res.status).toHaveBeenCalledWith(200);
     });
 
+    it("should return existing profile without ensuring username when username is null", async () => {
+      const now = new Date();
+      const existingProfile = {
+        uid: "test-uid",
+        username: null,
+        createdAt: now,
+        updatedAt: now,
+      };
+      mockDbChain.then = (resolve: any) => Promise.resolve([existingProfile]).then(resolve);
+
+      const req = createReq({ body: { username: "newuser", stance: "regular" } });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(mockEnsure).not.toHaveBeenCalled();
+    });
+
     it("should return 409 when existing profile username cannot be ensured", async () => {
       const now = new Date();
       const existingProfile = {
@@ -422,6 +439,96 @@ describe("Profile Routes", () => {
       expect(res.status).toHaveBeenCalledWith(201);
     });
 
+    it("should pass all provided profile fields through ?? operators (left-side branches)", async () => {
+      mockReserve.mockResolvedValue(true);
+      const now = new Date();
+      const profileResult = {
+        uid: "test-uid",
+        username: "fulluser",
+        createdAt: now,
+        updatedAt: now,
+      };
+      // Make createProfileWithRollback call the writeProfile callback to exercise ?? branches
+      mockCreateProfileWithRollback.mockImplementation(async (opts: any) => {
+        return opts.writeProfile();
+      });
+      // Mock the db insert chain — returning() must be a real Promise (not thenable chain)
+      const mockReturning = vi.fn().mockResolvedValue([profileResult]);
+      const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+      mockDbChain.insert = vi.fn().mockReturnValue({ values: mockValues });
+
+      const req = createReq({
+        body: {
+          username: "fulluser",
+          stance: "goofy",
+          experienceLevel: "intermediate",
+          favoriteTricks: ["kickflip", "heelflip"],
+          bio: "I love skating",
+          sponsorFlow: "am",
+          sponsorTeam: "Element",
+          hometownShop: "CCS",
+          spotsVisited: 42,
+          crewName: "The Crew",
+          credibilityScore: 100,
+        },
+      });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stance: "goofy",
+          experienceLevel: "intermediate",
+          favoriteTricks: ["kickflip", "heelflip"],
+          bio: "I love skating",
+          sponsorFlow: "am",
+          sponsorTeam: "Element",
+          hometownShop: "CCS",
+          spotsVisited: 42,
+          crewName: "The Crew",
+          credibilityScore: 100,
+        })
+      );
+    });
+
+    it("should use ?? fallback values when profile fields are undefined (right-side branches)", async () => {
+      mockReserve.mockResolvedValue(true);
+      const now = new Date();
+      const profileResult = {
+        uid: "test-uid",
+        username: "minuser",
+        createdAt: now,
+        updatedAt: now,
+      };
+      mockCreateProfileWithRollback.mockImplementation(async (opts: any) => {
+        return opts.writeProfile();
+      });
+      const mockReturning = vi.fn().mockResolvedValue([profileResult]);
+      const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+      mockDbChain.insert = vi.fn().mockReturnValue({ values: mockValues });
+
+      const req = createReq({
+        body: { username: "minuser" },
+      });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(201);
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stance: null,
+          experienceLevel: null,
+          favoriteTricks: [],
+          bio: null,
+          sponsorFlow: null,
+          sponsorTeam: null,
+          hometownShop: null,
+          spotsVisited: 0,
+          crewName: null,
+          credibilityScore: 0,
+        })
+      );
+    });
+
     it("should generate username when skip=true", async () => {
       mockReserve.mockResolvedValue(true);
       const createdProfile = { uid: "test-uid", username: "skaterabcd1234" };
@@ -432,6 +539,67 @@ describe("Profile Routes", () => {
       await callHandler("POST /create", req, res);
       expect(mockReserve).toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(201);
+    });
+
+    it("should retry username generation when reserve returns false (ok=false branch)", async () => {
+      // First two attempts fail, third succeeds
+      mockReserve
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(false)
+        .mockResolvedValueOnce(true);
+      const createdProfile = { uid: "test-uid", username: "skaterabcd1234" };
+      mockCreateProfileWithRollback.mockResolvedValue(createdProfile);
+
+      const req = createReq({ body: { skip: true, stance: "regular" } });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(mockReserve).toHaveBeenCalledTimes(3);
+      expect(res.status).toHaveBeenCalledWith(201);
+    });
+
+    it("should return 409 when all username generation attempts fail", async () => {
+      // All 5 attempts fail (MAX_USERNAME_GENERATION_ATTEMPTS = 5)
+      mockReserve.mockResolvedValue(false);
+      const req = createReq({ body: { skip: true, stance: "regular" } });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(mockReserve).toHaveBeenCalledTimes(5);
+      expect(res.status).toHaveBeenCalledWith(409);
+    });
+
+    it("should use default bucket when FIREBASE_STORAGE_BUCKET is empty (falsy branch)", async () => {
+      // Temporarily clear FIREBASE_STORAGE_BUCKET to exercise the falsy branch
+      const envModule = await import("../../config/env");
+      const originalBucket = envModule.env.FIREBASE_STORAGE_BUCKET;
+      (envModule.env as any).FIREBASE_STORAGE_BUCKET = "";
+
+      mockReserve.mockResolvedValue(true);
+      const now = new Date();
+      const profileResult = {
+        uid: "test-uid",
+        username: "avataruser",
+        createdAt: now,
+        updatedAt: now,
+      };
+      mockCreateProfileWithRollback.mockImplementation(async (opts: any) => {
+        return opts.writeProfile();
+      });
+      const mockReturning = vi.fn().mockResolvedValue([profileResult]);
+      const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+      mockDbChain.insert = vi.fn().mockReturnValue({ values: mockValues });
+
+      const req = createReq({
+        body: {
+          username: "avataruser",
+          avatarBase64: "data:image/png;base64,dGVzdA==",
+        },
+      });
+      const res = createRes();
+      await callHandler("POST /create", req, res);
+      expect(res.status).toHaveBeenCalledWith(201);
+
+      // Restore original value
+      (envModule.env as any).FIREBASE_STORAGE_BUCKET = originalBucket;
     });
 
     it("should handle avatar upload with invalid format", async () => {
