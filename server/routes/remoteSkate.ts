@@ -26,8 +26,9 @@ const router = Router();
 
 // Apply rate limiting to all remote-skate write endpoints
 router.use(remoteSkateLimiter);
-const SKATE_LETTERS = "SKATE";
-const MAX_LETTERS = 5;
+
+// Import from single source of truth
+import { SKATE_WORD, SKATE_LETTERS_TO_LOSE } from "@skatehubba/utils";
 
 /** Maps internal error messages to sanitized client-facing responses. */
 const ERROR_MAP: Record<string, { status: number; code: string; message: string }> = {
@@ -100,12 +101,8 @@ const ERROR_MAP: Record<string, { status: number; code: string; message: string 
   },
 };
 
-// Validation schema
-const resolveSchema = z.object({
-  result: z.enum(["landed", "missed"]),
-});
-
-const confirmSchema = z.object({
+// Shared validation schema for resolve and confirm endpoints
+const roundResultSchema = z.object({
   result: z.enum(["landed", "missed"]),
 });
 
@@ -490,6 +487,8 @@ router.post("/:gameId/rounds/:roundId/reply-complete", async (req: Request, res:
         throw new Error("Round is not awaiting a reply");
       }
 
+      // Update both round status AND game turn atomically
+      transaction.update(roundRef, { status: "awaiting_confirmation" });
       transaction.update(gameRef, {
         currentTurnUid: round.offenseUid,
         lastMoveAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -541,7 +540,7 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
   const uid = await verifyFirebaseAuth(req, res);
   if (!uid) return;
 
-  const parsed = resolveSchema.safeParse(req.body);
+  const parsed = roundResultSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
@@ -583,12 +582,8 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
         throw new Error("Only offense can submit a round result");
       }
 
-      if (round.status !== "awaiting_reply") {
+      if (round.status !== "awaiting_confirmation") {
         throw new Error("Round is not in a resolvable state");
-      }
-
-      if (!round.setVideoId || !round.replyVideoId) {
-        throw new Error("Both videos must be uploaded before resolving");
       }
 
       // Transition to awaiting_confirmation — defense must confirm
@@ -643,7 +638,7 @@ router.post("/:gameId/rounds/:roundId/confirm", async (req: Request, res: Respon
   const uid = await verifyFirebaseAuth(req, res);
   if (!uid) return;
 
-  const parsed = confirmSchema.safeParse(req.body);
+  const parsed = roundResultSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
   }
@@ -721,8 +716,8 @@ router.post("/:gameId/rounds/:roundId/confirm", async (req: Request, res: Respon
       if (agreedResult === "missed") {
         const currentDefenseLetters = letters[defenseUid] || "";
         const nextLetterIndex = currentDefenseLetters.length;
-        if (nextLetterIndex < MAX_LETTERS) {
-          letters[defenseUid] = currentDefenseLetters + SKATE_LETTERS[nextLetterIndex];
+        if (nextLetterIndex < SKATE_LETTERS_TO_LOSE) {
+          letters[defenseUid] = currentDefenseLetters + SKATE_WORD[nextLetterIndex];
         }
         nextOffenseUid = offenseUid;
         nextDefenseUid = defenseUid;
@@ -738,12 +733,12 @@ router.post("/:gameId/rounds/:roundId/confirm", async (req: Request, res: Respon
       });
 
       const defenseLetterCount = (letters[defenseUid] || "").length;
-      const isGameOver = defenseLetterCount >= MAX_LETTERS;
+      const isGameOver = defenseLetterCount >= SKATE_LETTERS_TO_LOSE;
 
       if (isGameOver) {
         transaction.update(gameRef, {
           letters,
-          status: "complete",
+          status: "completed",
           lastMoveAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 

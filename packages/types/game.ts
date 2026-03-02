@@ -1,8 +1,6 @@
-/** The five letters in a S.K.A.T.E. game */
-export type SkateLetter = "S" | "K" | "A" | "T" | "E";
-
-/** All possible letters a player can accumulate */
-export const SKATE_LETTERS: SkateLetter[] = ["S", "K", "A", "T", "E"];
+// Re-export shared constants from @skatehubba/utils (single source of truth)
+export { SKATE_LETTERS, SKATE_LETTERS_TO_LOSE, isGameOver } from "@skatehubba/utils";
+export type { SkateLetter, JudgmentVotes } from "@skatehubba/utils";
 
 /** Status of a game session */
 export type GameSessionStatus = "waiting" | "active" | "completed" | "abandoned" | "paused";
@@ -14,12 +12,6 @@ export type TurnPhase =
   | "judging" // Both players vote on whether defender landed
   | "round_complete"; // Round finished, determining next attacker
 
-/** Judgment votes from both players */
-export interface JudgmentVotes {
-  attackerVote: "landed" | "bailed" | null;
-  defenderVote: "landed" | "bailed" | null;
-}
-
 /** A player in a game session (matches game_sessions.players JSON element) */
 export interface GamePlayer {
   odv: string;
@@ -28,8 +20,13 @@ export interface GamePlayer {
   disconnectedAt?: string;
 }
 
-/** Result of a single move/attempt */
-export type MoveResult = "landed" | "bailed" | "missed" | "pending";
+/**
+ * Result of a single move/attempt.
+ * - "landed": trick was landed successfully
+ * - "missed": trick was not landed (also called "bailed" in the real-time system)
+ * - "pending": trick has not been judged yet
+ */
+export type MoveResult = "landed" | "missed" | "pending";
 
 /** A single move/trick attempt in the game */
 export interface Move {

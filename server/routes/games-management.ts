@@ -10,6 +10,7 @@ import { games, gameTurns, gameDisputes } from "@shared/schema";
 import { eq, or, desc, and, sql } from "drizzle-orm";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
+import { Errors } from "../utils/apiError";
 
 const router = Router();
 
@@ -84,7 +85,7 @@ router.post("/:id/forfeit", authenticateUser, async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to forfeit game" });
+    Errors.internal(res, "FORFEIT_FAILED", "Failed to forfeit game.");
   }
 });
 
@@ -128,7 +129,7 @@ router.get("/my-games", authenticateUser, async (req, res) => {
       error,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to fetch games" });
+    Errors.internal(res, "GAMES_FETCH_FAILED", "Failed to fetch games.");
   }
 });
 
@@ -261,7 +262,7 @@ router.get("/stats/me", authenticateUser, async (req, res) => {
       error,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to fetch stats" });
+    Errors.internal(res, "STATS_FETCH_FAILED", "Failed to fetch stats.");
   }
 });
 
@@ -278,10 +279,10 @@ router.get("/:id", authenticateUser, async (req, res) => {
 
     const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
 
-    if (!game) return res.status(404).json({ error: "Game not found" });
+    if (!game) return Errors.notFound(res, "GAME_NOT_FOUND", "Game not found.");
 
     if (game.player1Id !== currentUserId && game.player2Id !== currentUserId) {
-      return res.status(403).json({ error: "You are not a player in this game" });
+      return Errors.forbidden(res, "NOT_PARTICIPANT", "You are not a player in this game.");
     }
 
     const turns = await db
@@ -322,7 +323,7 @@ router.get("/:id", authenticateUser, async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to fetch game" });
+    Errors.internal(res, "GAME_FETCH_FAILED", "Failed to fetch game.");
   }
 });
 
