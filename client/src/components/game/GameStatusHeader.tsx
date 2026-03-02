@@ -1,21 +1,16 @@
 import { ArrowLeft, Flag } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { Game } from "@/lib/api/game/types";
 
 interface GameStatusHeaderProps {
-  game: Game;
   isActive: boolean;
   isGameOver: boolean;
   isPending: boolean;
-  isMyTurn: boolean;
   opponentName: string;
   turnPhase: string | null;
   isOffensive: boolean;
   onBack: () => void;
   onForfeit: () => void;
   forfeitPending: boolean;
-  myLetters?: string;
-  oppLetters?: string;
 }
 
 export function GameStatusHeader({

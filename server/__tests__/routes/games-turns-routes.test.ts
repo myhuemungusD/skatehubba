@@ -320,7 +320,7 @@ describe("Game Turn Routes", () => {
       await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "Failed to submit turn" });
+      expect(res.json).toHaveBeenCalledWith({ error: "TURN_SUBMIT_FAILED", message: "Failed to submit turn." });
     });
 
     it("returns 400 for invalid body", async () => {
@@ -330,7 +330,7 @@ describe("Game Turn Routes", () => {
       await callHandler("post", "/:id/turns", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
     it("returns 400 when video exceeds 15 second limit", async () => {
@@ -344,7 +344,8 @@ describe("Game Turn Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({
-        error: "Video exceeds 15 second limit",
+        error: "VIDEO_TOO_LONG",
+        message: "Video exceeds 15 second limit.",
       });
     });
 
@@ -578,7 +579,8 @@ describe("Game Turn Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({
-        error: "Failed to submit turn",
+        error: "TURN_SUBMIT_FAILED",
+        message: "Failed to submit turn.",
       });
     });
   });
@@ -600,7 +602,7 @@ describe("Game Turn Routes", () => {
       await callHandler("post", "/turns/:turnId/judge", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "Failed to judge turn" });
+      expect(res.json).toHaveBeenCalledWith({ error: "JUDGE_FAILED", message: "Failed to judge turn." });
     });
 
     it("returns 400 for invalid body", async () => {
@@ -613,7 +615,7 @@ describe("Game Turn Routes", () => {
       await callHandler("post", "/turns/:turnId/judge", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
     it("returns 400 for invalid turn ID (NaN)", async () => {
@@ -626,7 +628,7 @@ describe("Game Turn Routes", () => {
       await callHandler("post", "/turns/:turnId/judge", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: "Invalid turn ID" });
+      expect(res.json).toHaveBeenCalledWith({ error: "INVALID_TURN_ID", message: "Invalid turn ID." });
     });
 
     it("returns 400 for turnId=0 (turnId <= 0 branch, line 101)", async () => {
@@ -639,7 +641,7 @@ describe("Game Turn Routes", () => {
       await callHandler("post", "/turns/:turnId/judge", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ error: "Invalid turn ID" });
+      expect(res.json).toHaveBeenCalledWith({ error: "INVALID_TURN_ID", message: "Invalid turn ID." });
     });
 
     it("returns 404 when turn is not found", async () => {
@@ -654,7 +656,7 @@ describe("Game Turn Routes", () => {
       await callHandler("post", "/turns/:turnId/judge", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ error: "Turn not found" });
+      expect(res.json).toHaveBeenCalledWith({ error: "TURN_NOT_FOUND", message: "Turn not found." });
     });
 
     it("returns 404 when game is not found", async () => {
@@ -1016,7 +1018,8 @@ describe("Game Turn Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({
-        error: "Failed to judge turn",
+        error: "JUDGE_FAILED",
+        message: "Failed to judge turn.",
       });
     });
   });
@@ -1123,7 +1126,8 @@ describe("Game Turn Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith({
-        error: "Failed to process setter bail",
+        error: "SETTER_BAIL_FAILED",
+        message: "Failed to process setter bail.",
       });
     });
   });

@@ -380,24 +380,22 @@ describe("games-shared", () => {
     // resolveDisputeSchema
     // =========================================================================
     describe("resolveDisputeSchema", () => {
-      it("accepts valid disputeId and finalResult 'landed'", () => {
+      // disputeId is now validated from route param, not body.
+      // Schema only validates finalResult.
+
+      it("accepts valid finalResult 'landed'", () => {
+        const result = resolveDisputeSchema.safeParse({ finalResult: "landed" });
+        expect(result.success).toBe(true);
+      });
+
+      it("accepts valid finalResult 'missed'", () => {
+        const result = resolveDisputeSchema.safeParse({ finalResult: "missed" });
+        expect(result.success).toBe(true);
+      });
+
+      it("ignores extra fields like disputeId in body", () => {
         const result = resolveDisputeSchema.safeParse({ disputeId: 1, finalResult: "landed" });
         expect(result.success).toBe(true);
-      });
-
-      it("accepts valid disputeId and finalResult 'missed'", () => {
-        const result = resolveDisputeSchema.safeParse({ disputeId: 5, finalResult: "missed" });
-        expect(result.success).toBe(true);
-      });
-
-      it("rejects zero disputeId", () => {
-        const result = resolveDisputeSchema.safeParse({ disputeId: 0, finalResult: "landed" });
-        expect(result.success).toBe(false);
-      });
-
-      it("rejects negative disputeId", () => {
-        const result = resolveDisputeSchema.safeParse({ disputeId: -1, finalResult: "landed" });
-        expect(result.success).toBe(false);
       });
 
       it("rejects invalid finalResult", () => {
@@ -412,16 +410,6 @@ describe("games-shared", () => {
 
       it("rejects missing finalResult", () => {
         const result = resolveDisputeSchema.safeParse({ disputeId: 1 });
-        expect(result.success).toBe(false);
-      });
-
-      it("rejects missing disputeId", () => {
-        const result = resolveDisputeSchema.safeParse({ finalResult: "landed" });
-        expect(result.success).toBe(false);
-      });
-
-      it("rejects non-integer disputeId", () => {
-        const result = resolveDisputeSchema.safeParse({ disputeId: 1.5, finalResult: "landed" });
         expect(result.success).toBe(false);
       });
     });

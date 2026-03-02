@@ -10,6 +10,7 @@ import { eq } from "drizzle-orm";
 import { authenticateUser, requireAdmin } from "../auth/middleware";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
+import { Errors } from "../utils/apiError";
 import { disputeSchema, resolveDisputeSchema } from "./games-shared";
 import { fileDispute, resolveDispute } from "../services/gameDisputeService";
 
@@ -22,7 +23,7 @@ const router = Router();
 router.post("/:id/dispute", authenticateUser, async (req, res) => {
   const parsed = disputeSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return Errors.validation(res, parsed.error.flatten());
   }
 
   const currentUserId = req.currentUser!.id;
@@ -40,11 +41,11 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
       .limit(1);
 
     if (!game) {
-      return res.status(404).json({ error: "Game not found" });
+      return Errors.notFound(res, "GAME_NOT_FOUND", "Game not found.");
     }
 
     if (game.player1Id !== currentUserId && game.player2Id !== currentUserId) {
-      return res.status(403).json({ error: "Only game participants can file disputes" });
+      return Errors.forbidden(res, "NOT_PARTICIPANT", "Only game participants can file disputes.");
     }
 
     const txResult = await db.transaction(async (tx) =>
@@ -80,7 +81,7 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to file dispute" });
+    Errors.internal(res, "DISPUTE_FILE_FAILED", "Failed to file dispute.");
   }
 });
 
@@ -89,16 +90,23 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
 // ============================================================================
 
 router.post("/disputes/:disputeId/resolve", authenticateUser, requireAdmin, async (req, res) => {
-  const parsed = resolveDisputeSchema.safeParse({
-    ...req.body,
-    disputeId: parseInt(req.params.disputeId, 10),
-  });
+  // Validate disputeId from route param
+  if (!/^\d+$/.test(req.params.disputeId)) {
+    return Errors.badRequest(res, "INVALID_DISPUTE_ID", "Invalid dispute ID.");
+  }
+  const disputeId = parseInt(req.params.disputeId, 10);
+  if (isNaN(disputeId) || disputeId <= 0) {
+    return Errors.badRequest(res, "INVALID_DISPUTE_ID", "Invalid dispute ID.");
+  }
+
+  // Validate body (only finalResult)
+  const parsed = resolveDisputeSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return Errors.validation(res, parsed.error.flatten());
   }
 
   const currentUserId = req.currentUser!.id;
-  const { disputeId, finalResult } = parsed.data;
+  const { finalResult } = parsed.data;
 
   try {
     const db = getDb();
@@ -130,7 +138,7 @@ router.post("/disputes/:disputeId/resolve", authenticateUser, requireAdmin, asyn
       disputeId,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to resolve dispute" });
+    Errors.internal(res, "DISPUTE_RESOLVE_FAILED", "Failed to resolve dispute.");
   }
 });
 

@@ -588,6 +588,26 @@ describe("getPresenceStats", () => {
     );
   });
 
+  it("handles non-Error thrown value in inner JSON.parse catch (line 210)", async () => {
+    const spy = vi.spyOn(JSON, "parse").mockImplementationOnce(() => {
+      throw "non-error string";
+    });
+
+    mockGetRedisClient.mockReturnValue({
+      hvals: vi.fn().mockResolvedValue(["trigger"]),
+    });
+
+    const stats = await getPresenceStats();
+
+    expect(stats).toEqual({ online: 0, away: 0 });
+    expect(logger.warn).toHaveBeenCalledWith(
+      "[Presence] Malformed presence entry in Redis",
+      expect.objectContaining({ error: "non-error string" })
+    );
+
+    spy.mockRestore();
+  });
+
   it("counts non-online statuses as away in Redis entries", async () => {
     mockGetRedisClient.mockReturnValue({
       hvals: vi
