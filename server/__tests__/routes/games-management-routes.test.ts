@@ -336,7 +336,7 @@ describe("Game Management Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to forfeit game" })
+        expect.objectContaining({ error: "FORFEIT_FAILED", message: "Failed to forfeit game." })
       );
     });
 
@@ -349,7 +349,7 @@ describe("Game Management Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to forfeit game" })
+        expect.objectContaining({ error: "FORFEIT_FAILED", message: "Failed to forfeit game." })
       );
     });
   });
@@ -445,7 +445,7 @@ describe("Game Management Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to fetch games" })
+        expect.objectContaining({ error: "GAMES_FETCH_FAILED", message: "Failed to fetch games." })
       );
     });
 
@@ -458,7 +458,7 @@ describe("Game Management Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to fetch games" })
+        expect.objectContaining({ error: "GAMES_FETCH_FAILED", message: "Failed to fetch games." })
       );
     });
   });
@@ -657,7 +657,7 @@ describe("Game Management Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to fetch stats" })
+        expect.objectContaining({ error: "STATS_FETCH_FAILED", message: "Failed to fetch stats." })
       );
     });
   });
@@ -828,7 +828,7 @@ describe("Game Management Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "You are not a player in this game" })
+        expect.objectContaining({ error: "NOT_PARTICIPANT", message: "You are not a player in this game." })
       );
     });
 
@@ -841,7 +841,7 @@ describe("Game Management Routes", () => {
       await callRoute("GET", "/:id", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Game not found" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "GAME_NOT_FOUND", message: "Game not found." }));
     });
 
     it("returns 500 when database is unavailable", async () => {
@@ -853,7 +853,7 @@ describe("Game Management Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to fetch game" })
+        expect.objectContaining({ error: "GAME_FETCH_FAILED", message: "Failed to fetch game." })
       );
     });
 
@@ -866,7 +866,7 @@ describe("Game Management Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to fetch game" })
+        expect.objectContaining({ error: "GAME_FETCH_FAILED", message: "Failed to fetch game." })
       );
     });
   });
