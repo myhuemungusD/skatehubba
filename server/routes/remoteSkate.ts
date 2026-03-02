@@ -743,7 +743,7 @@ router.post("/:gameId/rounds/:roundId/confirm", async (req: Request, res: Respon
       if (isGameOver) {
         transaction.update(gameRef, {
           letters,
-          status: "complete",
+          status: "completed",
           lastMoveAt: admin.firestore.FieldValue.serverTimestamp(),
         });
 

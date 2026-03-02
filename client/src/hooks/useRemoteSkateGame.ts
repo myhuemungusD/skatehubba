@@ -158,7 +158,7 @@ export function useRemoteSkateGame(gameId: string | null): RemoteSkateGameState 
     const myLetters = game.letters?.[uid] || "";
     const opponentLetters = opponentUid ? game.letters?.[opponentUid] || "" : "";
     const isMyTurn = game.currentTurnUid === uid;
-    const isGameOver = game.status === "complete";
+    const isGameOver = game.status === "completed";
 
     let myRole: "offense" | "defense" | null = null;
     if (currentRound) {

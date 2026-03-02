@@ -13,7 +13,7 @@ export type {
   GameSession,
 } from "@skatehubba/types";
 
-export { SKATE_LETTERS } from "@skatehubba/types";
+export { SKATE_LETTERS, GAME_SESSION_STATUSES, MOBILE_TURN_PHASES } from "@skatehubba/types";
 
 export type { LeaderboardEntry } from "@skatehubba/types";
 
