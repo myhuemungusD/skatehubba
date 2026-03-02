@@ -365,7 +365,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             playerAUid: "user-1",
             playerBUid: "user-2",
-            status: "complete",
+            status: "completed",
             letters: {},
           }),
         };
@@ -800,7 +800,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             playerAUid: "user-1",
             playerBUid: "user-2",
-            status: "complete",
+            status: "completed",
             letters: {},
           }),
         };
@@ -1581,7 +1581,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             playerAUid: "user-1",
             playerBUid: "user-2",
-            status: "complete",
+            status: "completed",
           }),
         };
         const transaction = { get: vi.fn().mockResolvedValue(gameSnap) };
@@ -1902,7 +1902,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             playerAUid: "user-1",
             playerBUid: "user-2",
-            status: "complete",
+            status: "completed",
           }),
         };
         const transaction = { get: vi.fn().mockResolvedValue(gameSnap) };
@@ -2449,7 +2449,7 @@ describe("Remote Skate Routes", () => {
         // Game should be marked as complete
         expect(transaction.update).toHaveBeenCalledWith(
           expect.anything(),
-          expect.objectContaining({ status: "complete" })
+          expect.objectContaining({ status: "completed" })
         );
         // No new round should be created
         expect(transaction.set).not.toHaveBeenCalled();

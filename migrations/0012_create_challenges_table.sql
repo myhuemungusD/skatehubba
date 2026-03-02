@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS "challenges" (
   "challenger_id" varchar(255) NOT NULL,
   "challenged_id" varchar(255) NOT NULL,
   "status" varchar(50) NOT NULL DEFAULT 'pending',
-  "game_id" varchar(255),
+  "game_id" varchar(255) REFERENCES "games"("id") ON DELETE SET NULL,
   "created_at" timestamp NOT NULL DEFAULT now(),
   "updated_at" timestamp NOT NULL DEFAULT now()
 );
