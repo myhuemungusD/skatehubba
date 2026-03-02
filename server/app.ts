@@ -65,7 +65,7 @@ export function createApp(): express.Express {
             scriptSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'"],
             imgSrc: ["'self'", "data:", "https:", "blob:"],
-            connectSrc: ["'self'", "https:"],
+            connectSrc: ["'self'", "https:", "wss:"],
             fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
             objectSrc: ["'none'"],
             mediaSrc: ["'self'", "https://firebasestorage.googleapis.com", "blob:"],

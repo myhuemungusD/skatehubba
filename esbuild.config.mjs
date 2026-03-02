@@ -6,7 +6,7 @@ const config = {
   bundle: true,
   platform: 'node',
   outfile: 'dist/server.js',
-  format: 'cjs',
+  format: 'esm',
   packages: 'external', // This automatically excludes all Node.js built-ins
   external: [
     // Keep external packages that we still want to exclude specifically
@@ -14,7 +14,7 @@ const config = {
     'pg',
     'ws'
   ],
-  target: 'node18',
+  target: 'node22',
   minify: false,
   sourcemap: true,
 };

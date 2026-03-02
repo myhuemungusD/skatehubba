@@ -111,10 +111,14 @@ process.on("unhandledRejection", (reason) => {
 });
 
 process.on("uncaughtException", (err) => {
-  logger.error("[Server] Uncaught exception — continuing", {
+  logger.error("[Server] Uncaught exception — exiting", {
     name: err.name,
     message: err.message,
+    stack: err.stack,
   });
+  // Node.js docs: "It is not safe to resume normal operation after 'uncaughtException'."
+  // The process manager (Docker restart policy / Vercel) will restart the process.
+  process.exit(1);
 });
 
 // Graceful shutdown

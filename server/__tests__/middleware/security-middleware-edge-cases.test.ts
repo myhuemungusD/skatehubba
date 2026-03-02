@@ -171,7 +171,7 @@ describe("Security middleware — uncovered lines", () => {
       expect(result).toBe(1);
     });
 
-    it("should return 0 when redis.call throws (catch branch — line 25)", async () => {
+    it("should return 999999 when redis.call throws (fail-closed — catch branch)", async () => {
       // Get the sendCommand from the first RedisStore instantiation
       const firstCall = MockRedisStore.calls[0];
       const sendCommand = firstCall.sendCommand;
@@ -181,8 +181,8 @@ describe("Security middleware — uncovered lines", () => {
 
       const result = await sendCommand("GET", "some-key");
 
-      // The catch block returns 0 so the rate limiter allows the request through
-      expect(result).toBe(0);
+      // Fail closed: return a high count so the rate limiter blocks the request
+      expect(result).toBe(999999);
     });
 
     it("should use the correct prefix for each rate limiter store", () => {
@@ -356,7 +356,12 @@ describe("Security middleware — uncovered lines", () => {
       // profileCreateLimiter is the only one that checks req.firebaseUid
       // We can identify it by testing with a request that has firebaseUid
       for (const opt of opts) {
-        const testReq = { firebaseUid: "test-uid", ip: "1.2.3.4", currentUser: null, get: () => undefined };
+        const testReq = {
+          firebaseUid: "test-uid",
+          ip: "1.2.3.4",
+          currentUser: null,
+          get: () => undefined,
+        };
         const key = opt.keyGenerator(testReq);
         if (key === "test-uid") return opt.keyGenerator;
       }

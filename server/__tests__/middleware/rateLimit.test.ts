@@ -116,7 +116,7 @@ describe("rateLimit middleware", () => {
       expect(result).toBe(42);
     });
 
-    it("should return 0 when redis.call throws (catch branch — line 23)", async () => {
+    it("should return 999999 when redis.call throws (fail-closed — catch branch)", async () => {
       const firstCall = MockRedisStore.calls[0];
       const sendCommand = firstCall.sendCommand;
 
@@ -125,8 +125,8 @@ describe("rateLimit middleware", () => {
 
       const result = await sendCommand("GET", "some-key");
 
-      // The catch block returns 0 so the rate limiter allows the request through
-      expect(result).toBe(0);
+      // Fail closed: return a high count so the rate limiter blocks the request
+      expect(result).toBe(999999);
     });
   });
 });

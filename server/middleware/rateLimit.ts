@@ -2,12 +2,15 @@ import rateLimit from "express-rate-limit";
 import { RedisStore } from "rate-limit-redis";
 import { getRedisClient } from "../redis.ts";
 import { RATE_LIMIT_CONFIG } from "../config/rateLimits.ts";
+import logger from "../logger.ts";
 
 /**
  * Build a RedisStore for express-rate-limit if Redis is available.
  * Returns undefined (uses default MemoryStore) when Redis is not configured.
- * When Redis is configured but unreachable, errors are caught so requests
- * pass through instead of triggering a 500 from the global error handler.
+ *
+ * Fail-closed: when Redis is configured but temporarily unreachable, we return
+ * a high hit count so the rate limiter rejects the request rather than allowing
+ * unlimited traffic through during a Redis outage.
  */
 function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined {
   const redis = getRedisClient();
@@ -17,10 +20,14 @@ function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined
     sendCommand: async (...args: string[]) => {
       try {
         return (await redis.call(...(args as [string, ...string[]]))) as number;
-      } catch {
-        // Redis unreachable — return 0 so the rate limiter allows the request
-        // through rather than crashing the request with a 500.
-        return 0;
+      } catch (err) {
+        logger.error("[RateLimit] Redis command failed — failing closed", {
+          prefix,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        // Fail closed: return a high count so the rate limiter triggers,
+        // blocking requests until Redis recovers.
+        return 999999;
       }
     },
     prefix,

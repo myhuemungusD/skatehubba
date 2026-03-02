@@ -596,18 +596,22 @@ describe("Socket Index — edge cases (lines 165, 175)", () => {
     expect(mockStopHealthMonitor).not.toHaveBeenCalled();
   });
 
-  it("logs warning when ALLOWED_ORIGINS is not set in production (line 204)", () => {
-    const origEnv = process.env.NODE_ENV;
+  it("does not warn about ALLOWED_ORIGINS when using centralized getAllowedOrigins()", () => {
     const origOrigins = process.env.ALLOWED_ORIGINS;
     delete process.env.ALLOWED_ORIGINS;
+    const origNodeEnv = process.env.NODE_ENV;
     process.env.NODE_ENV = "production";
 
     initializeSocketServer({} as any);
 
-    expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("ALLOWED_ORIGINS is not set"));
+    // getAllowedOrigins() always includes production origins, so no warning
+    // about missing ALLOWED_ORIGINS should be logged.
+    expect(logger.warn).not.toHaveBeenCalledWith(
+      expect.stringContaining("ALLOWED_ORIGINS is not set")
+    );
 
     // Restore
-    process.env.NODE_ENV = origEnv;
+    process.env.NODE_ENV = origNodeEnv;
     if (origOrigins !== undefined) {
       process.env.ALLOWED_ORIGINS = origOrigins;
     }
