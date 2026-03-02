@@ -5,7 +5,7 @@
  * Each functional domain lives in its own directory:
  *
  *   admin/   — Role management (manageUserRole, getUserRoles)
- *   game/    — S.K.A.T.E. battle logic (submitTrick, judgeTrick, getVideoUrl, voteTimeouts)
+ *   game/    — S.K.A.T.E. battle logic (joinGame, abandonGame, submitTrick, judgeTrick, etc.)
  *   video/   — Storage triggers (validateChallengeVideo)
  *   commerce/ — Stripe / payment functions (holdAndCreatePaymentIntent, etc.)
  *
@@ -21,6 +21,8 @@
 export { manageUserRole, getUserRoles } from "./admin/roles";
 
 // Game functions
+export { joinGame } from "./game/joinGame";
+export { abandonGame } from "./game/abandonGame";
 export { submitTrick } from "./game/submitTrick";
 export { judgeTrick } from "./game/judgeTrick";
 export { setterBail } from "./game/setterBail";

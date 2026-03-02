@@ -30,15 +30,33 @@ export interface JudgmentVotes {
   defenderVote: "landed" | "bailed" | null;
 }
 
-/** Status of a game session */
-export type GameSessionStatus = "waiting" | "active" | "completed" | "abandoned" | "paused";
+/**
+ * Status of a Firebase game session (mobile real-time games).
+ *
+ * Parallel enum: GAME_STATUSES in packages/shared/schema/games.ts covers
+ * the PostgreSQL async game system with values:
+ *   "pending" | "active" | "completed" | "declined" | "forfeited"
+ */
+export const GAME_SESSION_STATUSES = ["waiting", "active", "completed", "abandoned"] as const;
+export type GameSessionStatus = (typeof GAME_SESSION_STATUSES)[number];
 
-/** Current phase of a turn in the S.K.A.T.E. battle */
-export type TurnPhase =
-  | "attacker_recording" // Attacker is recording their trick
-  | "defender_recording" // Defender is recording their attempt
-  | "judging" // Both players vote on whether defender landed
-  | "round_complete"; // Round finished, determining next attacker
+/**
+ * Turn phase for Firebase real-time games (mobile).
+ *
+ * Parallel enum: TURN_PHASES in packages/shared/schema/games.ts covers
+ * the PostgreSQL async game system with values:
+ *   "set_trick" | "respond_trick" | "judge"
+ *
+ * Mapping: set_trick ↔ attacker_recording, respond_trick ↔ defender_recording,
+ *          judge ↔ judging, (none) ↔ round_complete
+ */
+export const MOBILE_TURN_PHASES = [
+  "attacker_recording", // Attacker is recording their trick
+  "defender_recording", // Defender is recording their attempt
+  "judging", // Both players vote on whether defender landed
+  "round_complete", // Round finished, determining next attacker
+] as const;
+export type TurnPhase = (typeof MOBILE_TURN_PHASES)[number];
 
 /** A player in a game session (matches game_sessions.players JSON element) */
 export interface GamePlayer {
