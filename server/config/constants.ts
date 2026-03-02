@@ -54,8 +54,8 @@ export const REAUTH_FRESHNESS_MS = 5 * 60 * 1000;
 // Game (S.K.A.T.E.)
 // ============================================================================
 
-// Re-export from single source of truth
-export { SKATE_LETTERS_TO_LOSE } from "@skatehubba/utils";
+/** Number of letters required to lose a S.K.A.T.E. game */
+export const SKATE_LETTERS_TO_LOSE = 5;
 
 // ============================================================================
 // Geolocation

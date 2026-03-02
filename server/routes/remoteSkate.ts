@@ -27,8 +27,7 @@ const router = Router();
 // Apply rate limiting to all remote-skate write endpoints
 router.use(remoteSkateLimiter);
 
-// Import from single source of truth
-import { SKATE_WORD, SKATE_LETTERS_TO_LOSE } from "@skatehubba/utils";
+import { SKATE_WORD, SKATE_LETTERS_TO_LOSE } from "./games-shared";
 
 /** Maps internal error messages to sanitized client-facing responses. */
 const ERROR_MAP: Record<string, { status: number; code: string; message: string }> = {

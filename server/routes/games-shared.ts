@@ -4,9 +4,24 @@
 
 import { z } from "zod";
 import { getUserDisplayName as getUserDisplayNameFromDb } from "../db";
+import { SKATE_LETTERS_TO_LOSE } from "../config/constants";
 
-// Re-export game logic from single source of truth
-export { SKATE_LETTERS, SKATE_WORD, SKATE_LETTERS_TO_LOSE, isGameOver } from "@skatehubba/utils";
+// ============================================================================
+// Game Constants (values match @skatehubba/utils)
+// ============================================================================
+
+export const SKATE_LETTERS = "SKATE";
+export const SKATE_WORD = "SKATE";
+export { SKATE_LETTERS_TO_LOSE };
+
+export function isGameOver(
+  player1Letters: string | readonly string[],
+  player2Letters: string | readonly string[]
+): { over: boolean; loserId: "player1" | "player2" | null } {
+  if (player1Letters.length >= SKATE_LETTERS_TO_LOSE) return { over: true, loserId: "player1" };
+  if (player2Letters.length >= SKATE_LETTERS_TO_LOSE) return { over: true, loserId: "player2" };
+  return { over: false, loserId: null };
+}
 
 // ============================================================================
 // Constants

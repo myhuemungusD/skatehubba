@@ -1,6 +1,34 @@
-// Re-export shared constants from @skatehubba/utils (single source of truth)
-export { SKATE_LETTERS, SKATE_LETTERS_TO_LOSE, isGameOver } from "@skatehubba/utils";
-export type { SkateLetter, JudgmentVotes } from "@skatehubba/utils";
+// =============================================================================
+// S.K.A.T.E. Constants & Types (canonical source)
+// =============================================================================
+
+/** The five letters in S.K.A.T.E. as a readonly tuple */
+export const SKATE_LETTERS = ["S", "K", "A", "T", "E"] as const;
+
+/** Union type for a single SKATE letter */
+export type SkateLetter = (typeof SKATE_LETTERS)[number];
+
+/** Number of letters required to lose a S.K.A.T.E. game */
+export const SKATE_LETTERS_TO_LOSE = 5;
+
+/**
+ * Determines if a game is over based on player letter counts.
+ * Works with both string and array letter representations.
+ */
+export function isGameOver(
+  player1Letters: string | readonly string[],
+  player2Letters: string | readonly string[]
+): { over: boolean; loserId: "player1" | "player2" | null } {
+  if (player1Letters.length >= SKATE_LETTERS_TO_LOSE) return { over: true, loserId: "player1" };
+  if (player2Letters.length >= SKATE_LETTERS_TO_LOSE) return { over: true, loserId: "player2" };
+  return { over: false, loserId: null };
+}
+
+/** Judgment votes from both players during trick judging */
+export interface JudgmentVotes {
+  attackerVote: "landed" | "bailed" | null;
+  defenderVote: "landed" | "bailed" | null;
+}
 
 /** Status of a game session */
 export type GameSessionStatus = "waiting" | "active" | "completed" | "abandoned" | "paused";
@@ -23,10 +51,14 @@ export interface GamePlayer {
 /**
  * Result of a single move/attempt.
  * - "landed": trick was landed successfully
- * - "missed": trick was not landed (also called "bailed" in the real-time system)
+ * - "missed": trick was not landed (async/PostgreSQL system)
+ * - "bailed": trick was not landed (real-time/Firestore mobile system)
  * - "pending": trick has not been judged yet
+ *
+ * "missed" and "bailed" mean the same thing — different game systems use
+ * different terms. The async system uses "missed"; real-time uses "bailed".
  */
-export type MoveResult = "landed" | "missed" | "pending";
+export type MoveResult = "landed" | "missed" | "bailed" | "pending";
 
 /** A single move/trick attempt in the game */
 export interface Move {

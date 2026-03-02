@@ -27,7 +27,7 @@ The SKATE feature contains **three game systems** (Async Turn-Based, Real-Time S
 | 1 | Game status `"complete"` vs `"completed"` mismatch | Standardized to `"completed"` in `remoteSkateService.ts`, `remoteSkate.ts`, `useRemoteSkateGame.ts`, and all tests |
 | 2 | `gameSessions` dangling export in `packages/db/index.ts` | Removed the non-existent `gameSessions` and `GameSession`/`InsertGameSession` exports |
 | 3 | `challenges` table had no SQL migration | Created `migrations/0012_challenges_table.sql` |
-| 4 | `MoveResult` included `"bailed"` inconsistently | Removed `"bailed"` from `MoveResult` type — standardized to `"landed" | "missed" | "pending"` |
+| 4 | `MoveResult` lacked documentation for `"bailed"` vs `"missed"` | Documented both terms: async system uses `"missed"`, real-time system uses `"bailed"`. Both retained in `MoveResult` type. |
 
 ### P1 — HIGH (6 fixed)
 
@@ -98,12 +98,16 @@ The SKATE feature contains **three game systems** (Async Turn-Based, Real-Time S
   └──────────────────────┘  └──────────────────┘  └──────────────────────┘
 
   ALL THREE SYSTEMS NOW SHARE:
-  ├── SKATE_LETTERS, SKATE_WORD, SKATE_LETTERS_TO_LOSE (from @skatehubba/utils)
+  ├── SKATE_LETTERS, SKATE_WORD, SKATE_LETTERS_TO_LOSE (aligned values, self-contained per package)
   ├── isGameOver() helper function (works with string and array letter formats)
-  ├── JudgmentVotes interface (single canonical definition)
+  ├── JudgmentVotes interface (aligned definition per package)
   ├── Standardized Errors utility (consistent API error shapes)
   ├── LettersDisplay component (canonical, with adapter for remote skate)
   └── GameOverScreen component (canonical, with adapter for remote skate)
+
+  NOTE: Each package defines its own constants to avoid cross-package module
+  resolution issues in pnpm workspaces. @skatehubba/utils serves as the
+  canonical reference; other packages mirror the same values.
 ```
 
 ---
@@ -134,16 +138,16 @@ The SKATE feature contains **three game systems** (Async Turn-Based, Real-Time S
 | File | Change |
 |------|--------|
 | `packages/utils/index.ts` | Populated with `SKATE_LETTERS`, `SKATE_WORD`, `SKATE_LETTERS_TO_LOSE`, `isGameOver()`, `JudgmentVotes` |
-| `packages/types/game.ts` | Re-exports from `@skatehubba/utils`; removed duplicate `JudgmentVotes`; removed `"bailed"` from `MoveResult` |
+| `packages/types/game.ts` | Self-contained constants (avoids cross-package resolution); `MoveResult` includes `"bailed"` for real-time system compatibility |
 | `packages/db/index.ts` | Removed dangling `gameSessions`, `GameSession`, `InsertGameSession` exports |
-| `functions/src/game/constants.ts` | Re-exports from `@skatehubba/utils` |
+| `functions/src/game/constants.ts` | Self-contained constants (values match `@skatehubba/utils`) |
 | `functions/src/game/judgeTrick.ts` | Imports `JudgmentVotes` from constants instead of local duplicate |
-| `server/config/constants.ts` | Re-exports `SKATE_LETTERS_TO_LOSE` from `@skatehubba/utils` |
-| `server/routes/games-shared.ts` | Imports from `@skatehubba/utils`; fixed `resolveDisputeSchema` to body-only |
+| `server/config/constants.ts` | Own `SKATE_LETTERS_TO_LOSE` constant (values match `@skatehubba/utils`) |
+| `server/routes/games-shared.ts` | Own constants + `isGameOver()`; fixed `resolveDisputeSchema` to body-only |
 | `server/routes/games-turns.ts` | Migrated to `Errors` utility |
 | `server/routes/games-disputes.ts` | Migrated to `Errors` utility; fixed `resolveDisputeSchema` usage |
 | `server/routes/games-management.ts` | Migrated to `Errors` utility |
-| `server/routes/remoteSkate.ts` | Imports from `@skatehubba/utils`; merged duplicate schemas; fixed `reply-complete` round status; fixed `resolve` status check; `"complete"` → `"completed"` |
+| `server/routes/remoteSkate.ts` | Imports from `./games-shared`; merged duplicate schemas; fixed `reply-complete` round status; fixed `resolve` status check; `"complete"` → `"completed"` |
 | `server/api-docs/endpoints/game.ts` | Complete rewrite matching actual routes |
 | `client/src/lib/remoteSkate/remoteSkateService.ts` | `"complete"` → `"completed"` |
 | `client/src/hooks/useRemoteSkateGame.ts` | `"complete"` → `"completed"` |
