@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { render, screen, cleanup } from "@testing-library/react";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { MemberHubHero } from "./MemberHubHero";
 import type { LucideIcon } from "lucide-react";
 
@@ -28,6 +28,10 @@ vi.mock("wouter", () => ({
 const MockIcon: LucideIcon = (({ className }: { className?: string }) => (
   <svg className={className} data-testid="mock-icon" />
 )) as unknown as LucideIcon;
+
+afterEach(() => {
+  cleanup();
+});
 
 describe("MemberHubHero", () => {
   const baseProps = {
