@@ -105,6 +105,33 @@ const REQUIRED_KEYS = [
 
 const OPTIONAL_KEYS = ["FIREBASE_MEASUREMENT_ID"];
 
+// ── Auto-promote: if a required public key exists without prefix, copy it to
+// EXPO_PUBLIC_ so Vite can bundle it. This handles the common misconfiguration
+// where vars are set as FIREBASE_API_KEY instead of EXPO_PUBLIC_FIREBASE_API_KEY.
+const promoted = [];
+for (const key of [...REQUIRED_KEYS, ...OPTIONAL_KEYS]) {
+  const bareVal = process.env[key]?.trim();
+  const expoVal = process.env[`EXPO_PUBLIC_${key}`]?.trim();
+  const viteVal = process.env[`VITE_${key}`]?.trim();
+  if (bareVal && !expoVal && !viteVal) {
+    // Do NOT promote keys that are in the BLOCKED_PUBLIC_VARS list (server secrets)
+    if (!BLOCKED_PUBLIC_VARS.includes(key)) {
+      process.env[`EXPO_PUBLIC_${key}`] = bareVal;
+      promoted.push(key);
+    }
+  }
+}
+if (promoted.length > 0) {
+  console.warn("\n⚠️  PUBLIC ENV VAR AUTO-PROMOTE ⚠️\n");
+  console.warn("The following env vars were set without the EXPO_PUBLIC_ prefix.");
+  console.warn("They have been auto-promoted so Vite can bundle them into the client.\n");
+  promoted.forEach((key) => {
+    console.warn(`  ↪ ${key} → EXPO_PUBLIC_${key}`);
+  });
+  console.warn("\nACTION REQUIRED: Rename these in the Vercel dashboard to use the");
+  console.warn("EXPO_PUBLIC_ prefix. This auto-promote is a safety net.\n");
+}
+
 const isProd = process.env.NODE_ENV === "production";
 const isVercel = process.env.VERCEL === "1";
 const vercelEnv = process.env.VERCEL_ENV || "unknown";

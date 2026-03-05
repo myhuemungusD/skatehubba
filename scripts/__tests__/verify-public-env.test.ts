@@ -183,15 +183,15 @@ describe("verify-public-env — strict mode", () => {
 // =============================================================================
 
 describe("verify-public-env — rename suggestions", () => {
-  it("shows rename suggestion when var is set without prefix", () => {
-    const { stderr } = run({ FIREBASE_API_KEY: "abc" });
-    expect(stderr).toContain('Found "FIREBASE_API_KEY" (no prefix)');
-    expect(stderr).toContain('Rename it to "EXPO_PUBLIC_FIREBASE_API_KEY"');
+  it("auto-promotes bare key to EXPO_PUBLIC_ prefix", () => {
+    const { combined } = run({ FIREBASE_API_KEY: "abc" });
+    expect(combined).toContain("AUTO-PROMOTE");
+    expect(combined).toContain("FIREBASE_API_KEY → EXPO_PUBLIC_FIREBASE_API_KEY");
   });
 
-  it("shows the Vite bundling explanation when rename suggestion is present", () => {
-    const { stderr } = run({ FIREBASE_API_KEY: "abc" });
-    expect(stderr).toContain("Vite won't bundle this value into the client build");
+  it("shows action required warning after auto-promote", () => {
+    const { combined } = run({ FIREBASE_API_KEY: "abc" });
+    expect(combined).toContain("ACTION REQUIRED");
   });
 
   it("shows (not set) for vars that have no form at all", () => {
