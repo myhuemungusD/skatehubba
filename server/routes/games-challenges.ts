@@ -5,7 +5,6 @@
 
 import { Router } from "express";
 import { getDb } from "../db";
-import { authenticateUser } from "../auth/middleware";
 import { games, customUsers } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
@@ -24,7 +23,7 @@ const router = Router();
 // POST /api/games/create — Challenge an opponent
 // ============================================================================
 
-router.post("/create", authenticateUser, async (req, res) => {
+router.post("/create", async (req, res) => {
   const parsed = createGameSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());
@@ -99,7 +98,7 @@ router.post("/create", authenticateUser, async (req, res) => {
 // POST /api/games/:id/respond — Accept or decline challenge
 // ============================================================================
 
-router.post("/:id/respond", authenticateUser, async (req, res) => {
+router.post("/:id/respond", async (req, res) => {
   const parsed = respondGameSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());

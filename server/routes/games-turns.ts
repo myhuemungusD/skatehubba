@@ -5,7 +5,6 @@
 
 import { Router } from "express";
 import { getDb } from "../db";
-import { authenticateUser } from "../auth/middleware";
 import { gameTurns } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
@@ -20,7 +19,7 @@ const router = Router();
 // POST /api/games/:id/turns — Submit a video (set trick or response)
 // ============================================================================
 
-router.post("/:id/turns", authenticateUser, async (req, res) => {
+router.post("/:id/turns", async (req, res) => {
   const parsed = submitTurnSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());
@@ -85,7 +84,7 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
 // POST /api/games/turns/:turnId/judge — Defensive player judges LAND or BAIL
 // ============================================================================
 
-router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
+router.post("/turns/:turnId/judge", async (req, res) => {
   const parsed = judgeTurnSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());
@@ -146,7 +145,7 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
 // POST /api/games/:id/setter-bail — Setter bails on their own trick
 // ============================================================================
 
-router.post("/:id/setter-bail", authenticateUser, async (req, res) => {
+router.post("/:id/setter-bail", async (req, res) => {
   const currentUserId = req.currentUser!.id;
   const gameId = req.params.id;
 

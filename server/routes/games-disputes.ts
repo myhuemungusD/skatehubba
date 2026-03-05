@@ -7,7 +7,7 @@ import { Router } from "express";
 import { getDb } from "../db";
 import { games } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { authenticateUser, requireAdmin } from "../auth/middleware";
+import { requireAdmin } from "../auth/middleware";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
 import { Errors } from "../utils/apiError";
@@ -20,7 +20,7 @@ const router = Router();
 // POST /api/games/:id/dispute — File a dispute (max 1 per player per game)
 // ============================================================================
 
-router.post("/:id/dispute", authenticateUser, async (req, res) => {
+router.post("/:id/dispute", async (req, res) => {
   const parsed = disputeSchema.safeParse(req.body);
   if (!parsed.success) {
     return Errors.validation(res, parsed.error.flatten());
@@ -89,7 +89,7 @@ router.post("/:id/dispute", authenticateUser, async (req, res) => {
 // POST /api/games/disputes/:disputeId/resolve — Resolve a dispute
 // ============================================================================
 
-router.post("/disputes/:disputeId/resolve", authenticateUser, requireAdmin, async (req, res) => {
+router.post("/disputes/:disputeId/resolve", requireAdmin, async (req, res) => {
   // Validate disputeId from route param
   if (!/^\d+$/.test(req.params.disputeId)) {
     return Errors.badRequest(res, "INVALID_DISPUTE_ID", "Invalid dispute ID.");

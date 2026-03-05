@@ -5,7 +5,6 @@
 
 import { Router } from "express";
 import { getDb } from "../db";
-import { authenticateUser } from "../auth/middleware";
 import { games, gameTurns, gameDisputes } from "@shared/schema";
 import { eq, or, desc, and, sql } from "drizzle-orm";
 import logger from "../logger";
@@ -18,7 +17,7 @@ const router = Router();
 // POST /api/games/:id/forfeit — Voluntary forfeit
 // ============================================================================
 
-router.post("/:id/forfeit", authenticateUser, async (req, res) => {
+router.post("/:id/forfeit", async (req, res) => {
   const currentUserId = req.currentUser!.id;
   const gameId = req.params.id;
 
@@ -93,7 +92,7 @@ router.post("/:id/forfeit", authenticateUser, async (req, res) => {
 // GET /api/games/my-games — List my games
 // ============================================================================
 
-router.get("/my-games", authenticateUser, async (req, res) => {
+router.get("/my-games", async (req, res) => {
   const currentUserId = req.currentUser!.id;
 
   try {
@@ -138,7 +137,7 @@ router.get("/my-games", authenticateUser, async (req, res) => {
 // NOTE: Must be defined BEFORE /:id to avoid route shadowing
 // ============================================================================
 
-router.get("/stats/me", authenticateUser, async (req, res) => {
+router.get("/stats/me", async (req, res) => {
   const currentUserId = req.currentUser!.id;
 
   try {
@@ -270,7 +269,7 @@ router.get("/stats/me", authenticateUser, async (req, res) => {
 // GET /api/games/:id — Game details with turns and disputes
 // ============================================================================
 
-router.get("/:id", authenticateUser, async (req, res) => {
+router.get("/:id", async (req, res) => {
   const currentUserId = req.currentUser!.id;
   const gameId = req.params.id;
 
