@@ -1,0 +1,20 @@
+# Vercel ignore file — overrides .gitignore for deployment.
+# api/index.js is committed to git as a placeholder and overwritten by
+# scripts/build-server.mjs during the build step with the full esbuild bundle.
+
+node_modules
+.turbo
+.expo/
+android/
+ios/
+.DS_Store
+Thumbs.db
+.idea
+.claude/
+coverage
+test-results
+*.lcov
+.nyc_output
+**/cypress/screenshots
+**/cypress/videos
+benchmarks/results/*.json

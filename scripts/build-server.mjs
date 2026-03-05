@@ -201,16 +201,20 @@ try {
 }
 
 // ── Vercel API handler bundle ──────────────────────────────────────────────
-// Bundle server/vercel-handler.ts → api/index.mjs with all @shared/* imports
-// pre-resolved. Vercel picks up the .mjs file instead of raw TypeScript.
+// Bundle server/vercel-handler.ts → api/index.js, overwriting the committed
+// placeholder. All @shared/* imports are pre-resolved by esbuild.
 const vercelEntry = path.join(rootDir, 'server/vercel-handler.ts');
-const vercelOut = path.join(rootDir, 'api/index.mjs');
+const vercelOut = path.join(rootDir, 'api/index.js');
 
 if (fs.existsSync(vercelEntry)) {
   console.log('\n⚙️  Bundling Vercel API handler...');
   try {
     await build({
       ...sharedOptions,
+      // Override: bundle ALL dependencies for Vercel serverless (no node_modules at runtime).
+      // Vercel runs the function as-is without re-bundling, so everything must be inlined.
+      packages: undefined,
+      external: [],
       entryPoints: [vercelEntry],
       outfile: vercelOut,
       format: 'esm',

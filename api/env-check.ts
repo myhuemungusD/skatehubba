@@ -1,7 +1,7 @@
 /**
  * Standalone env diagnostic — zero dependencies, zero imports from server code.
  *
- * This function exists because the main API function (api/index.mjs) crashes on
+ * This function exists because the main API function (api/index.ts) crashes on
  * cold-start when required env vars are missing, making every /api/* route
  * return 500 — including the /api/health/env diagnostic endpoint.
  *
