@@ -118,14 +118,10 @@ vi.mock("../../routes/games-shared", () => ({
   },
   resolveDisputeSchema: {
     safeParse: (body: any) => {
-      if (
-        !body ||
-        typeof body.disputeId !== "number" ||
-        !["landed", "missed"].includes(body.finalResult)
-      ) {
+      if (!body || !["landed", "missed"].includes(body.finalResult)) {
         return { success: false, error: { flatten: () => ({ fieldErrors: {} }) } };
       }
-      return { success: true, data: { disputeId: body.disputeId, finalResult: body.finalResult } };
+      return { success: true, data: { finalResult: body.finalResult } };
     },
   },
   TURN_DEADLINE_MS: 24 * 60 * 60 * 1000,
@@ -213,7 +209,7 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /:id/dispute", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "Failed to file dispute" });
+      expect(res.json).toHaveBeenCalledWith({ error: "DISPUTE_FILE_FAILED", message: "Failed to file dispute." });
     });
 
     it("returns 400 for invalid body", async () => {
@@ -223,7 +219,7 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /:id/dispute", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
     it("returns 404 when game is not found", async () => {
@@ -235,7 +231,7 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /:id/dispute", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ error: "Game not found" });
+      expect(res.json).toHaveBeenCalledWith({ error: "GAME_NOT_FOUND", message: "Game not found." });
     });
 
     it("returns 403 when user is not a player", async () => {
@@ -248,7 +244,8 @@ describe("Game Dispute Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith({
-        error: "Only game participants can file disputes",
+        error: "NOT_PARTICIPANT",
+        message: "Only game participants can file disputes.",
       });
     });
 
@@ -336,7 +333,7 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /:id/dispute", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "Failed to file dispute" });
+      expect(res.json).toHaveBeenCalledWith({ error: "DISPUTE_FILE_FAILED", message: "Failed to file dispute." });
     });
   });
 
@@ -357,10 +354,10 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /disputes/:disputeId/resolve", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "Failed to resolve dispute" });
+      expect(res.json).toHaveBeenCalledWith({ error: "DISPUTE_RESOLVE_FAILED", message: "Failed to resolve dispute." });
     });
 
-    it("returns 400 for invalid body", async () => {
+    it("returns 400 for invalid disputeId param", async () => {
       const req = createReq({
         params: { disputeId: "abc" }, // NaN
         body: { finalResult: "invalid" },
@@ -370,7 +367,7 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /disputes/:disputeId/resolve", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "INVALID_DISPUTE_ID", message: "Invalid dispute ID." }));
     });
 
     it("returns error status when resolveDispute returns not ok", async () => {
@@ -493,7 +490,7 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /disputes/:disputeId/resolve", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "Failed to resolve dispute" });
+      expect(res.json).toHaveBeenCalledWith({ error: "DISPUTE_RESOLVE_FAILED", message: "Failed to resolve dispute." });
     });
   });
 });

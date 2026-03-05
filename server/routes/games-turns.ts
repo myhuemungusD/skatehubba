@@ -10,6 +10,7 @@ import { gameTurns } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
+import { Errors } from "../utils/apiError";
 import { submitTurnSchema, judgeTurnSchema, MAX_VIDEO_DURATION_MS } from "./games-shared";
 import { submitTurn, judgeTurn, setterBail } from "../services/gameTurnService";
 
@@ -22,7 +23,7 @@ const router = Router();
 router.post("/:id/turns", authenticateUser, async (req, res) => {
   const parsed = submitTurnSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return Errors.validation(res, parsed.error.flatten());
   }
 
   const currentUserId = req.currentUser!.id;
@@ -30,7 +31,7 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
   const { trickDescription, videoUrl, videoDurationMs, thumbnailUrl } = parsed.data;
 
   if (videoDurationMs > MAX_VIDEO_DURATION_MS) {
-    return res.status(400).json({ error: "Video exceeds 15 second limit" });
+    return Errors.badRequest(res, "VIDEO_TOO_LONG", "Video exceeds 15 second limit.");
   }
 
   try {
@@ -76,7 +77,7 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to submit turn" });
+    Errors.internal(res, "TURN_SUBMIT_FAILED", "Failed to submit turn.");
   }
 });
 
@@ -87,7 +88,7 @@ router.post("/:id/turns", authenticateUser, async (req, res) => {
 router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
   const parsed = judgeTurnSchema.safeParse(req.body);
   if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    return Errors.validation(res, parsed.error.flatten());
   }
 
   const currentUserId = req.currentUser!.id;
@@ -95,11 +96,11 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
 
   // L2: Strict integer validation (parseInt("123abc") silently returns 123)
   if (!/^\d+$/.test(req.params.turnId)) {
-    return res.status(400).json({ error: "Invalid turn ID" });
+    return Errors.badRequest(res, "INVALID_TURN_ID", "Invalid turn ID.");
   }
   const turnId = parseInt(req.params.turnId, 10);
   if (isNaN(turnId) || turnId <= 0) {
-    return res.status(400).json({ error: "Invalid turn ID" });
+    return Errors.badRequest(res, "INVALID_TURN_ID", "Invalid turn ID.");
   }
 
   try {
@@ -108,7 +109,7 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
     // Read turn outside transaction (immutable after creation)
     const [turn] = await db.select().from(gameTurns).where(eq(gameTurns.id, turnId)).limit(1);
 
-    if (!turn) return res.status(404).json({ error: "Turn not found" });
+    if (!turn) return Errors.notFound(res, "TURN_NOT_FOUND", "Turn not found.");
 
     const txResult = await db.transaction(async (tx) =>
       judgeTurn(tx, turnId, currentUserId, result, turn)
@@ -137,7 +138,7 @@ router.post("/turns/:turnId/judge", authenticateUser, async (req, res) => {
       turnId,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to judge turn" });
+    Errors.internal(res, "JUDGE_FAILED", "Failed to judge turn.");
   }
 });
 
@@ -181,7 +182,7 @@ router.post("/:id/setter-bail", authenticateUser, async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    res.status(500).json({ error: "Failed to process setter bail" });
+    Errors.internal(res, "SETTER_BAIL_FAILED", "Failed to process setter bail.");
   }
 });
 

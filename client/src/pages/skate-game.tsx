@@ -174,19 +174,15 @@ export default function SkateGamePage() {
   return (
     <div className="space-y-6">
       <GameStatusHeader
-        game={game}
         isActive={isActive}
         isGameOver={isGameOver}
         isPending={isPending}
-        isMyTurn={isMyTurn}
         opponentName={opponentName}
         turnPhase={turnPhase}
         isOffensive={isOffensive}
         onBack={handleBackToLobby}
         onForfeit={handleForfeit}
         forfeitPending={forfeitGame.isPending}
-        myLetters={myLetters}
-        oppLetters={oppLetters}
       />
 
       <div className="grid grid-cols-2 gap-4">

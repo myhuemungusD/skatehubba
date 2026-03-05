@@ -2,71 +2,71 @@ import type { APICategory } from "../types";
 
 export const gameEndpoints: APICategory = {
   name: "S.K.A.T.E. Game",
-  description: "Remote S.K.A.T.E. game functionality",
+  description: "Turn-based S.K.A.T.E. game functionality",
   endpoints: [
-    {
-      method: "GET",
-      path: "/api/games",
-      description: "Get all games for a user",
-      parameters: [
-        {
-          name: "userId",
-          type: "string",
-          location: "query",
-          required: true,
-          description: "User ID",
-        },
-      ],
-      responses: [
-        {
-          status: 200,
-          description: "List of games",
-          example: [
-            {
-              gameId: "game_001",
-              player1Id: "user_123",
-              player1Name: "John",
-              player2Id: "user_456",
-              player2Name: "Jane",
-              status: "active",
-              currentTurn: "user_123",
-              player1Letters: "SK",
-              player2Letters: "S",
-            },
-          ],
-        },
-      ],
-    },
     {
       method: "POST",
       path: "/api/games/create",
-      description: "Create a new game",
+      description: "Challenge an opponent to a S.K.A.T.E. game",
       requestBody: {
         type: "application/json",
         example: {
-          userId: "user_123",
+          opponentId: "user_456",
         },
       },
       responses: [
         {
           status: 201,
-          description: "Game created",
+          description: "Challenge sent",
           example: {
-            gameId: "game_001",
-            player1Id: "user_123",
-            player1Name: "John",
-            status: "waiting",
+            game: {
+              id: "game_001",
+              player1Id: "user_123",
+              player1Name: "John",
+              player2Id: "user_456",
+              player2Name: "Jane",
+              status: "pending",
+            },
+            message: "Challenge sent.",
           },
         },
       ],
     },
     {
       method: "POST",
-      path: "/api/games/:gameId/join",
-      description: "Join an existing game",
+      path: "/api/games/:id/respond",
+      description: "Accept or decline a challenge",
       parameters: [
         {
-          name: "gameId",
+          name: "id",
+          type: "string",
+          location: "path",
+          required: true,
+          description: "Game ID",
+        },
+      ],
+      requestBody: {
+        type: "application/json",
+        example: { accept: true },
+      },
+      responses: [
+        {
+          status: 200,
+          description: "Challenge accepted or declined",
+          example: {
+            game: { id: "game_001", status: "active" },
+            message: "Game on.",
+          },
+        },
+      ],
+    },
+    {
+      method: "POST",
+      path: "/api/games/:id/turns",
+      description: "Submit a trick video (set or response)",
+      parameters: [
+        {
+          name: "id",
           type: "string",
           location: "path",
           required: true,
@@ -76,34 +76,108 @@ export const gameEndpoints: APICategory = {
       requestBody: {
         type: "application/json",
         example: {
-          userId: "user_456",
+          trickDescription: "Kickflip",
+          videoUrl: "https://storage.example.com/videos/trick.mp4",
+          videoDurationMs: 8000,
+          thumbnailUrl: "https://storage.example.com/thumbs/trick.jpg",
         },
       },
       responses: [
         {
-          status: 200,
-          description: "Joined game",
+          status: 201,
+          description: "Turn submitted",
           example: {
-            gameId: "game_001",
-            player1Id: "user_123",
-            player2Id: "user_456",
-            status: "active",
+            turn: { id: 1, gameId: "game_001", turnType: "set" },
+            message: "Trick set. Waiting for opponent.",
           },
-        },
-        {
-          status: 400,
-          description: "Cannot join game",
-          example: { error: "Game is not available to join" },
         },
       ],
     },
     {
       method: "POST",
-      path: "/api/games/:gameId/trick",
-      description: "Submit a trick in a game",
+      path: "/api/games/turns/:turnId/judge",
+      description: "Judge a trick as LAND or BAIL",
       parameters: [
         {
-          name: "gameId",
+          name: "turnId",
+          type: "string",
+          location: "path",
+          required: true,
+          description: "Turn ID",
+        },
+      ],
+      requestBody: {
+        type: "application/json",
+        example: { result: "landed" },
+      },
+      responses: [
+        {
+          status: 200,
+          description: "Judgment recorded",
+          example: {
+            game: { id: "game_001", status: "active" },
+            turn: { id: 1, result: "landed" },
+          },
+        },
+      ],
+    },
+    {
+      method: "POST",
+      path: "/api/games/:id/setter-bail",
+      description: "Setter bails on their own trick (takes a letter, roles swap)",
+      parameters: [
+        {
+          name: "id",
+          type: "string",
+          location: "path",
+          required: true,
+          description: "Game ID",
+        },
+      ],
+      responses: [
+        {
+          status: 200,
+          description: "Setter bail processed",
+          example: {
+            game: { id: "game_001" },
+            gameOver: false,
+            winnerId: null,
+            message: "Setter bailed. Letter earned. Roles swap.",
+          },
+        },
+      ],
+    },
+    {
+      method: "POST",
+      path: "/api/games/:id/forfeit",
+      description: "Voluntarily forfeit the game",
+      parameters: [
+        {
+          name: "id",
+          type: "string",
+          location: "path",
+          required: true,
+          description: "Game ID",
+        },
+      ],
+      responses: [
+        {
+          status: 200,
+          description: "Game forfeited",
+          example: {
+            game: { id: "game_001", status: "forfeited" },
+            message: "You forfeited.",
+          },
+        },
+      ],
+    },
+    {
+      method: "POST",
+      path: "/api/games/:id/dispute",
+      description: "File a dispute on a BAIL judgment (max 1 per player per game)",
+      parameters: [
+        {
+          name: "id",
           type: "string",
           location: "path",
           required: true,
@@ -112,35 +186,94 @@ export const gameEndpoints: APICategory = {
       ],
       requestBody: {
         type: "application/json",
-        example: {
-          userId: "user_123",
-          trick: "Kickflip",
+        example: { turnId: 5 },
+      },
+      responses: [
+        {
+          status: 201,
+          description: "Dispute filed",
+          example: {
+            dispute: { id: 1, gameId: "game_001" },
+            message: "Dispute filed. Awaiting resolution.",
+          },
         },
+      ],
+    },
+    {
+      method: "POST",
+      path: "/api/games/disputes/:disputeId/resolve",
+      description: "Admin resolves a dispute (requires admin role)",
+      parameters: [
+        {
+          name: "disputeId",
+          type: "string",
+          location: "path",
+          required: true,
+          description: "Dispute ID",
+        },
+      ],
+      requestBody: {
+        type: "application/json",
+        example: { finalResult: "landed" },
       },
       responses: [
         {
           status: 200,
-          description: "Trick submitted",
+          description: "Dispute resolved",
           example: {
-            gameId: "game_001",
-            currentTurn: "user_456",
-            lastTrick: "Kickflip",
+            dispute: { id: 1 },
+            message: "Dispute upheld. BAIL overturned to LAND. Letter removed.",
           },
-        },
-        {
-          status: 403,
-          description: "Not your turn",
-          example: { error: "It's not your turn" },
         },
       ],
     },
     {
       method: "GET",
-      path: "/api/games/:gameId",
-      description: "Get game details including turn history",
+      path: "/api/games/my-games",
+      description: "List the current user's games grouped by status",
+      responses: [
+        {
+          status: 200,
+          description: "Games grouped by status",
+          example: {
+            pendingChallenges: [],
+            sentChallenges: [],
+            activeGames: [],
+            completedGames: [],
+            total: 0,
+          },
+        },
+      ],
+    },
+    {
+      method: "GET",
+      path: "/api/games/stats/me",
+      description: "Get the current user's game statistics",
+      responses: [
+        {
+          status: 200,
+          description: "Player stats",
+          example: {
+            totalGames: 10,
+            wins: 7,
+            losses: 3,
+            winRate: 70,
+            currentStreak: 2,
+            bestStreak: 5,
+            opponentRecords: [],
+            topTricks: [],
+            recentGames: [],
+          },
+        },
+      ],
+    },
+    {
+      method: "GET",
+      path: "/api/games/:id",
+      description: "Get game details including turn history and disputes",
       parameters: [
         {
-          name: "gameId",
+          name: "id",
           type: "string",
           location: "path",
           required: true,
@@ -150,21 +283,21 @@ export const gameEndpoints: APICategory = {
       responses: [
         {
           status: 200,
-          description: "Game details with turn history",
+          description: "Game details with turns and disputes",
           example: {
-            gameId: "game_001",
-            player1Id: "user_123",
-            player2Id: "user_456",
-            status: "active",
-            turns: [
-              {
-                turnId: 1,
-                gameId: "game_001",
-                playerId: "user_123",
-                trick: "Kickflip",
-                createdAt: "2025-11-03T07:00:00.000Z",
-              },
-            ],
+            game: {
+              id: "game_001",
+              player1Id: "user_123",
+              player2Id: "user_456",
+              status: "active",
+            },
+            turns: [],
+            disputes: [],
+            isMyTurn: true,
+            needsToJudge: false,
+            needsToRespond: false,
+            pendingTurnId: null,
+            canDispute: true,
           },
         },
       ],
