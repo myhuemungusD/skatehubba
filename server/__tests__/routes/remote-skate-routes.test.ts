@@ -198,7 +198,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             offenseUid: "user-1",
             defenseUid: "user-2",
-            status: "awaiting_reply",
+            status: "awaiting_confirmation",
             setVideoId: "vid-1",
             replyVideoId: "vid-2",
           }),
@@ -244,7 +244,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             offenseUid: "user-1",
             defenseUid: "user-2",
-            status: "awaiting_reply",
+            status: "awaiting_confirmation",
             setVideoId: "vid-1",
             replyVideoId: "vid-2",
           }),
@@ -291,7 +291,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             offenseUid: "user-1",
             defenseUid: "user-2",
-            status: "awaiting_reply",
+            status: "awaiting_confirmation",
             setVideoId: "vid-1",
             replyVideoId: "vid-2",
           }),
@@ -399,7 +399,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             offenseUid: "user-2", // Not user-1
             defenseUid: "user-1",
-            status: "awaiting_reply",
+            status: "awaiting_confirmation",
             setVideoId: "vid-1",
             replyVideoId: "vid-2",
           }),
@@ -538,7 +538,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             offenseUid: "user-1",
             defenseUid: "user-2",
-            status: "awaiting_reply",
+            status: "awaiting_confirmation",
             setVideoId: "vid-1",
             replyVideoId: "vid-2",
           }),
@@ -576,7 +576,7 @@ describe("Remote Skate Routes", () => {
           data: () => ({
             offenseUid: "user-1",
             defenseUid: "user-2",
-            status: "awaiting_reply",
+            status: "awaiting_confirmation",
             setVideoId: "vid-1",
             replyVideoId: "vid-2",
           }),
@@ -2250,7 +2250,7 @@ describe("Remote Skate Routes", () => {
             data: () => ({
               offenseUid: "user-1",
               defenseUid: "user-2",
-              status: "awaiting_reply",
+              status: "awaiting_confirmation",
               setVideoId: "vid-1",
               replyVideoId: "vid-2",
             }),
@@ -2290,7 +2290,7 @@ describe("Remote Skate Routes", () => {
             data: () => ({
               offenseUid: "user-1",
               defenseUid: "user-2",
-              status: "awaiting_reply",
+              status: "awaiting_confirmation",
               setVideoId: "vid-1",
               replyVideoId: "vid-2",
             }),
@@ -2338,7 +2338,7 @@ describe("Remote Skate Routes", () => {
             data: () => ({
               offenseUid: "user-1",
               defenseUid: "user-2",
-              status: "awaiting_reply",
+              status: "awaiting_confirmation",
               setVideoId: "vid-1",
               replyVideoId: "vid-2",
             }),

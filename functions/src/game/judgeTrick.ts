@@ -11,6 +11,10 @@ import * as admin from "firebase-admin";
 import { monitoredTransaction } from "../shared/transaction";
 import { checkRateLimit } from "../shared/rateLimit";
 import { SKATE_LETTERS } from "./constants";
+import type { JudgmentVotes } from "./constants";
+
+// Re-export for consumers that import JudgmentVotes from this file
+export type { JudgmentVotes };
 
 interface JudgeTrickRequest {
   gameId: string;
@@ -29,11 +33,6 @@ interface JudgeTrickResponse {
   gameCompleted: boolean;
   /** True if this was a duplicate vote (already processed) */
   duplicate: boolean;
-}
-
-export interface JudgmentVotes {
-  attackerVote: "landed" | "bailed" | null;
-  defenderVote: "landed" | "bailed" | null;
 }
 
 /**

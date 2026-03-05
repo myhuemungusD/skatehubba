@@ -36,7 +36,7 @@ export function SocialShare({
   const [copied, setCopied] = useState(false);
   const { toast } = useToast();
 
-  const shareUrl = `https://skatehubba.com/play?game=${gameId}`;
+  const shareUrl = `${window.location.origin}/play?game=${gameId}`;
   const shareText = result
     ? `🛹 ${result} in S.K.A.T.E. battle: ${playerOne} vs ${playerTwo} on SkateHubba!`
     : `🛹 Watch ${playerOne} vs ${playerTwo} battle it out in S.K.A.T.E. on SkateHubba!`;
