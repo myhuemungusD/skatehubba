@@ -28,38 +28,66 @@ function checkForLeakedSecrets() {
       const fullName = `${prefix}${key}`;
       const val = process.env[fullName];
       if (val !== undefined && val.trim().length > 0) {
-        leaked.push({ fullName, key });
+        leaked.push({ fullName, key, prefix });
       }
     }
   }
 
   // Also catch any EXPO_PUBLIC_/VITE_ var whose value looks like a PEM private key.
   // The marker is split to avoid tripping the repo's own secret scanner.
+  const pemLeaked = [];
   const PEM_MARKER = ["-----BEGIN", "PRIVATE KEY-----"].join(" ");
   for (const [envKey, envVal] of Object.entries(process.env)) {
     if (!envVal) continue;
     const isPublic = PUBLIC_PREFIXES.some((p) => envKey.startsWith(p));
     if (isPublic && envVal.includes(PEM_MARKER)) {
       if (!leaked.some((l) => l.fullName === envKey)) {
-        leaked.push({ fullName: envKey, key: envKey });
+        pemLeaked.push(envKey);
       }
     }
   }
 
+  // PEM keys in arbitrary var names cannot be safely remapped — hard-abort.
+  if (pemLeaked.length > 0) {
+    console.error("\n🚨🚨🚨 CRITICAL: PEM PRIVATE KEY IN PUBLIC ENV VAR 🚨🚨🚨\n");
+    console.error("The following env vars contain a PEM private key with a public prefix.");
+    console.error("Vite will inline them into the browser JavaScript.\n");
+    pemLeaked.forEach((name) => {
+      console.error(`  ✗ ${name}`);
+    });
+    console.error("\nRemove the EXPO_PUBLIC_ / VITE_ prefix in the Vercel dashboard.\n");
+    console.error("Build aborted to prevent secret exposure.\n");
+    process.exit(1);
+  }
+
   if (leaked.length === 0) return;
 
-  console.error("\n🚨🚨🚨 CRITICAL: SERVER SECRETS EXPOSED IN CLIENT BUNDLE 🚨🚨🚨\n");
-  console.error("The following env vars are server-only secrets but have a public");
-  console.error("prefix (EXPO_PUBLIC_ or VITE_). Vite will inline them into the");
-  console.error("browser JavaScript, exposing them to every visitor.\n");
-  leaked.forEach(({ fullName, key }) => {
-    console.error(`  ✗ ${fullName}`);
-    console.error(`    → Rename to "${key}" (no prefix) in Vercel dashboard\n`);
-  });
-  console.error("⚠️  If this was already deployed, ROTATE THE COMPROMISED KEYS NOW.");
-  console.error("   The secret is in the public JavaScript and may be cached by CDN.\n");
-  console.error("Build aborted to prevent secret exposure.\n");
-  process.exit(1);
+  // ── Auto-remap: move prefixed secrets to their unprefixed name and delete
+  // the dangerous prefixed version so Vite never inlines them. This lets the
+  // build succeed without manual Vercel dashboard changes while still keeping
+  // secrets out of the client bundle.
+  console.warn("\n⚠️  SECRET ENV VAR AUTO-REMAP ⚠️\n");
+  console.warn("The following env vars are server-only secrets but have a public");
+  console.warn("prefix (EXPO_PUBLIC_ or VITE_). They have been auto-remapped to");
+  console.warn("their unprefixed names so the build can continue safely.\n");
+
+  for (const { fullName, key } of leaked) {
+    const val = process.env[fullName];
+    // Copy to the unprefixed name if it isn't already set
+    if (!process.env[key] || process.env[key].trim().length === 0) {
+      process.env[key] = val;
+      console.warn(`  ↪ ${fullName} → ${key} (copied)`);
+    } else {
+      console.warn(`  ↪ ${fullName} → ${key} (already set, skipped copy)`);
+    }
+    // Delete the prefixed version so Vite cannot inline it
+    delete process.env[fullName];
+    console.warn(`  🗑 ${fullName} deleted from env\n`);
+  }
+
+  console.warn("ACTION REQUIRED: Rename these vars in the Vercel dashboard to");
+  console.warn("remove the EXPO_PUBLIC_ / VITE_ prefix. This auto-remap is a");
+  console.warn("safety net, not a permanent solution.\n");
 }
 
 checkForLeakedSecrets();

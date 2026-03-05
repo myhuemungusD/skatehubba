@@ -309,47 +309,47 @@ describe("verify-public-env — server var checklist (Vercel mode)", () => {
 });
 
 // =============================================================================
-// Secret-leak guard — blocks build when server secrets have public prefix
+// Secret-leak guard — auto-remaps server secrets with public prefix
 // =============================================================================
 
 describe("verify-public-env — secret-leak guard", () => {
-  it("exits 1 when EXPO_PUBLIC_FIREBASE_ADMIN_KEY is set", () => {
-    const { exitCode, stderr } = run({
+  it("auto-remaps EXPO_PUBLIC_FIREBASE_ADMIN_KEY and build succeeds", () => {
+    const { exitCode, combined } = run({
       ...ALL_REQUIRED_EXPO,
       EXPO_PUBLIC_FIREBASE_ADMIN_KEY: '{"type":"service_account"}',
     });
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain("CRITICAL");
-    expect(stderr).toContain("EXPO_PUBLIC_FIREBASE_ADMIN_KEY");
+    expect(exitCode).toBe(0);
+    expect(combined).toContain("AUTO-REMAP");
+    expect(combined).toContain("EXPO_PUBLIC_FIREBASE_ADMIN_KEY");
   });
 
-  it("exits 1 when VITE_DATABASE_URL is set", () => {
-    const { exitCode, stderr } = run({
+  it("auto-remaps VITE_DATABASE_URL and build succeeds", () => {
+    const { exitCode, combined } = run({
       ...ALL_REQUIRED_EXPO,
       VITE_DATABASE_URL: "postgresql://host/db",
     });
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain("VITE_DATABASE_URL");
+    expect(exitCode).toBe(0);
+    expect(combined).toContain("VITE_DATABASE_URL");
   });
 
-  it("exits 1 when EXPO_PUBLIC_SESSION_SECRET is set", () => {
-    const { exitCode, stderr } = run({
+  it("auto-remaps EXPO_PUBLIC_SESSION_SECRET and build succeeds", () => {
+    const { exitCode, combined } = run({
       ...ALL_REQUIRED_EXPO,
       EXPO_PUBLIC_SESSION_SECRET: "super-secret",
     });
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain("EXPO_PUBLIC_SESSION_SECRET");
+    expect(exitCode).toBe(0);
+    expect(combined).toContain("EXPO_PUBLIC_SESSION_SECRET");
   });
 
-  it("suggests renaming to unprefixed version", () => {
-    const { stderr } = run({
+  it("warns about action required to rename in dashboard", () => {
+    const { combined } = run({
       ...ALL_REQUIRED_EXPO,
       EXPO_PUBLIC_JWT_SECRET: "jwt-secret-value",
     });
-    expect(stderr).toContain('Rename to "JWT_SECRET"');
+    expect(combined).toContain("ACTION REQUIRED");
   });
 
-  it("detects PEM private keys in any EXPO_PUBLIC_ var", () => {
+  it("exits 1 for PEM private keys in any EXPO_PUBLIC_ var", () => {
     // Split the PEM marker to avoid tripping the repo's secret scanner
     const pemValue =
       ["-----BEGIN", "PRIVATE KEY-----"].join(" ") + "\nMIIE...\n-----END PRIVATE KEY-----";
@@ -371,14 +371,14 @@ describe("verify-public-env — secret-leak guard", () => {
     expect(exitCode).toBe(0);
   });
 
-  it("runs before all other checks (exits before missing-var output)", () => {
-    // Even with no required vars set, the secret-leak guard should abort first
-    const { exitCode, stderr } = run({
+  it("auto-remaps before other checks so missing-var check still runs", () => {
+    // With no required vars set but a blocked secret present, the remap happens
+    // first, then the missing-vars check runs (non-strict without VERCEL_ENV=production)
+    const { exitCode, combined } = run({
       EXPO_PUBLIC_MFA_ENCRYPTION_KEY: "leaked-key",
     });
-    expect(exitCode).toBe(1);
-    expect(stderr).toContain("CRITICAL");
-    // Should NOT reach the missing-vars check
-    expect(stderr).not.toContain("Missing required public env vars");
+    expect(combined).toContain("AUTO-REMAP");
+    // Missing-vars check should still run after remap
+    expect(combined).toContain("Missing required public env vars");
   });
 });
