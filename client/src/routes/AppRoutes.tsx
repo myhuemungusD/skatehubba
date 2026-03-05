@@ -84,7 +84,7 @@ function RootRedirect() {
       // so the app is accessible even when the profile API is unavailable
       setLocation("/hub", { replace: true });
     } else {
-      setLocation("/auth", { replace: true });
+      setLocation("/landing", { replace: true });
     }
   }, [user, loading, isInitialized, profileStatus, setLocation]);
 
