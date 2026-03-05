@@ -76,6 +76,11 @@ function timingSafeTokenEqual(a: string, b: string): boolean {
   return crypto.timingSafeEqual(hmacA, hmacB);
 }
 
+export const config = {
+  maxDuration: 10,
+  memory: 256,
+};
+
 export default function handler(req: IncomingMessage, res: ServerResponse) {
   // Fail closed: reject all requests when CRON_SECRET is not configured.
   // This matches the pattern established in server/middleware/cronAuth.ts
@@ -83,7 +88,9 @@ export default function handler(req: IncomingMessage, res: ServerResponse) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret) {
     res.writeHead(403, SECURITY_HEADERS);
-    res.end(JSON.stringify({ error: "Forbidden. Env-check is disabled until CRON_SECRET is configured." }));
+    res.end(
+      JSON.stringify({ error: "Forbidden. Env-check is disabled until CRON_SECRET is configured." })
+    );
     return;
   }
 
