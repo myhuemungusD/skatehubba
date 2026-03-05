@@ -43,20 +43,10 @@ const previewOnlyHeaders = !isProduction
 
 export const config: VercelConfig = {
   installCommand: "pnpm install --frozen-lockfile",
-  buildCommand: "node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build && node scripts/build-server.mjs",
+  buildCommand:
+    "node scripts/verify-public-env.mjs && pnpm --filter skatehubba-client build && node scripts/build-server.mjs",
   outputDirectory: "client/dist",
   framework: "vite",
-
-  functions: {
-    "api/index.mjs": {
-      maxDuration: 30,
-      memory: 1024,
-    },
-    "api/env-check.ts": {
-      maxDuration: 10,
-      memory: 256,
-    },
-  },
 
   headers: [
     routes.header("/((?!api/).*)", [...securityHeaders, ...previewOnlyHeaders]),

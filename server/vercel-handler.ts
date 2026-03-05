@@ -32,6 +32,11 @@ try {
   }
 }
 
+export const config = {
+  maxDuration: 30,
+  memory: 1024,
+};
+
 export default function serverHandler(req: IncomingMessage, res: ServerResponse) {
   if (handler) {
     return handler(req, res);
