@@ -89,8 +89,8 @@ describe("vercel.ts — serverless function configuration", () => {
     vi.restoreAllMocks();
   });
 
-  it("configures api/index.ts with 30s max duration and 1024 MB memory", () => {
-    const fn = config.functions?.["api/index.ts"];
+  it("configures api/index.mjs with 30s max duration and 1024 MB memory", () => {
+    const fn = config.functions?.["api/index.mjs"];
     expect(fn).toBeDefined();
     expect(fn!.maxDuration).toBe(30);
     expect(fn!.memory).toBe(1024);

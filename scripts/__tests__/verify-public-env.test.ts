@@ -157,7 +157,11 @@ describe("verify-public-env — strict mode", () => {
   });
 
   it("exits 0 when ALLOW_MISSING_PUBLIC_ENV=true bypasses VERCEL strict mode", () => {
-    const { exitCode } = run({ VERCEL: "1", VERCEL_ENV: "production", ALLOW_MISSING_PUBLIC_ENV: "true" });
+    const { exitCode } = run({
+      VERCEL: "1",
+      VERCEL_ENV: "production",
+      ALLOW_MISSING_PUBLIC_ENV: "true",
+    });
     expect(exitCode).toBe(0);
   });
 
@@ -301,5 +305,80 @@ describe("verify-public-env — server var checklist (Vercel mode)", () => {
       FIREBASE_ADMIN_KEY: '{"type":"service_account"}',
     });
     expect(combined).not.toContain("Firebase Admin credentials not configured");
+  });
+});
+
+// =============================================================================
+// Secret-leak guard — blocks build when server secrets have public prefix
+// =============================================================================
+
+describe("verify-public-env — secret-leak guard", () => {
+  it("exits 1 when EXPO_PUBLIC_FIREBASE_ADMIN_KEY is set", () => {
+    const { exitCode, stderr } = run({
+      ...ALL_REQUIRED_EXPO,
+      EXPO_PUBLIC_FIREBASE_ADMIN_KEY: '{"type":"service_account"}',
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("CRITICAL");
+    expect(stderr).toContain("EXPO_PUBLIC_FIREBASE_ADMIN_KEY");
+  });
+
+  it("exits 1 when VITE_DATABASE_URL is set", () => {
+    const { exitCode, stderr } = run({
+      ...ALL_REQUIRED_EXPO,
+      VITE_DATABASE_URL: "postgresql://host/db",
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("VITE_DATABASE_URL");
+  });
+
+  it("exits 1 when EXPO_PUBLIC_SESSION_SECRET is set", () => {
+    const { exitCode, stderr } = run({
+      ...ALL_REQUIRED_EXPO,
+      EXPO_PUBLIC_SESSION_SECRET: "super-secret",
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("EXPO_PUBLIC_SESSION_SECRET");
+  });
+
+  it("suggests renaming to unprefixed version", () => {
+    const { stderr } = run({
+      ...ALL_REQUIRED_EXPO,
+      EXPO_PUBLIC_JWT_SECRET: "jwt-secret-value",
+    });
+    expect(stderr).toContain('Rename to "JWT_SECRET"');
+  });
+
+  it("detects PEM private keys in any EXPO_PUBLIC_ var", () => {
+    // Split the PEM marker to avoid tripping the repo's secret scanner
+    const pemValue =
+      ["-----BEGIN", "PRIVATE KEY-----"].join(" ") + "\nMIIE...\n-----END PRIVATE KEY-----";
+    const { exitCode, stderr } = run({
+      ...ALL_REQUIRED_EXPO,
+      EXPO_PUBLIC_SOME_CUSTOM_KEY: pemValue,
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("EXPO_PUBLIC_SOME_CUSTOM_KEY");
+  });
+
+  it("does NOT trigger on correctly-prefixed server-only vars", () => {
+    const { exitCode } = run({
+      ...ALL_REQUIRED_EXPO,
+      DATABASE_URL: "postgresql://host/db",
+      FIREBASE_ADMIN_KEY: '{"type":"service_account"}',
+      SESSION_SECRET: "secret",
+    });
+    expect(exitCode).toBe(0);
+  });
+
+  it("runs before all other checks (exits before missing-var output)", () => {
+    // Even with no required vars set, the secret-leak guard should abort first
+    const { exitCode, stderr } = run({
+      EXPO_PUBLIC_MFA_ENCRYPTION_KEY: "leaked-key",
+    });
+    expect(exitCode).toBe(1);
+    expect(stderr).toContain("CRITICAL");
+    // Should NOT reach the missing-vars check
+    expect(stderr).not.toContain("Missing required public env vars");
   });
 });
