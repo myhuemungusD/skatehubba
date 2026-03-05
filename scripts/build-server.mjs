@@ -211,6 +211,10 @@ if (fs.existsSync(vercelEntry)) {
   try {
     await build({
       ...sharedOptions,
+      // Override: bundle ALL dependencies for Vercel serverless (no node_modules at runtime).
+      // Vercel runs the function as-is without re-bundling, so everything must be inlined.
+      packages: undefined,
+      external: [],
       entryPoints: [vercelEntry],
       outfile: vercelOut,
       format: 'esm',
