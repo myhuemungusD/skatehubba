@@ -125,28 +125,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (user) {
           set({ user, loading: false });
 
-          await withTimeout(authenticateWithBackend(user), 5000, "backend_sync");
+          try {
+            await withTimeout(authenticateWithBackend(user), 5000, "backend_sync");
 
-          const currentState = get();
-          if (!currentState.profile || currentState.profileStatus === "unknown") {
-            const [profileResult, rolesResult] = await Promise.all([
-              withTimeout(fetchProfile(user.uid), 4000, "fetchProfile"),
-              withTimeout(extractRolesFromToken(user), 4000, "fetchRoles"),
-            ]);
+            const currentState = get();
+            if (!currentState.profile || currentState.profileStatus === "unknown") {
+              const [profileResult, rolesResult] = await Promise.all([
+                withTimeout(fetchProfile(user.uid), 4000, "fetchProfile"),
+                withTimeout(extractRolesFromToken(user), 4000, "fetchRoles"),
+              ]);
 
-            {
-              const resolved = resolveProfileResult(user.uid, profileResult);
-              set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
+              {
+                const resolved = resolveProfileResult(user.uid, profileResult);
+                set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
 
-              // Same fallback as boot: don't leave "unknown" after resolution,
-              // or AppRoutes shows an infinite loading screen.
-              if (resolved.profileStatus === "unknown") {
-                set({ profileStatus: "missing" });
+                // Same fallback as boot: don't leave "unknown" after resolution,
+                // or AppRoutes shows an infinite loading screen.
+                if (resolved.profileStatus === "unknown") {
+                  set({ profileStatus: "missing" });
+                }
+              }
+
+              if (rolesResult.status === "ok") {
+                set({ roles: rolesResult.data });
               }
             }
-
-            if (rolesResult.status === "ok") {
-              set({ roles: rolesResult.data });
+          } catch (listenerErr) {
+            logger.error("[AuthStore] Auth listener error:", listenerErr);
+            // Ensure profileStatus isn't stuck at "unknown" after failure
+            if (get().profileStatus === "unknown") {
+              set({ profileStatus: "missing" });
             }
           }
         } else {
@@ -256,6 +264,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const resolved = resolveProfileResult(result.user.uid, profileResult);
           set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
 
+          // Fallback: unblock AppRoutes when profile can't be determined
+          if (resolved.profileStatus === "unknown") {
+            set({ profileStatus: "missing" });
+          }
+
           if (rolesResult.status === "ok") {
             set({ roles: rolesResult.data });
           }
@@ -308,6 +321,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const resolved = resolveProfileResult(result.user.uid, profileResult);
       set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
 
+      // Fallback: if profile status couldn't be determined (server error + no
+      // cache, e.g. incognito), set to "missing" to unblock the AppRoutes gate
+      // which shows an infinite loading screen for authenticated + "unknown".
+      if (resolved.profileStatus === "unknown") {
+        set({ profileStatus: "missing" });
+      }
+
       if (rolesResult.status === "ok") {
         set({ roles: rolesResult.data });
       }
@@ -315,6 +335,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       logger.error("[AuthStore] Email sign-in error:", err);
       if (err instanceof Error) {
         set({ error: err });
+      }
+      // Safety net: if Firebase auth succeeded but a later step threw,
+      // ensure profileStatus isn't stuck at "unknown" (infinite loading).
+      const state = get();
+      if (state.user && state.profileStatus === "unknown") {
+        set({ profileStatus: "missing" });
       }
       throw err;
     }
