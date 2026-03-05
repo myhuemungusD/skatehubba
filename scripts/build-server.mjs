@@ -125,12 +125,11 @@ try {
   process.exit(1);
 }
 
-const config = {
-  entryPoints: [entryPoint],
+// Shared esbuild options — reused for both the standalone server and the
+// Vercel handler bundle to keep alias / external lists in sync.
+const sharedOptions = {
   bundle: true,
   platform: 'node',
-  outfile,
-  format: 'esm',
   packages: 'external',
   alias: {
     '@shared': path.resolve(rootDir, 'packages/shared'),
@@ -138,11 +137,18 @@ const config = {
   external: [
     '@neondatabase/serverless',
     'pg',
-    'ws'
+    'ws',
   ],
   target: 'node18',
   minify: false,
   sourcemap: true,
+};
+
+const config = {
+  ...sharedOptions,
+  entryPoints: [entryPoint],
+  outfile,
+  format: 'esm',
 };
 
 console.log('\n⚙️  Running esbuild...');
@@ -204,23 +210,10 @@ if (fs.existsSync(vercelEntry)) {
   console.log('\n⚙️  Bundling Vercel API handler...');
   try {
     await build({
+      ...sharedOptions,
       entryPoints: [vercelEntry],
-      bundle: true,
-      platform: 'node',
       outfile: vercelOut,
       format: 'esm',
-      packages: 'external',
-      alias: {
-        '@shared': path.resolve(rootDir, 'packages/shared'),
-      },
-      external: [
-        '@neondatabase/serverless',
-        'pg',
-        'ws',
-      ],
-      target: 'node18',
-      minify: false,
-      sourcemap: true,
     });
     console.log(`   ✅ Vercel handler: ${path.relative(rootDir, vercelOut)}`);
   } catch (error) {
