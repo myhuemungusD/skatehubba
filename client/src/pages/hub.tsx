@@ -1,16 +1,12 @@
 import { lazy, Suspense } from "react";
 import { LoadingScreen } from "@/components/LoadingScreen";
 
-const HomeContent = lazy(() => import("./home"));
+const ChallengeLobbyContent = lazy(() => import("./ChallengeLobby"));
 
 export default function HubPage() {
   return (
     <Suspense fallback={<LoadingScreen />}>
-      <div className="space-y-6">
-        <section aria-label="Hub Overview">
-          <HomeContent />
-        </section>
-      </div>
+      <ChallengeLobbyContent />
     </Suspense>
   );
 }
