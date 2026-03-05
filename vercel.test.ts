@@ -76,46 +76,44 @@ describe("vercel.ts — build and deployment settings", () => {
 // Serverless function configuration
 // =============================================================================
 
-describe("vercel.ts — serverless function configuration", () => {
-  let config: Awaited<ReturnType<typeof loadConfig>>["config"];
-
-  beforeEach(async () => {
-    vi.resetModules();
-    const mod = await loadConfig();
-    config = mod.config;
+describe("serverless function inline configuration", () => {
+  it("vercel-handler exports config with 30s max duration and 1024 MB memory", async () => {
+    const { config } = await import("./server/vercel-handler.ts");
+    expect(config).toBeDefined();
+    expect(config.maxDuration).toBe(30);
+    expect(config.memory).toBe(1024);
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
+  it("env-check exports config with 10s max duration and 256 MB memory", async () => {
+    const { config } = await import("./api/env-check.ts");
+    expect(config).toBeDefined();
+    expect(config.maxDuration).toBe(10);
+    expect(config.memory).toBe(256);
   });
 
-  it("configures api/index.mjs with 30s max duration and 1024 MB memory", () => {
-    const fn = config.functions?.["api/index.mjs"];
-    expect(fn).toBeDefined();
-    expect(fn!.maxDuration).toBe(30);
-    expect(fn!.memory).toBe(1024);
+  it("does not exceed Vercel Pro plan max duration (300s)", async () => {
+    const { config: handlerConfig } = await import("./server/vercel-handler.ts");
+    const { config: envCheckConfig } = await import("./api/env-check.ts");
+    expect(
+      handlerConfig.maxDuration,
+      "vercel-handler maxDuration exceeds Pro plan limit"
+    ).toBeLessThanOrEqual(300);
+    expect(
+      envCheckConfig.maxDuration,
+      "env-check maxDuration exceeds Pro plan limit"
+    ).toBeLessThanOrEqual(300);
   });
 
-  it("configures api/env-check.ts with 10s max duration and 256 MB memory", () => {
-    const fn = config.functions?.["api/env-check.ts"];
-    expect(fn).toBeDefined();
-    expect(fn!.maxDuration).toBe(10);
-    expect(fn!.memory).toBe(256);
-  });
-
-  it("does not exceed Vercel Pro plan max duration (300s)", () => {
-    const fns = config.functions ?? {};
-    for (const [name, fn] of Object.entries(fns)) {
-      expect(fn.maxDuration, `${name} maxDuration exceeds Pro plan limit`).toBeLessThanOrEqual(300);
-    }
-  });
-
-  it("sets reasonable memory limits (256–3009 MB)", () => {
-    const fns = config.functions ?? {};
-    for (const [name, fn] of Object.entries(fns)) {
-      if (fn.memory !== undefined) {
-        expect(fn.memory, `${name} memory below minimum`).toBeGreaterThanOrEqual(128);
-        expect(fn.memory, `${name} memory exceeds maximum`).toBeLessThanOrEqual(3009);
+  it("sets reasonable memory limits (256–3009 MB)", async () => {
+    const { config: handlerConfig } = await import("./server/vercel-handler.ts");
+    const { config: envCheckConfig } = await import("./api/env-check.ts");
+    for (const [name, cfg] of Object.entries({
+      "vercel-handler": handlerConfig,
+      "env-check": envCheckConfig,
+    })) {
+      if (cfg.memory !== undefined) {
+        expect(cfg.memory, `${name} memory below minimum`).toBeGreaterThanOrEqual(128);
+        expect(cfg.memory, `${name} memory exceeds maximum`).toBeLessThanOrEqual(3009);
       }
     }
   });
