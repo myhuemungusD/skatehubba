@@ -201,10 +201,10 @@ try {
 }
 
 // ── Vercel API handler bundle ──────────────────────────────────────────────
-// Bundle server/vercel-handler.ts → api/_handler.mjs with all @shared/* imports
-// pre-resolved. The committed api/index.ts wrapper imports _handler.mjs at runtime.
+// Bundle server/vercel-handler.ts → api/index.js, overwriting the committed
+// placeholder. All @shared/* imports are pre-resolved by esbuild.
 const vercelEntry = path.join(rootDir, 'server/vercel-handler.ts');
-const vercelOut = path.join(rootDir, 'api/_handler.mjs');
+const vercelOut = path.join(rootDir, 'api/index.js');
 
 if (fs.existsSync(vercelEntry)) {
   console.log('\n⚙️  Bundling Vercel API handler...');
