@@ -9,9 +9,9 @@
  * must be configured in the Vercel dashboard under Project Settings → Environment Variables.
  *
  * IMPORTANT: This source file lives in server/ and is bundled by esbuild into
- * api/index.mjs with all @shared/* imports pre-resolved. Vercel picks up the
- * bundled .mjs file instead of compiling raw TypeScript (which would fail on
- * path aliases).
+ * api/_handler.mjs with all @shared/* imports pre-resolved. The committed
+ * api/index.ts wrapper dynamically imports _handler.mjs at runtime so Vercel
+ * detects the function from source while using the pre-bundled code.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 

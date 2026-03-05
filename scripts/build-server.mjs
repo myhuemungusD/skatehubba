@@ -201,10 +201,10 @@ try {
 }
 
 // ── Vercel API handler bundle ──────────────────────────────────────────────
-// Bundle server/vercel-handler.ts → api/index.mjs with all @shared/* imports
-// pre-resolved. Vercel picks up the .mjs file instead of raw TypeScript.
+// Bundle server/vercel-handler.ts → api/_handler.mjs with all @shared/* imports
+// pre-resolved. The committed api/index.ts wrapper imports _handler.mjs at runtime.
 const vercelEntry = path.join(rootDir, 'server/vercel-handler.ts');
-const vercelOut = path.join(rootDir, 'api/index.mjs');
+const vercelOut = path.join(rootDir, 'api/_handler.mjs');
 
 if (fs.existsSync(vercelEntry)) {
   console.log('\n⚙️  Bundling Vercel API handler...');
