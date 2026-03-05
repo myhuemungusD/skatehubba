@@ -1,5 +1,71 @@
 #!/usr/bin/env node
 
+// ── Secret-leak guard ─────────────────────────────────────────────────────────
+// Vite inlines every EXPO_PUBLIC_* and VITE_* env var into the client bundle.
+// If someone accidentally sets a server secret with one of these prefixes, the
+// secret ships to every browser. This check runs BEFORE anything else and
+// unconditionally fails the build — no override.
+const BLOCKED_PUBLIC_VARS = [
+  // Server-only secrets that must NEVER be prefixed with EXPO_PUBLIC_ or VITE_
+  "FIREBASE_ADMIN_KEY",
+  "FIREBASE_PRIVATE_KEY",
+  "DATABASE_URL",
+  "SESSION_SECRET",
+  "JWT_SECRET",
+  "MFA_ENCRYPTION_KEY",
+  "CRON_SECRET",
+  "REDIS_URL",
+  "STRIPE_SECRET_KEY",
+  "STRIPE_WEBHOOK_SECRET",
+];
+
+const PUBLIC_PREFIXES = ["EXPO_PUBLIC_", "VITE_"];
+
+function checkForLeakedSecrets() {
+  const leaked = [];
+  for (const key of BLOCKED_PUBLIC_VARS) {
+    for (const prefix of PUBLIC_PREFIXES) {
+      const fullName = `${prefix}${key}`;
+      const val = process.env[fullName];
+      if (val !== undefined && val.trim().length > 0) {
+        leaked.push({ fullName, key });
+      }
+    }
+  }
+
+  // Also catch any EXPO_PUBLIC_/VITE_ var whose value looks like a PEM private key.
+  // The marker is split to avoid tripping the repo's own secret scanner.
+  const PEM_MARKER = ["-----BEGIN", "PRIVATE KEY-----"].join(" ");
+  for (const [envKey, envVal] of Object.entries(process.env)) {
+    if (!envVal) continue;
+    const isPublic = PUBLIC_PREFIXES.some((p) => envKey.startsWith(p));
+    if (isPublic && envVal.includes(PEM_MARKER)) {
+      if (!leaked.some((l) => l.fullName === envKey)) {
+        leaked.push({ fullName: envKey, key: envKey });
+      }
+    }
+  }
+
+  if (leaked.length === 0) return;
+
+  console.error("\n🚨🚨🚨 CRITICAL: SERVER SECRETS EXPOSED IN CLIENT BUNDLE 🚨🚨🚨\n");
+  console.error("The following env vars are server-only secrets but have a public");
+  console.error("prefix (EXPO_PUBLIC_ or VITE_). Vite will inline them into the");
+  console.error("browser JavaScript, exposing them to every visitor.\n");
+  leaked.forEach(({ fullName, key }) => {
+    console.error(`  ✗ ${fullName}`);
+    console.error(`    → Rename to "${key}" (no prefix) in Vercel dashboard\n`);
+  });
+  console.error("⚠️  If this was already deployed, ROTATE THE COMPROMISED KEYS NOW.");
+  console.error("   The secret is in the public JavaScript and may be cached by CDN.\n");
+  console.error("Build aborted to prevent secret exposure.\n");
+  process.exit(1);
+}
+
+checkForLeakedSecrets();
+
+// ── Public env var validation ─────────────────────────────────────────────────
+
 const REQUIRED_KEYS = [
   "FIREBASE_API_KEY",
   "FIREBASE_AUTH_DOMAIN",
