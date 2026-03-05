@@ -25,7 +25,7 @@ export default function handler(req, res) {
 
   res.writeHead(500, {
     "Content-Type": "application/json",
-    "Content-Length": String(Buffer.byteLength(body)),
+    "Content-Length": String(body.length),
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
   });
