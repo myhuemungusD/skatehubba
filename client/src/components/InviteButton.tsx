@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
-import { Share2, Copy, Check } from "lucide-react";
+import { Share2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface InviteButtonProps {
   variant?: "default" | "outline" | "ghost";
@@ -46,13 +47,26 @@ export function InviteButton({
   }, [inviteUrl, toast]);
 
   return (
-    <Button variant={variant} size={size} onClick={handleInvite} className={className}>
-      {copied ? (
-        <Check className="h-4 w-4" />
-      ) : (
-        <Share2 className="h-4 w-4" />
+    <Button
+      variant={variant}
+      size={size}
+      onClick={handleInvite}
+      className={cn(
+        "transition-all duration-200",
+        copied && variant !== "ghost" && "border-green-500/50 text-green-400",
+        className
       )}
-      {size !== "icon" && <span className="ml-2">{copied ? "Copied" : label}</span>}
+    >
+      <span className={cn("transition-transform duration-200", copied && "scale-110")}>
+        {copied ? (
+          <Check className="h-4 w-4" />
+        ) : (
+          <Share2 className="h-4 w-4" />
+        )}
+      </span>
+      {size !== "icon" && (
+        <span className="ml-2">{copied ? "Copied!" : label}</span>
+      )}
     </Button>
   );
 }
