@@ -4,6 +4,7 @@ import { History, Settings, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { LoadingScreen } from "@/components/LoadingScreen";
 import { useAuth } from "@/hooks/useAuth";
+import { InviteButton } from "@/components/InviteButton";
 
 // Lazy load tab content
 const CheckinsContent = lazy(() => import("./checkins"));
@@ -36,22 +37,25 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6">
       {/* Profile Header */}
-      <header className="flex items-center gap-4 pb-4 border-b border-neutral-800">
-        <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center overflow-hidden">
-          {profile?.avatarUrl ? (
-            <img
-              src={profile.avatarUrl}
-              alt={profile.username || "Profile"}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <User className="w-8 h-8 text-neutral-500" />
-          )}
+      <header className="flex items-center justify-between gap-4 pb-4 border-b border-neutral-800">
+        <div className="flex items-center gap-4">
+          <div className="w-16 h-16 rounded-full bg-neutral-800 flex items-center justify-center overflow-hidden">
+            {profile?.avatarUrl ? (
+              <img
+                src={profile.avatarUrl}
+                alt={profile.username || "Profile"}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User className="w-8 h-8 text-neutral-500" />
+            )}
+          </div>
+          <div>
+            <h1 className="text-xl font-bold text-white">{profile?.username || "Skater"}</h1>
+            {profile?.username && <p className="text-sm text-neutral-400">@{profile.username}</p>}
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-white">{profile?.username || "Skater"}</h1>
-          {profile?.username && <p className="text-sm text-neutral-400">@{profile.username}</p>}
-        </div>
+        <InviteButton size="sm" label="Invite" />
       </header>
 
       {/* Tab Navigation */}
