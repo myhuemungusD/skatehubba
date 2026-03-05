@@ -5,6 +5,7 @@ import { useIsMobile } from "../../hooks/use-mobile";
 import { useAuth } from "../../hooks/useAuth";
 import { EmailVerificationBanner } from "../EmailVerificationBanner";
 import NotificationBell from "../NotificationBell";
+import { InviteButton } from "../InviteButton";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -71,8 +72,13 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </ul>
           </nav>
 
-          {/* Admin + Logout at bottom of sidebar */}
+          {/* Invite + Admin + Logout at bottom of sidebar */}
           <div className="px-4 py-4 border-t border-neutral-800 space-y-1">
+            <InviteButton
+              variant="ghost"
+              className="w-full justify-start gap-3 px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white"
+              label="Invite Skater"
+            />
             {auth.isAdmin && (
               <Link
                 href="/admin"
@@ -112,7 +118,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Mobile top bar with notification bell */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/95 px-4 py-2 backdrop-blur-sm">
         <span className="text-lg font-bold text-yellow-400">SkateHubba</span>
-        <NotificationBell />
+        <div className="flex items-center gap-2">
+          <InviteButton variant="ghost" size="icon" />
+          <NotificationBell />
+        </div>
       </header>
       <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
         <div className="mx-auto w-full max-w-md px-4 pt-4">{children}</div>

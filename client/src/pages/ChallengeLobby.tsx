@@ -1,17 +1,17 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { useLocation } from "wouter";
-import { Swords, Plus, Users, Clock, TrendingUp, AlertCircle } from "lucide-react";
+import { Swords, Users, Clock, TrendingUp, AlertCircle, Search } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyGames, useRespondToGame, useCreateGame, useMyStats } from "@/hooks/useSkateGameApi";
 import { GameCard, PlayerStats } from "@/components/game";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { LoadingScreen } from "@/components/LoadingScreen";
+import { UserSearch } from "@/components/UserSearch";
+import { InviteButton } from "@/components/InviteButton";
 
 export default function ChallengeLobby() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
-  const [challengeUserId, setChallengeUserId] = useState("");
 
   const { data: myGames, isLoading, error: gamesError } = useMyGames();
   const { data: myStats } = useMyStats();
@@ -32,14 +32,12 @@ export default function ChallengeLobby() {
     [respondToGame]
   );
 
-  const handleCreateChallenge = useCallback(() => {
-    if (!challengeUserId.trim()) return;
-    createGame.mutate(challengeUserId.trim(), {
-      onSuccess: () => {
-        setChallengeUserId("");
-      },
-    });
-  }, [challengeUserId, createGame]);
+  const handleCreateChallenge = useCallback(
+    (opponentId: string) => {
+      createGame.mutate(opponentId);
+    },
+    [createGame]
+  );
 
   const handleViewGame = useCallback(
     (gameId: string) => {
@@ -73,14 +71,17 @@ export default function ChallengeLobby() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center">
-          <Swords className="w-6 h-6 text-orange-500" />
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center">
+            <Swords className="w-6 h-6 text-orange-500" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white">S.K.A.T.E. Lobby</h1>
+            <p className="text-sm text-neutral-400">Challenge skaters or accept incoming battles</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold text-white">S.K.A.T.E. Lobby</h1>
-          <p className="text-sm text-neutral-400">Challenge skaters or accept incoming battles</p>
-        </div>
+        <InviteButton label="Invite Skater" className="shrink-0" />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -114,35 +115,16 @@ export default function ChallengeLobby() {
 
       <div className="p-6 rounded-lg bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/30">
         <div className="flex items-start gap-3 mb-4">
-          <Plus className="w-5 h-5 text-orange-400 mt-0.5" />
+          <Search className="w-5 h-5 text-orange-400 mt-0.5" />
           <div>
-            <h2 className="text-lg font-semibold text-white mb-1">Create New Challenge</h2>
+            <h2 className="text-lg font-semibold text-white mb-1">Send Challenge</h2>
             <p className="text-sm text-neutral-400">
-              Enter a player's user ID to challenge them to a game
+              Search for a skater and challenge them to S.K.A.T.E.
             </p>
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <Input
-            placeholder="Player User ID"
-            value={challengeUserId}
-            onChange={(e) => setChallengeUserId(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                handleCreateChallenge();
-              }
-            }}
-            className="flex-1 bg-neutral-900 border-neutral-700"
-          />
-          <Button
-            onClick={handleCreateChallenge}
-            disabled={!challengeUserId.trim() || createGame.isPending}
-            className="bg-orange-500 hover:bg-orange-600"
-          >
-            {createGame.isPending ? "Sending..." : "Challenge"}
-          </Button>
-        </div>
+        <UserSearch onChallenge={handleCreateChallenge} isPending={createGame.isPending} />
       </div>
 
       {myGames.pendingChallenges.length > 0 && (
@@ -264,9 +246,10 @@ export default function ChallengeLobby() {
             <Swords className="w-10 h-10 text-neutral-600" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-2">No Games Yet</h3>
-          <p className="text-sm text-neutral-400">
-            Create your first challenge to start playing S.K.A.T.E.!
+          <p className="text-sm text-neutral-400 mb-4">
+            Search for a skater above or invite your friends to play S.K.A.T.E.
           </p>
+          <InviteButton label="Invite Friends" className="bg-orange-500 hover:bg-orange-600 text-black font-bold" variant="default" />
         </div>
       )}
     </div>
