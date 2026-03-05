@@ -4,7 +4,7 @@
  * Creates and configures the Express app with all middleware and API routes.
  * Shared between:
  *   - server/index.ts  (standalone Docker / Node.js server)
- *   - api/index.ts     (Vercel serverless function)
+ *   - server/vercel-handler.ts → api/index.mjs (Vercel serverless function)
  */
 import express from "express";
 import compression from "compression";

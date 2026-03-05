@@ -1,5 +1,5 @@
 /**
- * @fileoverview Tests for api/index.ts — Vercel serverless function entry point
+ * @fileoverview Tests for server/vercel-handler.ts — Vercel serverless function entry point
  *
  * Coverage targets:
  * - Happy path: delegates to Express handler when init succeeds
@@ -81,7 +81,7 @@ describe("api/index: successful init", () => {
       createApp: () => mockExpressHandler,
     }));
 
-    const mod = await import("../index");
+    const mod = await import("../../server/vercel-handler");
     const req = mockReq();
     const res = mockRes();
 
@@ -97,7 +97,7 @@ describe("api/index: successful init", () => {
       createApp: () => mockExpressHandler,
     }));
 
-    const mod = await import("../index");
+    const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
     mod.default(mockReq(), res as unknown as ServerResponse);
@@ -124,7 +124,7 @@ describe("api/index: init failure", () => {
 
   it("returns 500 with structured JSON when createApp fails", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const mod = await import("../index");
+    const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
     mod.default(mockReq(), res as unknown as ServerResponse);
@@ -140,7 +140,7 @@ describe("api/index: init failure", () => {
 
   it("includes security headers on error response", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const mod = await import("../index");
+    const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
     mod.default(mockReq(), res as unknown as ServerResponse);
@@ -157,7 +157,7 @@ describe("api/index: init failure", () => {
 
   it("sets Content-Length header using Buffer.byteLength", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-    const mod = await import("../index");
+    const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
     mod.default(mockReq(), res as unknown as ServerResponse);
@@ -172,7 +172,7 @@ describe("api/index: init failure", () => {
   it("logs error to console.error during init", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await import("../index");
+    await import("../../server/vercel-handler");
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("[api/index] Server initialization failed:"),
@@ -186,7 +186,7 @@ describe("api/index: init failure", () => {
     it("hides error detail when VERCEL_ENV is set (production)", async () => {
       process.env.VERCEL_ENV = "production";
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const mod = await import("../index");
+      const mod = await import("../../server/vercel-handler");
       const res = mockRes();
 
       mod.default(mockReq(), res as unknown as ServerResponse);
@@ -201,7 +201,7 @@ describe("api/index: init failure", () => {
     it("hides error detail when VERCEL_ENV is 'preview'", async () => {
       process.env.VERCEL_ENV = "preview";
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const mod = await import("../index");
+      const mod = await import("../../server/vercel-handler");
       const res = mockRes();
 
       mod.default(mockReq(), res as unknown as ServerResponse);
@@ -215,7 +215,7 @@ describe("api/index: init failure", () => {
     it("exposes error detail in local dev (no VERCEL_ENV)", async () => {
       delete process.env.VERCEL_ENV;
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-      const mod = await import("../index");
+      const mod = await import("../../server/vercel-handler");
       const res = mockRes();
 
       mod.default(mockReq(), res as unknown as ServerResponse);
@@ -242,7 +242,7 @@ describe("api/index: edge cases", () => {
 
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     delete process.env.VERCEL_ENV;
-    const mod = await import("../index");
+    const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
     mod.default(mockReq(), res as unknown as ServerResponse);
@@ -263,7 +263,7 @@ describe("api/index: edge cases", () => {
 
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await import("../index");
+    await import("../../server/vercel-handler");
 
     // Should have logged both message and stack
     const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
@@ -283,7 +283,7 @@ describe("api/index: edge cases", () => {
 
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await import("../index");
+    await import("../../server/vercel-handler");
 
     const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
     expect(

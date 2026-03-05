@@ -132,6 +132,9 @@ const config = {
   outfile,
   format: 'esm',
   packages: 'external',
+  alias: {
+    '@shared': path.resolve(rootDir, 'packages/shared'),
+  },
   external: [
     '@neondatabase/serverless',
     'pg',
@@ -189,4 +192,47 @@ try {
   console.error('');
 
   process.exit(1);
+}
+
+// ── Vercel API handler bundle ──────────────────────────────────────────────
+// Bundle server/vercel-handler.ts → api/index.mjs with all @shared/* imports
+// pre-resolved. Vercel picks up the .mjs file instead of raw TypeScript.
+const vercelEntry = path.join(rootDir, 'server/vercel-handler.ts');
+const vercelOut = path.join(rootDir, 'api/index.mjs');
+
+if (fs.existsSync(vercelEntry)) {
+  console.log('\n⚙️  Bundling Vercel API handler...');
+  try {
+    await build({
+      entryPoints: [vercelEntry],
+      bundle: true,
+      platform: 'node',
+      outfile: vercelOut,
+      format: 'esm',
+      packages: 'external',
+      alias: {
+        '@shared': path.resolve(rootDir, 'packages/shared'),
+      },
+      external: [
+        '@neondatabase/serverless',
+        'pg',
+        'ws',
+      ],
+      target: 'node18',
+      minify: false,
+      sourcemap: true,
+    });
+    console.log(`   ✅ Vercel handler: ${path.relative(rootDir, vercelOut)}`);
+  } catch (error) {
+    console.error('❌ Vercel API handler build failed');
+    if (error.errors) {
+      error.errors.forEach(err => console.error(`  • ${err.text}`));
+    } else {
+      console.error('   ', error.message || error);
+    }
+    process.exit(1);
+  }
+} else {
+  console.warn(`\n⚠️  Vercel handler source not found: ${path.relative(rootDir, vercelEntry)}`);
+  console.warn('   Skipping Vercel API bundle.');
 }

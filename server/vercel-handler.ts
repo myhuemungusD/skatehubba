@@ -8,9 +8,10 @@
  * Environment variables (DATABASE_URL, SESSION_SECRET, Firebase keys, etc.)
  * must be configured in the Vercel dashboard under Project Settings → Environment Variables.
  *
- * IMPORTANT: Uses dynamic import so that env-validation errors in server code
- * don't crash the entire serverless function. When initialization fails, the
- * function returns a structured JSON diagnostic instead of Vercel's opaque 500.
+ * IMPORTANT: This source file lives in server/ and is bundled by esbuild into
+ * api/index.mjs with all @shared/* imports pre-resolved. Vercel picks up the
+ * bundled .mjs file instead of compiling raw TypeScript (which would fail on
+ * path aliases).
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
 
@@ -20,18 +21,11 @@ let handler: Handler | null = null;
 let initError: Error | null = null;
 
 try {
-  // Dynamic import is NOT needed here because Vercel compiles the function
-  // at build time. But the try-catch around createApp() catches runtime
-  // initialization errors (env validation, missing secrets, etc.) that would
-  // otherwise produce Vercel's opaque 500 with no JSON body.
-  const { createApp } = await import("../server/app.ts");
+  const { createApp } = await import("./app.ts");
   const app = createApp();
   handler = app as unknown as Handler;
 } catch (error) {
   initError = error instanceof Error ? error : new Error(String(error));
-  // Log the actual error so it appears in Vercel runtime logs.
-  // Without this, production init failures are completely invisible —
-  // the JSON response suppresses the detail and nothing else logs it.
   console.error("[api/index] Server initialization failed:", initError.message);
   if (initError.stack) {
     console.error("[api/index] Stack trace:", initError.stack);
@@ -43,12 +37,6 @@ export default function serverHandler(req: IncomingMessage, res: ServerResponse)
     return handler(req, res);
   }
 
-  // Initialization failed — return a structured JSON diagnostic so the
-  // client-side error normalizer can extract a meaningful message instead
-  // of falling back to the generic "Something went wrong" default.
-  // Hide error detail in all deployed environments (production AND preview).
-  // VERCEL_ENV is set on every Vercel deployment; NODE_ENV alone is insufficient
-  // because preview deploys often run with NODE_ENV=development.
   const isDeployed = !!process.env.VERCEL_ENV;
   const body = JSON.stringify({
     error: "SERVER_INIT_FAILED",
