@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, MapPin, Trophy, User, LogOut, Shield } from "lucide-react";
+import { Home, MapPin, LogOut, Shield, Settings } from "lucide-react";
 import { useIsMobile } from "../../hooks/use-mobile";
 import { useAuth } from "../../hooks/useAuth";
 import { EmailVerificationBanner } from "../EmailVerificationBanner";
@@ -14,8 +14,6 @@ interface DashboardLayoutProps {
 const navItems = [
   { label: "Home", href: "/hub", icon: Home },
   { label: "Map", href: "/map", icon: MapPin },
-  { label: "Ranks", href: "/leaderboard", icon: Trophy },
-  { label: "Profile", href: "/me", icon: User },
 ];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
@@ -40,9 +38,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Desktop Sidebar */}
         <aside className="fixed left-0 top-0 h-full w-64 border-r border-neutral-800 bg-neutral-900/50 backdrop-blur-sm z-40 flex flex-col">
           <div className="p-6 flex items-center justify-between">
-            <Link href="/hub" className="flex items-center gap-2">
-              <span className="text-2xl font-bold text-yellow-400">SkateHubba</span>
-            </Link>
+            <div>
+              <Link href="/hub" className="flex items-center gap-2">
+                <span className="text-2xl font-bold text-yellow-400">SkateHubba</span>
+              </Link>
+              {auth.profile?.username && (
+                <Link
+                  href={`/skater/${auth.profile.username}`}
+                  className="text-xs text-neutral-400 hover:text-yellow-400 transition-colors mt-1 block"
+                >
+                  @{auth.profile.username}
+                </Link>
+              )}
+            </div>
             <NotificationBell />
           </div>
           <nav className="px-4 py-2 flex-1" role="navigation" aria-label="Main navigation">
@@ -79,6 +87,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               className="w-full justify-start gap-3 px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white"
               label="Invite Skater"
             />
+            <Link
+              href="/me"
+              className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors w-full"
+              data-testid="nav-settings"
+              aria-label="Settings"
+            >
+              <Settings className="h-5 w-5" aria-hidden="true" />
+              <span>Settings</span>
+            </Link>
             {auth.isAdmin && (
               <Link
                 href="/admin"
@@ -117,9 +134,26 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <EmailVerificationBanner />
       {/* Mobile top bar with notification bell */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/95 px-4 py-2 backdrop-blur-sm">
-        <span className="text-lg font-bold text-yellow-400">SkateHubba</span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1">
+          <span className="text-lg font-bold text-yellow-400 shrink-0">SkateHubba</span>
+          {auth.profile?.username && (
+            <Link
+              href={`/skater/${auth.profile.username}`}
+              className="text-sm text-neutral-400 hover:text-yellow-400 transition-colors truncate"
+            >
+              @{auth.profile.username}
+            </Link>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
           <InviteButton variant="ghost" size="icon" />
+          <Link
+            href="/me"
+            className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+            aria-label="Settings"
+          >
+            <Settings className="h-5 w-5" />
+          </Link>
           <NotificationBell />
         </div>
       </header>

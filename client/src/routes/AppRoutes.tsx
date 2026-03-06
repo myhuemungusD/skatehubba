@@ -36,7 +36,7 @@ import {
   DashboardPlayRoute,
   DashboardProfileRoute,
   DashboardMapRoute,
-  DashboardLeaderboardRoute,
+  DashboardCheckinsRoute,
   AdminDashboardRoute,
   AdminReportsRoute,
   AdminUsersRoute,
@@ -184,11 +184,7 @@ export default function AppRoutes() {
             <ProtectedRoute path="/play" component={DashboardPlayRoute} allowMissingProfile />
             <ProtectedRoute path="/me" component={DashboardProfileRoute} allowMissingProfile />
             <ProtectedRoute path="/map" component={DashboardMapRoute} allowMissingProfile />
-            <ProtectedRoute
-              path="/leaderboard"
-              component={DashboardLeaderboardRoute}
-              allowMissingProfile
-            />
+            <ProtectedRoute path="/leaderboard" component={DashboardHubRoute} allowMissingProfile />
 
             {/* Spot Detail - still uses AppShell for full-screen modal experience */}
             <ProtectedRoute
@@ -211,7 +207,7 @@ export default function AppRoutes() {
             />
             <ProtectedRoute
               path="/checkins"
-              component={DashboardProfileRoute}
+              component={DashboardCheckinsRoute}
               allowMissingProfile
             />
             <ProtectedRoute

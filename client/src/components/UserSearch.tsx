@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { Link } from "wouter";
 import { Search, Swords, UserPlus, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -129,9 +130,13 @@ export function UserSearch({ onChallenge, isPending }: UserSearchProps) {
                       {getInitial(user.displayName)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-white truncate">
+                      <Link
+                        href={`/skater/${user.handle}`}
+                        className="text-sm font-medium text-white truncate block hover:text-yellow-400 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {user.displayName}
-                      </p>
+                      </Link>
                       <p className="text-xs text-neutral-500">
                         {user.wins + user.losses > 0
                           ? `${user.wins}W · ${user.losses}L · ${

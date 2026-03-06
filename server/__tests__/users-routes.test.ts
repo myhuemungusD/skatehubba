@@ -34,6 +34,15 @@ vi.mock("@shared/schema", () => ({
     lastName: "lastName",
     isActive: "isActive",
   },
+  usernames: {
+    uid: "uid",
+    username: "username",
+  },
+  userProfiles: {
+    id: "id",
+    wins: "wins",
+    losses: "losses",
+  },
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -101,13 +110,20 @@ function mockRes() {
 }
 
 function buildSearchDb(results: any[]) {
+  const whereChain = {
+    where: vi.fn().mockReturnValue({
+      limit: vi.fn().mockResolvedValue(results),
+    }),
+  };
+  const leftJoinChain = {
+    leftJoin: vi
+      .fn()
+      .mockReturnValue({ ...whereChain, leftJoin: vi.fn().mockReturnValue(whereChain) }),
+    ...whereChain,
+  };
   return {
     select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue(results),
-        }),
-      }),
+      from: vi.fn().mockReturnValue(leftJoinChain),
     }),
   };
 }
@@ -129,7 +145,9 @@ describe("GET /api/users/search", () => {
   });
 
   it("should return mapped user results for valid query", async () => {
-    const dbResults = [{ id: "u1", firstName: "John", lastName: "Doe" }];
+    const dbResults = [
+      { id: "u1", firstName: "John", lastName: "Doe", handle: "johndoe", wins: 5, losses: 2 },
+    ];
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "John" } });
@@ -140,13 +158,17 @@ describe("GET /api/users/search", () => {
       expect.objectContaining({
         id: "u1",
         displayName: "John Doe",
-        handle: "useru1",
+        handle: "johndoe",
+        wins: 5,
+        losses: 2,
       }),
     ]);
   });
 
   it("should escape SQL LIKE wildcards in search query", async () => {
-    const dbResults = [{ id: "u1", firstName: "100%", lastName: "User" }];
+    const dbResults = [
+      { id: "u1", firstName: "100%", lastName: "User", handle: null, wins: null, losses: null },
+    ];
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "100%" } });
@@ -199,7 +221,9 @@ describe("GET /api/users/search", () => {
   });
 
   it("should handle user with only firstName (no lastName)", async () => {
-    const dbResults = [{ id: "u2", firstName: "Solo", lastName: null }];
+    const dbResults = [
+      { id: "u2", firstName: "Solo", lastName: null, handle: null, wins: null, losses: null },
+    ];
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "Solo" } });
@@ -210,7 +234,9 @@ describe("GET /api/users/search", () => {
   });
 
   it("should handle user with no name at all", async () => {
-    const dbResults = [{ id: "u3", firstName: null, lastName: null }];
+    const dbResults = [
+      { id: "u3", firstName: null, lastName: null, handle: null, wins: null, losses: null },
+    ];
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "noname" } });
@@ -226,6 +252,25 @@ describe("GET /api/users/search", () => {
     await callHandler("GET /search", req, res);
 
     expect(res.json).toHaveBeenCalledWith([]);
+  });
+
+  it("should search without self-exclusion when currentUser is undefined", async () => {
+    const dbResults = [
+      { id: "u1", firstName: "Jane", lastName: "Doe", handle: "janedoe", wins: 3, losses: 1 },
+    ];
+    vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
+
+    const req = mockReq({ query: { q: "Jane" }, currentUser: undefined });
+    const res = mockRes();
+    await callHandler("GET /search", req, res);
+
+    expect(res.json).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "u1",
+        displayName: "Jane Doe",
+        handle: "janedoe",
+      }),
+    ]);
   });
 });
 

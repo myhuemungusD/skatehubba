@@ -5,8 +5,8 @@
 
 import { Router } from "express";
 import { getDb } from "../db";
-import { games, gameTurns, gameDisputes } from "@shared/schema";
-import { eq, or, desc, and, sql } from "drizzle-orm";
+import { games, gameTurns, gameDisputes, usernames } from "@shared/schema";
+import { eq, or, desc, and, sql, inArray } from "drizzle-orm";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
 import { Errors } from "../utils/apiError";
@@ -105,14 +105,38 @@ router.get("/my-games", async (req, res) => {
       .orderBy(desc(games.updatedAt))
       .limit(50);
 
-    const pendingChallenges = userGames.filter(
+    // Collect all unique player IDs to batch-fetch handles
+    const playerIds = new Set<string>();
+    for (const g of userGames) {
+      if (g.player1Id) playerIds.add(g.player1Id);
+      if (g.player2Id) playerIds.add(g.player2Id);
+    }
+
+    const handleMap = new Map<string, string>();
+    if (playerIds.size > 0) {
+      const handles = await db
+        .select({ uid: usernames.uid, username: usernames.username })
+        .from(usernames)
+        .where(inArray(usernames.uid, [...playerIds]));
+      for (const h of handles) {
+        handleMap.set(h.uid, h.username);
+      }
+    }
+
+    const enriched = userGames.map((g) => ({
+      ...g,
+      player1Handle: g.player1Id ? (handleMap.get(g.player1Id) ?? null) : null,
+      player2Handle: g.player2Id ? (handleMap.get(g.player2Id) ?? null) : null,
+    }));
+
+    const pendingChallenges = enriched.filter(
       (g) => g.status === "pending" && g.player2Id === currentUserId
     );
-    const sentChallenges = userGames.filter(
+    const sentChallenges = enriched.filter(
       (g) => g.status === "pending" && g.player1Id === currentUserId
     );
-    const activeGames = userGames.filter((g) => g.status === "active");
-    const completedGames = userGames.filter(
+    const activeGames = enriched.filter((g) => g.status === "active");
+    const completedGames = enriched.filter(
       (g) => g.status === "completed" || g.status === "declined" || g.status === "forfeited"
     );
 
@@ -237,6 +261,19 @@ router.get("/stats/me", async (req, res) => {
       .orderBy(sql`count(*) DESC`)
       .limit(5);
 
+    // Batch-fetch opponent handles
+    const opponentIds = Object.keys(opponentRecords);
+    const opponentHandleMap = new Map<string, string>();
+    if (opponentIds.length > 0) {
+      const handles = await db
+        .select({ uid: usernames.uid, username: usernames.username })
+        .from(usernames)
+        .where(inArray(usernames.uid, opponentIds));
+      for (const h of handles) {
+        opponentHandleMap.set(h.uid, h.username);
+      }
+    }
+
     res.json({
       totalGames: finishedGames.length,
       wins,
@@ -247,6 +284,7 @@ router.get("/stats/me", async (req, res) => {
       opponentRecords: Object.entries(opponentRecords).map(([id, record]) => ({
         opponentId: id,
         ...record,
+        handle: opponentHandleMap.get(id) ?? null,
       })),
       topTricks: trickStats.map((t) => ({ trick: t.trick, count: t.count })),
       recentGames: finishedGames.slice(0, 10).map((g) => ({
@@ -306,8 +344,20 @@ router.get("/:id", async (req, res) => {
     const isPlayer1 = game.player1Id === currentUserId;
     const canDispute = isPlayer1 ? !game.player1DisputeUsed : !game.player2DisputeUsed;
 
+    // Fetch handles for both players (at least one ID always exists per participant check)
+    const playerIds = [game.player1Id, game.player2Id].filter(Boolean) as string[];
+    const handleRows = await db
+      .select({ uid: usernames.uid, username: usernames.username })
+      .from(usernames)
+      .where(inArray(usernames.uid, playerIds));
+    const hMap = new Map(handleRows.map((h) => [h.uid, h.username]));
+
     res.json({
-      game,
+      game: {
+        ...game,
+        player1Handle: game.player1Id ? (hMap.get(game.player1Id) ?? null) : null,
+        player2Handle: game.player2Id ? (hMap.get(game.player2Id) ?? null) : null,
+      },
       turns,
       disputes,
       isMyTurn,

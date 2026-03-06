@@ -5,15 +5,15 @@
 
 import { Router } from "express";
 import { getDb } from "../db";
-import { games, customUsers } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { games, customUsers, usernames } from "@shared/schema";
+import { eq, inArray } from "drizzle-orm";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
 import { Errors } from "../utils/apiError";
 import {
   createGameSchema,
   respondGameSchema,
-  getUserDisplayName,
+  getUserNameInfo,
   TURN_DEADLINE_MS,
 } from "./games-shared";
 
@@ -49,10 +49,14 @@ router.post("/create", async (req, res) => {
       return Errors.notFound(res, "OPPONENT_NOT_FOUND", "Opponent not found.");
     }
 
-    const [player1Name, player2Name] = await Promise.all([
-      getUserDisplayName(db, currentUserId),
-      getUserDisplayName(db, opponentId),
+    const [player1Info, player2Info] = await Promise.all([
+      getUserNameInfo(db, currentUserId),
+      getUserNameInfo(db, opponentId),
     ]);
+    const player1Name = player1Info.displayName;
+    const player2Name = player2Info.displayName;
+    const player1Handle = player1Info.handle;
+    const player2Handle = player2Info.handle;
 
     const [newGame] = await db
       .insert(games)
@@ -82,7 +86,7 @@ router.post("/create", async (req, res) => {
     });
 
     res.status(201).json({
-      game: newGame,
+      game: { ...newGame, player1Handle, player2Handle },
       message: "Challenge sent.",
     });
   } catch (error) {
@@ -150,7 +154,8 @@ router.post("/:id/respond", async (req, res) => {
         acceptedBy: currentUserId,
       });
 
-      res.json({ game: updatedGame, message: "Game on." });
+      const enriched = await enrichGameWithHandles(db, updatedGame);
+      res.json({ game: enriched, message: "Game on." });
     } else {
       const [updatedGame] = await db
         .update(games)
@@ -163,7 +168,8 @@ router.post("/:id/respond", async (req, res) => {
         declinedBy: currentUserId,
       });
 
-      res.json({ game: updatedGame, message: "Challenge declined." });
+      const enriched = await enrichGameWithHandles(db, updatedGame);
+      res.json({ game: enriched, message: "Challenge declined." });
     }
   } catch (error) {
     logger.error("[Games] Failed to respond to game", {
@@ -174,5 +180,23 @@ router.post("/:id/respond", async (req, res) => {
     Errors.internal(res, "GAME_RESPOND_FAILED", "Failed to respond to game.");
   }
 });
+
+/** Enrich a game record with player handles from the usernames table. */
+async function enrichGameWithHandles(db: ReturnType<typeof getDb>, game: Record<string, unknown>) {
+  const playerIds = [game.player1Id, game.player2Id].filter(Boolean) as string[];
+  if (playerIds.length === 0) return game;
+
+  const rows = await db
+    .select({ uid: usernames.uid, username: usernames.username })
+    .from(usernames)
+    .where(inArray(usernames.uid, playerIds));
+  const hMap = new Map(rows.map((r) => [r.uid, r.username]));
+
+  return {
+    ...game,
+    player1Handle: game.player1Id ? (hMap.get(String(game.player1Id)) ?? null) : null,
+    player2Handle: game.player2Id ? (hMap.get(String(game.player2Id)) ?? null) : null,
+  };
+}
 
 export { router as gamesChallengesRouter };

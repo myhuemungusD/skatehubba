@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { customUsers } from "@shared/schema";
+import { customUsers, usernames, userProfiles } from "@shared/schema";
 import { ilike, or, eq, and, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
@@ -19,6 +19,7 @@ router.get("/search", authenticateUser, async (req, res) => {
     return res.json([]);
   }
   const query = queryParam;
+  const currentUserId = req.currentUser?.id;
 
   const result = await userDiscoveryBreaker.execute(
     async () => {
@@ -26,15 +27,24 @@ router.get("/search", authenticateUser, async (req, res) => {
       // Escape SQL LIKE wildcards to prevent wildcard injection
       const sanitized = query.replace(/[%_\\]/g, (c) => `\\${c}`);
       const searchTerm = `%${sanitized}%`;
+      const nameFilter = or(
+        ilike(customUsers.firstName, searchTerm),
+        ilike(customUsers.lastName, searchTerm)
+      );
       const results = await database
         .select({
           id: customUsers.id,
           firstName: customUsers.firstName,
           lastName: customUsers.lastName,
+          handle: usernames.username,
+          wins: userProfiles.wins,
+          losses: userProfiles.losses,
         })
         .from(customUsers)
+        .leftJoin(usernames, eq(usernames.uid, customUsers.id))
+        .leftJoin(userProfiles, eq(userProfiles.id, customUsers.id))
         .where(
-          or(ilike(customUsers.firstName, searchTerm), ilike(customUsers.lastName, searchTerm))
+          currentUserId ? and(nameFilter, sql`${customUsers.id} != ${currentUserId}`) : nameFilter
         )
         .limit(20);
 
@@ -42,9 +52,9 @@ router.get("/search", authenticateUser, async (req, res) => {
         id: u.id,
         displayName:
           u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.firstName || "Skater",
-        handle: `user${u.id.substring(0, 4)}`,
-        wins: 0,
-        losses: 0,
+        handle: u.handle || `user${u.id.substring(0, 4)}`,
+        wins: u.wins ?? 0,
+        losses: u.losses ?? 0,
       }));
     },
     [] as Array<{ id: string; displayName: string; handle: string; wins: number; losses: number }>

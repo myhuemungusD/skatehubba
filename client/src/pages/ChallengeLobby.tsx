@@ -1,19 +1,23 @@
 import { useCallback } from "react";
-import { useLocation } from "wouter";
-import { Swords, Send, Clock, TrendingUp, AlertCircle, Trophy, RefreshCw } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Swords, Send, Clock, AlertCircle, Trophy, RefreshCw, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyGames, useRespondToGame, useCreateGame, useMyStats } from "@/hooks/useSkateGameApi";
 import { GameCard, PlayerStats } from "@/components/game";
 import { Button } from "@/components/ui/button";
 import { UserSearch } from "@/components/UserSearch";
 import { InviteButton } from "@/components/InviteButton";
+import {
+  useRealtimeLeaderboard,
+  type LeaderboardEntry,
+} from "@/features/leaderboard/useRealtimeLeaderboard";
 
 export default function ChallengeLobby() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [, setLocation] = useLocation();
 
   const { data: myGames, isLoading, error: gamesError, refetch } = useMyGames();
-  const { data: myStats } = useMyStats();
+  const { data: myStats, isLoading: isStatsLoading, error: statsError } = useMyStats();
   const respondToGame = useRespondToGame();
   const createGame = useCreateGame();
 
@@ -47,21 +51,7 @@ export default function ChallengeLobby() {
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-            <Swords className="w-5 h-5 text-black" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-white tracking-tight">S.K.A.T.E. Lobby</h1>
-            <p className="text-xs text-neutral-500">Challenge skaters. Accept battles.</p>
-          </div>
-        </div>
-        <InviteButton size="sm" label="Invite" className="shrink-0" />
-      </div>
-
-      {/* Send Challenge — always visible regardless of API state */}
+      {/* Search + Challenge */}
       <div className="rounded-xl border border-orange-500/20 bg-gradient-to-br from-orange-500/5 via-transparent to-amber-500/5 p-5">
         <div className="flex items-center gap-2 mb-3">
           <Swords className="w-4 h-4 text-orange-400" />
@@ -71,6 +61,58 @@ export default function ChallengeLobby() {
         </div>
         <UserSearch onChallenge={handleCreateChallenge} isPending={createGame.isPending} />
       </div>
+
+      {/* Profile + Win/Loss Record */}
+      {user && (
+        <section className="rounded-xl border border-neutral-700/30 bg-neutral-800/30 p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-full bg-neutral-700 flex items-center justify-center overflow-hidden shrink-0">
+              {profile?.avatarUrl ? (
+                <img
+                  src={profile.avatarUrl}
+                  alt={profile.username || "Profile"}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-6 h-6 text-neutral-500" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h2 className="text-lg font-bold text-white truncate">
+                {user.displayName || profile?.username || "Skater"}
+              </h2>
+              {profile?.username && (
+                <Link
+                  href={`/skater/${profile.username}`}
+                  className="text-sm text-yellow-400 hover:text-yellow-300 transition-colors"
+                >
+                  @{profile.username}
+                </Link>
+              )}
+            </div>
+            <InviteButton size="sm" label="Invite" className="shrink-0" />
+          </div>
+          {myStats && <PlayerStats stats={myStats} />}
+          {!myStats && isStatsLoading && (
+            <div className="py-3 animate-pulse">
+              <div className="h-4 bg-neutral-700/50 rounded w-1/2 mx-auto" />
+            </div>
+          )}
+          {!myStats && !isStatsLoading && statsError && (
+            <p className="text-sm text-neutral-500 text-center py-2">
+              Could not load your stats. Pull to refresh.
+            </p>
+          )}
+          {!myStats && !isStatsLoading && !statsError && (
+            <p className="text-sm text-neutral-500 text-center py-2">
+              No games played yet. Challenge someone to get started!
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Rankings */}
+      <CompactLeaderboard />
 
       {/* API error banner — non-blocking, shows inline with retry */}
       {gamesError && (
@@ -199,17 +241,6 @@ export default function ChallengeLobby() {
             </section>
           )}
 
-          {/* Stats */}
-          {myStats && myStats.totalGames > 0 && (
-            <section>
-              <SectionHeader
-                icon={<TrendingUp className="w-4 h-4 text-neutral-400" />}
-                title="Your Stats"
-              />
-              <PlayerStats stats={myStats} />
-            </section>
-          )}
-
           {/* Recent Games */}
           {myGames.completedGames.length > 0 && (
             <section>
@@ -309,5 +340,62 @@ function SectionHeader({
         </span>
       )}
     </div>
+  );
+}
+
+function CompactLeaderboard() {
+  const { entries, isLoading } = useRealtimeLeaderboard();
+
+  if (isLoading) {
+    return (
+      <section>
+        <SectionHeader icon={<Trophy className="w-4 h-4 text-yellow-400" />} title="Rankings" />
+        <div className="text-sm text-neutral-500 py-4 text-center">Loading rankings...</div>
+      </section>
+    );
+  }
+
+  if (entries.length === 0) {
+    return (
+      <section>
+        <SectionHeader icon={<Trophy className="w-4 h-4 text-yellow-400" />} title="Rankings" />
+        <div className="text-sm text-neutral-500 py-4 text-center">
+          No rankings yet. Challenge someone to start climbing.
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section>
+      <SectionHeader icon={<Trophy className="w-4 h-4 text-yellow-400" />} title="Rankings" />
+      <div className="space-y-2">
+        {entries.slice(0, 10).map((entry: LeaderboardEntry, idx: number) => (
+          <div
+            key={entry.id}
+            className="flex items-center justify-between p-3 rounded-lg bg-neutral-800/50 border border-neutral-700"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-bold text-yellow-400 w-6 text-center">
+                #{entry.rank ?? idx + 1}
+              </span>
+              {entry.username ? (
+                <Link
+                  href={`/skater/${entry.username}`}
+                  className="text-sm font-medium text-white hover:text-yellow-400 transition-colors"
+                >
+                  {entry.displayName}
+                </Link>
+              ) : (
+                <span className="text-sm font-medium text-white">{entry.displayName}</span>
+              )}
+            </div>
+            <span className="text-xs text-neutral-400">
+              {entry.wins}W - {entry.losses}L
+            </span>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
