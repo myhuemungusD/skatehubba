@@ -14,9 +14,14 @@ import {
   Trash2,
   ChevronDown,
   ChevronRight,
+  User,
+  Check,
+  X,
+  Pencil,
 } from "lucide-react";
 import { deleteUser } from "firebase/auth";
 import { useAuth } from "../hooks/useAuth";
+import { useAuthStore } from "../store/authStore";
 import { Button } from "../components/ui/button";
 import {
   AlertDialog,
@@ -101,12 +106,32 @@ const FAQ_ITEMS = [
 ] as const;
 
 export default function SettingsPage() {
-  const { user, isAuthenticated, signOut } = useAuth();
+  const { user, isAuthenticated, signOut, profile } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [faqOpen, setFaqOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [usernameInput, setUsernameInput] = useState("");
+
+  const updateUsernameMutation = useMutation({
+    mutationFn: async (newUsername: string) => {
+      const res = await apiRequest("PATCH", "/api/profile/username", { username: newUsername });
+      return res.json() as Promise<{ username: string }>;
+    },
+    onSuccess: (data) => {
+      if (profile) {
+        useAuthStore.getState().setProfile({ ...profile, username: data.username });
+      }
+      setIsEditingUsername(false);
+      toast({ title: "Username updated", description: `You're now @${data.username}` });
+    },
+    onError: (err) => {
+      const message = err instanceof Error ? err.message : "Could not update username.";
+      toast({ title: "Update failed", description: message, variant: "destructive" });
+    },
+  });
 
   const handleLogout = useCallback(async () => {
     try {
@@ -195,6 +220,72 @@ export default function SettingsPage() {
           <p className="text-neutral-400 text-sm">
             Manage your account and notification preferences.
           </p>
+        </div>
+
+        {/* Username */}
+        <div>
+          <h2 className="text-lg font-semibold mb-3 text-white">Profile</h2>
+          <div className="rounded-lg border border-neutral-800 bg-neutral-900/50 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-neutral-400">
+                  <User className="h-4 w-4" />
+                </div>
+                <div>
+                  <p className="text-xs text-neutral-500">Username</p>
+                  {isEditingUsername ? (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm text-neutral-400">@</span>
+                      <input
+                        type="text"
+                        value={usernameInput}
+                        onChange={(e) => setUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))}
+                        maxLength={20}
+                        autoFocus
+                        className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-white outline-none focus:border-yellow-400 w-40"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && usernameInput.length >= 3) {
+                            updateUsernameMutation.mutate(usernameInput);
+                          }
+                          if (e.key === "Escape") {
+                            setIsEditingUsername(false);
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => updateUsernameMutation.mutate(usernameInput)}
+                        disabled={usernameInput.length < 3 || updateUsernameMutation.isPending}
+                        className="p-1 rounded text-green-400 hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => setIsEditingUsername(false)}
+                        className="p-1 rounded text-neutral-400 hover:bg-neutral-800"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <p className="text-sm font-medium text-white">
+                      @{profile?.username ?? "—"}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {!isEditingUsername && (
+                <button
+                  onClick={() => {
+                    setUsernameInput(profile?.username ?? "");
+                    setIsEditingUsername(true);
+                  }}
+                  className="p-2 rounded text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Notification Channels */}
