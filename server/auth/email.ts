@@ -2,12 +2,17 @@ import { Resend } from "resend";
 import { env } from "../config/env";
 import logger from "../logger";
 
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+let _resend: Resend | null | undefined;
 
-if (!resend) {
-  logger.warn(
-    "RESEND_API_KEY not configured — password reset and verification emails will be logged to console only"
-  );
+function getResendClient(): Resend | null {
+  if (_resend !== undefined) return _resend;
+  _resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+  if (!_resend) {
+    logger.warn(
+      "RESEND_API_KEY not configured — password reset and verification emails will be logged to console only"
+    );
+  }
+  return _resend;
 }
 
 // Email templates
@@ -128,6 +133,7 @@ export async function sendVerificationEmail(
   const baseUrl = getBaseUrl();
   const verificationUrl = `${baseUrl}/verify-email?token=${token}`;
 
+  const resend = getResendClient();
   if (resend) {
     await resend.emails.send({
       from: "SkateHubba <hello@skatehubba.com>",
@@ -152,6 +158,7 @@ export async function sendPasswordResetEmail(
   const baseUrl = getBaseUrl();
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
+  const resend = getResendClient();
   if (resend) {
     await resend.emails.send({
       from: "SkateHubba <hello@skatehubba.com>",
