@@ -344,15 +344,12 @@ router.get("/:id", async (req, res) => {
     const isPlayer1 = game.player1Id === currentUserId;
     const canDispute = isPlayer1 ? !game.player1DisputeUsed : !game.player2DisputeUsed;
 
-    // Fetch handles for both players
+    // Fetch handles for both players (at least one ID always exists per participant check)
     const playerIds = [game.player1Id, game.player2Id].filter(Boolean) as string[];
-    const handleRows =
-      playerIds.length > 0
-        ? await db
-            .select({ uid: usernames.uid, username: usernames.username })
-            .from(usernames)
-            .where(inArray(usernames.uid, playerIds))
-        : [];
+    const handleRows = await db
+      .select({ uid: usernames.uid, username: usernames.username })
+      .from(usernames)
+      .where(inArray(usernames.uid, playerIds));
     const hMap = new Map(handleRows.map((h) => [h.uid, h.username]));
 
     res.json({

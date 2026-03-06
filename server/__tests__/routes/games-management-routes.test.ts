@@ -364,51 +364,59 @@ describe("Game Management Routes", () => {
   // ===========================================================================
 
   describe("GET /my-games", () => {
-    it("returns categorized games", async () => {
-      resultQueue.push([
-        {
-          id: "g1",
-          player1Id: "other",
-          player2Id: "user-1",
-          status: "pending",
-          updatedAt: new Date(),
-        },
-        {
-          id: "g2",
-          player1Id: "user-1",
-          player2Id: "other",
-          status: "pending",
-          updatedAt: new Date(),
-        },
-        {
-          id: "g3",
-          player1Id: "user-1",
-          player2Id: "other",
-          status: "active",
-          updatedAt: new Date(),
-        },
-        {
-          id: "g4",
-          player1Id: "user-1",
-          player2Id: "other",
-          status: "completed",
-          updatedAt: new Date(),
-        },
-        {
-          id: "g5",
-          player1Id: "user-1",
-          player2Id: "other",
-          status: "declined",
-          updatedAt: new Date(),
-        },
-        {
-          id: "g6",
-          player1Id: "user-1",
-          player2Id: "other",
-          status: "forfeited",
-          updatedAt: new Date(),
-        },
-      ]);
+    it("returns categorized games with handles", async () => {
+      resultQueue.push(
+        // [0] games
+        [
+          {
+            id: "g1",
+            player1Id: "other",
+            player2Id: "user-1",
+            status: "pending",
+            updatedAt: new Date(),
+          },
+          {
+            id: "g2",
+            player1Id: "user-1",
+            player2Id: "other",
+            status: "pending",
+            updatedAt: new Date(),
+          },
+          {
+            id: "g3",
+            player1Id: "user-1",
+            player2Id: "other",
+            status: "active",
+            updatedAt: new Date(),
+          },
+          {
+            id: "g4",
+            player1Id: "user-1",
+            player2Id: "other",
+            status: "completed",
+            updatedAt: new Date(),
+          },
+          {
+            id: "g5",
+            player1Id: "user-1",
+            player2Id: "other",
+            status: "declined",
+            updatedAt: new Date(),
+          },
+          {
+            id: "g6",
+            player1Id: "user-1",
+            player2Id: "other",
+            status: "forfeited",
+            updatedAt: new Date(),
+          },
+        ],
+        // [1] handle batch fetch
+        [
+          { uid: "other", username: "sk8r" },
+          { uid: "user-1", username: "me_handle" },
+        ]
+      );
 
       const req = mockRequest();
       const res = mockResponse();
@@ -418,6 +426,8 @@ describe("Game Management Routes", () => {
       const result = vi.mocked(res.json).mock.calls[0][0];
       expect(result.pendingChallenges).toHaveLength(1);
       expect(result.pendingChallenges[0].id).toBe("g1");
+      expect(result.pendingChallenges[0].player1Handle).toBe("sk8r");
+      expect(result.pendingChallenges[0].player2Handle).toBe("me_handle");
       expect(result.sentChallenges).toHaveLength(1);
       expect(result.sentChallenges[0].id).toBe("g2");
       expect(result.activeGames).toHaveLength(1);
@@ -439,6 +449,53 @@ describe("Game Management Routes", () => {
       expect(result.activeGames).toHaveLength(0);
       expect(result.completedGames).toHaveLength(0);
       expect(result.total).toBe(0);
+    });
+
+    it("handles null player IDs and missing handles gracefully", async () => {
+      resultQueue.push(
+        // [0] games — covers null player1Id, null player2Id, and missing handles
+        [
+          {
+            id: "g1",
+            player1Id: null,
+            player2Id: "user-1",
+            status: "active",
+            updatedAt: new Date(),
+          },
+          {
+            id: "g2",
+            player1Id: "no-handle-p1",
+            player2Id: null,
+            status: "active",
+            updatedAt: new Date(),
+          },
+          {
+            id: "g3",
+            player1Id: "user-1",
+            player2Id: "no-handle-p2",
+            status: "completed",
+            updatedAt: new Date(),
+          },
+        ],
+        // [1] handle batch fetch — no-handle-p1 and no-handle-p2 not found
+        [{ uid: "user-1", username: "me_handle" }]
+      );
+
+      const req = mockRequest();
+      const res = mockResponse();
+
+      await callRoute("GET", "/my-games", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.activeGames).toHaveLength(2);
+      // g1: player1Id null → null; player2Id found → handle
+      expect(result.activeGames[0].player1Handle).toBeNull();
+      expect(result.activeGames[0].player2Handle).toBe("me_handle");
+      // g2: player1Id exists but no handle → null via ??; player2Id null → null
+      expect(result.activeGames[1].player1Handle).toBeNull();
+      expect(result.activeGames[1].player2Handle).toBeNull();
+      // g3: player2Id exists but no handle → null via ?? fallback on L129
+      expect(result.completedGames[0].player2Handle).toBeNull();
     });
 
     it("returns 500 when database is unavailable", async () => {
@@ -510,7 +567,9 @@ describe("Game Management Routes", () => {
         [
           { trick: "Kickflip", count: 5 },
           { trick: "Heelflip", count: 3 },
-        ]
+        ],
+        // [2] opponent handle batch fetch
+        [{ uid: "opp-1", username: "opponent_handle" }]
       );
 
       const req = mockRequest();
@@ -527,6 +586,7 @@ describe("Game Management Routes", () => {
       expect(result.opponentRecords).toHaveLength(1);
       expect(result.opponentRecords[0].wins).toBe(2);
       expect(result.opponentRecords[0].losses).toBe(1);
+      expect(result.opponentRecords[0].handle).toBe("opponent_handle");
       expect(result.topTricks).toEqual([
         { trick: "Kickflip", count: 5 },
         { trick: "Heelflip", count: 3 },
@@ -630,7 +690,7 @@ describe("Game Management Routes", () => {
       expect(result.opponentRecords).toHaveLength(0);
     });
 
-    it("uses default name when opponentName is null", async () => {
+    it("uses default name when opponentName is null and returns null handle", async () => {
       resultQueue.push(
         [
           {
@@ -643,6 +703,8 @@ describe("Game Management Routes", () => {
             completedAt: new Date(),
           },
         ],
+        [],
+        // [2] opponent handle fetch — empty, covers ?? null fallback
         []
       );
 
@@ -652,6 +714,7 @@ describe("Game Management Routes", () => {
 
       const result = vi.mocked(res.json).mock.calls[0][0];
       expect(result.opponentRecords[0].name).toBe("Skater");
+      expect(result.opponentRecords[0].handle).toBeNull();
     });
 
     it("returns 500 when database is unavailable", async () => {
@@ -672,7 +735,7 @@ describe("Game Management Routes", () => {
   // ===========================================================================
 
   describe("GET /:id", () => {
-    it("returns full game details with turns, disputes, and flags", async () => {
+    it("returns full game details with turns, disputes, handles, and flags", async () => {
       resultQueue.push(
         [
           {
@@ -690,7 +753,12 @@ describe("Game Management Routes", () => {
           { id: 10, turnNumber: 1, result: "landed", turnType: "set", playerId: "user-1" },
           { id: 11, turnNumber: 2, result: "pending", turnType: "set", playerId: "opponent-1" },
         ],
-        [{ id: 20, gameId: "game-1", createdAt: new Date() }]
+        [{ id: 20, gameId: "game-1", createdAt: new Date() }],
+        // [3] handle fetch for game detail
+        [
+          { uid: "user-1", username: "me_handle" },
+          { uid: "opponent-1", username: "opp_handle" },
+        ]
       );
 
       const req = mockRequest({ params: { id: "game-1" } });
@@ -700,6 +768,8 @@ describe("Game Management Routes", () => {
 
       const result = vi.mocked(res.json).mock.calls[0][0];
       expect(result.game.id).toBe("game-1");
+      expect(result.game.player1Handle).toBe("me_handle");
+      expect(result.game.player2Handle).toBe("opp_handle");
       expect(result.turns).toHaveLength(2);
       expect(result.disputes).toHaveLength(1);
       expect(result.isMyTurn).toBe(true);
@@ -721,6 +791,8 @@ describe("Game Management Routes", () => {
           },
         ],
         [{ id: 15, turnNumber: 1, result: "pending", turnType: "set", playerId: "opponent-1" }],
+        [],
+        // handles
         []
       );
 
@@ -748,6 +820,7 @@ describe("Game Management Routes", () => {
             player2DisputeUsed: true,
           },
         ],
+        [],
         [],
         []
       );
@@ -777,6 +850,7 @@ describe("Game Management Routes", () => {
             player2DisputeUsed: true,
           },
         ],
+        [],
         [],
         []
       );
@@ -809,6 +883,8 @@ describe("Game Management Routes", () => {
           },
         ],
         [],
+        [],
+        // [3] handles — opponent not found covers ?? fallback
         []
       );
 
@@ -819,6 +895,67 @@ describe("Game Management Routes", () => {
 
       const result = vi.mocked(res.json).mock.calls[0][0];
       expect(result.canDispute).toBe(false);
+      // handles not found → null via ?? fallback
+      expect(result.game.player1Handle).toBeNull();
+      expect(result.game.player2Handle).toBeNull();
+    });
+
+    it("returns null handle when player2Id is null in game detail", async () => {
+      resultQueue.push(
+        [
+          {
+            id: "game-1",
+            player1Id: "user-1",
+            player2Id: null,
+            status: "active",
+            currentTurn: "user-1",
+            turnPhase: "set",
+            player1DisputeUsed: false,
+            player2DisputeUsed: false,
+          },
+        ],
+        [],
+        [],
+        [{ uid: "user-1", username: "me_handle" }]
+      );
+
+      const req = mockRequest({ params: { id: "game-1" } });
+      const res = mockResponse();
+
+      await callRoute("GET", "/:id", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.game.player1Handle).toBe("me_handle");
+      expect(result.game.player2Handle).toBeNull();
+    });
+
+    it("returns null handle when player1Id is null in game detail", async () => {
+      resultQueue.push(
+        [
+          {
+            id: "game-1",
+            player1Id: null,
+            player2Id: "user-1",
+            status: "active",
+            currentTurn: "user-1",
+            turnPhase: "set",
+            player1DisputeUsed: false,
+            player2DisputeUsed: false,
+          },
+        ],
+        [],
+        [],
+        [{ uid: "user-1", username: "me_handle" }]
+      );
+
+      const req = mockRequest({ params: { id: "game-1" } });
+      const res = mockResponse();
+
+      await callRoute("GET", "/:id", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.game.player1Handle).toBeNull();
+      expect(result.game.player2Handle).toBe("me_handle");
     });
 
     it("returns 403 when user is not a player", async () => {

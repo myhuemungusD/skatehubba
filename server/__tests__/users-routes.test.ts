@@ -253,6 +253,25 @@ describe("GET /api/users/search", () => {
 
     expect(res.json).toHaveBeenCalledWith([]);
   });
+
+  it("should search without self-exclusion when currentUser is undefined", async () => {
+    const dbResults = [
+      { id: "u1", firstName: "Jane", lastName: "Doe", handle: "janedoe", wins: 3, losses: 1 },
+    ];
+    vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
+
+    const req = mockReq({ query: { q: "Jane" }, currentUser: undefined });
+    const res = mockRes();
+    await callHandler("GET /search", req, res);
+
+    expect(res.json).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "u1",
+        displayName: "Jane Doe",
+        handle: "janedoe",
+      }),
+    ]);
+  });
 });
 
 describe("GET /api/users", () => {
