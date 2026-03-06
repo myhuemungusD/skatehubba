@@ -14,6 +14,7 @@ import {
   createGameSchema,
   respondGameSchema,
   getUserDisplayName,
+  getUserHandle,
   TURN_DEADLINE_MS,
 } from "./games-shared";
 
@@ -49,9 +50,11 @@ router.post("/create", async (req, res) => {
       return Errors.notFound(res, "OPPONENT_NOT_FOUND", "Opponent not found.");
     }
 
-    const [player1Name, player2Name] = await Promise.all([
+    const [player1Name, player2Name, player1Handle, player2Handle] = await Promise.all([
       getUserDisplayName(db, currentUserId),
       getUserDisplayName(db, opponentId),
+      getUserHandle(db, currentUserId),
+      getUserHandle(db, opponentId),
     ]);
 
     const [newGame] = await db
@@ -82,7 +85,7 @@ router.post("/create", async (req, res) => {
     });
 
     res.status(201).json({
-      game: newGame,
+      game: { ...newGame, player1Handle, player2Handle },
       message: "Challenge sent.",
     });
   } catch (error) {

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { customUsers } from "@shared/schema";
+import { customUsers, usernames } from "@shared/schema";
 import { ilike, or, eq, and, sql } from "drizzle-orm";
 import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
@@ -31,8 +31,10 @@ router.get("/search", authenticateUser, async (req, res) => {
           id: customUsers.id,
           firstName: customUsers.firstName,
           lastName: customUsers.lastName,
+          handle: usernames.username,
         })
         .from(customUsers)
+        .leftJoin(usernames, eq(usernames.uid, customUsers.id))
         .where(
           or(ilike(customUsers.firstName, searchTerm), ilike(customUsers.lastName, searchTerm))
         )
@@ -42,7 +44,7 @@ router.get("/search", authenticateUser, async (req, res) => {
         id: u.id,
         displayName:
           u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.firstName || "Skater",
-        handle: `user${u.id.substring(0, 4)}`,
+        handle: u.handle || `user${u.id.substring(0, 4)}`,
         wins: 0,
         losses: 0,
       }));

@@ -12,7 +12,6 @@ export function useNavItems(): NavItem[] {
     return [
       { label: "HOME", href: "/hub" },
       { label: "MAP", href: "/map" },
-      { label: "PLAY", href: "/play" },
       { label: "SETTINGS", href: "/me" },
       { label: "MERCH", href: "https://skatehubba.store/", external: true },
     ];

@@ -10,7 +10,7 @@ import {
   PlayPage,
   ProfilePage,
   MapPage,
-  LeaderboardPage,
+  CheckinsPage,
   SpotDetailPage,
   TrickMintPage,
   Tutorial,
@@ -127,11 +127,11 @@ export function DashboardMapRoute() {
   );
 }
 
-export function DashboardLeaderboardRoute() {
+export function DashboardCheckinsRoute() {
   return (
     <DashboardLayout>
-      <RouteErrorBoundary fallbackMessage="Failed to load the leaderboard.">
-        <LeaderboardPage />
+      <RouteErrorBoundary fallbackMessage="Failed to load check-in history.">
+        <CheckinsPage />
       </RouteErrorBoundary>
     </DashboardLayout>
   );

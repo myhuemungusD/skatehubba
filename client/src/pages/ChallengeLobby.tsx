@@ -17,7 +17,7 @@ export default function ChallengeLobby() {
   const [, setLocation] = useLocation();
 
   const { data: myGames, isLoading, error: gamesError, refetch } = useMyGames();
-  const { data: myStats } = useMyStats();
+  const { data: myStats, isLoading: isStatsLoading } = useMyStats();
   const respondToGame = useRespondToGame();
   const createGame = useCreateGame();
 
@@ -93,13 +93,21 @@ export default function ChallengeLobby() {
             <InviteButton size="sm" label="Invite" className="shrink-0" />
           </div>
           {myStats && <PlayerStats stats={myStats} />}
-          {!myStats && (
+          {!myStats && isStatsLoading && (
+            <div className="py-3 animate-pulse">
+              <div className="h-4 bg-neutral-700/50 rounded w-1/2 mx-auto" />
+            </div>
+          )}
+          {!myStats && !isStatsLoading && (
             <p className="text-sm text-neutral-500 text-center py-2">
               No games played yet. Challenge someone to get started!
             </p>
           )}
         </section>
       )}
+
+      {/* Rankings */}
+      <CompactLeaderboard />
 
       {/* API error banner — non-blocking, shows inline with retry */}
       {gamesError && (
@@ -272,9 +280,6 @@ export default function ChallengeLobby() {
             )}
         </>
       )}
-
-      {/* Rankings */}
-      <CompactLeaderboard />
 
       {/* No data and no error — first-time empty state */}
       {!myGames && !gamesError && !isLoading && (

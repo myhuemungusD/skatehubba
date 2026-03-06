@@ -91,6 +91,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               href="/me"
               className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors w-full"
               data-testid="nav-settings"
+              aria-label="Settings"
             >
               <Settings className="h-5 w-5" aria-hidden="true" />
               <span>Settings</span>

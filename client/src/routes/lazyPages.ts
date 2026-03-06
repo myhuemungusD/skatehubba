@@ -4,7 +4,7 @@ import { lazy } from "react";
 export const HubPage = lazy(() => import("../pages/hub"));
 export const PlayPage = lazy(() => import("../pages/play"));
 export const ProfilePage = lazy(() => import("../pages/me"));
-export const LeaderboardPage = lazy(() => import("../pages/leaderboard"));
+export const CheckinsPage = lazy(() => import("../pages/checkins"));
 
 // Standalone pages
 export const Tutorial = lazy(() => import("../pages/tutorial"));

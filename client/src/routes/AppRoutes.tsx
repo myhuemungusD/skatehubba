@@ -36,6 +36,7 @@ import {
   DashboardPlayRoute,
   DashboardProfileRoute,
   DashboardMapRoute,
+  DashboardCheckinsRoute,
   AdminDashboardRoute,
   AdminReportsRoute,
   AdminUsersRoute,
@@ -206,7 +207,7 @@ export default function AppRoutes() {
             />
             <ProtectedRoute
               path="/checkins"
-              component={DashboardProfileRoute}
+              component={DashboardCheckinsRoute}
               allowMissingProfile
             />
             <ProtectedRoute

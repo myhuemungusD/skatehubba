@@ -97,6 +97,7 @@ vi.mock("../../routes/games-shared", () => ({
     },
   },
   getUserDisplayName: vi.fn().mockResolvedValue("TestPlayer"),
+  getUserHandle: vi.fn().mockResolvedValue("testplayer"),
   TURN_DEADLINE_MS: 24 * 60 * 60 * 1000,
 }));
 

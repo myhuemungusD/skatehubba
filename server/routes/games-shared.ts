@@ -3,7 +3,10 @@
  */
 
 import { z } from "zod";
-import { getUserDisplayName as getUserDisplayNameFromDb } from "../db";
+import {
+  getUserDisplayName as getUserDisplayNameFromDb,
+  getUserHandle as getUserHandleFromDb,
+} from "../db";
 import { SKATE_LETTERS_TO_LOSE } from "../config/constants";
 
 // ============================================================================
@@ -76,3 +79,4 @@ export const resolveDisputeSchema = z.object({
 
 // Re-export centralized database helpers
 export { getUserDisplayNameFromDb as getUserDisplayName };
+export { getUserHandleFromDb as getUserHandle };

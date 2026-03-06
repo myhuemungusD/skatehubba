@@ -34,6 +34,10 @@ vi.mock("@shared/schema", () => ({
     lastName: "lastName",
     isActive: "isActive",
   },
+  usernames: {
+    uid: "uid",
+    username: "username",
+  },
 }));
 
 vi.mock("drizzle-orm", () => ({
@@ -104,6 +108,11 @@ function buildSearchDb(results: any[]) {
   return {
     select: vi.fn().mockReturnValue({
       from: vi.fn().mockReturnValue({
+        leftJoin: vi.fn().mockReturnValue({
+          where: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue(results),
+          }),
+        }),
         where: vi.fn().mockReturnValue({
           limit: vi.fn().mockResolvedValue(results),
         }),
@@ -129,7 +138,7 @@ describe("GET /api/users/search", () => {
   });
 
   it("should return mapped user results for valid query", async () => {
-    const dbResults = [{ id: "u1", firstName: "John", lastName: "Doe" }];
+    const dbResults = [{ id: "u1", firstName: "John", lastName: "Doe", handle: "johndoe" }];
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "John" } });
@@ -140,13 +149,13 @@ describe("GET /api/users/search", () => {
       expect.objectContaining({
         id: "u1",
         displayName: "John Doe",
-        handle: "useru1",
+        handle: "johndoe",
       }),
     ]);
   });
 
   it("should escape SQL LIKE wildcards in search query", async () => {
-    const dbResults = [{ id: "u1", firstName: "100%", lastName: "User" }];
+    const dbResults = [{ id: "u1", firstName: "100%", lastName: "User", handle: null }];
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "100%" } });
@@ -199,7 +208,7 @@ describe("GET /api/users/search", () => {
   });
 
   it("should handle user with only firstName (no lastName)", async () => {
-    const dbResults = [{ id: "u2", firstName: "Solo", lastName: null }];
+    const dbResults = [{ id: "u2", firstName: "Solo", lastName: null, handle: null }];
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "Solo" } });
@@ -210,7 +219,7 @@ describe("GET /api/users/search", () => {
   });
 
   it("should handle user with no name at all", async () => {
-    const dbResults = [{ id: "u3", firstName: null, lastName: null }];
+    const dbResults = [{ id: "u3", firstName: null, lastName: null, handle: null }];
     vi.mocked(getDb).mockReturnValue(buildSearchDb(dbResults) as any);
 
     const req = mockReq({ query: { q: "noname" } });

@@ -118,6 +118,20 @@ export async function getUserDisplayName(db: Database, userId: string): Promise<
   return userResult[0]?.firstName || "Skater";
 }
 
+/**
+ * Get user handle (username) from the usernames table.
+ * Returns null if no username is registered.
+ */
+export async function getUserHandle(db: Database, userId: string): Promise<string | null> {
+  const result = await db
+    .select({ username: schema.usernames.username })
+    .from(schema.usernames)
+    .where(eq(schema.usernames.uid, userId))
+    .limit(1);
+
+  return result[0]?.username ?? null;
+}
+
 export { db, pool };
 export type { Database };
 
