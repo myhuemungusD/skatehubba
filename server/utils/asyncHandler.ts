@@ -27,6 +27,13 @@ export function asyncHandler(
     // Return the promise so callers (including tests) can await it.
     // Express ignores return values from middleware, but returning the promise
     // is safe and avoids floating promises in unit tests.
-    return Promise.resolve(fn(req, res, next)).catch(next) as unknown as void;
+    try {
+      return Promise.resolve(fn(req, res, next)).catch(next) as unknown as void;
+    } catch (err) {
+      // Guard against a non-async fn that throws synchronously before
+      // returning a promise. All current callers are async (so this branch
+      // is unreachable today), but it protects future refactors.
+      next(err);
+    }
   };
 }
