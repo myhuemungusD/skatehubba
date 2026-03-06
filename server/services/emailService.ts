@@ -9,7 +9,13 @@ import { Resend } from "resend";
 import { env } from "../config/env";
 import logger from "../logger";
 
-const resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+let _resend: Resend | null | undefined;
+
+function getResendClient(): Resend | null {
+  if (_resend !== undefined) return _resend;
+  _resend = env.RESEND_API_KEY ? new Resend(env.RESEND_API_KEY) : null;
+  return _resend;
+}
 
 const FROM_ADDRESS = "SkateHubba <hello@skatehubba.com>";
 
@@ -56,6 +62,7 @@ async function sendEmail(
   subject: string,
   html: string
 ): Promise<{ success: boolean; error?: string }> {
+  const resend = getResendClient();
   if (!resend) {
     logger.debug(`[Email] Would send to ${to}: ${subject}`);
     return { success: true };
