@@ -67,6 +67,19 @@ export function useRecordingState({ onVideoReady }: UseRecordingStateParams) {
     };
   }, [recording, progressAnim, stopRecording]);
 
+  // Stop recording on unmount to prevent orphaned camera sessions
+  useEffect(() => {
+    return () => {
+      if (cameraRef.current && recording) {
+        try {
+          cameraRef.current.stopRecording();
+        } catch {
+          // Camera may already be stopped
+        }
+      }
+    };
+  }, [recording]);
+
   const startRecording = useCallback(async () => {
     if (!cameraRef.current || recording) return;
 

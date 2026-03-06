@@ -54,6 +54,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onCompleteRef = useRef(onRecordingComplete);
+  const startingRef = useRef(false);
 
   const [state, setState] = useState<RecorderState>("idle");
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -95,13 +96,23 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
   }, [cleanup]);
 
   const startRecording = useCallback(async () => {
-    if (state !== "idle" || disabled) return;
+    if (state !== "idle" || disabled || startingRef.current) return;
+    startingRef.current = true;
 
     setState("requesting");
     setError(null);
     chunksRef.current = [];
 
     try {
+      if (
+        typeof window !== "undefined" &&
+        window.location.protocol !== "https:" &&
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1"
+      ) {
+        throw new Error("https_required");
+      }
+
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("unsupported");
       }
@@ -130,6 +141,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
       };
 
       recorder.onstop = () => {
+        startingRef.current = false;
         const durationMs = Math.min(Date.now() - startTimeRef.current, MAX_DURATION_MS);
         const actualMime = mimeType || "video/webm";
         const blob = new Blob(chunksRef.current, { type: actualMime });
@@ -147,9 +159,10 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
       };
 
       recorder.onerror = () => {
+        startingRef.current = false;
         cleanup();
         setState("idle");
-        setError("Recording failed.");
+        setError("Recording failed. Please try again.");
       };
 
       mediaRecorderRef.current = recorder;
@@ -170,9 +183,12 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
         }
       }, MAX_DURATION_MS);
     } catch (err) {
+      startingRef.current = false;
       cleanup();
       setState("idle");
-      if (err instanceof Error && err.message === "unsupported") {
+      if (err instanceof Error && err.message === "https_required") {
+        setError("Camera requires a secure connection (HTTPS).");
+      } else if (err instanceof Error && err.message === "unsupported") {
         setError("Camera recording is not supported in this browser. Try Chrome or Safari.");
       } else {
         setError("Camera access denied. Check your browser permissions.");
@@ -222,7 +238,9 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
             {/* Time remaining */}
             <div
               className="absolute top-3 right-3 px-2 py-1 rounded bg-black/60 font-mono text-xs text-red-400"
+              role="timer"
               aria-live="polite"
+              aria-atomic="true"
               aria-label={`${remainingS} seconds remaining`}
             >
               {remainingS}s

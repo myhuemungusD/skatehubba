@@ -45,6 +45,16 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
   const previewUrlRef = useRef<string | null>(null);
 
   const startCamera = useCallback(async () => {
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol !== "https:" &&
+      window.location.hostname !== "localhost" &&
+      window.location.hostname !== "127.0.0.1"
+    ) {
+      setCameraError("Camera requires a secure connection (HTTPS).");
+      return;
+    }
+
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError("Camera recording is not supported in this browser.");
       return;
@@ -170,6 +180,11 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
           previewUrlRef.current = url;
           previewRef.current.src = url;
         }
+      };
+
+      mediaRecorder.onerror = () => {
+        setIsRecording(false);
+        setCameraError("Recording failed unexpectedly. Please try again.");
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -327,7 +342,8 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
                   id="trick-name-input"
                   type="text"
                   value={trickName}
-                  onChange={(e) => setTrickName(e.target.value)}
+                  onChange={(e) => setTrickName(e.target.value.slice(0, 100))}
+                  maxLength={100}
                   placeholder="e.g., Kickflip, Heelflip, 360 Flip..."
                   className="w-full bg-zinc-800 text-white px-4 py-3 rounded-xl border-2 border-zinc-700 focus:border-orange-500 outline-none transition-all"
                 />

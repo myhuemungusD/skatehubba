@@ -36,7 +36,12 @@ export async function extractThumbnail(
     }, 10_000);
 
     video.onloadedmetadata = () => {
-      // Seek to the target time (or 0 if video is shorter)
+      if (!isFinite(video.duration) || video.duration <= 0) {
+        clearTimeout(timeoutId);
+        cleanup();
+        resolve(null);
+        return;
+      }
       video.currentTime = Math.min(seekTimeSeconds, video.duration * 0.5);
     };
 
@@ -45,9 +50,11 @@ export async function extractThumbnail(
 
       try {
         const canvas = document.createElement("canvas");
-        const aspectRatio = video.videoHeight / video.videoWidth;
+        const w = video.videoWidth || THUMBNAIL_WIDTH;
+        const h = video.videoHeight || THUMBNAIL_WIDTH;
+        const aspectRatio = h / w;
         canvas.width = THUMBNAIL_WIDTH;
-        canvas.height = Math.round(THUMBNAIL_WIDTH * aspectRatio);
+        canvas.height = Math.round(THUMBNAIL_WIDTH * aspectRatio) || THUMBNAIL_WIDTH;
 
         const ctx = canvas.getContext("2d");
         if (!ctx) {
@@ -61,6 +68,7 @@ export async function extractThumbnail(
         canvas.toBlob(
           (blob) => {
             cleanup();
+            // toBlob can return null on failure (e.g. out of memory)
             resolve(blob);
           },
           "image/jpeg",

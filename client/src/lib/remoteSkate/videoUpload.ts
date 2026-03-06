@@ -173,6 +173,15 @@ function getExtension(contentType: string): string {
   }
 }
 
+/** Validate that a path segment is safe (no traversal, no slashes) */
+const SAFE_PATH_SEGMENT = /^[a-zA-Z0-9_-]+$/;
+
+function validatePathSegment(value: string, name: string): void {
+  if (!SAFE_PATH_SEGMENT.test(value)) {
+    throw new Error(`Invalid ${name}: contains disallowed characters`);
+  }
+}
+
 /**
  * Upload a video to Firebase Storage with resumable upload and progress tracking.
  *
@@ -190,6 +199,13 @@ export function uploadVideo(
   callbacks: VideoUploadCallbacks = {}
 ): UploadTask {
   const { file, uid, gameId, roundId, videoId, role } = params;
+
+  // Validate all path segments to prevent directory traversal
+  validatePathSegment(uid, "uid");
+  validatePathSegment(gameId, "gameId");
+  validatePathSegment(roundId, "roundId");
+  validatePathSegment(videoId, "videoId");
+
   const ext = getExtension(file.type);
   const storagePath = `videos/${uid}/${gameId}/${roundId}/${videoId}.${ext}`;
 

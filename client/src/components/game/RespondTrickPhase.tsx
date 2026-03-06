@@ -47,6 +47,7 @@ export function RespondTrickPhase({
           <video
             src={lastSetTurn.videoUrl}
             className="w-full h-full object-cover"
+            crossOrigin="anonymous"
             autoPlay
             loop
             muted
