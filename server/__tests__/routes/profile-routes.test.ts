@@ -16,6 +16,9 @@ mockDbChain.limit = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.insert = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.values = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.returning = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.onConflictDoNothing = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.update = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.delete = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.transaction = vi.fn().mockImplementation(async (fn: any) => fn(mockDbChain));
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
@@ -50,6 +53,7 @@ vi.mock("@shared/schema", () => ({
   onboardingProfiles: { uid: "uid" },
   userProfiles: { id: "id" },
   closetItems: { userId: "userId" },
+  usernames: { uid: "uid", username: "username" },
 }));
 
 vi.mock("@shared/validation/profile", () => ({
@@ -162,6 +166,9 @@ vi.mock("express", () => ({
       routeHandlers[`POST ${path}`] = handlers;
     }),
     put: vi.fn(),
+    patch: vi.fn((path: string, ...handlers: any[]) => {
+      routeHandlers[`PATCH ${path}`] = handlers;
+    }),
     delete: vi.fn((path: string, ...handlers: any[]) => {
       routeHandlers[`DELETE ${path}`] = handlers;
     }),

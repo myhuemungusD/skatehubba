@@ -341,8 +341,6 @@ router.patch("/username", authenticateUser, async (req, res) => {
     return Errors.dbUnavailable(res);
   }
 
-  const usernameStore = createUsernameStore(database);
-
   try {
     // Check if the user already has this username
     const [existing] = await database
