@@ -104,7 +104,8 @@ export function createApp(): express.Express {
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
-        callback(new Error("Not allowed by CORS"));
+        logger.warn("[CORS] Blocked request from unrecognised origin", { origin });
+        callback(null, false);
       }
     },
     credentials: true,
@@ -202,12 +203,18 @@ export function createApp(): express.Express {
       }
 
       logger.error("[App] Unhandled route error", {
+        route: _req.path,
+        method: _req.method,
         name: err?.name,
         message: err?.message,
         stack: process.env.NODE_ENV !== "production" ? err?.stack : undefined,
       });
       if (!res.headersSent) {
-        res.status(500).json({ error: "INTERNAL_ERROR", message: "An unexpected error occurred." });
+        res.status(500).json({
+          error: "INTERNAL_ERROR",
+          message: "An unexpected error occurred.",
+          ...(process.env.NODE_ENV !== "production" && { hint: err?.message }),
+        });
       }
     }
   );
