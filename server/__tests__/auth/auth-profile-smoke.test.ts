@@ -190,6 +190,7 @@ vi.mock("../../middleware/firebaseUid", () => ({
 vi.mock("../../middleware/security", () => ({
   profileCreateLimiter: (_req: any, _res: any, next: any) => next(),
   usernameCheckLimiter: (_req: any, _res: any, next: any) => next(),
+  usernameUpdateLimiter: (_req: any, _res: any, next: any) => next(),
 }));
 
 const mockIsAvailable = vi.fn().mockResolvedValue(true);
@@ -262,6 +263,7 @@ vi.mock("express", () => ({
       profileRouteHandlers[`POST ${path}`] = handlers;
     }),
     put: vi.fn(),
+    patch: vi.fn(),
     delete: vi.fn(),
     use: vi.fn(),
   }),

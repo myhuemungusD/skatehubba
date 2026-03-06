@@ -651,6 +651,7 @@ describe("security middleware lines 413, 422 — isValidEmail edge cases", () =>
         payment: { windowMs: 3600000, max: 5, message: "Too many", prefix: "rl:pay:" },
         gameWrite: { windowMs: 60000, max: 20, message: "Too many", prefix: "rl:gw:" },
         trickmintUpload: { windowMs: 3600000, max: 10, message: "Too many", prefix: "rl:tu:" },
+        usernameUpdate: { windowMs: 900000, max: 5, message: "Too many", prefix: "rl:uu:" },
         userSearch: { windowMs: 60000, max: 20, message: "Too many", prefix: "rl:us:" },
       },
     }));

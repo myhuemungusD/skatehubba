@@ -76,6 +76,7 @@ vi.mock("../../config/rateLimits", () => {
       payment: stub,
       gameWrite: stub,
       trickmintUpload: stub,
+      usernameUpdate: stub,
       userSearch: stub,
     },
   };
