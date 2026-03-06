@@ -22,18 +22,32 @@ export function useCameraPermissions({
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    if (visible) {
-      setIsInitializing(true);
-      (async () => {
+    if (!visible) return;
+
+    let cancelled = false;
+    setIsInitializing(true);
+
+    (async () => {
+      try {
         if (!hasCameraPermission) {
           await requestCameraPermission();
         }
         if (!hasMicPermission) {
           await requestMicPermission();
         }
-        setIsInitializing(false);
-      })();
-    }
+      } catch {
+        // Permission request threw (e.g. native module error).
+        // isInitializing will clear so the permission-denied UI shows.
+      } finally {
+        if (!cancelled) {
+          setIsInitializing(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [
     visible,
     hasCameraPermission,

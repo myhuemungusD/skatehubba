@@ -18,6 +18,24 @@ import { cn } from "@/lib/utils";
 
 const MAX_DURATION_MS = 15_000;
 const MAX_DURATION_S = MAX_DURATION_MS / 1000;
+const MIN_DURATION_MS = 500;
+
+/** Pick the best supported video MIME type for MediaRecorder (Safari uses mp4) */
+function getSupportedMimeType(): string {
+  const candidates = [
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4",
+  ];
+  for (const type of candidates) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) {
+      return type;
+    }
+  }
+  return "";
+}
 
 interface VideoRecorderProps {
   onRecordingComplete: (blob: Blob, durationMs: number) => void;
@@ -84,6 +102,10 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
     chunksRef.current = [];
 
     try {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("unsupported");
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: true,
@@ -97,11 +119,9 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
         await videoRef.current.play();
       }
 
-      const recorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-          ? "video/webm;codecs=vp9"
-          : "video/webm",
-      });
+      const mimeType = getSupportedMimeType();
+      const recorderOptions: MediaRecorderOptions = mimeType ? { mimeType } : {};
+      const recorder = new MediaRecorder(stream, recorderOptions);
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -111,12 +131,18 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
 
       recorder.onstop = () => {
         const durationMs = Math.min(Date.now() - startTimeRef.current, MAX_DURATION_MS);
-        const blob = new Blob(chunksRef.current, { type: "video/webm" });
+        const actualMime = mimeType || "video/webm";
+        const blob = new Blob(chunksRef.current, { type: actualMime });
 
         cleanup();
-        setState("sent");
 
-        // Auto-send. No preview. No confirmation. Done.
+        if (durationMs < MIN_DURATION_MS || blob.size === 0) {
+          setState("idle");
+          setError("Recording too short. Hold the button longer.");
+          return;
+        }
+
+        setState("sent");
         onCompleteRef.current(blob, durationMs);
       };
 
@@ -143,10 +169,14 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
           mediaRecorderRef.current.stop();
         }
       }, MAX_DURATION_MS);
-    } catch {
+    } catch (err) {
       cleanup();
       setState("idle");
-      setError("Camera access denied.");
+      if (err instanceof Error && err.message === "unsupported") {
+        setError("Camera recording is not supported in this browser. Try Chrome or Safari.");
+      } else {
+        setError("Camera access denied. Check your browser permissions.");
+      }
     }
   }, [state, disabled, cleanup]);
 

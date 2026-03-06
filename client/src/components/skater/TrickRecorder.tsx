@@ -3,6 +3,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Video, Pause, RotateCcw, Check, X } from "lucide-react";
 import { logger } from "../../lib/logger";
 
+const MAX_RECORDING_SECONDS = 60;
+
+/** Pick the best supported video MIME type for MediaRecorder */
+function getSupportedMimeType(): string {
+  const candidates = [
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4",
+  ];
+  for (const type of candidates) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) {
+      return type;
+    }
+  }
+  return "";
+}
+
 interface TrickRecorderProps {
   spotId: string;
   onRecordComplete?: (videoBlob: Blob, trickName: string) => void;
@@ -16,6 +34,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
   const [videoBlob, setVideoBlob] = useState<Blob | null>(null);
   const [trickName, setTrickName] = useState("");
   const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const previewRef = useRef<HTMLVideoElement>(null);
@@ -23,15 +42,21 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<number | null>(null);
+  const previewUrlRef = useRef<string | null>(null);
 
   const startCamera = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError("Camera recording is not supported in this browser.");
+      return;
+    }
+
     try {
       let stream: MediaStream;
 
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: { ideal: "environment" }, // Prefer back camera on mobile
+            facingMode: { ideal: "environment" },
             width: { ideal: 1920 },
             height: { ideal: 1080 },
           },
@@ -59,7 +84,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
       }
     } catch (error) {
       logger.error("Error accessing camera:", error);
-      alert("Unable to access camera. Please check permissions.");
+      setCameraError("Unable to access camera. Please check your browser permissions.");
     }
   }, []);
 
@@ -73,6 +98,11 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
+
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
   }, []);
 
   useEffect(() => {
@@ -85,7 +115,16 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
   useEffect(() => {
     if (isRecording) {
       timerRef.current = window.setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
+        setRecordingTime((prev) => {
+          const next = prev + 1;
+          if (next >= MAX_RECORDING_SECONDS) {
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+              mediaRecorderRef.current.stop();
+            }
+            setIsRecording(false);
+          }
+          return next;
+        });
       }, 1000);
     } else {
       if (timerRef.current) {
@@ -105,9 +144,9 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
     chunksRef.current = [];
 
     try {
-      const mediaRecorder = new MediaRecorder(streamRef.current, {
-        mimeType: "video/webm;codecs=vp8,opus",
-      });
+      const mimeType = getSupportedMimeType();
+      const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
+      const mediaRecorder = new MediaRecorder(streamRef.current, options);
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -116,12 +155,20 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
       };
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "video/webm" });
+        const actualMime = mimeType || "video/webm";
+        const blob = new Blob(chunksRef.current, { type: actualMime });
         setVideoBlob(blob);
         setIsPreviewing(true);
 
+        // Revoke previous object URL to prevent memory leak
+        if (previewUrlRef.current) {
+          URL.revokeObjectURL(previewUrlRef.current);
+        }
+
         if (previewRef.current) {
-          previewRef.current.src = URL.createObjectURL(blob);
+          const url = URL.createObjectURL(blob);
+          previewUrlRef.current = url;
+          previewRef.current.src = url;
         }
       };
 
@@ -131,7 +178,7 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
       setRecordingTime(0);
     } catch (error) {
       logger.error("Error starting recording:", error);
-      alert("Unable to start recording.");
+      setCameraError("Unable to start recording. Your browser may not support video capture.");
     }
   };
 
@@ -143,6 +190,11 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
   };
 
   const retake = () => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+
     setVideoBlob(null);
     setIsPreviewing(false);
     setRecordingTime(0);
@@ -154,12 +206,9 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
   };
 
   const handleSubmit = () => {
-    if (videoBlob && trickName.trim()) {
-      onRecordComplete?.(videoBlob, trickName);
-      onClose?.();
-    } else {
-      alert("Please name your trick before submitting!");
-    }
+    if (!videoBlob || !trickName.trim()) return;
+    onRecordComplete?.(videoBlob, trickName);
+    onClose?.();
   };
 
   const formatTime = (seconds: number): string => {
@@ -167,6 +216,22 @@ export default function TrickRecorder({ spotId, onRecordComplete, onClose }: Tri
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
+
+  if (cameraError) {
+    return (
+      <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center p-6">
+        <Video className="w-16 h-16 text-neutral-600 mb-4" />
+        <p className="text-white text-lg font-semibold mb-2">Camera Unavailable</p>
+        <p className="text-neutral-400 text-sm text-center mb-6 max-w-xs">{cameraError}</p>
+        <button
+          onClick={onClose}
+          className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-xl transition-all"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-black">

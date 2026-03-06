@@ -68,7 +68,7 @@ export function useRecordingState({ onVideoReady }: UseRecordingStateParams) {
   }, [recording, progressAnim, stopRecording]);
 
   const startRecording = useCallback(async () => {
-    if (!cameraRef.current) return;
+    if (!cameraRef.current || recording) return;
 
     try {
       setRecording(true);
@@ -93,7 +93,7 @@ export function useRecordingState({ onVideoReady }: UseRecordingStateParams) {
       setRecording(false);
       Alert.alert("Recording Failed", "Please try again.");
     }
-  }, [onVideoReady]);
+  }, [onVideoReady, recording]);
 
   return {
     cameraRef,
