@@ -10,8 +10,10 @@ export interface Game {
   id: string;
   player1Id: string;
   player1Name: string;
+  player1Handle?: string;
   player2Id: string;
   player2Name: string;
+  player2Handle?: string;
   status: "pending" | "active" | "completed" | "declined" | "forfeited";
   currentTurn: string | null;
   turnPhase: TurnPhase | null;
@@ -157,6 +159,7 @@ export interface GameStats {
   opponentRecords: {
     opponentId: string;
     name: string;
+    handle?: string;
     wins: number;
     losses: number;
     streak: number;

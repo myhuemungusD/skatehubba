@@ -5,6 +5,7 @@
  * Every game is a permanent record. Your stats tell your story.
  */
 
+import { Link } from "wouter";
 import { Trophy, Flame, Target, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { GameStats } from "@/lib/api/game/types";
@@ -78,7 +79,18 @@ export function PlayerStats({ stats, className }: PlayerStatsProps) {
               >
                 <Trophy className="w-4 h-4 text-green-400" />
                 <span className="text-sm text-green-400">
-                  You've beaten @{record.name} {record.streak} times in a row
+                  You've beaten{" "}
+                  {record.handle ? (
+                    <Link
+                      href={`/skater/${record.handle}`}
+                      className="underline hover:text-green-300 transition-colors"
+                    >
+                      @{record.name}
+                    </Link>
+                  ) : (
+                    <>@{record.name}</>
+                  )}{" "}
+                  {record.streak} times in a row
                 </span>
               </div>
             ))}

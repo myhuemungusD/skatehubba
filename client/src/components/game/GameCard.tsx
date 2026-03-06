@@ -5,6 +5,7 @@
  */
 
 import { memo } from "react";
+import { Link } from "wouter";
 import { formatDistanceToNow } from "date-fns";
 import { Clock, Trophy, User, Target, Shield, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ export const GameCard = memo(function GameCard({
 }: GameCardProps) {
   const isPlayer1 = game.player1Id === currentUserId;
   const opponentName = isPlayer1 ? game.player2Name : game.player1Name;
+  const opponentHandle = isPlayer1 ? game.player2Handle : game.player1Handle;
   const myLetters = isPlayer1 ? game.player1Letters : game.player2Letters;
   const oppLetters = isPlayer1 ? game.player2Letters : game.player1Letters;
   const isMyTurn = game.currentTurn === currentUserId;
@@ -75,7 +77,17 @@ export const GameCard = memo(function GameCard({
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
             <User className="w-4 h-4 text-neutral-400" />
-            <span className="font-medium text-white">{opponentName}</span>
+            {opponentHandle ? (
+              <Link
+                href={`/skater/${opponentHandle}`}
+                className="font-medium text-white hover:text-yellow-400 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {opponentName}
+              </Link>
+            ) : (
+              <span className="font-medium text-white">{opponentName}</span>
+            )}
           </div>
 
           <div className="flex items-center gap-4 text-sm">
