@@ -194,8 +194,8 @@ async function enrichGameWithHandles(db: ReturnType<typeof getDb>, game: Record<
 
   return {
     ...game,
-    player1Handle: game.player1Id ? (hMap.get(game.player1Id) ?? null) : null,
-    player2Handle: game.player2Id ? (hMap.get(game.player2Id) ?? null) : null,
+    player1Handle: game.player1Id ? (hMap.get(String(game.player1Id)) ?? null) : null,
+    player2Handle: game.player2Id ? (hMap.get(String(game.player2Id)) ?? null) : null,
   };
 }
 
