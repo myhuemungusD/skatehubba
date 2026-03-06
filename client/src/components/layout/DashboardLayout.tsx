@@ -45,7 +45,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               {auth.profile?.username && (
                 <Link
                   href={`/skater/${auth.profile.username}`}
-                  className="text-xs text-neutral-400 hover:text-yellow-400 transition-colors mt-0.5 block"
+                  className="text-xs text-neutral-400 hover:text-yellow-400 transition-colors mt-1 block"
                 >
                   @{auth.profile.username}
                 </Link>
@@ -134,12 +134,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <EmailVerificationBanner />
       {/* Mobile top bar with notification bell */}
       <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/95 px-4 py-2 backdrop-blur-sm">
-        <div className="flex items-center gap-1.5">
-          <span className="text-lg font-bold text-yellow-400">SkateHubba</span>
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1">
+          <span className="text-lg font-bold text-yellow-400 shrink-0">SkateHubba</span>
           {auth.profile?.username && (
             <Link
               href={`/skater/${auth.profile.username}`}
-              className="text-sm text-neutral-400 hover:text-yellow-400 transition-colors"
+              className="text-sm text-neutral-400 hover:text-yellow-400 transition-colors truncate"
             >
               @{auth.profile.username}
             </Link>

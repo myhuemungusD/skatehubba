@@ -67,6 +67,12 @@ vi.mock("drizzle-orm", () => ({
 vi.mock("@shared/schema", () => ({
   games: { id: "id", player1Id: "player1Id", player2Id: "player2Id", status: "status" },
   customUsers: { id: "id" },
+  usernames: { uid: "uid", username: "username" },
+}));
+
+vi.mock("drizzle-orm", () => ({
+  eq: vi.fn(),
+  inArray: vi.fn(),
 }));
 
 vi.mock("../../routes/games-shared", () => ({
@@ -96,8 +102,7 @@ vi.mock("../../routes/games-shared", () => ({
       return { success: true, data: { accept: data.accept } };
     },
   },
-  getUserDisplayName: vi.fn().mockResolvedValue("TestPlayer"),
-  getUserHandle: vi.fn().mockResolvedValue("testplayer"),
+  getUserNameInfo: vi.fn().mockResolvedValue({ displayName: "TestPlayer", handle: "testplayer" }),
   TURN_DEADLINE_MS: 24 * 60 * 60 * 1000,
 }));
 
@@ -113,14 +118,22 @@ let shouldGetDbThrow = false;
 vi.mock("../../db", () => ({
   getDb: () => {
     if (shouldGetDbThrow) throw new Error("Database not configured");
-    return {
-      select: vi.fn().mockReturnValue({
+    // Create a thenable where chain that resolves to selectResult
+    const makeSelectChain = () => {
+      const result = Promise.resolve(mockDbReturns.selectResult);
+      return {
         from: vi.fn().mockReturnValue({
           where: vi.fn().mockReturnValue({
-            limit: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.selectResult)),
+            limit: vi.fn().mockReturnValue(result),
+            then: (r: any, j?: any) => result.then(r, j),
           }),
+          limit: vi.fn().mockReturnValue(result),
+          then: (r: any, j?: any) => result.then(r, j),
         }),
-      }),
+      };
+    };
+    return {
+      select: vi.fn().mockImplementation(makeSelectChain),
       insert: vi.fn().mockReturnValue({
         values: vi.fn().mockReturnValue({
           returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.insertResult)),

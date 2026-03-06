@@ -95,10 +95,13 @@ export function isDatabaseAvailable(): boolean {
 }
 
 /**
- * Get user display name from database.
- * First tries to get username, then firstName, fallback to "Skater".
+ * Get both display name and handle for a user in a single query path.
+ * Queries usernames table first; falls back to customUsers.firstName for display name.
  */
-export async function getUserDisplayName(db: Database, userId: string): Promise<string> {
+export async function getUserNameInfo(
+  db: Database,
+  userId: string
+): Promise<{ displayName: string; handle: string | null }> {
   const usernameResult = await db
     .select({ username: schema.usernames.username })
     .from(schema.usernames)
@@ -106,7 +109,7 @@ export async function getUserDisplayName(db: Database, userId: string): Promise<
     .limit(1);
 
   if (usernameResult[0]?.username) {
-    return usernameResult[0].username;
+    return { displayName: usernameResult[0].username, handle: usernameResult[0].username };
   }
 
   const userResult = await db
@@ -115,21 +118,17 @@ export async function getUserDisplayName(db: Database, userId: string): Promise<
     .where(eq(schema.customUsers.id, userId))
     .limit(1);
 
-  return userResult[0]?.firstName || "Skater";
+  return { displayName: userResult[0]?.firstName || "Skater", handle: null };
 }
 
-/**
- * Get user handle (username) from the usernames table.
- * Returns null if no username is registered.
- */
-export async function getUserHandle(db: Database, userId: string): Promise<string | null> {
-  const result = await db
-    .select({ username: schema.usernames.username })
-    .from(schema.usernames)
-    .where(eq(schema.usernames.uid, userId))
-    .limit(1);
+/** Get user display name. Delegates to {@link getUserNameInfo}. */
+export async function getUserDisplayName(db: Database, userId: string): Promise<string> {
+  return (await getUserNameInfo(db, userId)).displayName;
+}
 
-  return result[0]?.username ?? null;
+/** Get user handle (username). Delegates to {@link getUserNameInfo}. */
+export async function getUserHandle(db: Database, userId: string): Promise<string | null> {
+  return (await getUserNameInfo(db, userId)).handle;
 }
 
 export { db, pool };

@@ -17,7 +17,7 @@ export default function ChallengeLobby() {
   const [, setLocation] = useLocation();
 
   const { data: myGames, isLoading, error: gamesError, refetch } = useMyGames();
-  const { data: myStats, isLoading: isStatsLoading } = useMyStats();
+  const { data: myStats, isLoading: isStatsLoading, error: statsError } = useMyStats();
   const respondToGame = useRespondToGame();
   const createGame = useCreateGame();
 
@@ -79,7 +79,7 @@ export default function ChallengeLobby() {
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-lg font-bold text-white truncate">
-                {profile?.username || "Skater"}
+                {user.displayName || profile?.username || "Skater"}
               </h2>
               {profile?.username && (
                 <Link
@@ -98,7 +98,12 @@ export default function ChallengeLobby() {
               <div className="h-4 bg-neutral-700/50 rounded w-1/2 mx-auto" />
             </div>
           )}
-          {!myStats && !isStatsLoading && (
+          {!myStats && !isStatsLoading && statsError && (
+            <p className="text-sm text-neutral-500 text-center py-2">
+              Could not load your stats. Pull to refresh.
+            </p>
+          )}
+          {!myStats && !isStatsLoading && !statsError && (
             <p className="text-sm text-neutral-500 text-center py-2">
               No games played yet. Challenge someone to get started!
             </p>

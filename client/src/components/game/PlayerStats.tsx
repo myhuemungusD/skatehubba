@@ -78,7 +78,7 @@ export function PlayerStats({ stats, className }: PlayerStatsProps) {
                 className="p-3 rounded-lg bg-green-500/5 border border-green-500/20 flex items-center gap-2"
               >
                 <Trophy className="w-4 h-4 text-green-400" />
-                <span className="text-sm text-green-400">
+                <p className="text-sm text-green-400">
                   You've beaten{" "}
                   {record.handle ? (
                     <Link
@@ -91,7 +91,7 @@ export function PlayerStats({ stats, className }: PlayerStatsProps) {
                     <>@{record.name}</>
                   )}{" "}
                   {record.streak} times in a row
-                </span>
+                </p>
               </div>
             ))}
         </div>
