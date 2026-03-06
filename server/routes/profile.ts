@@ -8,7 +8,11 @@ import { onboardingProfiles, userProfiles, closetItems, usernames } from "@share
 import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
 import { authenticateUser } from "../auth/middleware";
-import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
+import {
+  profileCreateLimiter,
+  usernameCheckLimiter,
+  usernameUpdateLimiter,
+} from "../middleware/security";
 import { createProfileWithRollback, createUsernameStore } from "../services/profileService";
 import { deleteUser } from "../services/userService";
 import logger from "../logger";
@@ -322,7 +326,7 @@ router.post("/create", requireFirebaseUid, profileCreateLimiter, async (req, res
  * PATCH /api/profile/username
  * Updates the authenticated user's username.
  */
-router.patch("/username", authenticateUser, async (req, res) => {
+router.patch("/username", usernameUpdateLimiter, authenticateUser, async (req, res) => {
   const uid = req.currentUser!.id;
   const parsed = usernameSchema.safeParse(req.body?.username);
 

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import {
   LogOut,
@@ -235,16 +235,25 @@ export default function SettingsPage() {
                   <p className="text-xs text-neutral-500">Username</p>
                   {isEditingUsername ? (
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm text-neutral-400">@</span>
+                      <span className="text-sm text-neutral-400" aria-hidden="true">
+                        @
+                      </span>
                       <input
                         type="text"
                         value={usernameInput}
-                        onChange={(e) => setUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))}
+                        onChange={(e) =>
+                          setUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))
+                        }
                         maxLength={20}
-                        autoFocus
+                        ref={(el) => el?.focus()}
+                        aria-label="New username"
                         className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-white outline-none focus:border-yellow-400 w-40"
                         onKeyDown={(e) => {
-                          if (e.key === "Enter" && usernameInput.length >= 3) {
+                          if (
+                            e.key === "Enter" &&
+                            usernameInput.length >= 3 &&
+                            !updateUsernameMutation.isPending
+                          ) {
                             updateUsernameMutation.mutate(usernameInput);
                           }
                           if (e.key === "Escape") {
@@ -255,21 +264,21 @@ export default function SettingsPage() {
                       <button
                         onClick={() => updateUsernameMutation.mutate(usernameInput)}
                         disabled={usernameInput.length < 3 || updateUsernameMutation.isPending}
+                        aria-label="Save username"
                         className="p-1 rounded text-green-400 hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Check className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => setIsEditingUsername(false)}
+                        aria-label="Cancel editing"
                         className="p-1 rounded text-neutral-400 hover:bg-neutral-800"
                       >
                         <X className="h-4 w-4" />
                       </button>
                     </div>
                   ) : (
-                    <p className="text-sm font-medium text-white">
-                      @{profile?.username ?? "—"}
-                    </p>
+                    <p className="text-sm font-medium text-white">@{profile?.username ?? "—"}</p>
                   )}
                 </div>
               </div>
@@ -279,6 +288,7 @@ export default function SettingsPage() {
                     setUsernameInput(profile?.username ?? "");
                     setIsEditingUsername(true);
                   }}
+                  aria-label="Edit username"
                   className="p-2 rounded text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
                 >
                   <Pencil className="h-4 w-4" />
