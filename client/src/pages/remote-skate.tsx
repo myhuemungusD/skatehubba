@@ -5,7 +5,7 @@
  * Minimal friction — get into a game as fast as possible.
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearch } from "wouter";
 import { Shuffle, Search, Loader2, X, ArrowLeft, Video, LogIn } from "lucide-react";
 import { RemoteSkateService } from "@/lib/remoteSkate";
@@ -62,6 +62,14 @@ export default function RemoteSkatePage() {
   // Subscribe to waiting game — auto-transition when opponent joins.
   // After 2 minutes of searching, show a "still looking" hint.
   const [searchTimedOut, setSearchTimedOut] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  // Focus the search input when the search-input view mounts
+  useEffect(() => {
+    if (view === "search-input") {
+      searchInputRef.current?.focus();
+    }
+  }, [view]);
 
   useEffect(() => {
     if (view !== "searching" || !activeGameId) {
@@ -213,6 +221,7 @@ export default function RemoteSkatePage() {
 
         <div className="space-y-3">
           <input
+            ref={searchInputRef}
             type="text"
             value={searchUsername}
             onChange={(e) => setSearchUsername(e.target.value)}
@@ -221,8 +230,6 @@ export default function RemoteSkatePage() {
             }}
             placeholder="@username"
             disabled={isSearching}
-            // eslint-disable-next-line jsx-a11y/no-autofocus -- intentional UX: user just tapped "Search Player"
-            autoFocus
             className="w-full px-4 py-3 rounded-lg bg-neutral-900 border border-neutral-700 text-white text-sm placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:border-yellow-400/50 disabled:opacity-50"
             autoComplete="off"
           />
