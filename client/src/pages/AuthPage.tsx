@@ -14,7 +14,6 @@ import { Card } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useToast } from "../hooks/use-toast";
 import { useAuth } from "../hooks/useAuth";
-import { useAuthStore } from "../store/authStore";
 import { logger } from "../lib/logger";
 import { setAuthPersistence } from "../lib/firebase";
 import { getAuthErrorMessage, isAuthConfigError } from "../lib/firebase/auth-errors";
@@ -54,7 +53,7 @@ export default function AuthPage() {
         // Reject double-encoded payloads
         if (/%[0-9a-f]{2}/i.test(decoded)) return "/hub";
         // Reject auth-loop paths
-        if (/^\/(signin|login|logout)(\/|$|\?)/i.test(decoded)) return "/hub";
+        if (/^\/(auth|signin|signup|login|logout)(\/|$|\?)/i.test(decoded)) return "/hub";
         return decoded;
       } catch {
         // Invalid encoding
@@ -82,18 +81,11 @@ export default function AuthPage() {
     logger.log("[AuthPage] Is embedded browser:", isEmbedded);
   }, []);
 
-  // Redirect based on current profile status after sign-in.
-  // Reads directly from the Zustand store to get the latest state
-  // (the hook value may be stale since we're inside an async handler).
+  // Redirect after sign-in completes (email or Google).
+  // All profile statuses route to getNextUrl() (default: /hub) because
+  // /hub uses allowMissingProfile and handles onboarding inline.
   const redirectAfterSignIn = useCallback(() => {
-    const { profileStatus } = useAuthStore.getState();
-    if (profileStatus === "exists" || profileStatus === "missing") {
-      setLocation(getNextUrl());
-    } else {
-      // Fallback: profile status couldn't be determined, go to hub
-      // and let the protected route handle it
-      setLocation(getNextUrl());
-    }
+    setLocation(getNextUrl());
   }, [setLocation]);
 
   const handleGoogleSignIn = async () => {
@@ -176,6 +168,7 @@ export default function AuthPage() {
                 isExternalLoading={auth?.loading ?? false}
                 inEmbeddedBrowser={inEmbeddedBrowser}
                 onForgotPassword={() => setShowForgotPassword(true)}
+                onSuccess={redirectAfterSignIn}
               />
             </TabsContent>
 
