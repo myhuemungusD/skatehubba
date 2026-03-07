@@ -410,7 +410,7 @@ router.get("/:id", authenticateUser, async (req, res) => {
     recordClipView(db, clipId, req.currentUser!.id).catch((err) =>
       logger.error("[TrickMint] Unhandled error in recordClipView", {
         clipId,
-        error: err instanceof Error ? err.message : String(err),
+        error: String(err),
       })
     );
 

@@ -445,6 +445,16 @@ describe("Notification Routes", () => {
   // ===========================================================================
 
   describe("GET / (list notifications)", () => {
+    it("returns 400 for invalid pagination parameters", async () => {
+      const req = mockRequest({ query: { limit: "-1" } });
+      const res = mockResponse();
+      await callRoute("GET", "/", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "INVALID_PAGINATION" })
+      );
+    });
+
     it("returns 500 when database is unavailable", async () => {
       shouldGetDbThrow = true;
       const req = mockRequest({ query: {} });
