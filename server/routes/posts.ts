@@ -5,6 +5,7 @@ import { requirePaidOrPro } from "../middleware/requirePaidOrPro";
 import { enforceTrustAction } from "../middleware/trustSafety";
 import { postCreateLimiter } from "../middleware/security";
 import { createPost } from "../services/moderationStore";
+import logger from "../logger";
 
 const router = Router();
 
@@ -36,8 +37,18 @@ router.post(
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const post = await createPost(req.currentUser.id, parsed.data);
-    return res.status(201).json({ postId: post.id });
+    try {
+      const post = await createPost(req.currentUser.id, parsed.data);
+      return res.status(201).json({ postId: post.id });
+    } catch (error) {
+      logger.error("[Posts] Failed to create post", {
+        userId: req.currentUser.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return res
+        .status(500)
+        .json({ error: "POST_CREATE_FAILED", message: "Failed to create post." });
+    }
   }
 );
 

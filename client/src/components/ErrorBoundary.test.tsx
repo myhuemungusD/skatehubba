@@ -3,7 +3,7 @@
  */
 
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterAll } from "vitest";
 import ErrorBoundary from "./ErrorBoundary";
 
 // Mock dependencies
@@ -39,10 +39,14 @@ function ThrowingChild({ shouldThrow }: { shouldThrow: boolean }) {
 }
 
 describe("ErrorBoundary", () => {
-  // Suppress console.error for expected errors
+  // Suppress console.error for expected React error boundary noise
   const originalError = console.error;
   beforeEach(() => {
     console.error = vi.fn();
+  });
+
+  afterAll(() => {
+    console.error = originalError;
   });
 
   it("renders children when no error", () => {
@@ -103,12 +107,4 @@ describe("ErrorBoundary", () => {
     );
     expect(screen.getByText("Child content")).toBeDefined();
   });
-
-  // Restore console.error
-  afterAll(() => {
-    console.error = originalError;
-  });
 });
-
-// Need afterAll import
-import { afterAll } from "vitest";

@@ -147,6 +147,27 @@ describe("POST /api/posts", () => {
     expect(res.status).toHaveBeenCalledWith(401);
   });
 
+  it("should return 500 when createPost throws an Error", async () => {
+    vi.mocked(createPost).mockRejectedValue(new Error("DB connection lost"));
+    const req = mockReq({
+      body: { mediaUrl: "https://example.com/vid.mp4", caption: "trick" },
+    });
+    const res = mockRes();
+    await callHandler("POST /", req, res);
+    expect(res.status).toHaveBeenCalledWith(500);
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "POST_CREATE_FAILED" }));
+  });
+
+  it("should return 500 when createPost throws a non-Error value", async () => {
+    vi.mocked(createPost).mockRejectedValue("unexpected string throw");
+    const req = mockReq({
+      body: { mediaUrl: "https://example.com/vid.mp4", caption: "trick" },
+    });
+    const res = mockRes();
+    await callHandler("POST /", req, res);
+    expect(res.status).toHaveBeenCalledWith(500);
+  });
+
   it("should register enforceTrustAction middleware with 'post' argument", () => {
     // enforceTrustAction is called at module load time; captured before clearAllMocks
     expect(enforceTrustActionCallArgs).toContainEqual(["post"]);

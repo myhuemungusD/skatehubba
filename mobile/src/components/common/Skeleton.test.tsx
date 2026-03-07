@@ -15,7 +15,7 @@ vi.mock("react-native", () => ({
 vi.mock("@/theme", () => ({
   SKATE: {
     colors: { ink: "#0a0a0a", darkGray: "#333", grime: "#1a1a1a" },
-    spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20 },
+    spacing: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24 },
     borderRadius: { sm: 4, md: 8, lg: 12 },
   },
 }));
@@ -29,12 +29,14 @@ import {
   UsersSkeleton,
   MapSkeleton,
   TrickMintSkeleton,
+  PlaySkateSkeleton,
 } from "./Skeleton";
 import Skeleton from "./Skeleton";
 
 describe("Skeleton components", () => {
   it("exports default Skeleton component", () => {
     expect(Skeleton).toBeDefined();
+    expect(typeof Skeleton).toBe("function");
   });
 
   it("exports LeaderboardSkeleton", () => {
@@ -60,5 +62,10 @@ describe("Skeleton components", () => {
   it("exports TrickMintSkeleton", () => {
     expect(TrickMintSkeleton).toBeDefined();
     expect(typeof TrickMintSkeleton).toBe("function");
+  });
+
+  it("exports PlaySkateSkeleton", () => {
+    expect(PlaySkateSkeleton).toBeDefined();
+    expect(typeof PlaySkateSkeleton).toBe("function");
   });
 });

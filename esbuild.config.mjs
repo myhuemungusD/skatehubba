@@ -21,7 +21,7 @@ const config = {
     'pg',
     'ws'
   ],
-  target: 'node18',
+  target: 'node22',
   minify: false,
   sourcemap: true,
 };

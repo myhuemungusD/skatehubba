@@ -29,9 +29,7 @@ vi.mock("../../logger", () => ({
   },
 }));
 
-const { sendWeeklyDigestEmail, sendGameEventEmail } = await import(
-  "../../services/emailService"
-);
+const { sendWeeklyDigestEmail, sendGameEventEmail } = await import("../../services/emailService");
 
 describe("emailService branch coverage", () => {
   beforeEach(() => {
@@ -52,6 +50,20 @@ describe("emailService branch coverage", () => {
     const html = mockSend.mock.calls[0][0].html;
     expect(html).toContain("Pending Challenges");
     expect(html).toContain("Answer Challenges");
+  });
+
+  it("omits pending challenges row when pendingChallenges is 0", async () => {
+    const result = await sendWeeklyDigestEmail("a@b.com", "Test", {
+      gamesPlayed: 5,
+      gamesWon: 2,
+      spotsVisited: 3,
+      pendingChallenges: 0,
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockSend).toHaveBeenCalled();
+    const html = mockSend.mock.calls[0][0].html;
+    expect(html).not.toContain("Pending Challenges");
   });
 
   it("line 283: uses 'Your opponent' fallback when opponentName is undefined", async () => {

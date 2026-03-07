@@ -21,6 +21,7 @@ interface SignInTabProps {
   isExternalLoading: boolean;
   inEmbeddedBrowser: boolean;
   onForgotPassword: () => void;
+  onSuccess?: () => void;
 }
 
 export function SignInTab({
@@ -30,6 +31,7 @@ export function SignInTab({
   isExternalLoading,
   inEmbeddedBrowser,
   onForgotPassword,
+  onSuccess,
 }: SignInTabProps) {
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
@@ -60,6 +62,7 @@ export function SignInTab({
         title: "Welcome back! ",
         description: "You have successfully signed in.",
       });
+      onSuccess?.();
     } catch (error) {
       logger.error("[AuthPage] Sign in error:", error);
       const authError = error as { message?: string; code?: string };

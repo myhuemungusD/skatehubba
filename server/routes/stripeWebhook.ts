@@ -14,6 +14,15 @@ const router = Router();
 const PREMIUM_PRICE_CENTS = 999;
 const PREMIUM_CURRENCY = "usd";
 
+// Lazy-initialized Stripe instance — avoids re-importing and re-constructing on every webhook request
+let cachedStripe: Stripe | null = null;
+async function getStripeClient(secretKey: string): Promise<Stripe> {
+  if (cachedStripe) return cachedStripe;
+  const StripeConstructor = await import("stripe").then((m) => m.default);
+  cachedStripe = new StripeConstructor(secretKey);
+  return cachedStripe;
+}
+
 // ============================================================================
 // Stripe event deduplication — prevents TOCTOU race on webhook retries
 // ============================================================================
@@ -84,8 +93,7 @@ router.post("/", async (req: Request, res: Response) => {
     return res.status(500).send("Stripe not configured");
   }
 
-  const StripeConstructor = await import("stripe").then((m) => m.default);
-  const stripe = new StripeConstructor(stripeSecretKey);
+  const stripe = await getStripeClient(stripeSecretKey);
 
   const sig = req.headers["stripe-signature"];
   if (!sig) {

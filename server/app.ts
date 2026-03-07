@@ -95,21 +95,27 @@ export function createApp(): express.Express {
   // hardcodes https://skatehubba.com, merges ALLOWED_ORIGINS env, and adds
   // localhost variants in development.
   const allowedOrigins = getAllowedOrigins();
-  const corsOptions = {
-    origin: function (
-      origin: string | undefined,
-      callback: (err: Error | null, allow?: boolean) => void
-    ) {
-      // Allow requests with no origin (mobile apps, server-to-server) or matching allowed domains
-      if (!origin || allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
-    credentials: true,
-  };
-  app.use(cors(corsOptions));
+
+  // Short-circuit requests from disallowed origins BEFORE the cors middleware.
+  // The cors package's callback(null, false) skips header injection but still
+  // lets the request through to route handlers, wasting server resources.
+  // This pre-check returns 403 immediately so no downstream middleware runs.
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin && !allowedOrigins.includes(origin)) {
+      logger.warn("[CORS] Blocked request from unrecognised origin", { origin });
+      res.status(403).json({ error: "CORS_BLOCKED", message: "Origin not allowed." });
+      return;
+    }
+    next();
+  });
+
+  app.use(
+    cors({
+      origin: allowedOrigins,
+      credentials: true,
+    })
+  );
 
   // Compression
   app.use(compression());
@@ -202,12 +208,17 @@ export function createApp(): express.Express {
       }
 
       logger.error("[App] Unhandled route error", {
+        route: _req.path,
+        method: _req.method,
         name: err?.name,
         message: err?.message,
         stack: process.env.NODE_ENV !== "production" ? err?.stack : undefined,
       });
       if (!res.headersSent) {
-        res.status(500).json({ error: "INTERNAL_ERROR", message: "An unexpected error occurred." });
+        res.status(500).json({
+          error: "INTERNAL_ERROR",
+          message: "An unexpected error occurred.",
+        });
       }
     }
   );

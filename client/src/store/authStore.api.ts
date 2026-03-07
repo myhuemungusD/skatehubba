@@ -5,24 +5,37 @@ import { logger } from "../lib/logger";
 import type { UserProfile, UserRole } from "./authStore.types";
 import { transformProfile } from "./authStore.utils";
 
+// In-flight guard: concurrent callers share a single network request
+let inFlightProfileFetch: Promise<UserProfile | null> | null = null;
+
 export const fetchProfile = async (uid: string): Promise<UserProfile | null> => {
-  try {
-    const res = await apiRequest<{ profile: Record<string, unknown> }>({
-      method: "GET",
-      path: "/api/profile/me",
-    });
-    return transformProfile(uid, res.profile);
-  } catch (err) {
-    // 404 = no profile yet (new user) — this is expected for onboarding
-    if (isApiError(err) && err.status === 404) {
-      return null;
+  if (inFlightProfileFetch) return inFlightProfileFetch;
+
+  inFlightProfileFetch = (async () => {
+    try {
+      const res = await apiRequest<{ profile: Record<string, unknown> }>({
+        method: "GET",
+        path: "/api/profile/me",
+      });
+      return transformProfile(uid, res.profile);
+    } catch (err) {
+      // 404 = no profile yet (new user) — this is expected for onboarding
+      if (isApiError(err) && err.status === 404) {
+        return null;
+      }
+      // Any other error (401 auth failure, 500 server error, 503 DB down, network
+      // failure) must propagate so the caller can distinguish "no profile" from
+      // "server unreachable". Swallowing these errors causes the app to show the
+      // profile-setup form even when the server can't process submissions.
+      logger.error("[AuthStore] Failed to fetch profile:", err);
+      throw err;
     }
-    // Any other error (401 auth failure, 500 server error, 503 DB down, network
-    // failure) must propagate so the caller can distinguish "no profile" from
-    // "server unreachable". Swallowing these errors causes the app to show the
-    // profile-setup form even when the server can't process submissions.
-    logger.error("[AuthStore] Failed to fetch profile:", err);
-    throw err;
+  })();
+
+  try {
+    return await inFlightProfileFetch;
+  } finally {
+    inFlightProfileFetch = null;
   }
 };
 

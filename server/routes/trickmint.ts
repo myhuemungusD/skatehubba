@@ -406,8 +406,13 @@ router.get("/:id", authenticateUser, async (req, res) => {
       return res.status(404).json({ error: "Clip not found" });
     }
 
-    // Record view (deduplicated per-user, fire-and-forget)
-    recordClipView(db, clipId, req.currentUser!.id);
+    // Record view (deduplicated per-user, fire-and-forget with error catch)
+    recordClipView(db, clipId, req.currentUser!.id).catch((err) =>
+      logger.error("[TrickMint] Unhandled error in recordClipView", {
+        clipId,
+        error: String(err),
+      })
+    );
 
     res.json({ clip: withPreferredVideoUrl(clip, req.preferredQuality) });
   } catch (error) {

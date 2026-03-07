@@ -17,18 +17,36 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 type Handler = (req: IncomingMessage, res: ServerResponse) => void;
 
 let handler: Handler | null = null;
-let initError: Error | null = null;
+let initPromise: Promise<void> | null = null;
+let lastInitError: Error | null = null;
 
-try {
-  const { createApp } = await import("./app.ts");
-  const app = createApp();
-  handler = app as unknown as Handler;
-} catch (error) {
-  initError = error instanceof Error ? error : new Error(String(error));
-  console.error("[api/index] Server initialization failed:", initError.message);
-  if (initError.stack) {
-    console.error("[api/index] Stack trace:", initError.stack);
+/**
+ * Lazy initialization with retry. If the first cold-start import fails
+ * (e.g. transient DB / network issue), subsequent requests will retry
+ * instead of returning 500 forever.
+ */
+async function ensureHandler(): Promise<Handler | null> {
+  if (handler) return handler;
+
+  if (!initPromise) {
+    initPromise = import("./app.ts")
+      .then(({ createApp }) => {
+        handler = createApp() as unknown as Handler;
+        lastInitError = null;
+      })
+      .catch((error) => {
+        lastInitError = error instanceof Error ? error : new Error(String(error));
+        console.error("[api/index] Server initialization failed:", lastInitError.message);
+        if (lastInitError.stack) {
+          console.error("[api/index] Stack trace:", lastInitError.stack);
+        }
+        // Reset so the next request retries initialization
+        initPromise = null;
+      });
   }
+
+  await initPromise;
+  return handler;
 }
 
 export const config = {
@@ -36,16 +54,23 @@ export const config = {
   memory: 1024,
 };
 
-export default function serverHandler(req: IncomingMessage, res: ServerResponse) {
-  if (handler) {
-    return handler(req, res);
+export default async function serverHandler(req: IncomingMessage, res: ServerResponse) {
+  const resolved = await ensureHandler();
+
+  if (resolved) {
+    return resolved(req, res);
   }
 
+  const requiredVars = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET", "MFA_ENCRYPTION_KEY"];
+  const missingVars = requiredVars.filter((v) => !process.env[v]?.trim());
+
   const isDeployed = !!process.env.VERCEL_ENV;
+
   const body = JSON.stringify({
     error: "SERVER_INIT_FAILED",
     message: "Server failed to start. Check environment variables in Vercel dashboard.",
-    detail: isDeployed ? undefined : initError?.message,
+    detail: isDeployed ? undefined : lastInitError?.message,
+    missingEnvVars: missingVars.length > 0 ? missingVars : undefined,
     hint: "Visit /api/env-check for a detailed environment diagnostic.",
   });
 

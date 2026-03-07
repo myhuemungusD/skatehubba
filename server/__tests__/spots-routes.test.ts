@@ -336,9 +336,7 @@ describe("Spots Routes", () => {
           country: "USA",
         })
       );
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ discovered: 1, added: 1 })
-      );
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ discovered: 1, added: 1 }));
     });
   });
 
@@ -364,7 +362,10 @@ describe("Spots Routes", () => {
       await callHandler("GET /:spotId", mockReq({ params: { spotId: "999" } }), res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ message: "Spot not found" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "SPOT_NOT_FOUND",
+        message: "Spot not found.",
+      });
     });
 
     it("should return 400 for invalid (non-numeric) spotId", async () => {
@@ -372,7 +373,10 @@ describe("Spots Routes", () => {
       await callHandler("GET /:spotId", mockReq({ params: { spotId: "abc" } }), res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ message: "Invalid spot ID" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "INVALID_SPOT_ID",
+        message: "Invalid spot ID.",
+      });
     });
 
     it("should return 500 on unexpected error", async () => {
@@ -382,7 +386,10 @@ describe("Spots Routes", () => {
       await callHandler("GET /:spotId", mockReq({ params: { spotId: "1" } }), res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: "Failed to load spot" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "SPOT_FETCH_FAILED",
+        message: "Failed to load spot.",
+      });
       expect(logger.error).toHaveBeenCalled();
     });
 
@@ -393,7 +400,10 @@ describe("Spots Routes", () => {
       await callHandler("GET /:spotId", mockReq({ params: { spotId: "1" } }), res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: "Failed to load spot" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "SPOT_FETCH_FAILED",
+        message: "Failed to load spot.",
+      });
       expect(logger.error).toHaveBeenCalledWith(
         "Failed to fetch spot",
         expect.objectContaining({ error: "string-error" })
@@ -439,7 +449,10 @@ describe("Spots Routes", () => {
       );
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ message: "Invalid spot ID" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "INVALID_SPOT_ID",
+        message: "Invalid spot ID.",
+      });
     });
 
     it("should return 404 when spot disappears after rating update", async () => {
@@ -458,7 +471,10 @@ describe("Spots Routes", () => {
       );
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ message: "Spot not found" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "SPOT_NOT_FOUND",
+        message: "Spot not found.",
+      });
     });
   });
 
@@ -555,7 +571,10 @@ describe("Spots Routes", () => {
       await callHandler("POST /check-in", mockReq({ body: validCheckInBody }), res);
 
       expect(res.status).toHaveBeenCalledWith(409);
-      expect(res.json).toHaveBeenCalledWith({ message: "Replay detected" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "REPLAY_DETECTED",
+        message: "Replay detected.",
+      });
       expect(logAuditEvent).toHaveBeenCalledWith(
         expect.objectContaining({ action: "spot.checkin.rejected" })
       );
@@ -571,7 +590,10 @@ describe("Spots Routes", () => {
       await callHandler("POST /check-in", mockReq({ body: validCheckInBody }), res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith({ message: "Invalid check-in timestamp" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "INVALID_TIMESTAMP",
+        message: "Invalid check-in timestamp.",
+      });
     });
 
     it("should return 422 when verifyAndCheckIn fails (e.g. too far)", async () => {
@@ -607,7 +629,10 @@ describe("Spots Routes", () => {
       await callHandler("POST /check-in", mockReq({ body: validCheckInBody }), res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ message: "Spot not found" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "SPOT_NOT_FOUND",
+        message: "Spot not found.",
+      });
     });
 
     it("should return 500 on unexpected error during check-in", async () => {
@@ -618,7 +643,10 @@ describe("Spots Routes", () => {
       await callHandler("POST /check-in", mockReq({ body: validCheckInBody }), res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: "Check-in failed" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "CHECKIN_FAILED",
+        message: "Check-in failed.",
+      });
     });
 
     it("should return 500 when a non-Error value is thrown during check-in", async () => {
@@ -629,7 +657,10 @@ describe("Spots Routes", () => {
       await callHandler("POST /check-in", mockReq({ body: validCheckInBody }), res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ message: "Check-in failed" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "CHECKIN_FAILED",
+        message: "Check-in failed.",
+      });
     });
 
     it("should return 401 when currentUser is missing", async () => {
@@ -641,7 +672,10 @@ describe("Spots Routes", () => {
       );
 
       expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json).toHaveBeenCalledWith({ message: "Authentication required" });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "UNAUTHORIZED",
+        message: "Authentication required.",
+      });
     });
   });
 });

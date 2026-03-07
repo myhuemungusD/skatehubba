@@ -209,7 +209,10 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /:id/dispute", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "DISPUTE_FILE_FAILED", message: "Failed to file dispute." });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "DISPUTE_FILE_FAILED",
+        message: "Failed to file dispute.",
+      });
     });
 
     it("returns 400 for invalid body", async () => {
@@ -231,7 +234,10 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /:id/dispute", req, res);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json).toHaveBeenCalledWith({ error: "GAME_NOT_FOUND", message: "Game not found." });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "GAME_NOT_FOUND",
+        message: "Game not found.",
+      });
     });
 
     it("returns 403 when user is not a player", async () => {
@@ -333,7 +339,10 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /:id/dispute", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "DISPUTE_FILE_FAILED", message: "Failed to file dispute." });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "DISPUTE_FILE_FAILED",
+        message: "Failed to file dispute.",
+      });
     });
   });
 
@@ -354,7 +363,10 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /disputes/:disputeId/resolve", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "DISPUTE_RESOLVE_FAILED", message: "Failed to resolve dispute." });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "DISPUTE_RESOLVE_FAILED",
+        message: "Failed to resolve dispute.",
+      });
     });
 
     it("returns 400 for invalid disputeId param", async () => {
@@ -367,7 +379,33 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /disputes/:disputeId/resolve", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "INVALID_DISPUTE_ID", message: "Invalid dispute ID." }));
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "INVALID_DISPUTE_ID", message: "Invalid dispute ID." })
+      );
+    });
+
+    it("returns 400 for disputeId of zero", async () => {
+      const req = createReq({
+        params: { disputeId: "0" },
+        body: { finalResult: "landed" },
+      });
+      const res = createRes();
+      await callHandler("POST /disputes/:disputeId/resolve", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "INVALID_DISPUTE_ID" })
+      );
+    });
+
+    it("returns 400 for invalid body schema", async () => {
+      const req = createReq({
+        params: { disputeId: "1" },
+        body: { finalResult: "not-a-valid-result" },
+      });
+      const res = createRes();
+      await callHandler("POST /disputes/:disputeId/resolve", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
     it("returns error status when resolveDispute returns not ok", async () => {
@@ -490,7 +528,10 @@ describe("Game Dispute Routes", () => {
       await callHandler("POST /disputes/:disputeId/resolve", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith({ error: "DISPUTE_RESOLVE_FAILED", message: "Failed to resolve dispute." });
+      expect(res.json).toHaveBeenCalledWith({
+        error: "DISPUTE_RESOLVE_FAILED",
+        message: "Failed to resolve dispute.",
+      });
     });
   });
 });
