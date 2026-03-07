@@ -24,7 +24,7 @@ END $$;
 -- ============================================================================
 CREATE INDEX IF NOT EXISTS "IDX_games_player1" ON games (player1_id);
 CREATE INDEX IF NOT EXISTS "IDX_games_player2" ON games (player2_id);
-CREATE INDEX IF NOT EXISTS "IDX_games_status" ON games (status);
+-- Single-column status index omitted: the composite (status, deadline_at) index covers status-only queries.
 CREATE INDEX IF NOT EXISTS "IDX_games_status_deadline" ON games (status, deadline_at);
 
 -- ============================================================================

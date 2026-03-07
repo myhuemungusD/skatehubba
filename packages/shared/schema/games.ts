@@ -60,8 +60,7 @@ export const games = pgTable(
   (table) => ({
     player1Idx: index("IDX_games_player1").on(table.player1Id),
     player2Idx: index("IDX_games_player2").on(table.player2Id),
-    statusIdx: index("IDX_games_status").on(table.status),
-    deadlineIdx: index("IDX_games_status_deadline").on(table.status, table.deadlineAt),
+    statusDeadlineIdx: index("IDX_games_status_deadline").on(table.status, table.deadlineAt),
   })
 );
 
