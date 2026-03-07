@@ -29,6 +29,7 @@ import {
   UsersSkeleton,
   MapSkeleton,
   TrickMintSkeleton,
+  PlaySkateSkeleton,
 } from "./Skeleton";
 import Skeleton from "./Skeleton";
 
@@ -60,5 +61,10 @@ describe("Skeleton components", () => {
   it("exports TrickMintSkeleton", () => {
     expect(TrickMintSkeleton).toBeDefined();
     expect(typeof TrickMintSkeleton).toBe("function");
+  });
+
+  it("exports PlaySkateSkeleton", () => {
+    expect(PlaySkateSkeleton).toBeDefined();
+    expect(typeof PlaySkateSkeleton).toBe("function");
   });
 });

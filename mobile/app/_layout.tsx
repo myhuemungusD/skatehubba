@@ -77,6 +77,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="auth/sign-in" options={{ title: "Sign In", headerShown: false }} />
         <Stack.Screen name="challenge/new" options={{ title: "New Challenge" }} />
+        <Stack.Screen name="challenge/pick-opponent" options={{ title: "Pick Opponent" }} />
         <Stack.Screen name="profile/[uid]" options={{ title: "Profile" }} />
         <Stack.Screen
           name="game/[id]"

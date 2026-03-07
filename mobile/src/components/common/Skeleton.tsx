@@ -1,11 +1,5 @@
 import { useEffect, useRef } from "react";
-import {
-  View,
-  Animated,
-  StyleSheet,
-  type ViewStyle,
-  type StyleProp,
-} from "react-native";
+import { View, Animated, StyleSheet, type ViewStyle, type StyleProp } from "react-native";
 import { SKATE } from "@/theme";
 
 interface SkeletonProps {
@@ -199,6 +193,53 @@ export function TrickMintSkeleton() {
   );
 }
 
+/**
+ * Skeleton for the Play S.K.A.T.E. screen (two action buttons + game cards).
+ */
+export function PlaySkateSkeleton() {
+  return (
+    <View style={skeletonStyles.container}>
+      {/* Hero title placeholder */}
+      <View style={skeletonStyles.playSkateHeader}>
+        <Skeleton width={200} height={28} />
+      </View>
+      {/* Quick Match button placeholder */}
+      <Skeleton
+        width="100%"
+        height={80}
+        borderRadius={SKATE.borderRadius.lg}
+        style={{ marginBottom: SKATE.spacing.md }}
+      />
+      {/* Challenge button placeholder */}
+      <Skeleton
+        width="100%"
+        height={80}
+        borderRadius={SKATE.borderRadius.lg}
+        style={{ marginBottom: SKATE.spacing.xxl }}
+      />
+      {/* Active games divider */}
+      <View style={skeletonStyles.playSkateGamesDivider}>
+        <View style={skeletonStyles.playSkateGamesLine} />
+        <Skeleton width={140} height={10} />
+        <View style={skeletonStyles.playSkateGamesLine} />
+      </View>
+      {/* Game card placeholders */}
+      {Array.from({ length: 3 }).map((_, i) => (
+        <View key={i} style={skeletonStyles.playSkateGameCard}>
+          <View style={skeletonStyles.playSkateGameCardBody}>
+            <Skeleton width={44} height={44} borderRadius={22} />
+            <View style={{ flex: 1, marginLeft: SKATE.spacing.md }}>
+              <Skeleton width="50%" height={16} />
+              <Skeleton width="70%" height={12} style={{ marginTop: 6 }} />
+            </View>
+            <Skeleton width={44} height={44} borderRadius={22} />
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 // ── Styles ──────────────────────────────────────────────────────────────
 
 const skeletonStyles = StyleSheet.create({
@@ -272,6 +313,37 @@ const skeletonStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: SKATE.colors.darkGray,
     marginBottom: SKATE.spacing.md,
+  },
+
+  // Play S.K.A.T.E.
+  playSkateHeader: {
+    alignItems: "center",
+    marginBottom: SKATE.spacing.xxl,
+    marginTop: SKATE.spacing.md,
+  },
+  playSkateGamesDivider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: SKATE.spacing.md,
+    marginBottom: SKATE.spacing.lg,
+  },
+  playSkateGamesLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: SKATE.colors.darkGray,
+  },
+  playSkateGameCard: {
+    backgroundColor: SKATE.colors.grime,
+    borderRadius: SKATE.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: SKATE.colors.darkGray,
+    marginBottom: SKATE.spacing.md,
+    overflow: "hidden",
+  },
+  playSkateGameCardBody: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: SKATE.spacing.lg,
   },
 
   // TrickMint
