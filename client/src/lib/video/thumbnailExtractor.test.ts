@@ -210,6 +210,45 @@ describe("extractThumbnail", () => {
       await promise;
     });
 
+    it("falls back to THUMBNAIL_WIDTH when videoWidth and videoHeight are 0", async () => {
+      const videoBlob = new Blob(["video"], { type: "video/webm" });
+      const thumbnailBlob = new Blob(["thumb"], { type: "image/jpeg" });
+
+      mockCanvas.toBlob.mockImplementation((cb: (b: Blob | null) => void) => cb(thumbnailBlob));
+      mockVideo.videoWidth = 0;
+      mockVideo.videoHeight = 0;
+
+      const promise = extractThumbnail(videoBlob);
+      mockVideo.onloadedmetadata!();
+      mockVideo.onseeked!();
+
+      await promise;
+
+      // When both are 0, w=360, h=360, aspectRatio=1, canvas.height=360
+      expect(mockCanvas.width).toBe(360);
+      expect(mockCanvas.height).toBe(360);
+    });
+
+    it("falls back canvas height to THUMBNAIL_WIDTH when aspect ratio rounds to 0", async () => {
+      const videoBlob = new Blob(["video"], { type: "video/webm" });
+      const thumbnailBlob = new Blob(["thumb"], { type: "image/jpeg" });
+
+      mockCanvas.toBlob.mockImplementation((cb: (b: Blob | null) => void) => cb(thumbnailBlob));
+      // Extreme aspect ratio: height/width is so small that Math.round(360 * ratio) === 0
+      mockVideo.videoWidth = 1000000;
+      mockVideo.videoHeight = 1;
+
+      const promise = extractThumbnail(videoBlob);
+      mockVideo.onloadedmetadata!();
+      mockVideo.onseeked!();
+
+      await promise;
+
+      expect(mockCanvas.width).toBe(360);
+      // Math.round(360 * (1/1000000)) === 0, so fallback to 360
+      expect(mockCanvas.height).toBe(360);
+    });
+
     it("renders thumbnail at 360px width preserving aspect ratio", async () => {
       const videoBlob = new Blob(["video"], { type: "video/webm" });
       const thumbnailBlob = new Blob(["thumb"], { type: "image/jpeg" });
@@ -282,6 +321,31 @@ describe("extractThumbnail", () => {
   // ────────────────────────────────────────────────────────────────────────
 
   describe("error handling", () => {
+    it("returns null when video duration is not finite", async () => {
+      const videoBlob = new Blob(["bad-video"], { type: "video/webm" });
+      mockVideo.duration = Infinity;
+
+      const promise = extractThumbnail(videoBlob);
+      mockVideo.onloadedmetadata!();
+
+      const result = await promise;
+
+      expect(result).toBeNull();
+      expect(revokeObjectURLMock).toHaveBeenCalledWith("blob:mock-url");
+    });
+
+    it("returns null when video duration is zero", async () => {
+      const videoBlob = new Blob(["bad-video"], { type: "video/webm" });
+      mockVideo.duration = 0;
+
+      const promise = extractThumbnail(videoBlob);
+      mockVideo.onloadedmetadata!();
+
+      const result = await promise;
+
+      expect(result).toBeNull();
+    });
+
     it("returns null when video errors", async () => {
       const videoBlob = new Blob(["bad-video"], { type: "video/webm" });
 

@@ -272,6 +272,31 @@ describe("api/index: edge cases", () => {
     consoleErrorSpy.mockRestore();
   });
 
+  it("omits missingEnvVars when all required vars are set", async () => {
+    vi.doMock("../../server/app.ts", () => ({
+      createApp: () => {
+        throw new Error("some error");
+      },
+    }));
+
+    process.env.DATABASE_URL = "postgres://localhost/test";
+    process.env.SESSION_SECRET = "secret";
+    process.env.JWT_SECRET = "jwt";
+    process.env.MFA_ENCRYPTION_KEY = "mfa";
+    delete process.env.VERCEL_ENV;
+
+    const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const mod = await import("../../server/vercel-handler");
+    const res = mockRes();
+
+    mod.default(mockReq(), res as unknown as ServerResponse);
+
+    const body = parseBody(res as unknown as MockRes);
+    expect(body.missingEnvVars).toBeUndefined();
+
+    consoleErrorSpy.mockRestore();
+  });
+
   it("does not log stack trace when error has no stack", async () => {
     vi.doMock("../../server/app.ts", () => ({
       createApp: () => {

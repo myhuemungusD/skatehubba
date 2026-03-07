@@ -123,6 +123,46 @@ describe("sendSubscriberNotification", () => {
     });
   });
 
+  describe("missing email credentials", () => {
+    it("skips sending when EMAIL_USER is not configured", async () => {
+      vi.resetModules();
+
+      const { mockLoggerDebug } = (() => {
+        const mockLoggerDebug = vi.fn();
+        vi.doMock("../../logger", () => ({
+          default: {
+            info: vi.fn(),
+            warn: vi.fn(),
+            error: vi.fn(),
+            debug: mockLoggerDebug,
+          },
+          createChildLogger: vi.fn(() => ({
+            info: vi.fn(),
+            warn: vi.fn(),
+            error: vi.fn(),
+            debug: vi.fn(),
+          })),
+        }));
+
+        vi.doMock("../../config/env", () => ({
+          env: {
+            EMAIL_USER: "",
+            EMAIL_APP_PASSWORD: "test-app-password",
+          },
+        }));
+
+        return { mockLoggerDebug };
+      })();
+
+      const { sendSubscriberNotification: sendNoCredentials } = await import("../../email");
+      await sendNoCredentials(subscriberData);
+
+      expect(mockLoggerDebug).toHaveBeenCalledWith(
+        "Skipping subscriber notification email (not configured)"
+      );
+    });
+  });
+
   describe("email HTML content", () => {
     it("should include subscriber firstName in the HTML body", async () => {
       await sendSubscriberNotification(subscriberData);
