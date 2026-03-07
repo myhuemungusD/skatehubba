@@ -7,7 +7,6 @@
  *
  * Content:
  * - Full-bleed hero with video placeholder, grain overlay, A/B "Own Your Tricks" stamp
- * - IG reels / raw battle footage feed
  * - Brief feature overview (3 items max)
  * - Footer with @skatehubba_app + GitHub
  *
@@ -22,7 +21,6 @@ import { useLocation } from "wouter";
 import PublicNavigation from "../components/PublicNavigation";
 import { Footer } from "../components/Footer";
 import { HeroMedia } from "../sections/landing/HeroMedia";
-import { ReelsFeed } from "../sections/landing/ReelsFeed";
 import { FeatureGrid } from "../sections/landing/FeatureGrid";
 import { landingContent } from "../content/landing";
 import { useAuth } from "../hooks/useAuth";
@@ -76,9 +74,6 @@ export default function UnifiedLanding() {
           testId: "cta-landing-demo",
         }}
       />
-
-      {/* IG reels + battle footage */}
-      <ReelsFeed />
 
       <FeatureGrid features={landingContent.features} columns={3} />
 
