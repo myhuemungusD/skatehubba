@@ -218,7 +218,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Backend
 
 - Express.js
-- Node.js 20+
+- Node.js 22
 - TypeScript 5.9.3
 - PostgreSQL
 - Drizzle ORM

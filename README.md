@@ -199,7 +199,7 @@ We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full gu
 pnpm run verify      # typecheck + lint + test + build
 ```
 
-- TypeScript type checking (strict mode, yes`any`)
+- TypeScript type checking (strict mode, no `any`)
 - ESLint linting (zero warnings)
 - Prettier formatting check
 - Unit tests with coverage thresholds (99.5% statements)
