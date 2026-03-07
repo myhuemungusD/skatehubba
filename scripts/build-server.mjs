@@ -218,6 +218,11 @@ if (fs.existsSync(vercelEntry)) {
       entryPoints: [vercelEntry],
       outfile: vercelOut,
       format: 'esm',
+      // Some dependencies use require() for Node.js built-ins (e.g. require("path")).
+      // ESM bundles don't have require(), so we shim it via createRequire.
+      banner: {
+        js: 'import { createRequire } from "node:module"; const require = createRequire(import.meta.url);',
+      },
     });
     console.log(`   ✅ Vercel handler: ${path.relative(rootDir, vercelOut)}`);
   } catch (error) {
