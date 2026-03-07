@@ -421,20 +421,32 @@ router.patch(
 /**
  * DELETE /api/profile
  * Permanently deletes the authenticated user and all associated data.
- * Called by the client AFTER Firebase Auth deletion succeeds, so the
- * Firebase account is already gone by the time this runs.
+ * Called by the client BEFORE Firebase Auth deletion, so the auth
+ * token is still valid when this runs.
  *
  * Deletion order:
- *   1. closet_items      — no FK to customUsers, must be deleted explicitly
- *   2. onboarding_profiles — no FK to customUsers, must be deleted explicitly
- *   3. user_profiles     — no FK to customUsers, must be deleted explicitly
- *   4. customUsers       — cascades authSessions and mfaSecrets via DB FK
+ *   1. closet_items        — keys on customUsers.id
+ *   2. usernames           — keys on Firebase UID
+ *   3. onboarding_profiles — keys on Firebase UID
+ *   4. user_profiles       — keys on Firebase UID
+ *   5. customUsers         — cascades authSessions and mfaSecrets via DB FK
  */
 router.delete(
   "/",
   authenticateUser,
   asyncHandler(async (req, res) => {
-    const uid = req.currentUser!.id;
+    const customUserId = req.currentUser!.id;
+    const firebaseUid = req.currentUser!.firebaseUid;
+
+    if (!firebaseUid) {
+      logger.error("[Profile] Account deletion failed — no firebaseUid", { id: customUserId });
+      return Errors.internal(
+        res,
+        "ACCOUNT_DELETE_FAILED",
+        "Failed to delete account. Please try again."
+      );
+    }
+
     let database;
     try {
       database = getDb();
@@ -444,15 +456,16 @@ router.delete(
 
     try {
       await database.transaction(async (tx) => {
-        await tx.delete(closetItems).where(eq(closetItems.userId, uid));
-        await tx.delete(onboardingProfiles).where(eq(onboardingProfiles.uid, uid));
-        await tx.delete(userProfiles).where(eq(userProfiles.id, uid));
+        await tx.delete(closetItems).where(eq(closetItems.userId, customUserId));
+        await tx.delete(usernames).where(eq(usernames.uid, firebaseUid));
+        await tx.delete(onboardingProfiles).where(eq(onboardingProfiles.uid, firebaseUid));
+        await tx.delete(userProfiles).where(eq(userProfiles.id, firebaseUid));
       });
-      await deleteUser(uid); // deletes customUsers row; cascades authSessions + mfaSecrets
-      logger.info("[Profile] Account and all related data deleted", { uid });
+      await deleteUser(customUserId); // deletes customUsers row; cascades authSessions + mfaSecrets
+      logger.info("[Profile] Account and all related data deleted", { uid: firebaseUid });
       return res.status(204).send();
     } catch (error) {
-      logger.error("[Profile] Account deletion failed", { uid, error });
+      logger.error("[Profile] Account deletion failed", { uid: firebaseUid, error });
       return Errors.internal(
         res,
         "ACCOUNT_DELETE_FAILED",

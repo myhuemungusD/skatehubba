@@ -312,27 +312,27 @@ export default function SignupPage() {
               </button>
             </div>
 
-            {/* Name (shared across methods) */}
             <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Your name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                    autoComplete="name"
-                    className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
-                    data-testid="input-signup-name"
-                  />
-                </div>
-              </div>
-
               {/* Email method fields */}
               {signupMethod === "email" && (
                 <form onSubmit={handleEmailSignup} className="space-y-4">
+                  {/* Name */}
+                  <div className="space-y-2">
+                    <div className="relative">
+                      <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Your name"
+                        type="text"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                        autoComplete="name"
+                        className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                        data-testid="input-signup-name"
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
                     <div className="relative">
                       <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -399,7 +399,9 @@ export default function SignupPage() {
                           placeholder="Username"
                           type="text"
                           value={username}
-                          onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                          onChange={(e) =>
+                            setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))
+                          }
                           required
                           autoComplete="username"
                           className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
@@ -457,6 +459,23 @@ export default function SignupPage() {
                 <>
                   {!codeSent ? (
                     <form onSubmit={handleSendCode} className="space-y-4">
+                      {/* Name */}
+                      <div className="space-y-2">
+                        <div className="relative">
+                          <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                          <Input
+                            placeholder="Your name"
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            required
+                            autoComplete="name"
+                            className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                            data-testid="input-signup-name-phone"
+                          />
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         <div className="relative">
                           <Phone className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -494,7 +513,9 @@ export default function SignupPage() {
                               placeholder="Username"
                               type="text"
                               value={username}
-                              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                              onChange={(e) =>
+                                setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))
+                              }
                               required
                               autoComplete="username"
                               className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"

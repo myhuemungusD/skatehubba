@@ -36,6 +36,8 @@ import { fetchProfile, extractRolesFromToken, authenticateWithBackend } from "./
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
+let activeRecaptchaVerifier: InstanceType<typeof RecaptchaVerifier> | null = null;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
@@ -382,7 +384,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   sendPhoneVerification: async (phoneNumber: string, recaptchaContainerId: string) => {
     set({ error: null, phoneConfirmationResult: null });
     try {
+      // Clear previous verifier to avoid "reCAPTCHA has already been rendered" errors
+      if (activeRecaptchaVerifier) {
+        activeRecaptchaVerifier.clear();
+        activeRecaptchaVerifier = null;
+      }
       const verifier = new RecaptchaVerifier(auth, recaptchaContainerId, { size: "invisible" });
+      activeRecaptchaVerifier = verifier;
       const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
       set({ phoneConfirmationResult: confirmationResult });
     } catch (err: unknown) {

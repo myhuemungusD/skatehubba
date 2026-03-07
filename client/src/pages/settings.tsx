@@ -116,8 +116,13 @@ export default function SettingsPage() {
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [usernameInput, setUsernameInput] = useState("");
 
+  const currentUsername = profile?.username ?? "";
+  // Only check availability when editing AND the input differs from current username.
+  // Checking the current username would return "taken" (it's their own) and waste a request.
+  const shouldCheckAvailability =
+    isEditingUsername && usernameInput.length >= 3 && usernameInput !== currentUsername;
   const { usernameStatus, availabilityBadge } = useUsernameCheck(
-    isEditingUsername ? usernameInput : undefined
+    shouldCheckAvailability ? usernameInput : undefined
   );
 
   const usernameValid =
@@ -125,7 +130,7 @@ export default function SettingsPage() {
 
   const canSaveUsername =
     usernameValid &&
-    usernameInput !== (profile?.username ?? "") &&
+    usernameInput !== currentUsername &&
     usernameStatus !== "taken" &&
     usernameStatus !== "checking" &&
     usernameStatus !== "invalid";
@@ -293,7 +298,7 @@ export default function SettingsPage() {
                           <X className="h-4 w-4" />
                         </button>
                       </div>
-                      {usernameInput.length > 0 && usernameInput !== (profile?.username ?? "") && (
+                      {usernameInput.length > 0 && usernameInput !== currentUsername && (
                         <div className="ml-5" aria-live="polite">
                           {!usernameValid && usernameInput.length > 0 && (
                             <span className="text-xs text-red-400">
