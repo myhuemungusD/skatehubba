@@ -96,7 +96,7 @@ export function UserSearch({ onChallenge, isPending }: UserSearchProps) {
         )}
         <Input
           ref={inputRef}
-          placeholder="Search skaters by name..."
+          placeholder="Search by name or @handle..."
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -138,13 +138,10 @@ export function UserSearch({ onChallenge, isPending }: UserSearchProps) {
                         {user.displayName}
                       </Link>
                       <p className="text-xs text-neutral-500">
+                        @{user.handle}
                         {user.wins + user.losses > 0
-                          ? `${user.wins}W · ${user.losses}L · ${
-                              user.wins + user.losses > 0
-                                ? Math.round((user.wins / (user.wins + user.losses)) * 100)
-                                : 0
-                            }%`
-                          : "New skater"}
+                          ? ` · ${user.wins}W · ${user.losses}L · ${Math.round((user.wins / (user.wins + user.losses)) * 100)}%`
+                          : " · New skater"}
                       </p>
                     </div>
                     <Button

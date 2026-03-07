@@ -112,7 +112,11 @@ export default function ChallengeLobby() {
       )}
 
       {/* Rankings */}
-      <CompactLeaderboard />
+      <CompactLeaderboard
+        currentUserId={user?.uid}
+        onChallenge={handleCreateChallenge}
+        isChallengePending={createGame.isPending}
+      />
 
       {/* API error banner — non-blocking, shows inline with retry */}
       {gamesError && (
@@ -343,7 +347,15 @@ function SectionHeader({
   );
 }
 
-function CompactLeaderboard() {
+function CompactLeaderboard({
+  currentUserId,
+  onChallenge,
+  isChallengePending,
+}: {
+  currentUserId?: string;
+  onChallenge: (userId: string) => void;
+  isChallengePending?: boolean;
+}) {
   const { entries, isLoading } = useRealtimeLeaderboard();
 
   if (isLoading) {
@@ -370,31 +382,52 @@ function CompactLeaderboard() {
     <section>
       <SectionHeader icon={<Trophy className="w-4 h-4 text-yellow-400" />} title="Rankings" />
       <div className="space-y-2">
-        {entries.slice(0, 10).map((entry: LeaderboardEntry, idx: number) => (
-          <div
-            key={entry.id}
-            className="flex items-center justify-between p-3 rounded-lg bg-neutral-800/50 border border-neutral-700"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-bold text-yellow-400 w-6 text-center">
-                #{entry.rank ?? idx + 1}
-              </span>
-              {entry.username ? (
-                <Link
-                  href={`/skater/${entry.username}`}
-                  className="text-sm font-medium text-white hover:text-yellow-400 transition-colors"
+        {entries.slice(0, 10).map((entry: LeaderboardEntry, idx: number) => {
+          const isMe = currentUserId === entry.id;
+          return (
+            <div
+              key={entry.id}
+              className={`flex items-center justify-between p-3 rounded-lg bg-neutral-800/50 border ${isMe ? "border-orange-500/30" : "border-neutral-700"}`}
+            >
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <span className="text-sm font-bold text-yellow-400 w-6 text-center shrink-0">
+                  #{entry.rank ?? idx + 1}
+                </span>
+                <div className="min-w-0 flex-1">
+                  {entry.username ? (
+                    <Link
+                      href={`/skater/${entry.username}`}
+                      className="text-sm font-medium text-white hover:text-yellow-400 transition-colors truncate block"
+                    >
+                      {entry.displayName}
+                    </Link>
+                  ) : (
+                    <span className="text-sm font-medium text-white truncate block">
+                      {entry.displayName}
+                    </span>
+                  )}
+                  <span className="text-xs text-neutral-500">
+                    {entry.wins}W - {entry.losses}L
+                  </span>
+                </div>
+              </div>
+              {currentUserId && !isMe && (
+                <Button
+                  size="sm"
+                  onClick={() => onChallenge(entry.id)}
+                  disabled={isChallengePending}
+                  className="shrink-0 ml-2 bg-orange-500 hover:bg-orange-600 text-black font-semibold h-7 px-2.5 text-xs"
                 >
-                  {entry.displayName}
-                </Link>
-              ) : (
-                <span className="text-sm font-medium text-white">{entry.displayName}</span>
+                  <Swords className="h-3 w-3 mr-1" />
+                  Challenge
+                </Button>
+              )}
+              {isMe && (
+                <span className="text-xs text-orange-400 font-medium shrink-0 ml-2">You</span>
               )}
             </div>
-            <span className="text-xs text-neutral-400">
-              {entry.wins}W - {entry.losses}L
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
