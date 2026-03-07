@@ -188,7 +188,7 @@ function createReq(overrides: any = {}) {
     firebaseUid: "test-uid",
     body: {},
     query: {},
-    currentUser: { id: "user-1" },
+    currentUser: { id: "user-1", firebaseUid: "test-uid" },
     ...overrides,
   };
 }
