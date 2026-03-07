@@ -71,7 +71,7 @@ export const gameTurns = pgTable(
     id: serial("id").primaryKey(),
     gameId: varchar("game_id", { length: 255 })
       .notNull()
-      .references(() => games.id, { onDelete: "cascade" }),
+      .references(() => games.id, { onDelete: "restrict" }),
     playerId: varchar("player_id", { length: 255 }).notNull(),
     playerName: varchar("player_name", { length: 255 }).notNull(),
     turnNumber: integer("turn_number").notNull(),
@@ -99,10 +99,10 @@ export const gameDisputes = pgTable(
     id: serial("id").primaryKey(),
     gameId: varchar("game_id", { length: 255 })
       .notNull()
-      .references(() => games.id, { onDelete: "cascade" }),
+      .references(() => games.id, { onDelete: "restrict" }),
     turnId: integer("turn_id")
       .notNull()
-      .references(() => gameTurns.id, { onDelete: "cascade" }),
+      .references(() => gameTurns.id, { onDelete: "restrict" }),
     disputedBy: varchar("disputed_by", { length: 255 }).notNull(),
     againstPlayerId: varchar("against_player_id", { length: 255 }).notNull(),
     originalResult: varchar("original_result", { length: 50 }).notNull(),

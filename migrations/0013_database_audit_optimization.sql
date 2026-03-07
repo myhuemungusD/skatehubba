@@ -1,12 +1,19 @@
 -- Migration 0013: Database Audit & Optimization
 -- Adds missing primary keys, foreign keys, indexes, and constraints
 -- identified during senior-level database audit.
+--
+-- DEPLOYMENT NOTE: Run this migration BEFORE deploying the updated app code.
+-- The Drizzle schema files now declare these indexes/FKs; deploying the app
+-- first could cause drizzle-kit to create conflicting constraints.
 
 -- ============================================================================
 -- 1. filmer_daily_counters: Add missing primary key
 -- ============================================================================
 ALTER TABLE filmer_daily_counters
   ADD COLUMN IF NOT EXISTS id SERIAL;
+
+-- Backfill existing rows so the PK constraint won't fail on NULLs
+UPDATE filmer_daily_counters SET id = DEFAULT WHERE id IS NULL;
 
 -- Only add PK constraint if it doesn't already exist
 DO $$
@@ -38,7 +45,7 @@ BEGIN
   ) THEN
     ALTER TABLE game_turns
       ADD CONSTRAINT fk_game_turns_game
-      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE;
+      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE RESTRICT;
   END IF;
 END $$;
 
@@ -57,7 +64,7 @@ BEGIN
   ) THEN
     ALTER TABLE game_disputes
       ADD CONSTRAINT fk_game_disputes_game
-      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE;
+      FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE RESTRICT;
   END IF;
 
   IF NOT EXISTS (
@@ -66,7 +73,7 @@ BEGIN
   ) THEN
     ALTER TABLE game_disputes
       ADD CONSTRAINT fk_game_disputes_turn
-      FOREIGN KEY (turn_id) REFERENCES game_turns(id) ON DELETE CASCADE;
+      FOREIGN KEY (turn_id) REFERENCES game_turns(id) ON DELETE RESTRICT;
   END IF;
 END $$;
 
@@ -83,6 +90,24 @@ CREATE INDEX IF NOT EXISTS "IDX_challenges_status" ON challenges (status);
 -- ============================================================================
 -- 6. trick_mastery: Upgrade index to UNIQUE (prevents duplicate user+trick)
 -- ============================================================================
+-- Safety check: abort if duplicates exist (migration runs in a transaction,
+-- so the CREATE UNIQUE INDEX will fail and the entire migration rolls back).
+DO $$
+DECLARE
+  dup_count INTEGER;
+BEGIN
+  SELECT COUNT(*) INTO dup_count
+  FROM (
+    SELECT user_id, trick FROM trick_mastery
+    GROUP BY user_id, trick
+    HAVING COUNT(*) > 1
+  ) dupes;
+
+  IF dup_count > 0 THEN
+    RAISE EXCEPTION 'Cannot create unique index: % duplicate (user_id, trick) pairs found in trick_mastery. Deduplicate manually before running this migration.', dup_count;
+  END IF;
+END $$;
+
 DROP INDEX IF EXISTS "IDX_user_trick";
 CREATE UNIQUE INDEX IF NOT EXISTS "IDX_user_trick" ON trick_mastery (user_id, trick);
 
