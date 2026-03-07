@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useCallback } from "react";
+import { useLocation } from "wouter";
+import { Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { auth } from "@/lib/firebase";
-import { queryClient } from "@/lib/queryClient";
+import { useCreateGame } from "@/hooks/useSkateGameApi";
 
 interface ChallengeButtonProps {
   challengedId: string;
@@ -10,59 +10,28 @@ interface ChallengeButtonProps {
 }
 
 export function ChallengeButton({ challengedId, challengedHandle }: ChallengeButtonProps) {
-  const { toast } = useToast();
-  const [busy, setBusy] = useState(false);
+  const createGame = useCreateGame();
+  const [, setLocation] = useLocation();
 
-  const handleChallenge = async () => {
-    try {
-      setBusy(true);
-      const user = auth.currentUser;
-
-      if (!user) {
-        toast({
-          title: "Sign in required",
-          description: "Log in to issue a challenge.",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const token = await user.getIdToken();
-      const response = await fetch("/api/challenges", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ challengedId }),
-      });
-      if (!response.ok) throw new Error("Failed to send challenge");
-
-      queryClient.invalidateQueries({ queryKey: ["/api/challenges"] });
-
-      toast({
-        title: "Challenge sent",
-        description: `@${challengedHandle} has been challenged. Respect the game.`,
-      });
-    } catch (error: unknown) {
-      toast({
-        title: "Could not challenge",
-        description: error instanceof Error ? error.message : "Unknown error",
-        variant: "destructive",
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
+  const handleChallenge = useCallback(() => {
+    createGame.mutate(challengedId, {
+      onSuccess: (data) => {
+        if (data?.game?.id) {
+          setLocation(`/play?gameId=${data.game.id}`);
+        }
+      },
+    });
+  }, [challengedId, createGame, setLocation]);
 
   return (
     <Button
       onClick={handleChallenge}
-      disabled={busy}
+      disabled={createGame.isPending}
       className="bg-orange-500 hover:bg-orange-600 text-black font-bold"
       data-testid="button-challenge"
     >
-      {busy ? "Sending" : "Challenge"}
+      <Swords className="h-4 w-4 mr-2" />
+      {createGame.isPending ? "Sending..." : "Challenge"}
     </Button>
   );
 }

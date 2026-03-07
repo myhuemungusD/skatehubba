@@ -29,7 +29,8 @@ router.get("/search", authenticateUser, async (req, res) => {
       const searchTerm = `%${sanitized}%`;
       const nameFilter = or(
         ilike(customUsers.firstName, searchTerm),
-        ilike(customUsers.lastName, searchTerm)
+        ilike(customUsers.lastName, searchTerm),
+        ilike(usernames.username, searchTerm)
       );
       const results = await database
         .select({
