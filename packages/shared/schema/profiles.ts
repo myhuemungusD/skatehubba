@@ -1,5 +1,14 @@
 import { z } from "zod";
-import { pgTable, text, integer, boolean, timestamp, json, varchar } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  integer,
+  boolean,
+  timestamp,
+  json,
+  varchar,
+  index,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
 
@@ -25,18 +34,24 @@ export const userProfiles = pgTable("user_profiles", {
 });
 
 // Closet items table - collectible gear
-export const closetItems = pgTable("closet_items", {
-  id: varchar("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  userId: varchar("user_id", { length: 255 }).notNull(),
-  type: varchar("type", { length: 50 }).notNull(),
-  brand: varchar("brand", { length: 100 }).notNull(),
-  name: varchar("name", { length: 255 }).notNull(),
-  imageUrl: varchar("image_url", { length: 500 }).notNull(),
-  rarity: varchar("rarity", { length: 50 }),
-  acquiredAt: timestamp("acquired_at").defaultNow().notNull(),
-});
+export const closetItems = pgTable(
+  "closet_items",
+  {
+    id: varchar("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: varchar("user_id", { length: 255 }).notNull(),
+    type: varchar("type", { length: 50 }).notNull(),
+    brand: varchar("brand", { length: 100 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    imageUrl: varchar("image_url", { length: 500 }).notNull(),
+    rarity: varchar("rarity", { length: 50 }),
+    acquiredAt: timestamp("acquired_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("IDX_closet_items_user").on(table.userId),
+  })
+);
 
 // Onboarding profiles — replaces Firestore profiles collection
 export const onboardingProfiles = pgTable("onboarding_profiles", {

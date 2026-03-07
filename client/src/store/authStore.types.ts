@@ -1,4 +1,4 @@
-import type { User as FirebaseUser } from "firebase/auth";
+import type { User as FirebaseUser, ConfirmationResult } from "firebase/auth";
 import type { BaseAuthState } from "@skatehubba/firebase";
 
 export type { BaseAuthState };
@@ -56,6 +56,9 @@ export interface AuthState extends BaseAuthState {
   signInGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, name?: string) => Promise<void>;
+  sendPhoneVerification: (phoneNumber: string, recaptchaContainerId: string) => Promise<void>;
+  confirmPhoneCode: (code: string, name?: string) => Promise<void>;
+  phoneConfirmationResult: ConfirmationResult | null;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   refreshRoles: () => Promise<UserRole[]>;

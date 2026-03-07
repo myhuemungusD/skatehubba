@@ -38,6 +38,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "../lib/queryClient";
 import { type NotificationPrefs, DEFAULT_NOTIFICATION_PREFS } from "@shared/schema";
 import { useToast } from "../hooks/use-toast";
+import { useUsernameCheck } from "./profile/hooks/useUsernameCheck";
 
 function ToggleRow({
   icon,
@@ -114,6 +115,25 @@ export default function SettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [usernameInput, setUsernameInput] = useState("");
+
+  const currentUsername = profile?.username ?? "";
+  // Only check availability when editing AND the input differs from current username.
+  // Checking the current username would return "taken" (it's their own) and waste a request.
+  const shouldCheckAvailability =
+    isEditingUsername && usernameInput.length >= 3 && usernameInput !== currentUsername;
+  const { usernameStatus, availabilityBadge } = useUsernameCheck(
+    shouldCheckAvailability ? usernameInput : undefined
+  );
+
+  const usernameValid =
+    usernameInput.length >= 3 && usernameInput.length <= 20 && /^[a-z0-9]+$/.test(usernameInput);
+
+  const canSaveUsername =
+    usernameValid &&
+    usernameInput !== currentUsername &&
+    usernameStatus !== "taken" &&
+    usernameStatus !== "checking" &&
+    usernameStatus !== "invalid";
 
   const updateUsernameMutation = useMutation({
     mutationFn: async (newUsername: string) => {
@@ -234,48 +254,60 @@ export default function SettingsPage() {
                 <div>
                   <p className="text-xs text-neutral-500">Username</p>
                   {isEditingUsername ? (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm text-neutral-400" aria-hidden="true">
-                        @
-                      </span>
-                      <input
-                        type="text"
-                        value={usernameInput}
-                        onChange={(e) =>
-                          setUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))
-                        }
-                        maxLength={20}
-                        ref={(el) => el?.focus()}
-                        aria-label="New username"
-                        className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-white outline-none focus:border-yellow-400 w-40"
-                        onKeyDown={(e) => {
-                          if (
-                            e.key === "Enter" &&
-                            usernameInput.length >= 3 &&
-                            !updateUsernameMutation.isPending
-                          ) {
-                            updateUsernameMutation.mutate(usernameInput);
+                    <div className="flex flex-col gap-1 mt-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-neutral-400" aria-hidden="true">
+                          @
+                        </span>
+                        <input
+                          type="text"
+                          value={usernameInput}
+                          onChange={(e) =>
+                            setUsernameInput(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, ""))
                           }
-                          if (e.key === "Escape") {
-                            setIsEditingUsername(false);
-                          }
-                        }}
-                      />
-                      <button
-                        onClick={() => updateUsernameMutation.mutate(usernameInput)}
-                        disabled={usernameInput.length < 3 || updateUsernameMutation.isPending}
-                        aria-label="Save username"
-                        className="p-1 rounded text-green-400 hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Check className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => setIsEditingUsername(false)}
-                        aria-label="Cancel editing"
-                        className="p-1 rounded text-neutral-400 hover:bg-neutral-800"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+                          maxLength={20}
+                          ref={(el) => el?.focus()}
+                          aria-label="New username"
+                          className="bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-sm text-white outline-none focus:border-yellow-400 w-40"
+                          onKeyDown={(e) => {
+                            if (
+                              e.key === "Enter" &&
+                              canSaveUsername &&
+                              !updateUsernameMutation.isPending
+                            ) {
+                              updateUsernameMutation.mutate(usernameInput);
+                            }
+                            if (e.key === "Escape") {
+                              setIsEditingUsername(false);
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={() => updateUsernameMutation.mutate(usernameInput)}
+                          disabled={!canSaveUsername || updateUsernameMutation.isPending}
+                          aria-label="Save username"
+                          className="p-1 rounded text-green-400 hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => setIsEditingUsername(false)}
+                          aria-label="Cancel editing"
+                          className="p-1 rounded text-neutral-400 hover:bg-neutral-800"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {usernameInput.length > 0 && usernameInput !== currentUsername && (
+                        <div className="ml-5" aria-live="polite">
+                          {!usernameValid && usernameInput.length > 0 && (
+                            <span className="text-xs text-red-400">
+                              3-20 characters, letters and numbers only
+                            </span>
+                          )}
+                          {usernameValid && availabilityBadge}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <p className="text-sm font-medium text-white">@{profile?.username ?? "—"}</p>

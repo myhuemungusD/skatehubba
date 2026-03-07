@@ -340,96 +340,113 @@ router.post(
  * PATCH /api/profile/username
  * Updates the authenticated user's username.
  */
-router.patch("/username", usernameUpdateLimiter, authenticateUser, async (req, res) => {
-  const uid = req.currentUser!.id;
-  const parsed = usernameSchema.safeParse(req.body?.username);
+router.patch(
+  "/username",
+  usernameUpdateLimiter,
+  requireFirebaseUid,
+  asyncHandler(async (req, res) => {
+    const { firebaseUid } = req as FirebaseAuthedRequest;
+    const parsed = usernameSchema.safeParse(req.body?.username);
 
-  if (!parsed.success) {
-    return Errors.badRequest(res, "INVALID_USERNAME", "Username format is invalid.", {
-      field: "username",
-    });
-  }
-
-  const newUsername = parsed.data;
-
-  let database;
-  try {
-    database = getDb();
-  } catch {
-    return Errors.dbUnavailable(res);
-  }
-
-  try {
-    // Check if the user already has this username
-    const [existing] = await database
-      .select({ username: usernames.username })
-      .from(usernames)
-      .where(eq(usernames.uid, uid))
-      .limit(1);
-
-    if (existing?.username === newUsername) {
-      return res.json({ username: newUsername });
-    }
-
-    // Release old username and reserve the new one atomically
-    await database.transaction(async (tx) => {
-      await tx.delete(usernames).where(eq(usernames.uid, uid));
-      const reserved = await tx
-        .insert(usernames)
-        .values({ uid, username: newUsername })
-        .onConflictDoNothing()
-        .returning({ username: usernames.username });
-
-      if (reserved.length === 0) {
-        throw new Error("USERNAME_TAKEN");
-      }
-
-      // Update onboarding profile
-      await tx
-        .update(onboardingProfiles)
-        .set({ username: newUsername, updatedAt: new Date() })
-        .where(eq(onboardingProfiles.uid, uid));
-
-      // Update user profile handle if it exists
-      await tx
-        .update(userProfiles)
-        .set({ handle: newUsername, updatedAt: new Date() })
-        .where(eq(userProfiles.id, uid));
-    });
-
-    return res.json({ username: newUsername });
-  } catch (error) {
-    if (error instanceof Error && error.message === "USERNAME_TAKEN") {
-      return Errors.conflict(res, "USERNAME_TAKEN", "That username is already taken.", {
+    if (!parsed.success) {
+      return Errors.badRequest(res, "INVALID_USERNAME", "Username format is invalid.", {
         field: "username",
       });
     }
-    logger.error("[Profile] Username update failed", { uid, error });
-    return Errors.internal(
-      res,
-      "USERNAME_UPDATE_FAILED",
-      "Failed to update username. Please try again."
-    );
-  }
-});
+
+    const newUsername = parsed.data;
+
+    let database;
+    try {
+      database = getDb();
+    } catch {
+      return Errors.dbUnavailable(res);
+    }
+
+    try {
+      // Check if the user already has this username
+      const [existing] = await database
+        .select({ username: usernames.username })
+        .from(usernames)
+        .where(eq(usernames.uid, firebaseUid))
+        .limit(1);
+
+      if (existing?.username === newUsername) {
+        return res.json({ username: newUsername });
+      }
+
+      // Release old username and reserve the new one atomically
+      await database.transaction(async (tx) => {
+        await tx.delete(usernames).where(eq(usernames.uid, firebaseUid));
+        const reserved = await tx
+          .insert(usernames)
+          .values({ uid: firebaseUid, username: newUsername })
+          .onConflictDoNothing()
+          .returning({ username: usernames.username });
+
+        if (reserved.length === 0) {
+          throw new Error("USERNAME_TAKEN");
+        }
+
+        // Update onboarding profile
+        await tx
+          .update(onboardingProfiles)
+          .set({ username: newUsername, updatedAt: new Date() })
+          .where(eq(onboardingProfiles.uid, firebaseUid));
+
+        // Update user profile handle if it exists
+        await tx
+          .update(userProfiles)
+          .set({ handle: newUsername, updatedAt: new Date() })
+          .where(eq(userProfiles.id, firebaseUid));
+      });
+
+      return res.json({ username: newUsername });
+    } catch (error) {
+      if (error instanceof Error && error.message === "USERNAME_TAKEN") {
+        return Errors.conflict(res, "USERNAME_TAKEN", "That username is already taken.", {
+          field: "username",
+        });
+      }
+      logger.error("[Profile] Username update failed", { uid: firebaseUid, error });
+      return Errors.internal(
+        res,
+        "USERNAME_UPDATE_FAILED",
+        "Failed to update username. Please try again."
+      );
+    }
+  })
+);
 
 /**
  * DELETE /api/profile
  * Permanently deletes the authenticated user and all associated data.
- * Called by the client AFTER Firebase Auth deletion succeeds, so the
- * Firebase account is already gone by the time this runs.
+ * Called by the client BEFORE Firebase Auth deletion, so the auth
+ * token is still valid when this runs.
  *
  * Deletion order:
- *   1. closet_items      — no FK to customUsers, must be deleted explicitly
- *   2. onboarding_profiles — no FK to customUsers, must be deleted explicitly
- *   3. user_profiles     — no FK to customUsers, must be deleted explicitly
- *   4. customUsers       — cascades authSessions and mfaSecrets via DB FK
+ *   1. closet_items        — keys on customUsers.id
+ *   2. usernames           — keys on Firebase UID
+ *   3. onboarding_profiles — keys on Firebase UID
+ *   4. user_profiles       — keys on Firebase UID
+ *   5. customUsers         — cascades authSessions and mfaSecrets via DB FK
  */
 router.delete(
   "/",
   authenticateUser,
   asyncHandler(async (req, res) => {
-    const uid = req.currentUser!.id;
+    const customUserId = req.currentUser!.id;
+    const firebaseUid = req.currentUser!.firebaseUid;
+
+    if (!firebaseUid) {
+      logger.error("[Profile] Account deletion failed — no firebaseUid", { id: customUserId });
+      return Errors.internal(
+        res,
+        "ACCOUNT_DELETE_FAILED",
+        "Failed to delete account. Please try again."
+      );
+    }
+
     let database;
     try {
       database = getDb();
@@ -439,15 +456,16 @@ router.delete(
 
     try {
       await database.transaction(async (tx) => {
-        await tx.delete(closetItems).where(eq(closetItems.userId, uid));
-        await tx.delete(onboardingProfiles).where(eq(onboardingProfiles.uid, uid));
-        await tx.delete(userProfiles).where(eq(userProfiles.id, uid));
+        await tx.delete(closetItems).where(eq(closetItems.userId, customUserId));
+        await tx.delete(usernames).where(eq(usernames.uid, firebaseUid));
+        await tx.delete(onboardingProfiles).where(eq(onboardingProfiles.uid, firebaseUid));
+        await tx.delete(userProfiles).where(eq(userProfiles.id, firebaseUid));
       });
-      await deleteUser(uid); // deletes customUsers row; cascades authSessions + mfaSecrets
-      logger.info("[Profile] Account and all related data deleted", { uid });
+      await deleteUser(customUserId); // deletes customUsers row; cascades authSessions + mfaSecrets
+      logger.info("[Profile] Account and all related data deleted", { uid: firebaseUid });
       return res.status(204).send();
     } catch (error) {
-      logger.error("[Profile] Account deletion failed", { uid, error });
+      logger.error("[Profile] Account deletion failed", { uid: firebaseUid, error });
       return Errors.internal(
         res,
         "ACCOUNT_DELETE_FAILED",
