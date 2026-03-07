@@ -20,7 +20,7 @@ packages/    Shared code (config, db, firebase, shared, types, utils)
 
 **Prerequisites**
 
-- Node.js 20+
+- Node.js 22
 - pnpm 10+ (enforced — `npm install` will fail)
 
 **Setup**
@@ -114,7 +114,7 @@ Example: `feat(client): add real-time spot check-in validation`
 ```bash
 pnpm run typecheck        # TypeScript checking (all packages)
 pnpm run lint             # ESLint (zero warnings)
-pnpm test                 # Unit tests (Vitest, 98% statement coverage threshold)
+pnpm test                 # Unit tests (Vitest, 99.5% statement coverage threshold)
 pnpm run format:check     # Prettier formatting (JSON files)
 pnpm run validate:packages # Check for duplicate deps, version consistency
 pnpm run build            # Full build (verify env + turbo build)
@@ -132,7 +132,7 @@ All PRs are gated by CI (GitHub Actions) which runs:
 
 - Lockfile integrity check
 - Formatting, package validation, typecheck, lint
-- Build with coverage (98% statements, 93% branches, 99% functions, 99% lines)
+- Build with coverage (99.5% statements, 99.5% branches, 99.5% functions, 99.5% lines)
 - Bundle size budget check (totalJs: 1825 KB, totalCss: 300 KB)
 - Migration drift detection
 - Mobile typecheck and lint

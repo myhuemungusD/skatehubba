@@ -12,7 +12,7 @@ For the game-specific architecture (state machine, turn flow, concurrency), see 
 |-----------|---------|-------------|----------------|
 | **Web client** | Browser | `client/src/main.tsx` | React SPA. Vite build, served as static files from `client/dist/`. |
 | **Mobile client** | iOS / Android | `mobile/app/_layout.tsx` | React Native + Expo. Same API surface as web. |
-| **Express server** | Node.js 20 | `server/index.ts` | HTTP API, Socket.io, video processing, static file serving. Single process. |
+| **Express server** | Node.js 22 | `server/index.ts` | HTTP API, Socket.io, video processing, static file serving. Single process. |
 | **Cloud Functions** | Firebase Functions | `functions/src/index.ts` | RBAC role management, App Check enforcement, Firestore triggers. |
 | **Cron jobs** | Express (in-process) | `server/routes/games-cron.ts` | Game deadline enforcement, turn timeout forfeit. |
 

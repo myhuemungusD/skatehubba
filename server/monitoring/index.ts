@@ -155,6 +155,11 @@ async function checkRedis(): Promise<ComponentHealth> {
 }
 
 async function checkFfmpeg(): Promise<ComponentHealth> {
+  // ffmpeg is not available in serverless environments (e.g. Vercel);
+  // skip the check so the health endpoint doesn't return degraded/503.
+  if (process.env.VERCEL) {
+    return { status: "unconfigured", detail: "skipped in serverless environment" };
+  }
   const start = Date.now();
   const result = await checkFfmpegAvailable();
   if (result.ffmpeg && result.ffprobe) {
