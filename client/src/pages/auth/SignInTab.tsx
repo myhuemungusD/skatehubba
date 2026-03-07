@@ -66,7 +66,20 @@ export function SignInTab({
     } catch (error) {
       logger.error("[AuthPage] Sign in error:", error);
       const authError = error as { message?: string; code?: string };
-      const message = authError.message || "Sign in failed. Please check your credentials.";
+      let message: string;
+      switch (authError.code) {
+        case "auth/network-request-failed":
+          message = "Network error. Check your connection and try again.";
+          break;
+        case "auth/too-many-requests":
+          message = "Too many attempts. Please try again later.";
+          break;
+        case "auth/user-disabled":
+          message = "This account has been disabled.";
+          break;
+        default:
+          message = "Sign in failed. Please check your credentials.";
+      }
       toast({
         title: "Sign In Failed",
         description: message,

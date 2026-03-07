@@ -8,6 +8,11 @@ import "../types/express.d.ts";
 import logger from "../logger.ts";
 import { getRedisClient } from "../redis.ts";
 
+// Fail-fast: prevent dev bypass from ever being active in production
+if (process.env.NODE_ENV === "production" && process.env.DEV_ADMIN_BYPASS === "true") {
+  throw new Error("FATAL: DEV_ADMIN_BYPASS must never be enabled in production");
+}
+
 // Re-authentication window (5 minutes)
 const REAUTH_WINDOW_MS = 5 * 60 * 1000;
 const REAUTH_TTL_SECONDS = Math.ceil(REAUTH_WINDOW_MS / 1000);
@@ -15,6 +20,7 @@ const REAUTH_KEY_PREFIX = "reauth:";
 
 // Fallback in-memory store when Redis is unavailable
 const recentAuthsFallback = new Map<string, number>();
+let warnedReauthFallback = false;
 
 /**
  * Authentication middleware to protect routes
@@ -285,6 +291,12 @@ export function recordRecentAuth(userId: string): void {
   if (redis) {
     redis.set(`${REAUTH_KEY_PREFIX}${userId}`, String(Date.now()), "EX", REAUTH_TTL_SECONDS);
   } else {
+    if (!warnedReauthFallback) {
+      logger.warn(
+        "[RecentAuth] Redis unavailable — using in-memory fallback (unreliable in multi-instance deployments)"
+      );
+      warnedReauthFallback = true;
+    }
     recentAuthsFallback.set(userId, Date.now());
 
     // Clean up old entries periodically using crypto for unbiased randomness

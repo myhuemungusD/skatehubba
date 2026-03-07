@@ -176,6 +176,23 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
         }
       });
+
+      // PHASE 4: Periodic token refresh — detect expired/revoked sessions
+      // Firebase ID tokens expire after 1 hour. Proactively refresh every
+      // 10 minutes so users aren't silently using an invalid token.
+      const TOKEN_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+      setInterval(async () => {
+        const currentUser = auth.currentUser;
+        if (!currentUser) return;
+        try {
+          await currentUser.getIdToken(true);
+        } catch (refreshErr) {
+          logger.error("[AuthStore] Token refresh failed, signing out:", refreshErr);
+          get()
+            .signOut()
+            .catch(() => {});
+        }
+      }, TOKEN_REFRESH_INTERVAL_MS);
     } catch (fatal) {
       logger.error("[AuthStore] Critical boot failure:", fatal);
       finalStatus = "degraded";

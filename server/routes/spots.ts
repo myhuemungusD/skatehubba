@@ -36,13 +36,18 @@ router.get("/discover", spotDiscoveryLimiter, async (req, res) => {
   const lat = Number(req.query.lat);
   const lng = Number(req.query.lng);
 
-  if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return res
-      .status(400)
-      .json({
-        error: "INVALID_COORDINATES",
-        message: "Valid lat and lng query parameters are required.",
-      });
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < -90 ||
+    lat > 90 ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    return res.status(400).json({
+      error: "INVALID_COORDINATES",
+      message: "Valid lat and lng query parameters are required.",
+    });
   }
 
   const EMPTY_DISCOVERY = {
@@ -242,12 +247,10 @@ router.post(
           reason: replayCheck.reason,
         },
       });
-      return res
-        .status(status)
-        .json({
-          error: replayCheck.reason === "replay_detected" ? "REPLAY_DETECTED" : "INVALID_TIMESTAMP",
-          message,
-        });
+      return res.status(status).json({
+        error: replayCheck.reason === "replay_detected" ? "REPLAY_DETECTED" : "INVALID_TIMESTAMP",
+        message,
+      });
     }
 
     try {

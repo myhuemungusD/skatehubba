@@ -69,10 +69,11 @@ export function useRecordingState({ onVideoReady }: UseRecordingStateParams) {
 
   // Stop recording on unmount to prevent orphaned camera sessions
   useEffect(() => {
+    const camera = cameraRef.current;
     return () => {
-      if (cameraRef.current && recording) {
+      if (camera && recording) {
         try {
-          cameraRef.current.stopRecording();
+          camera.stopRecording();
         } catch {
           // Camera may already be stopped
         }

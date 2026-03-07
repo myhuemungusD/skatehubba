@@ -72,8 +72,15 @@ export const transformProfile = (uid: string, data: Record<string, unknown>): Us
   return {
     uid,
     username: String(data.username ?? ""),
-    stance: (data.stance as UserProfile["stance"]) ?? null,
-    experienceLevel: (data.experienceLevel as UserProfile["experienceLevel"]) ?? null,
+    stance:
+      typeof data.stance === "string" && ["regular", "goofy"].includes(data.stance)
+        ? (data.stance as UserProfile["stance"])
+        : null,
+    experienceLevel:
+      typeof data.experienceLevel === "string" &&
+      ["beginner", "intermediate", "advanced", "pro"].includes(data.experienceLevel)
+        ? (data.experienceLevel as UserProfile["experienceLevel"])
+        : null,
     favoriteTricks: Array.isArray(data.favoriteTricks) ? (data.favoriteTricks as string[]) : [],
     bio: (data.bio as string | null) ?? null,
     sponsorFlow: (data.sponsorFlow as string | null) ?? null,
