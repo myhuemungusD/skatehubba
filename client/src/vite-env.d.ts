@@ -66,28 +66,7 @@ interface Window {
   __SKATEHUBBA_UID__?: string | null;
 }
 
-// Asset imports handled by Vite
-declare module "*.png" {
-  const src: string;
-  export default src;
-}
-
-declare module "*.jpg" {
-  const src: string;
-  export default src;
-}
-
-declare module "*.svg" {
-  const src: string;
-  export default src;
-}
-
-declare module "*.css" {
-  const css: string;
-  export default css;
-}
-
-// Leaflet asset imports
+// Leaflet asset imports (path-specific overrides not covered by vite/client)
 declare module "leaflet/dist/images/*.png" {
   const src: string;
   export default src;
