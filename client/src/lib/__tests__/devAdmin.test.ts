@@ -34,6 +34,26 @@ describe("devAdmin", () => {
       expect(isDevAdmin()).toBe(false);
     });
 
+    it("returns false when not in DEV mode", async () => {
+      vi.stubGlobal("window", {
+        location: { hostname: "localhost" },
+        sessionStorage: {
+          getItem: vi.fn(() => "true"),
+          setItem: vi.fn(),
+          removeItem: vi.fn(),
+        },
+      });
+
+      const originalDev = import.meta.env.DEV;
+      import.meta.env.DEV = false as unknown as boolean;
+
+      const { isDevAdmin } = await import("../devAdmin");
+
+      expect(isDevAdmin()).toBe(false);
+
+      import.meta.env.DEV = originalDev;
+    });
+
     it("returns false when not on localhost", async () => {
       vi.stubGlobal("window", {
         location: { hostname: "skatehubba.com" },
