@@ -50,18 +50,19 @@ Challenge anyone to a game of S.K.A.T.E. — record tricks on video, judge your 
 
 ## Tech Stack
 
-| Layer      | Technology                                               |
-| ---------- | -------------------------------------------------------- |
+| Layer      | Technology                                                        |
+| ---------- | ----------------------------------------------------------------- |
 | Frontend   | React 18, Vite 6, TypeScript 5.9, TailwindCSS, Radix UI, Leaflet |
-| Backend    | Express, TypeScript, PostgreSQL, Drizzle ORM, Redis, Neon         |
-| Mobile     | React Native, Expo (EAS builds)                          |
-| Auth       | Firebase Auth + custom JWT                               |
-| Realtime   | Socket.io                                                |
-| Monorepo   | pnpm workspaces, Turborepo                               |
-| Build      | esbuild (server), Vite (client)                          |
-| Testing    | Vitest, Playwright, Cypress, Detox (mobile)              |
-| CI/CD      | GitHub Actions, CodeQL, Docker (staging), Vercel (prod)  |
-| Monitoring | Sentry                                                   |
+| Backend    | Express, TypeScript, PostgreSQL (Neon), Drizzle ORM, Redis        |
+| Mobile     | React Native, Expo (EAS builds)                                   |
+| Auth       | Firebase Auth + custom JWT                                        |
+| Payments   | Stripe                                                            |
+| Realtime   | Socket.io                                                         |
+| Monorepo   | pnpm workspaces, Turborepo                                        |
+| Build      | esbuild (server), Vite (client)                                   |
+| Testing    | Vitest, Playwright, Cypress, Detox (mobile)                       |
+| CI/CD      | GitHub Actions, CodeQL, Docker (staging), Vercel (prod)           |
+| Monitoring | Sentry                                                            |
 
 ---
 
@@ -155,8 +156,6 @@ with PostgreSQL, Redis, Nginx, and automatic SSL via Let's Encrypt.
 # One-liner for a fresh Ubuntu server:
 DOMAIN=staging.skatehubba.com EMAIL=admin@skatehubba.com bash deploy/setup-server.sh
 ```
-
-See [docs/RELEASE.md](docs/RELEASE.md) for full deployment docs, environments, and secret rotation.
 
 **Live demo:** [staging.skatehubba.com](https://staging.skatehubba.com)
 
