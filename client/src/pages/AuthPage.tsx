@@ -176,6 +176,7 @@ export default function AuthPage() {
                 isExternalLoading={auth?.loading ?? false}
                 inEmbeddedBrowser={inEmbeddedBrowser}
                 onForgotPassword={() => setShowForgotPassword(true)}
+                onSuccess={redirectAfterSignIn}
               />
             </TabsContent>
 
