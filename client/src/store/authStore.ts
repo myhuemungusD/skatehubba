@@ -6,6 +6,8 @@ import {
   getRedirectResult,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPhoneNumber,
+  RecaptchaVerifier,
   signOut as firebaseSignOut,
   getIdTokenResult,
   GoogleAuthProvider,
@@ -34,6 +36,8 @@ import { fetchProfile, extractRolesFromToken, authenticateWithBackend } from "./
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
+let activeRecaptchaVerifier: InstanceType<typeof RecaptchaVerifier> | null = null;
+
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
@@ -45,6 +49,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   loading: true,
   isInitialized: false,
   error: null,
+  phoneConfirmationResult: null,
 
   initialize: async () => {
     const startTime = Date.now();
@@ -369,6 +374,61 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // when isRegistration=true (via Resend, not Firebase default templates)
     } catch (err: unknown) {
       logger.error("[AuthStore] Email sign-up error:", err);
+      if (err instanceof Error) {
+        set({ error: err });
+      }
+      throw err;
+    }
+  },
+
+  sendPhoneVerification: async (phoneNumber: string, recaptchaContainerId: string) => {
+    set({ error: null, phoneConfirmationResult: null });
+    try {
+      // Clear previous verifier to avoid "reCAPTCHA has already been rendered" errors
+      if (activeRecaptchaVerifier) {
+        activeRecaptchaVerifier.clear();
+        activeRecaptchaVerifier = null;
+      }
+      const verifier = new RecaptchaVerifier(auth, recaptchaContainerId, { size: "invisible" });
+      activeRecaptchaVerifier = verifier;
+      const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
+      set({ phoneConfirmationResult: confirmationResult });
+    } catch (err: unknown) {
+      logger.error("[AuthStore] Phone verification error:", err);
+      if (err instanceof Error) {
+        set({ error: err });
+      }
+      throw err;
+    }
+  },
+
+  confirmPhoneCode: async (code: string, name?: string) => {
+    set({ error: null });
+    const confirmationResult = get().phoneConfirmationResult;
+    if (!confirmationResult) {
+      throw new Error("No phone verification in progress. Send a code first.");
+    }
+    try {
+      const result = await confirmationResult.confirm(code);
+      set({ phoneConfirmationResult: null });
+
+      const parts = (name ?? "").trim().split(/\s+/);
+      const firstName = parts[0] || undefined;
+      const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
+      await authenticateWithBackend(result.user, { firstName, lastName, isRegistration: true });
+
+      try {
+        await setDoc(doc(db, "users", result.user.uid), {
+          uid: result.user.uid,
+          displayName: name?.trim() || "",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      } catch (firestoreErr) {
+        logger.error("[AuthStore] Failed to create Firestore user doc:", firestoreErr);
+      }
+    } catch (err: unknown) {
+      logger.error("[AuthStore] Phone code confirmation error:", err);
       if (err instanceof Error) {
         set({ error: err });
       }
