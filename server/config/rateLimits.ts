@@ -222,6 +222,14 @@ export const RATE_LIMIT_CONFIG = {
     prefix: "rl:trickmint:",
   },
 
+  /** Username update attempts per user */
+  usernameUpdate: {
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5,
+    message: "Too many username change attempts, please try again later.",
+    prefix: "rl:usernameupdate:",
+  },
+
   /** User search/listing requests per IP — prevents scraping */
   userSearch: {
     windowMs: 1 * 60 * 1000, // 1 minute

@@ -89,6 +89,7 @@ vi.mock("../../config/rateLimits", () => ({
     payment: { windowMs: 1000, max: 10, message: "test", prefix: "pay:" },
     gameWrite: { windowMs: 1000, max: 10, message: "test", prefix: "gw:" },
     trickmintUpload: { windowMs: 1000, max: 15, message: "test", prefix: "tu:" },
+    usernameUpdate: { windowMs: 1000, max: 5, message: "test", prefix: "uu:" },
     userSearch: { windowMs: 1000, max: 30, message: "test", prefix: "us:" },
   },
 }));
@@ -188,8 +189,8 @@ describe("Security middleware — uncovered lines", () => {
     it("should use the correct prefix for each rate limiter store", () => {
       // All rateLimit() calls should have produced a store via buildStore,
       // so we expect RedisStore to have been called once per limiter.
-      // security.ts has 24 rateLimit() calls.
-      expect(MockRedisStore.calls.length).toBe(24);
+      // security.ts has 25 rateLimit() calls.
+      expect(MockRedisStore.calls.length).toBe(25);
 
       // Verify some known prefixes are present
       const prefixes = MockRedisStore.calls.map((c: any) => c.prefix);
@@ -356,7 +357,12 @@ describe("Security middleware — uncovered lines", () => {
       // profileCreateLimiter is the only one that checks req.firebaseUid
       // We can identify it by testing with a request that has firebaseUid
       for (const opt of opts) {
-        const testReq = { firebaseUid: "test-uid", ip: "1.2.3.4", currentUser: null, get: () => undefined };
+        const testReq = {
+          firebaseUid: "test-uid",
+          ip: "1.2.3.4",
+          currentUser: null,
+          get: () => undefined,
+        };
         const key = opt.keyGenerator(testReq);
         if (key === "test-uid") return opt.keyGenerator;
       }

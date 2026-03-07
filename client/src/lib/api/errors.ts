@@ -44,6 +44,7 @@ const statusToCode = (status?: number): ApiErrorCode => {
   if (status === 403) return "UNAUTHORIZED";
   if (status === 429) return "RATE_LIMIT";
   if (status === 400) return "VALIDATION_ERROR";
+  if (status === 409) return "VALIDATION_ERROR";
   return "UNKNOWN";
 };
 
