@@ -59,6 +59,16 @@ export function ARTrickViewer({
   };
 
   const requestCameraPermission = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraPermission("denied");
+      toast({
+        title: "Camera Not Available",
+        description: "Your browser does not support camera access. Try Chrome or Safari.",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       stream.getTracks().forEach((track) => track.stop());

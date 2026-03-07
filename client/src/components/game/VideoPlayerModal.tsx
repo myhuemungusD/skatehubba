@@ -43,6 +43,7 @@ export function VideoPlayerModal({ videoUrl, onClose }: VideoPlayerModalProps) {
           <video
             src={videoUrl}
             className="w-full h-full object-contain"
+            crossOrigin="anonymous"
             controls
             autoPlay
             playsInline

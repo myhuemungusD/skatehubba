@@ -18,6 +18,24 @@ import { cn } from "@/lib/utils";
 
 const MAX_DURATION_MS = 15_000;
 const MAX_DURATION_S = MAX_DURATION_MS / 1000;
+const MIN_DURATION_MS = 500;
+
+/** Pick the best supported video MIME type for MediaRecorder (Safari uses mp4) */
+function getSupportedMimeType(): string {
+  const candidates = [
+    "video/webm;codecs=vp9,opus",
+    "video/webm;codecs=vp8,opus",
+    "video/webm",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4",
+  ];
+  for (const type of candidates) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) {
+      return type;
+    }
+  }
+  return "";
+}
 
 interface VideoRecorderProps {
   onRecordingComplete: (blob: Blob, durationMs: number) => void;
@@ -36,6 +54,7 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoStopRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onCompleteRef = useRef(onRecordingComplete);
+  const startingRef = useRef(false);
 
   const [state, setState] = useState<RecorderState>("idle");
   const [elapsedMs, setElapsedMs] = useState(0);
@@ -77,13 +96,27 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
   }, [cleanup]);
 
   const startRecording = useCallback(async () => {
-    if (state !== "idle" || disabled) return;
+    if (state !== "idle" || disabled || startingRef.current) return;
+    startingRef.current = true;
 
     setState("requesting");
     setError(null);
     chunksRef.current = [];
 
     try {
+      if (
+        typeof window !== "undefined" &&
+        window.location.protocol !== "https:" &&
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1"
+      ) {
+        throw new Error("https_required");
+      }
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("unsupported");
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: true,
@@ -97,11 +130,9 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
         await videoRef.current.play();
       }
 
-      const recorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-          ? "video/webm;codecs=vp9"
-          : "video/webm",
-      });
+      const mimeType = getSupportedMimeType();
+      const recorderOptions: MediaRecorderOptions = mimeType ? { mimeType } : {};
+      const recorder = new MediaRecorder(stream, recorderOptions);
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -110,20 +141,28 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
       };
 
       recorder.onstop = () => {
+        startingRef.current = false;
         const durationMs = Math.min(Date.now() - startTimeRef.current, MAX_DURATION_MS);
-        const blob = new Blob(chunksRef.current, { type: "video/webm" });
+        const actualMime = mimeType || "video/webm";
+        const blob = new Blob(chunksRef.current, { type: actualMime });
 
         cleanup();
-        setState("sent");
 
-        // Auto-send. No preview. No confirmation. Done.
+        if (durationMs < MIN_DURATION_MS || blob.size === 0) {
+          setState("idle");
+          setError("Recording too short. Hold the button longer.");
+          return;
+        }
+
+        setState("sent");
         onCompleteRef.current(blob, durationMs);
       };
 
       recorder.onerror = () => {
+        startingRef.current = false;
         cleanup();
         setState("idle");
-        setError("Recording failed.");
+        setError("Recording failed. Please try again.");
       };
 
       mediaRecorderRef.current = recorder;
@@ -143,10 +182,17 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
           mediaRecorderRef.current.stop();
         }
       }, MAX_DURATION_MS);
-    } catch {
+    } catch (err) {
+      startingRef.current = false;
       cleanup();
       setState("idle");
-      setError("Camera access denied.");
+      if (err instanceof Error && err.message === "https_required") {
+        setError("Camera requires a secure connection (HTTPS).");
+      } else if (err instanceof Error && err.message === "unsupported") {
+        setError("Camera recording is not supported in this browser. Try Chrome or Safari.");
+      } else {
+        setError("Camera access denied. Check your browser permissions.");
+      }
     }
   }, [state, disabled, cleanup]);
 
@@ -192,7 +238,9 @@ export function VideoRecorder({ onRecordingComplete, disabled, className }: Vide
             {/* Time remaining */}
             <div
               className="absolute top-3 right-3 px-2 py-1 rounded bg-black/60 font-mono text-xs text-red-400"
+              role="timer"
               aria-live="polite"
+              aria-atomic="true"
               aria-label={`${remainingS} seconds remaining`}
             >
               {remainingS}s
