@@ -6,8 +6,12 @@ import { env } from "./config/env";
 import logger from "./logger";
 import { defaultSpots } from "./seeds/defaultSpots";
 
-// Node 24 ships a built-in WebSocket global — no extra `ws` dependency needed
-neonConfig.webSocketConstructor = WebSocket;
+// Provide an explicit WebSocket implementation for the Neon serverless driver.
+// The global WebSocket may be unavailable in bundled serverless environments
+// (esbuild inlines everything, so the global can be lost). The `ws` package
+// is a reliable fallback that works in all Node.js runtimes.
+import ws from "ws";
+neonConfig.webSocketConstructor = ws;
 
 // Properly typed Drizzle database instance
 type DatabaseSchema = typeof schema;
