@@ -36,25 +36,32 @@ export const products = pgTable("products", {
 });
 
 // Shop orders table
-export const orders = pgTable("orders", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id"),
-  userEmail: varchar("user_email", { length: 255 }),
-  items: json("items")
-    .$type<
-      Array<{
-        id: string;
-        name: string;
-        price: number;
-        quantity: number;
-      }>
-    >()
-    .notNull(),
-  total: integer("total").notNull(), // total in cents
-  status: varchar("status", { length: 50 }).notNull().default("pending"), // 'pending', 'completed', 'failed'
-  paymentIntentId: varchar("payment_intent_id", { length: 255 }).unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+export const orders = pgTable(
+  "orders",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id"),
+    userEmail: varchar("user_email", { length: 255 }),
+    items: json("items")
+      .$type<
+        Array<{
+          id: string;
+          name: string;
+          price: number;
+          quantity: number;
+        }>
+      >()
+      .notNull(),
+    total: integer("total").notNull(),
+    status: varchar("status", { length: 50 }).notNull().default("pending"),
+    paymentIntentId: varchar("payment_intent_id", { length: 255 }).unique(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("IDX_orders_user").on(table.userId),
+    statusIdx: index("IDX_orders_status").on(table.status),
+  })
+);
 
 // Consumed payment intents for premium upgrades — prevents reuse of a single payment
 export const consumedPaymentIntents = pgTable(

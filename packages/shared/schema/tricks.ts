@@ -33,14 +33,14 @@ export const trickMastery = pgTable(
     id: serial("id").primaryKey(),
     userId: varchar("user_id", { length: 255 }).notNull(),
     trick: varchar("trick", { length: 100 }).notNull(),
-    level: varchar("level", { length: 50 }).notNull().default("learning"), // 'learning', 'consistent', 'bolts'
+    level: varchar("level", { length: 50 }).notNull().default("learning"),
     landedCount: integer("landed_count").default(0).notNull(),
     lastLandedAt: timestamp("last_landed_at"),
     streak: integer("streak").default(0).notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => ({
-    userTrickIdx: index("IDX_user_trick").on(table.userId, table.trick),
+    userTrickIdx: uniqueIndex("IDX_user_trick").on(table.userId, table.trick),
   })
 );
 
@@ -100,7 +100,9 @@ export const clipViews = pgTable(
   "clip_views",
   {
     id: serial("id").primaryKey(),
-    clipId: integer("clip_id").notNull(),
+    clipId: integer("clip_id")
+      .notNull()
+      .references(() => trickClips.id, { onDelete: "cascade" }),
     userId: varchar("user_id", { length: 255 }).notNull(),
     viewedAt: timestamp("viewed_at").defaultNow().notNull(),
   },

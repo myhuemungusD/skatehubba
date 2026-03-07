@@ -8,6 +8,8 @@ import {
   timestamp,
   json,
   varchar,
+  index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 
@@ -32,20 +34,29 @@ export const tutorialSteps = pgTable("tutorial_steps", {
   isActive: boolean("is_active").default(true),
 });
 
-export const userProgress = pgTable("user_progress", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id").notNull(),
-  stepId: integer("step_id").notNull(),
-  completed: boolean("completed").default(false),
-  completedAt: timestamp("completed_at"),
-  timeSpent: integer("time_spent"), // in seconds
-  interactionData: json("interaction_data").$type<{
-    taps?: number;
-    swipes?: number;
-    mistakes?: number;
-    helpUsed?: boolean;
-  }>(),
-});
+export const userProgress = pgTable(
+  "user_progress",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id").notNull(),
+    stepId: integer("step_id")
+      .notNull()
+      .references(() => tutorialSteps.id, { onDelete: "cascade" }),
+    completed: boolean("completed").default(false),
+    completedAt: timestamp("completed_at"),
+    timeSpent: integer("time_spent"),
+    interactionData: json("interaction_data").$type<{
+      taps?: number;
+      swipes?: number;
+      mistakes?: number;
+      helpUsed?: boolean;
+    }>(),
+  },
+  (table) => ({
+    userStepIdx: uniqueIndex("IDX_user_progress_user_step").on(table.userId, table.stepId),
+    userIdx: index("IDX_user_progress_user").on(table.userId),
+  })
+);
 
 export const insertTutorialStepSchema = createInsertSchema(tutorialSteps).omit({
   id: true,

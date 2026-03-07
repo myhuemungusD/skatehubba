@@ -37,16 +37,21 @@ try {
       });
     });
 
-    // Apply connection-level settings (e.g. statement_timeout) to every new connection
-    pool.on("connect", (client: { query: (sql: string) => Promise<unknown> }) => {
-      client
-        .query(`SET statement_timeout = '${env.DB_STATEMENT_TIMEOUT_MS}'`)
-        .catch((err: unknown) => {
-          logger.error("Failed to set statement_timeout on new connection", {
-            error: err instanceof Error ? err.message : String(err),
+    // Apply connection-level settings (e.g. statement_timeout) to every new connection.
+    // Use parameterized value to prevent SQL injection via env.DB_STATEMENT_TIMEOUT_MS.
+    const statementTimeoutMs = Number(env.DB_STATEMENT_TIMEOUT_MS);
+    pool.on(
+      "connect",
+      (client: { query: (sql: string, values?: unknown[]) => Promise<unknown> }) => {
+        client
+          .query(`SET statement_timeout = $1`, [String(statementTimeoutMs)])
+          .catch((err: unknown) => {
+            logger.error("Failed to set statement_timeout on new connection", {
+              error: err instanceof Error ? err.message : String(err),
+            });
           });
-        });
-    });
+      }
+    );
 
     db = drizzle(pool, { schema });
     logger.info("Neon serverless database pool created", {
