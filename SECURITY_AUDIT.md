@@ -228,6 +228,7 @@ However, this audit identified **new findings** beyond previous audits that requ
 - **Layer:** Infrastructure
 - **Issue:** `FROM node:20-slim` — Node.js 20 LTS EOL is April 30, 2026 (~2 months away). After EOL, no security patches.
 - **Fix:** Upgrade to `node:22-slim`.
+- **Status:** FIXED — Dockerfile now uses `node:22-slim`.
 
 ### M8. Firebase Rules Only Validated on Main Branch
 
