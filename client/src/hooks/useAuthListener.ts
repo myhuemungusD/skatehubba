@@ -29,13 +29,13 @@ export function useAuthListener() {
     async function boot() {
       // 8s cap — if Firebase is unreachable, fall through to initialize
       // so the app renders instead of hanging on a blank loading screen.
-      await withTimeout(
-        useAuthStore.getState().handleRedirectResult(),
-        8000,
-        "redirect_result",
-      );
+      await withTimeout(useAuthStore.getState().handleRedirectResult(), 8000, "redirect_result");
       await useAuthStore.getState().initialize();
     }
-    void boot();
+    boot().catch((err) => {
+      // Defensive: boot() has its own try/catch, but if something
+      // truly unexpected escapes, log rather than swallow.
+      console.error("[useAuthListener] Unhandled boot error:", err);
+    });
   }, []);
 }

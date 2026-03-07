@@ -85,7 +85,7 @@ export function createApp(): express.Express {
     app.use((_req, res, next) => {
       res.setHeader(
         "Permissions-Policy",
-        "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+        "camera=(), microphone=(), geolocation=(self), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=(), bluetooth=(), serial=(), hid=()"
       );
       next();
     });
