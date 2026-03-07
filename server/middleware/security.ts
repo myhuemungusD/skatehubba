@@ -156,6 +156,16 @@ export const usernameCheckLimiter = rateLimit({
   store: buildStore(RL.usernameCheck.prefix),
 });
 
+export const usernameUpdateLimiter = rateLimit({
+  windowMs: RL.usernameUpdate.windowMs,
+  max: RL.usernameUpdate.max,
+  message: { error: RL.usernameUpdate.message },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: userKeyGenerator,
+  store: buildStore(RL.usernameUpdate.prefix),
+});
+
 export const profileCreateLimiter = rateLimit({
   windowMs: RL.profileCreate.windowMs,
   max: RL.profileCreate.max,

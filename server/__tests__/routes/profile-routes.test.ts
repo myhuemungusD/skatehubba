@@ -16,6 +16,9 @@ mockDbChain.limit = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.insert = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.values = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.returning = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.onConflictDoNothing = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.update = vi.fn().mockReturnValue(mockDbChain);
+mockDbChain.set = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.delete = vi.fn().mockReturnValue(mockDbChain);
 mockDbChain.transaction = vi.fn().mockImplementation(async (fn: any) => fn(mockDbChain));
 mockDbChain.then = (resolve: any) => Promise.resolve([]).then(resolve);
@@ -50,6 +53,7 @@ vi.mock("@shared/schema", () => ({
   onboardingProfiles: { uid: "uid" },
   userProfiles: { id: "id" },
   closetItems: { userId: "userId" },
+  usernames: { uid: "uid", username: "username" },
 }));
 
 vi.mock("@shared/validation/profile", () => ({
@@ -85,6 +89,7 @@ vi.mock("../../middleware/firebaseUid", () => ({
 vi.mock("../../middleware/security", () => ({
   profileCreateLimiter: (_req: any, _res: any, next: any) => next(),
   usernameCheckLimiter: (_req: any, _res: any, next: any) => next(),
+  usernameUpdateLimiter: (_req: any, _res: any, next: any) => next(),
 }));
 
 const mockIsAvailable = vi.fn().mockResolvedValue(true);
@@ -162,6 +167,9 @@ vi.mock("express", () => ({
       routeHandlers[`POST ${path}`] = handlers;
     }),
     put: vi.fn(),
+    patch: vi.fn((path: string, ...handlers: any[]) => {
+      routeHandlers[`PATCH ${path}`] = handlers;
+    }),
     delete: vi.fn((path: string, ...handlers: any[]) => {
       routeHandlers[`DELETE ${path}`] = handlers;
     }),
@@ -738,6 +746,123 @@ describe("Profile Routes", () => {
       await callHandler("DELETE /", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
+    });
+  });
+
+  describe("PATCH /username", () => {
+    it("should update username successfully", async () => {
+      // Mock: existing username lookup returns current username
+      const selectThen = vi
+        .fn()
+        .mockImplementation((resolve: any) =>
+          Promise.resolve([{ username: "oldname" }]).then(resolve)
+        );
+      mockDbChain.then = selectThen;
+
+      // Mock: transaction succeeds
+      mockDbChain.transaction.mockImplementation(async (fn: any) => {
+        // Inside the transaction, returning() must resolve with reserved row
+        const txChain: any = {};
+        txChain.delete = vi.fn().mockReturnValue(txChain);
+        txChain.where = vi.fn().mockReturnValue(txChain);
+        txChain.insert = vi.fn().mockReturnValue(txChain);
+        txChain.values = vi.fn().mockReturnValue(txChain);
+        txChain.onConflictDoNothing = vi.fn().mockReturnValue(txChain);
+        txChain.returning = vi.fn().mockResolvedValue([{ username: "newname" }]);
+        txChain.update = vi.fn().mockReturnValue(txChain);
+        txChain.set = vi.fn().mockReturnValue(txChain);
+        // The where() after set() needs to resolve (update returns)
+        let whereCallCount = 0;
+        txChain.where = vi.fn().mockImplementation(() => {
+          whereCallCount++;
+          if (whereCallCount <= 1) {
+            // delete().where() returns thenable
+            return txChain;
+          }
+          // update().set().where() returns a promise
+          return Promise.resolve();
+        });
+        return fn(txChain);
+      });
+
+      const req = createReq({ body: { username: "newname" } });
+      const res = createRes();
+      await callHandler("PATCH /username", req, res);
+      expect(res.json).toHaveBeenCalledWith({ username: "newname" });
+    });
+
+    it("should return 400 for invalid username format", async () => {
+      const req = createReq({ body: { username: "ab" } });
+      const res = createRes();
+      await callHandler("PATCH /username", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "INVALID_USERNAME" }));
+    });
+
+    it("should return 400 when username is missing", async () => {
+      const req = createReq({ body: {} });
+      const res = createRes();
+      await callHandler("PATCH /username", req, res);
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+
+    it("should return same username without transaction when unchanged", async () => {
+      mockDbChain.then = (resolve: any) =>
+        Promise.resolve([{ username: "samename" }]).then(resolve);
+
+      const req = createReq({ body: { username: "samename" } });
+      const res = createRes();
+      await callHandler("PATCH /username", req, res);
+      expect(res.json).toHaveBeenCalledWith({ username: "samename" });
+      expect(mockDbChain.transaction).not.toHaveBeenCalled();
+    });
+
+    it("should return 409 when new username is already taken", async () => {
+      mockDbChain.then = (resolve: any) => Promise.resolve([{ username: "oldname" }]).then(resolve);
+
+      mockDbChain.transaction.mockImplementation(async (fn: any) => {
+        const txChain: any = {};
+        txChain.delete = vi.fn().mockReturnValue(txChain);
+        txChain.where = vi.fn().mockReturnValue(txChain);
+        txChain.insert = vi.fn().mockReturnValue(txChain);
+        txChain.values = vi.fn().mockReturnValue(txChain);
+        txChain.onConflictDoNothing = vi.fn().mockReturnValue(txChain);
+        txChain.returning = vi.fn().mockResolvedValue([]);
+        return fn(txChain);
+      });
+
+      const req = createReq({ body: { username: "takenname" } });
+      const res = createRes();
+      await callHandler("PATCH /username", req, res);
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "USERNAME_TAKEN" }));
+    });
+
+    it("should return 503 when db is unavailable", async () => {
+      mockGetDbFn.mockImplementation(() => {
+        throw new Error("Database not configured");
+      });
+      const req = createReq({ body: { username: "newname" } });
+      const res = createRes();
+      await callHandler("PATCH /username", req, res);
+      expect(res.status).toHaveBeenCalledWith(503);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "DATABASE_UNAVAILABLE" })
+      );
+    });
+
+    it("should return 500 when transaction throws unexpected error", async () => {
+      mockDbChain.then = (resolve: any) => Promise.resolve([{ username: "oldname" }]).then(resolve);
+
+      mockDbChain.transaction.mockRejectedValue(new Error("Unexpected DB error"));
+
+      const req = createReq({ body: { username: "newname" } });
+      const res = createRes();
+      await callHandler("PATCH /username", req, res);
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "USERNAME_UPDATE_FAILED" })
+      );
     });
   });
 });

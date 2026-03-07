@@ -4,11 +4,15 @@ import { profileCreateSchema, usernameSchema } from "@shared/validation/profile"
 import { admin } from "../admin";
 import { env } from "../config/env";
 import { getDb } from "../db";
-import { onboardingProfiles, userProfiles, closetItems } from "@shared/schema";
+import { onboardingProfiles, userProfiles, closetItems, usernames } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { requireFirebaseUid, type FirebaseAuthedRequest } from "../middleware/firebaseUid";
 import { authenticateUser } from "../auth/middleware";
-import { profileCreateLimiter, usernameCheckLimiter } from "../middleware/security";
+import {
+  profileCreateLimiter,
+  usernameCheckLimiter,
+  usernameUpdateLimiter,
+} from "../middleware/security";
 import { createProfileWithRollback, createUsernameStore } from "../services/profileService";
 import { deleteUser } from "../services/userService";
 import logger from "../logger";
@@ -331,6 +335,83 @@ router.post(
     }
   })
 );
+
+/**
+ * PATCH /api/profile/username
+ * Updates the authenticated user's username.
+ */
+router.patch("/username", usernameUpdateLimiter, authenticateUser, async (req, res) => {
+  const uid = req.currentUser!.id;
+  const parsed = usernameSchema.safeParse(req.body?.username);
+
+  if (!parsed.success) {
+    return Errors.badRequest(res, "INVALID_USERNAME", "Username format is invalid.", {
+      field: "username",
+    });
+  }
+
+  const newUsername = parsed.data;
+
+  let database;
+  try {
+    database = getDb();
+  } catch {
+    return Errors.dbUnavailable(res);
+  }
+
+  try {
+    // Check if the user already has this username
+    const [existing] = await database
+      .select({ username: usernames.username })
+      .from(usernames)
+      .where(eq(usernames.uid, uid))
+      .limit(1);
+
+    if (existing?.username === newUsername) {
+      return res.json({ username: newUsername });
+    }
+
+    // Release old username and reserve the new one atomically
+    await database.transaction(async (tx) => {
+      await tx.delete(usernames).where(eq(usernames.uid, uid));
+      const reserved = await tx
+        .insert(usernames)
+        .values({ uid, username: newUsername })
+        .onConflictDoNothing()
+        .returning({ username: usernames.username });
+
+      if (reserved.length === 0) {
+        throw new Error("USERNAME_TAKEN");
+      }
+
+      // Update onboarding profile
+      await tx
+        .update(onboardingProfiles)
+        .set({ username: newUsername, updatedAt: new Date() })
+        .where(eq(onboardingProfiles.uid, uid));
+
+      // Update user profile handle if it exists
+      await tx
+        .update(userProfiles)
+        .set({ handle: newUsername, updatedAt: new Date() })
+        .where(eq(userProfiles.id, uid));
+    });
+
+    return res.json({ username: newUsername });
+  } catch (error) {
+    if (error instanceof Error && error.message === "USERNAME_TAKEN") {
+      return Errors.conflict(res, "USERNAME_TAKEN", "That username is already taken.", {
+        field: "username",
+      });
+    }
+    logger.error("[Profile] Username update failed", { uid, error });
+    return Errors.internal(
+      res,
+      "USERNAME_UPDATE_FAILED",
+      "Failed to update username. Please try again."
+    );
+  }
+});
 
 /**
  * DELETE /api/profile

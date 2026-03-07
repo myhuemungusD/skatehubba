@@ -126,6 +126,12 @@ vi.mock("../../config/rateLimits", () => ({
       message: "Too many uploads",
       prefix: "rl:trickmint:",
     },
+    usernameUpdate: {
+      windowMs: 900000,
+      max: 5,
+      message: "Too many username changes",
+      prefix: "rl:usernameupdate:",
+    },
     userSearch: {
       windowMs: 60000,
       max: 30,
@@ -154,6 +160,7 @@ const {
   perUserSpotWriteLimiter,
   perUserCheckInLimiter,
   usernameCheckLimiter,
+  usernameUpdateLimiter,
   profileCreateLimiter,
   staticFileLimiter,
   quickMatchLimiter,
@@ -656,6 +663,7 @@ describe("Security Middleware", () => {
       expect(perUserSpotWriteLimiter).toBeDefined();
       expect(perUserCheckInLimiter).toBeDefined();
       expect(usernameCheckLimiter).toBeDefined();
+      expect(usernameUpdateLimiter).toBeDefined();
       expect(profileCreateLimiter).toBeDefined();
       expect(staticFileLimiter).toBeDefined();
       expect(quickMatchLimiter).toBeDefined();
