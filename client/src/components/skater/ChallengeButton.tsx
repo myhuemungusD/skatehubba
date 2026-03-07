@@ -9,7 +9,7 @@ interface ChallengeButtonProps {
   challengedHandle: string;
 }
 
-export function ChallengeButton({ challengedId, challengedHandle }: ChallengeButtonProps) {
+export function ChallengeButton({ challengedId }: ChallengeButtonProps) {
   const createGame = useCreateGame();
   const [, setLocation] = useLocation();
 
