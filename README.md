@@ -121,7 +121,7 @@ pnpm test:watch        # Watch mode
 pnpm test:coverage     # Run with coverage report
 ```
 
-Coverage thresholds enforced in CI: statements 98%, branches 93%, functions 99%, lines 99%.
+Coverage thresholds enforced in CI: statements 99.5%, branches 99.5%, functions 99.5%, lines 99.5%.
 
 ### Full verification (pre-merge)
 
@@ -220,7 +220,7 @@ pnpm -w run verify   # typecheck + lint + test + build
 - TypeScript type checking (strict mode, no `any`)
 - ESLint linting (zero warnings)
 - Prettier formatting check
-- Unit tests with coverage thresholds (98% statements)
+- Unit tests with coverage thresholds (99.5% statements)
 - Bundle size budget check
 - Migration drift check
 - Secret scanning (Gitleaks)
