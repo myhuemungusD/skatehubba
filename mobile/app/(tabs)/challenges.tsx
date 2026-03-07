@@ -8,7 +8,7 @@ import {
   RefreshControl,
   Image,
 } from "react-native";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   collection,
@@ -95,7 +95,7 @@ function PlaySkateContent() {
           opponentName: isPlayer1
             ? d.player2DisplayName || "Opponent"
             : d.player1DisplayName || "Opponent",
-          opponentPhoto: isPlayer1 ? d.player2PhotoURL : d.player1PhotoURL,
+          opponentPhoto: (isPlayer1 ? d.player2PhotoURL : d.player1PhotoURL) ?? null,
           myLetters: isPlayer1 ? d.player1Letters || [] : d.player2Letters || [],
           opponentLetters: isPlayer1 ? d.player2Letters || [] : d.player1Letters || [],
           isMyTurn: d.currentTurn === user.uid,
@@ -111,6 +111,10 @@ function PlaySkateContent() {
   });
 
   // ── Real-time listener for active game updates ─────────────────────────
+  // Use a ref to avoid re-subscribing when refetch identity changes
+  const refetchRef = useRef(refetch);
+  refetchRef.current = refetch;
+
   useEffect(() => {
     if (!user) return;
 
@@ -127,17 +131,24 @@ function PlaySkateContent() {
       where("status", "in", ["waiting", "active"])
     );
 
-    // Refetch the query data when any active game changes
     for (const q of [q1, q2]) {
       unsubs.push(
-        onSnapshot(q, () => {
-          refetch();
-        })
+        onSnapshot(
+          q,
+          () => {
+            refetchRef.current();
+          },
+          (error) => {
+            if (__DEV__) {
+              console.error("[PlaySkate] Snapshot listener error:", error);
+            }
+          }
+        )
       );
     }
 
     return () => unsubs.forEach((u) => u());
-  }, [user, refetch]);
+  }, [user]);
 
   // ── Quick Match mutation ───────────────────────────────────────────────
   const quickMatchMutation = useMutation({
@@ -176,8 +187,9 @@ function PlaySkateContent() {
   }, [quickMatch, router]);
 
   const handleDismissQuickMatch = useCallback(() => {
+    quickMatchMutation.reset();
     setQuickMatch({ phase: "idle" });
-  }, []);
+  }, [quickMatchMutation]);
 
   // ── Auth gate ──────────────────────────────────────────────────────────
   if (!isAuthenticated) {

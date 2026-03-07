@@ -1,4 +1,13 @@
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, Image } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  TextInput,
+  Image,
+  ActivityIndicator,
+} from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useRouter } from "expo-router";
@@ -7,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SKATE } from "@/theme";
 import { UsersSkeleton } from "@/components/common/Skeleton";
 import { ScreenErrorBoundary } from "@/components/common/ScreenErrorBoundary";
+import { useRequireAuth } from "@/hooks/useRequireAuth";
 
 interface User {
   id: string;
@@ -15,6 +25,7 @@ interface User {
 }
 
 function PickOpponentContent() {
+  const { isAuthenticated } = useRequireAuth();
   const router = useRouter();
   const [search, setSearch] = useState("");
 
@@ -69,14 +80,13 @@ function PickOpponentContent() {
     [handlePickUser]
   );
 
-  const getItemLayout = useCallback(
-    (_data: unknown, index: number) => ({
-      length: 82,
-      offset: 82 * index,
-      index,
-    }),
-    []
-  );
+  if (!isAuthenticated) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color={SKATE.colors.orange} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -131,7 +141,6 @@ function PickOpponentContent() {
           data={filteredUsers}
           renderItem={renderUser}
           keyExtractor={(item) => item.id}
-          getItemLayout={getItemLayout}
           contentContainerStyle={styles.list}
         />
       )}
