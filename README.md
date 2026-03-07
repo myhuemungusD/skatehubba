@@ -50,34 +50,38 @@ Challenge anyone to a game of S.K.A.T.E. — record tricks on video, judge your 
 
 ## Tech Stack
 
-| Layer      | Technology                                               |
-| ---------- | -------------------------------------------------------- |
-| Frontend   | React 18, Vite 6, TypeScript 5.9, TailwindCSS, Leaflet   |
-| Backend    | Express, TypeScript, PostgreSQL 16, Drizzle ORM, Redis 7 |
-| Mobile     | React Native, Expo (EAS builds)                          |
-| Auth       | Firebase Auth + custom JWT                               |
-| Realtime   | Socket.io                                                |
-| Monorepo   | pnpm workspaces, Turborepo                               |
-| Build      | esbuild (server), Vite (client)                          |
-| Testing    | Vitest, Playwright, Cypress, Detox (mobile)              |
-| CI/CD      | GitHub Actions, CodeQL, Docker (staging), Vercel (prod)  |
-| Monitoring | Sentry                                                   |
+| Layer      | Technology                                                        |
+| ---------- | ----------------------------------------------------------------- |
+| Frontend   | React 18, Vite 6, TypeScript 5.9, TailwindCSS, Radix UI, Leaflet |
+| Backend    | Express, TypeScript, PostgreSQL (Neon), Drizzle ORM, Redis        |
+| Mobile     | React Native, Expo (EAS builds)                                   |
+| Auth       | Firebase Auth + custom JWT                                        |
+| Payments   | Stripe                                                            |
+| Realtime   | Socket.io                                                         |
+| Monorepo   | pnpm workspaces, Turborepo                                        |
+| Build      | esbuild (server), Vite (client)                                   |
+| Testing    | Vitest, Playwright, Cypress, Detox (mobile)                       |
+| CI/CD      | GitHub Actions, CodeQL, Docker (staging), Vercel (prod)           |
+| Monitoring | Sentry                                                            |
 
 ---
 
 ## Repo Structure
 
 ```text
+api/         Vercel serverless API entrypoint
+benchmarks/  k6 load-testing scripts
 client/      Web app (Vite / React)
-server/      Express API + PostgreSQL backend
-mobile/      React Native / Expo app
-functions/   Firebase Cloud Functions
-packages/    Shared code (config, db, firebase, shared, types, utils)
-migrations/  PostgreSQL migration scripts
-scripts/     Build, validation, and deployment scripts
-docs/        Architecture, security, setup guides
 deploy/      Docker / Nginx deployment config
+docs/        Architecture, security, setup guides
 e2e/         Playwright E2E tests
+functions/   Firebase Cloud Functions
+infra/       Infrastructure configuration
+migrations/  PostgreSQL migration scripts
+mobile/      React Native / Expo app
+packages/    Shared code (config, db, firebase, shared, types, utils)
+scripts/     Build, validation, and deployment scripts
+server/      Express API + PostgreSQL backend
 ```
 
 ---
@@ -86,13 +90,13 @@ e2e/         Playwright E2E tests
 
 ### Prerequisites
 
-- Node.js 24+ (`.nvmrc` included)
+- Node.js 22 (`.nvmrc` included)
 - pnpm 10+ (enforced — `npm install` and `yarn` will fail)
 
 ### Install
 
 ```bash
-# Prerequisites: Node.js 24+, pnpm 10+
+# Prerequisites: Node.js 22, pnpm 10+
 pnpm install
 ```
 
@@ -113,7 +117,7 @@ This starts both the Vite dev server (client on port 3000) and the Express API (
 
 ---
 
-## Project Structure
+## Testing
 
 ```bash
 pnpm test              # Run all unit tests (Vitest)
@@ -128,26 +132,6 @@ Coverage thresholds enforced in CI: statements 99.5%, branches 99.5%, functions 
 ```bash
 pnpm run verify        # typecheck + lint + test + build
 ```
-
-skatehubba/
-├── client/ React web app (Vite)
-├── server/ Express API + PostgreSQL
-├── mobile/ React Native / Expo app
-├── functions/ Firebase Cloud Functions
-├── packages/
-│ ├── config/ Shared configuration
-│ ├── db/ Drizzle schema & queries
-│ ├── firebase/ Firebase client helpers
-│ ├── shared/ Shared business logic
-│ ├── types/ Shared TypeScript types
-│ └── utils/ Shared utilities
-├── migrations/ PostgreSQL migrations
-├── e2e/ Playwright end-to-end tests
-├── deploy/ Docker / Nginx / SSL config
-├── scripts/ Build, validation & deploy scripts
-└── docs/ Architecture, security & setup guides
-
-````
 
 ---
 
@@ -171,9 +155,7 @@ with PostgreSQL, Redis, Nginx, and automatic SSL via Let's Encrypt.
 ```bash
 # One-liner for a fresh Ubuntu server:
 DOMAIN=staging.skatehubba.com EMAIL=admin@skatehubba.com bash deploy/setup-server.sh
-````
-
-See [docs/RELEASE.md](docs/RELEASE.md) for full deployment docs, environments, and secret rotation.
+```
 
 **Live demo:** [staging.skatehubba.com](https://staging.skatehubba.com)
 
@@ -214,10 +196,10 @@ We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for the full gu
 
 ```bash
 # All PRs must pass:
-pnpm -w run verify   # typecheck + lint + test + build
+pnpm run verify      # typecheck + lint + test + build
 ```
 
-- TypeScript type checking (strict mode, no `any`)
+- TypeScript type checking (strict mode, yes`any`)
 - ESLint linting (zero warnings)
 - Prettier formatting check
 - Unit tests with coverage thresholds (99.5% statements)
