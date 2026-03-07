@@ -85,7 +85,7 @@ describe("api/index: successful init", () => {
     const req = mockReq();
     const res = mockRes();
 
-    mod.default(req, res as unknown as ServerResponse);
+    await mod.default(req, res as unknown as ServerResponse);
 
     expect(mockExpressHandler).toHaveBeenCalledWith(req, res);
   });
@@ -100,7 +100,7 @@ describe("api/index: successful init", () => {
     const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
-    mod.default(mockReq(), res as unknown as ServerResponse);
+    await mod.default(mockReq(), res as unknown as ServerResponse);
 
     // writeHead should NOT have been called by our handler
     expect((res as unknown as MockRes).writeHead).not.toHaveBeenCalled();
@@ -127,7 +127,7 @@ describe("api/index: init failure", () => {
     const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
-    mod.default(mockReq(), res as unknown as ServerResponse);
+    await mod.default(mockReq(), res as unknown as ServerResponse);
 
     expect((res as unknown as MockRes).statusCode).toBe(500);
     const body = parseBody(res as unknown as MockRes);
@@ -143,7 +143,7 @@ describe("api/index: init failure", () => {
     const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
-    mod.default(mockReq(), res as unknown as ServerResponse);
+    await mod.default(mockReq(), res as unknown as ServerResponse);
 
     expect((res as unknown as MockRes)._headers).toMatchObject({
       "X-Frame-Options": "DENY",
@@ -160,10 +160,9 @@ describe("api/index: init failure", () => {
     const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
-    mod.default(mockReq(), res as unknown as ServerResponse);
+    await mod.default(mockReq(), res as unknown as ServerResponse);
 
     const bodyStr = (res as unknown as MockRes)._body;
-    const expectedLength = Buffer.byteLength(bodyStr).toString();
     expect((res as unknown as MockRes)._headers["Content-Length"]).toBe(Buffer.byteLength(bodyStr));
 
     consoleErrorSpy.mockRestore();
@@ -172,7 +171,9 @@ describe("api/index: init failure", () => {
   it("logs error to console.error during init", async () => {
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await import("../../server/vercel-handler");
+    const mod = await import("../../server/vercel-handler");
+    // Trigger init by calling the handler
+    await mod.default(mockReq(), mockRes() as unknown as ServerResponse);
 
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       expect.stringContaining("[api/index] Server initialization failed:"),
@@ -189,7 +190,7 @@ describe("api/index: init failure", () => {
       const mod = await import("../../server/vercel-handler");
       const res = mockRes();
 
-      mod.default(mockReq(), res as unknown as ServerResponse);
+      await mod.default(mockReq(), res as unknown as ServerResponse);
 
       const body = parseBody(res as unknown as MockRes);
       expect(body.detail).toBeUndefined();
@@ -204,7 +205,7 @@ describe("api/index: init failure", () => {
       const mod = await import("../../server/vercel-handler");
       const res = mockRes();
 
-      mod.default(mockReq(), res as unknown as ServerResponse);
+      await mod.default(mockReq(), res as unknown as ServerResponse);
 
       const body = parseBody(res as unknown as MockRes);
       expect(body.detail).toBeUndefined();
@@ -218,7 +219,7 @@ describe("api/index: init failure", () => {
       const mod = await import("../../server/vercel-handler");
       const res = mockRes();
 
-      mod.default(mockReq(), res as unknown as ServerResponse);
+      await mod.default(mockReq(), res as unknown as ServerResponse);
 
       const body = parseBody(res as unknown as MockRes);
       expect(body.detail).toBe(INIT_ERROR_MSG);
@@ -245,7 +246,7 @@ describe("api/index: edge cases", () => {
     const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
-    mod.default(mockReq(), res as unknown as ServerResponse);
+    await mod.default(mockReq(), res as unknown as ServerResponse);
 
     const body = parseBody(res as unknown as MockRes);
     expect(body.error).toBe("SERVER_INIT_FAILED");
@@ -263,7 +264,9 @@ describe("api/index: edge cases", () => {
 
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await import("../../server/vercel-handler");
+    const mod = await import("../../server/vercel-handler");
+    // Trigger init by calling the handler
+    await mod.default(mockReq(), mockRes() as unknown as ServerResponse);
 
     // Should have logged both message and stack
     const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
@@ -289,7 +292,7 @@ describe("api/index: edge cases", () => {
     const mod = await import("../../server/vercel-handler");
     const res = mockRes();
 
-    mod.default(mockReq(), res as unknown as ServerResponse);
+    await mod.default(mockReq(), res as unknown as ServerResponse);
 
     const body = parseBody(res as unknown as MockRes);
     expect(body.missingEnvVars).toBeUndefined();
@@ -308,7 +311,9 @@ describe("api/index: edge cases", () => {
 
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
-    await import("../../server/vercel-handler");
+    const mod = await import("../../server/vercel-handler");
+    // Trigger init by calling the handler
+    await mod.default(mockReq(), mockRes() as unknown as ServerResponse);
 
     const calls = consoleErrorSpy.mock.calls.map((c) => c[0]);
     expect(
