@@ -20,9 +20,10 @@ function buildStore(prefix: string): InstanceType<typeof RedisStore> | undefined
       try {
         return (await redis.call(...(args as [string, ...string[]]))) as number;
       } catch {
-        // Redis unreachable — return 0 so the rate limiter allows the request
-        // through rather than crashing the request with a 500.
-        return 0;
+        // Redis unreachable — return a value that causes the rate limiter to
+        // BLOCK requests rather than allow unlimited access. Returning 0 would
+        // disable rate limiting entirely during a Redis outage.
+        return Number.MAX_SAFE_INTEGER;
       }
     },
     prefix,

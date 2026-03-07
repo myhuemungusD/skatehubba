@@ -126,6 +126,7 @@ function makeChain(): any {
     "values",
     "insert",
     "update",
+    "onConflictDoUpdate",
   ];
 
   for (const m of methods) {
@@ -226,7 +227,7 @@ describe("Notification Routes — extended coverage", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to register push token" })
+        expect.objectContaining({ error: "PUSH_TOKEN_FAILED" })
       );
     });
   });
@@ -244,7 +245,7 @@ describe("Notification Routes — extended coverage", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to remove push token" })
+        expect.objectContaining({ error: "PUSH_TOKEN_REMOVE_FAILED" })
       );
     });
   });
@@ -262,7 +263,7 @@ describe("Notification Routes — extended coverage", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to get preferences" })
+        expect.objectContaining({ error: "PREFERENCES_FETCH_FAILED" })
       );
     });
   });
@@ -280,7 +281,7 @@ describe("Notification Routes — extended coverage", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to update preferences" })
+        expect.objectContaining({ error: "PREFERENCES_UPDATE_FAILED" })
       );
     });
 
@@ -331,7 +332,7 @@ describe("Notification Routes — extended coverage", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to get unread count" })
+        expect.objectContaining({ error: "UNREAD_COUNT_FAILED" })
       );
     });
   });
@@ -406,7 +407,7 @@ describe("Notification Routes — extended coverage", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to list notifications" })
+        expect.objectContaining({ error: "NOTIFICATIONS_FETCH_FAILED" })
       );
     });
   });
@@ -423,9 +424,7 @@ describe("Notification Routes — extended coverage", () => {
       await callRoute("POST", "/:id/read", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to mark as read" })
-      );
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "MARK_READ_FAILED" }));
     });
   });
 
@@ -442,7 +441,7 @@ describe("Notification Routes — extended coverage", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to mark all as read" })
+        expect.objectContaining({ error: "MARK_ALL_READ_FAILED" })
       );
     });
   });

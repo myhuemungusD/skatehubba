@@ -37,7 +37,12 @@ router.get("/discover", spotDiscoveryLimiter, async (req, res) => {
   const lng = Number(req.query.lng);
 
   if (Number.isNaN(lat) || Number.isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return res.status(400).json({ message: "Valid lat and lng query parameters are required" });
+    return res
+      .status(400)
+      .json({
+        error: "INVALID_COORDINATES",
+        message: "Valid lat and lng query parameters are required.",
+      });
   }
 
   const EMPTY_DISCOVERY = {
@@ -90,13 +95,13 @@ router.get("/discover", spotDiscoveryLimiter, async (req, res) => {
 router.get("/:spotId", async (req, res) => {
   const spotId = Number(req.params.spotId);
   if (Number.isNaN(spotId)) {
-    return res.status(400).json({ message: "Invalid spot ID" });
+    return res.status(400).json({ error: "INVALID_SPOT_ID", message: "Invalid spot ID." });
   }
 
   try {
     const spot = await spotStorage.getSpotById(spotId);
     if (!spot) {
-      return res.status(404).json({ message: "Spot not found" });
+      return res.status(404).json({ error: "SPOT_NOT_FOUND", message: "Spot not found." });
     }
     return res.json(spot);
   } catch (error) {
@@ -104,7 +109,7 @@ router.get("/:spotId", async (req, res) => {
       spotId,
       error: error instanceof Error ? error.message : String(error),
     });
-    return res.status(500).json({ message: "Failed to load spot" });
+    return res.status(500).json({ error: "SPOT_FETCH_FAILED", message: "Failed to load spot." });
   }
 });
 
@@ -122,7 +127,7 @@ router.post(
   async (req, res) => {
     const spotId = Number(req.params.spotId);
     if (Number.isNaN(spotId)) {
-      return res.status(400).json({ message: "Invalid spot ID" });
+      return res.status(400).json({ error: "INVALID_SPOT_ID", message: "Invalid spot ID." });
     }
 
     const { rating } = (req as Request & { validatedBody: { rating: number } }).validatedBody;
@@ -132,7 +137,7 @@ router.post(
     const updated = await spotStorage.getSpotById(spotId);
 
     if (!updated) {
-      return res.status(404).json({ message: "Spot not found" });
+      return res.status(404).json({ error: "SPOT_NOT_FOUND", message: "Spot not found." });
     }
 
     return res.status(200).json(updated);
@@ -210,7 +215,7 @@ router.post(
 
     const userId = req.currentUser?.id;
     if (!userId) {
-      return res.status(401).json({ message: "Authentication required" });
+      return res.status(401).json({ error: "UNAUTHORIZED", message: "Authentication required." });
     }
 
     const { spotId, lat, lng, accuracy, nonce, clientTimestamp } = parsedBody;
@@ -225,7 +230,9 @@ router.post(
     if (!replayCheck.ok) {
       const status = replayCheck.reason === "replay_detected" ? 409 : 400;
       const message =
-        replayCheck.reason === "replay_detected" ? "Replay detected" : "Invalid check-in timestamp";
+        replayCheck.reason === "replay_detected"
+          ? "Replay detected."
+          : "Invalid check-in timestamp.";
       logAuditEvent({
         action: "spot.checkin.rejected",
         userId,
@@ -235,7 +242,12 @@ router.post(
           reason: replayCheck.reason,
         },
       });
-      return res.status(status).json({ message });
+      return res
+        .status(status)
+        .json({
+          error: replayCheck.reason === "replay_detected" ? "REPLAY_DETECTED" : "INVALID_TIMESTAMP",
+          message,
+        });
     }
 
     try {
@@ -271,10 +283,10 @@ router.post(
       return res.status(200).json(result);
     } catch (error) {
       if (error instanceof Error && error.message === "Spot not found") {
-        return res.status(404).json({ message: "Spot not found" });
+        return res.status(404).json({ error: "SPOT_NOT_FOUND", message: "Spot not found." });
       }
 
-      return res.status(500).json({ message: "Check-in failed" });
+      return res.status(500).json({ error: "CHECKIN_FAILED", message: "Check-in failed." });
     }
   }
 );
