@@ -158,6 +158,7 @@ export const filmerRequests = pgTable(
 export const filmerDailyCounters = pgTable(
   "filmer_daily_counters",
   {
+    id: serial("id").primaryKey(),
     counterKey: varchar("counter_key", { length: 128 }).notNull(),
     day: varchar("day", { length: 10 }).notNull(),
     count: integer("count").notNull().default(0),

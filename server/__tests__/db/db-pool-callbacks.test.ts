@@ -89,7 +89,7 @@ describe("db.ts — pool event callbacks", () => {
     const mockClient = { query: vi.fn().mockResolvedValue(undefined) };
     eventHandlers.connect(mockClient);
 
-    expect(mockClient.query).toHaveBeenCalledWith("SET statement_timeout = '10000'");
+    expect(mockClient.query).toHaveBeenCalledWith("SET statement_timeout = $1", ["10000"]);
   });
 
   it("pool.on('connect') logs error when SET statement_timeout fails", async () => {
