@@ -139,12 +139,16 @@ export function useProfileSubmit(
             setSubmitError(
               "Could not save your profile. This is a server issue — please try again in a moment."
             );
-          } else if (typeof error.status === "number" && error.status >= 500) {
-            // Server crash / misconfiguration — often means missing server env vars
+          } else if (
+            errorCode === "internal_error" ||
+            errorCode === "server_init_failed" ||
+            errorCode === "build_incomplete"
+          ) {
             setSubmitError(
-              `Server error (${error.status}) — the API may be misconfigured. ` +
-                `If you're the developer, check /api/health/env for a diagnostic report.`
+              "The server ran into an unexpected error. Please try again in a moment."
             );
+          } else if (typeof error.status === "number" && error.status >= 500) {
+            setSubmitError("The server is temporarily unavailable. Please try again shortly.");
           } else {
             setSubmitError(error.message || getUserFriendlyMessage(error));
           }
