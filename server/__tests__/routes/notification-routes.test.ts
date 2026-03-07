@@ -124,6 +124,9 @@ function createMockDb() {
     insert: vi.fn().mockReturnValue({
       values: vi.fn().mockReturnValue({
         returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.insertResult)),
+        onConflictDoUpdate: vi
+          .fn()
+          .mockImplementation(() => Promise.resolve(mockDbReturns.insertResult)),
       }),
     }),
     update: vi.fn().mockReturnValue({
@@ -240,7 +243,7 @@ describe("Notification Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to register push token" })
+        expect.objectContaining({ error: "PUSH_TOKEN_FAILED" })
       );
     });
   });
@@ -268,7 +271,7 @@ describe("Notification Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to remove push token" })
+        expect.objectContaining({ error: "PUSH_TOKEN_REMOVE_FAILED" })
       );
     });
   });
@@ -350,7 +353,7 @@ describe("Notification Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to get preferences" })
+        expect.objectContaining({ error: "PREFERENCES_FETCH_FAILED" })
       );
     });
   });
@@ -413,7 +416,7 @@ describe("Notification Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to update preferences" })
+        expect.objectContaining({ error: "PREFERENCES_UPDATE_FAILED" })
       );
     });
   });
@@ -432,7 +435,7 @@ describe("Notification Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to get unread count" })
+        expect.objectContaining({ error: "UNREAD_COUNT_FAILED" })
       );
     });
   });
@@ -451,7 +454,7 @@ describe("Notification Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to list notifications" })
+        expect.objectContaining({ error: "NOTIFICATIONS_FETCH_FAILED" })
       );
     });
   });
@@ -482,7 +485,7 @@ describe("Notification Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(404);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Notification not found" })
+        expect.objectContaining({ error: "NOTIFICATION_NOT_FOUND" })
       );
     });
 
@@ -494,7 +497,7 @@ describe("Notification Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Invalid notification ID" })
+        expect.objectContaining({ error: "INVALID_NOTIFICATION_ID" })
       );
     });
 
@@ -506,9 +509,7 @@ describe("Notification Routes", () => {
       await callRoute("POST", "/:id/read", req, res);
 
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to mark as read" })
-      );
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "MARK_READ_FAILED" }));
     });
   });
 
@@ -535,7 +536,7 @@ describe("Notification Routes", () => {
 
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to mark all as read" })
+        expect.objectContaining({ error: "MARK_ALL_READ_FAILED" })
       );
     });
   });

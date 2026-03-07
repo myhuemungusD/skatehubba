@@ -217,16 +217,22 @@ export function registerMonitoringRoutes(app: Express) {
   });
 
   // Environment diagnostics — reports which server-side vars are present/missing.
-  // No auth required (diagnostic tool); values are never exposed, only boolean presence.
+  // Auth-gated: exposes config presence, Firebase SDK status, and git deploy info
+  // which could help attackers identify missing security configuration.
   // Returns 503 if required vars are missing or DB is down.
-  app.get("/api/health/env", async (_req, res) => {
+  app.get("/api/health/env", authenticateUser, requireAdmin, async (_req, res) => {
     const isProduction = process.env.NODE_ENV === "production";
     // Always required — server won't start without these.
     const serverAlwaysRequired = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET"];
     // Required in production only (env.ts enforces this at startup).
     const serverProductionRequired = ["MFA_ENCRYPTION_KEY"];
     // FIREBASE_ADMIN_KEY (full service-account JSON) OR all three individual vars — either works.
-    const firebaseAdmin = ["FIREBASE_ADMIN_KEY", "FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"];
+    const firebaseAdmin = [
+      "FIREBASE_ADMIN_KEY",
+      "FIREBASE_PROJECT_ID",
+      "FIREBASE_CLIENT_EMAIL",
+      "FIREBASE_PRIVATE_KEY",
+    ];
     const firebaseClient = [
       "EXPO_PUBLIC_FIREBASE_API_KEY",
       "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN",

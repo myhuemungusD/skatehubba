@@ -25,6 +25,16 @@ import logger from "../logger";
 
 const router = Router();
 
+const paginationSchema = z.object({
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .default(20)
+    .transform((v) => Math.min(v, 50)),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
 // All notification routes require auth
 router.use(authenticateUser);
 
@@ -56,7 +66,7 @@ router.post("/push-token", async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     logger.error("[Notifications] Failed to register push token", { error, userId });
-    res.status(500).json({ error: "Failed to register push token" });
+    res.status(500).json({ error: "PUSH_TOKEN_FAILED", message: "Failed to register push token." });
   }
 });
 
@@ -77,7 +87,9 @@ router.delete("/push-token", async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     logger.error("[Notifications] Failed to remove push token", { error, userId });
-    res.status(500).json({ error: "Failed to remove push token" });
+    res
+      .status(500)
+      .json({ error: "PUSH_TOKEN_REMOVE_FAILED", message: "Failed to remove push token." });
   }
 });
 
@@ -105,7 +117,9 @@ router.get("/preferences", async (req, res) => {
     res.json(publicPrefs);
   } catch (error) {
     logger.error("[Notifications] Failed to get preferences", { error, userId });
-    res.status(500).json({ error: "Failed to get preferences" });
+    res
+      .status(500)
+      .json({ error: "PREFERENCES_FETCH_FAILED", message: "Failed to get preferences." });
   }
 });
 
@@ -148,31 +162,27 @@ router.put("/preferences", async (req, res) => {
   try {
     const db = getDb();
 
-    // Upsert: insert if not exists, update if exists
-    const [existing] = await db
-      .select({ id: notificationPreferences.id })
-      .from(notificationPreferences)
-      .where(eq(notificationPreferences.userId, userId))
-      .limit(1);
-
-    if (existing) {
-      await db
-        .update(notificationPreferences)
-        .set({ ...updates, updatedAt: new Date() })
-        .where(eq(notificationPreferences.userId, userId));
-    } else {
-      await db.insert(notificationPreferences).values({
+    // Atomic upsert using ON CONFLICT to avoid TOCTOU race conditions
+    // where concurrent requests could both see "no existing" and both try to insert.
+    await db
+      .insert(notificationPreferences)
+      .values({
         userId,
         ...updates,
         updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: notificationPreferences.userId,
+        set: { ...updates, updatedAt: new Date() },
       });
-    }
 
     logger.info("[Notifications] Preferences updated", { userId });
     res.json({ success: true });
   } catch (error) {
     logger.error("[Notifications] Failed to update preferences", { error, userId });
-    res.status(500).json({ error: "Failed to update preferences" });
+    res
+      .status(500)
+      .json({ error: "PREFERENCES_UPDATE_FAILED", message: "Failed to update preferences." });
   }
 });
 
@@ -193,7 +203,7 @@ router.get("/unread-count", async (req, res) => {
     res.json({ count: result?.count ?? 0 });
   } catch (error) {
     logger.error("[Notifications] Failed to get unread count", { error, userId });
-    res.status(500).json({ error: "Failed to get unread count" });
+    res.status(500).json({ error: "UNREAD_COUNT_FAILED", message: "Failed to get unread count." });
   }
 });
 
@@ -203,8 +213,13 @@ router.get("/unread-count", async (req, res) => {
 
 router.get("/", async (req, res) => {
   const userId = req.currentUser!.id;
-  const limit = Math.min(parseInt(String(req.query.limit)) || 20, 50);
-  const offset = parseInt(String(req.query.offset)) || 0;
+  const parsed = paginationSchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res
+      .status(400)
+      .json({ error: "INVALID_PAGINATION", message: "Invalid pagination parameters." });
+  }
+  const { limit, offset } = parsed.data;
 
   try {
     const db = getDb();
@@ -229,7 +244,9 @@ router.get("/", async (req, res) => {
     });
   } catch (error) {
     logger.error("[Notifications] Failed to list notifications", { error, userId });
-    res.status(500).json({ error: "Failed to list notifications" });
+    res
+      .status(500)
+      .json({ error: "NOTIFICATIONS_FETCH_FAILED", message: "Failed to list notifications." });
   }
 });
 
@@ -242,7 +259,9 @@ router.post("/:id/read", async (req, res) => {
   const notificationId = parseInt(req.params.id, 10);
 
   if (isNaN(notificationId)) {
-    return res.status(400).json({ error: "Invalid notification ID" });
+    return res
+      .status(400)
+      .json({ error: "INVALID_NOTIFICATION_ID", message: "Invalid notification ID." });
   }
 
   try {
@@ -254,13 +273,15 @@ router.post("/:id/read", async (req, res) => {
       .returning();
 
     if (!updated) {
-      return res.status(404).json({ error: "Notification not found" });
+      return res
+        .status(404)
+        .json({ error: "NOTIFICATION_NOT_FOUND", message: "Notification not found." });
     }
 
     res.json({ success: true });
   } catch (error) {
     logger.error("[Notifications] Failed to mark as read", { error, userId, notificationId });
-    res.status(500).json({ error: "Failed to mark as read" });
+    res.status(500).json({ error: "MARK_READ_FAILED", message: "Failed to mark as read." });
   }
 });
 
@@ -281,7 +302,7 @@ router.post("/read-all", async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     logger.error("[Notifications] Failed to mark all as read", { error, userId });
-    res.status(500).json({ error: "Failed to mark all as read" });
+    res.status(500).json({ error: "MARK_ALL_READ_FAILED", message: "Failed to mark all as read." });
   }
 });
 
