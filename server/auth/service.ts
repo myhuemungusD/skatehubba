@@ -177,19 +177,9 @@ export class AuthService {
    * @returns Promise resolving to updated user if token is valid, null otherwise
    */
   static async verifyEmail(token: string): Promise<CustomUser | null> {
-    const [user] = await getDb()
-      .select()
-      .from(customUsers)
-      .where(
-        and(
-          eq(customUsers.emailVerificationToken, token),
-          gt(customUsers.emailVerificationExpires, new Date())
-        )
-      );
-
-    if (!user) return null;
-
-    // Update user as verified
+    // Atomic UPDATE...WHERE...RETURNING — combines lookup and nullification
+    // into a single query to prevent TOCTOU race conditions where a token
+    // could be replayed between a SELECT and a separate UPDATE.
     const [updatedUser] = await getDb()
       .update(customUsers)
       .set({
@@ -198,10 +188,15 @@ export class AuthService {
         emailVerificationExpires: null,
         updatedAt: new Date(),
       })
-      .where(eq(customUsers.id, user.id))
+      .where(
+        and(
+          eq(customUsers.emailVerificationToken, token),
+          gt(customUsers.emailVerificationExpires, new Date())
+        )
+      )
       .returning();
 
-    return updatedUser;
+    return updatedUser ?? null;
   }
 
   /**
