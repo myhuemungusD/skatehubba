@@ -28,7 +28,6 @@ export const firestoreCollections = {
   notifications: "notifications",
   activeCheckins: "active_checkins",
   challengeVotes: "challenge_votes",
-  leaderboardLive: "leaderboard_live",
 } as const;
 
 export type FirestoreCollection = (typeof firestoreCollections)[keyof typeof firestoreCollections];

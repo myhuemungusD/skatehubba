@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useLeaderboard } from "@/hooks/useSkateGameApi";
 
 export interface LeaderboardEntry {
@@ -12,6 +13,20 @@ export interface LeaderboardEntry {
 
 export const useRealtimeLeaderboard = () => {
   const { data, isLoading, error } = useLeaderboard();
+  const [isOffline, setIsOffline] = useState(typeof navigator !== "undefined" && !navigator.onLine);
+
+  useEffect(() => {
+    const goOnline = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", goOffline);
+
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", goOffline);
+    };
+  }, []);
 
   const entries: LeaderboardEntry[] = data?.entries ?? [];
 
@@ -19,8 +34,7 @@ export const useRealtimeLeaderboard = () => {
     entries,
     isLoading,
     error: error ? { code: "API_ERROR", message: error.message } : null,
-    isOffline: typeof navigator !== "undefined" && !navigator.onLine,
-    /** No longer applicable — always false when using real API data */
+    isOffline,
     isFallback: false,
   };
 };

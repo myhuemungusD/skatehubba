@@ -110,7 +110,10 @@ export function useJudgeTurn() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
-      if (data.gameOver) queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+      if (data.gameOver) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leaderboard });
+      }
       toast({ title: data.message });
     },
     onError: (error: Error) => {
@@ -153,6 +156,7 @@ export function useResolveDispute() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leaderboard });
       toast({ title: data.message });
     },
     onError: (error: Error) => {
@@ -170,7 +174,10 @@ export function useSetterBail() {
     onSuccess: (data, gameId) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
-      if (data.gameOver) queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+      if (data.gameOver) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leaderboard });
+      }
       toast({ title: data.message });
     },
     onError: (error: Error) => {
@@ -197,6 +204,7 @@ export function useForfeitGame() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leaderboard });
       toast({ title: "You forfeited." });
     },
     onError: (error: Error) => {
