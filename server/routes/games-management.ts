@@ -172,8 +172,24 @@ router.get("/leaderboard", async (_req, res) => {
   try {
     const db = getDb();
 
-    // Aggregate wins and losses per player from completed/forfeited games.
-    // Ranked by wins desc, then win rate desc, then total games desc.
+    // 1. Get ALL registered users with a Firebase UID (top 20)
+    const allUsers = await db
+      .select({
+        id: customUsers.id,
+        firebaseUid: customUsers.firebaseUid,
+        firstName: customUsers.firstName,
+        lastName: customUsers.lastName,
+      })
+      .from(customUsers)
+      .where(isNotNull(customUsers.firebaseUid))
+      .limit(20);
+
+    if (allUsers.length === 0) {
+      res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+      return res.json({ entries: [] });
+    }
+
+    // 2. Aggregate wins/losses from completed/forfeited games
     const playerStats = await db
       .select({
         playerId: sql<string>`player_id`,
@@ -191,137 +207,62 @@ router.get("/leaderboard", async (_req, res) => {
           where status in ('completed', 'forfeited') and player2_id is not null
         ) as player_games`
       )
-      .groupBy(sql`player_id`)
-      .orderBy(
-        sql`count(*) filter (where won) desc`,
-        sql`count(*) filter (where won)::float / nullif(count(*), 0) desc`,
-        sql`count(*) desc`
-      )
-      .limit(50);
+      .groupBy(sql`player_id`);
 
-    // Helper: translate customUsers.id → firebaseUid, then fetch usernames + display names
-    const enrichPlayers = async (ids: string[]) => {
-      if (ids.length === 0)
-        return {
-          handleByUserId: new Map<string, string>(),
-          displayNameByUserId: new Map<string, string | null>(),
-          userRows: [] as {
-            id: string;
-            firebaseUid: string | null;
-            firstName: string | null;
-            lastName: string | null;
-          }[],
-        };
+    const statsById = new Map(playerStats.map((p) => [p.playerId, p]));
 
-      const userRows = await db
-        .select({
-          id: customUsers.id,
-          firebaseUid: customUsers.firebaseUid,
-          firstName: customUsers.firstName,
-          lastName: customUsers.lastName,
-        })
-        .from(customUsers)
-        .where(inArray(customUsers.id, ids));
+    // 3. Fetch usernames and display names for all users
+    const fbUids = allUsers.filter((u) => u.firebaseUid).map((u) => u.firebaseUid!);
 
-      const idToFbUid = new Map(
-        userRows.filter((r) => r.firebaseUid).map((r) => [r.id, r.firebaseUid!])
-      );
-      const fbUids = [...idToFbUid.values()];
+    const [handleRows, profileRows] = await Promise.all([
+      fbUids.length > 0
+        ? db
+            .select({ uid: usernames.uid, username: usernames.username })
+            .from(usernames)
+            .where(inArray(usernames.uid, fbUids))
+        : Promise.resolve([]),
+      fbUids.length > 0
+        ? db
+            .select({ id: userProfiles.id, displayName: userProfiles.displayName })
+            .from(userProfiles)
+            .where(inArray(userProfiles.id, fbUids))
+        : Promise.resolve([]),
+    ]);
 
-      const [handleRows, profileRows] = await Promise.all([
-        fbUids.length > 0
-          ? db
-              .select({ uid: usernames.uid, username: usernames.username })
-              .from(usernames)
-              .where(inArray(usernames.uid, fbUids))
-          : Promise.resolve([]),
-        fbUids.length > 0
-          ? db
-              .select({ id: userProfiles.id, displayName: userProfiles.displayName })
-              .from(userProfiles)
-              .where(inArray(userProfiles.id, fbUids))
-          : Promise.resolve([]),
-      ]);
+    const handleByFbUid = new Map(handleRows.map((h) => [h.uid, h.username]));
+    const displayNameByFbUid = new Map(profileRows.map((p) => [p.id, p.displayName]));
 
-      const handleByFbUid = new Map(handleRows.map((h) => [h.uid, h.username]));
-      const displayNameByFbUid = new Map(profileRows.map((p) => [p.id, p.displayName]));
+    // 4. Build leaderboard entries for ALL users, merging game stats
+    const unsorted = allUsers.map((u) => {
+      const stats = statsById.get(u.id);
+      const wins = stats?.wins ?? 0;
+      const losses = stats?.losses ?? 0;
+      const handle = u.firebaseUid ? handleByFbUid.get(u.firebaseUid) : undefined;
+      const profileDisplayName = u.firebaseUid ? displayNameByFbUid.get(u.firebaseUid) : undefined;
+      const fullName = `${u.firstName || ""} ${u.lastName || ""}`.trim();
 
-      // Build maps keyed by customUsers.id for easy lookup
-      const handleByUserId = new Map<string, string>();
-      const displayNameByUserId = new Map<string, string | null>();
-      for (const [userId, fbUid] of idToFbUid) {
-        const handle = handleByFbUid.get(fbUid);
-        if (handle) handleByUserId.set(userId, handle);
-        const dn = displayNameByFbUid.get(fbUid);
-        if (dn) displayNameByUserId.set(userId, dn);
-      }
+      return {
+        id: u.id,
+        displayName: profileDisplayName || fullName || handle || "Skater",
+        username: handle ?? undefined,
+        wins,
+        losses,
+      };
+    });
 
-      return { handleByUserId, displayNameByUserId, userRows };
-    };
+    // 5. Sort: wins desc → win rate desc → total games desc → name asc
+    unsorted.sort((a, b) => {
+      if (b.wins !== a.wins) return b.wins - a.wins;
+      const aTotal = a.wins + a.losses;
+      const bTotal = b.wins + b.losses;
+      const aRate = aTotal > 0 ? a.wins / aTotal : 0;
+      const bRate = bTotal > 0 ? b.wins / bTotal : 0;
+      if (bRate !== aRate) return bRate - aRate;
+      if (bTotal !== aTotal) return bTotal - aTotal;
+      return a.displayName.localeCompare(b.displayName);
+    });
 
-    // When no games have been played, show all registered users with usernames
-    if (playerStats.length === 0) {
-      const allUsers = await db
-        .select({
-          id: customUsers.id,
-          firebaseUid: customUsers.firebaseUid,
-          firstName: customUsers.firstName,
-          lastName: customUsers.lastName,
-        })
-        .from(customUsers)
-        .where(isNotNull(customUsers.firebaseUid))
-        .limit(50);
-
-      const fbUids = allUsers.filter((u) => u.firebaseUid).map((u) => u.firebaseUid!);
-      const handleRows =
-        fbUids.length > 0
-          ? await db
-              .select({ uid: usernames.uid, username: usernames.username })
-              .from(usernames)
-              .where(inArray(usernames.uid, fbUids))
-          : [];
-
-      const handleByFbUid = new Map(handleRows.map((h) => [h.uid, h.username]));
-
-      const entries = allUsers
-        .filter((u) => u.firebaseUid && handleByFbUid.has(u.firebaseUid))
-        .map((u, idx) => ({
-          id: u.id,
-          displayName:
-            `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
-            handleByFbUid.get(u.firebaseUid!) ||
-            "Skater",
-          username: handleByFbUid.get(u.firebaseUid!) ?? undefined,
-          wins: 0,
-          losses: 0,
-          rank: idx + 1,
-        }));
-
-      res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
-      return res.json({ entries });
-    }
-
-    // Batch-fetch usernames and display names for all ranked players
-    const playerIds = playerStats.map((p) => p.playerId);
-    const { handleByUserId, displayNameByUserId, userRows } = await enrichPlayers(playerIds);
-
-    // Build a firstName+lastName fallback map
-    const nameByUserId = new Map(
-      userRows.map((r) => [r.id, `${r.firstName || ""} ${r.lastName || ""}`.trim()])
-    );
-
-    const entries = playerStats.map((p, idx) => ({
-      id: p.playerId,
-      displayName:
-        displayNameByUserId.get(p.playerId) ||
-        nameByUserId.get(p.playerId) ||
-        handleByUserId.get(p.playerId) ||
-        "Skater",
-      username: handleByUserId.get(p.playerId) ?? undefined,
-      wins: p.wins,
-      losses: p.losses,
-      rank: idx + 1,
-    }));
+    const entries = unsorted.map((e, idx) => ({ ...e, rank: idx + 1 }));
 
     res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
     res.json({ entries });
