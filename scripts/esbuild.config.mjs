@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const rootDir = path.resolve(__dirname, '..');
 
 // ESBuild configuration for server bundling
 const config = {
@@ -13,7 +14,7 @@ const config = {
   format: 'cjs',
   packages: 'external', // This automatically excludes all Node.js built-ins
   alias: {
-    '@shared': path.resolve(__dirname, 'packages/shared'),
+    '@shared': path.resolve(rootDir, 'packages/shared'),
   },
   external: [
     // Keep external packages that we still want to exclude specifically
