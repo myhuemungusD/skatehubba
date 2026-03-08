@@ -14,7 +14,7 @@
 import { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import logger from "../logger";
-import { socketAuthMiddleware } from "./auth";
+import { socketAuthMiddleware, stopSocketRateLimitCleanup } from "./auth";
 import { joinRoom, leaveRoom, leaveAllRooms, getRoomStats } from "./rooms";
 import { registerBattleHandlers, cleanupBattleSubscriptions } from "./handlers/battle";
 import { cleanupRateLimits, registerRateLimitRules, checkRateLimit } from "./socketRateLimit";
@@ -257,9 +257,10 @@ export async function shutdownSocketServer(
     healthMonitorInterval = null;
   }
 
-  // Stop timeout scheduler and room cleanup
+  // Stop timeout scheduler, room cleanup, and socket auth rate limit cleanup
   stopTimeoutScheduler();
   stopRoomCleanup();
+  stopSocketRateLimitCleanup();
 
   // Notify all clients
   broadcastSystemNotification(

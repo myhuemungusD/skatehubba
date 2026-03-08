@@ -67,6 +67,7 @@ vi.mock("socket.io", () => {
 
 vi.mock("../../socket/auth", () => ({
   socketAuthMiddleware: vi.fn(),
+  stopSocketRateLimitCleanup: vi.fn(),
 }));
 
 vi.mock("../../socket/rooms", () => ({

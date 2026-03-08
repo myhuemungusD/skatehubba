@@ -36,7 +36,12 @@ function cleanupRateLimits(): void {
 }
 
 // Run cleanup every minute (for fallback only)
-setInterval(cleanupRateLimits, RATE_LIMIT_WINDOW_MS);
+const rateLimitCleanupInterval = setInterval(cleanupRateLimits, RATE_LIMIT_WINDOW_MS);
+
+/** Stop the background rate-limit cleanup (call during graceful shutdown). */
+export function stopSocketRateLimitCleanup(): void {
+  clearInterval(rateLimitCleanupInterval);
+}
 
 /**
  * Check rate limit for an IP address.

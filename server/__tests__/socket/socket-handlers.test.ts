@@ -129,6 +129,7 @@ vi.mock("../../socket/health", () => ({
 
 vi.mock("../../socket/auth", () => ({
   socketAuthMiddleware: vi.fn(),
+  stopSocketRateLimitCleanup: vi.fn(),
 }));
 
 vi.mock("../../socket/handlers/battle", () => ({
