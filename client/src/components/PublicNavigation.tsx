@@ -10,6 +10,7 @@
 import { Link } from "wouter";
 import { Button } from "./ui/button";
 import { UserPlus, ShoppingBag } from "lucide-react";
+import { EXTERNAL_LINKS } from "@/config/externalLinks";
 
 export default function PublicNavigation() {
   return (
@@ -33,7 +34,7 @@ export default function PublicNavigation() {
           <div className="flex items-center space-x-3">
             {/* Merch Link */}
             <a
-              href="https://skatehubba.store/"
+              href={EXTERNAL_LINKS.HUBBASHOP}
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-300 hover:text-white transition-colors font-semibold text-sm flex items-center"

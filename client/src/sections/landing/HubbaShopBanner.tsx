@@ -1,6 +1,5 @@
 import { ShoppingBag, ExternalLink } from "lucide-react";
-
-const HUBBASHOP_URL = "https://skatehubba.store/";
+import { EXTERNAL_LINKS } from "@/config/externalLinks";
 
 export function HubbaShopBanner() {
   return (
@@ -15,7 +14,7 @@ export function HubbaShopBanner() {
             Rep the brand. Grab exclusive SkateHubba merch — tees, stickers, and more.
           </p>
           <a
-            href={HUBBASHOP_URL}
+            href={EXTERNAL_LINKS.HUBBASHOP}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-black text-base font-bold uppercase tracking-wide px-8 py-4 rounded-xl shadow-[0_18px_60px_rgba(249,115,22,0.25)] transition-all hover:shadow-[0_24px_80px_rgba(249,115,22,0.4)] hover:scale-105"

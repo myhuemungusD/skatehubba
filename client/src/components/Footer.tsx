@@ -1,4 +1,5 @@
 import { Instagram, Github } from "lucide-react";
+import { EXTERNAL_LINKS } from "@/config/externalLinks";
 
 export function Footer() {
   return (
@@ -10,7 +11,7 @@ export function Footer() {
       {/* Social links */}
       <div className="flex items-center justify-center gap-6 mb-6">
         <a
-          href="https://www.instagram.com/skatehubba_app/"
+          href={EXTERNAL_LINKS.INSTAGRAM}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-sm font-semibold tracking-wide text-zinc-400 hover:text-orange-500 transition-colors"
@@ -20,7 +21,7 @@ export function Footer() {
           <span>@skatehubba_app</span>
         </a>
         <a
-          href="https://github.com/myhuemungusD/skatehubba"
+          href={EXTERNAL_LINKS.GITHUB}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-sm font-semibold tracking-wide text-zinc-400 hover:text-white transition-colors"
@@ -32,7 +33,7 @@ export function Footer() {
       </div>
 
       <a
-        href="https://skatehubba.store/"
+        href={EXTERNAL_LINKS.HUBBASHOP}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-block mb-4 text-sm font-semibold tracking-widest uppercase text-[#ff6a00] hover:text-[#ff6a00]/80 transition-colors"
