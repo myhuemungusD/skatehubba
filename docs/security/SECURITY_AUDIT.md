@@ -114,7 +114,7 @@ Platform compliance verified across all categories:
 1. **PR Comments**: Security findings posted as comments on pull requests
 2. **GitHub Security Tab**: CodeQL alerts appear in repository security dashboard
 3. **Workflow Artifacts**: Full reports available for download from workflow runs
-4. **Audit Documents**: Comprehensive reports maintained in `SECURITY_AUDIT.md` and `SECURITY_AUDIT_MOBILE.md`
+4. **Audit Documents**: Comprehensive reports maintained in this directory
 
 ## Current Security Status (2026-02-26)
 
@@ -220,9 +220,6 @@ When updating actions, always pin to specific SHAs or exact versions:
 ## Related Documentation
 
 - [SECURITY.md](../../SECURITY.md) — Public security policy
-- [SECURITY_AUDIT.md](../../SECURITY_AUDIT.md) — Full E2E production audit report
-- [SECURITY_AUDIT_MOBILE.md](../../SECURITY_AUDIT_MOBILE.md) — Mobile security audit
-- [SECURITY_HEALTH_CHECK.md](../../SECURITY_HEALTH_CHECK.md) — Initial health check
 - [docs/security/SECURITY.md](SECURITY.md) — Hardening log and risk decisions
 - [docs/security/SECURITY_NOTES.md](SECURITY_NOTES.md) — Security controls inventory
 
