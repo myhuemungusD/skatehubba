@@ -42,6 +42,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
   profile: null,
   profileStatus: "unknown",
+  backendDisplayName: null,
   roles: [],
   bootStatus: "ok",
   bootPhase: "starting",
@@ -77,7 +78,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ bootPhase: "hydrating", user: currentUser, profile: null, profileStatus: "unknown" });
 
         // Ensure backend session exists for returning users
-        await withTimeout(authenticateWithBackend(currentUser), 5000, "backend_sync");
+        const backendResult = await withTimeout(
+          authenticateWithBackend(currentUser),
+          5000,
+          "backend_sync"
+        );
+        if (backendResult.status === "ok" && backendResult.data?.displayName) {
+          set({ backendDisplayName: backendResult.data.displayName });
+        }
 
         const results = await Promise.allSettled([
           withTimeout(fetchProfile(currentUser.uid), 4000, "fetchProfile"),
@@ -131,7 +139,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           set({ user, loading: false });
 
           try {
-            await withTimeout(authenticateWithBackend(user), 5000, "backend_sync");
+            const backendResult = await withTimeout(
+              authenticateWithBackend(user),
+              5000,
+              "backend_sync"
+            );
+            if (backendResult.status === "ok" && backendResult.data?.displayName) {
+              set({ backendDisplayName: backendResult.data.displayName });
+            }
 
             const currentState = get();
             if (!currentState.profile || currentState.profileStatus === "unknown") {
@@ -226,7 +241,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const result = await getRedirectResult(auth);
       if (result?.user) {
         sessionStorage.removeItem("googleRedirectPending");
-        await authenticateWithBackend(result.user);
+        const backendUser = await authenticateWithBackend(result.user);
+        if (backendUser?.displayName) {
+          set({ backendDisplayName: backendUser.displayName });
+        }
       } else {
         // No redirect result (normal page load, result already consumed,
         // or third-party cookies blocked the redirect). Clear stale flag
@@ -273,7 +291,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // without waiting for the async onAuthStateChanged listener.
           set({ user: result.user, loading: false });
 
-          await authenticateWithBackend(result.user);
+          const backendUser = await authenticateWithBackend(result.user);
+          if (backendUser?.displayName) {
+            set({ backendDisplayName: backendUser.displayName });
+          }
 
           // Fetch profile and roles inline so profileStatus is resolved
           // before this function returns. The onAuthStateChanged listener
@@ -331,7 +352,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Update store immediately so callers see authenticated state
       set({ user: result.user, loading: false });
 
-      await authenticateWithBackend(result.user);
+      const backendUser = await authenticateWithBackend(result.user);
+      if (backendUser?.displayName) {
+        set({ backendDisplayName: backendUser.displayName });
+      }
 
       // Fetch profile and roles inline so profileStatus is resolved
       // before this function returns.
@@ -375,7 +399,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const parts = (name ?? "").trim().split(/\s+/);
       const firstName = parts[0] || undefined;
       const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
-      await authenticateWithBackend(result.user, { firstName, lastName, isRegistration: true });
+      const backendUser = await authenticateWithBackend(result.user, {
+        firstName,
+        lastName,
+        isRegistration: true,
+      });
+      if (backendUser?.displayName) {
+        set({ backendDisplayName: backendUser.displayName });
+      }
       try {
         await setDoc(doc(db, "users", result.user.uid), {
           uid: result.user.uid,
@@ -432,7 +463,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const parts = (name ?? "").trim().split(/\s+/);
       const firstName = parts[0] || undefined;
       const lastName = parts.length > 1 ? parts.slice(1).join(" ") : undefined;
-      await authenticateWithBackend(result.user, { firstName, lastName, isRegistration: true });
+      const backendUser = await authenticateWithBackend(result.user, {
+        firstName,
+        lastName,
+        isRegistration: true,
+      });
+      if (backendUser?.displayName) {
+        set({ backendDisplayName: backendUser.displayName });
+      }
 
       try {
         await setDoc(doc(db, "users", result.user.uid), {
@@ -473,6 +511,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         user: null,
         profile: null,
         profileStatus: "unknown",
+        backendDisplayName: null,
         roles: [],
       });
       if (currentUid) {

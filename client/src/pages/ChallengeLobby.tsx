@@ -13,7 +13,7 @@ import {
 } from "@/features/leaderboard/useRealtimeLeaderboard";
 
 export default function ChallengeLobby() {
-  const { user, profile } = useAuth();
+  const { user, profile, backendDisplayName } = useAuth();
   const [, setLocation] = useLocation();
 
   const { data: myGames, isLoading, error: gamesError, refetch } = useMyGames();
@@ -79,7 +79,7 @@ export default function ChallengeLobby() {
             </div>
             <div className="flex-1 min-w-0">
               <h2 className="text-lg font-bold text-white truncate">
-                {user.displayName || profile?.username || "Skater"}
+                {user.displayName || backendDisplayName || profile?.username || "Skater"}
               </h2>
               {profile?.username && (
                 <Link
