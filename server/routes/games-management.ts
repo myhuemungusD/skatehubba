@@ -5,8 +5,15 @@
 
 import { Router } from "express";
 import { getDb } from "../db";
-import { games, gameTurns, gameDisputes, usernames, userProfiles } from "@shared/schema";
-import { eq, or, desc, and, sql, inArray } from "drizzle-orm";
+import {
+  games,
+  gameTurns,
+  gameDisputes,
+  usernames,
+  userProfiles,
+  customUsers,
+} from "@shared/schema";
+import { eq, or, desc, and, sql, inArray, isNotNull } from "drizzle-orm";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
 import { Errors } from "../utils/apiError";
@@ -192,32 +199,125 @@ router.get("/leaderboard", async (_req, res) => {
       )
       .limit(50);
 
+    // Helper: translate customUsers.id → firebaseUid, then fetch usernames + display names
+    const enrichPlayers = async (ids: string[]) => {
+      if (ids.length === 0)
+        return {
+          handleByUserId: new Map<string, string>(),
+          displayNameByUserId: new Map<string, string | null>(),
+          userRows: [] as {
+            id: string;
+            firebaseUid: string | null;
+            firstName: string | null;
+            lastName: string | null;
+          }[],
+        };
+
+      const userRows = await db
+        .select({
+          id: customUsers.id,
+          firebaseUid: customUsers.firebaseUid,
+          firstName: customUsers.firstName,
+          lastName: customUsers.lastName,
+        })
+        .from(customUsers)
+        .where(inArray(customUsers.id, ids));
+
+      const idToFbUid = new Map(
+        userRows.filter((r) => r.firebaseUid).map((r) => [r.id, r.firebaseUid!])
+      );
+      const fbUids = [...idToFbUid.values()];
+
+      const [handleRows, profileRows] = await Promise.all([
+        fbUids.length > 0
+          ? db
+              .select({ uid: usernames.uid, username: usernames.username })
+              .from(usernames)
+              .where(inArray(usernames.uid, fbUids))
+          : Promise.resolve([]),
+        fbUids.length > 0
+          ? db
+              .select({ id: userProfiles.id, displayName: userProfiles.displayName })
+              .from(userProfiles)
+              .where(inArray(userProfiles.id, fbUids))
+          : Promise.resolve([]),
+      ]);
+
+      const handleByFbUid = new Map(handleRows.map((h) => [h.uid, h.username]));
+      const displayNameByFbUid = new Map(profileRows.map((p) => [p.id, p.displayName]));
+
+      // Build maps keyed by customUsers.id for easy lookup
+      const handleByUserId = new Map<string, string>();
+      const displayNameByUserId = new Map<string, string | null>();
+      for (const [userId, fbUid] of idToFbUid) {
+        const handle = handleByFbUid.get(fbUid);
+        if (handle) handleByUserId.set(userId, handle);
+        const dn = displayNameByFbUid.get(fbUid);
+        if (dn) displayNameByUserId.set(userId, dn);
+      }
+
+      return { handleByUserId, displayNameByUserId, userRows };
+    };
+
+    // When no games have been played, show all registered users with usernames
     if (playerStats.length === 0) {
+      const allUsers = await db
+        .select({
+          id: customUsers.id,
+          firebaseUid: customUsers.firebaseUid,
+          firstName: customUsers.firstName,
+          lastName: customUsers.lastName,
+        })
+        .from(customUsers)
+        .where(isNotNull(customUsers.firebaseUid))
+        .limit(50);
+
+      const fbUids = allUsers.filter((u) => u.firebaseUid).map((u) => u.firebaseUid!);
+      const handleRows =
+        fbUids.length > 0
+          ? await db
+              .select({ uid: usernames.uid, username: usernames.username })
+              .from(usernames)
+              .where(inArray(usernames.uid, fbUids))
+          : [];
+
+      const handleByFbUid = new Map(handleRows.map((h) => [h.uid, h.username]));
+
+      const entries = allUsers
+        .filter((u) => u.firebaseUid && handleByFbUid.has(u.firebaseUid))
+        .map((u, idx) => ({
+          id: u.id,
+          displayName:
+            `${u.firstName || ""} ${u.lastName || ""}`.trim() ||
+            handleByFbUid.get(u.firebaseUid!) ||
+            "Skater",
+          username: handleByFbUid.get(u.firebaseUid!) ?? undefined,
+          wins: 0,
+          losses: 0,
+          rank: idx + 1,
+        }));
+
       res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
-      return res.json({ entries: [] });
+      return res.json({ entries });
     }
 
     // Batch-fetch usernames and display names for all ranked players
     const playerIds = playerStats.map((p) => p.playerId);
+    const { handleByUserId, displayNameByUserId, userRows } = await enrichPlayers(playerIds);
 
-    const [handleRows, profileRows] = await Promise.all([
-      db
-        .select({ uid: usernames.uid, username: usernames.username })
-        .from(usernames)
-        .where(inArray(usernames.uid, playerIds)),
-      db
-        .select({ id: userProfiles.id, displayName: userProfiles.displayName })
-        .from(userProfiles)
-        .where(inArray(userProfiles.id, playerIds)),
-    ]);
-
-    const handleMap = new Map(handleRows.map((h) => [h.uid, h.username]));
-    const displayNameMap = new Map(profileRows.map((p) => [p.id, p.displayName]));
+    // Build a firstName+lastName fallback map
+    const nameByUserId = new Map(
+      userRows.map((r) => [r.id, `${r.firstName || ""} ${r.lastName || ""}`.trim()])
+    );
 
     const entries = playerStats.map((p, idx) => ({
       id: p.playerId,
-      displayName: displayNameMap.get(p.playerId) || handleMap.get(p.playerId) || "Skater",
-      username: handleMap.get(p.playerId) ?? undefined,
+      displayName:
+        displayNameByUserId.get(p.playerId) ||
+        nameByUserId.get(p.playerId) ||
+        handleByUserId.get(p.playerId) ||
+        "Skater",
+      username: handleByUserId.get(p.playerId) ?? undefined,
       wins: p.wins,
       losses: p.losses,
       rank: idx + 1,

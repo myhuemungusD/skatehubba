@@ -37,10 +37,16 @@ export interface ProfileCache {
   profile: UserProfile | null;
 }
 
+export interface BackendUser {
+  id: string;
+  displayName: string;
+}
+
 export interface AuthState extends BaseAuthState {
   user: FirebaseUser | null;
   profile: UserProfile | null;
   profileStatus: ProfileStatus;
+  backendDisplayName: string | null;
   roles: UserRole[];
   loading: boolean;
   bootStatus: BootStatus;
