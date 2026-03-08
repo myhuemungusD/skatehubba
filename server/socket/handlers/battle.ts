@@ -335,6 +335,9 @@ export function registerBattleHandlers(io: TypedServer, socket: TypedSocket): vo
 
           broadcastToRoom(io, "battle", input.battleId, "battle:completed", completedPayload);
 
+          // Clean up completed battle from socket tracking
+          socketBattleMap.get(socket.id)?.delete(input.battleId);
+
           logger.info("[Battle] Completed", {
             battleId: input.battleId,
             winnerId: result.winnerId,
