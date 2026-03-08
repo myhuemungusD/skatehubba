@@ -20,6 +20,8 @@ export default tseslint.config(
       "**/*.spec.tsx",
       "**/*.test.ts",
       "**/*.test.tsx",
+      "api/index.js",
+      "api/index.js.map",
       "**/e2e/**",
       "scripts/**",
       "migrations/**",
