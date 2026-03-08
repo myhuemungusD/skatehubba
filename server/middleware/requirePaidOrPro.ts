@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 
 /**
- * Middleware that requires the user to have a paid (premium) or pro account tier.
+ * Middleware that requires the user to have Pro (or legacy Premium) account tier.
  * Free-tier users get a 403 with upgrade instructions.
  *
  * Must be used AFTER authenticateUser middleware.
@@ -13,6 +13,7 @@ export const requirePaidOrPro = (req: Request, res: Response, next: NextFunction
 
   const tier = req.currentUser.accountTier;
 
+  // Accept both "pro" and legacy "premium" (existing users who paid before removal)
   if (tier === "pro" || tier === "premium") {
     return next();
   }
@@ -20,15 +21,11 @@ export const requirePaidOrPro = (req: Request, res: Response, next: NextFunction
   return res.status(403).json({
     error: "Upgrade required",
     code: "UPGRADE_REQUIRED",
-    message: "This feature requires a Pro or Premium account.",
+    message: "This feature requires a Pro account. Get vouched by an existing Pro skater.",
     currentTier: "free",
     upgradeOptions: {
-      premium: {
-        price: 9.99,
-        description: "One-time purchase. All features for life.",
-      },
       pro: {
-        description: "Get awarded Pro status by an existing Pro user.",
+        description: "Get awarded Pro status by an existing Pro skater.",
       },
     },
   });

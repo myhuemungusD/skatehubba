@@ -141,7 +141,9 @@ describe("requirePaidOrPro Middleware Integration", () => {
       requirePaidOrPro(mockReq as Request, mockRes as Response, nextFn);
 
       const response = jsonMock.mock.calls[0][0];
-      expect(response.message).toBe("This feature requires a Pro or Premium account.");
+      expect(response.message).toBe(
+        "This feature requires a Pro account. Get vouched by an existing Pro skater."
+      );
     });
 
     it("should indicate current tier is free", () => {
@@ -158,44 +160,7 @@ describe("requirePaidOrPro Middleware Integration", () => {
   });
 
   describe("Upgrade Options", () => {
-    it("should include premium upgrade option", () => {
-      mockReq.currentUser = {
-        id: "user-free",
-        accountTier: "free",
-      } as any;
-
-      requirePaidOrPro(mockReq as Request, mockRes as Response, nextFn);
-
-      const response = jsonMock.mock.calls[0][0];
-      expect(response.upgradeOptions).toHaveProperty("premium");
-    });
-
-    it("should show premium pricing", () => {
-      mockReq.currentUser = {
-        id: "user-free",
-        accountTier: "free",
-      } as any;
-
-      requirePaidOrPro(mockReq as Request, mockRes as Response, nextFn);
-
-      const response = jsonMock.mock.calls[0][0];
-      expect(response.upgradeOptions.premium.price).toBe(9.99);
-    });
-
-    it("should describe premium as one-time purchase", () => {
-      mockReq.currentUser = {
-        id: "user-free",
-        accountTier: "free",
-      } as any;
-
-      requirePaidOrPro(mockReq as Request, mockRes as Response, nextFn);
-
-      const response = jsonMock.mock.calls[0][0];
-      expect(response.upgradeOptions.premium.description).toContain("One-time purchase");
-      expect(response.upgradeOptions.premium.description).toContain("All features for life");
-    });
-
-    it("should include pro upgrade option", () => {
+    it("should include pro upgrade option (no premium option)", () => {
       mockReq.currentUser = {
         id: "user-free",
         accountTier: "free",
@@ -205,6 +170,7 @@ describe("requirePaidOrPro Middleware Integration", () => {
 
       const response = jsonMock.mock.calls[0][0];
       expect(response.upgradeOptions).toHaveProperty("pro");
+      expect(response.upgradeOptions).not.toHaveProperty("premium");
     });
 
     it("should explain pro tier acquisition", () => {
@@ -281,10 +247,8 @@ describe("requirePaidOrPro Middleware Integration", () => {
       requirePaidOrPro(mockReq as Request, mockRes as Response, nextFn);
 
       const response = jsonMock.mock.calls[0][0];
-      expect(response.upgradeOptions).toHaveProperty("premium");
       expect(response.upgradeOptions).toHaveProperty("pro");
-      expect(response.upgradeOptions.premium).toHaveProperty("price");
-      expect(response.upgradeOptions.premium).toHaveProperty("description");
+      expect(response.upgradeOptions).not.toHaveProperty("premium");
       expect(response.upgradeOptions.pro).toHaveProperty("description");
     });
   });

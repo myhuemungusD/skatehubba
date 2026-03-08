@@ -200,7 +200,7 @@ export function generateOpenAPISpec(): OpenAPISpec {
         "## Rate Limiting\n" +
         "All `/api` routes are globally rate-limited. Individual endpoints may have stricter limits.\n\n" +
         "## Account Tiers\n" +
-        "Some endpoints (Games, TrickMint) require a Pro or Premium account tier.",
+        "Some endpoints (Games, TrickMint) require a Pro account tier. Pro status is awarded by existing Pro skaters.",
       version: "1.0.0",
       contact: { name: "SkateHubba Support", url: "https://skatehubba.com" },
       license: { name: "Proprietary" },

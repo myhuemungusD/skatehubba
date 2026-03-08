@@ -99,10 +99,9 @@ export function TierConfirmDialog({ confirm, onClose, onConfirm, isPending }: Ti
             Change account tier from{" "}
             <span className="font-medium text-white">{confirm?.currentTier}</span> to{" "}
             <span className="font-medium text-white">{confirm?.newTier}</span>?
-            {confirm?.newTier === "free" && confirm?.currentTier === "premium" && (
+            {confirm?.newTier === "free" && confirm?.currentTier !== "free" && (
               <span className="block mt-1 text-yellow-400">
-                Downgrading from Premium will revoke paid features. Consider issuing a Stripe refund
-                separately if applicable.
+                Downgrading will revoke Pro features.
               </span>
             )}
           </DialogDescription>
