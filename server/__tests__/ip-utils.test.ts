@@ -64,6 +64,21 @@ describe("getClientIp", () => {
     const req = { headers: { "x-forwarded-for": [] as string[] }, ip: "10.0.0.1" };
     expect(getClientIp(req as any)).toBe("10.0.0.1");
   });
+
+  it("should return null when x-forwarded-for first entry is whitespace-only", () => {
+    const req = { headers: { "x-forwarded-for": " , 1.2.3.4" }, ip: "10.0.0.1" };
+    expect(getClientIp(req as any)).toBeNull();
+  });
+
+  it("should return null when x-forwarded-for array first entry is whitespace-only", () => {
+    const req = { headers: { "x-forwarded-for": ["  "] }, ip: "10.0.0.1" };
+    expect(getClientIp(req as any)).toBeNull();
+  });
+
+  it("should return null when x-real-ip array first entry is whitespace-only", () => {
+    const req = { headers: { "x-real-ip": ["  "] }, ip: "10.0.0.1" };
+    expect(getClientIp(req as any)).toBeNull();
+  });
 });
 
 describe("hashIp", () => {
