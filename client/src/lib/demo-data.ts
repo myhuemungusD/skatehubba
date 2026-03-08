@@ -3,14 +3,13 @@
  *
  * These are shown so the UI always renders populated content during demos,
  * offline scenarios, or backend outages. All spots are real, well-known
- * public skateparks. Leaderboard entries use skater-style usernames.
+ * public skateparks.
  *
  * IMPORTANT: Demo spot IDs are negative to distinguish them from real
  * Postgres serial IDs. Any code that sends spot IDs to APIs MUST guard
  * against negative IDs (see isDemoSpot helper below).
  */
 import type { Spot } from "@shared/schema";
-import type { LeaderboardEntry } from "../features/leaderboard/useRealtimeLeaderboard";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -213,92 +212,5 @@ export const DEMO_SPOTS: Spot[] = [
     checkInCount: 156,
     rating: 4.3,
     ratingCount: 58,
-  },
-];
-
-// ---------------------------------------------------------------------------
-// Demo leaderboard — skater-style usernames
-// ---------------------------------------------------------------------------
-
-export const DEMO_LEADERBOARD: LeaderboardEntry[] = [
-  {
-    id: "demo-1",
-    displayName: "railSlider_sf",
-    username: "railslider_sf",
-    wins: 23,
-    losses: 5,
-    rank: 1,
-  },
-  {
-    id: "demo-2",
-    displayName: "kickflipKing",
-    username: "kickflipking",
-    wins: 19,
-    losses: 7,
-    rank: 2,
-  },
-  {
-    id: "demo-3",
-    displayName: "treSoul",
-    username: "tresoul",
-    wins: 17,
-    losses: 6,
-    rank: 3,
-  },
-  {
-    id: "demo-4",
-    displayName: "heelflipHero",
-    username: "heelfliphero",
-    wins: 15,
-    losses: 9,
-    rank: 4,
-  },
-  {
-    id: "demo-5",
-    displayName: "grindMaster_bk",
-    username: "grindmaster_bk",
-    wins: 14,
-    losses: 8,
-    rank: 5,
-  },
-  {
-    id: "demo-6",
-    displayName: "noseslide_nyc",
-    username: "noseslide_nyc",
-    wins: 13,
-    losses: 10,
-    rank: 6,
-  },
-  {
-    id: "demo-7",
-    displayName: "switchStance",
-    username: "switchstance",
-    wins: 11,
-    losses: 7,
-    rank: 7,
-  },
-  {
-    id: "demo-8",
-    displayName: "poolRipper",
-    username: "poolripper",
-    wins: 10,
-    losses: 12,
-    rank: 8,
-  },
-  {
-    id: "demo-9",
-    displayName: "ledgeLord_pdx",
-    username: "ledgelord_pdx",
-    wins: 8,
-    losses: 9,
-    rank: 9,
-  },
-  {
-    id: "demo-10",
-    displayName: "flatground_og",
-    username: "flatground_og",
-    wins: 6,
-    losses: 11,
-    rank: 10,
   },
 ];

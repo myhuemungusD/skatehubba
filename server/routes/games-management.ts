@@ -157,6 +157,66 @@ router.get("/my-games", async (req, res) => {
 });
 
 // ============================================================================
+// GET /api/games/leaderboard — Global rankings from real game data
+// NOTE: Must be defined BEFORE /:id to avoid route shadowing
+// ============================================================================
+
+router.get("/leaderboard", async (req, res) => {
+  try {
+    const db = getDb();
+
+    // Aggregate wins and losses per player from completed/forfeited games
+    const playerStats = await db
+      .select({
+        playerId: sql<string>`player_id`,
+        wins: sql<number>`count(*) filter (where won)::int`,
+        losses: sql<number>`count(*) filter (where not won)::int`,
+      })
+      .from(
+        sql`(
+          select player1_id as player_id, (winner_id = player1_id) as won
+          from games
+          where status in ('completed', 'forfeited') and player1_id is not null
+          union all
+          select player2_id as player_id, (winner_id = player2_id) as won
+          from games
+          where status in ('completed', 'forfeited') and player2_id is not null
+        ) as player_games`
+      )
+      .groupBy(sql`player_id`)
+      .orderBy(sql`count(*) filter (where won) desc, count(*) desc`)
+      .limit(50);
+
+    if (playerStats.length === 0) {
+      return res.json({ entries: [] });
+    }
+
+    // Batch-fetch usernames and display names for all ranked players
+    const playerIds = playerStats.map((p) => p.playerId);
+
+    const handleRows = await db
+      .select({ uid: usernames.uid, username: usernames.username })
+      .from(usernames)
+      .where(inArray(usernames.uid, playerIds));
+    const handleMap = new Map(handleRows.map((h) => [h.uid, h.username]));
+
+    const entries = playerStats.map((p, idx) => ({
+      id: p.playerId,
+      displayName: handleMap.get(p.playerId) ?? "Skater",
+      username: handleMap.get(p.playerId) ?? undefined,
+      wins: p.wins,
+      losses: p.losses,
+      rank: idx + 1,
+    }));
+
+    res.json({ entries });
+  } catch (error) {
+    logger.error("[Games] Failed to fetch leaderboard", { error });
+    Errors.internal(res, "LEADERBOARD_FETCH_FAILED", "Failed to fetch leaderboard.");
+  }
+});
+
+// ============================================================================
 // GET /api/games/stats/me — Player's game stats (wins, losses, streak, record)
 // NOTE: Must be defined BEFORE /:id to avoid route shadowing
 // ============================================================================

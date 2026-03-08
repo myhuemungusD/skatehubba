@@ -179,3 +179,16 @@ export interface AvailablePlayer {
   photoUrl?: string;
   isOnline: boolean;
 }
+
+export interface LeaderboardEntry {
+  id: string;
+  displayName: string;
+  username?: string;
+  wins: number;
+  losses: number;
+  rank: number;
+}
+
+export interface LeaderboardResponse {
+  entries: LeaderboardEntry[];
+}

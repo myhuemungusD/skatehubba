@@ -1,12 +1,12 @@
 /**
  * Tests for client/src/lib/demo-data.ts
  *
- * Covers: isDemoSpot helper, DEMO_SPOTS array, DEMO_LEADERBOARD array.
+ * Covers: isDemoSpot helper and DEMO_SPOTS array.
  * Validates structural integrity and data consistency.
  */
 
 import { describe, it, expect } from "vitest";
-import { isDemoSpot, DEMO_SPOTS, DEMO_LEADERBOARD } from "../demo-data";
+import { isDemoSpot, DEMO_SPOTS } from "../demo-data";
 
 describe("demo-data", () => {
   // ────────────────────────────────────────────────────────────────────────
@@ -164,73 +164,6 @@ describe("demo-data", () => {
     it("createdBy is null for demo spots", () => {
       for (const spot of DEMO_SPOTS) {
         expect(spot.createdBy).toBeNull();
-      }
-    });
-  });
-
-  // ────────────────────────────────────────────────────────────────────────
-  // DEMO_LEADERBOARD
-  // ────────────────────────────────────────────────────────────────────────
-
-  describe("DEMO_LEADERBOARD", () => {
-    it("is a non-empty array", () => {
-      expect(Array.isArray(DEMO_LEADERBOARD)).toBe(true);
-      expect(DEMO_LEADERBOARD.length).toBeGreaterThanOrEqual(5);
-    });
-
-    it("has exactly 10 leaderboard entries", () => {
-      expect(DEMO_LEADERBOARD).toHaveLength(10);
-    });
-
-    it("IDs are unique", () => {
-      const ids = DEMO_LEADERBOARD.map((e) => e.id);
-      expect(new Set(ids).size).toBe(ids.length);
-    });
-
-    it("IDs follow the demo-N pattern", () => {
-      for (const entry of DEMO_LEADERBOARD) {
-        expect(entry.id).toMatch(/^demo-\d+$/);
-      }
-    });
-
-    it("every entry has a displayName and username", () => {
-      for (const entry of DEMO_LEADERBOARD) {
-        expect(entry.displayName).toBeTypeOf("string");
-        expect(entry.displayName.length).toBeGreaterThan(0);
-        expect(entry.username).toBeTypeOf("string");
-        expect(entry.username!.length).toBeGreaterThan(0);
-      }
-    });
-
-    it("every entry has numeric wins and losses", () => {
-      for (const entry of DEMO_LEADERBOARD) {
-        expect(entry.wins).toBeTypeOf("number");
-        expect(entry.wins).toBeGreaterThanOrEqual(0);
-        expect(entry.losses).toBeTypeOf("number");
-        expect(entry.losses).toBeGreaterThanOrEqual(0);
-      }
-    });
-
-    it("entries are sorted by rank (ascending)", () => {
-      for (let i = 1; i < DEMO_LEADERBOARD.length; i++) {
-        expect(DEMO_LEADERBOARD[i].rank!).toBeGreaterThan(DEMO_LEADERBOARD[i - 1].rank!);
-      }
-    });
-
-    it("ranks are contiguous from 1 to 10", () => {
-      const ranks = DEMO_LEADERBOARD.map((e) => e.rank);
-      expect(ranks).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-    });
-
-    it("wins are in descending order (higher ranked = more wins)", () => {
-      for (let i = 1; i < DEMO_LEADERBOARD.length; i++) {
-        expect(DEMO_LEADERBOARD[i].wins).toBeLessThanOrEqual(DEMO_LEADERBOARD[i - 1].wins);
-      }
-    });
-
-    it("usernames are lowercase versions of displayNames", () => {
-      for (const entry of DEMO_LEADERBOARD) {
-        expect(entry.username).toBe(entry.displayName.toLowerCase());
       }
     });
   });

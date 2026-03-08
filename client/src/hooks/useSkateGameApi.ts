@@ -13,6 +13,7 @@ const QUERY_KEYS = {
   myGames: ["games", "my-games"] as const,
   gameDetails: (id: string) => ["games", id] as const,
   myStats: ["games", "stats", "me"] as const,
+  leaderboard: ["games", "leaderboard"] as const,
 };
 
 export function useMyGames() {
@@ -269,4 +270,14 @@ export function useGameState(gameId: string | null, userId: string | undefined) 
     isOffensive,
     isDefensive,
   };
+}
+
+export function useLeaderboard() {
+  return useQuery({
+    queryKey: QUERY_KEYS.leaderboard,
+    queryFn: () => gameApi.getLeaderboard(),
+    staleTime: 30000,
+    refetchInterval: 60000,
+    refetchIntervalInBackground: false,
+  });
 }
