@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run --config ../vitest.config.mts --dir .",
     "build": "node ../scripts/build-server.mjs",
-    "seed:spots": "tsx seeds/seedFromOSM.ts"
+    "seed:spots": "tsx seeds/seedFromOSM.ts",
+    "seed:users": "tsx seeds/seedUsers.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
