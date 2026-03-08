@@ -13,6 +13,7 @@ const QUERY_KEYS = {
   myGames: ["games", "my-games"] as const,
   gameDetails: (id: string) => ["games", id] as const,
   myStats: ["games", "stats", "me"] as const,
+  leaderboard: ["games", "leaderboard"] as const,
 };
 
 export function useMyGames() {
@@ -109,7 +110,10 @@ export function useJudgeTurn() {
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
-      if (data.gameOver) queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+      if (data.gameOver) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leaderboard });
+      }
       toast({ title: data.message });
     },
     onError: (error: Error) => {
@@ -152,6 +156,7 @@ export function useResolveDispute() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(variables.gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leaderboard });
       toast({ title: data.message });
     },
     onError: (error: Error) => {
@@ -169,7 +174,10 @@ export function useSetterBail() {
     onSuccess: (data, gameId) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
-      if (data.gameOver) queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+      if (data.gameOver) {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leaderboard });
+      }
       toast({ title: data.message });
     },
     onError: (error: Error) => {
@@ -196,6 +204,7 @@ export function useForfeitGame() {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.gameDetails(gameId) });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myGames });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.myStats });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.leaderboard });
       toast({ title: "You forfeited." });
     },
     onError: (error: Error) => {
@@ -269,4 +278,14 @@ export function useGameState(gameId: string | null, userId: string | undefined) 
     isOffensive,
     isDefensive,
   };
+}
+
+export function useLeaderboard() {
+  return useQuery({
+    queryKey: QUERY_KEYS.leaderboard,
+    queryFn: () => gameApi.getLeaderboard(),
+    staleTime: 30000,
+    refetchInterval: 60000,
+    refetchIntervalInBackground: false,
+  });
 }

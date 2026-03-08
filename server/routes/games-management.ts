@@ -5,7 +5,7 @@
 
 import { Router } from "express";
 import { getDb } from "../db";
-import { games, gameTurns, gameDisputes, usernames } from "@shared/schema";
+import { games, gameTurns, gameDisputes, usernames, userProfiles } from "@shared/schema";
 import { eq, or, desc, and, sql, inArray } from "drizzle-orm";
 import logger from "../logger";
 import { sendGameNotificationToUser } from "../services/gameNotificationService";
@@ -153,6 +153,81 @@ router.get("/my-games", async (req, res) => {
       userId: currentUserId,
     });
     Errors.internal(res, "GAMES_FETCH_FAILED", "Failed to fetch games.");
+  }
+});
+
+// ============================================================================
+// GET /api/games/leaderboard — Global rankings from real game data
+// NOTE: Must be defined BEFORE /:id to avoid route shadowing
+// ============================================================================
+
+router.get("/leaderboard", async (_req, res) => {
+  try {
+    const db = getDb();
+
+    // Aggregate wins and losses per player from completed/forfeited games.
+    // Ranked by wins desc, then win rate desc, then total games desc.
+    const playerStats = await db
+      .select({
+        playerId: sql<string>`player_id`,
+        wins: sql<number>`count(*) filter (where won)::int`,
+        losses: sql<number>`count(*) filter (where not won)::int`,
+      })
+      .from(
+        sql`(
+          select player1_id as player_id, (winner_id = player1_id) as won
+          from games
+          where status in ('completed', 'forfeited') and player1_id is not null
+          union all
+          select player2_id as player_id, (winner_id = player2_id) as won
+          from games
+          where status in ('completed', 'forfeited') and player2_id is not null
+        ) as player_games`
+      )
+      .groupBy(sql`player_id`)
+      .orderBy(
+        sql`count(*) filter (where won) desc`,
+        sql`count(*) filter (where won)::float / nullif(count(*), 0) desc`,
+        sql`count(*) desc`
+      )
+      .limit(50);
+
+    if (playerStats.length === 0) {
+      res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+      return res.json({ entries: [] });
+    }
+
+    // Batch-fetch usernames and display names for all ranked players
+    const playerIds = playerStats.map((p) => p.playerId);
+
+    const [handleRows, profileRows] = await Promise.all([
+      db
+        .select({ uid: usernames.uid, username: usernames.username })
+        .from(usernames)
+        .where(inArray(usernames.uid, playerIds)),
+      db
+        .select({ id: userProfiles.id, displayName: userProfiles.displayName })
+        .from(userProfiles)
+        .where(inArray(userProfiles.id, playerIds)),
+    ]);
+
+    const handleMap = new Map(handleRows.map((h) => [h.uid, h.username]));
+    const displayNameMap = new Map(profileRows.map((p) => [p.id, p.displayName]));
+
+    const entries = playerStats.map((p, idx) => ({
+      id: p.playerId,
+      displayName: displayNameMap.get(p.playerId) || handleMap.get(p.playerId) || "Skater",
+      username: handleMap.get(p.playerId) ?? undefined,
+      wins: p.wins,
+      losses: p.losses,
+      rank: idx + 1,
+    }));
+
+    res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+    res.json({ entries });
+  } catch (error) {
+    logger.error("[Games] Failed to fetch leaderboard", { error });
+    Errors.internal(res, "LEADERBOARD_FETCH_FAILED", "Failed to fetch leaderboard.");
   }
 });
 
