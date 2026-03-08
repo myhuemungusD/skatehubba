@@ -10,6 +10,12 @@ import { getRedisClient } from "../redis";
 
 const router = Router();
 
+// =============================================================================
+// DISABLED: Payment system removed — Pro is peer-awarded only.
+// Set STRIPE_PAYMENTS_ENABLED=true in env to re-enable (for future use).
+// =============================================================================
+const PAYMENTS_ENABLED = process.env.STRIPE_PAYMENTS_ENABLED === "true";
+
 // L3: Centralized premium price constant (prevents silent drift between checkout and webhook)
 const PREMIUM_PRICE_CENTS = 999;
 const PREMIUM_CURRENCY = "usd";
@@ -74,7 +80,8 @@ async function isDuplicateEvent(eventId: string): Promise<boolean> {
 /**
  * POST /webhooks/stripe - Stripe webhook handler
  *
- * Handles:
+ * Currently DISABLED (STRIPE_PAYMENTS_ENABLED !== "true").
+ * When enabled, handles:
  *   - checkout.session.completed  → upgrades user to Premium on successful payment
  *   - customer.subscription.updated → logs subscription state changes (future use)
  *   - customer.subscription.deleted → logs subscription cancellations (future use)
@@ -83,6 +90,11 @@ async function isDuplicateEvent(eventId: string): Promise<boolean> {
  * Bypasses CSRF and auth — verified via Stripe webhook signature.
  */
 router.post("/", async (req: Request, res: Response) => {
+  if (!PAYMENTS_ENABLED) {
+    logger.info("Stripe webhook received but payment system is disabled");
+    return res.status(410).send("Payment system disabled");
+  }
+
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 

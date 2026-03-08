@@ -99,8 +99,7 @@ export function UserManageDialog({
                 </SelectTrigger>
                 <SelectContent className="bg-neutral-800 border-neutral-700">
                   <SelectItem value="free">Free</SelectItem>
-                  <SelectItem value="pro">Pro (Sponsored)</SelectItem>
-                  <SelectItem value="premium">Premium ($9.99)</SelectItem>
+                  <SelectItem value="pro">Pro (Vouched)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

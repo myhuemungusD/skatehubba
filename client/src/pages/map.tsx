@@ -51,32 +51,17 @@ export default function MapPage() {
   const [isUpgradeOpen, setIsUpgradeOpen] = useState(false);
   const [upgradeFeature, setUpgradeFeature] = useState("");
 
-  // Handle return from Stripe Checkout
+  // Handle legacy return from Stripe Checkout (payments disabled, but clean up URL params)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const upgrade = params.get("upgrade");
-    if (upgrade === "success") {
-      toast({
-        title: "Welcome to Premium!",
-        description: "All features are now unlocked. Go skate.",
-        duration: 6000,
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/tier"] });
+    if (upgrade) {
       const url = new URL(window.location.href);
       url.searchParams.delete("upgrade");
       url.searchParams.delete("session_id");
       window.history.replaceState({}, "", url.pathname + url.search);
-    } else if (upgrade === "cancelled") {
-      toast({
-        title: "Payment cancelled",
-        description: "No worries — you can upgrade anytime.",
-        duration: 5000,
-      });
-      const url = new URL(window.location.href);
-      url.searchParams.delete("upgrade");
-      window.history.replaceState({}, "", url.pathname + url.search);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally runs once on mount; URL params are read only at page load to handle Stripe redirect state and should not re-run on subsequent renders
+  }, []);
 
   // ---------------------------------------------------------------------------
   // Geolocation

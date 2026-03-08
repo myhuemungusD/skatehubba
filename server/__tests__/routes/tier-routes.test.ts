@@ -363,10 +363,10 @@ describe("Tier Routes", () => {
       expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
-    it("blocks pro (non-premium) users from awarding", async () => {
+    it("blocks free users from awarding", async () => {
       const req = mockRequest({
         body: { userId: "target-1" },
-        currentUser: { id: "user-1", accountTier: "pro" },
+        currentUser: { id: "user-1", accountTier: "free" },
       });
       const res = mockResponse();
 
@@ -375,8 +375,28 @@ describe("Tier Routes", () => {
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: "PREMIUM_REQUIRED",
-          message: "Only Premium members can award Pro status.",
+          error: "PRO_REQUIRED",
+          message: "Only Pro skaters can award Pro status.",
+        })
+      );
+    });
+
+    it("allows pro users to award pro", async () => {
+      mockDbReturns.selectResult = [{ id: "target-1", accountTier: "free", firstName: "Skater" }];
+
+      const req = mockRequest({
+        body: { userId: "target-1" },
+        currentUser: { id: "user-1", accountTier: "pro" },
+      });
+      const res = mockResponse();
+
+      await callRoute("POST", "/award-pro", req, res);
+
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: true,
+          awardedTo: "target-1",
+          awardedBy: "user-1",
         })
       );
     });
@@ -527,261 +547,33 @@ describe("Tier Routes", () => {
   });
 
   // ===========================================================================
-  // POST /create-checkout-session
+  // POST /create-checkout-session (DISABLED — payments removed)
   // ===========================================================================
 
   describe("POST /create-checkout-session", () => {
-    it("returns 400 for invalid body (missing idempotencyKey)", async () => {
-      const req = mockRequest({ body: {} });
-      const res = mockResponse();
-
-      await callRoute("POST", "/create-checkout-session", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
-    });
-
-    it("returns 400 for invalid body (empty idempotencyKey)", async () => {
-      const req = mockRequest({ body: { idempotencyKey: "" } });
-      const res = mockResponse();
-
-      await callRoute("POST", "/create-checkout-session", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
-    });
-
-    it("returns 409 when user already has premium", async () => {
+    it("returns 410 with payments disabled message", async () => {
       const req = mockRequest({
         body: { idempotencyKey: "abcdefghijklmnop" },
-        currentUser: {
-          id: "user-1",
-          accountTier: "premium",
-          email: "test@test.com",
-        },
       });
       const res = mockResponse();
 
       await callRoute("POST", "/create-checkout-session", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.status).toHaveBeenCalledWith(410);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: "ALREADY_PREMIUM",
-          message: "You already have Premium.",
-          details: { currentTier: "premium" },
-        })
-      );
-    });
-
-    it("returns 500 when STRIPE_SECRET_KEY not configured", async () => {
-      delete process.env.STRIPE_SECRET_KEY;
-
-      const req = mockRequest({
-        body: { idempotencyKey: "abcdefghijklmnop" },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/create-checkout-session", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: "PAYMENT_NOT_CONFIGURED",
-          message: "Payment service not available.",
-        })
-      );
-    });
-
-    it("creates checkout session successfully", async () => {
-      mockStripeCheckoutCreate.mockResolvedValue({
-        id: "cs_test_session",
-        url: "https://checkout.stripe.com/pay/cs_test_session",
-      });
-
-      const req = mockRequest({
-        body: { idempotencyKey: "abcdefghijklmnop" },
-        currentUser: {
-          id: "user-1",
-          email: "test@test.com",
-          accountTier: "free",
-        },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/create-checkout-session", req, res);
-
-      expect(mockStripeCheckoutCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          mode: "payment",
-          line_items: [
-            expect.objectContaining({
-              price_data: expect.objectContaining({
-                currency: "usd",
-                unit_amount: 999,
-              }),
-              quantity: 1,
-            }),
-          ],
-          metadata: {
-            userId: "user-1",
-            type: "premium_upgrade",
-          },
-          customer_email: "test@test.com",
-        }),
-        expect.objectContaining({
-          idempotencyKey: "checkout_user-1_abcdefghijklmnop",
-        })
-      );
-
-      expect(res.json).toHaveBeenCalledWith({
-        url: "https://checkout.stripe.com/pay/cs_test_session",
-      });
-    });
-
-    it("falls back to default origin when referer is not in allowed list", async () => {
-      mockStripeCheckoutCreate.mockResolvedValue({
-        id: "cs_test_session",
-        url: "https://checkout.stripe.com/pay/cs_test_session",
-      });
-
-      const req = mockRequest({
-        headers: { referer: "https://myapp.com/settings" },
-        body: { idempotencyKey: "abcdefghij456789" },
-        currentUser: {
-          id: "user-1",
-          email: "test@test.com",
-          accountTier: "free",
-        },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/create-checkout-session", req, res);
-
-      // https://myapp.com is not in allowed origins, so it should fall back to default
-      expect(mockStripeCheckoutCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success_url: expect.stringContaining("http://localhost:5173"),
-          cancel_url: expect.stringContaining("http://localhost:5173"),
-        }),
-        expect.anything()
-      );
-    });
-
-    it("rejects spoofed origin and falls back to default", async () => {
-      mockStripeCheckoutCreate.mockResolvedValue({
-        id: "cs_test_session",
-        url: "https://checkout.stripe.com/pay/cs_test_session",
-      });
-
-      const req = mockRequest({
-        headers: { origin: "https://evil-site.com" },
-        body: { idempotencyKey: "abcdefghij_evil_k" },
-        currentUser: {
-          id: "user-1",
-          email: "test@test.com",
-          accountTier: "free",
-        },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/create-checkout-session", req, res);
-
-      // Spoofed origin should be rejected, URLs use default
-      expect(mockStripeCheckoutCreate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success_url: expect.stringContaining("http://localhost:5173"),
-          cancel_url: expect.stringContaining("http://localhost:5173"),
-        }),
-        expect.anything()
-      );
-      // Verify evil origin is NOT in the URLs
-      const callArgs = mockStripeCheckoutCreate.mock.calls[0][0];
-      expect(callArgs.success_url).not.toContain("evil");
-      expect(callArgs.cancel_url).not.toContain("evil");
-    });
-
-    it("returns 500 on Stripe error", async () => {
-      mockStripeCheckoutCreate.mockRejectedValue(new Error("Stripe API error"));
-
-      const req = mockRequest({
-        body: { idempotencyKey: "abcdefghijklmnop" },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/create-checkout-session", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: "CHECKOUT_FAILED",
-          message: "Failed to create checkout session.",
+          error: "PAYMENTS_DISABLED",
         })
       );
     });
   });
 
   // ===========================================================================
-  // POST /purchase-premium
+  // POST /purchase-premium (DISABLED — payments removed)
   // ===========================================================================
 
   describe("POST /purchase-premium", () => {
-    it("returns 400 for invalid body (missing paymentIntentId)", async () => {
-      const req = mockRequest({ body: {} });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
-    });
-
-    it("returns 400 for invalid body (empty paymentIntentId)", async () => {
-      const req = mockRequest({ body: { paymentIntentId: "" } });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
-    });
-
-    it("returns 409 when user already has premium", async () => {
-      const req = mockRequest({
-        body: { paymentIntentId: "pi_test_123" },
-        currentUser: {
-          id: "user-1",
-          accountTier: "premium",
-          email: "test@test.com",
-        },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(409);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: "ALREADY_PREMIUM",
-          message: "You already have Premium.",
-          details: { currentTier: "premium" },
-        })
-      );
-    });
-
-    it("returns 500 when database is unavailable (getDb throws after stripe succeeds)", async () => {
-      mockGetDb.mockImplementation(() => {
-        throw new Error("Database not configured");
-      });
-
-      // Stripe must succeed so the route reaches getDb()
-      mockStripePaymentIntentsRetrieve.mockResolvedValue({
-        status: "succeeded",
-        amount: 999,
-        currency: "usd",
-        metadata: { userId: "user-1" },
-      });
-
+    it("returns 410 with payments disabled message", async () => {
       const req = mockRequest({
         body: { paymentIntentId: "pi_test_123" },
       });
@@ -789,213 +581,10 @@ describe("Tier Routes", () => {
 
       await callRoute("POST", "/purchase-premium", req, res);
 
-      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.status).toHaveBeenCalledWith(410);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          error: "PURCHASE_FAILED",
-        })
-      );
-    });
-
-    it("returns 500 when STRIPE_SECRET_KEY not configured", async () => {
-      delete process.env.STRIPE_SECRET_KEY;
-
-      const req = mockRequest({
-        body: { paymentIntentId: "pi_test_123" },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: "PAYMENT_NOT_CONFIGURED",
-          message: "Payment verification not available.",
-        })
-      );
-    });
-
-    it("returns 402 when payment has not succeeded", async () => {
-      mockStripePaymentIntentsRetrieve.mockResolvedValue({
-        status: "requires_payment_method",
-        amount: 999,
-        metadata: { userId: "user-1" },
-      });
-
-      const req = mockRequest({
-        body: { paymentIntentId: "pi_test_123" },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(402);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: "PAYMENT_NOT_COMPLETED",
-          message: "Payment not completed.",
-          details: { status: "requires_payment_method" },
-        })
-      );
-    });
-
-    it("returns 402 when payment amount does not match $9.99", async () => {
-      mockStripePaymentIntentsRetrieve.mockResolvedValue({
-        status: "succeeded",
-        amount: 500,
-        metadata: { userId: "user-1" },
-      });
-
-      const req = mockRequest({
-        body: { paymentIntentId: "pi_test_123" },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(402);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: "PAYMENT_AMOUNT_INVALID",
-          message: "Payment amount invalid.",
-        })
-      );
-    });
-
-    it("returns 402 when Stripe payment retrieval fails", async () => {
-      mockStripePaymentIntentsRetrieve.mockRejectedValue(
-        new Error("No such payment_intent: pi_invalid")
-      );
-
-      const req = mockRequest({
-        body: { paymentIntentId: "pi_invalid" },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(402);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: "PAYMENT_VERIFICATION_FAILED",
-          message: "Payment verification failed.",
-        })
-      );
-    });
-
-    it("returns 403 when payment intent does not belong to user", async () => {
-      mockStripePaymentIntentsRetrieve.mockResolvedValue({
-        status: "succeeded",
-        amount: 999,
-        currency: "usd",
-        metadata: { userId: "other-user" },
-      });
-
-      const req = mockRequest({
-        body: { paymentIntentId: "pi_other_user" },
-        currentUser: {
-          id: "user-1",
-          email: "test@test.com",
-          accountTier: "free",
-        },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(403);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: "PAYMENT_INTENT_FORBIDDEN",
-          message: "This payment intent does not belong to you.",
-        })
-      );
-    });
-
-    it("returns 409 when payment intent has already been consumed", async () => {
-      mockStripePaymentIntentsRetrieve.mockResolvedValue({
-        status: "succeeded",
-        amount: 999,
-        currency: "usd",
-        metadata: { userId: "user-1" },
-      });
-      // Simulate that the payment intent already exists in consumed_payment_intents
-      mockDbReturns.selectResult = [{ id: 1 }];
-
-      const req = mockRequest({
-        body: { paymentIntentId: "pi_already_used" },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(409);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: "PAYMENT_ALREADY_USED",
-          message: "This payment has already been applied to an account.",
-        })
-      );
-    });
-
-    it("purchases premium successfully", async () => {
-      mockStripePaymentIntentsRetrieve.mockResolvedValue({
-        status: "succeeded",
-        amount: 999,
-        currency: "usd",
-        metadata: { userId: "user-1" },
-      });
-      // No existing consumed payment intent
-      mockDbReturns.selectResult = [];
-
-      const req = mockRequest({
-        body: { paymentIntentId: "pi_test_123" },
-        currentUser: {
-          id: "user-1",
-          email: "test@test.com",
-          accountTier: "free",
-        },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.json).toHaveBeenCalledWith({
-        success: true,
-        message: "Welcome to Premium! All features are now unlocked for life.",
-        tier: "premium",
-      });
-    });
-
-    it("returns 500 on general error during purchase", async () => {
-      mockStripePaymentIntentsRetrieve.mockResolvedValue({
-        status: "succeeded",
-        amount: 999,
-        currency: "usd",
-        metadata: { userId: "user-1" },
-      });
-
-      // Override the shared mockDb.select for this call to throw inside the transaction
-      mockTransaction.mockRejectedValueOnce(new Error("DB write failed"));
-
-      const req = mockRequest({
-        body: { paymentIntentId: "pi_test_123" },
-        currentUser: {
-          id: "user-1",
-          email: "test@test.com",
-          accountTier: "free",
-        },
-      });
-      const res = mockResponse();
-
-      await callRoute("POST", "/purchase-premium", req, res);
-
-      expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          error: "PURCHASE_FAILED",
-          message: "Failed to process purchase.",
+          error: "PAYMENTS_DISABLED",
         })
       );
     });
