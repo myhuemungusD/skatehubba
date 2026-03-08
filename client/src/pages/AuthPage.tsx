@@ -123,15 +123,15 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#181818] flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-[#181818] flex flex-col items-center justify-center p-2 sm:p-4">
       <div className="w-full max-w-md">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-4">
+        <div className="text-center mb-3 sm:mb-6">
+          <div className="flex items-center justify-center mb-1 sm:mb-2">
             <span className="text-4xl mr-2"></span>
-            <h1 className="text-3xl font-bold text-white">SkateHubba</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">SkateHubba</h1>
           </div>
-          <p className="text-gray-400">Find and share the best skate spots</p>
+          <p className="text-gray-400 text-sm sm:text-base">Find and share the best skate spots</p>
         </div>
 
         {/* Google sign-in config error */}
@@ -185,7 +185,7 @@ export default function AuthPage() {
         </Card>
 
         {/* Back to Home */}
-        <div className="text-center mt-6">
+        <div className="text-center mt-3 sm:mt-6">
           <Link href="/landing" className="text-gray-400 hover:text-white text-sm">
             Back to Home
           </Link>

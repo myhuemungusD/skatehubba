@@ -212,16 +212,16 @@ export function SignUpTab({
 
   return (
     <>
-      <CardHeader>
+      <CardHeader className="p-4 sm:p-6">
         <CardTitle className="text-xl text-white">Create Account</CardTitle>
         <CardDescription className="text-gray-400">
           Join the community and start sharing spots
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={form.handleSubmit(handleSignUp)} className="space-y-4">
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+        <form onSubmit={form.handleSubmit(handleSignUp)} className="space-y-3">
           {/* Name */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="signup-name" className="text-gray-300">
               Name
             </Label>
@@ -240,7 +240,7 @@ export function SignUpTab({
           </div>
 
           {/* Email */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="signup-email" className="text-gray-300">
               Email
             </Label>
@@ -260,7 +260,7 @@ export function SignUpTab({
           </div>
 
           {/* Password */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="signup-password" className="text-gray-300">
               Password
             </Label>
@@ -295,14 +295,14 @@ export function SignUpTab({
           </div>
 
           {/* Profile section divider */}
-          <div className="flex items-center gap-3 pt-2">
+          <div className="flex items-center gap-3">
             <div className="flex-grow border-t border-gray-700" />
             <span className="text-xs text-gray-500 uppercase tracking-wider">Profile</span>
             <div className="flex-grow border-t border-gray-700" />
           </div>
 
           {/* Username */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="signup-username" className="text-gray-300">
               Username
             </Label>
@@ -338,7 +338,7 @@ export function SignUpTab({
           </div>
 
           {/* Stance */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="signup-stance" className="text-gray-300">
               Stance
             </Label>

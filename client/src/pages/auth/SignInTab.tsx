@@ -90,16 +90,16 @@ export function SignInTab({
 
   return (
     <>
-      <CardHeader>
+      <CardHeader className="p-4 sm:p-6">
         <CardTitle className="text-xl text-white">Welcome Back</CardTitle>
         <CardDescription className="text-gray-400">
           Sign in to your account to continue
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={form.handleSubmit(handleSignIn)} className="space-y-4">
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+        <form onSubmit={form.handleSubmit(handleSignIn)} className="space-y-3">
           {/* Email */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="signin-email" className="text-gray-300">
               Email
             </Label>
@@ -119,7 +119,7 @@ export function SignInTab({
           </div>
 
           {/* Password */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="flex justify-between items-center">
               <Label htmlFor="signin-password" className="text-gray-300">
                 Password
