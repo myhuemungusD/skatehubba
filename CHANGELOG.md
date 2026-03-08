@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## Highlights (v0.9.0)
+
+- Built the **first async, video-based S.K.A.T.E. game** with community judging and dispute resolution
+- Shipped an interactive **spot map** with geo-verified check-ins and real-time leaderboards
+- Achieved an **A- security audit grade** across three audit rounds (44 findings, all remediated)
+- **294 test files** with 99.5% coverage thresholds enforced in CI
+- Full **CI/CD pipeline** with automated deployment to staging (Docker) and production (Vercel)
+
+---
+
 ## [Unreleased]
 
 ### In Progress
