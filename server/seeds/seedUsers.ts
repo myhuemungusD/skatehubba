@@ -215,19 +215,21 @@ async function main() {
           })
           .returning({ id: schema.customUsers.id });
 
-        // Ensure handle uniqueness — append digits if taken
-        const existingHandle = await tx
-          .select({ id: schema.usernames.id })
-          .from(schema.usernames)
-          .where(eq(schema.usernames.username, handle))
-          .limit(1);
+        // Ensure handle uniqueness — retry with numeric suffixes if taken
+        const baseHandle = handle;
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const existingHandle = await tx
+            .select({ id: schema.usernames.id })
+            .from(schema.usernames)
+            .where(eq(schema.usernames.username, handle))
+            .limit(1);
 
-        if (existingHandle.length > 0) {
-          // Append random suffix
-          const suffix = Math.floor(Math.random() * 999)
+          if (existingHandle.length === 0) break;
+
+          const suffix = Math.floor(Math.random() * 9999)
             .toString()
-            .padStart(3, "0");
-          handle = `${handle.slice(0, 16)}${suffix}`;
+            .padStart(4, "0");
+          handle = `${baseHandle.slice(0, 15)}${suffix}`;
         }
 
         // Insert into usernames

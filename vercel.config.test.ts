@@ -18,7 +18,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Fresh-import vercel.ts so process.env mutations take effect. */
+/** Fresh-import vercel.config.ts so process.env mutations take effect. */
 async function loadConfig() {
   const mod = await import("./vercel.config.ts");
   return mod;
