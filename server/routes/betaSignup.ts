@@ -7,6 +7,7 @@ import { env } from "../config/env";
 import { validateBody } from "../middleware/validation";
 import { BetaSignupInput } from "@shared/validation/betaSignup";
 import { getClientIp, hashIp } from "../utils/ip";
+import logger from "../logger";
 
 const router = Router();
 
@@ -63,7 +64,10 @@ router.post(
       }
 
       return res.status(200).json({ ok: true });
-    } catch {
+    } catch (err) {
+      logger.error("[BetaSignup] failed to process signup", {
+        error: err instanceof Error ? err.message : String(err),
+      });
       return res.status(500).json({ ok: false, error: "SERVER_ERROR" });
     }
   }

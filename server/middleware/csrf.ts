@@ -8,15 +8,13 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 const createCsrfToken = () => crypto.randomBytes(32).toString("hex");
 
 /**
- * Timing-safe token comparison using HMAC.
- * Unlike a direct timingSafeEqual with a length pre-check, HMAC normalises
- * both inputs to a fixed-length digest so no token-length information leaks.
+ * Timing-safe token comparison.
+ * CSRF tokens are always 64-char hex strings (from createCsrfToken), so the
+ * expected length is public/fixed — the length pre-check leaks no secret info.
  */
 function timingSafeTokenEqual(a: string, b: string): boolean {
-  const key = crypto.randomBytes(32);
-  const hmacA = crypto.createHmac("sha256", key).update(a).digest();
-  const hmacB = crypto.createHmac("sha256", key).update(b).digest();
-  return crypto.timingSafeEqual(hmacA, hmacB);
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 }
 
 /**
@@ -69,11 +67,7 @@ export function requireCsrfToken(req: Request, res: Response, next: NextFunction
 
   // Validate: both tokens must exist and match (constant-time comparison via HMAC
   // to avoid leaking length information through the pre-check)
-  if (
-    !cookieToken ||
-    !headerToken ||
-    !timingSafeTokenEqual(cookieToken, headerToken)
-  ) {
+  if (!cookieToken || !headerToken || !timingSafeTokenEqual(cookieToken, headerToken)) {
     return res.status(403).json({ error: "Invalid CSRF token" });
   }
 

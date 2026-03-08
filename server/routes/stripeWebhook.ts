@@ -55,8 +55,11 @@ async function isDuplicateEvent(eventId: string): Promise<boolean> {
       const result = await redis.set(key, "1", "EX", DEDUP_TTL_SECONDS, "NX");
       // NX returns "OK" if the key was set (first time), null if it already existed
       return result !== "OK";
-    } catch {
-      // Redis failure — fall through to memory store
+    } catch (err) {
+      logger.warn("[StripeWebhook] redis dedup failed, falling back to memory store", {
+        eventId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
