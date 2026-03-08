@@ -90,27 +90,27 @@ export function SignInTab({
 
   return (
     <>
-      <CardHeader>
+      <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3 space-y-1">
         <CardTitle className="text-xl text-white">Welcome Back</CardTitle>
         <CardDescription className="text-gray-400">
           Sign in to your account to continue
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={form.handleSubmit(handleSignIn)} className="space-y-4">
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+        <form onSubmit={form.handleSubmit(handleSignIn)} className="space-y-3">
           {/* Email */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label htmlFor="signin-email" className="text-gray-300">
               Email
             </Label>
             <div className="relative">
-              <Mail aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Mail aria-hidden="true" className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
                 id="signin-email"
                 type="email"
                 placeholder="you@example.com"
                 {...form.register("email")}
-                className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                className="pl-10 h-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
               />
             </div>
             {form.formState.errors.email && (
@@ -119,7 +119,7 @@ export function SignInTab({
           </div>
 
           {/* Password */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="flex justify-between items-center">
               <Label htmlFor="signin-password" className="text-gray-300">
                 Password
@@ -133,19 +133,19 @@ export function SignInTab({
               </button>
             </div>
             <div className="relative">
-              <Lock aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Lock aria-hidden="true" className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
                 id="signin-password"
                 type={showPassword ? "text" : "password"}
                 placeholder=""
                 {...form.register("password")}
-                className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                className="pl-10 pr-10 h-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-3 top-3 p-1 text-gray-400 hover:text-gray-300"
+                className="absolute right-3 top-2.5 p-1 text-gray-400 hover:text-gray-300"
               >
                 {showPassword ? (
                   <EyeOff aria-hidden="true" className="h-4 w-4" />

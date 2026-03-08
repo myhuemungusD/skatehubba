@@ -56,7 +56,7 @@ export function GoogleSignInButton({
   return (
     <>
       {/* Divider */}
-      <div className="relative my-6">
+      <div className="relative my-3 sm:my-4">
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t border-gray-600" />
         </div>
