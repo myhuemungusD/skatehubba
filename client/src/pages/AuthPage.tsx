@@ -145,7 +145,7 @@ export default function AuthPage() {
         {/* Auth Card */}
         <Card className="bg-[#232323] border-gray-700">
           <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "signin" | "signup")}>
-            <TabsList className="grid w-full grid-cols-2 bg-[#181818]">
+            <TabsList className="grid w-full grid-cols-2 h-10 bg-[#181818]">
               <TabsTrigger
                 value="signin"
                 className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
@@ -160,7 +160,7 @@ export default function AuthPage() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="signin">
+            <TabsContent value="signin" className="mt-0">
               <SignInTab
                 signIn={auth?.signInWithEmail}
                 onGoogleSignIn={handleGoogleSignIn}
@@ -172,7 +172,7 @@ export default function AuthPage() {
               />
             </TabsContent>
 
-            <TabsContent value="signup">
+            <TabsContent value="signup" className="mt-0">
               <SignUpTab
                 signUp={auth?.signUpWithEmail}
                 onGoogleSignIn={handleGoogleSignIn}

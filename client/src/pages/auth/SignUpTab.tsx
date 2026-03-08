@@ -212,7 +212,7 @@ export function SignUpTab({
 
   return (
     <>
-      <CardHeader className="p-4 sm:p-6">
+      <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-3 space-y-1">
         <CardTitle className="text-xl text-white">Create Account</CardTitle>
         <CardDescription className="text-gray-400">
           Join the community and start sharing spots
@@ -226,12 +226,12 @@ export function SignUpTab({
               Name
             </Label>
             <div className="relative">
-              <User aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <User aria-hidden="true" className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
                 id="signup-name"
                 placeholder="Your name"
                 {...form.register("name")}
-                className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                className="pl-10 h-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
               />
             </div>
             {form.formState.errors.name && (
@@ -245,13 +245,13 @@ export function SignUpTab({
               Email
             </Label>
             <div className="relative">
-              <Mail aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Mail aria-hidden="true" className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
                 id="signup-email"
                 type="email"
                 placeholder="you@example.com"
                 {...form.register("email")}
-                className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                className="pl-10 h-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
               />
             </div>
             {form.formState.errors.email && (
@@ -265,19 +265,19 @@ export function SignUpTab({
               Password
             </Label>
             <div className="relative">
-              <Lock aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Lock aria-hidden="true" className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
               <Input
                 id="signup-password"
                 type={showPassword ? "text" : "password"}
                 placeholder=""
                 {...form.register("password")}
-                className="pl-10 pr-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                className="pl-10 pr-10 h-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 aria-label={showPassword ? "Hide password" : "Show password"}
-                className="absolute right-3 top-3 p-1 text-gray-400 hover:text-gray-300"
+                className="absolute right-3 top-2.5 p-1 text-gray-400 hover:text-gray-300"
               >
                 {showPassword ? (
                   <EyeOff aria-hidden="true" className="h-4 w-4" />
@@ -306,11 +306,11 @@ export function SignUpTab({
             <Label htmlFor="signup-username" className="text-gray-300">
               Username
             </Label>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <div className="flex flex-row items-center gap-2">
               <div className="relative flex-1">
                 <AtSign
                   aria-hidden="true"
-                  className="absolute left-3 top-3 h-4 w-4 text-gray-400"
+                  className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
                 />
                 <Input
                   id="signup-username"
@@ -322,10 +322,10 @@ export function SignUpTab({
                       form.setValue("username", next, { shouldValidate: true });
                     },
                   })}
-                  className="pl-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+                  className="pl-10 h-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
                 />
               </div>
-              <div className="min-w-[120px]" aria-live="polite">
+              <div className="shrink-0" aria-live="polite">
                 {availabilityBadge}
               </div>
             </div>
@@ -344,7 +344,7 @@ export function SignUpTab({
             </Label>
             <select
               id="signup-stance"
-              className="h-10 w-full rounded-md bg-[#181818] border border-gray-600 text-white px-3 text-sm"
+              className="h-9 w-full rounded-md bg-[#181818] border border-gray-600 text-white px-3 text-sm"
               {...form.register("stance")}
             >
               <option value="">Select stance (optional)</option>
