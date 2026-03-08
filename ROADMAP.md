@@ -1,5 +1,7 @@
 # SkateHubba Roadmap
 
+**Vision:** SkateHubba becomes the identity and gameplay layer for skating — where clips turn into battles, battles turn into crews, crews turn into cities, and cities turn into a proprietary skate graph that no content app or spot finder can replicate.
+
 **Philosophy:** Find product-market fit first. Nail one thing, prove it works with real skaters, then expand. No feature factory.
 
 ---
@@ -133,6 +135,10 @@ Open a GitHub Issue with `[Feature Request]` tag. Community votes via thumbs-up.
 
 ## Links
 
+- [Executive Summary](docs/pitch/EXECUTIVE_SUMMARY.md)
+- [Pre-Seed Narrative](docs/pitch/PRE_SEED_NARRATIVE.md)
+- [Competitive Landscape](docs/pitch/COMPETITIVE_LANDSCAPE.md)
+- [Traction & Milestones](docs/pitch/TRACTION.md)
 - [Changelog](CHANGELOG.md)
 - [Game Rules](docs/GAME_RULES.md)
 - [Contributing](CONTRIBUTING.md)
