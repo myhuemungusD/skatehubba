@@ -1,15 +1,7 @@
 import { useEffect, useState } from "react";
 import { useLeaderboard } from "@/hooks/useSkateGameApi";
 
-export interface LeaderboardEntry {
-  id: string;
-  displayName: string;
-  username?: string;
-  wins: number;
-  losses: number;
-  rank?: number;
-  avatarUrl?: string;
-}
+export type { LeaderboardEntry } from "@/lib/api/game/types";
 
 export const useRealtimeLeaderboard = () => {
   const { data, isLoading, error } = useLeaderboard();
@@ -28,13 +20,10 @@ export const useRealtimeLeaderboard = () => {
     };
   }, []);
 
-  const entries: LeaderboardEntry[] = data?.entries ?? [];
-
   return {
-    entries,
+    entries: data?.entries ?? [],
     isLoading,
     error: error ? { code: "API_ERROR", message: error.message } : null,
     isOffline,
-    isFallback: false,
   };
 };
