@@ -5,6 +5,7 @@
  * - POST /:id/forfeit: voluntary forfeit (p1 + p2), not a player, game not active,
  *     game not found, db unavailable, db error (500), winnerId null branch
  * - GET /my-games: categorized game lists, db unavailable, db error (500)
+ * - GET /leaderboard: global rankings from real game data
  * - GET /stats/me: player stats (wins, losses, streaks, records, top tricks)
  * - GET /:id: game details with turns/disputes, isMyTurn, needsToJudge,
  *     needsToRespond, pendingTurnId, canDispute, not a player, not found,
@@ -99,6 +100,10 @@ vi.mock("@shared/schema", () => ({
   usernames: {
     uid: "uid",
     username: "username",
+  },
+  userProfiles: {
+    id: "id",
+    displayName: "displayName",
   },
 }));
 
@@ -197,6 +202,7 @@ function mockResponse(): any {
   const res: any = {};
   res.status = vi.fn().mockReturnValue(res);
   res.json = vi.fn().mockReturnValue(res);
+  res.set = vi.fn().mockReturnValue(res);
   return res;
 }
 
@@ -521,6 +527,110 @@ describe("Game Management Routes", () => {
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({ error: "GAMES_FETCH_FAILED", message: "Failed to fetch games." })
+      );
+    });
+  });
+
+  // ===========================================================================
+  // GET /leaderboard
+  // ===========================================================================
+
+  describe("GET /leaderboard", () => {
+    it("returns ranked entries with display names and usernames", async () => {
+      resultQueue.push(
+        // [0] aggregated player stats from raw SQL subquery
+        [
+          { playerId: "p1", wins: 10, losses: 2 },
+          { playerId: "p2", wins: 7, losses: 5 },
+        ],
+        // [1] usernames batch fetch
+        [
+          { uid: "p1", username: "sk8king" },
+          { uid: "p2", username: "treflip" },
+        ],
+        // [2] userProfiles batch fetch
+        [
+          { id: "p1", displayName: "Skate King" },
+          { id: "p2", displayName: null },
+        ]
+      );
+
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/leaderboard", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.entries).toHaveLength(2);
+      expect(result.entries[0]).toEqual({
+        id: "p1",
+        displayName: "Skate King",
+        username: "sk8king",
+        wins: 10,
+        losses: 2,
+        rank: 1,
+      });
+      expect(result.entries[1]).toEqual({
+        id: "p2",
+        displayName: "treflip",
+        username: "treflip",
+        wins: 7,
+        losses: 5,
+        rank: 2,
+      });
+    });
+
+    it("returns empty entries when no games exist", async () => {
+      resultQueue.push([]);
+
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/leaderboard", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.entries).toEqual([]);
+    });
+
+    it("falls back to 'Skater' when no display name or username", async () => {
+      resultQueue.push(
+        [{ playerId: "ghost", wins: 3, losses: 1 }],
+        [], // no usernames found
+        [] // no profiles found
+      );
+
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/leaderboard", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.entries[0].displayName).toBe("Skater");
+      expect(result.entries[0].username).toBeUndefined();
+    });
+
+    it("sets Cache-Control header", async () => {
+      resultQueue.push([]);
+
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/leaderboard", req, res);
+
+      expect(res.set).toHaveBeenCalledWith(
+        "Cache-Control",
+        "public, max-age=30, stale-while-revalidate=60"
+      );
+    });
+
+    it("returns 500 when database is unavailable", async () => {
+      shouldDbThrow = true;
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/leaderboard", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(500);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: "LEADERBOARD_FETCH_FAILED",
+          message: "Failed to fetch leaderboard.",
+        })
       );
     });
   });

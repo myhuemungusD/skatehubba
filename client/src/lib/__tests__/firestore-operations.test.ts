@@ -61,7 +61,6 @@ describe("Firestore Operations", () => {
       expect(firestoreCollections.notifications).toBe("notifications");
       expect(firestoreCollections.activeCheckins).toBe("active_checkins");
       expect(firestoreCollections.challengeVotes).toBe("challenge_votes");
-      expect(firestoreCollections.leaderboardLive).toBe("leaderboard_live");
     });
   });
 
@@ -93,7 +92,12 @@ describe("Firestore Operations", () => {
     });
 
     it("should add updatedAt timestamp when addTimestamp option is true", async () => {
-      await updateDocument("chat_messages", "doc-1", { name: "WithTimestamp" }, { addTimestamp: true });
+      await updateDocument(
+        "chat_messages",
+        "doc-1",
+        { name: "WithTimestamp" },
+        { addTimestamp: true }
+      );
       const callArgs = mockUpdateDoc.mock.calls[0];
       // The data passed should include updatedAt from serverTimestamp
       expect(callArgs[1]).toEqual({
@@ -103,7 +107,12 @@ describe("Firestore Operations", () => {
     });
 
     it("should not add timestamp when addTimestamp is explicitly false", async () => {
-      await updateDocument("chat_messages", "doc-1", { name: "ExplicitFalse" }, { addTimestamp: false });
+      await updateDocument(
+        "chat_messages",
+        "doc-1",
+        { name: "ExplicitFalse" },
+        { addTimestamp: false }
+      );
       const callArgs = mockUpdateDoc.mock.calls[0];
       expect(callArgs[1]).toEqual({ name: "ExplicitFalse" });
     });

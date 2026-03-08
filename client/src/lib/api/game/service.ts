@@ -23,6 +23,7 @@ import type {
   ResolveDisputeResponse,
   SetterBailResponse,
   GameStats,
+  LeaderboardResponse,
 } from "./types";
 
 export const gameApi = {
@@ -115,6 +116,13 @@ export const gameApi = {
     return apiRequest<GameStats>({
       method: "GET",
       path: "/api/games/stats/me",
+    });
+  },
+
+  async getLeaderboard(): Promise<LeaderboardResponse> {
+    return apiRequest<LeaderboardResponse>({
+      method: "GET",
+      path: "/api/games/leaderboard",
     });
   },
 };
