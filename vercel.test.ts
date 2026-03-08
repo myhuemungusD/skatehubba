@@ -428,8 +428,8 @@ describe("vercel.ts — exported header arrays", () => {
     vi.restoreAllMocks();
   });
 
-  it("exports securityHeaders with 7 entries", () => {
-    expect(securityHeaders).toHaveLength(7);
+  it("exports securityHeaders with 8 entries", () => {
+    expect(securityHeaders).toHaveLength(8);
   });
 
   it("exports apiHeaders with 5 entries", () => {
