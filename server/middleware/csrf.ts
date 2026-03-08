@@ -65,8 +65,7 @@ export function requireCsrfToken(req: Request, res: Response, next: NextFunction
   const cookieToken = req.cookies?.[CSRF_COOKIE_NAME];
   const headerToken = req.header("x-csrf-token");
 
-  // Validate: both tokens must exist and match (constant-time comparison via HMAC
-  // to avoid leaking length information through the pre-check)
+  // Validate: both tokens must exist and match (constant-time comparison)
   if (!cookieToken || !headerToken || !timingSafeTokenEqual(cookieToken, headerToken)) {
     return res.status(403).json({ error: "Invalid CSRF token" });
   }
