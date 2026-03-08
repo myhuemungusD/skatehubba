@@ -123,6 +123,19 @@ export function SignUpTab({
       setLocation("/hub");
     } catch (error) {
       logger.error("[AuthPage] Sign up error:", error);
+
+      // If Firebase account was created (Step 1 succeeded) but profile
+      // creation failed (Step 2), sign out so the user stays on the auth
+      // page instead of being auto-redirected to /hub without a profile.
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        try {
+          await useAuthStore.getState().signOut();
+        } catch (signOutErr) {
+          logger.error("[AuthPage] Failed to sign out after profile creation error:", signOutErr);
+        }
+      }
+
       const authError = error as { message?: string; code?: string };
       const message = authError.message || "Sign up failed. Please try again.";
       toast({
@@ -173,6 +186,18 @@ export function SignUpTab({
       setLocation("/hub");
     } catch (error) {
       logger.error("[AuthPage] Google sign-up error:", error);
+
+      // If Google auth succeeded but profile creation failed, sign out
+      // to prevent auto-redirect to /hub without a profile.
+      const currentUser = useAuthStore.getState().user;
+      if (currentUser) {
+        try {
+          await useAuthStore.getState().signOut();
+        } catch (signOutErr) {
+          logger.error("[AuthPage] Failed to sign out after profile creation error:", signOutErr);
+        }
+      }
+
       const message = error instanceof Error ? error.message : "Google sign up failed";
       toast({
         title: "Sign Up Failed",
@@ -283,7 +308,10 @@ export function SignUpTab({
             </Label>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="relative flex-1">
-                <AtSign aria-hidden="true" className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <AtSign
+                  aria-hidden="true"
+                  className="absolute left-3 top-3 h-4 w-4 text-gray-400"
+                />
                 <Input
                   id="signup-username"
                   placeholder="skatelegend"

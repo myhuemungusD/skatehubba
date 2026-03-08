@@ -80,6 +80,12 @@ export async function authenticateWithBackend(
     logger.log("[AuthStore] Backend session created successfully");
   } catch (error) {
     logger.error("[AuthStore] Backend authentication failed:", error);
-    // Don't throw - allow degraded mode where Firebase token auth fallback works
+    // During registration, failing to create the backend user is fatal:
+    // no PostgreSQL record means no session cookie, no verification email,
+    // and all subsequent API calls will fail.
+    if (options?.isRegistration) {
+      throw error;
+    }
+    // For sign-in, allow degraded mode where Firebase token auth fallback works
   }
 }

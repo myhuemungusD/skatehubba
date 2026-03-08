@@ -37,8 +37,7 @@ export const useUserProfileStore = create<UserProfileStore>((set) => ({
 let unsubscribeAuth: (() => void) | null = null;
 
 export function useUserProfile() {
-  const { user, loading, error, setUser, setLoading, setError, clear } =
-    useUserProfileStore();
+  const { user, loading, error, setUser, setLoading, setError, clear } = useUserProfileStore();
 
   const initializeAuth = async () => {
     if (typeof window === "undefined") return;
@@ -77,7 +76,7 @@ export function useUserProfile() {
 
             setUser({
               uid: firebaseUser.uid,
-              displayName: firebaseUser.displayName || "Skater",
+              displayName: firebaseUser.displayName || "",
               email: firebaseUser.email,
               photoURL: firebaseUser.photoURL,
               isPro,
