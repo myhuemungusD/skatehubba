@@ -22,6 +22,7 @@ import PublicNavigation from "../components/PublicNavigation";
 import { Footer } from "../components/Footer";
 import { HeroMedia } from "../sections/landing/HeroMedia";
 import { FeatureGrid } from "../sections/landing/FeatureGrid";
+import { HubbaShopBanner } from "../sections/landing/HubbaShopBanner";
 import { landingContent } from "../content/landing";
 import { useAuth } from "../hooks/useAuth";
 import AppDropdownMenu from "../components/navigation/AppDropdownMenu";
@@ -76,6 +77,8 @@ export default function UnifiedLanding() {
       />
 
       <FeatureGrid features={landingContent.features} columns={3} />
+
+      <HubbaShopBanner />
 
       <Footer />
     </div>
