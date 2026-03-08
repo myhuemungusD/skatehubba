@@ -18,9 +18,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Fresh-import vercel.config.ts so process.env mutations take effect. */
+/** Fresh-import vercel.ts so process.env mutations take effect. */
 async function loadConfig() {
-  const mod = await import("./vercel.config.ts");
+  const mod = await import("./vercel.ts");
   return mod;
 }
 
@@ -340,7 +340,7 @@ describe("vercel.ts — environment-aware configuration", () => {
   it("adds X-Robots-Tag noindex on preview deployments", async () => {
     process.env.VERCEL_ENV = "preview";
     vi.resetModules();
-    const mod = await import("./vercel.config.ts");
+    const mod = await import("./vercel.ts");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const headers = (mod.config.headers ?? []) as any;
     const staticRule = findHeaderRule(headers, "/((?!api/).*)");
@@ -350,7 +350,7 @@ describe("vercel.ts — environment-aware configuration", () => {
   it("adds X-Robots-Tag noindex on development deployments", async () => {
     process.env.VERCEL_ENV = "development";
     vi.resetModules();
-    const mod = await import("./vercel.config.ts");
+    const mod = await import("./vercel.ts");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const headers = (mod.config.headers ?? []) as any;
     const staticRule = findHeaderRule(headers, "/((?!api/).*)");
@@ -360,7 +360,7 @@ describe("vercel.ts — environment-aware configuration", () => {
   it("does NOT add X-Robots-Tag on production deployments", async () => {
     process.env.VERCEL_ENV = "production";
     vi.resetModules();
-    const mod = await import("./vercel.config.ts");
+    const mod = await import("./vercel.ts");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const headers = (mod.config.headers ?? []) as any;
     const staticRule = findHeaderRule(headers, "/((?!api/).*)");
@@ -370,7 +370,7 @@ describe("vercel.ts — environment-aware configuration", () => {
   it("adds X-Robots-Tag to API routes on preview", async () => {
     process.env.VERCEL_ENV = "preview";
     vi.resetModules();
-    const mod = await import("./vercel.config.ts");
+    const mod = await import("./vercel.ts");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const headers = (mod.config.headers ?? []) as any;
     const apiRule = findHeaderRule(headers, "/api/(.*)");
@@ -380,7 +380,7 @@ describe("vercel.ts — environment-aware configuration", () => {
   it("does NOT add X-Robots-Tag to API routes on production", async () => {
     process.env.VERCEL_ENV = "production";
     vi.resetModules();
-    const mod = await import("./vercel.config.ts");
+    const mod = await import("./vercel.ts");
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const headers = (mod.config.headers ?? []) as any;
     const apiRule = findHeaderRule(headers, "/api/(.*)");
@@ -390,21 +390,21 @@ describe("vercel.ts — environment-aware configuration", () => {
   it("exports isProduction as true when VERCEL_ENV=production", async () => {
     process.env.VERCEL_ENV = "production";
     vi.resetModules();
-    const mod = await import("./vercel.config.ts");
+    const mod = await import("./vercel.ts");
     expect(mod.isProduction).toBe(true);
   });
 
   it("exports isProduction as false when VERCEL_ENV is unset", async () => {
     delete process.env.VERCEL_ENV;
     vi.resetModules();
-    const mod = await import("./vercel.config.ts");
+    const mod = await import("./vercel.ts");
     expect(mod.isProduction).toBe(false);
   });
 
   it("exports isProduction as false when VERCEL_ENV=preview", async () => {
     process.env.VERCEL_ENV = "preview";
     vi.resetModules();
-    const mod = await import("./vercel.config.ts");
+    const mod = await import("./vercel.ts");
     expect(mod.isProduction).toBe(false);
   });
 });
