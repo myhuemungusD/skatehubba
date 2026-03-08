@@ -2,7 +2,7 @@ import { getIdTokenResult, type User as FirebaseUser } from "firebase/auth";
 import { apiRequest } from "../lib/api/client";
 import { isApiError } from "../lib/api/errors";
 import { logger } from "../lib/logger";
-import type { UserProfile, UserRole } from "./authStore.types";
+import type { UserProfile, UserRole, BackendUser } from "./authStore.types";
 import { transformProfile } from "./authStore.utils";
 
 // In-flight guard: concurrent callers share a single network request
@@ -59,17 +59,17 @@ export const extractRolesFromToken = async (firebaseUser: FirebaseUser): Promise
 export async function authenticateWithBackend(
   firebaseUser: FirebaseUser,
   options?: { firstName?: string; lastName?: string; isRegistration?: boolean }
-): Promise<void> {
+): Promise<BackendUser | null> {
   try {
     const idToken = await firebaseUser.getIdToken();
     const displayName = firebaseUser.displayName || "";
     const [defaultFirst, ...lastParts] = displayName.split(" ");
 
-    await apiRequest({
+    const response = await apiRequest<{ user: BackendUser }>({
       method: "POST",
       path: "/api/auth/login",
       body: {
-        firstName: options?.firstName || defaultFirst || "Skater",
+        firstName: options?.firstName || defaultFirst || "",
         lastName: options?.lastName || lastParts.join(" ") || "",
         isRegistration: options?.isRegistration || false,
       },
@@ -78,6 +78,7 @@ export async function authenticateWithBackend(
       },
     });
     logger.log("[AuthStore] Backend session created successfully");
+    return response.user;
   } catch (error) {
     logger.error("[AuthStore] Backend authentication failed:", error);
     // During registration, failing to create the backend user is fatal:
@@ -87,5 +88,6 @@ export async function authenticateWithBackend(
       throw error;
     }
     // For sign-in, allow degraded mode where Firebase token auth fallback works
+    return null;
   }
 }
