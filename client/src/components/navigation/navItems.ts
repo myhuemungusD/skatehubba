@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { EXTERNAL_LINKS } from "@/config/externalLinks";
 
 export type NavItem = {
   label: string;
@@ -13,7 +14,7 @@ export function useNavItems(): NavItem[] {
       { label: "HOME", href: "/hub" },
       { label: "MAP", href: "/map" },
       { label: "SETTINGS", href: "/me" },
-      { label: "MERCH", href: "https://skatehubba.store/", external: true },
+      { label: "MERCH", href: EXTERNAL_LINKS.HUBBASHOP, external: true },
     ];
   }, []);
 }

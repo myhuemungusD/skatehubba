@@ -1,6 +1,16 @@
 import { useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { Swords, Send, Clock, AlertCircle, Trophy, RefreshCw, User } from "lucide-react";
+import {
+  Swords,
+  Send,
+  Clock,
+  AlertCircle,
+  Trophy,
+  RefreshCw,
+  User,
+  ShoppingBag,
+  ExternalLink,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useMyGames, useRespondToGame, useCreateGame, useMyStats } from "@/hooks/useSkateGameApi";
 import { GameCard, PlayerStats } from "@/components/game";
@@ -11,6 +21,7 @@ import {
   useRealtimeLeaderboard,
   type LeaderboardEntry,
 } from "@/features/leaderboard/useRealtimeLeaderboard";
+import { EXTERNAL_LINKS } from "@/config/externalLinks";
 
 export default function ChallengeLobby() {
   const { user, profile, backendDisplayName } = useAuth();
@@ -307,6 +318,31 @@ export default function ChallengeLobby() {
           />
         </div>
       )}
+
+      {/* HubbaShop promo */}
+      <section aria-label="HubbaShop merch">
+        <a
+          href={EXTERNAL_LINKS.HUBBASHOP}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-4 rounded-xl border border-orange-500/20 bg-gradient-to-r from-orange-500/5 to-amber-500/5 p-4 hover:border-orange-500/40 transition-all"
+          data-testid="hub-hubbashop-link"
+        >
+          <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-orange-500/10 shrink-0">
+            <ShoppingBag className="w-5 h-5 text-orange-400" aria-hidden="true" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white group-hover:text-orange-400 transition-colors">
+              HubbaShop
+            </p>
+            <p className="text-xs text-neutral-500">Rep the brand — tees, stickers &amp; more</p>
+          </div>
+          <ExternalLink
+            className="w-4 h-4 text-neutral-500 group-hover:text-orange-400 transition-colors shrink-0"
+            aria-hidden="true"
+          />
+        </a>
+      </section>
     </div>
   );
 }
