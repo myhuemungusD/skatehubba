@@ -55,17 +55,30 @@ async function isDuplicateEvent(eventId: string): Promise<boolean> {
       const result = await redis.set(key, "1", "EX", DEDUP_TTL_SECONDS, "NX");
       // NX returns "OK" if the key was set (first time), null if it already existed
       return result !== "OK";
-    } catch {
-      // Redis failure — fall through to memory store
+    } catch (err) {
+      logger.warn("[StripeWebhook] redis dedup failed, falling back to memory store", {
+        eventId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 
   // Best-effort in-memory fallback (reduces duplicate DB work but not relied upon for safety)
   const now = Date.now();
-  // Prune expired entries periodically
+  const MAX_DEDUP_ENTRIES = 5000;
+  // Prune expired entries when map exceeds soft limit
   if (processedEventsMemory.size > 1000) {
     for (const [key, ts] of processedEventsMemory) {
       if (now - ts > DEDUP_TTL_SECONDS * 1000) processedEventsMemory.delete(key);
+    }
+  }
+  // Hard cap: evict oldest entries if still over limit after pruning
+  if (processedEventsMemory.size >= MAX_DEDUP_ENTRIES) {
+    const entriesToRemove = processedEventsMemory.size - MAX_DEDUP_ENTRIES + 1;
+    const iter = processedEventsMemory.keys();
+    for (let i = 0; i < entriesToRemove; i++) {
+      const oldest = iter.next();
+      if (!oldest.done) processedEventsMemory.delete(oldest.value);
     }
   }
 

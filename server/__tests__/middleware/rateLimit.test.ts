@@ -125,8 +125,8 @@ describe("rateLimit middleware", () => {
 
       const result = await sendCommand("GET", "some-key");
 
-      // The catch block returns 0 so the rate limiter allows the request through
-      expect(result).toBe(0);
+      // The catch block returns MAX_SAFE_INTEGER so rate limiting stays active
+      expect(result).toBe(Number.MAX_SAFE_INTEGER);
     });
   });
 });

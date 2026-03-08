@@ -54,6 +54,7 @@ const mockSocketAuthMiddleware = vi.fn();
 
 vi.mock("../../socket/auth", () => ({
   socketAuthMiddleware: mockSocketAuthMiddleware,
+  stopSocketRateLimitCleanup: vi.fn(),
 }));
 
 // -- ./rooms -----------------------------------------------------------------
