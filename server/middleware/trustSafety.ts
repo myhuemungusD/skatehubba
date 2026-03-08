@@ -9,6 +9,7 @@ import {
   getModerationProfile,
   QuotaExceededError,
 } from "../services/moderationStore";
+import logger from "../logger";
 
 const checkInRateLimiter = createInMemoryRateLimiter({ windowMs: 60 * 1000, max: 10 });
 const postRateLimiter = createInMemoryRateLimiter({ windowMs: 60 * 1000, max: 5 });
@@ -62,6 +63,11 @@ export const enforceTrustAction = (action: ModerationAction) => {
         return res.status(429).json({ error: "QUOTA_EXCEEDED" });
       }
 
+      logger.error("[TrustSafety] moderation check failed", {
+        userId,
+        action,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return res.status(500).json({ error: "MODERATION_CHECK_FAILED" });
     }
   };
@@ -99,7 +105,11 @@ export const enforceNotBanned = () => {
         });
       }
       return next();
-    } catch {
+    } catch (err) {
+      logger.error("[TrustSafety] ban status check failed", {
+        userId,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return res.status(500).json({ error: "MODERATION_CHECK_FAILED" });
     }
   };

@@ -77,6 +77,11 @@ export async function processVideoJob(
     return { success: false, error: message };
   } finally {
     // Cleanup temp directory
-    await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    await rm(workDir, { recursive: true, force: true }).catch((err) => {
+      logger.warn("[Transcoder] temp directory cleanup failed", {
+        workDir,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
   }
 }

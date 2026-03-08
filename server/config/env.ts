@@ -33,7 +33,15 @@ const envSchema = z.object({
   FIREBASE_CLIENT_EMAIL: z.string().optional(),
   FIREBASE_PRIVATE_KEY: z.string().optional(),
   FIREBASE_STORAGE_BUCKET: z.string().optional(),
-  IP_HASH_SALT: z.string().optional(),
+  IP_HASH_SALT: z
+    .string()
+    .min(16, "IP_HASH_SALT must be at least 16 characters for security")
+    .optional()
+    .refine((val) => !(process.env.NODE_ENV === "production" && !val), {
+      message:
+        "IP_HASH_SALT is required in production to hash user IP addresses.\n" +
+        "  Generate one with: node -e \"console.log(require('crypto').randomBytes(16).toString('hex'))\"",
+    }),
 
   // Payment providers (optional unless payments are enabled)
   STRIPE_SECRET_KEY: z
@@ -134,10 +142,30 @@ const envSchema = z.object({
     .default(100),
 
   // Database pool tuning (all optional with safe defaults)
-  DB_POOL_MAX: z.coerce.number().int().positive().default(20),
-  DB_POOL_IDLE_TIMEOUT_MS: z.coerce.number().int().nonnegative().default(30000),
-  DB_POOL_CONNECTION_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
-  DB_STATEMENT_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  DB_POOL_MAX: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(200, "DB_POOL_MAX cannot exceed 200")
+    .default(20),
+  DB_POOL_IDLE_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .nonnegative()
+    .max(300000, "DB_POOL_IDLE_TIMEOUT_MS cannot exceed 5 minutes")
+    .default(30000),
+  DB_POOL_CONNECTION_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(60000, "DB_POOL_CONNECTION_TIMEOUT_MS cannot exceed 60 seconds")
+    .default(5000),
+  DB_STATEMENT_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .max(300000, "DB_STATEMENT_TIMEOUT_MS cannot exceed 5 minutes")
+    .default(30000),
 });
 
 function validateEnv() {
