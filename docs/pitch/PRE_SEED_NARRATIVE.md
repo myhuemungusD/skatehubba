@@ -10,6 +10,16 @@ AR time-capsules unlock as the reward layer: persistent ghosts and replays at le
 
 ---
 
+## Why Now
+
+- **Phone cameras crossed the threshold.** 4K and slow-motion are standard on mid-range phones — every skater already carries a broadcast-quality camera in their pocket
+- **Skate culture already lives online.** IG Reels, TikTok, and YouTube Shorts proved skaters will film, edit, and share daily — but none of these platforms offer structured competition or progression
+- **Post-Olympics momentum.** Skateboarding's debut at Tokyo 2020 and return at Paris 2024 expanded the global audience and legitimized competitive skating for a new generation
+- **No incumbent owns the competition layer.** Spot-finder apps (Shred Spots, Skatepark Project) solve discovery. Media apps (Berrics, Braille) solve content. Nobody has built the async gameplay + identity layer that ties them together
+- **Creator-economy infrastructure is mature.** Stripe, Firebase, Expo, Vercel, and Neon mean a small team can ship production-grade platforms that previously required 20+ engineers
+
+---
+
 ## Market (Credible, Conservative, Current)
 
 - **Global skateboard market:** $3.56B (2024) → $4.63B (2033) at 2.6% CAGR (2025–2033)
@@ -140,9 +150,26 @@ Monetize status, tools, and drops—not attention.
 
 **Pre-seed ask ($250k–$1M range):** Ship native mobile, harden battles/judging, launch founding crews, and build moderation/anti-cheat.
 
-**Team plan:** Founder + Mobile/AR lead + Backend/infra + Community lead (part-time acceptable) + brand partnerships
+**Team today:** Solo technical founder built v0.9.0 end-to-end — full-stack TypeScript monorepo, 294 test files at 99.5% coverage, A- security audit (44 findings remediated), CI/CD pipeline, Docker staging, Vercel production. This level of pre-seed engineering rigor is the proof of execution.
+
+**Hiring plan:** Mobile/AR lead + Backend/infra + Community lead (part-time acceptable) + brand partnerships
 
 **Proof:** Use-of-funds pie + hiring sequence + 90-day execution plan
+
+---
+
+## Technical Moat
+
+Most pre-seed startups ship a prototype. SkateHubba shipped a production-grade platform:
+
+- **294 test files** with 99.5% coverage thresholds enforced in CI
+- **A- security audit** — 44 findings identified and remediated across three audit rounds
+- **4 Architecture Decision Records** documenting database strategy, auth architecture, monorepo structure, and schema ownership
+- **Full CI/CD pipeline** — GitHub Actions with lockfile integrity, secret scanning (Gitleaks + Secretlint + CodeQL), type checking, linting, coverage gates, bundle budgets, and migration drift detection
+- **Production deployment** — Vercel (prod), Docker Compose (staging), Firebase Cloud Functions, automated SSL
+- **66 documentation files** covering architecture, security, deployment, game rules, specs, and operational runbooks
+
+This engineering foundation means the platform scales without a rewrite. Investors are funding growth, not technical debt paydown.
 
 ---
 
@@ -164,10 +191,24 @@ Monetize status, tools, and drops—not attention.
 
 ## Data Room Checklist
 
-- [ ] USPTO receipt (Serial 99356919)
-- [ ] Product demo clip (20-30 sec battle flow)
-- [ ] Analytics screenshots (WAB/AU, D7 retention)
-- [ ] Architecture diagram (skate graph data model)
-- [ ] Security posture doc
-- [ ] User quotes/testimonials
-- [ ] Market research sources (Grand View, Newzoo)
+- [x] USPTO receipt (Serial 99356919)
+- [ ] Product demo clip (20-30 sec battle flow) — *in progress*
+- [ ] Analytics screenshots (WAB/AU, D7 retention) — *pending beta cohort*
+- [x] Architecture diagram — see [System Architecture](../SYSTEM_ARCHITECTURE.md) and [Database Architecture](../DATABASE_ARCHITECTURE.md)
+- [x] Security posture doc — see [Security Policy](../../SECURITY.md) and [Security Audit](../security/SECURITY_AUDIT.md)
+- [ ] User quotes/testimonials — *pending beta launch*
+- [x] Market research sources (Grand View, Newzoo) — cited in Market section above
+- [x] Competitive landscape — see [Competitive Landscape](COMPETITIVE_LANDSCAPE.md)
+- [x] Traction and milestones — see [Traction](TRACTION.md)
+- [x] Executive summary — see [Executive Summary](EXECUTIVE_SUMMARY.md)
+
+---
+
+## Related Documents
+
+- [Executive Summary](EXECUTIVE_SUMMARY.md) — one-page company overview
+- [Competitive Landscape](COMPETITIVE_LANDSCAPE.md) — positioning vs alternatives
+- [Traction & Milestones](TRACTION.md) — what we've built and where we are
+- [Roadmap](../../ROADMAP.md) — phased product plan with exit criteria
+- [Security Policy](../../SECURITY.md) — security posture and audit history
+- [System Architecture](../SYSTEM_ARCHITECTURE.md) — technical architecture overview

@@ -15,13 +15,15 @@
 
 ---
 
-Other skate apps help you find spots. **SkateHubba lets you compete remotely.**
+Skateboarding's competitive layer is offline, unstructured, and local. **SkateHubba changes that.**
 
-Challenge anyone to a game of S.K.A.T.E. — record tricks on video, judge your opponent's attempts, and battle asynchronously across cities, countries, and time zones. No need to be at the same spot. No need to coordinate schedules. Just you, your board, and skaters worldwide.
+Other skate apps help you find spots. SkateHubba lets you **compete remotely** — challenge anyone to a game of S.K.A.T.E., record tricks on video, judge your opponent's attempts, and battle asynchronously across cities, countries, and time zones. No need to be at the same spot. No need to coordinate schedules. Just you, your board, and skaters worldwide.
 
 ---
 
 ## How It Works
+
+Every game is a real battle, judged on video proof. No honor system. No scheduling. Just skate.
 
 ```
 1. Challenge a skater        4. They must match your trick
@@ -30,6 +32,16 @@ Challenge anyone to a game of S.K.A.T.E. — record tricks on video, judge your 
 ```
 
 > Full rules: [docs/GAME_RULES.md](docs/GAME_RULES.md)
+
+---
+
+## Vision
+
+SkateHubba is building the **skate graph** — a network of tricks, spots, battles, reputation, and crews that creates compounding value no content app or spot finder can replicate.
+
+Every battle adds data. Every judgement builds reputation. Every check-in maps the local scene. Over time, this graph becomes the identity and gameplay layer for skating: the place where clips turn into battles, battles turn into crews, crews turn into cities, and cities turn into a proprietary competitive network.
+
+The timing is right — phone cameras are broadcast-quality, skate culture already lives on social media, and post-Olympics skateboarding has a growing global audience. What's missing is the structured competition and identity layer. That's what we're building.
 
 ---
 
@@ -163,28 +175,34 @@ DOMAIN=staging.skatehubba.com EMAIL=admin@skatehubba.com bash deploy/setup-serve
 
 ## Documentation
 
-| Document                                           |                                               |
-| -------------------------------------------------- | --------------------------------------------- |
-| [Game Rules](docs/GAME_RULES.md)                   | How S.K.A.T.E. works on SkateHubba            |
-| [System Architecture](docs/SYSTEM_ARCHITECTURE.md) | Boundaries, data flow, auth, video pipeline   |
-| [Game Architecture](docs/ARCHITECTURE.md)          | Game system design with Mermaid diagrams      |
-| [Release & Deployment](docs/RELEASE.md)            | Environments, pipelines, secret rotation      |
-| [Deployment Runbook](docs/DEPLOYMENT_RUNBOOK.md)   | Incident response and troubleshooting         |
-| [Security](docs/security/SECURITY.md)              | Security policies and vulnerability reporting |
-| [Contributing](CONTRIBUTING.md)                    | Dev workflow, branch conventions, PR process  |
-| [Changelog](CHANGELOG.md)                          | Release history                               |
-| [Roadmap](ROADMAP.md)                              | What's next                                   |
+| Document                                                       |                                               |
+| -------------------------------------------------------------- | --------------------------------------------- |
+| **Investor**                                                   |                                               |
+| [Executive Summary](docs/pitch/EXECUTIVE_SUMMARY.md)           | One-page company overview                     |
+| [Pre-Seed Narrative](docs/pitch/PRE_SEED_NARRATIVE.md)         | Market, KPIs, 10-slide deck outline           |
+| [Competitive Landscape](docs/pitch/COMPETITIVE_LANDSCAPE.md)   | Positioning vs alternatives                   |
+| [Traction & Milestones](docs/pitch/TRACTION.md)                | What we've built and where we are             |
+| **Product**                                                    |                                               |
+| [Game Rules](docs/GAME_RULES.md)                               | How S.K.A.T.E. works on SkateHubba            |
+| [Roadmap](ROADMAP.md)                                          | Phased product plan with exit criteria        |
+| [Changelog](CHANGELOG.md)                                      | Release history                               |
+| **Technical**                                                  |                                               |
+| [System Architecture](docs/SYSTEM_ARCHITECTURE.md)             | Boundaries, data flow, auth, video pipeline   |
+| [Game Architecture](docs/ARCHITECTURE.md)                      | Game system design with Mermaid diagrams      |
+| [Release & Deployment](docs/RELEASE.md)                        | Environments, pipelines, secret rotation      |
+| [Deployment Runbook](docs/DEPLOYMENT_RUNBOOK.md)               | Incident response and troubleshooting         |
+| [Security](docs/security/SECURITY.md)                          | Security policies and vulnerability reporting |
+| [Contributing](CONTRIBUTING.md)                                | Dev workflow, branch conventions, PR process  |
 
 ---
 
 ## Roadmap
 
-| Quarter     | Highlights                                                      |
-| ----------- | --------------------------------------------------------------- |
-| **Q1 2026** | Mobile app (React Native), spectator mode, game stats dashboard |
-| **Q2 2026** | Tournament brackets, trick recognition AI, crew battles         |
-| **Q3 2026** | Premium tiers, player analytics, sponsor integrations           |
-| **Q4 2026** | Speed S.K.A.T.E., tag team mode, global expansion               |
+| Phase                     | Goal                          | Key Milestones                                                  |
+| ------------------------- | ----------------------------- | --------------------------------------------------------------- |
+| **Phase 1: Prove It** (NOW) | 100 completed real games      | Push notifications, rematch, game chat, onboarding, mobile PWA  |
+| **Phase 2: Retain**        | 50+ weekly active players     | Game replays, spectator mode, native mobile, regional boards    |
+| **Phase 3: Grow**          | Scale with proven retention   | Tournament mode, crew battles, social sharing, premium tier     |
 
 Full details: [ROADMAP.md](ROADMAP.md)
 
