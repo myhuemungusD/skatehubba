@@ -66,6 +66,9 @@ export default defineConfig({
         'functions/src/index.ts',
         // Firestore-backed rate limiter — requires deep Firestore transaction mocking, tested via integration
         'functions/src/shared/rateLimit.ts',
+        // Seed scripts — one-off infrastructure, not production code
+        'server/seeds/seedFromOSM.ts',
+        'server/seeds/seedUsers.ts',
         // Test setup/mock helpers — not production code
         'server/__tests__/services/game-critical-paths/mockSetup.ts',
         'server/__tests__/helpers/**',
