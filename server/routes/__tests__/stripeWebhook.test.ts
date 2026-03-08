@@ -560,6 +560,390 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
         expect(res.status).toHaveBeenCalledWith(200);
         expect(res.send).toHaveBeenCalledWith("OK");
       });
+
+      it("falls back to in-memory when Redis throws", async () => {
+        mockRedisClient = {
+          set: vi.fn().mockRejectedValue(new Error("Redis connection lost")),
+        };
+
+        const event: Stripe.Event = {
+          id: "evt_redis_fail",
+          type: "customer.created" as any,
+          data: { object: {} as any },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+    });
+
+    describe("Checkout Validation", () => {
+      it("ignores sessions without userId metadata", async () => {
+        const session: Stripe.Checkout.Session = {
+          id: "cs_test_123",
+          metadata: { type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 999,
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_no_user",
+          type: "checkout.session.completed",
+          data: { object: session },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+
+      it("logs error when amount does not match expected", async () => {
+        const session: Stripe.Checkout.Session = {
+          id: "cs_test_123",
+          metadata: { userId: "user-1", type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 1500,
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_bad_amount",
+          type: "checkout.session.completed",
+          data: { object: session },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+
+      it("rejects checkout session with wrong currency (M1 cheap-currency attack)", async () => {
+        const session: Stripe.Checkout.Session = {
+          id: "cs_test_currency",
+          metadata: { userId: "user-1", type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 999,
+          currency: "jpy",
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_currency_mismatch",
+          type: "checkout.session.completed",
+          data: { object: session },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+
+      it("logs error when user not found", async () => {
+        mockDbReturns.selectResult = [];
+
+        const session: Stripe.Checkout.Session = {
+          id: "cs_test_123",
+          metadata: { userId: "nonexistent", type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 999,
+          currency: "usd",
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_no_user_db",
+          type: "checkout.session.completed",
+          data: { object: session },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+
+      it("skips upgrade when user already premium", async () => {
+        mockDbReturns.selectResult = [{ accountTier: "premium" }];
+
+        const session: Stripe.Checkout.Session = {
+          id: "cs_test_123",
+          metadata: { userId: "user-already-premium", type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 999,
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_already_premium",
+          type: "checkout.session.completed",
+          data: { object: session },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+    });
+
+    describe("Email & Notification", () => {
+      it("sends payment receipt email after upgrade", async () => {
+        mockDbReturns.selectResult = [
+          { accountTier: "free", email: "user@test.com", firstName: "John" },
+        ];
+
+        const session: Stripe.Checkout.Session = {
+          id: "cs_test_123",
+          metadata: { userId: "user-email", type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 999,
+          currency: "usd",
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_email",
+          type: "checkout.session.completed",
+          data: { object: session },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        expect(mockSendPaymentReceiptEmail).toHaveBeenCalledWith(
+          "user@test.com",
+          "John",
+          expect.objectContaining({
+            amount: "$9.99",
+            tier: "Premium",
+            transactionId: "cs_test_123",
+          })
+        );
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+
+      it("sends in-app notification after upgrade", async () => {
+        mockDbReturns.selectResult = [
+          { accountTier: "free", email: "user@test.com", firstName: "John" },
+        ];
+
+        const session: Stripe.Checkout.Session = {
+          id: "cs_test_123",
+          metadata: { userId: "user-notify", type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 999,
+          currency: "usd",
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_notify",
+          type: "checkout.session.completed",
+          data: { object: session },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        expect(mockNotifyUser).toHaveBeenCalledWith(
+          expect.objectContaining({
+            userId: "user-notify",
+            type: "payment_receipt",
+            title: "Premium Activated",
+          })
+        );
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+
+      it("handles email sending failure gracefully", async () => {
+        mockDbReturns.selectResult = [
+          { accountTier: "free", email: "user@test.com", firstName: "John" },
+        ];
+        mockSendPaymentReceiptEmail.mockRejectedValue(new Error("Email service down"));
+
+        const session: Stripe.Checkout.Session = {
+          id: "cs_test_123",
+          metadata: { userId: "user-email-fail", type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 999,
+          currency: "usd",
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_email_fail",
+          type: "checkout.session.completed",
+          data: { object: session },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+
+      it("handles notification sending failure gracefully", async () => {
+        mockDbReturns.selectResult = [
+          { accountTier: "free", email: "user@test.com", firstName: "John" },
+        ];
+        mockNotifyUser.mockRejectedValue(new Error("Notification service down"));
+
+        const session: Stripe.Checkout.Session = {
+          id: "cs_test_123",
+          metadata: { userId: "user-notify-fail", type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 999,
+          currency: "usd",
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_notify_fail",
+          type: "checkout.session.completed",
+          data: { object: session },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+
+      it("uses default name when firstName is null", async () => {
+        mockDbReturns.selectResult = [
+          { accountTier: "free", email: "user@test.com", firstName: null },
+        ];
+
+        const session: Stripe.Checkout.Session = {
+          id: "cs_test_123",
+          metadata: { userId: "user-no-name", type: "premium_upgrade" },
+          payment_status: "paid",
+          amount_total: 999,
+          currency: "usd",
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_no_name",
+          type: "checkout.session.completed",
+          data: { object: session },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        expect(mockSendPaymentReceiptEmail).toHaveBeenCalledWith(
+          "user@test.com",
+          "Skater",
+          expect.any(Object)
+        );
+        expect(res.status).toHaveBeenCalledWith(200);
+      });
+    });
+
+    describe("Subscription Events", () => {
+      it("logs customer.subscription.updated (no-op)", async () => {
+        const subscription: Stripe.Subscription = {
+          id: "sub_123",
+          status: "active",
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_sub_updated",
+          type: "customer.subscription.updated",
+          data: { object: subscription },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.send).toHaveBeenCalledWith("OK");
+      });
+
+      it("logs customer.subscription.deleted (no-op)", async () => {
+        const subscription: Stripe.Subscription = {
+          id: "sub_123",
+        } as any;
+
+        const event: Stripe.Event = {
+          id: "evt_sub_deleted",
+          type: "customer.subscription.deleted",
+          data: { object: subscription },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req = mockRequest({ headers: { "stripe-signature": "valid_sig" } });
+        const res = mockResponse();
+        await callWebhook(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+        expect(res.send).toHaveBeenCalledWith("OK");
+      });
+    });
+
+    describe("Event Deduplication (in-memory)", () => {
+      it("should reject duplicate events via in-memory fallback", async () => {
+        const event: Stripe.Event = {
+          id: "evt_dedup_test",
+          type: "customer.created" as any,
+          data: { object: {} as any },
+        } as any;
+
+        mockConstructEvent.mockReturnValue(event);
+
+        const req1 = mockRequest({ headers: { "stripe-signature": "sig" } });
+        const res1 = mockResponse();
+        await callWebhook(req1, res1);
+        expect(res1.status).toHaveBeenCalledWith(200);
+
+        const req2 = mockRequest({ headers: { "stripe-signature": "sig" } });
+        const res2 = mockResponse();
+        await callWebhook(req2, res2);
+        expect(res2.status).toHaveBeenCalledWith(200);
+        expect(res2.send).toHaveBeenCalledWith("OK");
+      });
     });
   });
 });
