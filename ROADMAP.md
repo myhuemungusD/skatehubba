@@ -4,7 +4,9 @@
 
 ---
 
-## What We've Shipped (Feb 2026)
+## What We've Shipped (Mar 2026)
+
+### Core (v0.9.0, Feb 2026)
 
 - Async turn-based S.K.A.T.E. game (video proof, no honor system)
 - Video recording and upload (TrickMint)
@@ -12,9 +14,25 @@
 - Real-time game updates via Socket.io
 - Spot map with geo-verified check-ins (30m radius)
 - Leaderboards
-- CI/CD pipeline, security audit, 294 test files
+- CI/CD pipeline, security audit
 
-**The core loop exists.** Now we need to prove people want it.
+### Since Launch (Feb–Mar 2026)
+
+- Simplified 3-tap game flow — challenge lobby is now the home screen
+- Player matchmaking — search by handle, challenge buttons across UI
+- Username editing in settings with header display
+- Phone signup support
+- joinGame and abandonGame cloud functions
+- Database audit — added missing FKs, indexes, PKs; fixed SQL injection vectors
+- Security hardening — closed open-redirect gaps, CSRF, rate limiting, recaptcha leak fix
+- Auth improvements — atomic email verification, periodic token refresh
+- Production-hardened Vercel deployment (migrated to vercel.ts, security headers)
+- Removed 19 unused dependencies, 9 dead UI components, skeleton/placeholder code
+- Deleted legacy System A game state service, consolidated game enums
+- Removed 52 coverage-hunting test files, set honest coverage thresholds
+- Cleaned up stale docs and misplaced root files
+
+**The core loop exists and the rough edges are smoothing out.** Now we need to prove people want it.
 
 ---
 
@@ -24,11 +42,11 @@
 
 ### Core Loop — Async Battles
 
-- [ ] Fix any friction that causes game abandonment (track where players drop off)
+- [x] Fix friction that causes game abandonment (3-tap game flow, challenge lobby as home, matchmaking by handle)
 - [ ] Push notifications for turn alerts (your opponent landed — your turn)
 - [ ] Rematch button (zero-friction replay after game ends)
 - [ ] Game chat (trash talk keeps people engaged)
-- [ ] Onboarding flow — 60-second tutorial that gets a new player into their first game
+- [x] Onboarding flow — simplified 3-tap flow gets new players into their first game fast
 
 ### Core Loop — Map Check-Ins
 
@@ -110,6 +128,9 @@ These are parked. They're distractions until PMF is proven:
 
 This runs in parallel with product work — it's tech debt, not features.
 
+- [x] Database audit — added missing FKs, indexes, PKs; fixed SQL injection vectors
+- [x] Delete legacy System A game state service, socket handlers, and game sessions
+- [x] Consolidate game enums and fix broken exports
 - [ ] Remove legacy Firestore collections (`signups`, `mail`, `mailList`, `subscriptions`)
 - [ ] Deprecate Firestore `gameSessions` (PostgreSQL `game_sessions` is the replacement)
 - [ ] Unify challenges table in PostgreSQL with Firestore write-through
