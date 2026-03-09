@@ -5,6 +5,9 @@ import { logger } from "../lib/logger";
 import type { UserProfile, UserRole, BackendUser } from "./authStore.types";
 import { transformProfile } from "./authStore.utils";
 
+const PROFILE_RETRY_DELAY_MS = 1000;
+const MAX_PROFILE_RETRIES = 1;
+
 // In-flight guard: concurrent callers share a single network request
 let inFlightProfileFetch: Promise<UserProfile | null> | null = null;
 
@@ -12,24 +15,38 @@ export const fetchProfile = async (uid: string): Promise<UserProfile | null> => 
   if (inFlightProfileFetch) return inFlightProfileFetch;
 
   inFlightProfileFetch = (async () => {
-    try {
-      const res = await apiRequest<{ profile: Record<string, unknown> }>({
-        method: "GET",
-        path: "/api/profile/me",
-      });
-      return transformProfile(uid, res.profile);
-    } catch (err) {
-      // 404 = no profile yet (new user) — this is expected for onboarding
-      if (isApiError(err) && err.status === 404) {
-        return null;
+    let lastErr: unknown;
+
+    for (let attempt = 0; attempt <= MAX_PROFILE_RETRIES; attempt++) {
+      try {
+        const res = await apiRequest<{ profile: Record<string, unknown> }>({
+          method: "GET",
+          path: "/api/profile/me",
+        });
+        return transformProfile(uid, res.profile);
+      } catch (err) {
+        // 404 = no profile yet (new user) — this is expected for onboarding
+        if (isApiError(err) && err.status === 404) {
+          return null;
+        }
+        lastErr = err;
+        // Retry on transient errors (network, timeout, 5xx) but not auth errors
+        if (isApiError(err) && err.status !== undefined && err.status < 500) {
+          break;
+        }
+        if (attempt < MAX_PROFILE_RETRIES) {
+          logger.warn(`[AuthStore] Profile fetch attempt ${attempt + 1} failed, retrying...`);
+          await new Promise((r) => setTimeout(r, PROFILE_RETRY_DELAY_MS));
+        }
       }
-      // Any other error (401 auth failure, 500 server error, 503 DB down, network
-      // failure) must propagate so the caller can distinguish "no profile" from
-      // "server unreachable". Swallowing these errors causes the app to show the
-      // profile-setup form even when the server can't process submissions.
-      logger.error("[AuthStore] Failed to fetch profile:", err);
-      throw err;
     }
+
+    // Any other error (401 auth failure, 500 server error, 503 DB down, network
+    // failure) must propagate so the caller can distinguish "no profile" from
+    // "server unreachable". Swallowing these errors causes the app to show the
+    // profile-setup form even when the server can't process submissions.
+    logger.error("[AuthStore] Failed to fetch profile:", lastErr);
+    throw lastErr;
   })();
 
   try {
