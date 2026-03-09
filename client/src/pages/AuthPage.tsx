@@ -14,6 +14,7 @@ import { Card } from "../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { useToast } from "../hooks/use-toast";
 import { useAuth } from "../hooks/useAuth";
+import { useAuthStore } from "../store/authStore";
 import { logger } from "../lib/logger";
 import { setAuthPersistence } from "../lib/firebase";
 import { getAuthErrorMessage, isAuthConfigError } from "../lib/firebase/auth-errors";
@@ -64,12 +65,20 @@ export default function AuthPage() {
 
   // Redirect when authenticated and profile status is known.
   // Sign-up tab handles its own navigation (creates profile inline then
-  // redirects to /hub), so we only redirect to /profile/setup from sign-in.
+  // redirects to /hub), so we only auto-redirect from the sign-in tab.
   useEffect(() => {
     if (!auth?.isAuthenticated || auth?.profileStatus === "unknown") return;
 
-    if (auth.profileStatus === "exists" || auth.profileStatus === "missing") {
+    if (auth.profileStatus === "exists") {
       setLocation(getNextUrl());
+    } else if (auth.profileStatus === "missing") {
+      // New users (e.g. first Google sign-in) need to create a username/profile
+      const nextUrl = getNextUrl();
+      const setupUrl =
+        nextUrl !== "/hub"
+          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
+          : "/profile/setup";
+      setLocation(setupUrl);
     }
   }, [auth?.isAuthenticated, auth?.profileStatus, activeTab, setLocation]);
 
@@ -82,10 +91,23 @@ export default function AuthPage() {
   }, []);
 
   // Redirect after sign-in completes (email or Google).
-  // All profile statuses route to getNextUrl() (default: /hub) because
-  // /hub uses allowMissingProfile and handles onboarding inline.
+  // Reads directly from the Zustand store to get the latest state
+  // (the hook value may be stale since we're inside an async handler).
   const redirectAfterSignIn = useCallback(() => {
-    setLocation(getNextUrl());
+    const { profileStatus } = useAuthStore.getState();
+    if (profileStatus === "exists") {
+      setLocation(getNextUrl());
+    } else if (profileStatus === "missing") {
+      const nextUrl = getNextUrl();
+      const setupUrl =
+        nextUrl !== "/hub"
+          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
+          : "/profile/setup";
+      setLocation(setupUrl);
+    } else {
+      // Fallback: profile status couldn't be determined, go to hub
+      setLocation(getNextUrl());
+    }
   }, [setLocation]);
 
   const handleGoogleSignIn = async () => {
