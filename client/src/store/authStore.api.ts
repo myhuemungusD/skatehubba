@@ -5,6 +5,9 @@ import { logger } from "../lib/logger";
 import type { UserProfile, UserRole, BackendUser } from "./authStore.types";
 import { transformProfile } from "./authStore.utils";
 
+const PROFILE_RETRY_DELAY_MS = 1000;
+const MAX_PROFILE_RETRIES = 1;
+
 // In-flight guard: concurrent callers share a single network request
 let inFlightProfileFetch: Promise<UserProfile | null> | null = null;
 
@@ -12,10 +15,9 @@ export const fetchProfile = async (uid: string): Promise<UserProfile | null> => 
   if (inFlightProfileFetch) return inFlightProfileFetch;
 
   inFlightProfileFetch = (async () => {
-    const MAX_RETRIES = 1;
     let lastErr: unknown;
 
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    for (let attempt = 0; attempt <= MAX_PROFILE_RETRIES; attempt++) {
       try {
         const res = await apiRequest<{ profile: Record<string, unknown> }>({
           method: "GET",
@@ -32,9 +34,9 @@ export const fetchProfile = async (uid: string): Promise<UserProfile | null> => 
         if (isApiError(err) && err.status !== undefined && err.status < 500) {
           break;
         }
-        if (attempt < MAX_RETRIES) {
+        if (attempt < MAX_PROFILE_RETRIES) {
           logger.warn(`[AuthStore] Profile fetch attempt ${attempt + 1} failed, retrying...`);
-          await new Promise((r) => setTimeout(r, 1000));
+          await new Promise((r) => setTimeout(r, PROFILE_RETRY_DELAY_MS));
         }
       }
     }

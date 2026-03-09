@@ -22,6 +22,7 @@ export const isPopupSafe = () => {
 };
 
 const profileCacheKey = (uid: string) => `skatehubba.profile.${uid}`;
+const PROFILE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 /**
  * M13: Only read profile status from cache (not full PII).
@@ -35,9 +36,7 @@ export const readProfileCache = (uid: string): ProfileCache | null => {
   if (!raw) return null;
   try {
     const parsed = JSON.parse(raw) as ProfileCache & { ts?: number };
-    // Expire cache after 7 days to avoid stale profile status
-    const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
-    if (parsed.ts && Date.now() - parsed.ts > CACHE_TTL_MS) {
+    if (parsed.ts && Date.now() - parsed.ts > PROFILE_CACHE_TTL_MS) {
       localStorage.removeItem(profileCacheKey(uid));
       sessionStorage.removeItem(profileCacheKey(uid));
       return null;
