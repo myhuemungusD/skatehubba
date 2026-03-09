@@ -15,25 +15,27 @@ cleanupOutdatedCaches();
 // ── Map tile caching (CacheFirst, 30-day expiry, max 500 tiles) ──────
 const TILE_CACHE = "skatehubba-map-tiles";
 
-const tilePlugins = [
-  new CacheableResponsePlugin({ statuses: [0, 200] }),
-  new ExpirationPlugin({
-    maxEntries: 500,
-    maxAgeSeconds: 30 * 24 * 60 * 60,
-    purgeOnQuotaError: true,
-  }),
-];
+function createTilePlugins() {
+  return [
+    new CacheableResponsePlugin({ statuses: [0, 200] }),
+    new ExpirationPlugin({
+      maxEntries: 500,
+      maxAgeSeconds: 30 * 24 * 60 * 60,
+      purgeOnQuotaError: true,
+    }),
+  ];
+}
 
 // OSM tiles: https://{a|b|c}.tile.openstreetmap.org/{z}/{x}/{y}.png
 registerRoute(
   ({ url }) => url.hostname.endsWith(".tile.openstreetmap.org"),
-  new CacheFirst({ cacheName: TILE_CACHE, plugins: tilePlugins })
+  new CacheFirst({ cacheName: TILE_CACHE, plugins: createTilePlugins() })
 );
 
 // CARTO dark tiles: https://{a|b|c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
 registerRoute(
   ({ url }) => url.hostname.endsWith(".basemaps.cartocdn.com"),
-  new CacheFirst({ cacheName: TILE_CACHE, plugins: tilePlugins })
+  new CacheFirst({ cacheName: TILE_CACHE, plugins: createTilePlugins() })
 );
 
 // ── Static assets (StaleWhileRevalidate) ─────────────────────────────
