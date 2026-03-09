@@ -49,7 +49,7 @@ export default function UnifiedLanding() {
     return (
       <div className="min-h-dvh bg-black flex items-center justify-center">
         <span
-          className="text-3xl font-bold text-[#ff6a00] animate-pulse"
+          className="text-3xl font-bold text-brand animate-pulse"
           style={{ fontFamily: "'Permanent Marker', cursive" }}
         >
           SkateHubba

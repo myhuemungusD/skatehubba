@@ -586,17 +586,54 @@ a:focus-visible {
   border-radius: 0.25rem !important;
 }
 
-/* Improved color contrast for better readability */
-.text-gray-300 {
-  color: #f3f4f6 !important; /* Much lighter gray for better contrast */
+
+/* Hero section styles (grain, scanlines, stamp, animations) */
+.hero-grain {
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 128px 128px;
+  opacity: 0.12;
+  mix-blend-mode: overlay;
 }
 
-.text-gray-400 {
-  color: #e5e7eb !important; /* Much lighter gray for better contrast */
+.hero-scanlines {
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0,0,0,0.15) 0px,
+    rgba(0,0,0,0.15) 1px,
+    transparent 1px,
+    transparent 3px
+  );
 }
 
-.text-gray-500 {
-  color: #d1d5db !important; /* Improved contrast for gray-500 */
+.stamp-badge {
+  transform: rotate(-2deg);
+  box-shadow:
+    inset 0 0 0 2px rgba(220,38,38,0.3),
+    3px 3px 0 rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.25);
+  backdrop-filter: blur(4px);
+}
+
+.hero-fade-in {
+  animation: heroFadeIn 0.9s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes heroFadeIn {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-fade-in {
+    animation: none;
+    opacity: 1;
+  }
+  .hero-grain,
+  .hero-scanlines {
+    display: none;
+  }
 }
 
 .graffiti-bg {

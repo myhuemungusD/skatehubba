@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Volume2, VolumeX } from "lucide-react";
+import { ArrowRight, Volume2, VolumeX, Play } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // A/B bucket: "stamp" variant shows the "Own Your Tricks" grain-punched hero
@@ -77,7 +77,7 @@ export function HeroMedia({
             muted={muted}
             playsInline
           >
-            <track kind="captions" />
+            <track kind="captions" label="No captions available" default />
           </video>
         ) : (
           <picture>
@@ -94,8 +94,10 @@ export function HeroMedia({
             <source srcSet="/images/hero/hero-480.webp" type="image/webp" />
             <img
               src={posterSrc}
-              alt=""
+              alt="Skateboarder performing a trick at a skate spot"
               className="w-full h-full object-cover"
+              width={1200}
+              height={800}
               loading="eager"
               decoding="sync"
               fetchPriority="high"
@@ -236,7 +238,7 @@ export function HeroMedia({
             {secondaryCTA && (
               <Link
                 href={secondaryCTA.href}
-                className="group inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white text-base font-semibold px-8 py-4 rounded-xl border border-white/10 hover:border-white/20 transition-all"
+                className="group inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white text-base font-semibold px-8 py-4 rounded-xl border border-white/10 hover:border-white/20 transition-all focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:outline-none"
                 data-testid={secondaryCTA.testId}
               >
                 <Play aria-hidden="true" className="w-5 h-5" />
@@ -246,60 +248,6 @@ export function HeroMedia({
           </div>
         )}
       </div>
-
-      {/* ---- Scoped styles ---- */}
-      <style>{`
-        /* Film grain — noisy SVG filter for that 2005 abrasive look */
-        .hero-grain {
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
-          background-repeat: repeat;
-          background-size: 128px 128px;
-          opacity: 0.12;
-          mix-blend-mode: overlay;
-        }
-
-        /* CRT scanlines */
-        .hero-scanlines {
-          background: repeating-linear-gradient(
-            0deg,
-            rgba(0,0,0,0.15) 0px,
-            rgba(0,0,0,0.15) 1px,
-            transparent 1px,
-            transparent 3px
-          );
-        }
-
-        /* "Own Your Tricks" stamp — rough ink aesthetic */
-        .stamp-badge {
-          transform: rotate(-2deg);
-          box-shadow:
-            inset 0 0 0 2px rgba(220,38,38,0.3),
-            3px 3px 0 rgba(0,0,0,0.4);
-          background: rgba(0,0,0,0.25);
-          backdrop-filter: blur(4px);
-        }
-
-        /* Fade-in cascade */
-        .hero-fade-in {
-          animation: heroFadeIn 0.9s ease-out forwards;
-          opacity: 0;
-        }
-        @keyframes heroFadeIn {
-          from { opacity: 0; transform: translateY(24px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .hero-fade-in {
-            animation: none;
-            opacity: 1;
-          }
-          .hero-grain,
-          .hero-scanlines {
-            display: none;
-          }
-        }
-      `}</style>
     </section>
   );
 }

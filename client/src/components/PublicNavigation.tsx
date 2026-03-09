@@ -24,7 +24,7 @@ export default function PublicNavigation() {
           {/* Logo */}
           <Link href="/" aria-label="SkateHubba home">
             <span
-              className="text-2xl font-bold text-[#ff6a00] cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none rounded"
+              className="text-2xl font-bold text-brand cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none rounded"
               style={{ fontFamily: "'Permanent Marker', cursive" }}
             >
               SkateHubba
@@ -46,7 +46,7 @@ export default function PublicNavigation() {
             {/* Join CTA */}
             <Button
               asChild
-              className="bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90 font-semibold"
+              className="bg-brand text-white hover:bg-brand/90 font-semibold"
               data-testid="button-public-nav-signin"
             >
               <Link href="/auth">
