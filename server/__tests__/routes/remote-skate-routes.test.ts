@@ -2062,6 +2062,7 @@ describe("Remote Skate Routes", () => {
         expect(res.json).toHaveBeenCalledWith({ success: true });
         expect(mockSendNotification).toHaveBeenCalledWith("user-2", "your_turn", {
           gameId: "game-1",
+          role: "defend",
         });
       });
 
@@ -2187,6 +2188,7 @@ describe("Remote Skate Routes", () => {
         expect(res.json).toHaveBeenCalledWith({ success: true });
         expect(mockSendNotification).toHaveBeenCalledWith("user-2", "your_turn", {
           gameId: "game-1",
+          role: "judge",
         });
       });
 
@@ -2314,11 +2316,10 @@ describe("Remote Skate Routes", () => {
         const req = createReq({ body: { result: "landed" } });
         const res = createRes();
         await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
-        expect(res.json).toHaveBeenCalledWith(
-          expect.objectContaining({ success: true })
-        );
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
         expect(mockSendNotification).toHaveBeenCalledWith("user-2", "your_turn", {
           gameId: "game-1",
+          role: "confirm",
         });
       });
 
@@ -2362,9 +2363,7 @@ describe("Remote Skate Routes", () => {
         const req = createReq({ body: { result: "landed" } });
         const res = createRes();
         await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
-        expect(res.json).toHaveBeenCalledWith(
-          expect.objectContaining({ success: true })
-        );
+        expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
         expect(mockSendNotification).not.toHaveBeenCalled();
       });
     });
