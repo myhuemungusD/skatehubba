@@ -4,6 +4,7 @@
 
 - The commit hook (commitlint via husky) requires **lowercase subjects**. Do not use uppercase letters in the commit subject line (the part after `fix:`, `feat:`, etc.).
 - Example: `fix: use standalone firebase cli binary` (correct) vs `fix: Use standalone Firebase CLI binary` (will fail)
+
 # CLAUDE.md — SkateHubba™ Codebase Context
 
 > Claude Code reads this file automatically. Do not scan the full codebase unless a task specifically requires it.
@@ -43,20 +44,24 @@ skatehubba/
 
 ## Tech Stack (locked — no substitutions without approval)
 
-| Layer     | Technology                                                        |
-|-----------|-------------------------------------------------------------------|
-| Frontend  | React 18, Vite 6, TypeScript 5.9, Tailwind CSS, shadcn/ui, Zustand |
-| Maps      | Leaflet + React Leaflet + OSM                                     |
-| Backend   | Express, TypeScript, esbuild bundler                              |
-| Database  | PostgreSQL 16 (Neon) + Drizzle ORM + Redis 7                     |
-| Auth      | Firebase Auth + custom JWT                                        |
-| Realtime  | Socket.io                                                         |
-| Mobile    | React Native, Expo (EAS builds)                                   |
-| Testing   | Vitest (unit), Playwright (e2e), Cypress (client e2e)             |
-| CI/CD     | GitHub Actions, CodeQL, Vercel (prod), Docker (staging)           |
-| Monorepo  | pnpm 10+ workspaces, Turborepo                                   |
+| Layer    | Technology                                                         |
+| -------- | ------------------------------------------------------------------ |
+| Frontend | React 18, Vite 6, TypeScript 5.9, Tailwind CSS, shadcn/ui, Zustand |
+| Maps     | Leaflet + React Leaflet + OSM                                      |
+| Backend  | Express, TypeScript, esbuild bundler                               |
+| Database | PostgreSQL 16 (Neon) + Drizzle ORM + Redis 7                       |
+| Auth     | Firebase Auth + custom JWT                                         |
+| Realtime | Socket.io                                                          |
+| Mobile   | React Native, Expo (EAS builds)                                    |
+| Testing  | Vitest (unit), Playwright (e2e), Cypress (client e2e)              |
+| CI/CD    | GitHub Actions, CodeQL, Vercel (prod), Docker (staging)            |
+| Monorepo | pnpm 10+ workspaces, Turborepo                                     |
 
-**Prohibited**: Redux, untyped JS, custom auth, Next.js, Firestore, Firebase Cloud Functions.
+**Prohibited**: Redux, untyped JS, custom auth, Next.js.
+
+> **Firestore** is used as a real-time projection layer only — PostgreSQL is the source of truth for all persistent data. Do not add new Firestore collections without approval. See `DATABASE_CONSOLIDATION_PLAN.md`.
+>
+> **Firebase Cloud Functions** exist in `functions/` for Remote S.K.A.T.E. game logic and commerce. New Cloud Functions require approval — prefer Express routes in `server/` for new features.
 
 ## Key Commands
 
@@ -65,7 +70,7 @@ pnpm install                  # Install deps (pnpm enforced — npm/yarn blocked
 pnpm dev                      # Start client (3000) + server (3001) via Turborepo
 pnpm run verify               # Full pre-merge: typecheck + lint + test + build
 pnpm test                     # Run all unit tests (Vitest)
-pnpm test:coverage            # Coverage report (thresholds: 98/93/99/99)
+pnpm test:coverage            # Coverage report (thresholds: 95/85/95/95)
 pnpm run typecheck            # TypeScript strict check across all packages
 pnpm run lint                 # ESLint across all packages
 pnpm run build                # Production build (verifies public env first)
@@ -79,26 +84,26 @@ pnpm db:studio                # Drizzle Studio GUI
 
 All routes registered in `server/routes.ts`:
 
-| Prefix                   | Router              | Auth       | Notes                           |
-|--------------------------|---------------------|------------|----------------------------------|
-| `/api/auth/*`            | auth/routes.ts      | Public     | Login, MFA, email verify, password |
-| `/api/spots`             | routes/spots.ts     | Mixed      | CRUD for skate spots             |
-| `/api/games`             | routes/games.ts     | Required   | S.K.A.T.E. game CRUD            |
-| `/api/profile`           | routes/profile.ts   | Rate-limited | User profile management        |
-| `/api/users`             | routes/users.ts     | Mixed      | User lookup/management           |
-| `/api/trickmint`         | routes/trickmint.ts | Paid/Pro   | Video uploads                    |
-| `/api/remote-skate`      | routes/remoteSkate.ts | Rate-limited | Remote S.K.A.T.E. (async 1v1) |
-| `/api/matchmaking`       | routes/matchmaking.ts | Mixed    | Game matchmaking                 |
-| `/api/notifications`     | routes/notifications.ts | Mixed  | Push notifications               |
-| `/api/stats`             | routes/stats.ts     | Public     | Landing page stats               |
-| `/api/beta-signup`       | routes/betaSignup.ts | Rate-limited | Email signup                  |
-| `/api/admin`             | routes/admin.ts     | Admin      | Admin dashboard                  |
-| `/api/metrics`           | routes/metrics.ts   | Admin      | Platform metrics                 |
-| `/api/moderation`        | routes/moderation.ts | Required  | Reports + trust/safety           |
-| `/api/analytics`         | routes/analytics.ts | Public     | Event tracking                   |
-| `/api/cron`              | routes/cron.ts      | Cron secret | Scheduled tasks                |
-| `/api/tier`              | routes/tier.ts      | Mixed      | Subscription tiers               |
-| `/webhooks/stripe`       | routes/stripeWebhook.ts | Webhook | Stripe payment hooks           |
+| Prefix               | Router                  | Auth         | Notes                              |
+| -------------------- | ----------------------- | ------------ | ---------------------------------- |
+| `/api/auth/*`        | auth/routes.ts          | Public       | Login, MFA, email verify, password |
+| `/api/spots`         | routes/spots.ts         | Mixed        | CRUD for skate spots               |
+| `/api/games`         | routes/games.ts         | Required     | S.K.A.T.E. game CRUD               |
+| `/api/profile`       | routes/profile.ts       | Rate-limited | User profile management            |
+| `/api/users`         | routes/users.ts         | Mixed        | User lookup/management             |
+| `/api/trickmint`     | routes/trickmint.ts     | Paid/Pro     | Video uploads                      |
+| `/api/remote-skate`  | routes/remoteSkate.ts   | Rate-limited | Remote S.K.A.T.E. (async 1v1)      |
+| `/api/matchmaking`   | routes/matchmaking.ts   | Mixed        | Game matchmaking                   |
+| `/api/notifications` | routes/notifications.ts | Mixed        | Push notifications                 |
+| `/api/stats`         | routes/stats.ts         | Public       | Landing page stats                 |
+| `/api/beta-signup`   | routes/betaSignup.ts    | Rate-limited | Email signup                       |
+| `/api/admin`         | routes/admin.ts         | Admin        | Admin dashboard                    |
+| `/api/metrics`       | routes/metrics.ts       | Admin        | Platform metrics                   |
+| `/api/moderation`    | routes/moderation.ts    | Required     | Reports + trust/safety             |
+| `/api/analytics`     | routes/analytics.ts     | Public       | Event tracking                     |
+| `/api/cron`          | routes/cron.ts          | Cron secret  | Scheduled tasks                    |
+| `/api/tier`          | routes/tier.ts          | Mixed        | Subscription tiers                 |
+| `/webhooks/stripe`   | routes/stripeWebhook.ts | Webhook      | Stripe payment hooks               |
 
 ## Client Route Map
 
@@ -146,6 +151,7 @@ Async 1v1 turn-based. Core logic in `server/services/game/`:
 - `helpers.ts` / `types.ts` / `constants.ts` — shared utilities
 
 Game routes refactored into modular files under `server/routes/`:
+
 - `games-challenges.ts` — create, respond
 - `games-turns.ts` — submit turn, judge
 - `games-disputes.ts` — dispute, resolve
@@ -168,7 +174,7 @@ Key design: one-take video, auto-send, no retries. 24-hour turn deadline. First 
 - Mobile-first, touch targets ≥ 44px, no hover-only interactions
 - Fail visibly — blank screens are release blockers
 - All commits: conventional commits, all-lowercase subject (commitlint enforced)
-- Coverage thresholds: statements 98%, branches 93%, functions 99%, lines 99%
+- Coverage thresholds: statements 95%, branches 85%, functions 95%, lines 95%
 
 ## Environment
 

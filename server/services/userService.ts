@@ -12,8 +12,11 @@
 
 import { eq } from "drizzle-orm";
 import { db, requireDb } from "../db";
-import { customUsers } from "@shared/schema";
+import type { NeonDatabase } from "drizzle-orm/neon-serverless";
+import { customUsers, usernames } from "@shared/schema";
 import logger from "../logger";
+
+type Database = NeonDatabase<typeof import("@shared/schema")>;
 
 export type User = typeof customUsers.$inferSelect;
 export type InsertUser = typeof customUsers.$inferInsert;
@@ -117,6 +120,43 @@ export async function deleteUser(userId: string): Promise<void> {
   await database.delete(customUsers).where(eq(customUsers.id, userId));
 
   logger.info("User deleted", { userId });
+}
+
+/**
+ * Get both display name and handle for a user in a single query path.
+ * Queries usernames table first; falls back to customUsers.firstName for display name.
+ */
+export async function getUserNameInfo(
+  database: Database,
+  userId: string
+): Promise<{ displayName: string; handle: string | null }> {
+  const usernameResult = await database
+    .select({ username: usernames.username })
+    .from(usernames)
+    .where(eq(usernames.uid, userId))
+    .limit(1);
+
+  if (usernameResult[0]?.username) {
+    return { displayName: usernameResult[0].username, handle: usernameResult[0].username };
+  }
+
+  const userResult = await database
+    .select({ firstName: customUsers.firstName })
+    .from(customUsers)
+    .where(eq(customUsers.id, userId))
+    .limit(1);
+
+  return { displayName: userResult[0]?.firstName || "Skater", handle: null };
+}
+
+/** Get user display name. Delegates to {@link getUserNameInfo}. */
+export async function getUserDisplayName(database: Database, userId: string): Promise<string> {
+  return (await getUserNameInfo(database, userId)).displayName;
+}
+
+/** Get user handle (username). Delegates to {@link getUserNameInfo}. */
+export async function getUserHandle(database: Database, userId: string): Promise<string | null> {
+  return (await getUserNameInfo(database, userId)).handle;
 }
 
 /**

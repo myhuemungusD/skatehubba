@@ -10,6 +10,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { customUsers } from "./auth";
 
 export const NewSubscriberInput = z.object({
   firstName: z
@@ -43,7 +44,7 @@ export const feedback = pgTable(
   "feedback",
   {
     id: serial("id").primaryKey(),
-    userId: varchar("user_id"),
+    userId: varchar("user_id").references(() => customUsers.id, { onDelete: "set null" }),
     userEmail: varchar("user_email", { length: 255 }),
     type: varchar("type", { length: 50 }).notNull(),
     message: text("message").notNull(),

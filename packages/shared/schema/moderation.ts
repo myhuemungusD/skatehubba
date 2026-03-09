@@ -10,11 +10,14 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { customUsers } from "./auth";
 
 // Moderation tables — replaces Firestore moderation collections
 
 export const moderationProfiles = pgTable("moderation_profiles", {
-  userId: varchar("user_id", { length: 255 }).primaryKey(),
+  userId: varchar("user_id", { length: 255 })
+    .primaryKey()
+    .references(() => customUsers.id, { onDelete: "cascade" }),
   trustLevel: integer("trust_level").notNull().default(0),
   reputationScore: integer("reputation_score").notNull().default(0),
   isBanned: boolean("is_banned").notNull().default(false),

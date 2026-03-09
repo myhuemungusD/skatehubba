@@ -20,63 +20,80 @@ export function setupPasswordRoutes(app: Express) {
    * Change password (authenticated users)
    * Invalidates all other sessions for security
    */
-  app.post("/api/auth/change-password", authenticateUser, requireRecentAuth, sensitiveAuthLimiter, async (req, res) => {
-    const ipAddress = getClientIP(req);
-    const userAgent = req.headers["user-agent"] || undefined;
-    const sessionToken = req.cookies?.sessionToken;
+  app.post(
+    "/api/auth/change-password",
+    authenticateUser,
+    requireRecentAuth,
+    sensitiveAuthLimiter,
+    async (req, res) => {
+      const ipAddress = getClientIP(req);
+      const userAgent = req.headers["user-agent"] || undefined;
+      const sessionToken = req.cookies?.sessionToken;
 
-    try {
-      const user = req.currentUser!;
-      const { currentPassword, newPassword } = req.body;
+      try {
+        const user = req.currentUser!;
+        const { currentPassword, newPassword } = req.body;
 
-      // Validate input (bcrypt truncates at 72 bytes — reject longer passwords)
-      if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
-        return res.status(400).json({
-          error: "Password must be at least 8 characters",
-          code: "INVALID_PASSWORD",
+        // Validate input (bcrypt truncates at 72 bytes — reject longer passwords)
+        if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
+          return res.status(400).json({
+            error: "Password must be at least 8 characters",
+            code: "INVALID_PASSWORD",
+          });
+        }
+        if (newPassword.length > 72) {
+          return res.status(400).json({
+            error: "Password must be at most 72 characters",
+            code: "INVALID_PASSWORD",
+          });
+        }
+
+        // Check password requirements
+        if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
+          return res.status(400).json({
+            error: "Password must contain uppercase, lowercase, and number",
+            code: "WEAK_PASSWORD",
+          });
+        }
+
+        const result = await AuthService.changePassword(
+          user.id,
+          currentPassword || "",
+          newPassword,
+          sessionToken
+        );
+
+        if (!result.success) {
+          return res.status(400).json({
+            error: result.message,
+            code: "PASSWORD_CHANGE_FAILED",
+          });
+        }
+
+        // Log the password change
+        await AuditLogger.logPasswordChanged(user.id, user.email, ipAddress, userAgent);
+
+        // Set the new session cookie so the user stays logged in
+        if (result.newSessionToken) {
+          res.cookie("sessionToken", result.newSessionToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+            path: "/",
+          });
+        }
+
+        res.json({
+          success: true,
+          message: result.message,
         });
+      } catch (error) {
+        logger.error("Password change error", { error: String(error) });
+        res.status(500).json({ error: "Password change failed" });
       }
-      if (newPassword.length > 72) {
-        return res.status(400).json({
-          error: "Password must be at most 72 characters",
-          code: "INVALID_PASSWORD",
-        });
-      }
-
-      // Check password requirements
-      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
-        return res.status(400).json({
-          error: "Password must contain uppercase, lowercase, and number",
-          code: "WEAK_PASSWORD",
-        });
-      }
-
-      const result = await AuthService.changePassword(
-        user.id,
-        currentPassword || "",
-        newPassword,
-        sessionToken
-      );
-
-      if (!result.success) {
-        return res.status(400).json({
-          error: result.message,
-          code: "PASSWORD_CHANGE_FAILED",
-        });
-      }
-
-      // Log the password change
-      await AuditLogger.logPasswordChanged(user.id, user.email, ipAddress, userAgent);
-
-      res.json({
-        success: true,
-        message: result.message,
-      });
-    } catch (error) {
-      logger.error("Password change error", { error: String(error) });
-      res.status(500).json({ error: "Password change failed" });
     }
-  });
+  );
 
   /**
    * Request password reset (unauthenticated)

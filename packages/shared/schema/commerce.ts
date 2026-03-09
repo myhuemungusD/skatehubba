@@ -11,6 +11,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { customUsers } from "./auth";
 
 export const donations = pgTable("donations", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
@@ -40,7 +41,7 @@ export const orders = pgTable(
   "orders",
   {
     id: serial("id").primaryKey(),
-    userId: varchar("user_id"),
+    userId: varchar("user_id").references(() => customUsers.id, { onDelete: "set null" }),
     userEmail: varchar("user_email", { length: 255 }),
     items: json("items")
       .$type<
@@ -69,7 +70,9 @@ export const consumedPaymentIntents = pgTable(
   {
     id: serial("id").primaryKey(),
     paymentIntentId: varchar("payment_intent_id", { length: 255 }).notNull().unique(),
-    userId: varchar("user_id", { length: 255 }).notNull(),
+    userId: varchar("user_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
