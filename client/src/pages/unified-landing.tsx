@@ -69,11 +69,6 @@ export default function UnifiedLanding() {
         subtitle={landingContent.hero.subtitle}
         description={landingContent.hero.description}
         primaryCTA={landingContent.hero.primaryCTA}
-        secondaryCTA={{
-          text: "Watch Demo",
-          href: "/demo",
-          testId: "cta-landing-demo",
-        }}
       />
 
       <FeatureGrid features={landingContent.features} columns={3} />
