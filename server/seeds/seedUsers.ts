@@ -98,19 +98,25 @@ function generateHandle(email: string, displayName: string | undefined, uid: str
     .slice(0, 20);
   if (handle.length >= 3) return handle;
 
-  // Last resort: use uid prefix
-  return uid.slice(0, 20);
+  // Last resort: use uid prefix (strip non-alphanumeric for consistency)
+  return uid
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase()
+    .slice(0, 20);
 }
 
 // ---------------------------------------------------------------------------
 // Parse display name into first/last
 // ---------------------------------------------------------------------------
-function parseName(displayName: string | undefined): { firstName: string; lastName: string } {
-  if (!displayName) return { firstName: "Skater", lastName: "" };
+function parseName(displayName: string | undefined): {
+  firstName: string;
+  lastName: string | null;
+} {
+  if (!displayName) return { firstName: "Skater", lastName: null };
   const parts = displayName.trim().split(/\s+/);
   return {
     firstName: parts[0] || "Skater",
-    lastName: parts.slice(1).join(" ") || "",
+    lastName: parts.slice(1).join(" ") || null,
   };
 }
 
@@ -166,9 +172,7 @@ async function main() {
     }
 
     // 5. Bulk-fetch existing users to avoid N+1 queries
-    const firebaseUids = allFirebaseUsers
-      .map((u) => u.uid)
-      .filter(Boolean);
+    const firebaseUids = allFirebaseUsers.map((u) => u.uid).filter(Boolean);
     const emails = allFirebaseUsers
       .map((u) => u.email?.toLowerCase())
       .filter((e): e is string => !!e);
@@ -218,34 +222,30 @@ async function main() {
       }
 
       const { firstName, lastName } = parseName(fbUser.displayName);
-      let handle = generateHandle(email, fbUser.displayName, firebaseUid);
+      const baseHandle = generateHandle(email, fbUser.displayName, firebaseUid);
 
       if (dryRun) {
-        console.log(`  [dry-run] Would seed ${email} → @${handle}`);
+        console.log(`  [dry-run] Would seed ${email} → @${baseHandle}`);
         inserted++;
         continue;
       }
 
       try {
         // Use a transaction so all 3 inserts succeed or none do
-        await db.transaction(async (tx) => {
-          // Insert into customUsers
-          await tx
-            .insert(schema.customUsers)
-            .values({
-              email: email.toLowerCase(),
-              passwordHash: FIREBASE_PASSWORD_SENTINEL,
-              firstName,
-              lastName: lastName || null,
-              firebaseUid,
-              isEmailVerified: fbUser.emailVerified ?? false,
-              isActive: true,
-              accountTier: "free",
-            })
-            .returning({ id: schema.customUsers.id });
+        const finalHandle = await db.transaction(async (tx) => {
+          await tx.insert(schema.customUsers).values({
+            email: email.toLowerCase(),
+            passwordHash: FIREBASE_PASSWORD_SENTINEL,
+            firstName,
+            lastName,
+            firebaseUid,
+            isEmailVerified: fbUser.emailVerified ?? false,
+            isActive: true,
+            accountTier: "free",
+          });
 
           // Ensure handle uniqueness — retry with numeric suffixes if taken
-          const baseHandle = handle;
+          let handle = baseHandle;
           let handleIsUnique = false;
           for (let attempt = 0; attempt < 100; attempt++) {
             const existingHandle = await tx
@@ -267,13 +267,11 @@ async function main() {
             throw new Error(`Could not find unique handle for base "${baseHandle}"`);
           }
 
-          // Insert into usernames (uid must be firebaseUid to match auth flow)
           await tx.insert(schema.usernames).values({
             uid: firebaseUid,
             username: handle,
           });
 
-          // Insert into userProfiles (id must be firebaseUid to match auth flow)
           await tx.insert(schema.userProfiles).values({
             id: firebaseUid,
             handle,
@@ -286,9 +284,11 @@ async function main() {
             losses: 0,
             xp: 0,
           });
+
+          return handle;
         });
 
-        console.log(`  ✓ Seeded ${email} → @${handle}`);
+        console.log(`  ✓ Seeded ${email} → @${finalHandle}`);
         inserted++;
       } catch (error) {
         errors++;
@@ -307,8 +307,7 @@ async function main() {
   }
 }
 
-main()
-  .catch((error) => {
-    console.error("Fatal error:", error);
-    process.exit(1);
-  });
+main().catch((error) => {
+  console.error("Fatal error:", error);
+  process.exit(1);
+});
