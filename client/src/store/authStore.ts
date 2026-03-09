@@ -16,6 +16,7 @@ import { auth, db } from "../lib/firebase/config";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { apiRequest } from "../lib/api/client";
 import { logger } from "../lib/logger";
+import { isExpectedAuthError, extractFirebaseErrorCode } from "../lib/firebase/auth-errors";
 
 import type { AuthState, BootStatus, UserRole } from "./authStore.types";
 import { usePresenceStore } from "./usePresenceStore";
@@ -323,17 +324,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       sessionStorage.setItem("googleRedirectPending", "true");
       await signInWithRedirect(auth, googleProvider);
     } catch (err: unknown) {
-      logger.error("[AuthStore] Google sign-in error:", err);
+      const errCode = extractFirebaseErrorCode(err);
+
+      if (isExpectedAuthError(err)) {
+        logger.warn("[AuthStore] Google sign-in failed:", errCode);
+      } else {
+        logger.error("[AuthStore] Google sign-in error:", err);
+      }
 
       // If popup was blocked by the browser, fall back to redirect flow
-      if (err && typeof err === "object" && "code" in err) {
-        const code = (err as { code?: string }).code;
-        if (code === "auth/popup-blocked") {
-          logger.log("[AuthStore] Popup blocked, falling back to redirect");
-          sessionStorage.setItem("googleRedirectPending", "true");
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        }
+      if (errCode === "auth/popup-blocked") {
+        logger.log("[AuthStore] Popup blocked, falling back to redirect");
+        sessionStorage.setItem("googleRedirectPending", "true");
+        await signInWithRedirect(auth, googleProvider);
+        return;
       }
 
       if (err instanceof Error) {
@@ -378,7 +382,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ roles: rolesResult.data });
       }
     } catch (err: unknown) {
-      logger.error("[AuthStore] Email sign-in error:", err);
+      const errCode = extractFirebaseErrorCode(err);
+
+      if (isExpectedAuthError(err)) {
+        logger.warn("[AuthStore] Email sign-in failed:", errCode);
+      } else {
+        logger.error("[AuthStore] Email sign-in error:", err);
+      }
+
       if (err instanceof Error) {
         set({ error: err });
       }

@@ -58,10 +58,20 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
 };
 
 /**
+ * Returns true if the error is a known, user-facing Firebase Auth failure
+ * (wrong password, popup closed, etc.) rather than an unexpected app error.
+ * Uses the AUTH_ERROR_MESSAGES keys as the canonical set of known codes.
+ */
+export function isExpectedAuthError(error: unknown): boolean {
+  const code = extractFirebaseErrorCode(error);
+  return code !== null && code in AUTH_ERROR_MESSAGES;
+}
+
+/**
  * Extract the Firebase error code from an error object.
  * Firebase errors can come as { code: "auth/..." } or as raw strings.
  */
-function extractFirebaseErrorCode(error: unknown): string | null {
+export function extractFirebaseErrorCode(error: unknown): string | null {
   if (!error || typeof error !== "object") return null;
 
   const err = error as Record<string, unknown>;

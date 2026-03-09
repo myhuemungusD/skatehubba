@@ -64,7 +64,7 @@ export function SignInTab({
       });
       onSuccess?.();
     } catch (error) {
-      logger.error("[AuthPage] Sign in error:", error);
+      // Error already logged by authStore — only handle UI feedback here
       const authError = error as { message?: string; code?: string };
       let message: string;
       switch (authError.code) {
