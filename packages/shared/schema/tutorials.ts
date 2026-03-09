@@ -31,7 +31,7 @@ export const tutorialSteps = pgTable("tutorial_steps", {
     };
   }>(),
   order: integer("order").notNull(),
-  isActive: boolean("is_active").default(true),
+  isActive: boolean("is_active").notNull().default(true),
 });
 
 export const userProgress = pgTable(
@@ -42,8 +42,8 @@ export const userProgress = pgTable(
     stepId: integer("step_id")
       .notNull()
       .references(() => tutorialSteps.id, { onDelete: "cascade" }),
-    completed: boolean("completed").default(false),
-    completedAt: timestamp("completed_at"),
+    completed: boolean("completed").notNull().default(false),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
     timeSpent: integer("time_spent"),
     interactionData: json("interaction_data").$type<{
       taps?: number;

@@ -159,9 +159,7 @@ export async function resolveDispute(
   // If overturned to LAND, reverse the letter and swap roles
   if (finalResult === "landed") {
     const defenderIsPlayer1 = game.player1Id === dispute.disputedBy;
-    const currentLetters = defenderIsPlayer1
-      ? game.player1Letters || ""
-      : game.player2Letters || "";
+    const currentLetters = defenderIsPlayer1 ? game.player1Letters : game.player2Letters;
 
     const letterUpdate = defenderIsPlayer1
       ? { player1Letters: currentLetters.length > 0 ? currentLetters.slice(0, -1) : "" }
