@@ -20,7 +20,7 @@ import type { Firestore, Transaction } from "firebase-admin/firestore";
 import logger from "../logger";
 import type { Request, Response } from "express";
 import { remoteSkateLimiter } from "../middleware/security";
-import { sendGameNotificationToUser } from "../services/gameNotificationService";
+import { sendGameNotificationToUser, type TurnRole } from "../services/gameNotificationService";
 
 const router = Router();
 
@@ -158,9 +158,10 @@ router.post("/find-or-create", async (req: Request, res: Response) => {
 
         logger.info("[RemoteSkate] Quick match: joined existing game", { gameId, uid });
 
-        // Notify the game creator that someone joined
+        // Notify the game creator that someone joined — they're offense (set a trick)
         sendGameNotificationToUser(data.playerAUid, "your_turn", {
           gameId,
+          role: "set" as TurnRole,
         }).catch((err: unknown) =>
           logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
         );
@@ -280,12 +281,13 @@ router.post("/:gameId/join", async (req: Request, res: Response) => {
 
     logger.info("[RemoteSkate] Game joined via API", { gameId, playerB: uid });
 
-    // Notify player A
+    // Notify player A — they're offense (set a trick)
     const gameSnap = await firestore.collection("games").doc(gameId).get();
     if (gameSnap.exists) {
       const game = gameSnap.data()!;
       sendGameNotificationToUser(game.playerAUid, "your_turn", {
         gameId,
+        role: "set" as TurnRole,
       }).catch((err: unknown) =>
         logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
       );
@@ -413,13 +415,16 @@ router.post("/:gameId/rounds/:roundId/set-complete", async (req: Request, res: R
 
     logger.info("[RemoteSkate] Set complete", { gameId, roundId, uid });
 
-    // Notify defense it's their turn (best-effort)
+    // Notify defense it's their turn to defend (match the trick)
     const gameSnapAfter = await admin.firestore().collection("games").doc(gameId).get();
     if (gameSnapAfter.exists) {
       const game = gameSnapAfter.data()!;
       const defenseUid = game.playerAUid === uid ? game.playerBUid : game.playerAUid;
       if (defenseUid) {
-        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err: unknown) =>
+        sendGameNotificationToUser(defenseUid, "your_turn", {
+          gameId,
+          role: "defend" as TurnRole,
+        }).catch((err: unknown) =>
           logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
         );
       }
@@ -496,13 +501,16 @@ router.post("/:gameId/rounds/:roundId/reply-complete", async (req: Request, res:
 
     logger.info("[RemoteSkate] Reply complete", { gameId, roundId, uid });
 
-    // Notify offense it's their turn to judge (best-effort)
+    // Notify offense it's their turn to judge the reply
     const gameSnapAfter = await admin.firestore().collection("games").doc(gameId).get();
     if (gameSnapAfter.exists) {
       const game = gameSnapAfter.data()!;
       const offenseUid = game.playerAUid === uid ? game.playerBUid : game.playerAUid;
       if (offenseUid) {
-        sendGameNotificationToUser(offenseUid, "your_turn", { gameId }).catch((err: unknown) =>
+        sendGameNotificationToUser(offenseUid, "your_turn", {
+          gameId,
+          role: "judge" as TurnRole,
+        }).catch((err: unknown) =>
           logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
         );
       }
@@ -599,13 +607,16 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
       });
     });
 
-    // Notify defense to confirm (best-effort)
+    // Notify defense to confirm or dispute the call
     const gameSnap2 = await admin.firestore().collection("games").doc(gameId).get();
     if (gameSnap2.exists) {
       const gameData = gameSnap2.data()!;
       const defenseUid = gameData.playerAUid === uid ? gameData.playerBUid : gameData.playerAUid;
       if (defenseUid) {
-        sendGameNotificationToUser(defenseUid, "your_turn", { gameId }).catch((err: unknown) =>
+        sendGameNotificationToUser(defenseUid, "your_turn", {
+          gameId,
+          role: "confirm" as TurnRole,
+        }).catch((err: unknown) =>
           logger.warn("[RemoteSkate] Notification failed", { error: String(err) })
         );
       }

@@ -59,6 +59,12 @@ vi.mock("@shared/schema", () => {
       email: { name: "email" },
       firstName: { name: "firstName" },
     },
+    deviceTokens: {
+      _table: "deviceTokens",
+      id: { name: "id" },
+      userId: { name: "userId" },
+      token: { name: "token" },
+    },
     DEFAULT_NOTIFICATION_PREFS: {
       pushEnabled: true,
       emailEnabled: true,
@@ -96,6 +102,7 @@ vi.mock("@shared/schema", () => {
 
 vi.mock("drizzle-orm", () => ({
   eq: (col: any, val: any) => ({ _op: "eq", col, val }),
+  inArray: (col: any, vals: any) => ({ _op: "inArray", col, vals }),
 }));
 
 vi.mock("./emailService", () => ({
@@ -910,6 +917,73 @@ describe("notifyUser - uncovered paths", () => {
       "Tony",
       expect.objectContaining({ type: "game_over", gameId: "" })
     );
+  });
+
+  /**
+   * Multi-device push: when some tokens are invalid (filtered out by isExpoPushToken)
+   * and one valid token gets DeviceNotRegistered, the correct token ID is cleaned up.
+   * This tests the index correspondence fix between validTokens and tickets arrays.
+   */
+  it("cleans up correct stale token when invalid tokens are filtered out (multi-device)", async () => {
+    // Simulate 3 device tokens: token-A (valid), token-B (invalid Expo format), token-C (valid but stale)
+    const deviceTokenRows = [
+      { id: 10, token: "ExponentPushToken[aaa]" },
+      { id: 20, token: "not-a-valid-expo-token" },
+      { id: 30, token: "ExponentPushToken[ccc]" },
+    ];
+
+    // isExpoPushToken returns false for the invalid token
+    mockIsExpoPushToken.mockImplementation((t: string) => t.startsWith("ExponentPushToken["));
+
+    // Expo returns OK for first valid token, DeviceNotRegistered for second valid token
+    mockSendPush.mockResolvedValue([
+      { status: "ok" },
+      {
+        status: "error",
+        message: "DeviceNotRegistered",
+        details: { error: "DeviceNotRegistered" },
+      },
+    ]);
+
+    let selectCallCount = 0;
+    const mockDeleteWhere = vi.fn().mockResolvedValue([]);
+    const mockDb = {
+      select: vi.fn().mockReturnThis(),
+      from: vi.fn().mockReturnThis(),
+      where: vi.fn().mockImplementation(() => {
+        selectCallCount++;
+        if (selectCallCount === 1) {
+          // getUserPrefs - return empty (defaults)
+          return { limit: vi.fn().mockResolvedValue([]) };
+        }
+        // sendPushToUser - return device tokens (no .limit() for this query)
+        return Promise.resolve(deviceTokenRows);
+      }),
+      insert: vi.fn().mockReturnThis(),
+      values: vi.fn().mockResolvedValue(undefined),
+      delete: vi.fn().mockReturnValue({
+        where: mockDeleteWhere,
+      }),
+    };
+
+    mockGetDb.mockReturnValue(mockDb);
+
+    await notifyUser({
+      userId: "user-multi-device",
+      type: "your_turn",
+      title: "Your move",
+      body: "Time to play",
+    });
+
+    // Verify push was sent for the 2 valid tokens (not the invalid one)
+    expect(mockSendPush).toHaveBeenCalledWith([
+      expect.objectContaining({ to: "ExponentPushToken[aaa]" }),
+      expect.objectContaining({ to: "ExponentPushToken[ccc]" }),
+    ]);
+
+    // Verify the stale token cleanup deletes token ID 30 (the second valid token),
+    // NOT token ID 20 (which was filtered out) or token ID 10 (which succeeded)
+    expect(mockDb.delete).toHaveBeenCalled();
   });
 
   /**
