@@ -22,6 +22,7 @@ export const isPopupSafe = () => {
 };
 
 const profileCacheKey = (uid: string) => `skatehubba.profile.${uid}`;
+const PROFILE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 /**
  * M13: Only read profile status from cache (not full PII).
@@ -29,10 +30,17 @@ const profileCacheKey = (uid: string) => `skatehubba.profile.${uid}`;
  */
 export const readProfileCache = (uid: string): ProfileCache | null => {
   if (typeof window === "undefined") return null;
-  const raw = sessionStorage.getItem(profileCacheKey(uid));
+  // Try localStorage first (persists across sessions), then sessionStorage (legacy)
+  const raw =
+    localStorage.getItem(profileCacheKey(uid)) ?? sessionStorage.getItem(profileCacheKey(uid));
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as ProfileCache;
+    const parsed = JSON.parse(raw) as ProfileCache & { ts?: number };
+    if (parsed.ts && Date.now() - parsed.ts > PROFILE_CACHE_TTL_MS) {
+      localStorage.removeItem(profileCacheKey(uid));
+      sessionStorage.removeItem(profileCacheKey(uid));
+      return null;
+    }
     // Return status only — profile data comes from server, not cache
     return { status: parsed.status, profile: null };
   } catch {
@@ -41,16 +49,22 @@ export const readProfileCache = (uid: string): ProfileCache | null => {
 };
 
 /**
- * M13: Only persist profile status to sessionStorage (no PII).
- * This prevents XSS from accessing user's personal information via sessionStorage.
+ * M13: Only persist profile status to localStorage (no PII).
+ * This prevents XSS from accessing user's personal information via storage.
  */
 export const writeProfileCache = (uid: string, cache: ProfileCache) => {
   if (typeof window === "undefined") return;
-  sessionStorage.setItem(profileCacheKey(uid), JSON.stringify({ status: cache.status }));
+  const payload = JSON.stringify({ status: cache.status, ts: Date.now() });
+  // Write to localStorage (persists across sessions) so returning users
+  // don't lose their profile status when the tab closes.
+  localStorage.setItem(profileCacheKey(uid), payload);
+  // Clean up legacy sessionStorage entry
+  sessionStorage.removeItem(profileCacheKey(uid));
 };
 
 export const clearProfileCache = (uid: string) => {
   if (typeof window === "undefined") return;
+  localStorage.removeItem(profileCacheKey(uid));
   sessionStorage.removeItem(profileCacheKey(uid));
 };
 
