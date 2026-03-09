@@ -1,5 +1,26 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
-import { useNetworkStore, RECONNECT_WINDOW_SECONDS } from "./networkStore";
+
+const { mockGetCachedActiveGame, mockGetCachedVisitedSpots, mockGetCachedUserProfile } = vi.hoisted(
+  () => ({
+    mockGetCachedActiveGame: vi.fn(),
+    mockGetCachedVisitedSpots: vi.fn(),
+    mockGetCachedUserProfile: vi.fn(),
+  })
+);
+
+vi.mock("@/lib/offlineCache", () => ({
+  getCachedActiveGame: mockGetCachedActiveGame,
+  getCachedVisitedSpots: mockGetCachedVisitedSpots,
+  getCachedUserProfile: mockGetCachedUserProfile,
+}));
+
+import {
+  useNetworkStore,
+  RECONNECT_WINDOW_SECONDS,
+  getOfflineGameSession,
+  getOfflineSpots,
+  getOfflineUserProfile,
+} from "./networkStore";
 
 describe("networkStore", () => {
   beforeEach(() => {
@@ -183,6 +204,162 @@ describe("networkStore", () => {
       expect(state.offlineSince).toBeNull();
       expect(state.reconnectSecondsRemaining).toBe(RECONNECT_WINDOW_SECONDS);
       expect(state.reconnectExpired).toBe(false);
+    });
+  });
+
+  // ==========================================================================
+  // Derived hooks
+  // ==========================================================================
+
+  describe("isOfflineForGame logic", () => {
+    /**
+     * useIsOfflineForGame is a React hook so it can't be called outside a
+     * component. We test the equivalent derived logic directly from store state:
+     *   !isConnected || isReconnecting || reconnectExpired
+     */
+    function isOfflineForGame() {
+      const { isConnected, isReconnecting, reconnectExpired } = useNetworkStore.getState();
+      return !isConnected || isReconnecting || reconnectExpired;
+    }
+
+    it("returns true when disconnected", () => {
+      useNetworkStore.setState({
+        isConnected: false,
+        isReconnecting: false,
+        reconnectExpired: false,
+      });
+      expect(isOfflineForGame()).toBe(true);
+    });
+
+    it("returns true when reconnecting", () => {
+      useNetworkStore.setState({
+        isConnected: false,
+        isReconnecting: true,
+        reconnectExpired: false,
+      });
+      expect(isOfflineForGame()).toBe(true);
+    });
+
+    it("returns true when reconnect expired", () => {
+      useNetworkStore.setState({
+        isConnected: true,
+        isReconnecting: false,
+        reconnectExpired: true,
+      });
+      expect(isOfflineForGame()).toBe(true);
+    });
+
+    it("returns false when connected and not reconnecting", () => {
+      useNetworkStore.setState({
+        isConnected: true,
+        isReconnecting: false,
+        reconnectExpired: false,
+      });
+      expect(isOfflineForGame()).toBe(false);
+    });
+  });
+
+  describe("reconnection status shape", () => {
+    /**
+     * useReconnectionStatus is a React hook. We test the equivalent selector
+     * logic directly from store state.
+     */
+    function getReconnectionStatus() {
+      const state = useNetworkStore.getState();
+      return {
+        isReconnecting: state.isReconnecting,
+        secondsRemaining: state.reconnectSecondsRemaining,
+        expired: state.reconnectExpired,
+        isConnected: state.isConnected,
+      };
+    }
+
+    it("returns correct shape from store state", () => {
+      useNetworkStore.setState({
+        isConnected: false,
+        isReconnecting: true,
+        reconnectSecondsRemaining: 95,
+        reconnectExpired: false,
+      });
+
+      const status = getReconnectionStatus();
+      expect(status).toEqual({
+        isReconnecting: true,
+        secondsRemaining: 95,
+        expired: false,
+        isConnected: false,
+      });
+    });
+
+    it("reflects expired state", () => {
+      useNetworkStore.setState({
+        isConnected: false,
+        isReconnecting: false,
+        reconnectSecondsRemaining: 0,
+        reconnectExpired: true,
+      });
+
+      const status = getReconnectionStatus();
+      expect(status.expired).toBe(true);
+      expect(status.secondsRemaining).toBe(0);
+    });
+  });
+
+  // ==========================================================================
+  // Offline data access wrappers
+  // ==========================================================================
+
+  describe("getOfflineGameSession", () => {
+    it("delegates to getCachedActiveGame", async () => {
+      const session = { id: "game-1", status: "active" };
+      mockGetCachedActiveGame.mockResolvedValue(session);
+
+      const result = await getOfflineGameSession();
+      expect(result).toEqual(session);
+      expect(mockGetCachedActiveGame).toHaveBeenCalledOnce();
+    });
+
+    it("returns null when no cached game exists", async () => {
+      mockGetCachedActiveGame.mockResolvedValue(null);
+
+      const result = await getOfflineGameSession();
+      expect(result).toBeNull();
+    });
+  });
+
+  describe("getOfflineSpots", () => {
+    it("delegates to getCachedVisitedSpots", async () => {
+      const spots = [{ id: "s1", name: "Hubba" }];
+      mockGetCachedVisitedSpots.mockResolvedValue(spots);
+
+      const result = await getOfflineSpots();
+      expect(result).toEqual(spots);
+      expect(mockGetCachedVisitedSpots).toHaveBeenCalledOnce();
+    });
+
+    it("returns empty array when no cached spots exist", async () => {
+      mockGetCachedVisitedSpots.mockResolvedValue([]);
+
+      const result = await getOfflineSpots();
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("getOfflineUserProfile", () => {
+    it("delegates to getCachedUserProfile", async () => {
+      const profile = { uid: "u1", displayName: "Sk8r", email: "s@t.com", photoURL: null };
+      mockGetCachedUserProfile.mockResolvedValue(profile);
+
+      const result = await getOfflineUserProfile();
+      expect(result).toEqual(profile);
+      expect(mockGetCachedUserProfile).toHaveBeenCalledOnce();
+    });
+
+    it("returns null when no cached profile exists", async () => {
+      mockGetCachedUserProfile.mockResolvedValue(null);
+
+      const result = await getOfflineUserProfile();
+      expect(result).toBeNull();
     });
   });
 });
