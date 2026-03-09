@@ -25,7 +25,6 @@ import { FeatureGrid } from "../sections/landing/FeatureGrid";
 import { HubbaShopBanner } from "../sections/landing/HubbaShopBanner";
 import { landingContent } from "../content/landing";
 import { useAuth } from "../hooks/useAuth";
-import AppDropdownMenu from "../components/navigation/AppDropdownMenu";
 
 export default function UnifiedLanding() {
   const auth = useAuth();
@@ -55,10 +54,6 @@ export default function UnifiedLanding() {
       {/* Nav floats over the full-bleed hero */}
       <div className="absolute top-0 left-0 right-0 z-50">
         <PublicNavigation />
-      </div>
-
-      <div className="absolute top-0 right-0 m-4 z-50">
-        <AppDropdownMenu />
       </div>
 
       {/* Full-bleed hero with grain + A/B stamp overlay */}

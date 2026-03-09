@@ -56,7 +56,7 @@ export function HeroSection({
           {/* Badge */}
           {badge && (
             <div className="flex justify-center animate-fade-in">
-              <Link href="/auth?tab=signup" aria-label="Sign up for the SkateHubba beta">
+              <Link href="/auth" aria-label="Sign up or log in to SkateHubba">
                 <div
                   className={`inline-flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity ${
                     badge.variant === "success"

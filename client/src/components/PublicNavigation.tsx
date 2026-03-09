@@ -49,9 +49,9 @@ export default function PublicNavigation() {
               className="bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90 font-semibold"
               data-testid="button-public-nav-signin"
             >
-              <Link href="/auth?tab=signup">
+              <Link href="/auth">
                 <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
-                Join the Beta
+                Sign Up / Log In
               </Link>
             </Button>
           </div>
