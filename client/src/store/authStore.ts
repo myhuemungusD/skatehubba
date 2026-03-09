@@ -323,7 +323,25 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       sessionStorage.setItem("googleRedirectPending", "true");
       await signInWithRedirect(auth, googleProvider);
     } catch (err: unknown) {
-      logger.error("[AuthStore] Google sign-in error:", err);
+      // Expected user-facing auth failures are not app errors — log as warn
+      const isExpectedAuthError =
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        typeof (err as { code?: string }).code === "string" &&
+        [
+          "auth/popup-blocked",
+          "auth/popup-closed-by-user",
+          "auth/cancelled-popup-request",
+          "auth/user-disabled",
+          "auth/account-exists-with-different-credential",
+        ].includes((err as { code: string }).code);
+
+      if (isExpectedAuthError) {
+        logger.warn("[AuthStore] Google sign-in failed:", (err as { code: string }).code);
+      } else {
+        logger.error("[AuthStore] Google sign-in error:", err);
+      }
 
       // If popup was blocked by the browser, fall back to redirect flow
       if (err && typeof err === "object" && "code" in err) {
@@ -378,7 +396,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ roles: rolesResult.data });
       }
     } catch (err: unknown) {
-      logger.error("[AuthStore] Email sign-in error:", err);
+      // Expected user-facing auth failures (wrong password, no account, etc.)
+      // are not application errors — log as warn to avoid console noise.
+      const isExpectedAuthError =
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        typeof (err as { code?: string }).code === "string" &&
+        [
+          "auth/invalid-credential",
+          "auth/user-not-found",
+          "auth/wrong-password",
+          "auth/too-many-requests",
+          "auth/user-disabled",
+        ].includes((err as { code: string }).code);
+
+      if (isExpectedAuthError) {
+        logger.warn("[AuthStore] Email sign-in failed:", (err as { code: string }).code);
+      } else {
+        logger.error("[AuthStore] Email sign-in error:", err);
+      }
+
       if (err instanceof Error) {
         set({ error: err });
       }
