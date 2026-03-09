@@ -13,9 +13,6 @@
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="https://skatehubba.com" />
 
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
-    
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="/favicon.ico" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -142,16 +139,5 @@
       </noscript>
     </div>
     <script type="module" src="/src/main.tsx"></script>
-    
-    <!-- Service Worker Registration (L10: silent failure - app works without SW) -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
-            .then(reg => reg.update().catch(() => {}))
-            .catch(() => {});
-        });
-      }
-    </script>
   </body>
 </html>
