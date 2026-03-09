@@ -12,24 +12,39 @@ export const fetchProfile = async (uid: string): Promise<UserProfile | null> => 
   if (inFlightProfileFetch) return inFlightProfileFetch;
 
   inFlightProfileFetch = (async () => {
-    try {
-      const res = await apiRequest<{ profile: Record<string, unknown> }>({
-        method: "GET",
-        path: "/api/profile/me",
-      });
-      return transformProfile(uid, res.profile);
-    } catch (err) {
-      // 404 = no profile yet (new user) — this is expected for onboarding
-      if (isApiError(err) && err.status === 404) {
-        return null;
+    const MAX_RETRIES = 1;
+    let lastErr: unknown;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const res = await apiRequest<{ profile: Record<string, unknown> }>({
+          method: "GET",
+          path: "/api/profile/me",
+        });
+        return transformProfile(uid, res.profile);
+      } catch (err) {
+        // 404 = no profile yet (new user) — this is expected for onboarding
+        if (isApiError(err) && err.status === 404) {
+          return null;
+        }
+        lastErr = err;
+        // Retry on transient errors (network, timeout, 5xx) but not auth errors
+        if (isApiError(err) && err.status !== undefined && err.status < 500) {
+          break;
+        }
+        if (attempt < MAX_RETRIES) {
+          logger.warn(`[AuthStore] Profile fetch attempt ${attempt + 1} failed, retrying...`);
+          await new Promise((r) => setTimeout(r, 1000));
+        }
       }
-      // Any other error (401 auth failure, 500 server error, 503 DB down, network
-      // failure) must propagate so the caller can distinguish "no profile" from
-      // "server unreachable". Swallowing these errors causes the app to show the
-      // profile-setup form even when the server can't process submissions.
-      logger.error("[AuthStore] Failed to fetch profile:", err);
-      throw err;
     }
+
+    // Any other error (401 auth failure, 500 server error, 503 DB down, network
+    // failure) must propagate so the caller can distinguish "no profile" from
+    // "server unreachable". Swallowing these errors causes the app to show the
+    // profile-setup form even when the server can't process submissions.
+    logger.error("[AuthStore] Failed to fetch profile:", lastErr);
+    throw lastErr;
   })();
 
   try {

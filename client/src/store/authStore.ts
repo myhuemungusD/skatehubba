@@ -88,7 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         const results = await Promise.allSettled([
-          withTimeout(fetchProfile(currentUser.uid), 4000, "fetchProfile"),
+          withTimeout(fetchProfile(currentUser.uid), 8000, "fetchProfile"),
           withTimeout(extractRolesFromToken(currentUser), 4000, "fetchRoles"),
         ]);
 
@@ -149,20 +149,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
 
             const currentState = get();
-            if (!currentState.profile || currentState.profileStatus === "unknown") {
+            // Only refetch when profile is genuinely unknown. Never overwrite
+            // a confirmed "exists" status — that causes the profile-setup
+            // redirect even though the user already has a profile.
+            if (currentState.profileStatus === "unknown") {
               const [profileResult, rolesResult] = await Promise.all([
-                withTimeout(fetchProfile(user.uid), 4000, "fetchProfile"),
+                withTimeout(fetchProfile(user.uid), 8000, "fetchProfile"),
                 withTimeout(extractRolesFromToken(user), 4000, "fetchRoles"),
               ]);
 
               {
-                const resolved = resolveProfileResult(user.uid, profileResult);
-                set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
+                // Re-check: another code path (e.g. signInWithEmail) may have
+                // resolved the profile while we were fetching.
+                if (get().profileStatus === "exists") {
+                  // Profile was set while we were waiting — don't overwrite.
+                } else {
+                  const resolved = resolveProfileResult(user.uid, profileResult);
+                  set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
 
-                // Same fallback as boot: don't leave "unknown" after resolution,
-                // or AppRoutes shows an infinite loading screen.
-                if (resolved.profileStatus === "unknown") {
-                  set({ profileStatus: "missing" });
+                  // Same fallback as boot: don't leave "unknown" after resolution,
+                  // or AppRoutes shows an infinite loading screen.
+                  if (resolved.profileStatus === "unknown") {
+                    set({ profileStatus: "missing" });
+                  }
                 }
               }
 
@@ -172,8 +181,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
             }
           } catch (listenerErr) {
             logger.error("[AuthStore] Auth listener error:", listenerErr);
-            // Ensure profileStatus isn't stuck at "unknown" after failure
-            if (get().profileStatus === "unknown") {
+            // Ensure profileStatus isn't stuck at "unknown" after failure,
+            // but never downgrade a confirmed "exists" to "missing".
+            const currentStatus = get().profileStatus;
+            if (currentStatus === "unknown") {
               set({ profileStatus: "missing" });
             }
           }
