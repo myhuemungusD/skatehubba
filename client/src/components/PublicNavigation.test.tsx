@@ -34,12 +34,12 @@ describe("PublicNavigation", () => {
     expect(logoLink!.getAttribute("href")).toBe("/");
   });
 
-  it("renders the Join the Beta CTA with correct href", () => {
+  it("renders the Sign Up / Log In CTA with correct href", () => {
     render(<PublicNavigation />);
     const signinButton = screen.getByTestId("button-public-nav-signin");
     expect(signinButton).toBeDefined();
-    expect(signinButton.getAttribute("href")).toBe("/auth?tab=signup");
-    expect(signinButton.textContent).toContain("Join the Beta");
+    expect(signinButton.getAttribute("href")).toBe("/auth");
+    expect(signinButton.textContent).toContain("Sign Up / Log In");
   });
 
   it("does not produce nested <a> tags in the Sign In CTA", () => {

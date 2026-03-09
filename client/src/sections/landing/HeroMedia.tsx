@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Play, Volume2, VolumeX } from "lucide-react";
+import { ArrowRight, Volume2, VolumeX, Play } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // A/B bucket: "stamp" variant shows the "Own Your Tricks" grain-punched hero
@@ -48,26 +48,19 @@ export function HeroMedia({
 }: HeroMediaProps) {
   const [variant] = useState<HeroVariant>(getHeroVariant);
   const [muted, setMuted] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
-
   const toggleMute = useCallback(() => setMuted((m) => !m), []);
-
-  // Auto-play the placeholder clip if provided
-  useEffect(() => {
-    if (videoSrc) setIsPlaying(true);
-  }, [videoSrc]);
 
   const isStamp = variant === "stamp";
 
   return (
     <section
-      className="hero-media relative w-full min-h-screen flex items-center justify-center overflow-hidden"
+      className="hero-media relative w-full min-h-dvh flex items-center justify-center overflow-hidden"
       aria-label="Hero"
       data-ab={variant}
     >
       {/* ---- Full-bleed background media ---- */}
       <div className="absolute inset-0 z-0" aria-hidden="true">
-        {videoSrc && isPlaying ? (
+        {videoSrc ? (
           <video
             className="w-full h-full object-cover"
             src={videoSrc}
@@ -77,7 +70,7 @@ export function HeroMedia({
             muted={muted}
             playsInline
           >
-            <track kind="captions" />
+            <track kind="captions" label="No captions available" default />
           </video>
         ) : (
           <picture>
@@ -96,6 +89,8 @@ export function HeroMedia({
               src={posterSrc}
               alt=""
               className="w-full h-full object-cover"
+              width={1200}
+              height={800}
               loading="eager"
               decoding="sync"
               fetchPriority="high"
@@ -137,10 +132,10 @@ export function HeroMedia({
       )}
 
       {/* ---- Mute toggle (only when video is playing) ---- */}
-      {videoSrc && isPlaying && (
+      {videoSrc && (
         <button
           onClick={toggleMute}
-          className="absolute bottom-6 right-6 z-[6] p-3 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white hover:bg-black/70 transition-colors"
+          className="absolute bottom-6 right-6 z-[6] p-3 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white hover:bg-black/70 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none"
           aria-label={muted ? "Unmute video" : "Mute video"}
         >
           {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
@@ -152,9 +147,9 @@ export function HeroMedia({
         {/* Badge */}
         {badge && (
           <div className="flex justify-center hero-fade-in">
-            <Link href="/auth?tab=signup" aria-label="Sign up for the SkateHubba beta">
+            <Link href="/auth" aria-label="Sign up or log in to SkateHubba">
               <div
-                className={`inline-flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity ${
+                className={`inline-flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:outline-none ${
                   badge.variant === "success"
                     ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                     : "bg-blue-500/10 border-blue-500/20 text-blue-400"
@@ -223,7 +218,7 @@ export function HeroMedia({
             {primaryCTA && (
               <Link
                 href={primaryCTA.href}
-                className="group relative inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-black text-base font-bold uppercase tracking-wide px-8 py-4 rounded-xl shadow-[0_18px_60px_rgba(249,115,22,0.35)] transition-all hover:shadow-[0_24px_80px_rgba(249,115,22,0.5)] hover:scale-105"
+                className="group relative inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-black text-base font-bold uppercase tracking-wide px-8 py-4 rounded-xl shadow-[0_18px_60px_rgba(249,115,22,0.35)] transition-all hover:shadow-[0_24px_80px_rgba(249,115,22,0.5)] hover:scale-105 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:outline-none"
                 data-testid={primaryCTA.testId}
               >
                 {primaryCTA.text}
@@ -236,7 +231,7 @@ export function HeroMedia({
             {secondaryCTA && (
               <Link
                 href={secondaryCTA.href}
-                className="group inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white text-base font-semibold px-8 py-4 rounded-xl border border-white/10 hover:border-white/20 transition-all"
+                className="group inline-flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 backdrop-blur-sm text-white text-base font-semibold px-8 py-4 rounded-xl border border-white/10 hover:border-white/20 transition-all focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:outline-none"
                 data-testid={secondaryCTA.testId}
               >
                 <Play aria-hidden="true" className="w-5 h-5" />
@@ -246,60 +241,6 @@ export function HeroMedia({
           </div>
         )}
       </div>
-
-      {/* ---- Scoped styles ---- */}
-      <style>{`
-        /* Film grain — noisy SVG filter for that 2005 abrasive look */
-        .hero-grain {
-          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
-          background-repeat: repeat;
-          background-size: 128px 128px;
-          opacity: 0.12;
-          mix-blend-mode: overlay;
-        }
-
-        /* CRT scanlines */
-        .hero-scanlines {
-          background: repeating-linear-gradient(
-            0deg,
-            rgba(0,0,0,0.15) 0px,
-            rgba(0,0,0,0.15) 1px,
-            transparent 1px,
-            transparent 3px
-          );
-        }
-
-        /* "Own Your Tricks" stamp — rough ink aesthetic */
-        .stamp-badge {
-          transform: rotate(-2deg);
-          box-shadow:
-            inset 0 0 0 2px rgba(220,38,38,0.3),
-            3px 3px 0 rgba(0,0,0,0.4);
-          background: rgba(0,0,0,0.25);
-          backdrop-filter: blur(4px);
-        }
-
-        /* Fade-in cascade */
-        .hero-fade-in {
-          animation: heroFadeIn 0.9s ease-out forwards;
-          opacity: 0;
-        }
-        @keyframes heroFadeIn {
-          from { opacity: 0; transform: translateY(24px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-          .hero-fade-in {
-            animation: none;
-            opacity: 1;
-          }
-          .hero-grain,
-          .hero-scanlines {
-            display: none;
-          }
-        }
-      `}</style>
     </section>
   );
 }

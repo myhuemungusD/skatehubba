@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Eye, EyeOff, Mail, User, Lock, Loader2, AtSign } from "lucide-react";
+import { Eye, EyeOff, Mail, User, Lock, Loader2, AtSign, Calendar } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 import { Button } from "../../components/ui/button";
@@ -44,7 +44,7 @@ export function SignUpTab({
 
   const form = useForm<SignUpForm>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { name: "", email: "", password: "", username: "", stance: undefined },
+    defaultValues: { name: "", email: "", password: "", dob: "", username: "", stance: undefined },
     mode: "onChange",
   });
 
@@ -157,7 +157,7 @@ export function SignUpTab({
       return;
     }
 
-    const isValid = await form.trigger(["username", "stance"]);
+    const isValid = await form.trigger(["username", "stance", "dob"]);
     if (!isValid) return;
 
     setIsGoogleLoading(true);
@@ -291,6 +291,30 @@ export function SignUpTab({
             </p>
             {form.formState.errors.password && (
               <p className="text-sm text-red-400">{form.formState.errors.password.message}</p>
+            )}
+          </div>
+
+          {/* Date of Birth (age gate) */}
+          <div className="space-y-1">
+            <Label htmlFor="signup-dob" className="text-gray-300">
+              Date of Birth
+            </Label>
+            <div className="relative">
+              <Calendar
+                aria-hidden="true"
+                className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
+              />
+              <Input
+                id="signup-dob"
+                type="date"
+                {...form.register("dob")}
+                max={new Date().toISOString().split("T")[0]}
+                className="pl-10 h-10 bg-[#181818] border-gray-600 text-white placeholder:text-gray-500"
+              />
+            </div>
+            <p className="text-xs text-gray-500">You must be at least 13 years old</p>
+            {form.formState.errors.dob && (
+              <p className="text-sm text-red-400">{form.formState.errors.dob.message}</p>
             )}
           </div>
 

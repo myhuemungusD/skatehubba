@@ -22,9 +22,9 @@ export default function PublicNavigation() {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/">
+          <Link href="/" aria-label="SkateHubba home">
             <span
-              className="text-2xl font-bold text-[#ff6a00] cursor-pointer"
+              className="text-2xl font-bold text-brand cursor-pointer focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none rounded"
               style={{ fontFamily: "'Permanent Marker', cursive" }}
             >
               SkateHubba
@@ -37,7 +37,8 @@ export default function PublicNavigation() {
               href={EXTERNAL_LINKS.HUBBASHOP}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-300 hover:text-white transition-colors font-semibold text-sm flex items-center"
+              className="text-gray-300 hover:text-white transition-colors font-semibold text-sm flex items-center min-h-[44px] px-2 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none rounded"
+              aria-label="Shop SkateHubba merch (opens in new tab)"
             >
               <ShoppingBag className="w-4 h-4 mr-1" aria-hidden="true" />
               Merch
@@ -46,12 +47,12 @@ export default function PublicNavigation() {
             {/* Join CTA */}
             <Button
               asChild
-              className="bg-[#ff6a00] text-white hover:bg-[#ff6a00]/90 font-semibold"
+              className="bg-brand text-white hover:bg-brand/90 font-semibold"
               data-testid="button-public-nav-signin"
             >
-              <Link href="/auth?tab=signup">
+              <Link href="/auth">
                 <UserPlus className="w-4 h-4 mr-2" aria-hidden="true" />
-                Join the Beta
+                Sign Up / Log In
               </Link>
             </Button>
           </div>

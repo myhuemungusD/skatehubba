@@ -1,4 +1,4 @@
-import { Shield, Zap, Globe2, Trophy, MapPin, TrendingUp } from "lucide-react";
+import { Trophy, MapPin, TrendingUp } from "lucide-react";
 
 export const landingContent = {
   hero: {
@@ -12,28 +12,11 @@ export const landingContent = {
     description:
       "Film tricks. Check spots. Battle for rank. SkateHubba is built for skaters who want to compete — no judges, no entry fees, just you and your board.",
     primaryCTA: {
-      text: "Join the Beta",
-      href: "/auth?tab=signup",
+      text: "Sign Up / Log In",
+      href: "/auth",
       testId: "cta-landing-primary",
     },
   },
-  trustIndicators: [
-    {
-      icon: Shield,
-      text: "Secure Sign-In",
-      color: "text-emerald-400",
-    },
-    {
-      icon: Zap,
-      text: "Real-time Battles",
-      color: "text-amber-400",
-    },
-    {
-      icon: Globe2,
-      text: "Growing Beta Community",
-      color: "text-sky-400",
-    },
-  ],
   features: [
     {
       icon: Trophy,
@@ -46,7 +29,7 @@ export const landingContent = {
       icon: MapPin,
       title: "Skate Spot Map",
       description:
-        "Check into 50+ verified spots near you. Log your sessions and build credibility in your local scene.",
+        "Check into verified spots near you. Log your sessions and build credibility in your local scene.",
       iconColor: "text-blue-500",
     },
     {
@@ -55,23 +38,6 @@ export const landingContent = {
       description:
         "Every battle won and spot checked moves your rank. Real-time standings, zero politics.",
       iconColor: "text-emerald-500",
-    },
-  ],
-  stats: [
-    {
-      value: "50+",
-      label: "Verified Spots",
-      icon: MapPin,
-    },
-    {
-      value: "Active",
-      label: "Live Battles",
-      icon: Trophy,
-    },
-    {
-      value: "24/7",
-      label: "Platform Uptime",
-      icon: Zap,
     },
   ],
 };

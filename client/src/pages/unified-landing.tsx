@@ -25,7 +25,6 @@ import { FeatureGrid } from "../sections/landing/FeatureGrid";
 import { HubbaShopBanner } from "../sections/landing/HubbaShopBanner";
 import { landingContent } from "../content/landing";
 import { useAuth } from "../hooks/useAuth";
-import AppDropdownMenu from "../components/navigation/AppDropdownMenu";
 
 export default function UnifiedLanding() {
   const auth = useAuth();
@@ -45,20 +44,25 @@ export default function UnifiedLanding() {
     }
   }, [auth.isAuthenticated, auth.profileStatus, auth.loading, setLocation]);
 
-  // Show nothing while checking auth (prevents flash)
+  // Loading skeleton while checking auth (blank screens are release blockers)
   if (auth.loading || (auth.isAuthenticated && auth.profileStatus === "unknown")) {
-    return null;
+    return (
+      <div className="min-h-dvh bg-black flex items-center justify-center">
+        <span
+          className="text-3xl font-bold text-brand animate-pulse"
+          style={{ fontFamily: "'Permanent Marker', cursive" }}
+        >
+          SkateHubba
+        </span>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Nav floats over the full-bleed hero */}
-      <div className="absolute top-0 left-0 right-0 z-50">
+      <div className="absolute top-0 left-0 right-0">
         <PublicNavigation />
-      </div>
-
-      <div className="absolute top-0 right-0 m-4 z-50">
-        <AppDropdownMenu />
       </div>
 
       {/* Full-bleed hero with grain + A/B stamp overlay */}
@@ -69,11 +73,6 @@ export default function UnifiedLanding() {
         subtitle={landingContent.hero.subtitle}
         description={landingContent.hero.description}
         primaryCTA={landingContent.hero.primaryCTA}
-        secondaryCTA={{
-          text: "Watch Demo",
-          href: "/demo",
-          testId: "cta-landing-demo",
-        }}
       />
 
       <FeatureGrid features={landingContent.features} columns={3} />

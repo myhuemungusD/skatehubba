@@ -17,7 +17,7 @@ export function HubbaShopBanner() {
             href={EXTERNAL_LINKS.HUBBASHOP}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-black text-base font-bold uppercase tracking-wide px-8 py-4 rounded-xl shadow-[0_18px_60px_rgba(249,115,22,0.25)] transition-all hover:shadow-[0_24px_80px_rgba(249,115,22,0.4)] hover:scale-105"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-black text-base font-bold uppercase tracking-wide px-8 py-4 rounded-xl shadow-[0_18px_60px_rgba(249,115,22,0.25)] transition-all hover:shadow-[0_24px_80px_rgba(249,115,22,0.4)] hover:scale-105 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:outline-none"
             data-testid="cta-hubbashop"
           >
             Shop Now

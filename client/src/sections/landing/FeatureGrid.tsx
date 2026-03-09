@@ -20,7 +20,7 @@ export function FeatureGrid({ features, columns = 3 }: FeatureGridProps) {
   };
 
   return (
-    <section className="relative py-32 px-6">
+    <section className="relative py-16 md:py-32 px-6">
       {/* Background gradient */}
       <div className="absolute inset-0 bg-gradient-to-b from-black via-zinc-950 to-black" />
 
@@ -43,7 +43,10 @@ export function FeatureGrid({ features, columns = 3 }: FeatureGridProps) {
             return (
               <article key={i} className="group relative">
                 {/* Hover glow effect */}
-                <div aria-hidden="true" className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl opacity-0 group-hover:opacity-20 blur transition-opacity duration-500" />
+                <div
+                  aria-hidden="true"
+                  className="absolute -inset-0.5 bg-gradient-to-r from-orange-500 to-amber-500 rounded-2xl opacity-0 group-hover:opacity-20 blur transition-opacity duration-500"
+                />
 
                 <div className="relative h-full bg-gradient-to-br from-zinc-900 to-zinc-950 border border-zinc-800 hover:border-zinc-700 rounded-2xl p-8 transition-all duration-300 group-hover:scale-[1.02]">
                   {/* Icon */}
