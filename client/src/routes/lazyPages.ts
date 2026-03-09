@@ -7,6 +7,7 @@ export const ProfilePage = lazy(() => import("../pages/me"));
 export const CheckinsPage = lazy(() => import("../pages/checkins"));
 
 // Standalone pages
+export const RankingsPage = lazy(() => import("../pages/leaderboard"));
 export const Tutorial = lazy(() => import("../pages/tutorial"));
 export const Demo = lazy(() => import("../pages/demo"));
 export const MapPage = lazy(() => import("../pages/map"));

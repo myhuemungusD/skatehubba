@@ -419,7 +419,7 @@ function CompactLeaderboard({
       <SectionHeader icon={<Trophy className="w-4 h-4 text-yellow-400" />} title="Rankings" />
       <div className="space-y-2">
         {entries.slice(0, 10).map((entry: LeaderboardEntry, idx: number) => {
-          const isMe = currentUserId === entry.id;
+          const isMe = currentUserId === entry.firebaseUid;
           return (
             <div
               key={entry.id}
