@@ -24,6 +24,7 @@ import {
 
 describe("networkStore", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.useFakeTimers();
     useNetworkStore.getState().resetReconnectState();
     useNetworkStore.setState({

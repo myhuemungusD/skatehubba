@@ -278,8 +278,22 @@ describe("offlineCache", () => {
       expect(result).toEqual(session);
     });
 
-    it("cache is stale at exactly 24h 0m 1s", async () => {
-      const justStale = Date.now() - (MAX_CACHE_AGE_MS + 1000);
+    it("cache is still fresh at exactly 24h (isStale uses > not >=)", async () => {
+      const exactBoundary = Date.now() - MAX_CACHE_AGE_MS;
+      mockGetItem.mockImplementation((key: string) => {
+        if (key === "skatehubba_offline_timestamps")
+          return Promise.resolve(JSON.stringify({ activeGame: exactBoundary }));
+        if (key === "skatehubba_offline_active_game")
+          return Promise.resolve(JSON.stringify(session));
+        return Promise.resolve(null);
+      });
+
+      const result = await getCachedActiveGame();
+      expect(result).toEqual(session);
+    });
+
+    it("cache is stale at 24h + 1ms", async () => {
+      const justStale = Date.now() - MAX_CACHE_AGE_MS - 1;
       mockGetItem.mockImplementation((key: string) => {
         if (key === "skatehubba_offline_timestamps")
           return Promise.resolve(JSON.stringify({ activeGame: justStale }));

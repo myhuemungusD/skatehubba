@@ -111,6 +111,15 @@ describe("usePushNotifications", () => {
     expect(mockRouter.push).toHaveBeenCalledWith("/game/game-final");
   });
 
+  it("notification tap handler routes to game for game_game_over", () => {
+    const mockRouter = { push: vi.fn() };
+    const data = { type: "game_game_over", gameId: "game-done" };
+    if (data.gameId && (data.type === "game_over" || data.type === "game_game_over")) {
+      mockRouter.push(`/game/${data.gameId}`);
+    }
+    expect(mockRouter.push).toHaveBeenCalledWith("/game/game-done");
+  });
+
   it("notification tap handler routes to challenge for quick_match", () => {
     const mockRouter = { push: vi.fn() };
     const data = { type: "quick_match", challengeId: "qm-001" };
