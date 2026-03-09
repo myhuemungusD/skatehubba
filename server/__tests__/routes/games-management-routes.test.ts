@@ -106,6 +106,10 @@ vi.mock("@shared/schema", () => ({
     id: "id",
     displayName: "displayName",
   },
+  onboardingProfiles: {
+    uid: "uid",
+    username: "username",
+  },
   customUsers: {
     id: "id",
     firebaseUid: "firebaseUid",
@@ -564,7 +568,9 @@ describe("Game Management Routes", () => {
         [
           { id: "fb-p1", displayName: "Skate King" },
           { id: "fb-p2", displayName: null },
-        ]
+        ],
+        // [4] onboardingProfiles batch fetch (fallback usernames)
+        []
       );
 
       const req = mockRequest();
@@ -575,6 +581,7 @@ describe("Game Management Routes", () => {
       expect(result.entries).toHaveLength(2);
       expect(result.entries[0]).toEqual({
         id: "p1",
+        firebaseUid: "fb-p1",
         displayName: "Skate King",
         username: "sk8king",
         wins: 10,
@@ -583,6 +590,7 @@ describe("Game Management Routes", () => {
       });
       expect(result.entries[1]).toEqual({
         id: "p2",
+        firebaseUid: "fb-p2",
         displayName: "treflip",
         username: "treflip",
         wins: 7,
@@ -606,6 +614,8 @@ describe("Game Management Routes", () => {
           { uid: "fb-u2", username: "newskater" },
         ],
         // [3] userProfiles — empty
+        [],
+        // [4] onboardingProfiles — empty
         []
       );
 
@@ -618,6 +628,7 @@ describe("Game Management Routes", () => {
       // Sorted alphabetically by displayName when wins/losses are equal
       expect(result.entries[0]).toEqual({
         id: "u2",
+        firebaseUid: "fb-u2",
         displayName: "newskater",
         username: "newskater",
         wins: 0,
@@ -626,6 +637,7 @@ describe("Game Management Routes", () => {
       });
       expect(result.entries[1]).toEqual({
         id: "u1",
+        firebaseUid: "fb-u1",
         displayName: "Tony Hawk",
         username: "tonyhawk",
         wins: 0,
@@ -643,6 +655,8 @@ describe("Game Management Routes", () => {
         // [2] usernames — empty (no username for this user)
         [],
         // [3] userProfiles — empty (no profile)
+        [],
+        // [4] onboardingProfiles — empty
         []
       );
 
@@ -653,6 +667,30 @@ describe("Game Management Routes", () => {
       const result = vi.mocked(res.json).mock.calls[0][0];
       expect(result.entries[0].displayName).toBe("Skater");
       expect(result.entries[0].username).toBeUndefined();
+    });
+
+    it("falls back to onboardingProfiles username when usernames table is empty", async () => {
+      resultQueue.push(
+        // [0] allUsers
+        [{ id: "u1", firebaseUid: "fb-u1", firstName: "Jane", lastName: "Doe" }],
+        // [1] player stats — empty
+        [],
+        // [2] usernames — empty (not in usernames table)
+        [],
+        // [3] userProfiles — empty
+        [],
+        // [4] onboardingProfiles — has the username from normal signup
+        [{ uid: "fb-u1", username: "janeskates" }]
+      );
+
+      const req = mockRequest();
+      const res = mockResponse();
+      await callRoute("GET", "/leaderboard", req, res);
+
+      const result = vi.mocked(res.json).mock.calls[0][0];
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0].username).toBe("janeskates");
+      expect(result.entries[0].displayName).toBe("Jane Doe");
     });
 
     it("sets Cache-Control header", async () => {

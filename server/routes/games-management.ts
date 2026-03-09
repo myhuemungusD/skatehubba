@@ -11,6 +11,7 @@ import {
   gameDisputes,
   usernames,
   userProfiles,
+  onboardingProfiles,
   customUsers,
 } from "@shared/schema";
 import { eq, or, desc, and, sql, inArray, isNotNull } from "drizzle-orm";
@@ -214,7 +215,7 @@ router.get("/leaderboard", async (_req, res) => {
     // 3. Fetch usernames and display names for all users
     const fbUids = allUsers.filter((u) => u.firebaseUid).map((u) => u.firebaseUid!);
 
-    const [handleRows, profileRows] = await Promise.all([
+    const [handleRows, profileRows, onboardingRows] = await Promise.all([
       fbUids.length > 0
         ? db
             .select({ uid: usernames.uid, username: usernames.username })
@@ -227,9 +228,21 @@ router.get("/leaderboard", async (_req, res) => {
             .from(userProfiles)
             .where(inArray(userProfiles.id, fbUids))
         : Promise.resolve([]),
+      fbUids.length > 0
+        ? db
+            .select({ uid: onboardingProfiles.uid, username: onboardingProfiles.username })
+            .from(onboardingProfiles)
+            .where(inArray(onboardingProfiles.uid, fbUids))
+        : Promise.resolve([]),
     ]);
 
     const handleByFbUid = new Map(handleRows.map((h) => [h.uid, h.username]));
+    // Merge onboarding usernames as fallback (normal auth flow stores here)
+    for (const row of onboardingRows) {
+      if (!handleByFbUid.has(row.uid)) {
+        handleByFbUid.set(row.uid, row.username);
+      }
+    }
     const displayNameByFbUid = new Map(profileRows.map((p) => [p.id, p.displayName]));
 
     // 4. Build leaderboard entries for ALL users, merging game stats
@@ -243,6 +256,7 @@ router.get("/leaderboard", async (_req, res) => {
 
       return {
         id: u.id,
+        firebaseUid: u.firebaseUid ?? undefined,
         displayName: profileDisplayName || fullName || handle || "Skater",
         username: handle ?? undefined,
         wins,
