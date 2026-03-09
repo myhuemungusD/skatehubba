@@ -43,12 +43,10 @@ vi.mock("../idempotency", () => ({
 }));
 
 // DB mock
-const mockForUpdate = vi.fn();
 const mockTxWhere = vi.fn();
 const mockTxUpdate = vi.fn();
 const mockTxSet = vi.fn();
 
-const mockDbWhere = vi.fn();
 const mockDbUpdate = vi.fn();
 const mockDbSet = vi.fn();
 
@@ -94,7 +92,8 @@ function createMockDb(expiredStates: unknown[]) {
   return db;
 }
 
-const dbContainer = vi.hoisted(() => ({ current: null as any }));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock container requires flexible typing
+const dbContainer = vi.hoisted(() => ({ current: null as Record<string, any> | null }));
 
 vi.mock("../../../db", () => ({
   getDb: () => dbContainer.current,

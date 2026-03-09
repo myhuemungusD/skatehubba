@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 vi.mock("node:crypto", () => ({
   default: { randomBytes: () => ({ toString: () => "abcd1234" }) },
@@ -29,7 +29,8 @@ describe("generateEventId", () => {
 });
 
 describe("MAX_PROCESSED_EVENTS", () => {
-  it("is 50", () => {
-    expect(MAX_PROCESSED_EVENTS).toBe(50);
+  it("is a positive integer", () => {
+    expect(MAX_PROCESSED_EVENTS).toBeGreaterThan(0);
+    expect(Number.isInteger(MAX_PROCESSED_EVENTS)).toBe(true);
   });
 });

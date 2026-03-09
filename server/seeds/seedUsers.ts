@@ -133,141 +133,150 @@ async function main() {
   // 3. Connect to database
   console.log("Connecting to database...");
   const pool = new Pool({ connectionString: databaseUrl, max: 5 });
-  const db = drizzle(pool, { schema });
 
-  // 4. List all Firebase Auth users
-  console.log("Fetching users from Firebase Auth...\n");
-  const allFirebaseUsers: firebaseAdmin.auth.UserRecord[] = [];
-  let nextPageToken: string | undefined;
+  try {
+    const db = drizzle(pool, { schema });
 
-  do {
-    const listResult = await firebaseAdmin.auth().listUsers(1000, nextPageToken);
-    allFirebaseUsers.push(...listResult.users);
-    nextPageToken = listResult.pageToken;
-  } while (nextPageToken);
+    // 4. List all Firebase Auth users
+    console.log("Fetching users from Firebase Auth...\n");
+    const allFirebaseUsers: firebaseAdmin.auth.UserRecord[] = [];
+    let nextPageToken: string | undefined;
 
-  console.log(`Found ${allFirebaseUsers.length} users in Firebase Auth.\n`);
+    do {
+      const listResult = await firebaseAdmin.auth().listUsers(1000, nextPageToken);
+      allFirebaseUsers.push(...listResult.users);
+      nextPageToken = listResult.pageToken;
+    } while (nextPageToken);
 
-  if (allFirebaseUsers.length === 0) {
-    console.log("No users to seed.");
+    console.log(`Found ${allFirebaseUsers.length} users in Firebase Auth.\n`);
+
+    if (allFirebaseUsers.length === 0) {
+      console.log("No users to seed.");
+      return;
+    }
+
+    let inserted = 0;
+    let skipped = 0;
+    let errors = 0;
+
+    for (const fbUser of allFirebaseUsers) {
+      const firebaseUid = fbUser.uid;
+      const email = fbUser.email;
+
+      if (!email) {
+        console.log(`  ⊘ Skipping user ${firebaseUid} — no email`);
+        skipped++;
+        continue;
+      }
+
+      // Check if user already exists in PostgreSQL
+      const existing = await db
+        .select({ id: schema.customUsers.id })
+        .from(schema.customUsers)
+        .where(eq(schema.customUsers.firebaseUid, firebaseUid))
+        .limit(1);
+
+      if (existing.length > 0) {
+        console.log(`  ⊘ Skipping ${email} — already in database`);
+        skipped++;
+        continue;
+      }
+
+      // Also check by email in case they registered without firebaseUid link
+      const existingByEmail = await db
+        .select({ id: schema.customUsers.id })
+        .from(schema.customUsers)
+        .where(eq(schema.customUsers.email, email.toLowerCase()))
+        .limit(1);
+
+      if (existingByEmail.length > 0) {
+        console.log(`  ⊘ Skipping ${email} — email already in database`);
+        skipped++;
+        continue;
+      }
+
+      const { firstName, lastName } = parseName(fbUser.displayName);
+      let handle = generateHandle(email, fbUser.displayName, firebaseUid);
+
+      try {
+        // Use a transaction so all 3 inserts succeed or none do
+        await db.transaction(async (tx) => {
+          // Insert into customUsers
+          const [newUser] = await tx
+            .insert(schema.customUsers)
+            .values({
+              email: email.toLowerCase(),
+              passwordHash: "firebase-auth-user",
+              firstName,
+              lastName: lastName || null,
+              firebaseUid,
+              isEmailVerified: fbUser.emailVerified ?? false,
+              isActive: true,
+              accountTier: "free",
+            })
+            .returning({ id: schema.customUsers.id });
+
+          // Ensure handle uniqueness — retry with numeric suffixes if taken
+          const baseHandle = handle;
+          let handleAvailable = false;
+          for (let attempt = 0; attempt < 10; attempt++) {
+            const existingHandle = await tx
+              .select({ id: schema.usernames.id })
+              .from(schema.usernames)
+              .where(eq(schema.usernames.username, handle))
+              .limit(1);
+
+            if (existingHandle.length === 0) {
+              handleAvailable = true;
+              break;
+            }
+
+            handle = `${baseHandle.slice(0, 15)}${attempt}${Math.floor(Math.random() * 999)
+              .toString()
+              .padStart(3, "0")}`;
+          }
+
+          if (!handleAvailable) {
+            throw new Error(`could not find unique handle after 10 attempts (base: ${baseHandle})`);
+          }
+
+          // Insert into usernames
+          await tx.insert(schema.usernames).values({
+            uid: newUser.id,
+            username: handle,
+          });
+
+          // Insert into userProfiles
+          await tx.insert(schema.userProfiles).values({
+            id: newUser.id,
+            handle,
+            displayName: fbUser.displayName || firstName,
+            bio: null,
+            photoURL: fbUser.photoURL || null,
+            stance: "regular",
+            homeSpot: null,
+            wins: 0,
+            losses: 0,
+            xp: 0,
+          });
+        });
+
+        console.log(`  ✓ Seeded ${email} → @${handle}`);
+        inserted++;
+      } catch (error) {
+        errors++;
+        console.warn(
+          `  ⚠ Failed to seed ${email}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+    }
+
+    console.log("\n========================================");
+    console.log(`Done! Inserted: ${inserted} | Skipped: ${skipped} | Errors: ${errors}`);
+    console.log("========================================");
+  } finally {
     await pool.end();
-    return;
   }
-
-  let inserted = 0;
-  let skipped = 0;
-  let errors = 0;
-
-  for (const fbUser of allFirebaseUsers) {
-    const firebaseUid = fbUser.uid;
-    const email = fbUser.email;
-
-    if (!email) {
-      console.log(`  ⊘ Skipping user ${firebaseUid} — no email`);
-      skipped++;
-      continue;
-    }
-
-    // Check if user already exists in PostgreSQL
-    const existing = await db
-      .select({ id: schema.customUsers.id })
-      .from(schema.customUsers)
-      .where(eq(schema.customUsers.firebaseUid, firebaseUid))
-      .limit(1);
-
-    if (existing.length > 0) {
-      console.log(`  ⊘ Skipping ${email} — already in database`);
-      skipped++;
-      continue;
-    }
-
-    // Also check by email in case they registered without firebaseUid link
-    const existingByEmail = await db
-      .select({ id: schema.customUsers.id })
-      .from(schema.customUsers)
-      .where(eq(schema.customUsers.email, email.toLowerCase()))
-      .limit(1);
-
-    if (existingByEmail.length > 0) {
-      console.log(`  ⊘ Skipping ${email} — email already in database`);
-      skipped++;
-      continue;
-    }
-
-    const { firstName, lastName } = parseName(fbUser.displayName);
-    let handle = generateHandle(email, fbUser.displayName, firebaseUid);
-
-    try {
-      // Use a transaction so all 3 inserts succeed or none do
-      await db.transaction(async (tx) => {
-        // Insert into customUsers
-        const [newUser] = await tx
-          .insert(schema.customUsers)
-          .values({
-            email: email.toLowerCase(),
-            passwordHash: "firebase-auth-user",
-            firstName,
-            lastName: lastName || null,
-            firebaseUid,
-            isEmailVerified: fbUser.emailVerified ?? false,
-            isActive: true,
-            accountTier: "free",
-          })
-          .returning({ id: schema.customUsers.id });
-
-        // Ensure handle uniqueness — retry with numeric suffixes if taken
-        const baseHandle = handle;
-        for (let attempt = 0; attempt < 10; attempt++) {
-          const existingHandle = await tx
-            .select({ id: schema.usernames.id })
-            .from(schema.usernames)
-            .where(eq(schema.usernames.username, handle))
-            .limit(1);
-
-          if (existingHandle.length === 0) break;
-
-          const suffix = Math.floor(Math.random() * 9999)
-            .toString()
-            .padStart(4, "0");
-          handle = `${baseHandle.slice(0, 15)}${suffix}`;
-        }
-
-        // Insert into usernames
-        await tx.insert(schema.usernames).values({
-          uid: newUser.id,
-          username: handle,
-        });
-
-        // Insert into userProfiles
-        await tx.insert(schema.userProfiles).values({
-          id: newUser.id,
-          handle,
-          displayName: fbUser.displayName || firstName,
-          bio: null,
-          photoURL: fbUser.photoURL || null,
-          stance: "regular",
-          homeSpot: null,
-          wins: 0,
-          losses: 0,
-          xp: 0,
-        });
-      });
-
-      console.log(`  ✓ Seeded ${email} → @${handle}`);
-      inserted++;
-    } catch (error) {
-      errors++;
-      console.warn(
-        `  ⚠ Failed to seed ${email}: ${error instanceof Error ? error.message : String(error)}`
-      );
-    }
-  }
-
-  console.log("\n========================================");
-  console.log(`Done! Inserted: ${inserted} | Skipped: ${skipped} | Errors: ${errors}`);
-  console.log("========================================");
-
-  await pool.end();
 }
 
 main().catch((error) => {

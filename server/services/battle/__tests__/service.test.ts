@@ -134,7 +134,8 @@ function createDbMock(
   return db;
 }
 
-const dbContainer = vi.hoisted(() => ({ current: null as any }));
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- mock container requires flexible typing
+const dbContainer = vi.hoisted(() => ({ current: null as Record<string, any> | null }));
 
 vi.mock("../../../db", () => ({
   getDb: () => dbContainer.current,
