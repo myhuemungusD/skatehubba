@@ -172,32 +172,31 @@ router.get("/leaderboard", async (_req, res) => {
   try {
     const db = getDb();
 
-    // 1. Get ALL registered users with a Firebase UID (top 20)
-    const allUsers = await db
-      .select({
-        id: customUsers.id,
-        firebaseUid: customUsers.firebaseUid,
-        firstName: customUsers.firstName,
-        lastName: customUsers.lastName,
-      })
-      .from(customUsers)
-      .where(isNotNull(customUsers.firebaseUid))
-      .limit(20);
-
-    if (allUsers.length === 0) {
-      res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
-      return res.json({ entries: [] });
-    }
-
-    // 2. Aggregate wins/losses from completed/forfeited games
-    const playerStats = await db
-      .select({
-        playerId: sql<string>`player_id`,
-        wins: sql<number>`count(*) filter (where won)::int`,
-        losses: sql<number>`count(*) filter (where not won)::int`,
-      })
-      .from(
-        sql`(
+    // 1. Rank ALL registered users by game stats using a single query.
+    //    LEFT JOIN ensures users with 0 games still appear.
+    //    Sorted by wins desc, win rate desc, total games desc → top 20.
+    const ranked = await db.execute<{
+      id: string;
+      firebase_uid: string | null;
+      first_name: string | null;
+      last_name: string | null;
+      wins: number;
+      losses: number;
+    }>(sql`
+      select
+        cu.id,
+        cu.firebase_uid,
+        cu.first_name,
+        cu.last_name,
+        coalesce(gs.wins, 0)::int as wins,
+        coalesce(gs.losses, 0)::int as losses
+      from custom_users cu
+      left join (
+        select
+          player_id,
+          count(*) filter (where won)::int as wins,
+          count(*) filter (where not won)::int as losses
+        from (
           select player1_id as player_id, (winner_id = player1_id) as won
           from games
           where status in ('completed', 'forfeited') and player1_id is not null
@@ -205,14 +204,27 @@ router.get("/leaderboard", async (_req, res) => {
           select player2_id as player_id, (winner_id = player2_id) as won
           from games
           where status in ('completed', 'forfeited') and player2_id is not null
-        ) as player_games`
-      )
-      .groupBy(sql`player_id`);
+        ) pg
+        group by player_id
+      ) gs on gs.player_id = cu.id
+      where cu.firebase_uid is not null
+      order by
+        coalesce(gs.wins, 0) desc,
+        coalesce(gs.wins, 0)::float / nullif(coalesce(gs.wins, 0) + coalesce(gs.losses, 0), 0) desc nulls last,
+        coalesce(gs.wins, 0) + coalesce(gs.losses, 0) desc,
+        cu.first_name asc nulls last
+      limit 20
+    `);
 
-    const statsById = new Map(playerStats.map((p) => [p.playerId, p]));
+    const rows = ranked.rows ?? ranked;
 
-    // 3. Fetch usernames and display names for all users
-    const fbUids = allUsers.filter((u) => u.firebaseUid).map((u) => u.firebaseUid!);
+    if (!Array.isArray(rows) || rows.length === 0) {
+      res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
+      return res.json({ entries: [] });
+    }
+
+    // 2. Fetch usernames and display names for enrichment
+    const fbUids = rows.filter((r) => r.firebase_uid).map((r) => r.firebase_uid!);
 
     const [handleRows, profileRows] = await Promise.all([
       fbUids.length > 0
@@ -232,37 +244,23 @@ router.get("/leaderboard", async (_req, res) => {
     const handleByFbUid = new Map(handleRows.map((h) => [h.uid, h.username]));
     const displayNameByFbUid = new Map(profileRows.map((p) => [p.id, p.displayName]));
 
-    // 4. Build leaderboard entries for ALL users, merging game stats
-    const unsorted = allUsers.map((u) => {
-      const stats = statsById.get(u.id);
-      const wins = stats?.wins ?? 0;
-      const losses = stats?.losses ?? 0;
-      const handle = u.firebaseUid ? handleByFbUid.get(u.firebaseUid) : undefined;
-      const profileDisplayName = u.firebaseUid ? displayNameByFbUid.get(u.firebaseUid) : undefined;
-      const fullName = `${u.firstName || ""} ${u.lastName || ""}`.trim();
+    // 3. Build entries — ranking comes from SQL ORDER BY
+    const entries = rows.map((r, idx) => {
+      const handle = r.firebase_uid ? handleByFbUid.get(r.firebase_uid) : undefined;
+      const profileDisplayName = r.firebase_uid
+        ? displayNameByFbUid.get(r.firebase_uid)
+        : undefined;
+      const fullName = `${r.first_name || ""} ${r.last_name || ""}`.trim();
 
       return {
-        id: u.id,
+        id: r.id,
         displayName: profileDisplayName || fullName || handle || "Skater",
         username: handle ?? undefined,
-        wins,
-        losses,
+        wins: r.wins,
+        losses: r.losses,
+        rank: idx + 1,
       };
     });
-
-    // 5. Sort: wins desc → win rate desc → total games desc → name asc
-    unsorted.sort((a, b) => {
-      if (b.wins !== a.wins) return b.wins - a.wins;
-      const aTotal = a.wins + a.losses;
-      const bTotal = b.wins + b.losses;
-      const aRate = aTotal > 0 ? a.wins / aTotal : 0;
-      const bRate = bTotal > 0 ? b.wins / bTotal : 0;
-      if (bRate !== aRate) return bRate - aRate;
-      if (bTotal !== aTotal) return bTotal - aTotal;
-      return a.displayName.localeCompare(b.displayName);
-    });
-
-    const entries = unsorted.map((e, idx) => ({ ...e, rank: idx + 1 }));
 
     res.set("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
     res.json({ entries });

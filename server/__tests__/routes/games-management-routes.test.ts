@@ -170,6 +170,7 @@ vi.mock("../../db", () => ({
       select: vi.fn().mockImplementation(() => makeChain()),
       update: vi.fn().mockImplementation(() => makeChain()),
       insert: vi.fn().mockImplementation(() => makeChain()),
+      execute: vi.fn().mockImplementation(() => nextResult()),
       transaction: vi.fn().mockImplementation(async (cb: any) => {
         const tx = {
           execute: vi.fn().mockResolvedValue(undefined),
@@ -545,22 +546,33 @@ describe("Game Management Routes", () => {
   describe("GET /leaderboard", () => {
     it("returns ranked entries with display names and usernames", async () => {
       resultQueue.push(
-        // [0] all customUsers with firebaseUid
-        [
-          { id: "p1", firebaseUid: "fb-p1", firstName: "Skate", lastName: "King" },
-          { id: "p2", firebaseUid: "fb-p2", firstName: null, lastName: null },
-        ],
-        // [1] aggregated player stats from raw SQL subquery
-        [
-          { playerId: "p1", wins: 10, losses: 2 },
-          { playerId: "p2", wins: 7, losses: 5 },
-        ],
-        // [2] usernames batch fetch (by firebaseUid)
+        // [0] db.execute → ranked users with stats (single SQL query)
+        {
+          rows: [
+            {
+              id: "p1",
+              firebase_uid: "fb-p1",
+              first_name: "Skate",
+              last_name: "King",
+              wins: 10,
+              losses: 2,
+            },
+            {
+              id: "p2",
+              firebase_uid: "fb-p2",
+              first_name: null,
+              last_name: null,
+              wins: 7,
+              losses: 5,
+            },
+          ],
+        },
+        // [1] usernames batch fetch (by firebaseUid)
         [
           { uid: "fb-p1", username: "sk8king" },
           { uid: "fb-p2", username: "treflip" },
         ],
-        // [3] userProfiles batch fetch (by firebaseUid)
+        // [2] userProfiles batch fetch (by firebaseUid)
         [
           { id: "fb-p1", displayName: "Skate King" },
           { id: "fb-p2", displayName: null },
@@ -593,19 +605,33 @@ describe("Game Management Routes", () => {
 
     it("shows registered users when no games exist", async () => {
       resultQueue.push(
-        // [0] all customUsers with firebaseUid
-        [
-          { id: "u1", firebaseUid: "fb-u1", firstName: "Tony", lastName: "Hawk" },
-          { id: "u2", firebaseUid: "fb-u2", firstName: null, lastName: null },
-        ],
-        // [1] aggregated player stats — empty
-        [],
-        // [2] usernames for those firebaseUids
+        // [0] db.execute → all users with 0 wins/losses (SQL sorts by first_name)
+        {
+          rows: [
+            {
+              id: "u2",
+              firebase_uid: "fb-u2",
+              first_name: null,
+              last_name: null,
+              wins: 0,
+              losses: 0,
+            },
+            {
+              id: "u1",
+              firebase_uid: "fb-u1",
+              first_name: "Tony",
+              last_name: "Hawk",
+              wins: 0,
+              losses: 0,
+            },
+          ],
+        },
+        // [1] usernames for those firebaseUids
         [
           { uid: "fb-u1", username: "tonyhawk" },
           { uid: "fb-u2", username: "newskater" },
         ],
-        // [3] userProfiles — empty
+        // [2] userProfiles — empty
         []
       );
 
@@ -615,7 +641,7 @@ describe("Game Management Routes", () => {
 
       const result = vi.mocked(res.json).mock.calls[0][0];
       expect(result.entries).toHaveLength(2);
-      // Sorted alphabetically by displayName when wins/losses are equal
+      // Order comes from SQL — nulls last on first_name
       expect(result.entries[0]).toEqual({
         id: "u2",
         displayName: "newskater",
@@ -636,13 +662,22 @@ describe("Game Management Routes", () => {
 
     it("falls back to 'Skater' when no display name or username", async () => {
       resultQueue.push(
-        // [0] allUsers — user with firebaseUid but no name
-        [{ id: "ghost", firebaseUid: "fb-ghost", firstName: null, lastName: null }],
-        // [1] player stats — no games
+        // [0] db.execute → user with no name
+        {
+          rows: [
+            {
+              id: "ghost",
+              firebase_uid: "fb-ghost",
+              first_name: null,
+              last_name: null,
+              wins: 3,
+              losses: 1,
+            },
+          ],
+        },
+        // [1] usernames — empty
         [],
-        // [2] usernames — empty (no username for this user)
-        [],
-        // [3] userProfiles — empty (no profile)
+        // [2] userProfiles — empty
         []
       );
 
@@ -657,9 +692,8 @@ describe("Game Management Routes", () => {
 
     it("sets Cache-Control header", async () => {
       resultQueue.push(
-        // [0] all customUsers — empty
-        []
-        // no further queries since no users
+        // [0] db.execute → empty result
+        { rows: [] }
       );
 
       const req = mockRequest();
