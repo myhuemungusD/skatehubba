@@ -19,6 +19,9 @@ type GameNotificationType =
   | "deadline_warning"
   | "dispute_filed";
 
+/** Turn role context for Remote S.K.A.T.E. notifications */
+export type TurnRole = "set" | "defend" | "judge" | "confirm";
+
 interface NotificationData {
   gameId: string;
   challengerName?: string;
@@ -29,6 +32,8 @@ interface NotificationData {
   disputeId?: number;
   minutesRemaining?: number;
   trickName?: string;
+  /** Role context for turn-based notifications (Remote S.K.A.T.E.) */
+  role?: TurnRole;
 }
 
 const NOTIFICATION_CONFIG: Record<
@@ -39,12 +44,38 @@ const NOTIFICATION_CONFIG: Record<
     title: "New S.K.A.T.E. Challenge",
     body: `@${data.challengerName || "Someone"} challenged you to S.K.A.T.E. — accept or decline.`,
   }),
-  your_turn: (data) => ({
-    title: "Your move.",
-    body: data.trickName
-      ? `@${data.opponentName || "Opponent"} set a ${data.trickName} — your move`
-      : `@${data.opponentName || "Opponent"} is waiting — your move`,
-  }),
+  your_turn: (data) => {
+    const opponent = data.opponentName || "Opponent";
+    switch (data.role) {
+      case "set":
+        return {
+          title: "Your turn to set.",
+          body: `Set a trick for @${opponent} to match.`,
+        };
+      case "defend":
+        return {
+          title: "Time to defend.",
+          body: `@${opponent} set a trick — match it or take a letter.`,
+        };
+      case "judge":
+        return {
+          title: "Call it.",
+          body: `@${opponent} replied — did they land it?`,
+        };
+      case "confirm":
+        return {
+          title: "Confirm the call.",
+          body: `@${opponent} made the call — agree or dispute.`,
+        };
+      default:
+        return {
+          title: "Your move.",
+          body: data.trickName
+            ? `@${opponent} set a ${data.trickName} — your move`
+            : `@${opponent} is waiting — your move`,
+        };
+    }
+  },
   game_over: (data) => ({
     title: data.youWon ? "VICTORY" : "S.K.A.T.E.",
     body: data.youWon
@@ -89,7 +120,7 @@ export async function sendGameNotification(
       data: {
         type: `game_${type}`,
         gameId: data.gameId,
-        ...(data.disputeId ? { disputeId: String(data.disputeId) } : {}),
+        ...(data.disputeId ? { disputeId: data.disputeId } : {}),
       },
       sound: "default",
       channelId: "game",
@@ -122,6 +153,7 @@ export async function sendGameNotificationToUser(
         opponentName: data.opponentName,
         challengerName: data.challengerName,
         youWon: data.youWon,
+        ...(data.role ? { role: data.role } : {}),
         ...(data.disputeId ? { disputeId: data.disputeId } : {}),
       },
     });

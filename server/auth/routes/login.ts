@@ -12,6 +12,9 @@ import { getClientIP } from "../audit.ts";
 import { LockoutService } from "../lockout.ts";
 import logger from "../../logger.ts";
 import { sendVerificationEmail } from "../email.ts";
+import { getDb } from "../../db.ts";
+import { deviceTokens, customUsers } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 
 // NOTE: CSRF validation is handled globally by app.use("/api", requireCsrfToken)
 // in server/index.ts. Do not add per-route requireCsrfToken here.
@@ -77,7 +80,7 @@ export function setupLoginRoutes(app: Express) {
         }
 
         const uid = decoded.uid;
-        const { firstName, lastName, isRegistration } = req.body;
+        const { firstName, lastName, isRegistration, pushToken, platform } = req.body;
 
         // Find or create user record
         let user = await AuthService.findUserByFirebaseUid(uid);
@@ -132,6 +135,37 @@ export function setupLoginRoutes(app: Express) {
           maxAge: 24 * 60 * 60 * 1000, // 24 hours
           path: "/",
         });
+
+        // Register device push token if provided (non-blocking)
+        if (pushToken && typeof pushToken === "string" && pushToken.length <= 500) {
+          const devicePlatform = platform === "ios" || platform === "web" ? platform : "android";
+          const db = getDb();
+          db.insert(deviceTokens)
+            .values({
+              userId: user.id,
+              token: pushToken,
+              platform: devicePlatform,
+              lastUsedAt: new Date(),
+            })
+            .onConflictDoUpdate({
+              target: deviceTokens.token,
+              set: {
+                userId: user.id,
+                platform: devicePlatform,
+                lastUsedAt: new Date(),
+              },
+            })
+            .then(() => {
+              // Also set legacy pushToken for backward compat
+              return db
+                .update(customUsers)
+                .set({ pushToken, updatedAt: new Date() })
+                .where(eq(customUsers.id, user.id));
+            })
+            .catch((err: unknown) =>
+              logger.warn("[Auth] Failed to register push token on login", { error: String(err) })
+            );
+        }
 
         return res.status(200).json({
           user: {
@@ -198,6 +232,26 @@ export function setupLoginRoutes(app: Express) {
       } else if (authHeader && authHeader.startsWith("Bearer ")) {
         const token = authHeader.substring(7);
         await AuthService.deleteSession(token);
+      }
+
+      // Remove device push tokens (non-blocking — don't fail logout on token cleanup)
+      try {
+        const { pushToken: logoutPushToken } = req.body || {};
+        const db = getDb();
+        if (logoutPushToken && typeof logoutPushToken === "string") {
+          await db
+            .delete(deviceTokens)
+            .where(and(eq(deviceTokens.userId, user.id), eq(deviceTokens.token, logoutPushToken)));
+        } else {
+          await db.delete(deviceTokens).where(eq(deviceTokens.userId, user.id));
+        }
+        // Clear legacy pushToken
+        await db
+          .update(customUsers)
+          .set({ pushToken: null, updatedAt: new Date() })
+          .where(eq(customUsers.id, user.id));
+      } catch (err) {
+        logger.warn("[Auth] Failed to clean up push tokens on logout", { error: String(err) });
       }
 
       // Log the logout event
