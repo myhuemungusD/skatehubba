@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { customUsers } from "./auth";
 
 // Notification types enum
 export const NOTIFICATION_TYPES = [
@@ -41,9 +42,9 @@ export const notifications = pgTable(
     body: text("body").notNull(),
     data: json("data").$type<Record<string, unknown>>(),
     channel: varchar("channel", { length: 20 }).notNull().default("in_app"),
-    isRead: boolean("is_read").default(false).notNull(),
-    readAt: timestamp("read_at"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    isRead: boolean("is_read").notNull().default(false),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userIdx: index("IDX_notifications_user").on(table.userId),
@@ -62,20 +63,20 @@ export const notificationPreferences = pgTable(
     id: serial("id").primaryKey(),
     userId: varchar("user_id", { length: 255 }).notNull(),
     // Push notification channels
-    pushEnabled: boolean("push_enabled").default(true).notNull(),
-    emailEnabled: boolean("email_enabled").default(true).notNull(),
-    inAppEnabled: boolean("in_app_enabled").default(true).notNull(),
+    pushEnabled: boolean("push_enabled").notNull().default(true),
+    emailEnabled: boolean("email_enabled").notNull().default(true),
+    inAppEnabled: boolean("in_app_enabled").notNull().default(true),
     // Per-category toggles
-    gameNotifications: boolean("game_notifications").default(true).notNull(),
-    challengeNotifications: boolean("challenge_notifications").default(true).notNull(),
-    turnNotifications: boolean("turn_notifications").default(true).notNull(),
-    resultNotifications: boolean("result_notifications").default(true).notNull(),
-    marketingEmails: boolean("marketing_emails").default(true).notNull(),
-    weeklyDigest: boolean("weekly_digest").default(true).notNull(),
+    gameNotifications: boolean("game_notifications").notNull().default(true),
+    challengeNotifications: boolean("challenge_notifications").notNull().default(true),
+    turnNotifications: boolean("turn_notifications").notNull().default(true),
+    resultNotifications: boolean("result_notifications").notNull().default(true),
+    marketingEmails: boolean("marketing_emails").notNull().default(true),
+    weeklyDigest: boolean("weekly_digest").notNull().default(true),
     // Quiet hours (stored as HH:MM in user's local time)
     quietHoursStart: varchar("quiet_hours_start", { length: 5 }),
     quietHoursEnd: varchar("quiet_hours_end", { length: 5 }),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userIdx: uniqueIndex("unique_notification_prefs_user").on(table.userId),
@@ -84,6 +85,32 @@ export const notificationPreferences = pgTable(
 
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;
+
+// Device tokens — multi-device push notification support
+export const DEVICE_PLATFORMS = ["ios", "android", "web"] as const;
+export type DevicePlatform = (typeof DEVICE_PLATFORMS)[number];
+
+export const deviceTokens = pgTable(
+  "device_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
+    token: varchar("token", { length: 500 }).notNull().unique(),
+    platform: varchar("platform", { length: 10 }).notNull().default("android"),
+    deviceName: varchar("device_name", { length: 100 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("IDX_device_tokens_user").on(table.userId),
+    tokenIdx: uniqueIndex("IDX_device_tokens_token").on(table.token),
+  })
+);
+
+export type DeviceToken = typeof deviceTokens.$inferSelect;
+export type InsertDeviceToken = typeof deviceTokens.$inferInsert;
 
 /** Public-facing notification preferences (no internal DB fields). */
 export interface NotificationPrefs {
@@ -156,7 +183,7 @@ export function shouldSendForType(
 
 /**
  * Check if the current time falls within the user's quiet hours.
- * Quiet hours are stored as "HH:MM" strings in the user's local time.
+ * Quiet hours are stored as "HH:MM" strings in UTC.
  *
  * Returns true if current time IS within quiet hours (notifications should be suppressed).
  * Supports overnight ranges (e.g., start="22:00", end="07:00").

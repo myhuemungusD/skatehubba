@@ -8,6 +8,7 @@
  * Usage:
  *   pnpm seed:users              # from repo root
  *   npx tsx seeds/seedUsers.ts   # from server/
+ *   DRY_RUN=1 pnpm seed:users    # preview without writing
  *
  * Prerequisites:
  *   1. serviceAccountKey.json in project root (Firebase Console → Service Accounts)
@@ -21,7 +22,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import * as schema from "../../packages/shared/schema/index";
 import ws from "ws";
 
@@ -84,7 +85,7 @@ function generateHandle(email: string, displayName: string | undefined, uid: str
   if (displayName) {
     const handle = displayName
       .toLowerCase()
-      .replace(/[^a-z0-9_]/g, "")
+      .replace(/[^a-z0-9]/g, "")
       .slice(0, 20);
     if (handle.length >= 3) return handle;
   }
@@ -93,30 +94,45 @@ function generateHandle(email: string, displayName: string | undefined, uid: str
   const localPart = email.split("@")[0];
   const handle = localPart
     .toLowerCase()
-    .replace(/[^a-z0-9_]/g, "")
+    .replace(/[^a-z0-9]/g, "")
     .slice(0, 20);
   if (handle.length >= 3) return handle;
 
-  // Last resort: use uid prefix
-  return uid.slice(0, 20);
+  // Last resort: use uid prefix (strip non-alphanumeric for consistency)
+  return uid
+    .replace(/[^a-z0-9]/gi, "")
+    .toLowerCase()
+    .slice(0, 20);
 }
 
 // ---------------------------------------------------------------------------
 // Parse display name into first/last
 // ---------------------------------------------------------------------------
-function parseName(displayName: string | undefined): { firstName: string; lastName: string } {
-  if (!displayName) return { firstName: "Skater", lastName: "" };
+function parseName(displayName: string | undefined): {
+  firstName: string;
+  lastName: string | null;
+} {
+  if (!displayName) return { firstName: "Skater", lastName: null };
   const parts = displayName.trim().split(/\s+/);
   return {
     firstName: parts[0] || "Skater",
-    lastName: parts.slice(1).join(" ") || "",
+    lastName: parts.slice(1).join(" ") || null,
   };
 }
+
+// Sentinel value for Firebase-only users who have no local password.
+// Auth code (service.ts, reauth.ts) checks for this to skip password verification.
+const FIREBASE_PASSWORD_SENTINEL = "firebase-auth-user";
 
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 async function main() {
+  const dryRun = !!process.env.DRY_RUN;
+  if (dryRun) {
+    console.log("*** DRY RUN — no data will be written ***\n");
+  }
+
   // 1. Validate DATABASE_URL
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl || databaseUrl.includes("dummy")) {
@@ -133,141 +149,162 @@ async function main() {
   // 3. Connect to database
   console.log("Connecting to database...");
   const pool = new Pool({ connectionString: databaseUrl, max: 5 });
-  const db = drizzle(pool, { schema });
 
-  // 4. List all Firebase Auth users
-  console.log("Fetching users from Firebase Auth...\n");
-  const allFirebaseUsers: firebaseAdmin.auth.UserRecord[] = [];
-  let nextPageToken: string | undefined;
+  try {
+    const db = drizzle(pool, { schema });
 
-  do {
-    const listResult = await firebaseAdmin.auth().listUsers(1000, nextPageToken);
-    allFirebaseUsers.push(...listResult.users);
-    nextPageToken = listResult.pageToken;
-  } while (nextPageToken);
+    // 4. List all Firebase Auth users
+    console.log("Fetching users from Firebase Auth...\n");
+    const allFirebaseUsers: firebaseAdmin.auth.UserRecord[] = [];
+    let nextPageToken: string | undefined;
 
-  console.log(`Found ${allFirebaseUsers.length} users in Firebase Auth.\n`);
+    do {
+      const listResult = await firebaseAdmin.auth().listUsers(1000, nextPageToken);
+      allFirebaseUsers.push(...listResult.users);
+      nextPageToken = listResult.pageToken;
+    } while (nextPageToken);
 
-  if (allFirebaseUsers.length === 0) {
-    console.log("No users to seed.");
-    await pool.end();
-    return;
-  }
+    console.log(`Found ${allFirebaseUsers.length} users in Firebase Auth.\n`);
 
-  let inserted = 0;
-  let skipped = 0;
-  let errors = 0;
-
-  for (const fbUser of allFirebaseUsers) {
-    const firebaseUid = fbUser.uid;
-    const email = fbUser.email;
-
-    if (!email) {
-      console.log(`  ⊘ Skipping user ${firebaseUid} — no email`);
-      skipped++;
-      continue;
+    if (allFirebaseUsers.length === 0) {
+      console.log("No users to seed.");
+      return;
     }
 
-    // Check if user already exists in PostgreSQL
-    const existing = await db
-      .select({ id: schema.customUsers.id })
-      .from(schema.customUsers)
-      .where(eq(schema.customUsers.firebaseUid, firebaseUid))
-      .limit(1);
+    // 5. Bulk-fetch existing users to avoid N+1 queries
+    const firebaseUids = allFirebaseUsers.map((u) => u.uid).filter(Boolean);
+    const emails = allFirebaseUsers
+      .map((u) => u.email?.toLowerCase())
+      .filter((e): e is string => !!e);
 
-    if (existing.length > 0) {
-      console.log(`  ⊘ Skipping ${email} — already in database`);
-      skipped++;
-      continue;
-    }
+    const existingByUid = new Set(
+      (
+        await db
+          .select({ firebaseUid: schema.customUsers.firebaseUid })
+          .from(schema.customUsers)
+          .where(inArray(schema.customUsers.firebaseUid, firebaseUids))
+      ).map((r) => r.firebaseUid)
+    );
 
-    // Also check by email in case they registered without firebaseUid link
-    const existingByEmail = await db
-      .select({ id: schema.customUsers.id })
-      .from(schema.customUsers)
-      .where(eq(schema.customUsers.email, email.toLowerCase()))
-      .limit(1);
+    const existingByEmail = new Set(
+      (
+        await db
+          .select({ email: schema.customUsers.email })
+          .from(schema.customUsers)
+          .where(inArray(schema.customUsers.email, emails))
+      ).map((r) => r.email)
+    );
 
-    if (existingByEmail.length > 0) {
-      console.log(`  ⊘ Skipping ${email} — email already in database`);
-      skipped++;
-      continue;
-    }
+    let inserted = 0;
+    let skipped = 0;
+    let errors = 0;
 
-    const { firstName, lastName } = parseName(fbUser.displayName);
-    let handle = generateHandle(email, fbUser.displayName, firebaseUid);
+    for (const fbUser of allFirebaseUsers) {
+      const firebaseUid = fbUser.uid;
+      const email = fbUser.email;
 
-    try {
-      // Use a transaction so all 3 inserts succeed or none do
-      await db.transaction(async (tx) => {
-        // Insert into customUsers
-        const [newUser] = await tx
-          .insert(schema.customUsers)
-          .values({
+      if (!email) {
+        console.log(`  ⊘ Skipping user ${firebaseUid} — no email`);
+        skipped++;
+        continue;
+      }
+
+      if (existingByUid.has(firebaseUid)) {
+        console.log(`  ⊘ Skipping ${email} — already in database`);
+        skipped++;
+        continue;
+      }
+
+      if (existingByEmail.has(email.toLowerCase())) {
+        console.log(`  ⊘ Skipping ${email} — email already in database`);
+        skipped++;
+        continue;
+      }
+
+      const { firstName, lastName } = parseName(fbUser.displayName);
+      const baseHandle = generateHandle(email, fbUser.displayName, firebaseUid);
+
+      if (dryRun) {
+        console.log(`  [dry-run] Would seed ${email} → @${baseHandle}`);
+        inserted++;
+        continue;
+      }
+
+      try {
+        // Use a transaction so all 3 inserts succeed or none do
+        const finalHandle = await db.transaction(async (tx) => {
+          await tx.insert(schema.customUsers).values({
             email: email.toLowerCase(),
-            passwordHash: "firebase-auth-user",
+            passwordHash: FIREBASE_PASSWORD_SENTINEL,
             firstName,
-            lastName: lastName || null,
+            lastName,
             firebaseUid,
             isEmailVerified: fbUser.emailVerified ?? false,
             isActive: true,
             accountTier: "free",
-          })
-          .returning({ id: schema.customUsers.id });
+          });
 
-        // Ensure handle uniqueness — retry with numeric suffixes if taken
-        const baseHandle = handle;
-        for (let attempt = 0; attempt < 10; attempt++) {
-          const existingHandle = await tx
-            .select({ id: schema.usernames.id })
-            .from(schema.usernames)
-            .where(eq(schema.usernames.username, handle))
-            .limit(1);
+          // Ensure handle uniqueness — retry with numeric suffixes if taken
+          let handle = baseHandle;
+          let handleIsUnique = false;
+          for (let attempt = 0; attempt < 100; attempt++) {
+            const existingHandle = await tx
+              .select({ id: schema.usernames.id })
+              .from(schema.usernames)
+              .where(eq(schema.usernames.username, handle))
+              .limit(1);
 
-          if (existingHandle.length === 0) break;
+            if (existingHandle.length === 0) {
+              handleIsUnique = true;
+              break;
+            }
 
-          const suffix = Math.floor(Math.random() * 9999)
-            .toString()
-            .padStart(4, "0");
-          handle = `${baseHandle.slice(0, 15)}${suffix}`;
-        }
+            const suffix = String(attempt + 1);
+            handle = `${baseHandle.slice(0, 20 - suffix.length)}${suffix}`;
+          }
 
-        // Insert into usernames (uid must be firebaseUid to match auth flow)
-        await tx.insert(schema.usernames).values({
-          uid: firebaseUid,
-          username: handle,
+          if (!handleIsUnique) {
+            throw new Error(`Could not find unique handle for base "${baseHandle}"`);
+          }
+
+          await tx.insert(schema.usernames).values({
+            uid: firebaseUid,
+            username: handle,
+          });
+
+          await tx.insert(schema.userProfiles).values({
+            id: firebaseUid,
+            handle,
+            displayName: fbUser.displayName || firstName,
+            bio: null,
+            photoURL: fbUser.photoURL || null,
+            stance: "regular",
+            homeSpot: null,
+            wins: 0,
+            losses: 0,
+            xp: 0,
+          });
+
+          return handle;
         });
 
-        // Insert into userProfiles (id must be firebaseUid to match auth flow)
-        await tx.insert(schema.userProfiles).values({
-          id: firebaseUid,
-          handle,
-          displayName: fbUser.displayName || firstName,
-          bio: null,
-          photoURL: fbUser.photoURL || null,
-          stance: "regular",
-          homeSpot: null,
-          wins: 0,
-          losses: 0,
-          xp: 0,
-        });
-      });
-
-      console.log(`  ✓ Seeded ${email} → @${handle}`);
-      inserted++;
-    } catch (error) {
-      errors++;
-      console.warn(
-        `  ⚠ Failed to seed ${email}: ${error instanceof Error ? error.message : String(error)}`
-      );
+        console.log(`  ✓ Seeded ${email} → @${finalHandle}`);
+        inserted++;
+      } catch (error) {
+        errors++;
+        console.warn(
+          `  ⚠ Failed to seed ${email}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
     }
+
+    console.log("\n========================================");
+    console.log(`Done! Inserted: ${inserted} | Skipped: ${skipped} | Errors: ${errors}`);
+    if (dryRun) console.log("(dry run — no data was written)");
+    console.log("========================================");
+  } finally {
+    await pool.end();
   }
-
-  console.log("\n========================================");
-  console.log(`Done! Inserted: ${inserted} | Skipped: ${skipped} | Errors: ${errors}`);
-  console.log("========================================");
-
-  await pool.end();
 }
 
 main().catch((error) => {

@@ -1,9 +1,3 @@
-# Claude Code Notes
-
-## Commit Conventions
-
-- The commit hook (commitlint via husky) requires **lowercase subjects**. Do not use uppercase letters in the commit subject line (the part after `fix:`, `feat:`, etc.).
-- Example: `fix: use standalone firebase cli binary` (correct) vs `fix: Use standalone Firebase CLI binary` (will fail)
 # CLAUDE.md — SkateHubba™ Codebase Context
 
 > Claude Code reads this file automatically. Do not scan the full codebase unless a task specifically requires it.
@@ -56,7 +50,7 @@ skatehubba/
 | CI/CD     | GitHub Actions, CodeQL, Vercel (prod), Docker (staging)           |
 | Monorepo  | pnpm 10+ workspaces, Turborepo                                   |
 
-**Prohibited**: Redux, untyped JS, custom auth, Next.js, Firestore, Firebase Cloud Functions.
+**Prohibited**: Redux, untyped JS, 
 
 ## Key Commands
 

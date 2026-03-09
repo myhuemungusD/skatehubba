@@ -79,7 +79,11 @@ test.describe("Production Smoke Test", () => {
     await page.waitForLoadState("networkidle");
 
     const criticalFailures = failedRequests.filter(
-      (r) => !r.includes("service-worker") && !r.includes("analytics") && !r.includes("sentry")
+      (r) =>
+        !r.includes("service-worker") &&
+        !r.includes("/sw.js") &&
+        !r.includes("analytics") &&
+        !r.includes("sentry")
     );
 
     expect(criticalFailures).toHaveLength(0);

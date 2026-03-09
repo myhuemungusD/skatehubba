@@ -71,6 +71,14 @@ vi.mock("drizzle-orm", () => ({
 
 vi.mock("@shared/schema", () => ({
   customUsers: { id: "id", pushToken: "pushToken", updatedAt: "updatedAt" },
+  deviceTokens: {
+    id: "id",
+    userId: "userId",
+    token: "token",
+    platform: "platform",
+    deviceName: "deviceName",
+    lastUsedAt: "lastUsedAt",
+  },
   notifications: {
     id: "id",
     userId: "userId",
@@ -131,10 +139,17 @@ function createMockDb() {
     }),
     update: vi.fn().mockReturnValue({
       set: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
+        where: vi.fn().mockImplementation(() => {
+          const result = Promise.resolve(mockDbReturns.updateResult);
+          (result as any).returning = vi
+            .fn()
+            .mockImplementation(() => Promise.resolve(mockDbReturns.updateResult));
+          return result;
         }),
       }),
+    }),
+    delete: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
     }),
   };
 }

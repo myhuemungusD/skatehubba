@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
+import { VitePWA } from "vite-plugin-pwa";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -45,7 +46,37 @@ export default defineConfig(({ mode }) => {
   const chunkLimit = Number(rootEnv.VITE_CHUNK_SIZE_WARNING_LIMIT || 900);
 
   return {
-    plugins: [react(), tsconfigPaths({ projects: [path.resolve(__dirname, "./tsconfig.json")] })],
+    plugins: [
+      react(),
+      tsconfigPaths({ projects: [path.resolve(__dirname, "./tsconfig.json")] }),
+      VitePWA({
+        registerType: "autoUpdate",
+        strategies: "injectManifest",
+        srcDir: "src",
+        filename: "sw.ts",
+        injectRegister: "auto",
+        manifest: {
+          name: "SkateHubba",
+          short_name: "SkateHubba",
+          start_url: "/",
+          scope: "/",
+          display: "standalone",
+          background_color: "#181818",
+          theme_color: "#ff6a00",
+          icons: [
+            { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+            { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+            { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+          ],
+        },
+        includeAssets: ["offline.html", "favicon.ico", "apple-touch-icon.png"],
+        injectManifest: {
+          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+          globPatterns: ["**/*.{js,css,html,png,svg,ico,woff,woff2}"],
+        },
+        devOptions: { enabled: false },
+      }),
+    ],
     envDir: path.resolve(__dirname, ".."),
     // Expose both VITE_ and EXPO_PUBLIC_ prefixed env vars for universal compatibility
     envPrefix: ["VITE_", "EXPO_PUBLIC_"],

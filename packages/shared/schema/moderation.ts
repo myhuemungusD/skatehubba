@@ -18,15 +18,15 @@ export const moderationProfiles = pgTable("moderation_profiles", {
   trustLevel: integer("trust_level").notNull().default(0),
   reputationScore: integer("reputation_score").notNull().default(0),
   isBanned: boolean("is_banned").notNull().default(false),
-  banExpiresAt: timestamp("ban_expires_at"),
+  banExpiresAt: timestamp("ban_expires_at", { withTimezone: true }),
   proVerificationStatus: varchar("pro_verification_status", { length: 20 })
     .notNull()
     .default("none"),
   isProVerified: boolean("is_pro_verified").notNull().default(false),
   proVerificationEvidence: json("pro_verification_evidence").$type<string[]>(),
   proVerificationNotes: text("pro_verification_notes"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export type ModerationProfileRow = typeof moderationProfiles.$inferSelect;
@@ -43,7 +43,7 @@ export const moderationReports = pgTable(
     reason: varchar("reason", { length: 100 }).notNull(),
     notes: text("notes"),
     status: varchar("status", { length: 20 }).notNull().default("queued"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     statusIdx: index("IDX_moderation_reports_status").on(table.status),
@@ -66,9 +66,9 @@ export const modActions = pgTable(
     reasonCode: varchar("reason_code", { length: 50 }).notNull(),
     notes: text("notes"),
     reversible: boolean("reversible").notNull().default(true),
-    expiresAt: timestamp("expires_at"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     relatedReportId: varchar("related_report_id", { length: 255 }),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     targetIdx: index("IDX_mod_actions_target").on(table.targetUserId),
@@ -87,8 +87,8 @@ export const moderationQuotas = pgTable(
     dateKey: varchar("date_key", { length: 10 }).notNull(),
     count: integer("count").notNull().default(0),
     limit: integer("quota_limit").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userActionDateIdx: uniqueIndex("unique_moderation_quota").on(
@@ -110,8 +110,8 @@ export const posts = pgTable(
     userId: varchar("user_id", { length: 255 }).notNull(),
     status: varchar("status", { length: 20 }).notNull().default("active"),
     content: json("content").$type<Record<string, unknown>>(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userIdx: index("IDX_posts_user").on(table.userId),
