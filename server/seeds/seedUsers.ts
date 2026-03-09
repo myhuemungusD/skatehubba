@@ -84,7 +84,7 @@ function generateHandle(email: string, displayName: string | undefined, uid: str
   if (displayName) {
     const handle = displayName
       .toLowerCase()
-      .replace(/[^a-z0-9_]/g, "")
+      .replace(/[^a-z0-9]/g, "")
       .slice(0, 20);
     if (handle.length >= 3) return handle;
   }
@@ -93,7 +93,7 @@ function generateHandle(email: string, displayName: string | undefined, uid: str
   const localPart = email.split("@")[0];
   const handle = localPart
     .toLowerCase()
-    .replace(/[^a-z0-9_]/g, "")
+    .replace(/[^a-z0-9]/g, "")
     .slice(0, 20);
   if (handle.length >= 3) return handle;
 
@@ -217,19 +217,25 @@ async function main() {
 
         // Ensure handle uniqueness — retry with numeric suffixes if taken
         const baseHandle = handle;
-        for (let attempt = 0; attempt < 10; attempt++) {
+        let handleIsUnique = false;
+        for (let attempt = 0; attempt < 100; attempt++) {
           const existingHandle = await tx
             .select({ id: schema.usernames.id })
             .from(schema.usernames)
             .where(eq(schema.usernames.username, handle))
             .limit(1);
 
-          if (existingHandle.length === 0) break;
+          if (existingHandle.length === 0) {
+            handleIsUnique = true;
+            break;
+          }
 
-          const suffix = Math.floor(Math.random() * 9999)
-            .toString()
-            .padStart(4, "0");
-          handle = `${baseHandle.slice(0, 15)}${suffix}`;
+          const suffix = String(attempt + 1);
+          handle = `${baseHandle.slice(0, 20 - suffix.length)}${suffix}`;
+        }
+
+        if (!handleIsUnique) {
+          throw new Error(`Could not find unique handle for base "${baseHandle}"`);
         }
 
         // Insert into usernames (uid must be firebaseUid to match auth flow)
@@ -270,7 +276,8 @@ async function main() {
   await pool.end();
 }
 
-main().catch((error) => {
-  console.error("Fatal error:", error);
-  process.exit(1);
-});
+main()
+  .catch((error) => {
+    console.error("Fatal error:", error);
+    process.exit(1);
+  });
