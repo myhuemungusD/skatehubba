@@ -38,6 +38,7 @@ export default function PublicNavigation() {
               target="_blank"
               rel="noopener noreferrer"
               className="text-gray-300 hover:text-white transition-colors font-semibold text-sm flex items-center min-h-[44px] px-2 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none rounded"
+              aria-label="Shop SkateHubba merch (opens in new tab)"
             >
               <ShoppingBag className="w-4 h-4 mr-1" aria-hidden="true" />
               Merch

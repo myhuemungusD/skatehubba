@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { Link } from "wouter";
 import { ArrowRight, Volume2, VolumeX, Play } from "lucide-react";
 
@@ -48,14 +48,7 @@ export function HeroMedia({
 }: HeroMediaProps) {
   const [variant] = useState<HeroVariant>(getHeroVariant);
   const [muted, setMuted] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(false);
-
   const toggleMute = useCallback(() => setMuted((m) => !m), []);
-
-  // Auto-play the placeholder clip if provided
-  useEffect(() => {
-    if (videoSrc) setIsPlaying(true);
-  }, [videoSrc]);
 
   const isStamp = variant === "stamp";
 
@@ -67,7 +60,7 @@ export function HeroMedia({
     >
       {/* ---- Full-bleed background media ---- */}
       <div className="absolute inset-0 z-0" aria-hidden="true">
-        {videoSrc && isPlaying ? (
+        {videoSrc ? (
           <video
             className="w-full h-full object-cover"
             src={videoSrc}
@@ -94,7 +87,7 @@ export function HeroMedia({
             <source srcSet="/images/hero/hero-480.webp" type="image/webp" />
             <img
               src={posterSrc}
-              alt="Skateboarder performing a trick at a skate spot"
+              alt=""
               className="w-full h-full object-cover"
               width={1200}
               height={800}
@@ -139,7 +132,7 @@ export function HeroMedia({
       )}
 
       {/* ---- Mute toggle (only when video is playing) ---- */}
-      {videoSrc && isPlaying && (
+      {videoSrc && (
         <button
           onClick={toggleMute}
           className="absolute bottom-6 right-6 z-[6] p-3 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white hover:bg-black/70 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none"
@@ -156,7 +149,7 @@ export function HeroMedia({
           <div className="flex justify-center hero-fade-in">
             <Link href="/auth" aria-label="Sign up or log in to SkateHubba">
               <div
-                className={`inline-flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity rounded-full focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:outline-none ${
+                className={`inline-flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:outline-none ${
                   badge.variant === "success"
                     ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                     : "bg-blue-500/10 border-blue-500/20 text-blue-400"
