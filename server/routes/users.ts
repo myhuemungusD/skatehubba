@@ -42,8 +42,8 @@ router.get("/search", authenticateUser, async (req, res) => {
           losses: userProfiles.losses,
         })
         .from(customUsers)
-        .leftJoin(usernames, eq(usernames.uid, customUsers.id))
-        .leftJoin(userProfiles, eq(userProfiles.id, customUsers.id))
+        .leftJoin(usernames, eq(usernames.uid, customUsers.firebaseUid))
+        .leftJoin(userProfiles, eq(userProfiles.id, customUsers.firebaseUid))
         .where(
           currentUserId ? and(nameFilter, sql`${customUsers.id} != ${currentUserId}`) : nameFilter
         )
