@@ -50,8 +50,8 @@ export const readProfileCache = (uid: string): ProfileCache | null => {
 };
 
 /**
- * M13: Only persist profile status to sessionStorage (no PII).
- * This prevents XSS from accessing user's personal information via sessionStorage.
+ * M13: Only persist profile status to localStorage (no PII).
+ * This prevents XSS from accessing user's personal information via storage.
  */
 export const writeProfileCache = (uid: string, cache: ProfileCache) => {
   if (typeof window === "undefined") return;
