@@ -13,7 +13,7 @@ export const landingContent = {
       "Film tricks. Check spots. Battle for rank. SkateHubba is built for skaters who want to compete — no judges, no entry fees, just you and your board.",
     primaryCTA: {
       text: "Sign Up / Log In",
-      href: "/auth?tab=signup",
+      href: "/auth",
       testId: "cta-landing-primary",
     },
   },
