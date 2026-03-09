@@ -15,9 +15,9 @@ export const battles = pgTable("battles", {
   winnerId: varchar("winner_id", { length: 255 }),
   clipUrl: varchar("clip_url", { length: 500 }),
   responseClipUrl: varchar("response_clip_url", { length: 500 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  completedAt: timestamp("completed_at"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
 });
 
 // Battle votes table
@@ -30,7 +30,7 @@ export const battleVotes = pgTable(
       .references(() => battles.id, { onDelete: "cascade" }),
     odv: varchar("odv", { length: 255 }).notNull(), // voter ID
     vote: varchar("vote", { length: 20 }).notNull(), // 'clean' | 'sketch' | 'redo'
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     battleVoterIdx: uniqueIndex("unique_battle_voter").on(table.battleId, table.odv),
@@ -57,12 +57,12 @@ export const battleVoteState = pgTable(
       >()
       .notNull()
       .default([]),
-    votingStartedAt: timestamp("voting_started_at"),
-    voteDeadlineAt: timestamp("vote_deadline_at"),
+    votingStartedAt: timestamp("voting_started_at", { withTimezone: true }),
+    voteDeadlineAt: timestamp("vote_deadline_at", { withTimezone: true }),
     winnerId: varchar("winner_id", { length: 255 }),
     processedEventIds: json("processed_event_ids").$type<string[]>().notNull().default([]),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     statusIdx: index("IDX_battle_vote_state_status").on(table.status),

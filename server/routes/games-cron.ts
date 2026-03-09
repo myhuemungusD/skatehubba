@@ -168,8 +168,8 @@ export async function forfeitStalledGames(): Promise<{ forfeited: number }> {
           if (!fresh || fresh.status !== "active") return null;
           if (!fresh.player1Id || !fresh.player2Id) return null;
 
-          const p1Count = (fresh.player1Letters || "").length;
-          const p2Count = (fresh.player2Letters || "").length;
+          const p1Count = fresh.player1Letters.length;
+          const p2Count = fresh.player2Letters.length;
 
           let loserId: string;
           if (p1Count > p2Count) {
