@@ -1,14 +1,19 @@
 /**
  * Tests for client/src/lib/firebase/auth-errors.ts
  *
- * Covers: getAuthErrorMessage() and its internal extractFirebaseErrorCode()
- * logic, tested indirectly through the public API.
+ * Covers: getAuthErrorMessage(), isAuthConfigError(), isExpectedAuthError(),
+ * and extractFirebaseErrorCode().
  *
  * No mocks needed — this module is pure functions with no external deps.
  */
 
 import { describe, it, expect } from "vitest";
-import { getAuthErrorMessage, isAuthConfigError } from "../auth-errors";
+import {
+  getAuthErrorMessage,
+  isAuthConfigError,
+  isExpectedAuthError,
+  extractFirebaseErrorCode,
+} from "../auth-errors";
 
 describe("auth-errors", () => {
   // ────────────────────────────────────────────────────────────────────────
@@ -472,5 +477,86 @@ describe("auth-errors", () => {
         expect(msg).not.toContain(code);
       });
     }
+  });
+
+  // ────────────────────────────────────────────────────────────────────────
+  // isExpectedAuthError
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe("isExpectedAuthError", () => {
+    it("returns true for known auth error codes", () => {
+      expect(isExpectedAuthError({ code: "auth/wrong-password" })).toBe(true);
+      expect(isExpectedAuthError({ code: "auth/popup-blocked" })).toBe(true);
+      expect(isExpectedAuthError({ code: "auth/user-disabled" })).toBe(true);
+      expect(isExpectedAuthError({ code: "auth/too-many-requests" })).toBe(true);
+    });
+
+    it("returns false for unknown auth error codes", () => {
+      expect(isExpectedAuthError({ code: "auth/some-future-error" })).toBe(false);
+    });
+
+    it("returns false for non-auth error codes", () => {
+      expect(isExpectedAuthError({ code: "storage/not-found" })).toBe(false);
+    });
+
+    it("returns false for null/undefined/non-object", () => {
+      expect(isExpectedAuthError(null)).toBe(false);
+      expect(isExpectedAuthError(undefined)).toBe(false);
+      expect(isExpectedAuthError("auth/wrong-password")).toBe(false);
+    });
+
+    it("returns true when code is embedded in message string", () => {
+      expect(isExpectedAuthError({ message: "Firebase: Error (auth/wrong-password)." })).toBe(true);
+    });
+
+    it("returns false when embedded code is not in the known set", () => {
+      expect(isExpectedAuthError({ message: "Firebase: Error (auth/unknown-new-code)." })).toBe(
+        false
+      );
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────────────
+  // extractFirebaseErrorCode
+  // ────────────────────────────────────────────────────────────────────────
+
+  describe("extractFirebaseErrorCode", () => {
+    it("extracts code from { code } property", () => {
+      expect(extractFirebaseErrorCode({ code: "auth/wrong-password" })).toBe("auth/wrong-password");
+    });
+
+    it("extracts code from message string", () => {
+      expect(extractFirebaseErrorCode({ message: "Firebase: Error (auth/popup-blocked)." })).toBe(
+        "auth/popup-blocked"
+      );
+    });
+
+    it("prefers code property over message", () => {
+      expect(
+        extractFirebaseErrorCode({
+          code: "auth/user-disabled",
+          message: "Firebase: Error (auth/wrong-password).",
+        })
+      ).toBe("auth/user-disabled");
+    });
+
+    it("returns null for non-auth codes", () => {
+      expect(extractFirebaseErrorCode({ code: "storage/not-found" })).toBeNull();
+    });
+
+    it("returns null for null/undefined/non-object", () => {
+      expect(extractFirebaseErrorCode(null)).toBeNull();
+      expect(extractFirebaseErrorCode(undefined)).toBeNull();
+      expect(extractFirebaseErrorCode("string")).toBeNull();
+      expect(extractFirebaseErrorCode(42)).toBeNull();
+    });
+
+    it("returns null for empty object", () => {
+      expect(extractFirebaseErrorCode({})).toBeNull();
+    });
+
+    it("returns null when message has no embedded code", () => {
+      expect(extractFirebaseErrorCode({ message: "Something went wrong" })).toBeNull();
+    });
   });
 });

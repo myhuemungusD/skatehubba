@@ -16,8 +16,15 @@ import { auth, db } from "../lib/firebase/config";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { apiRequest } from "../lib/api/client";
 import { logger } from "../lib/logger";
+import { isExpectedAuthError, extractFirebaseErrorCode } from "../lib/firebase/auth-errors";
 
-import type { AuthState, BootStatus, UserRole } from "./authStore.types";
+import type {
+  AuthState,
+  BootStatus,
+  ProfileStatus,
+  UserRole,
+  UserProfile,
+} from "./authStore.types";
 import { usePresenceStore } from "./usePresenceStore";
 import { useChatStore } from "./useChatStore";
 export type { UserProfile, UserRole, ProfileStatus } from "./authStore.types";
@@ -33,10 +40,42 @@ import {
 
 import { fetchProfile, extractRolesFromToken, authenticateWithBackend } from "./authStore.api";
 
+// ── Timeout constants ────────────────────────────────────────────────
+const PROFILE_FETCH_TIMEOUT_MS = 8000;
+const ROLES_FETCH_TIMEOUT_MS = 4000;
+const BACKEND_SYNC_TIMEOUT_MS = 5000;
+const BOOT_TIMEOUT_MS = 10000;
+const TOKEN_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
+
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
 
 let activeRecaptchaVerifier: InstanceType<typeof RecaptchaVerifier> | null = null;
+
+// ── Shared helper: fetch profile + roles, resolve, and return state update ──
+async function fetchProfileAndRoles(uid: string): Promise<{
+  profile: UserProfile | null;
+  profileStatus: ProfileStatus;
+  roles: UserRole[] | null;
+  degraded: boolean;
+}> {
+  const [profileResult, rolesResult] = await Promise.all([
+    withTimeout(fetchProfile(uid), PROFILE_FETCH_TIMEOUT_MS, "fetchProfile"),
+    withTimeout(extractRolesFromToken(auth.currentUser!), ROLES_FETCH_TIMEOUT_MS, "fetchRoles"),
+  ]);
+
+  const resolved = resolveProfileResult(uid, profileResult);
+  // Never leave "unknown" — fall back to "missing" to unblock the AppRoutes gate
+  const profileStatus: ProfileStatus =
+    resolved.profileStatus === "unknown" ? "missing" : resolved.profileStatus;
+
+  return {
+    profile: resolved.profile,
+    profileStatus,
+    roles: rolesResult.status === "ok" ? rolesResult.data : null,
+    degraded: resolved.degraded,
+  };
+}
 
 export const useAuthStore = create<AuthState>((set, get) => ({
   user: null,
@@ -54,7 +93,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   initialize: async () => {
     const startTime = Date.now();
-    const BOOT_TIMEOUT_MS = 10000;
     let finalStatus: BootStatus = "ok";
 
     set({ loading: true });
@@ -73,14 +111,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const authResult = await withTimeout(authPromise, BOOT_TIMEOUT_MS, "auth_check");
       const currentUser = authResult.status === "ok" ? authResult.data : null;
 
-      // PHASE 2: Data (Parallel, 4s Cap)
+      // PHASE 2: Data (Parallel, 8s Cap)
       if (currentUser) {
         set({ bootPhase: "hydrating", user: currentUser, profile: null, profileStatus: "unknown" });
 
         // Ensure backend session exists for returning users
         const backendResult = await withTimeout(
           authenticateWithBackend(currentUser),
-          5000,
+          BACKEND_SYNC_TIMEOUT_MS,
           "backend_sync"
         );
         if (backendResult.status === "ok" && backendResult.data?.displayName) {
@@ -88,8 +126,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
 
         const results = await Promise.allSettled([
-          withTimeout(fetchProfile(currentUser.uid), 4000, "fetchProfile"),
-          withTimeout(extractRolesFromToken(currentUser), 4000, "fetchRoles"),
+          withTimeout(fetchProfile(currentUser.uid), PROFILE_FETCH_TIMEOUT_MS, "fetchProfile"),
+          withTimeout(extractRolesFromToken(currentUser), ROLES_FETCH_TIMEOUT_MS, "fetchRoles"),
         ]);
 
         const profileRes = results[0] as PromiseSettledResult<
@@ -141,38 +179,34 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           try {
             const backendResult = await withTimeout(
               authenticateWithBackend(user),
-              5000,
+              BACKEND_SYNC_TIMEOUT_MS,
               "backend_sync"
             );
             if (backendResult.status === "ok" && backendResult.data?.displayName) {
               set({ backendDisplayName: backendResult.data.displayName });
             }
 
-            const currentState = get();
-            if (!currentState.profile || currentState.profileStatus === "unknown") {
-              const [profileResult, rolesResult] = await Promise.all([
-                withTimeout(fetchProfile(user.uid), 4000, "fetchProfile"),
-                withTimeout(extractRolesFromToken(user), 4000, "fetchRoles"),
-              ]);
+            // Only refetch when profile is genuinely unknown. Never overwrite
+            // a confirmed "exists" or "missing" status — that causes the
+            // profile-setup redirect even though the user already has a profile.
+            if (get().profileStatus === "unknown") {
+              const result = await fetchProfileAndRoles(user.uid);
 
-              {
-                const resolved = resolveProfileResult(user.uid, profileResult);
-                set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
-
-                // Same fallback as boot: don't leave "unknown" after resolution,
-                // or AppRoutes shows an infinite loading screen.
-                if (resolved.profileStatus === "unknown") {
-                  set({ profileStatus: "missing" });
-                }
-              }
-
-              if (rolesResult.status === "ok") {
-                set({ roles: rolesResult.data });
+              // Re-check: another code path (e.g. signInWithEmail) may have
+              // resolved the profile while we were fetching.
+              if (get().profileStatus !== "exists") {
+                const update: Partial<AuthState> = {
+                  profile: result.profile,
+                  profileStatus: result.profileStatus,
+                };
+                if (result.roles) update.roles = result.roles;
+                set(update);
               }
             }
           } catch (listenerErr) {
             logger.error("[AuthStore] Auth listener error:", listenerErr);
-            // Ensure profileStatus isn't stuck at "unknown" after failure
+            // Ensure profileStatus isn't stuck at "unknown" after failure,
+            // but never downgrade a confirmed "exists" to "missing".
             if (get().profileStatus === "unknown") {
               set({ profileStatus: "missing" });
             }
@@ -195,7 +229,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // PHASE 4: Periodic token refresh — detect expired/revoked sessions
       // Firebase ID tokens expire after 1 hour. Proactively refresh every
       // 10 minutes so users aren't silently using an invalid token.
-      const TOKEN_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
       setInterval(async () => {
         const currentUser = auth.currentUser;
         if (!currentUser) return;
@@ -299,22 +332,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // Fetch profile and roles inline so profileStatus is resolved
           // before this function returns. The onAuthStateChanged listener
           // will see profileStatus !== "unknown" and skip its own fetch.
-          const [profileResult, rolesResult] = await Promise.all([
-            withTimeout(fetchProfile(result.user.uid), 4000, "fetchProfile"),
-            withTimeout(extractRolesFromToken(result.user), 4000, "fetchRoles"),
-          ]);
-
-          const resolved = resolveProfileResult(result.user.uid, profileResult);
-          set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
-
-          // Fallback: unblock AppRoutes when profile can't be determined
-          if (resolved.profileStatus === "unknown") {
-            set({ profileStatus: "missing" });
-          }
-
-          if (rolesResult.status === "ok") {
-            set({ roles: rolesResult.data });
-          }
+          const hydrated = await fetchProfileAndRoles(result.user.uid);
+          set({
+            profile: hydrated.profile,
+            profileStatus: hydrated.profileStatus,
+            ...(hydrated.roles ? { roles: hydrated.roles } : {}),
+          });
         }
         return;
       }
@@ -323,17 +346,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       sessionStorage.setItem("googleRedirectPending", "true");
       await signInWithRedirect(auth, googleProvider);
     } catch (err: unknown) {
-      logger.error("[AuthStore] Google sign-in error:", err);
+      const errCode = extractFirebaseErrorCode(err);
+
+      if (isExpectedAuthError(err)) {
+        logger.warn("[AuthStore] Google sign-in failed:", errCode);
+      } else {
+        logger.error("[AuthStore] Google sign-in error:", err);
+      }
 
       // If popup was blocked by the browser, fall back to redirect flow
-      if (err && typeof err === "object" && "code" in err) {
-        const code = (err as { code?: string }).code;
-        if (code === "auth/popup-blocked") {
-          logger.log("[AuthStore] Popup blocked, falling back to redirect");
-          sessionStorage.setItem("googleRedirectPending", "true");
-          await signInWithRedirect(auth, googleProvider);
-          return;
-        }
+      if (errCode === "auth/popup-blocked") {
+        logger.log("[AuthStore] Popup blocked, falling back to redirect");
+        sessionStorage.setItem("googleRedirectPending", "true");
+        await signInWithRedirect(auth, googleProvider);
+        return;
       }
 
       if (err instanceof Error) {
@@ -359,26 +385,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
       // Fetch profile and roles inline so profileStatus is resolved
       // before this function returns.
-      const [profileResult, rolesResult] = await Promise.all([
-        withTimeout(fetchProfile(result.user.uid), 4000, "fetchProfile"),
-        withTimeout(extractRolesFromToken(result.user), 4000, "fetchRoles"),
-      ]);
-
-      const resolved = resolveProfileResult(result.user.uid, profileResult);
-      set({ profile: resolved.profile, profileStatus: resolved.profileStatus });
-
-      // Fallback: if profile status couldn't be determined (server error + no
-      // cache, e.g. incognito), set to "missing" to unblock the AppRoutes gate
-      // which shows an infinite loading screen for authenticated + "unknown".
-      if (resolved.profileStatus === "unknown") {
-        set({ profileStatus: "missing" });
-      }
-
-      if (rolesResult.status === "ok") {
-        set({ roles: rolesResult.data });
-      }
+      const hydrated = await fetchProfileAndRoles(result.user.uid);
+      set({
+        profile: hydrated.profile,
+        profileStatus: hydrated.profileStatus,
+        ...(hydrated.roles ? { roles: hydrated.roles } : {}),
+      });
     } catch (err: unknown) {
-      logger.error("[AuthStore] Email sign-in error:", err);
+      const errCode = extractFirebaseErrorCode(err);
+
+      if (isExpectedAuthError(err)) {
+        logger.warn("[AuthStore] Email sign-in failed:", errCode);
+      } else {
+        logger.error("[AuthStore] Email sign-in error:", err);
+      }
+
       if (err instanceof Error) {
         set({ error: err });
       }

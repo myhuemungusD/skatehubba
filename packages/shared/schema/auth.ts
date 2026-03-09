@@ -28,26 +28,26 @@ export const customUsers = pgTable("custom_users", {
   lastName: varchar("last_name", { length: 100 }),
   firebaseUid: varchar("firebase_uid", { length: 128 }).unique(),
   pushToken: varchar("push_token", { length: 255 }), // Expo push token for notifications
-  isEmailVerified: boolean("is_email_verified").default(false),
+  isEmailVerified: boolean("is_email_verified").notNull().default(false),
   emailVerificationToken: varchar("email_verification_token", { length: 255 }),
-  emailVerificationExpires: timestamp("email_verification_expires"),
+  emailVerificationExpires: timestamp("email_verification_expires", { withTimezone: true }),
   resetPasswordToken: varchar("reset_password_token", { length: 255 }),
-  resetPasswordExpires: timestamp("reset_password_expires"),
-  isActive: boolean("is_active").default(true),
-  trustLevel: integer("trust_level").default(0).notNull(),
+  resetPasswordExpires: timestamp("reset_password_expires", { withTimezone: true }),
+  isActive: boolean("is_active").notNull().default(true),
+  trustLevel: integer("trust_level").notNull().default(0),
   accountTier: accountTierEnum("account_tier").default("free").notNull(),
   proAwardedBy: varchar("pro_awarded_by", { length: 255 }),
-  premiumPurchasedAt: timestamp("premium_purchased_at"),
-  lastLoginAt: timestamp("last_login_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  premiumPurchasedAt: timestamp("premium_purchased_at", { withTimezone: true }),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const usernames = pgTable("usernames", {
   id: uuid("id").primaryKey().defaultRandom(),
   uid: varchar("uid", { length: 128 }).notNull().unique(),
   username: varchar("username", { length: 20 }).notNull().unique(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const authSessions = pgTable("auth_sessions", {
@@ -58,8 +58,8 @@ export const authSessions = pgTable("auth_sessions", {
     .notNull()
     .references(() => customUsers.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
-  expiresAt: timestamp("expires_at").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Security audit logs for compliance and threat detection
@@ -75,7 +75,7 @@ export const auditLogs = pgTable(
     metadata: json("metadata").$type<Record<string, unknown>>(),
     success: boolean("success").notNull(),
     errorMessage: text("error_message"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     eventTypeIdx: index("IDX_audit_event_type").on(table.eventType),
@@ -93,7 +93,7 @@ export const loginAttempts = pgTable(
     email: varchar("email", { length: 255 }).notNull(),
     ipAddress: varchar("ip_address", { length: 45 }).notNull(),
     success: boolean("success").notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     emailIdx: index("IDX_login_attempts_email").on(table.email),
@@ -106,10 +106,10 @@ export const loginAttempts = pgTable(
 export const accountLockouts = pgTable("account_lockouts", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
-  lockedAt: timestamp("locked_at").notNull(),
-  unlockAt: timestamp("unlock_at").notNull(),
+  lockedAt: timestamp("locked_at", { withTimezone: true }).notNull(),
+  unlockAt: timestamp("unlock_at", { withTimezone: true }).notNull(),
   failedAttempts: integer("failed_attempts").notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // MFA secrets for TOTP authentication
@@ -121,10 +121,10 @@ export const mfaSecrets = pgTable("mfa_secrets", {
     .unique(),
   secret: varchar("secret", { length: 255 }).notNull(), // Encrypted TOTP secret
   backupCodes: json("backup_codes").$type<string[]>(), // Hashed backup codes
-  enabled: boolean("enabled").default(false).notNull(),
-  verifiedAt: timestamp("verified_at"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  verifiedAt: timestamp("verified_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Auth validation schemas

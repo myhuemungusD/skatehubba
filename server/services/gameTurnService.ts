@@ -247,8 +247,8 @@ export async function judgeTurn(
 
   // Apply SKATE letter logic
   const isPlayer1 = game.player1Id === playerId;
-  let newPlayer1Letters = game.player1Letters || "";
-  let newPlayer2Letters = game.player2Letters || "";
+  let newPlayer1Letters = game.player1Letters;
+  let newPlayer2Letters = game.player2Letters;
   let newOffensiveId: string;
   let newDefensiveId: string;
 
@@ -385,8 +385,8 @@ export async function setterBail(
     return { ok: false, status: 400, error: "Can only bail during set trick phase" };
 
   const isPlayer1 = game.player1Id === playerId;
-  let newPlayer1Letters = game.player1Letters || "";
-  let newPlayer2Letters = game.player2Letters || "";
+  let newPlayer1Letters = game.player1Letters;
+  let newPlayer2Letters = game.player2Letters;
 
   // Setter takes a letter
   if (isPlayer1) {
