@@ -43,7 +43,7 @@ type MockUser = {
 type MockProfile = {
   id: string;
   roles?: { filmer?: boolean } | null;
-  filmerVerified?: boolean | null;
+  filmerVerified?: boolean;
 };
 
 type MockFilmerRequest = {
