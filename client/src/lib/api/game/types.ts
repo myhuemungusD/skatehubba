@@ -182,6 +182,7 @@ export interface AvailablePlayer {
 
 export interface LeaderboardEntry {
   id: string;
+  firebaseUid?: string;
   displayName: string;
   username?: string;
   wins: number;
