@@ -21,16 +21,16 @@ export const userProfiles = pgTable("user_profiles", {
   photoURL: varchar("photo_url", { length: 500 }),
   stance: varchar("stance", { length: 20 }).default("regular"),
   homeSpot: varchar("home_spot", { length: 255 }),
-  wins: integer("wins").default(0),
-  losses: integer("losses").default(0),
-  xp: integer("xp").default(0),
+  wins: integer("wins").notNull().default(0),
+  losses: integer("losses").notNull().default(0),
+  xp: integer("xp").notNull().default(0),
   // Dispute reputation: permanent, visible penalty count
-  disputePenalties: integer("dispute_penalties").default(0).notNull(),
+  disputePenalties: integer("dispute_penalties").notNull().default(0),
   roles: json("roles").$type<{ filmer?: boolean }>(),
-  filmerRepScore: integer("filmer_rep_score").default(0),
-  filmerVerified: boolean("filmer_verified").default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  filmerRepScore: integer("filmer_rep_score").notNull().default(0),
+  filmerVerified: boolean("filmer_verified").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Closet items table - collectible gear
@@ -46,7 +46,7 @@ export const closetItems = pgTable(
     name: varchar("name", { length: 255 }).notNull(),
     imageUrl: varchar("image_url", { length: 500 }).notNull(),
     rarity: varchar("rarity", { length: 50 }),
-    acquiredAt: timestamp("acquired_at").defaultNow().notNull(),
+    acquiredAt: timestamp("acquired_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userIdx: index("IDX_closet_items_user").on(table.userId),
@@ -68,8 +68,8 @@ export const onboardingProfiles = pgTable("onboarding_profiles", {
   crewName: varchar("crew_name", { length: 100 }),
   credibilityScore: integer("credibility_score").notNull().default(0),
   avatarUrl: varchar("avatar_url", { length: 500 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
