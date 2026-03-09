@@ -59,6 +59,12 @@ vi.mock("@shared/schema", () => {
       email: { name: "email" },
       firstName: { name: "firstName" },
     },
+    deviceTokens: {
+      _table: "deviceTokens",
+      id: { name: "id" },
+      userId: { name: "userId" },
+      token: { name: "token" },
+    },
     DEFAULT_NOTIFICATION_PREFS: {
       pushEnabled: true,
       emailEnabled: true,
@@ -96,6 +102,7 @@ vi.mock("@shared/schema", () => {
 
 vi.mock("drizzle-orm", () => ({
   eq: (col: any, val: any) => ({ _op: "eq", col, val }),
+  inArray: (col: any, vals: any) => ({ _op: "inArray", col, vals }),
 }));
 
 vi.mock("./emailService", () => ({

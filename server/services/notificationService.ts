@@ -12,13 +12,14 @@ import {
   notifications,
   notificationPreferences,
   customUsers,
+  deviceTokens,
   type NotificationType,
   type NotificationPrefs,
   DEFAULT_NOTIFICATION_PREFS,
   shouldSendForType,
   isWithinQuietHours,
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { sendGameEventEmail } from "./emailService";
 
 // Create Expo SDK client
@@ -241,6 +242,52 @@ async function sendPushToUser(
 ): Promise<void> {
   try {
     const db = getDb();
+
+    // Query all registered device tokens for multi-device delivery
+    const tokens = await db
+      .select({ id: deviceTokens.id, token: deviceTokens.token })
+      .from(deviceTokens)
+      .where(eq(deviceTokens.userId, userId));
+
+    if (tokens.length > 0) {
+      // Build messages for all devices
+      const messages: ExpoPushMessage[] = tokens
+        .filter((t) => Expo.isExpoPushToken(t.token))
+        .map((t) => ({
+          to: t.token,
+          sound: "default" as const,
+          title,
+          body,
+          data: data || {},
+          channelId: "game",
+        }));
+
+      if (messages.length === 0) return;
+
+      const tickets = await expo.sendPushNotificationsAsync(messages);
+
+      // Clean up stale tokens (DeviceNotRegistered)
+      const staleTokenIds: number[] = [];
+      for (let i = 0; i < tickets.length; i++) {
+        const ticket = tickets[i] as ExpoPushTicket;
+        if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
+          staleTokenIds.push(tokens[i].id);
+        }
+      }
+
+      if (staleTokenIds.length > 0) {
+        await db
+          .delete(deviceTokens)
+          .where(inArray(deviceTokens.id, staleTokenIds))
+          .catch((err: unknown) =>
+            logger.warn("[Notification] Failed to clean stale tokens", { error: String(err) })
+          );
+      }
+
+      return;
+    }
+
+    // Fallback: legacy single-token on customUsers (gradual migration)
     const [user] = await db
       .select({ pushToken: customUsers.pushToken })
       .from(customUsers)

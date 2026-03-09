@@ -16,6 +16,7 @@ import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import {
   customUsers,
+  deviceTokens,
   notifications,
   notificationPreferences,
   DEFAULT_NOTIFICATION_PREFS,
@@ -44,6 +45,8 @@ router.use(authenticateUser);
 
 const pushTokenSchema = z.object({
   token: z.string().min(1).max(500),
+  platform: z.enum(["ios", "android", "web"]).optional().default("android"),
+  deviceName: z.string().max(100).optional(),
 });
 
 router.post("/push-token", async (req, res) => {
@@ -53,16 +56,38 @@ router.post("/push-token", async (req, res) => {
   }
 
   const userId = req.currentUser!.id;
-  const { token } = parsed.data;
+  const { token, platform, deviceName } = parsed.data;
 
   try {
     const db = getDb();
+
+    // Upsert into deviceTokens for multi-device support
+    await db
+      .insert(deviceTokens)
+      .values({
+        userId,
+        token,
+        platform,
+        deviceName: deviceName ?? null,
+        lastUsedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: deviceTokens.token,
+        set: {
+          userId,
+          platform,
+          deviceName: deviceName ?? null,
+          lastUsedAt: new Date(),
+        },
+      });
+
+    // Backward compat: also set on customUsers for legacy code paths
     await db
       .update(customUsers)
       .set({ pushToken: token, updatedAt: new Date() })
       .where(eq(customUsers.id, userId));
 
-    logger.info("[Notifications] Push token registered", { userId });
+    logger.info("[Notifications] Push token registered", { userId, platform });
     res.json({ success: true });
   } catch (error) {
     logger.error("[Notifications] Failed to register push token", { error, userId });
@@ -74,11 +99,29 @@ router.post("/push-token", async (req, res) => {
 // DELETE /api/notifications/push-token — Remove push token (on logout)
 // ============================================================================
 
+const deleteTokenSchema = z.object({
+  token: z.string().min(1).max(500).optional(),
+});
+
 router.delete("/push-token", async (req, res) => {
   const userId = req.currentUser!.id;
+  const parsed = deleteTokenSchema.safeParse(req.body);
+  const specificToken = parsed.success ? parsed.data.token : undefined;
 
   try {
     const db = getDb();
+
+    if (specificToken) {
+      // Remove a specific device token
+      await db
+        .delete(deviceTokens)
+        .where(and(eq(deviceTokens.userId, userId), eq(deviceTokens.token, specificToken)));
+    } else {
+      // Remove all device tokens for this user (full logout)
+      await db.delete(deviceTokens).where(eq(deviceTokens.userId, userId));
+    }
+
+    // Backward compat: clear legacy pushToken
     await db
       .update(customUsers)
       .set({ pushToken: null, updatedAt: new Date() })
