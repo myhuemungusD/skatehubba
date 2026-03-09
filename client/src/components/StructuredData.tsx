@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useMemo } from "react";
+import { createPortal } from "react-dom";
 
 interface OrganizationData {
   name: string;
@@ -21,82 +22,64 @@ interface WebApplicationData {
 }
 
 export function OrganizationStructuredData({ data }: { data: OrganizationData }) {
-  const serialized = JSON.stringify(data);
-  const prevRef = useRef(serialized);
+  const jsonLd = useMemo(
+    () =>
+      JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        name: data.name,
+        url: data.url,
+        logo: data.logo,
+        description: data.description,
+        sameAs: data.sameAs,
+      }),
+    [data.name, data.url, data.logo, data.description, data.sameAs]
+  );
 
-  useEffect(() => {
-    // Skip DOM update if data hasn't actually changed (prevents thrashing from unstable object refs)
-    if (document.getElementById("org-structured-data") && prevRef.current === serialized) {
-      return;
-    }
-    prevRef.current = serialized;
-
-    const existing = document.getElementById("org-structured-data");
-    if (existing) document.head.removeChild(existing);
-
-    const script = document.createElement("script");
-    script.type = "application/ld+json";
-    script.id = "org-structured-data";
-    script.text = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "Organization",
-      name: data.name,
-      url: data.url,
-      logo: data.logo,
-      description: data.description,
-      sameAs: data.sameAs,
-    });
-
-    document.head.appendChild(script);
-
-    return () => {
-      const el = document.getElementById("org-structured-data");
-      if (el) document.head.removeChild(el);
-    };
-  }, [serialized, data]);
-
-  return null;
+  return createPortal(
+    <script
+      type="application/ld+json"
+      id="org-structured-data"
+      dangerouslySetInnerHTML={{ __html: jsonLd }}
+    />,
+    document.head
+  );
 }
 
 export function WebAppStructuredData({ data }: { data: WebApplicationData }) {
-  const serialized = JSON.stringify(data);
-  const prevRef = useRef(serialized);
+  const jsonLd = useMemo(
+    () =>
+      JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        name: data.name,
+        url: data.url,
+        description: data.description,
+        applicationCategory: data.applicationCategory,
+        operatingSystem: data.operatingSystem,
+        offers: {
+          "@type": "Offer",
+          price: data.offers.price,
+          priceCurrency: data.offers.priceCurrency,
+        },
+      }),
+    [
+      data.name,
+      data.url,
+      data.description,
+      data.applicationCategory,
+      data.operatingSystem,
+      data.offers.price,
+      data.offers.priceCurrency,
+    ]
+  );
 
-  useEffect(() => {
-    // Skip DOM update if data hasn't actually changed (prevents thrashing from unstable object refs)
-    if (document.getElementById("webapp-structured-data") && prevRef.current === serialized) {
-      return;
-    }
-    prevRef.current = serialized;
-
-    const existing = document.getElementById("webapp-structured-data");
-    if (existing) document.head.removeChild(existing);
-
-    const script = document.createElement("script");
-    script.type = "application/ld+json";
-    script.id = "webapp-structured-data";
-    script.text = JSON.stringify({
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      name: data.name,
-      url: data.url,
-      description: data.description,
-      applicationCategory: data.applicationCategory,
-      operatingSystem: data.operatingSystem,
-      offers: {
-        "@type": "Offer",
-        price: data.offers.price,
-        priceCurrency: data.offers.priceCurrency,
-      },
-    });
-
-    document.head.appendChild(script);
-
-    return () => {
-      const el = document.getElementById("webapp-structured-data");
-      if (el) document.head.removeChild(el);
-    };
-  }, [serialized, data]);
-
-  return null;
+  return createPortal(
+    <script
+      type="application/ld+json"
+      id="webapp-structured-data"
+      dangerouslySetInnerHTML={{ __html: jsonLd }}
+    />,
+    document.head
+  );
 }
