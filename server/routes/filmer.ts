@@ -48,8 +48,8 @@ export const handleFilmerRequest = async (req: Request, res: Response) => {
 
     const result = await createFilmerRequest({
       requesterId: req.currentUser.id,
-      requesterTrustLevel: req.currentUser.trustLevel ?? 0,
-      requesterIsActive: req.currentUser.isActive ?? true,
+      requesterTrustLevel: req.currentUser.trustLevel,
+      requesterIsActive: req.currentUser.isActive,
       checkInId,
       filmerUid: parsed.data.filmerUid,
       ipAddress,

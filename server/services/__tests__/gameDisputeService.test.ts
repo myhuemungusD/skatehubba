@@ -4,8 +4,8 @@
  * Line 207 (in resolveDispute): Letters already empty → slice(0,-1) returns ""
  * - defenderIsPlayer1, currentLetters is "" -> slice returns ""
  *
- * Line 351: game.player1Letters || "" and game.player2Letters || "" fallbacks
- * - Tests where letters are null/undefined instead of string
+ * player1Letters / player2Letters are notNull with default "" in the schema
+ * - Tests where letters are empty string (DB guarantees non-null)
  *
  * Line 432: This line doesn't exist in the file (only 200 lines), so likely
  * referring to edge cases in resolveDispute logic (line ~165-167):
