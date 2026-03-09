@@ -39,6 +39,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:diagnose": "node scripts/diagnose-database.mjs",
     "seed:spots": "pnpm -C server seed:spots",
     "seed:users": "pnpm -C server seed:users",
     "set-admin": "tsx scripts/set-admin.ts",

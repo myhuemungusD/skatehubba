@@ -232,15 +232,15 @@ async function main() {
           handle = `${baseHandle.slice(0, 15)}${suffix}`;
         }
 
-        // Insert into usernames
+        // Insert into usernames (uid must be firebaseUid to match auth flow)
         await tx.insert(schema.usernames).values({
-          uid: newUser.id,
+          uid: firebaseUid,
           username: handle,
         });
 
-        // Insert into userProfiles
+        // Insert into userProfiles (id must be firebaseUid to match auth flow)
         await tx.insert(schema.userProfiles).values({
-          id: newUser.id,
+          id: firebaseUid,
           handle,
           displayName: fbUser.displayName || firstName,
           bio: null,

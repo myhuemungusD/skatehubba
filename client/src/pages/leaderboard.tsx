@@ -1,69 +1,14 @@
-import { useRef } from "react";
-import { Trophy, WifiOff } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { useCallback } from "react";
+import { Link } from "wouter";
+import { Trophy, Swords, WifiOff } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   useRealtimeLeaderboard,
   type LeaderboardEntry,
 } from "@/features/leaderboard/useRealtimeLeaderboard";
-import { useVirtualizer } from "@tanstack/react-virtual";
-
-const LEADERBOARD_ROW_HEIGHT = 90;
-
-function VirtualizedLeaderboard({ entries }: { entries: LeaderboardEntry[] }) {
-  const parentRef = useRef<HTMLDivElement>(null);
-
-  const virtualizer = useVirtualizer({
-    count: entries.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => LEADERBOARD_ROW_HEIGHT,
-    overscan: 10,
-  });
-
-  if (entries.length === 0) return null;
-
-  return (
-    <div ref={parentRef} className="max-h-[70vh] overflow-y-auto">
-      <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const entry = entries[virtualRow.index];
-          const rank = entry.rank ?? virtualRow.index + 1;
-          return (
-            <div
-              key={entry.id}
-              ref={virtualizer.measureElement}
-              data-index={virtualRow.index}
-              className="absolute top-0 left-0 w-full"
-              style={{ transform: `translateY(${virtualRow.start}px)` }}
-            >
-              <div className="pb-3">
-                <Card className="bg-neutral-900/70 border-neutral-800">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base text-white">
-                        #{rank} {entry.displayName}
-                      </CardTitle>
-                      <Badge className="bg-yellow-500/20 text-yellow-300">
-                        {entry.wins}W - {entry.losses}L
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="text-xs text-neutral-400">
-                    <div className="flex flex-wrap gap-3">
-                      {entry.username ? <span>@{entry.username.replace(/^@/, "")}</span> : null}
-                      <span>{winRate(entry.wins, entry.losses)} win rate</span>
-                      <span>{entry.wins + entry.losses} games played</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+import { useAuth } from "@/hooks/useAuth";
+import { useCreateGame } from "@/hooks/useSkateGameApi";
 
 function winRate(wins: number, losses: number): string {
   const total = wins + losses;
@@ -71,21 +16,89 @@ function winRate(wins: number, losses: number): string {
   return `${Math.round((wins / total) * 100)}%`;
 }
 
-export default function LeaderboardPage() {
+function RankingsEntry({
+  entry,
+  index,
+  isMe,
+  onChallenge,
+  isChallengePending,
+}: {
+  entry: LeaderboardEntry;
+  index: number;
+  isMe: boolean;
+  onChallenge: (userId: string) => void;
+  isChallengePending: boolean;
+}) {
+  const rank = entry.rank ?? index + 1;
+
+  return (
+    <div
+      className={`flex items-center justify-between p-3 rounded-lg bg-neutral-800/50 border ${isMe ? "border-orange-500/30" : "border-neutral-700"}`}
+    >
+      <div className="flex items-center gap-3 min-w-0 flex-1">
+        <span className="text-sm font-bold text-yellow-400 w-6 text-center shrink-0">#{rank}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            {entry.username ? (
+              <Link
+                href={`/skater/${entry.username}`}
+                className="text-sm font-medium text-white hover:text-yellow-400 transition-colors truncate"
+              >
+                {entry.displayName}
+              </Link>
+            ) : (
+              <span className="text-sm font-medium text-white truncate">{entry.displayName}</span>
+            )}
+            {isMe && <span className="text-xs text-orange-400 font-medium shrink-0">You</span>}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-neutral-500">
+            {entry.username ? <span>@{entry.username.replace(/^@/, "")}</span> : null}
+            <span>
+              {entry.wins}W - {entry.losses}L
+            </span>
+            <span>{winRate(entry.wins, entry.losses)}</span>
+          </div>
+        </div>
+      </div>
+      {!isMe && (
+        <Button
+          size="sm"
+          onClick={() => onChallenge(entry.id)}
+          disabled={isChallengePending}
+          className="shrink-0 ml-2 bg-orange-500 hover:bg-orange-600 text-black font-semibold h-7 px-2.5 text-xs"
+        >
+          <Swords className="h-3 w-3 mr-1" />
+          Challenge
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export default function RankingsPage() {
   const { entries, isLoading, error, isOffline } = useRealtimeLeaderboard();
+  const { user } = useAuth();
+  const createGame = useCreateGame();
+
+  const handleChallenge = useCallback(
+    (opponentId: string) => {
+      createGame.mutate(opponentId);
+    },
+    [createGame]
+  );
 
   return (
     <div className="space-y-6">
       <header className="space-y-2">
         <div className="flex items-center gap-2">
           <Trophy className="h-6 w-6 text-yellow-400" />
-          <h1 className="text-2xl font-semibold text-white">S.K.A.T.E. Leaderboard</h1>
+          <h1 className="text-2xl font-semibold text-white">Rankings</h1>
         </div>
         <p className="text-sm text-neutral-400">Who&apos;s winning the most games of S.K.A.T.E.</p>
         {isOffline ? (
           <div className="flex items-center gap-2 text-xs text-yellow-300">
             <WifiOff className="h-4 w-4" />
-            Offline mode: leaderboard updates will resume when you reconnect.
+            Offline — rankings will update when you reconnect.
           </div>
         ) : null}
       </header>
@@ -93,7 +106,7 @@ export default function LeaderboardPage() {
       {isLoading ? (
         <Card className="bg-neutral-900/60 border-neutral-800">
           <CardContent className="py-8 text-center text-sm text-neutral-400">
-            Pulling the latest rankings...
+            Loading rankings...
           </CardContent>
         </Card>
       ) : null}
@@ -114,7 +127,20 @@ export default function LeaderboardPage() {
         </Card>
       ) : null}
 
-      <VirtualizedLeaderboard entries={entries} />
+      {!isLoading && !error && entries.length > 0 ? (
+        <div className="space-y-2">
+          {entries.map((entry, idx) => (
+            <RankingsEntry
+              key={entry.id}
+              entry={entry}
+              index={idx}
+              isMe={user?.uid === entry.firebaseUid}
+              onChallenge={handleChallenge}
+              isChallengePending={createGame.isPending}
+            />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

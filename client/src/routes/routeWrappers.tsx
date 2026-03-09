@@ -11,6 +11,7 @@ import {
   ProfilePage,
   MapPage,
   CheckinsPage,
+  RankingsPage,
   SpotDetailPage,
   TrickMintPage,
   Tutorial,
@@ -122,6 +123,16 @@ export function DashboardMapRoute() {
     <DashboardLayout>
       <RouteErrorBoundary fallbackMessage="Failed to load the map.">
         <MapPage />
+      </RouteErrorBoundary>
+    </DashboardLayout>
+  );
+}
+
+export function DashboardRankingsRoute() {
+  return (
+    <DashboardLayout>
+      <RouteErrorBoundary fallbackMessage="Failed to load rankings.">
+        <RankingsPage />
       </RouteErrorBoundary>
     </DashboardLayout>
   );
