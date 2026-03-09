@@ -489,26 +489,24 @@ describe("validateUserAgent", () => {
 
   // ---- Missing user agent -------------------------------------------------
 
-  it("should return 400 when user agent header is missing", () => {
+  it("should allow requests when user agent header is missing", () => {
     const req = mockRequest({ headers: {} });
     validateUserAgent(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Invalid request" });
-    expect(next).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   // ---- Bot patterns -------------------------------------------------------
 
-  it("should block Googlebot", () => {
+  it("should allow Googlebot (not in blocked patterns)", () => {
     const req = mockRequest({
       headers: { "user-agent": "Googlebot/2.1 (+http://www.google.com/bot.html)" },
     });
     validateUserAgent(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
-    expect(next).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("should block crawler user agents", () => {
@@ -517,8 +515,11 @@ describe("validateUserAgent", () => {
     });
     validateUserAgent(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "FORBIDDEN",
+      message: "Automated requests not allowed",
+    });
   });
 
   it("should block spider user agents", () => {
@@ -527,8 +528,11 @@ describe("validateUserAgent", () => {
     });
     validateUserAgent(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "FORBIDDEN",
+      message: "Automated requests not allowed",
+    });
   });
 
   it("should block scraper user agents", () => {
@@ -537,48 +541,54 @@ describe("validateUserAgent", () => {
     });
     validateUserAgent(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "FORBIDDEN",
+      message: "Automated requests not allowed",
+    });
   });
 
-  it("should block curl user agents", () => {
+  it("should allow curl user agents (not in blocked patterns)", () => {
     const req = mockRequest({
       headers: { "user-agent": "curl/7.79.1" },
     });
     validateUserAgent(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
-  it("should block wget user agents", () => {
+  it("should allow wget user agents (not in blocked patterns)", () => {
     const req = mockRequest({
       headers: { "user-agent": "Wget/1.21" },
     });
     validateUserAgent(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
-  it("should block python-requests user agents", () => {
+  it("should allow python-requests user agents (not in blocked patterns)", () => {
     const req = mockRequest({
       headers: { "user-agent": "python-requests/2.28.0" },
     });
     validateUserAgent(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   it("should be case-insensitive when matching bot patterns", () => {
     const req = mockRequest({
-      headers: { "user-agent": "PYTHON-REQUESTS/2.28.0" },
+      headers: { "user-agent": "MYCRAWLER/1.0" },
     });
     validateUserAgent(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json).toHaveBeenCalledWith({
+      error: "FORBIDDEN",
+      message: "Automated requests not allowed",
+    });
   });
 });
 
@@ -595,9 +605,9 @@ describe("logIPAddress", () => {
     next = mockNext();
   });
 
-  it("should use x-forwarded-for header when present", () => {
+  it("should use req.ip when present", () => {
     const req = mockRequest({
-      headers: { "x-forwarded-for": "203.0.113.50" },
+      ip: "203.0.113.50",
     });
     logIPAddress(req, res, next);
 
@@ -605,67 +615,9 @@ describe("logIPAddress", () => {
     expect(next).toHaveBeenCalledTimes(1);
   });
 
-  it("should use x-real-ip header when x-forwarded-for is absent", () => {
+  it("should set clientIpAddress to undefined when req.ip is falsy", () => {
     const req = mockRequest({
-      headers: { "x-real-ip": "198.51.100.14" },
-    });
-    logIPAddress(req, res, next);
-
-    expect(req.clientIpAddress).toBe("198.51.100.14");
-    expect(next).toHaveBeenCalledTimes(1);
-  });
-
-  it("should prefer x-forwarded-for over x-real-ip", () => {
-    const req = mockRequest({
-      headers: {
-        "x-forwarded-for": "203.0.113.50",
-        "x-real-ip": "198.51.100.14",
-      },
-    });
-    logIPAddress(req, res, next);
-
-    expect(req.clientIpAddress).toBe("203.0.113.50");
-  });
-
-  it("should fall back to connection.remoteAddress", () => {
-    const req = mockRequest({
-      headers: {},
-      connection: { remoteAddress: "10.10.10.10" },
-      socket: { remoteAddress: "10.20.20.20" },
-    });
-    logIPAddress(req, res, next);
-
-    expect(req.clientIpAddress).toBe("10.10.10.10");
-    expect(next).toHaveBeenCalledTimes(1);
-  });
-
-  it("should fall back to socket.remoteAddress when connection.remoteAddress is undefined", () => {
-    const req = mockRequest({
-      headers: {},
-      connection: { remoteAddress: undefined },
-      socket: { remoteAddress: "10.20.20.20" },
-    });
-    logIPAddress(req, res, next);
-
-    expect(req.clientIpAddress).toBe("10.20.20.20");
-    expect(next).toHaveBeenCalledTimes(1);
-  });
-
-  it("should take first element when x-forwarded-for is an array", () => {
-    const req = mockRequest({
-      headers: { "x-forwarded-for": ["203.0.113.50", "198.51.100.14"] },
-    });
-    logIPAddress(req, res, next);
-
-    expect(req.clientIpAddress).toBe("203.0.113.50");
-    expect(next).toHaveBeenCalledTimes(1);
-  });
-
-  it("should set ipAddress to undefined when no IP source is available", () => {
-    const req = mockRequest({
-      headers: {},
-      connection: { remoteAddress: undefined },
-      socket: { remoteAddress: undefined },
+      ip: undefined,
     });
     logIPAddress(req, res, next);
 

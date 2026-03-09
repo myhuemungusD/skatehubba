@@ -111,10 +111,13 @@ process.on("unhandledRejection", (reason) => {
 });
 
 process.on("uncaughtException", (err) => {
-  logger.error("[Server] Uncaught exception — continuing", {
+  logger.error("[Server] Uncaught exception — shutting down", {
     name: err.name,
     message: err.message,
+    stack: err.stack,
   });
+  // Allow logger to flush, then exit — process manager will restart
+  setTimeout(() => process.exit(1), 1000);
 });
 
 // Graceful shutdown

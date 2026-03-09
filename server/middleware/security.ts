@@ -482,16 +482,17 @@ export const validateEmail = (req: Request, res: Response, next: NextFunction) =
 export const validateUserAgent = (req: Request, res: Response, next: NextFunction) => {
   const userAgent = req.get("User-Agent");
 
-  // Block requests without user agent (likely bots)
+  // Allow requests without a user-agent — many legitimate API clients omit it
   if (!userAgent) {
-    return res.status(400).json({ error: "Invalid request" });
+    return next();
   }
 
-  // Block common bot patterns
-  const botPatterns = [/bot/i, /crawler/i, /spider/i, /scraper/i, /curl/i, /wget/i, /python/i];
+  // Block known malicious bot/scraper patterns while allowing legitimate tools
+  // (curl, wget, python-requests, etc. are valid API clients)
+  const botPatterns = [/crawler/i, /spider/i, /scraper/i, /masscan/i, /nikto/i];
 
   if (botPatterns.some((pattern) => pattern.test(userAgent))) {
-    return res.status(400).json({ error: "Automated requests not allowed" });
+    return res.status(403).json({ error: "FORBIDDEN", message: "Automated requests not allowed" });
   }
 
   next();
@@ -506,13 +507,7 @@ export const validateUserAgent = (req: Request, res: Response, next: NextFunctio
  * @param next - Express next function
  */
 export const logIPAddress = (req: Request, _res: Response, next: NextFunction) => {
-  // Get real IP address (accounting for proxies)
-  const ip =
-    req.headers["x-forwarded-for"] ||
-    req.headers["x-real-ip"] ||
-    req.connection.remoteAddress ||
-    req.socket.remoteAddress;
-
-  req.clientIpAddress = Array.isArray(ip) ? ip[0] : ip;
+  // Use req.ip which respects the trust proxy setting configured in app.ts
+  req.clientIpAddress = req.ip || undefined;
   next();
 };

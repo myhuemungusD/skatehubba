@@ -45,9 +45,9 @@ describe("getClientIp", () => {
     expect(getClientIp(req as any)).toBe("127.0.0.1");
   });
 
-  it("should return null when no IP info is available", () => {
+  it("should return 'unknown' when no IP info is available", () => {
     const req = { headers: {}, ip: undefined };
-    expect(getClientIp(req as any)).toBeNull();
+    expect(getClientIp(req as any)).toBe("unknown");
   });
 
   it("should trim whitespace from x-forwarded-for", () => {
@@ -65,19 +65,19 @@ describe("getClientIp", () => {
     expect(getClientIp(req as any)).toBe("10.0.0.1");
   });
 
-  it("should return null when x-forwarded-for first entry is whitespace-only", () => {
+  it("should return 'unknown' when x-forwarded-for first entry is whitespace-only", () => {
     const req = { headers: { "x-forwarded-for": " , 1.2.3.4" }, ip: "10.0.0.1" };
-    expect(getClientIp(req as any)).toBeNull();
+    expect(getClientIp(req as any)).toBe("unknown");
   });
 
-  it("should return null when x-forwarded-for array first entry is whitespace-only", () => {
+  it("should return 'unknown' when x-forwarded-for array first entry is whitespace-only", () => {
     const req = { headers: { "x-forwarded-for": ["  "] }, ip: "10.0.0.1" };
-    expect(getClientIp(req as any)).toBeNull();
+    expect(getClientIp(req as any)).toBe("unknown");
   });
 
-  it("should return null when x-real-ip array first entry is whitespace-only", () => {
+  it("should return 'unknown' when x-real-ip array first entry is whitespace-only", () => {
     const req = { headers: { "x-real-ip": ["  "] }, ip: "10.0.0.1" };
-    expect(getClientIp(req as any)).toBeNull();
+    expect(getClientIp(req as any)).toBe("unknown");
   });
 });
 

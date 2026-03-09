@@ -249,7 +249,7 @@ describe("Auth Routes - Integration", () => {
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Authentication failed" })
+        expect.objectContaining({ error: "AUTH_FAILED", message: "Authentication failed" })
       );
     });
 
@@ -618,7 +618,7 @@ describe("Auth Routes - Integration", () => {
       await callRoute("POST", "/api/auth/change-password", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "INVALID_PASSWORD" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "INVALID_PASSWORD" }));
     });
 
     it("rejects weak password (no uppercase/number)", async () => {
@@ -631,7 +631,7 @@ describe("Auth Routes - Integration", () => {
       await callRoute("POST", "/api/auth/change-password", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "WEAK_PASSWORD" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "WEAK_PASSWORD" }));
     });
 
     it("rejects incorrect current password", async () => {
@@ -648,7 +648,7 @@ describe("Auth Routes - Integration", () => {
 
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ code: "PASSWORD_CHANGE_FAILED" })
+        expect.objectContaining({ error: "PASSWORD_CHANGE_FAILED" })
       );
     });
 
@@ -764,7 +764,7 @@ describe("Auth Routes - Integration", () => {
       await callRoute("POST", "/api/auth/reset-password", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "INVALID_PASSWORD" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "INVALID_PASSWORD" }));
     });
 
     it("rejects weak password", async () => {
@@ -776,7 +776,7 @@ describe("Auth Routes - Integration", () => {
       await callRoute("POST", "/api/auth/reset-password", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "WEAK_PASSWORD" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "WEAK_PASSWORD" }));
     });
 
     it("returns error for invalid reset token", async () => {
@@ -790,7 +790,7 @@ describe("Auth Routes - Integration", () => {
       await callRoute("POST", "/api/auth/reset-password", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "INVALID_TOKEN" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "INVALID_TOKEN" }));
     });
 
     it("succeeds with valid token and strong password", async () => {
@@ -990,7 +990,9 @@ describe("Auth Routes - Integration", () => {
       await callRoute("POST", "/api/auth/verify-identity", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "PASSWORD_REQUIRED" }));
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "PASSWORD_REQUIRED" })
+      );
     });
 
     it("requires MFA code when MFA is enabled", async () => {
@@ -1007,8 +1009,8 @@ describe("Auth Routes - Integration", () => {
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          code: "MFA_REQUIRED",
-          mfaEnabled: true,
+          error: "MFA_REQUIRED",
+          details: expect.objectContaining({ mfaEnabled: true }),
         })
       );
     });

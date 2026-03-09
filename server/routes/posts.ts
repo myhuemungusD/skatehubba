@@ -6,6 +6,7 @@ import { enforceTrustAction } from "../middleware/trustSafety";
 import { postCreateLimiter } from "../middleware/security";
 import { createPost } from "../services/moderationStore";
 import logger from "../logger";
+import { Errors } from "../utils/apiError";
 
 const router = Router();
 
@@ -30,11 +31,11 @@ router.post(
   async (req, res) => {
     const parsed = postSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ message: "Invalid request", issues: parsed.error.flatten() });
+      return Errors.validation(res, parsed.error.flatten());
     }
 
     if (!req.currentUser?.id) {
-      return res.status(401).json({ message: "Unauthorized" });
+      return Errors.unauthorized(res);
     }
 
     try {

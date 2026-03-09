@@ -522,7 +522,7 @@ describe("Security Middleware", () => {
       expect(next).toHaveBeenCalled();
     });
 
-    it("should reject missing user agent", () => {
+    it("should allow missing user agent", () => {
       const req = createReq({
         get: vi.fn(() => undefined),
       });
@@ -531,11 +531,11 @@ describe("Security Middleware", () => {
 
       validateUserAgent(req, res, next);
 
-      expect(next).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(next).toHaveBeenCalled();
+      expect(res.status).not.toHaveBeenCalled();
     });
 
-    it("should reject bot user agent", () => {
+    it("should allow Googlebot (not in blocked patterns)", () => {
       const req = createReq({
         get: vi.fn((header: string) => (header === "User-Agent" ? "Googlebot/2.1" : undefined)),
       });
@@ -544,11 +544,10 @@ describe("Security Middleware", () => {
 
       validateUserAgent(req, res, next);
 
-      expect(next).not.toHaveBeenCalled();
-      expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
+      expect(next).toHaveBeenCalled();
     });
 
-    it("should reject curl user agent", () => {
+    it("should allow curl user agent (not in blocked patterns)", () => {
       const req = createReq({
         get: vi.fn((header: string) => (header === "User-Agent" ? "curl/7.68.0" : undefined)),
       });
@@ -557,10 +556,10 @@ describe("Security Middleware", () => {
 
       validateUserAgent(req, res, next);
 
-      expect(next).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalled();
     });
 
-    it("should reject python user agent", () => {
+    it("should allow python user agent (not in blocked patterns)", () => {
       const req = createReq({
         get: vi.fn((header: string) =>
           header === "User-Agent" ? "python-requests/2.28.0" : undefined
@@ -571,7 +570,7 @@ describe("Security Middleware", () => {
 
       validateUserAgent(req, res, next);
 
-      expect(next).not.toHaveBeenCalled();
+      expect(next).toHaveBeenCalled();
     });
 
     it("should reject spider user agent", () => {
@@ -584,6 +583,11 @@ describe("Security Middleware", () => {
       validateUserAgent(req, res, next);
 
       expect(next).not.toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({
+        error: "FORBIDDEN",
+        message: "Automated requests not allowed",
+      });
     });
   });
 
@@ -592,9 +596,9 @@ describe("Security Middleware", () => {
   // ===========================================================================
 
   describe("logIPAddress", () => {
-    it("should extract IP from x-forwarded-for header", () => {
+    it("should use req.ip when present", () => {
       const req = createReq({
-        headers: { "x-forwarded-for": "203.0.113.50" },
+        ip: "203.0.113.50",
         body: {},
       });
       const res = createRes();
@@ -606,9 +610,9 @@ describe("Security Middleware", () => {
       expect(next).toHaveBeenCalled();
     });
 
-    it("should extract IP from x-real-ip header", () => {
+    it("should set clientIpAddress to undefined when req.ip is falsy", () => {
       const req = createReq({
-        headers: { "x-real-ip": "203.0.113.51" },
+        ip: undefined,
         body: {},
       });
       const res = createRes();
@@ -616,36 +620,8 @@ describe("Security Middleware", () => {
 
       logIPAddress(req, res, next);
 
-      expect(req.clientIpAddress).toBe("203.0.113.51");
+      expect(req.clientIpAddress).toBeUndefined();
       expect(next).toHaveBeenCalled();
-    });
-
-    it("should extract first IP from array", () => {
-      const req = createReq({
-        headers: { "x-forwarded-for": ["203.0.113.50", "203.0.113.51"] },
-        body: {},
-      });
-      const res = createRes();
-      const next = vi.fn();
-
-      logIPAddress(req, res, next);
-
-      expect(req.clientIpAddress).toBe("203.0.113.50");
-    });
-
-    it("should fallback to connection remoteAddress", () => {
-      const req = createReq({
-        headers: {},
-        body: {},
-        connection: { remoteAddress: "192.168.1.1" },
-        socket: { remoteAddress: "192.168.1.2" },
-      });
-      const res = createRes();
-      const next = vi.fn();
-
-      logIPAddress(req, res, next);
-
-      expect(req.clientIpAddress).toBe("192.168.1.1");
     });
   });
 

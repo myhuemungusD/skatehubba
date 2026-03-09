@@ -113,7 +113,9 @@ describe("POST /api/posts", () => {
     await callHandler("POST /", req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: "Invalid request" }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: "VALIDATION_ERROR", message: "Request validation failed." })
+    );
   });
 
   it("should return 400 for invalid mediaUrl (not a URL)", async () => {
@@ -133,7 +135,9 @@ describe("POST /api/posts", () => {
     await callHandler("POST /", req, res);
 
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ message: "Unauthorized" });
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: "UNAUTHORIZED", message: "Authentication required." })
+    );
   });
 
   it("should return 401 when currentUser is null", async () => {

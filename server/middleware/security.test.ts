@@ -1,10 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  validateHoneypot,
-  validateEmail,
-  validateUserAgent,
-  logIPAddress,
-} from "./security";
+import { validateHoneypot, validateEmail, validateUserAgent, logIPAddress } from "./security";
 
 function createMockReqRes(
   overrides: {
@@ -137,66 +132,73 @@ describe("validateUserAgent", () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it("rejects missing user agent", () => {
+  it("allows missing user agent", () => {
     const { req, res, next, statusFn } = createMockReqRes();
     validateUserAgent(req, res, next);
-    expect(next).not.toHaveBeenCalled();
-    expect(statusFn).toHaveBeenCalledWith(400);
+    expect(next).toHaveBeenCalled();
+    expect(statusFn).not.toHaveBeenCalled();
   });
 
   it("rejects bot user agents", () => {
-    const botAgents = [
-      "Googlebot/2.1",
-      "my-crawler",
-      "web-spider",
-      "scraper-tool",
-      "curl/7.68",
-      "Wget/1.21",
-      "python-requests/2.28",
-    ];
+    const botAgents = ["my-crawler", "web-spider", "scraper-tool", "masscan/1.0", "nikto/2.1"];
     for (const ua of botAgents) {
-      const { req, res, next, statusFn } = createMockReqRes({ headers: { "user-agent": ua } });
+      const { req, res, next, statusFn, jsonFn } = createMockReqRes({
+        headers: { "user-agent": ua },
+      });
       validateUserAgent(req, res, next);
       expect(next).not.toHaveBeenCalled();
-      expect(statusFn).toHaveBeenCalledWith(400);
+      expect(statusFn).toHaveBeenCalledWith(403);
+      expect(jsonFn).toHaveBeenCalledWith({
+        error: "FORBIDDEN",
+        message: "Automated requests not allowed",
+      });
+    }
+  });
+
+  it("allows previously blocked user agents (bot, curl, wget, python)", () => {
+    const allowedAgents = ["Googlebot/2.1", "curl/7.68", "Wget/1.21", "python-requests/2.28"];
+    for (const ua of allowedAgents) {
+      const { req, res, next } = createMockReqRes({ headers: { "user-agent": ua } });
+      validateUserAgent(req, res, next);
+      expect(next).toHaveBeenCalled();
     }
   });
 });
 
 describe("logIPAddress", () => {
-  it("extracts IP from x-forwarded-for header", () => {
-    const { req, res, next } = createMockReqRes({
-      headers: { "x-forwarded-for": "1.2.3.4" },
-    });
+  it("uses req.ip for client IP address", () => {
+    const { req, res, next } = createMockReqRes();
+    req.ip = "1.2.3.4";
     logIPAddress(req, res, next);
     expect(req.clientIpAddress).toBe("1.2.3.4");
     expect(next).toHaveBeenCalled();
   });
 
-  it("extracts IP from x-real-ip header", () => {
-    const { req, res, next } = createMockReqRes({
-      headers: { "x-real-ip": "5.6.7.8" },
-    });
+  it("sets clientIpAddress to undefined when req.ip is undefined", () => {
+    const { req, res, next } = createMockReqRes();
+    req.ip = undefined;
     logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("5.6.7.8");
+    expect(req.clientIpAddress).toBeUndefined();
     expect(next).toHaveBeenCalled();
   });
 
-  it("falls back to connection.remoteAddress", () => {
+  it("ignores x-forwarded-for and x-real-ip headers", () => {
+    const { req, res, next } = createMockReqRes({
+      headers: { "x-forwarded-for": "5.5.5.5", "x-real-ip": "6.6.6.6" },
+    });
+    req.ip = "9.9.9.9";
+    logIPAddress(req, res, next);
+    expect(req.clientIpAddress).toBe("9.9.9.9");
+    expect(next).toHaveBeenCalled();
+  });
+
+  it("ignores connection.remoteAddress", () => {
     const { req, res, next } = createMockReqRes({
       connection: { remoteAddress: "10.0.0.1" },
     });
+    req.ip = "8.8.8.8";
     logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("10.0.0.1");
-    expect(next).toHaveBeenCalled();
-  });
-
-  it("takes first entry from array x-forwarded-for", () => {
-    const { req, res, next } = createMockReqRes({
-      headers: { "x-forwarded-for": ["1.1.1.1", "2.2.2.2"] as any },
-    });
-    logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("1.1.1.1");
+    expect(req.clientIpAddress).toBe("8.8.8.8");
     expect(next).toHaveBeenCalled();
   });
 });

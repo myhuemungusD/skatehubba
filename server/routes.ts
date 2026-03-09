@@ -1,9 +1,11 @@
 import type { Express } from "express";
+import express from "express";
 import { setupAuthRoutes } from "./auth/routes";
 import { authenticateUser, requireAdmin } from "./auth/middleware";
 import { requirePaidOrPro } from "./middleware/requirePaidOrPro";
 import { emailSignupLimiter, profileReadLimiter, remoteSkateLimiter } from "./middleware/security";
 import { bandwidthDetection } from "./middleware/bandwidth";
+import { UPLOAD_BODY_PARSE_LIMIT } from "./config/server";
 import { analyticsRouter } from "./routes/analytics";
 import { metricsRouter } from "./routes/metrics";
 import { moderationRouter } from "./routes/moderation";
@@ -34,6 +36,7 @@ export function registerRoutes(app: Express): void {
   app.use("/api/games", authenticateUser, gamesRouter);
   app.use(
     "/api/trickmint",
+    express.json({ limit: UPLOAD_BODY_PARSE_LIMIT }),
     authenticateUser,
     requirePaidOrPro,
     bandwidthDetection,
@@ -43,7 +46,7 @@ export function registerRoutes(app: Express): void {
   app.use("/webhooks/stripe", stripeWebhookRouter);
   app.use("/api/notifications", notificationsRouter);
   app.use("/api/remote-skate", remoteSkateLimiter, remoteSkateRouter);
-  app.use("/api/spots", spotsRouter);
+  app.use("/api/spots", express.json({ limit: UPLOAD_BODY_PARSE_LIMIT }), spotsRouter);
   app.use("/api/posts", postsRouter);
   app.use("/api/users", usersRouter);
   app.use("/api/matchmaking", matchmakingRouter);

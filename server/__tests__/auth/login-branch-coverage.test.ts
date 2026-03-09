@@ -218,7 +218,8 @@ describe("login.ts — branch coverage", () => {
         await app.execute("POST", "/api/auth/login", req, res);
 
         expect(res._statusCode).toBe(401);
-        expect(res._jsonData).toHaveProperty("error", "Authentication failed");
+        expect(res._jsonData).toHaveProperty("error", "AUTH_FAILED");
+        expect(res._jsonData).toHaveProperty("message", "Authentication failed");
         expect(mockAuditLogLoginFailure).toHaveBeenCalledWith(
           null,
           "127.0.0.1",
@@ -244,7 +245,8 @@ describe("login.ts — branch coverage", () => {
         await app.execute("POST", "/api/auth/login", req, res);
 
         expect(res._statusCode).toBe(401);
-        expect(res._jsonData).toHaveProperty("error", "Authentication failed");
+        expect(res._jsonData).toHaveProperty("error", "AUTH_FAILED");
+        expect(res._jsonData).toHaveProperty("message", "Authentication failed");
         expect(mockAuditLogLoginFailure).toHaveBeenCalledWith(
           null,
           "127.0.0.1",
@@ -273,7 +275,8 @@ describe("login.ts — branch coverage", () => {
       await app.execute("POST", "/api/auth/login", req, res);
 
       expect(res._statusCode).toBe(401);
-      expect(res._jsonData).toHaveProperty("error", "Authentication failed");
+      expect(res._jsonData).toHaveProperty("error", "AUTH_FAILED");
+      expect(res._jsonData).toHaveProperty("message", "Authentication failed");
       expect(mockAuditLogLoginFailure).toHaveBeenCalledWith(
         null,
         "127.0.0.1",
@@ -653,8 +656,8 @@ describe("login.ts — branch coverage", () => {
       await app.execute("POST", "/api/auth/login", req, res);
 
       expect(res._statusCode).toBe(429);
-      expect(res._jsonData).toHaveProperty("code", "ACCOUNT_LOCKED");
-      expect(res._jsonData).toHaveProperty("unlockAt", unlockAt.toISOString());
+      expect(res._jsonData).toHaveProperty("error", "ACCOUNT_LOCKED");
+      expect(res._jsonData.details).toHaveProperty("unlockAt", unlockAt.toISOString());
       expect(mockAuditLogLoginFailure).toHaveBeenCalledWith(
         "locked@example.com",
         "127.0.0.1",
@@ -971,7 +974,8 @@ describe("login.ts — branch coverage", () => {
       await app.execute("GET", "/api/auth/me", req, res);
 
       expect(res._statusCode).toBe(500);
-      expect(res._jsonData).toHaveProperty("error", "Failed to get user information");
+      expect(res._jsonData).toHaveProperty("error", "USER_FETCH_FAILED");
+      expect(res._jsonData).toHaveProperty("message", "Failed to get user information");
     });
 
     it("returns user data successfully for the /me endpoint", async () => {
@@ -1014,7 +1018,8 @@ describe("login.ts — branch coverage", () => {
       await app.execute("POST", "/api/auth/logout", req, res);
 
       expect(res._statusCode).toBe(500);
-      expect(res._jsonData).toHaveProperty("error", "Logout failed");
+      expect(res._jsonData).toHaveProperty("error", "LOGOUT_FAILED");
+      expect(res._jsonData).toHaveProperty("message", "Logout failed");
     });
   });
 
@@ -1115,7 +1120,8 @@ describe("login.ts — branch coverage", () => {
       await app.execute("POST", "/api/auth/login", req, res);
 
       expect(res._statusCode).toBe(500);
-      expect(res._jsonData).toHaveProperty("error", "Authentication failed");
+      expect(res._jsonData).toHaveProperty("error", "AUTH_FAILED");
+      expect(res._jsonData).toHaveProperty("message", "Authentication failed");
     });
   });
 

@@ -10,6 +10,7 @@ import { AuditLogger, AUDIT_EVENTS, getClientIP } from "../audit.ts";
 import { MfaService } from "../mfa.ts";
 import { sensitiveAuthLimiter } from "../../middleware/security.ts";
 import logger from "../../logger.ts";
+import { Errors } from "../../utils/apiError.ts";
 
 // NOTE: CSRF validation is handled globally by app.use("/api", requireCsrfToken)
 // in server/index.ts. Do not add per-route requireCsrfToken here.
@@ -38,11 +39,14 @@ export function setupReauthRoutes(app: Express) {
         if (mfaEnabled) {
           // If MFA is enabled, require MFA code
           if (!mfaCode || typeof mfaCode !== "string") {
-            return res.status(400).json({
-              error: "MFA code required for identity verification",
-              code: "MFA_REQUIRED",
-              mfaEnabled: true,
-            });
+            return Errors.badRequest(
+              res,
+              "MFA_REQUIRED",
+              "MFA code required for identity verification",
+              {
+                mfaEnabled: true,
+              }
+            );
           }
 
           const mfaValid = await MfaService.verifyCode(
@@ -54,10 +58,7 @@ export function setupReauthRoutes(app: Express) {
           );
 
           if (!mfaValid) {
-            return res.status(401).json({
-              error: "Invalid MFA code",
-              code: "INVALID_MFA",
-            });
+            return Errors.unauthorized(res, "INVALID_MFA", "Invalid MFA code");
           }
         } else {
           // If no MFA, require password (for non-Firebase users)
@@ -75,16 +76,10 @@ export function setupReauthRoutes(app: Express) {
               const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
 
               if (authTime < fiveMinutesAgo) {
-                return res.status(401).json({
-                  error: "Please sign in again to continue",
-                  code: "STALE_TOKEN",
-                });
+                return Errors.unauthorized(res, "STALE_TOKEN", "Please sign in again to continue");
               }
             } catch {
-              return res.status(401).json({
-                error: "Identity verification failed",
-                code: "INVALID_TOKEN",
-              });
+              return Errors.unauthorized(res, "INVALID_TOKEN", "Identity verification failed");
             }
           } else if (password) {
             // Traditional password verification
@@ -94,17 +89,15 @@ export function setupReauthRoutes(app: Express) {
               const isValid = await AuthService.verifyPassword(password, dbUser.passwordHash);
 
               if (!isValid) {
-                return res.status(401).json({
-                  error: "Invalid password",
-                  code: "INVALID_PASSWORD",
-                });
+                return Errors.unauthorized(res, "INVALID_PASSWORD", "Invalid password");
               }
             }
           } else {
-            return res.status(400).json({
-              error: "Password required for identity verification",
-              code: "PASSWORD_REQUIRED",
-            });
+            return Errors.badRequest(
+              res,
+              "PASSWORD_REQUIRED",
+              "Password required for identity verification"
+            );
           }
         }
 
@@ -127,7 +120,7 @@ export function setupReauthRoutes(app: Express) {
         });
       } catch (error) {
         logger.error("Identity verification error", { error: String(error) });
-        res.status(500).json({ error: "Identity verification failed" });
+        Errors.internal(res, "VERIFICATION_FAILED", "Identity verification failed");
       }
     }
   );
