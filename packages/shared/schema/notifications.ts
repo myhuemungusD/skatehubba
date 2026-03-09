@@ -73,7 +73,7 @@ export const notificationPreferences = pgTable(
     resultNotifications: boolean("result_notifications").default(true).notNull(),
     marketingEmails: boolean("marketing_emails").default(true).notNull(),
     weeklyDigest: boolean("weekly_digest").default(true).notNull(),
-    // Quiet hours (stored as HH:MM in user's local time)
+    // Quiet hours (stored as HH:MM in UTC)
     quietHoursStart: varchar("quiet_hours_start", { length: 5 }),
     quietHoursEnd: varchar("quiet_hours_end", { length: 5 }),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -183,7 +183,7 @@ export function shouldSendForType(
 
 /**
  * Check if the current time falls within the user's quiet hours.
- * Quiet hours are stored as "HH:MM" strings in the user's local time.
+ * Quiet hours are stored as "HH:MM" strings in UTC.
  *
  * Returns true if current time IS within quiet hours (notifications should be suppressed).
  * Supports overnight ranges (e.g., start="22:00", end="07:00").

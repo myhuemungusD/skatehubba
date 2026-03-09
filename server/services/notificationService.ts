@@ -250,17 +250,22 @@ async function sendPushToUser(
       .where(eq(deviceTokens.userId, userId));
 
     if (tokens.length > 0) {
-      // Build messages for all devices
-      const messages: ExpoPushMessage[] = tokens
-        .filter((t) => Expo.isExpoPushToken(t.token))
-        .map((t) => ({
-          to: t.token,
-          sound: "default" as const,
-          title,
-          body,
-          data: data || {},
-          channelId: "game",
-        }));
+      // Build messages and track valid tokens in parallel to preserve index correspondence
+      const validTokens: { id: number; token: string }[] = [];
+      const messages: ExpoPushMessage[] = [];
+      for (const t of tokens) {
+        if (Expo.isExpoPushToken(t.token)) {
+          validTokens.push(t);
+          messages.push({
+            to: t.token,
+            sound: "default" as const,
+            title,
+            body,
+            data: data || {},
+            channelId: "game",
+          });
+        }
+      }
 
       if (messages.length === 0) return;
 
@@ -271,7 +276,7 @@ async function sendPushToUser(
       for (let i = 0; i < tickets.length; i++) {
         const ticket = tickets[i] as ExpoPushTicket;
         if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
-          staleTokenIds.push(tokens[i].id);
+          staleTokenIds.push(validTokens[i].id);
         }
       }
 
@@ -299,7 +304,7 @@ async function sendPushToUser(
         to: user.pushToken,
         title,
         body,
-        data: data as Record<string, unknown>,
+        data,
         sound: "default",
       });
     }

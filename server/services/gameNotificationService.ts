@@ -120,7 +120,7 @@ export async function sendGameNotification(
       data: {
         type: `game_${type}`,
         gameId: data.gameId,
-        ...(data.disputeId ? { disputeId: String(data.disputeId) } : {}),
+        ...(data.disputeId ? { disputeId: data.disputeId } : {}),
       },
       sound: "default",
       channelId: "game",

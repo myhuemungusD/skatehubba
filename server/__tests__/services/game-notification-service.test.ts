@@ -240,7 +240,7 @@ describe("Game Notification Service", () => {
           data: {
             type: "game_dispute_filed",
             gameId: "game-1",
-            disputeId: "42",
+            disputeId: 42,
           },
         })
       );
