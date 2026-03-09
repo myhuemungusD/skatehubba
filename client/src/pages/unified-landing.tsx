@@ -44,15 +44,24 @@ export default function UnifiedLanding() {
     }
   }, [auth.isAuthenticated, auth.profileStatus, auth.loading, setLocation]);
 
-  // Show nothing while checking auth (prevents flash)
+  // Loading skeleton while checking auth (blank screens are release blockers)
   if (auth.loading || (auth.isAuthenticated && auth.profileStatus === "unknown")) {
-    return null;
+    return (
+      <div className="min-h-dvh bg-black flex items-center justify-center">
+        <span
+          className="text-3xl font-bold text-[#ff6a00] animate-pulse"
+          style={{ fontFamily: "'Permanent Marker', cursive" }}
+        >
+          SkateHubba
+        </span>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Nav floats over the full-bleed hero */}
-      <div className="absolute top-0 left-0 right-0 z-50">
+      <div className="absolute top-0 left-0 right-0">
         <PublicNavigation />
       </div>
 

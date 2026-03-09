@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Link } from "wouter";
-import { ArrowRight, Play, Volume2, VolumeX } from "lucide-react";
+import { ArrowRight, Volume2, VolumeX } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // A/B bucket: "stamp" variant shows the "Own Your Tricks" grain-punched hero
@@ -61,7 +61,7 @@ export function HeroMedia({
 
   return (
     <section
-      className="hero-media relative w-full min-h-screen flex items-center justify-center overflow-hidden"
+      className="hero-media relative w-full min-h-dvh flex items-center justify-center overflow-hidden"
       aria-label="Hero"
       data-ab={variant}
     >
@@ -140,7 +140,7 @@ export function HeroMedia({
       {videoSrc && isPlaying && (
         <button
           onClick={toggleMute}
-          className="absolute bottom-6 right-6 z-[6] p-3 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white hover:bg-black/70 transition-colors"
+          className="absolute bottom-6 right-6 z-[6] p-3 rounded-full bg-black/50 backdrop-blur-sm border border-white/10 text-white hover:bg-black/70 transition-colors focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:outline-none"
           aria-label={muted ? "Unmute video" : "Mute video"}
         >
           {muted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
@@ -154,7 +154,7 @@ export function HeroMedia({
           <div className="flex justify-center hero-fade-in">
             <Link href="/auth" aria-label="Sign up or log in to SkateHubba">
               <div
-                className={`inline-flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity ${
+                className={`inline-flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity rounded-full focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:outline-none ${
                   badge.variant === "success"
                     ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                     : "bg-blue-500/10 border-blue-500/20 text-blue-400"
@@ -223,7 +223,7 @@ export function HeroMedia({
             {primaryCTA && (
               <Link
                 href={primaryCTA.href}
-                className="group relative inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-black text-base font-bold uppercase tracking-wide px-8 py-4 rounded-xl shadow-[0_18px_60px_rgba(249,115,22,0.35)] transition-all hover:shadow-[0_24px_80px_rgba(249,115,22,0.5)] hover:scale-105"
+                className="group relative inline-flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-black text-base font-bold uppercase tracking-wide px-8 py-4 rounded-xl shadow-[0_18px_60px_rgba(249,115,22,0.35)] transition-all hover:shadow-[0_24px_80px_rgba(249,115,22,0.5)] hover:scale-105 focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-black focus-visible:outline-none"
                 data-testid={primaryCTA.testId}
               >
                 {primaryCTA.text}
