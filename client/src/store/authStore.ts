@@ -382,8 +382,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         set({ roles: rolesResult.data });
       }
     } catch (err: unknown) {
+      const errCode = extractFirebaseErrorCode(err);
+
       if (isExpectedAuthError(err)) {
-        logger.warn("[AuthStore] Email sign-in failed:", extractFirebaseErrorCode(err));
+        logger.warn("[AuthStore] Email sign-in failed:", errCode);
       } else {
         logger.error("[AuthStore] Email sign-in error:", err);
       }
