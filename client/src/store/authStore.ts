@@ -311,7 +311,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           // before this function returns. The onAuthStateChanged listener
           // will see profileStatus !== "unknown" and skip its own fetch.
           const [profileResult, rolesResult] = await Promise.all([
-            withTimeout(fetchProfile(result.user.uid), 4000, "fetchProfile"),
+            withTimeout(fetchProfile(result.user.uid), 8000, "fetchProfile"),
             withTimeout(extractRolesFromToken(result.user), 4000, "fetchRoles"),
           ]);
 
@@ -371,7 +371,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Fetch profile and roles inline so profileStatus is resolved
       // before this function returns.
       const [profileResult, rolesResult] = await Promise.all([
-        withTimeout(fetchProfile(result.user.uid), 4000, "fetchProfile"),
+        withTimeout(fetchProfile(result.user.uid), 8000, "fetchProfile"),
         withTimeout(extractRolesFromToken(result.user), 4000, "fetchRoles"),
       ]);
 
