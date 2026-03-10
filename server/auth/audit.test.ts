@@ -69,62 +69,22 @@ describe("AUDIT_EVENTS", () => {
 });
 
 describe("getClientIP", () => {
-  it("extracts IP from x-forwarded-for header (first IP)", () => {
-    const req = {
-      headers: { "x-forwarded-for": "1.2.3.4, 5.6.7.8" },
-    };
-    expect(getClientIP(req)).toBe("1.2.3.4");
-  });
-
-  it("handles x-forwarded-for as array", () => {
-    const req = {
-      headers: { "x-forwarded-for": ["10.0.0.1, 10.0.0.2"] },
-    };
-    expect(getClientIP(req)).toBe("10.0.0.1");
-  });
-
-  it("extracts IP from x-real-ip header", () => {
-    const req = {
-      headers: { "x-real-ip": "192.168.1.1" },
-    };
-    expect(getClientIP(req)).toBe("192.168.1.1");
-  });
-
-  it("handles x-real-ip as array", () => {
-    const req = {
-      headers: { "x-real-ip": ["172.16.0.1"] },
-    };
-    expect(getClientIP(req)).toBe("172.16.0.1");
-  });
-
-  it("falls back to req.ip", () => {
-    const req = {
-      headers: {},
-      ip: "127.0.0.1",
-    };
+  it("returns req.ip when present", () => {
+    const req = { ip: "127.0.0.1" };
     expect(getClientIP(req)).toBe("127.0.0.1");
   });
 
   it("falls back to socket remoteAddress", () => {
-    const req = {
-      headers: {},
-      socket: { remoteAddress: "::1" },
-    };
+    const req = { socket: { remoteAddress: "::1" } };
     expect(getClientIP(req)).toBe("::1");
   });
 
   it("returns 'unknown' when no IP available", () => {
-    const req = { headers: {} };
-    expect(getClientIP(req)).toBe("unknown");
+    expect(getClientIP({})).toBe("unknown");
   });
 
-  it("prefers x-forwarded-for over x-real-ip", () => {
-    const req = {
-      headers: {
-        "x-forwarded-for": "1.1.1.1",
-        "x-real-ip": "2.2.2.2",
-      },
-    };
+  it("prefers req.ip over socket.remoteAddress", () => {
+    const req = { ip: "1.1.1.1", socket: { remoteAddress: "2.2.2.2" } };
     expect(getClientIP(req)).toBe("1.1.1.1");
   });
 });

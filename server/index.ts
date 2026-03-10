@@ -114,10 +114,10 @@ process.on("uncaughtException", (err) => {
   logger.error("[Server] Uncaught exception — shutting down", {
     name: err.name,
     message: err.message,
+    stack: err.stack,
   });
-  // After an uncaught exception Node.js is in an undefined state.
-  // Log and exit; let the process manager (Docker, systemd, k8s) restart.
-  process.exit(1);
+  // Allow logger to flush, then exit — process manager will restart
+  setTimeout(() => process.exit(1), 1000);
 });
 
 // Graceful shutdown

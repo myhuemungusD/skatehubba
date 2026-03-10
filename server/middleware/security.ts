@@ -482,35 +482,18 @@ export const validateEmail = (req: Request, res: Response, next: NextFunction) =
 export const validateUserAgent = (req: Request, res: Response, next: NextFunction) => {
   const userAgent = req.get("User-Agent");
 
-  // Block requests without user agent (likely bots)
+  // Allow requests without a user-agent — many legitimate API clients omit it
   if (!userAgent) {
-    return res.status(400).json({ error: "Invalid request" });
+    return next();
   }
 
-  // Only block known-malicious scraper patterns.
-  // Previous version blocked /bot/i, /python/i, /curl/i etc. which also blocked:
-  // - Legitimate monitoring (UptimeRobot, Pingdom, Datadog)
-  // - CI health checks, Googlebot (SEO), testing frameworks
-  // Rate limiting and auth already handle abuse; this is a lightweight first filter.
-  const maliciousPatterns = [/scraper/i, /harvest/i, /nikto/i, /sqlmap/i, /nmap/i];
+  // Block known malicious bot/scraper patterns while allowing legitimate tools
+  // (curl, wget, python-requests, etc. are valid API clients)
+  const botPatterns = [/crawler/i, /spider/i, /scraper/i, /masscan/i, /nikto/i];
 
-  if (maliciousPatterns.some((pattern) => pattern.test(userAgent))) {
-    return res.status(400).json({ error: "Automated requests not allowed" });
+  if (botPatterns.some((pattern) => pattern.test(userAgent))) {
+    return res.status(403).json({ error: "FORBIDDEN", message: "Automated requests not allowed" });
   }
 
-  return next();
-};
-
-// IP logging middleware
-/**
- * IP address logging middleware for security monitoring
- * Logs client IP addresses for suspicious activity tracking
- * @param req - Express request object
- * @param res - Express response object
- * @param next - Express next function
- */
-export const logIPAddress = (req: Request, _res: Response, next: NextFunction) => {
-  // Use req.ip which respects the Express "trust proxy" setting (configured in app.ts).
-  req.clientIpAddress = req.ip;
   return next();
 };

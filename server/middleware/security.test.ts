@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { validateHoneypot, validateEmail, validateUserAgent, logIPAddress } from "./security";
+import { validateHoneypot, validateEmail, validateUserAgent } from "./security";
 
 function createMockReqRes(
   overrides: {
@@ -132,61 +132,35 @@ describe("validateUserAgent", () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it("rejects missing user agent", () => {
+  it("allows missing user agent", () => {
     const { req, res, next, statusFn } = createMockReqRes();
     validateUserAgent(req, res, next);
-    expect(next).not.toHaveBeenCalled();
-    expect(statusFn).toHaveBeenCalledWith(400);
+    expect(next).toHaveBeenCalled();
+    expect(statusFn).not.toHaveBeenCalled();
   });
 
-  it("allows legitimate tools and bots", () => {
-    const allowedAgents = [
-      "Googlebot/2.1",
-      "my-crawler",
-      "web-spider",
-      "curl/7.68",
-      "Wget/1.21",
-      "python-requests/2.28",
-    ];
+  it("rejects bot user agents", () => {
+    const botAgents = ["my-crawler", "web-spider", "scraper-tool", "masscan/1.0", "nikto/2.1"];
+    for (const ua of botAgents) {
+      const { req, res, next, statusFn, jsonFn } = createMockReqRes({
+        headers: { "user-agent": ua },
+      });
+      validateUserAgent(req, res, next);
+      expect(next).not.toHaveBeenCalled();
+      expect(statusFn).toHaveBeenCalledWith(403);
+      expect(jsonFn).toHaveBeenCalledWith({
+        error: "FORBIDDEN",
+        message: "Automated requests not allowed",
+      });
+    }
+  });
+
+  it("allows previously blocked user agents (bot, curl, wget, python)", () => {
+    const allowedAgents = ["Googlebot/2.1", "curl/7.68", "Wget/1.21", "python-requests/2.28"];
     for (const ua of allowedAgents) {
       const { req, res, next } = createMockReqRes({ headers: { "user-agent": ua } });
       validateUserAgent(req, res, next);
       expect(next).toHaveBeenCalled();
     }
-  });
-
-  it("rejects malicious user agents", () => {
-    const maliciousAgents = ["scraper-tool", "nikto/2.1", "sqlmap/1.0"];
-    for (const ua of maliciousAgents) {
-      const { req, res, next, statusFn } = createMockReqRes({ headers: { "user-agent": ua } });
-      validateUserAgent(req, res, next);
-      expect(next).not.toHaveBeenCalled();
-      expect(statusFn).toHaveBeenCalledWith(400);
-    }
-  });
-});
-
-describe("logIPAddress", () => {
-  it("uses req.ip (respects trust proxy)", () => {
-    const { req, res, next } = createMockReqRes({});
-    req.ip = "203.0.113.50";
-    logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("203.0.113.50");
-    expect(next).toHaveBeenCalled();
-  });
-
-  it("falls back to default when req.ip not set", () => {
-    const { req, res, next } = createMockReqRes({});
-    logIPAddress(req, res, next);
-    // req.ip is undefined in this mock, so clientIpAddress is undefined
-    expect(req.clientIpAddress).toBeUndefined();
-    expect(next).toHaveBeenCalled();
-  });
-
-  it("always calls next()", () => {
-    const { req, res, next } = createMockReqRes({});
-    req.ip = "10.0.0.1";
-    logIPAddress(req, res, next);
-    expect(next).toHaveBeenCalled();
   });
 });

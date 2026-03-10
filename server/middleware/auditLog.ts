@@ -1,3 +1,11 @@
+/**
+ * Request-level audit middleware (structured logging only — no DB persistence).
+ *
+ * For new audit events prefer `server/auth/audit.ts` (AuditLogger) which writes
+ * to both the application log and the audit_logs DB table. This middleware is
+ * retained for existing route annotations and will be unified with AuditLogger
+ * in a future PR.
+ */
 import type { Request, Response, NextFunction } from "express";
 import { createChildLogger } from "../logger";
 
