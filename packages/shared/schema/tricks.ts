@@ -11,6 +11,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { customUsers } from "./auth";
 
 // Trick clips status
 export const CLIP_STATUSES = ["processing", "ready", "failed", "flagged"] as const;
@@ -31,7 +32,9 @@ export const trickMastery = pgTable(
   "trick_mastery",
   {
     id: serial("id").primaryKey(),
-    userId: varchar("user_id", { length: 255 }).notNull(),
+    userId: varchar("user_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
     trick: varchar("trick", { length: 100 }).notNull(),
     level: varchar("level", { length: 50 }).notNull().default("learning"),
     landedCount: integer("landed_count").notNull().default(0),
@@ -49,7 +52,9 @@ export const trickClips = pgTable(
   "trick_clips",
   {
     id: serial("id").primaryKey(),
-    userId: varchar("user_id", { length: 255 }).notNull(),
+    userId: varchar("user_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
     userName: varchar("user_name", { length: 255 }).notNull(),
     trickName: varchar("trick_name", { length: 200 }).notNull(),
     description: text("description"),

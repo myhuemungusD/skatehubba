@@ -417,7 +417,7 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
     currentSessionToken?: string
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; newSessionToken?: string }> {
     const user = await this.findUserById(userId);
 
     if (!user) {
@@ -460,12 +460,13 @@ export class AuthService {
       // Delete all sessions, then recreate current one
       const sessionsDeleted = await this.deleteAllUserSessions(userId);
 
-      // Create new session for current device
-      await this.createSession(userId);
+      // Create new session for current device and return the token
+      const { token: newSessionToken } = await this.createSession(userId);
 
       return {
         success: true,
         message: `Password changed. ${sessionsDeleted} other session(s) logged out.`,
+        newSessionToken,
       };
     } else {
       // Delete ALL sessions including current

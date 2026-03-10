@@ -16,6 +16,7 @@ import { auth, db } from "../lib/firebase/config";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { apiRequest } from "../lib/api/client";
 import { logger } from "../lib/logger";
+import { setSentryUser, clearSentryUser } from "../sentry";
 import { isExpectedAuthError, extractFirebaseErrorCode } from "../lib/firebase/auth-errors";
 
 import type {
@@ -175,6 +176,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       onAuthStateChanged(auth, async (user) => {
         if (user) {
           set({ user, loading: false });
+          setSentryUser({ uid: user.uid, username: user.displayName || undefined });
 
           try {
             const backendResult = await withTimeout(
@@ -213,6 +215,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           }
         } else {
           const currentUid = get().user?.uid;
+          clearSentryUser();
           set({
             user: null,
             profile: null,
