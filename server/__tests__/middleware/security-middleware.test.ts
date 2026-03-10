@@ -9,7 +9,6 @@
  *  - validateHoneypot
  *  - validateEmail  (and the internal isValidEmail it delegates to)
  *  - validateUserAgent
- *  - logIPAddress
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -85,7 +84,7 @@ vi.mock("../../config/rateLimits", () => {
 // ---------------------------------------------------------------------------
 // Import the module under test (after all mocks are registered)
 // ---------------------------------------------------------------------------
-const { validateHoneypot, validateEmail, validateUserAgent, logIPAddress } =
+const { validateHoneypot, validateEmail, validateUserAgent } =
   await import("../../middleware/security");
 
 // ---------------------------------------------------------------------------
@@ -589,46 +588,5 @@ describe("validateUserAgent", () => {
       error: "FORBIDDEN",
       message: "Automated requests not allowed",
     });
-  });
-});
-
-// ===========================================================================
-// logIPAddress
-// ===========================================================================
-
-describe("logIPAddress", () => {
-  let res: Response;
-  let next: NextFunction;
-
-  beforeEach(() => {
-    res = mockResponse();
-    next = mockNext();
-  });
-
-  it("should use req.ip when present", () => {
-    const req = mockRequest({
-      ip: "203.0.113.50",
-    });
-    logIPAddress(req, res, next);
-
-    expect(req.clientIpAddress).toBe("203.0.113.50");
-    expect(next).toHaveBeenCalledTimes(1);
-  });
-
-  it("should set clientIpAddress to undefined when req.ip is falsy", () => {
-    const req = mockRequest({
-      ip: undefined,
-    });
-    logIPAddress(req, res, next);
-
-    expect(req.clientIpAddress).toBeUndefined();
-    expect(next).toHaveBeenCalledTimes(1);
-  });
-
-  it("should always call next() regardless of IP resolution", () => {
-    const req = mockRequest({ headers: {} });
-    logIPAddress(req, res, next);
-
-    expect(next).toHaveBeenCalledTimes(1);
   });
 });

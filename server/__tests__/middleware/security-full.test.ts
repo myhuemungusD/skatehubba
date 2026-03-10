@@ -6,7 +6,6 @@
  * - validateHoneypot
  * - validateEmail (with isValidEmail)
  * - validateUserAgent
- * - logIPAddress
  * - getDeviceFingerprint (via userKeyGenerator)
  * - All rate limiter exports
  */
@@ -151,7 +150,6 @@ const {
   validateHoneypot,
   validateEmail,
   validateUserAgent,
-  logIPAddress,
   emailSignupLimiter,
   publicWriteLimiter,
   passwordResetLimiter,
@@ -588,40 +586,6 @@ describe("Security Middleware", () => {
         error: "FORBIDDEN",
         message: "Automated requests not allowed",
       });
-    });
-  });
-
-  // ===========================================================================
-  // logIPAddress
-  // ===========================================================================
-
-  describe("logIPAddress", () => {
-    it("should use req.ip when present", () => {
-      const req = createReq({
-        ip: "203.0.113.50",
-        body: {},
-      });
-      const res = createRes();
-      const next = vi.fn();
-
-      logIPAddress(req, res, next);
-
-      expect(req.clientIpAddress).toBe("203.0.113.50");
-      expect(next).toHaveBeenCalled();
-    });
-
-    it("should set clientIpAddress to undefined when req.ip is falsy", () => {
-      const req = createReq({
-        ip: undefined,
-        body: {},
-      });
-      const res = createRes();
-      const next = vi.fn();
-
-      logIPAddress(req, res, next);
-
-      expect(req.clientIpAddress).toBeUndefined();
-      expect(next).toHaveBeenCalled();
     });
   });
 

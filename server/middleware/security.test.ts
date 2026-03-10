@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { validateHoneypot, validateEmail, validateUserAgent, logIPAddress } from "./security";
+import { validateHoneypot, validateEmail, validateUserAgent } from "./security";
 
 function createMockReqRes(
   overrides: {
@@ -162,43 +162,5 @@ describe("validateUserAgent", () => {
       validateUserAgent(req, res, next);
       expect(next).toHaveBeenCalled();
     }
-  });
-});
-
-describe("logIPAddress", () => {
-  it("uses req.ip for client IP address", () => {
-    const { req, res, next } = createMockReqRes();
-    req.ip = "1.2.3.4";
-    logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("1.2.3.4");
-    expect(next).toHaveBeenCalled();
-  });
-
-  it("sets clientIpAddress to undefined when req.ip is undefined", () => {
-    const { req, res, next } = createMockReqRes();
-    req.ip = undefined;
-    logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBeUndefined();
-    expect(next).toHaveBeenCalled();
-  });
-
-  it("ignores x-forwarded-for and x-real-ip headers", () => {
-    const { req, res, next } = createMockReqRes({
-      headers: { "x-forwarded-for": "5.5.5.5", "x-real-ip": "6.6.6.6" },
-    });
-    req.ip = "9.9.9.9";
-    logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("9.9.9.9");
-    expect(next).toHaveBeenCalled();
-  });
-
-  it("ignores connection.remoteAddress", () => {
-    const { req, res, next } = createMockReqRes({
-      connection: { remoteAddress: "10.0.0.1" },
-    });
-    req.ip = "8.8.8.8";
-    logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("8.8.8.8");
-    expect(next).toHaveBeenCalled();
   });
 });

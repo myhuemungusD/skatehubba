@@ -497,17 +497,3 @@ export const validateUserAgent = (req: Request, res: Response, next: NextFunctio
 
   next();
 };
-
-// IP logging middleware
-/**
- * IP address logging middleware for security monitoring
- * Logs client IP addresses for suspicious activity tracking
- * @param req - Express request object
- * @param res - Express response object
- * @param next - Express next function
- */
-export const logIPAddress = (req: Request, _res: Response, next: NextFunction) => {
-  // Use req.ip which respects the trust proxy setting configured in app.ts
-  req.clientIpAddress = req.ip || undefined;
-  next();
-};

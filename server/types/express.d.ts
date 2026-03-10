@@ -29,8 +29,6 @@ declare global {
       log: RequestLogger;
       /** Preferred video quality tier set by bandwidth detection middleware */
       preferredQuality?: string;
-      /** Client IP address set by logIPAddress middleware */
-      clientIpAddress?: string;
     }
   }
 }

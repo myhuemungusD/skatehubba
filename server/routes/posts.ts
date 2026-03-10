@@ -46,9 +46,7 @@ router.post(
         userId: req.currentUser.id,
         error: error instanceof Error ? error.message : String(error),
       });
-      return res
-        .status(500)
-        .json({ error: "POST_CREATE_FAILED", message: "Failed to create post." });
+      return Errors.internal(res, "POST_CREATE_FAILED", "Failed to create post.");
     }
   }
 );
