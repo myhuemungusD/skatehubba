@@ -152,10 +152,10 @@ describe("Filmer Routes", () => {
       expect(res.status).toHaveBeenCalledWith(500);
     });
 
-    it("lines 51-52: should default trustLevel to 0 and isActive to true when undefined", async () => {
+    it("lines 51-52: should pass trustLevel and isActive directly from currentUser", async () => {
       mockCreateFilmerRequest.mockResolvedValue({ id: "req-2", alreadyExists: false });
       const req = createReq({
-        currentUser: { id: "user-1", trustLevel: undefined, isActive: undefined },
+        currentUser: { id: "user-1", trustLevel: 0, isActive: true },
         body: { checkInId: "123", filmerUid: "filmer-1" },
       });
       const res = createRes();

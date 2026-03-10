@@ -22,9 +22,9 @@ export const tricks = pgTable("tricks", {
   name: text("name").notNull(),
   description: text("description"),
   createdBy: varchar("created_by", { length: 255 }),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-  likesCount: integer("likes_count").default(0).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  likesCount: integer("likes_count").notNull().default(0),
 });
 
 // Trick Mastery table for progression
@@ -37,10 +37,10 @@ export const trickMastery = pgTable(
       .references(() => customUsers.id, { onDelete: "cascade" }),
     trick: varchar("trick", { length: 100 }).notNull(),
     level: varchar("level", { length: 50 }).notNull().default("learning"),
-    landedCount: integer("landed_count").default(0).notNull(),
-    lastLandedAt: timestamp("last_landed_at"),
-    streak: integer("streak").default(0).notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    landedCount: integer("landed_count").notNull().default(0),
+    lastLandedAt: timestamp("last_landed_at", { withTimezone: true }),
+    streak: integer("streak").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userTrickIdx: uniqueIndex("IDX_user_trick").on(table.userId, table.trick),
@@ -69,11 +69,11 @@ export const trickClips = pgTable(
     gameId: varchar("game_id", { length: 255 }),
     gameTurnId: integer("game_turn_id"),
     // Engagement
-    views: integer("views").default(0).notNull(),
-    likes: integer("likes").default(0).notNull(),
-    isPublic: boolean("is_public").default(true).notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    views: integer("views").notNull().default(0),
+    likes: integer("likes").notNull().default(0),
+    isPublic: boolean("is_public").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userIdx: index("IDX_trick_clips_user").on(table.userId),
@@ -109,7 +109,7 @@ export const clipViews = pgTable(
       .notNull()
       .references(() => trickClips.id, { onDelete: "cascade" }),
     userId: varchar("user_id", { length: 255 }).notNull(),
-    viewedAt: timestamp("viewed_at").defaultNow().notNull(),
+    viewedAt: timestamp("viewed_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     uniqueUserClip: uniqueIndex("unique_clip_view_per_user").on(table.clipId, table.userId),

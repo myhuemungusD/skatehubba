@@ -32,8 +32,8 @@ export const products = pgTable("products", {
   imageUrl: varchar("image_url", { length: 500 }),
   icon: varchar("icon", { length: 50 }), // icon name from lucide-react
   category: varchar("category", { length: 100 }),
-  isActive: boolean("is_active").default(true),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // Shop orders table
@@ -57,7 +57,7 @@ export const orders = pgTable(
     total: integer("total").notNull(),
     status: varchar("status", { length: 50 }).notNull().default("pending"),
     paymentIntentId: varchar("payment_intent_id", { length: 255 }).unique(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     userIdx: index("IDX_orders_user").on(table.userId),

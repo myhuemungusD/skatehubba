@@ -1,10 +1,3 @@
-# Claude Code Notes
-
-## Commit Conventions
-
-- The commit hook (commitlint via husky) requires **lowercase subjects**. Do not use uppercase letters in the commit subject line (the part after `fix:`, `feat:`, etc.).
-- Example: `fix: use standalone firebase cli binary` (correct) vs `fix: Use standalone Firebase CLI binary` (will fail)
-
 # CLAUDE.md — SkateHubba™ Codebase Context
 
 > Claude Code reads this file automatically. Do not scan the full codebase unless a task specifically requires it.
@@ -44,24 +37,20 @@ skatehubba/
 
 ## Tech Stack (locked — no substitutions without approval)
 
-| Layer    | Technology                                                         |
-| -------- | ------------------------------------------------------------------ |
-| Frontend | React 18, Vite 6, TypeScript 5.9, Tailwind CSS, shadcn/ui, Zustand |
-| Maps     | Leaflet + React Leaflet + OSM                                      |
-| Backend  | Express, TypeScript, esbuild bundler                               |
-| Database | PostgreSQL 16 (Neon) + Drizzle ORM + Redis 7                       |
-| Auth     | Firebase Auth + custom JWT                                         |
-| Realtime | Socket.io                                                          |
-| Mobile   | React Native, Expo (EAS builds)                                    |
-| Testing  | Vitest (unit), Playwright (e2e), Cypress (client e2e)              |
-| CI/CD    | GitHub Actions, CodeQL, Vercel (prod), Docker (staging)            |
-| Monorepo | pnpm 10+ workspaces, Turborepo                                     |
+| Layer     | Technology                                                        |
+|-----------|-------------------------------------------------------------------|
+| Frontend  | React 18, Vite 6, TypeScript 5.9, Tailwind CSS, shadcn/ui, Zustand |
+| Maps      | Leaflet + React Leaflet + OSM                                     |
+| Backend   | Express, TypeScript, esbuild bundler                              |
+| Database  | PostgreSQL 16 (Neon) + Drizzle ORM + Redis 7                     |
+| Auth      | Firebase Auth + custom JWT                                        |
+| Realtime  | Socket.io                                                         |
+| Mobile    | React Native, Expo (EAS builds)                                   |
+| Testing   | Vitest (unit), Playwright (e2e), Cypress (client e2e)             |
+| CI/CD     | GitHub Actions, CodeQL, Vercel (prod), Docker (staging)           |
+| Monorepo  | pnpm 10+ workspaces, Turborepo                                   |
 
-**Prohibited**: Redux, untyped JS, custom auth, Next.js.
-
-> **Firestore** is used as a real-time projection layer only — PostgreSQL is the source of truth for all persistent data. Do not add new Firestore collections without approval. See `DATABASE_CONSOLIDATION_PLAN.md`.
->
-> **Firebase Cloud Functions** exist in `functions/` for Remote S.K.A.T.E. game logic and commerce. New Cloud Functions require approval — prefer Express routes in `server/` for new features.
+**Prohibited**: Redux, untyped JS, 
 
 ## Key Commands
 

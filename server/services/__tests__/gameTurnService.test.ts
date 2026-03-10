@@ -93,18 +93,20 @@ function makeTx(overrides?: {
     };
   });
 
-  const returningFn = vi.fn().mockReturnValue(
-    Promise.resolve(overrides?.updateReturning ?? [{ id: "game-1" }])
-  );
+  const returningFn = vi
+    .fn()
+    .mockReturnValue(Promise.resolve(overrides?.updateReturning ?? [{ id: "game-1" }]));
 
   const tx = {
     execute: vi.fn().mockResolvedValue(undefined),
     select: vi.fn().mockReturnValue({ from: fromFn }),
     insert: vi.fn().mockReturnValue({
       values: vi.fn().mockReturnValue({
-        returning: vi.fn().mockReturnValue(
-          Promise.resolve(overrides?.insertReturning ?? [{ id: 1, turnNumber: 1 }])
-        ),
+        returning: vi
+          .fn()
+          .mockReturnValue(
+            Promise.resolve(overrides?.insertReturning ?? [{ id: 1, turnNumber: 1 }])
+          ),
       }),
     }),
     update: vi.fn().mockReturnValue({
@@ -185,16 +187,17 @@ describe("submitTurn", () => {
     const game = baseGame({ deadlineAt: new Date(Date.now() - 10000) });
     const tx = makeTx({ selectResults: [() => Promise.resolve([game])] });
     const result = await submitTurn(tx as any, { ...baseInput });
-    expect(result).toEqual({ ok: false, status: 400, error: "Turn deadline has passed. Game forfeited." });
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "Turn deadline has passed. Game forfeited.",
+    });
   });
 
   it("does not reject when deadlineAt is null (no deadline)", async () => {
     const game = baseGame({ deadlineAt: null });
     const tx = makeTx({
-      selectResults: [
-        () => Promise.resolve([game]),
-        () => Promise.resolve([{ count: 0 }]),
-      ],
+      selectResults: [() => Promise.resolve([game]), () => Promise.resolve([{ count: 0 }])],
       insertReturning: [{ id: 1, turnNumber: 1 }],
     });
     const result = await submitTurn(tx as any, { ...baseInput });
@@ -205,31 +208,40 @@ describe("submitTurn", () => {
     const game = baseGame({ currentTurn: "p2" });
     const tx = makeTx({ selectResults: [() => Promise.resolve([game])] });
     const result = await submitTurn(tx as any, { ...baseInput, playerId: "p2" });
-    expect(result).toEqual({ ok: false, status: 400, error: "Only the offensive player can set a trick" });
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "Only the offensive player can set a trick",
+    });
   });
 
   it("rejects when non-defensive player tries to respond", async () => {
     const game = baseGame({ turnPhase: "respond_trick", currentTurn: "p1" });
     const tx = makeTx({ selectResults: [() => Promise.resolve([game])] });
     const result = await submitTurn(tx as any, { ...baseInput, playerId: "p1" });
-    expect(result).toEqual({ ok: false, status: 400, error: "Only the defensive player can respond" });
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "Only the defensive player can respond",
+    });
   });
 
   it("rejects submission for unrecognised turn phase (e.g. judge)", async () => {
     const game = baseGame({ turnPhase: "judge" });
     const tx = makeTx({ selectResults: [() => Promise.resolve([game])] });
     const result = await submitTurn(tx as any, { ...baseInput });
-    expect(result).toEqual({ ok: false, status: 400, error: "Current phase does not accept video submissions" });
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "Current phase does not accept video submissions",
+    });
   });
 
   it("defaults turnPhase to 'set_trick' when turnPhase is null/undefined", async () => {
     // turnPhase falsy -> falls back to "set_trick"
     const game = baseGame({ turnPhase: null });
     const tx = makeTx({
-      selectResults: [
-        () => Promise.resolve([game]),
-        () => Promise.resolve([{ count: 2 }]),
-      ],
+      selectResults: [() => Promise.resolve([game]), () => Promise.resolve([{ count: 2 }])],
       insertReturning: [{ id: 3, turnNumber: 3 }],
     });
     const result = await submitTurn(tx as any, { ...baseInput });
@@ -255,10 +267,7 @@ describe("submitTurn", () => {
   it("falls back turnCount to 0 when count is 0", async () => {
     const game = baseGame();
     const tx = makeTx({
-      selectResults: [
-        () => Promise.resolve([game]),
-        () => Promise.resolve([{ count: 0 }]),
-      ],
+      selectResults: [() => Promise.resolve([game]), () => Promise.resolve([{ count: 0 }])],
       insertReturning: [{ id: 1, turnNumber: 1 }],
     });
     const result = await submitTurn(tx as any, { ...baseInput });
@@ -269,10 +278,7 @@ describe("submitTurn", () => {
     it("creates turn and notifies defender (player1 sets, has name)", async () => {
       const game = baseGame();
       const tx = makeTx({
-        selectResults: [
-          () => Promise.resolve([game]),
-          () => Promise.resolve([{ count: 1 }]),
-        ],
+        selectResults: [() => Promise.resolve([game]), () => Promise.resolve([{ count: 1 }])],
         insertReturning: [{ id: 2, turnNumber: 2, turnType: "set" }],
       });
       const result = await submitTurn(tx as any, { ...baseInput });
@@ -286,10 +292,7 @@ describe("submitTurn", () => {
     it("uses 'Skater' fallback when playerName is null", async () => {
       const game = baseGame({ player1Name: null });
       const tx = makeTx({
-        selectResults: [
-          () => Promise.resolve([game]),
-          () => Promise.resolve([{ count: 0 }]),
-        ],
+        selectResults: [() => Promise.resolve([game]), () => Promise.resolve([{ count: 0 }])],
         insertReturning: [{ id: 1, turnNumber: 1 }],
       });
       const result = await submitTurn(tx as any, { ...baseInput });
@@ -308,10 +311,7 @@ describe("submitTurn", () => {
         currentTurn: "p2",
       });
       const tx = makeTx({
-        selectResults: [
-          () => Promise.resolve([game]),
-          () => Promise.resolve([{ count: 0 }]),
-        ],
+        selectResults: [() => Promise.resolve([game]), () => Promise.resolve([{ count: 0 }])],
         insertReturning: [{ id: 1, turnNumber: 1 }],
       });
       const result = await submitTurn(tx as any, { ...baseInput, playerId: "p2" });
@@ -324,10 +324,7 @@ describe("submitTurn", () => {
     it("returns notify=null when defensivePlayerId is null", async () => {
       const game = baseGame({ defensivePlayerId: null });
       const tx = makeTx({
-        selectResults: [
-          () => Promise.resolve([game]),
-          () => Promise.resolve([{ count: 0 }]),
-        ],
+        selectResults: [() => Promise.resolve([game]), () => Promise.resolve([{ count: 0 }])],
         insertReturning: [{ id: 1, turnNumber: 1 }],
       });
       const result = await submitTurn(tx as any, { ...baseInput });
@@ -340,10 +337,7 @@ describe("submitTurn", () => {
     it("passes thumbnailUrl when provided", async () => {
       const game = baseGame();
       const tx = makeTx({
-        selectResults: [
-          () => Promise.resolve([game]),
-          () => Promise.resolve([{ count: 0 }]),
-        ],
+        selectResults: [() => Promise.resolve([game]), () => Promise.resolve([{ count: 0 }])],
         insertReturning: [{ id: 1, turnNumber: 1 }],
       });
       const result = await submitTurn(tx as any, {
@@ -356,10 +350,7 @@ describe("submitTurn", () => {
     it("passes thumbnailUrl as null when not provided (nullish coalescing)", async () => {
       const game = baseGame();
       const tx = makeTx({
-        selectResults: [
-          () => Promise.resolve([game]),
-          () => Promise.resolve([{ count: 0 }]),
-        ],
+        selectResults: [() => Promise.resolve([game]), () => Promise.resolve([{ count: 0 }])],
         insertReturning: [{ id: 1, turnNumber: 1 }],
       });
       const result = await submitTurn(tx as any, { ...baseInput });
@@ -376,10 +367,7 @@ describe("submitTurn", () => {
         defensivePlayerId: "p2",
       });
       const tx = makeTx({
-        selectResults: [
-          () => Promise.resolve([game]),
-          () => Promise.resolve([{ count: 1 }]),
-        ],
+        selectResults: [() => Promise.resolve([game]), () => Promise.resolve([{ count: 1 }])],
         insertReturning: [{ id: 2, turnNumber: 2, turnType: "response" }],
       });
       const result = await submitTurn(tx as any, { ...baseInput, playerId: "p2" });
@@ -419,7 +407,11 @@ describe("judgeTurn", () => {
     const game = baseGame({ turnPhase: "judge", currentTurn: "p1" });
     const tx = makeTx({ selectResults: [() => Promise.resolve([game])] });
     const result = await judgeTurn(tx as any, 5, "p1", "landed", baseTurnParam as any);
-    expect(result).toEqual({ ok: false, status: 403, error: "Only the defending player can judge" });
+    expect(result).toEqual({
+      ok: false,
+      status: 403,
+      error: "Only the defending player can judge",
+    });
   });
 
   it("returns 400 when game is not in judge phase", async () => {
@@ -454,7 +446,7 @@ describe("judgeTurn", () => {
     const tx = makeTx({
       selectResults: [
         () => Promise.resolve([game]),
-        () => Promise.resolve([]),  // turn not found
+        () => Promise.resolve([]), // turn not found
       ],
     });
     const result = await judgeTurn(tx as any, 5, "p2", "landed", baseTurnParam as any);
@@ -467,11 +459,15 @@ describe("judgeTurn", () => {
       selectResults: [
         () => Promise.resolve([game]),
         () => Promise.resolve([{ ...baseTurnParam, result: "pending" }]),
-        () => Promise.resolve([]),  // no response videos
+        () => Promise.resolve([]), // no response videos
       ],
     });
     const result = await judgeTurn(tx as any, 5, "p2", "landed", baseTurnParam as any);
-    expect(result).toEqual({ ok: false, status: 400, error: "You must submit your response video before judging" });
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "You must submit your response video before judging",
+    });
   });
 
   it("returns 400 when response video exists but has lower turnNumber", async () => {
@@ -480,11 +476,15 @@ describe("judgeTurn", () => {
       selectResults: [
         () => Promise.resolve([game]),
         () => Promise.resolve([{ ...baseTurnParam, result: "pending" }]),
-        () => Promise.resolve([{ turnNumber: 0 }]),  // turnNumber 0 < turnParam.turnNumber 1
+        () => Promise.resolve([{ turnNumber: 0 }]), // turnNumber 0 < turnParam.turnNumber 1
       ],
     });
     const result = await judgeTurn(tx as any, 5, "p2", "landed", baseTurnParam as any);
-    expect(result).toEqual({ ok: false, status: 400, error: "You must submit your response video before judging" });
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "You must submit your response video before judging",
+    });
   });
 
   it("returns 500 when offensivePlayerId is missing", async () => {
@@ -501,7 +501,11 @@ describe("judgeTurn", () => {
       ],
     });
     const result = await judgeTurn(tx as any, 5, "p2", "landed", baseTurnParam as any);
-    expect(result).toEqual({ ok: false, status: 500, error: "Game is missing player role assignments" });
+    expect(result).toEqual({
+      ok: false,
+      status: 500,
+      error: "Game is missing player role assignments",
+    });
   });
 
   it("returns 500 when defensivePlayerId is missing", async () => {
@@ -519,7 +523,11 @@ describe("judgeTurn", () => {
     });
     const result = await judgeTurn(tx as any, 5, "p2", "landed", baseTurnParam as any);
     // defensivePlayerId is null, p2 !== null -> 403
-    expect(result).toEqual({ ok: false, status: 403, error: "Only the defending player can judge" });
+    expect(result).toEqual({
+      ok: false,
+      status: 403,
+      error: "Only the defending player can judge",
+    });
   });
 
   describe("missed (BAIL) - defensive player gets a letter", () => {
@@ -540,7 +548,7 @@ describe("judgeTurn", () => {
         selectResults: [
           () => Promise.resolve([game]),
           () => Promise.resolve([{ ...turnParam, result: "pending" }]),
-          () => Promise.resolve([{ turnNumber: 2 }]),  // response video exists
+          () => Promise.resolve([{ turnNumber: 2 }]), // response video exists
         ],
         updateReturning: [updatedGame],
       });
@@ -591,7 +599,7 @@ describe("judgeTurn", () => {
         currentTurn: "p1",
         offensivePlayerId: "p2",
         defensivePlayerId: "p1",
-        player1Letters: "SKATE",  // 5 letters, SKATE_LETTERS[5] = undefined -> || "" fallback
+        player1Letters: "SKATE", // 5 letters, SKATE_LETTERS[5] = undefined -> || "" fallback
         player2Letters: "",
       });
       const turnParam = { ...baseTurnParam, playerId: "p2", turnNumber: 1 };
@@ -621,7 +629,7 @@ describe("judgeTurn", () => {
         offensivePlayerId: "p1",
         defensivePlayerId: "p2",
         player1Letters: "",
-        player2Letters: "SKATE",  // 5 letters, SKATE_LETTERS[5] = undefined -> || "" fallback
+        player2Letters: "SKATE", // 5 letters, SKATE_LETTERS[5] = undefined -> || "" fallback
       });
       const turnParam = { ...baseTurnParam, turnNumber: 1 };
       const updatedGame = { ...game, status: "completed", winnerId: "p1" };
@@ -689,7 +697,7 @@ describe("judgeTurn", () => {
         defensivePlayerId: "p2",
         player1Letters: "",
         player2Letters: "",
-        player2Name: null,  // p2 has no name
+        player2Name: null, // p2 has no name
       });
       const turnParam = { ...baseTurnParam, turnNumber: 1 };
       const updatedGame = { ...game };
@@ -719,7 +727,7 @@ describe("judgeTurn", () => {
         defensivePlayerId: "p2",
         player1Letters: "",
         player2Letters: "",
-        player1Name: null,  // p1 has no name
+        player1Name: null, // p1 has no name
       });
       const turnParam = { ...baseTurnParam, turnNumber: 1 };
       const updatedGame = { ...game };
@@ -779,7 +787,7 @@ describe("judgeTurn", () => {
         currentTurn: "p1",
         offensivePlayerId: "p2",
         defensivePlayerId: "p1",
-        player1Letters: "SKAT",  // will become SKATE
+        player1Letters: "SKAT", // will become SKATE
         player2Letters: "",
       });
       const turnParam = { ...baseTurnParam, playerId: "p2", turnNumber: 1 };
@@ -802,8 +810,8 @@ describe("judgeTurn", () => {
         expect(result.response.message).toBe("Game over.");
         // Notifications to both players
         expect(result.notifications.length).toBe(2);
-        const p1Notif = result.notifications.find(n => n.playerId === "p1");
-        const p2Notif = result.notifications.find(n => n.playerId === "p2");
+        const p1Notif = result.notifications.find((n) => n.playerId === "p1");
+        const p2Notif = result.notifications.find((n) => n.playerId === "p2");
         expect(p1Notif?.data.youWon).toBe(false);
         expect(p2Notif?.data.youWon).toBe(true);
         expect(p1Notif?.data.opponentName).toBe("Bob");
@@ -870,7 +878,7 @@ describe("judgeTurn", () => {
       if (result.ok) {
         expect(result.response.gameOver).toBe(true);
         // winnerId || undefined -> undefined when winnerId is null
-        const notif = result.notifications.find(n => n.playerId === "p2");
+        const notif = result.notifications.find((n) => n.playerId === "p2");
         expect(notif?.data.winnerId).toBeUndefined();
       }
     });
@@ -902,22 +910,22 @@ describe("judgeTurn", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         // Both names are null -> "Opponent"
-        result.notifications.forEach(n => {
+        result.notifications.forEach((n) => {
           expect(n.data.opponentName).toBe("Opponent");
         });
       }
     });
   });
 
-  describe("empty letters fallback (|| '')", () => {
-    it("defaults player1Letters to '' when null", async () => {
+  describe("empty letters handling", () => {
+    it("handles empty string player letters correctly", async () => {
       const game = baseGame({
         turnPhase: "judge",
         currentTurn: "p2",
         offensivePlayerId: "p1",
         defensivePlayerId: "p2",
-        player1Letters: null,
-        player2Letters: null,
+        player1Letters: "",
+        player2Letters: "",
       });
       const turnParam = { ...baseTurnParam, turnNumber: 1 };
       const updatedGame = { ...game };
@@ -968,7 +976,11 @@ describe("setterBail", () => {
     const game = baseGame({ turnPhase: "respond_trick" });
     const tx = makeTx({ selectResults: [() => Promise.resolve([game])] });
     const result = await setterBail(tx as any, "game-1", "p1");
-    expect(result).toEqual({ ok: false, status: 400, error: "Can only bail during set trick phase" });
+    expect(result).toEqual({
+      ok: false,
+      status: 400,
+      error: "Can only bail during set trick phase",
+    });
   });
 
   describe("player1 is setter (isPlayer1=true)", () => {
@@ -1110,11 +1122,11 @@ describe("setterBail", () => {
     });
   });
 
-  describe("letters fallback (|| '')", () => {
-    it("defaults null player1Letters and player2Letters to empty string", async () => {
+  describe("empty letters handling", () => {
+    it("handles empty string player1Letters and player2Letters", async () => {
       const game = baseGame({
-        player1Letters: null,
-        player2Letters: null,
+        player1Letters: "",
+        player2Letters: "",
       });
       const updatedGame = { ...game };
 
@@ -1149,7 +1161,7 @@ describe("setterBail", () => {
         expect(result.gameOver).toBe(true);
         expect(result.winnerId).toBeNull();
         // winnerId || undefined -> undefined in notification data
-        const notif = result.notifications.find(n => n.playerId === "p1");
+        const notif = result.notifications.find((n) => n.playerId === "p1");
         expect(notif?.data.winnerId).toBeUndefined();
       }
     });
@@ -1171,7 +1183,7 @@ describe("setterBail", () => {
       const result = await setterBail(tx as any, "game-1", "p1");
       expect(result.ok).toBe(true);
       if (result.ok) {
-        result.notifications.forEach(n => {
+        result.notifications.forEach((n) => {
           expect(n.data.opponentName).toBe("Opponent");
         });
       }

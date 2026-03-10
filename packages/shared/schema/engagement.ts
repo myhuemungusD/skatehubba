@@ -36,8 +36,8 @@ export const subscribers = pgTable("subscribers", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
   firstName: text("first_name"),
   email: text("email").notNull().unique(),
-  createdAt: timestamp("created_at").defaultNow(),
-  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  isActive: boolean("is_active").notNull().default(true),
 });
 
 export const feedback = pgTable(
@@ -50,7 +50,7 @@ export const feedback = pgTable(
     type: varchar("type", { length: 50 }).notNull(),
     message: text("message").notNull(),
     status: varchar("status", { length: 50 }).notNull().default("new"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     statusIdx: index("IDX_feedback_status").on(table.status),
@@ -67,8 +67,8 @@ export const betaSignups = pgTable(
     ipHash: varchar("ip_hash", { length: 64 }),
     source: varchar("source", { length: 100 }).default("skatehubba.com"),
     submitCount: integer("submit_count").notNull().default(1),
-    lastSubmittedAt: timestamp("last_submitted_at").defaultNow().notNull(),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastSubmittedAt: timestamp("last_submitted_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
     emailIdx: index("IDX_beta_signups_email").on(table.email),

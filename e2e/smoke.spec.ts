@@ -79,7 +79,11 @@ test.describe("Production Smoke Test", () => {
     await page.waitForLoadState("networkidle");
 
     const criticalFailures = failedRequests.filter(
-      (r) => !r.includes("service-worker") && !r.includes("analytics") && !r.includes("sentry")
+      (r) =>
+        !r.includes("service-worker") &&
+        !r.includes("/sw.js") &&
+        !r.includes("analytics") &&
+        !r.includes("sentry")
     );
 
     expect(criticalFailures).toHaveLength(0);
@@ -176,6 +180,7 @@ test.describe("SEO & Meta Tags", () => {
 
   test("meta description is present", async ({ page }) => {
     await page.goto("/");
+    await page.waitForLoadState("domcontentloaded");
     const desc = page.locator('meta[name="description"]');
     await expect(desc).toBeAttached();
     const content = await desc.getAttribute("content");
@@ -191,13 +196,15 @@ test.describe("SEO & Meta Tags", () => {
 
   test("structured data (JSON-LD) is present", async ({ page }) => {
     await page.goto("/");
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
 
+    // Static JSON-LD is in index.html — use auto-waiting toBeAttached()
+    // instead of the non-waiting count() to avoid race conditions.
     const jsonLd = page.locator('script[type="application/ld+json"]');
-    const count = await jsonLd.count();
-    expect(count).toBeGreaterThan(0);
+    await expect(jsonLd.first()).toBeAttached();
 
     const text = await jsonLd.first().textContent();
-    expect(() => JSON.parse(text || "")).not.toThrow();
+    expect(text).toBeTruthy();
+    expect(() => JSON.parse(text!)).not.toThrow();
   });
 });
