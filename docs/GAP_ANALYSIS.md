@@ -49,19 +49,22 @@ This gap analysis reviewed the full codebase, identified 17+ concrete issues acr
 
 All userId columns now have proper FK constraints to `customUsers`:
 
-| Table                     | Column   | FK Added           | On Delete |
-| ------------------------- | -------- | ------------------ | --------- |
-| `userProfiles`            | `id`     | → `customUsers.id` | cascade   |
-| `closetItems`             | `userId` | → `customUsers.id` | cascade   |
-| `onboardingProfiles`      | `uid`    | → `customUsers.id` | cascade   |
-| `notifications`           | `userId` | → `customUsers.id` | cascade   |
-| `notificationPreferences` | `userId` | → `customUsers.id` | cascade   |
-| `orders`                  | `userId` | → `customUsers.id` | set null  |
-| `consumedPaymentIntents`  | `userId` | → `customUsers.id` | cascade   |
-| `trickMastery`            | `userId` | → `customUsers.id` | cascade   |
-| `trickClips`              | `userId` | → `customUsers.id` | cascade   |
-| `feedback`                | `userId` | → `customUsers.id` | set null  |
-| `moderationProfiles`      | `userId` | → `customUsers.id` | cascade   |
+| Table                     | Column         | FK Added           | On Delete |
+| ------------------------- | -------------- | ------------------ | --------- |
+| `userProfiles`            | `id`           | → `customUsers.id` | cascade   |
+| `closetItems`             | `userId`       | → `customUsers.id` | cascade   |
+| `onboardingProfiles`      | `uid`          | → `customUsers.id` | cascade   |
+| `notifications`           | `userId`       | → `customUsers.id` | cascade   |
+| `notificationPreferences` | `userId`       | → `customUsers.id` | cascade   |
+| `orders`                  | `userId`       | → `customUsers.id` | set null  |
+| `consumedPaymentIntents`  | `userId`       | → `customUsers.id` | cascade   |
+| `trickMastery`            | `userId`       | → `customUsers.id` | cascade   |
+| `trickClips`              | `userId`       | → `customUsers.id` | cascade   |
+| `feedback`                | `userId`       | → `customUsers.id` | set null  |
+| `moderationProfiles`      | `userId`       | → `customUsers.id` | cascade   |
+| `moderationReports`       | `reporterId`   | → `customUsers.id` | cascade   |
+| `modActions`              | `adminId`      | → `customUsers.id` | cascade   |
+| `modActions`              | `targetUserId` | → `customUsers.id` | cascade   |
 
 Additional schema improvements:
 

@@ -101,8 +101,10 @@ export function isDatabaseAvailable(): boolean {
   return db !== null;
 }
 
-// Re-export display name helpers from userService (canonical location).
-// Kept here for backward compatibility with existing import sites.
+/**
+ * @deprecated Import from `./services/userService` instead.
+ * These re-exports exist only for backward compatibility and will be removed.
+ */
 export { getUserNameInfo, getUserDisplayName, getUserHandle } from "./services/userService";
 
 export { db, pool };

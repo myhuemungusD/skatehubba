@@ -41,6 +41,7 @@ export const orders = pgTable(
   "orders",
   {
     id: serial("id").primaryKey(),
+    // set null: preserve order history for accounting/compliance after user deletion
     userId: varchar("user_id").references(() => customUsers.id, { onDelete: "set null" }),
     userEmail: varchar("user_email", { length: 255 }),
     items: json("items")

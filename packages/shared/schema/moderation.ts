@@ -40,7 +40,9 @@ export const moderationReports = pgTable(
     id: varchar("id")
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    reporterId: varchar("reporter_id", { length: 255 }).notNull(),
+    reporterId: varchar("reporter_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
     targetType: varchar("target_type", { length: 20 }).notNull(),
     targetId: varchar("target_id", { length: 255 }).notNull(),
     reason: varchar("reason", { length: 100 }).notNull(),
@@ -63,8 +65,12 @@ export const modActions = pgTable(
     id: varchar("id")
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    adminId: varchar("admin_id", { length: 255 }).notNull(),
-    targetUserId: varchar("target_user_id", { length: 255 }).notNull(),
+    adminId: varchar("admin_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
+    targetUserId: varchar("target_user_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
     actionType: varchar("action_type", { length: 20 }).notNull(),
     reasonCode: varchar("reason_code", { length: 50 }).notNull(),
     notes: text("notes"),

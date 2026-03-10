@@ -44,6 +44,7 @@ export const feedback = pgTable(
   "feedback",
   {
     id: serial("id").primaryKey(),
+    // set null: preserve feedback for product insights after user deletion
     userId: varchar("user_id").references(() => customUsers.id, { onDelete: "set null" }),
     userEmail: varchar("user_email", { length: 255 }),
     type: varchar("type", { length: 50 }).notNull(),
