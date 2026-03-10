@@ -40,7 +40,6 @@ RUN groupadd --system --gid 1001 nodejs && \
 
 COPY --from=deps --chown=skatehubba:nodejs /app/node_modules ./node_modules
 COPY --from=deps --chown=skatehubba:nodejs /app/server/node_modules ./server/node_modules
-COPY --from=deps --chown=skatehubba:nodejs /app/packages ./packages
 COPY --from=client-build --chown=skatehubba:nodejs /app/client/dist ./client/dist
 COPY --chown=skatehubba:nodejs server ./server
 COPY --chown=skatehubba:nodejs packages ./packages

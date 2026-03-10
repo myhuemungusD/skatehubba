@@ -111,10 +111,13 @@ process.on("unhandledRejection", (reason) => {
 });
 
 process.on("uncaughtException", (err) => {
-  logger.error("[Server] Uncaught exception — continuing", {
+  logger.error("[Server] Uncaught exception — shutting down", {
     name: err.name,
     message: err.message,
   });
+  // After an uncaught exception Node.js is in an undefined state.
+  // Log and exit; let the process manager (Docker, systemd, k8s) restart.
+  process.exit(1);
 });
 
 // Graceful shutdown

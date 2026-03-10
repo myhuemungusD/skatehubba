@@ -23,7 +23,14 @@ export function getRedisClient(): Redis | null {
 
   const url = process.env.REDIS_URL;
   if (!url) {
-    logger.warn("[Redis] REDIS_URL not set — falling back to in-memory stores. Set REDIS_URL for production.");
+    if (process.env.NODE_ENV === "production") {
+      logger.error(
+        "[Redis] REDIS_URL not set in production — rate limits, replay protection, and session state " +
+          "will use in-memory stores that diverge across instances. Set REDIS_URL to a Redis/Valkey instance."
+      );
+    } else {
+      logger.warn("[Redis] REDIS_URL not set — falling back to in-memory stores.");
+    }
     return null;
   }
 

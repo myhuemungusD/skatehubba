@@ -57,9 +57,17 @@ registerRateLimitRules({
   typing: { maxPerWindow: 30, windowMs: 60_000 },
 });
 
-// Track connected sockets for metrics
+// Track connected sockets for metrics.
+// The manual counter is used for real-time logging; getSocketStats() uses
+// io.engine.clientsCount for accuracy (immune to connect/disconnect drift).
 let connectedSockets = 0;
 let healthMonitorInterval: NodeJS.Timeout | null = null;
+let ioRef: Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData
+> | null = null;
 
 /**
  * Initialize Socket.io server
@@ -90,6 +98,8 @@ export function initializeSocketServer(
       },
     }
   );
+
+  ioRef = io;
 
   // Authentication middleware
   io.use(socketAuthMiddleware);
@@ -218,7 +228,7 @@ export async function getSocketStats(): Promise<{
   health: ReturnType<typeof getHealthStats>;
 }> {
   return {
-    connections: connectedSockets,
+    connections: ioRef?.engine?.clientsCount ?? connectedSockets,
     rooms: getRoomStats(),
     presence: await getPresenceStats(),
     health: getHealthStats(),
