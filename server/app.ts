@@ -12,6 +12,7 @@ import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import logger from "./logger.ts";
+import { captureRequestError } from "./sentry.ts";
 import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { apiLimiter } from "./middleware/security.ts";
 import { requestTracing } from "./middleware/requestTracing.ts";
@@ -207,17 +208,28 @@ export function createApp(): express.Express {
         return;
       }
 
+      // Log with structured context for observability
       logger.error("[App] Unhandled route error", {
         route: _req.path,
         method: _req.method,
+        requestId: _req.requestId,
         name: err?.name,
         message: err?.message,
         stack: process.env.NODE_ENV !== "production" ? err?.stack : undefined,
       });
+
+      // Report to Sentry with full request context
+      captureRequestError(err, _req, {
+        handler: "globalErrorHandler",
+        route: _req.path,
+        method: _req.method,
+      });
+
       if (!res.headersSent) {
         res.status(500).json({
           error: "INTERNAL_ERROR",
           message: "An unexpected error occurred.",
+          ...(process.env.NODE_ENV !== "production" && { requestId: _req.requestId }),
         });
       }
     }
