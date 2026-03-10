@@ -2,6 +2,7 @@ import { getApiBaseUrl } from "@skatehubba/config";
 import { auth } from "../firebase/config";
 import { ApiError, normalizeApiError } from "./errors";
 import { isDevAdmin } from "../devAdmin";
+import { addApiErrorBreadcrumb, captureApiError } from "../../sentry";
 
 export interface ApiRequestOptions<TBody = unknown> {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -137,11 +138,26 @@ export const apiRequestRaw = async <TBody = unknown>(
 
     if (!response.ok) {
       const payload = await parseJsonSafely(response);
-      throw normalizeApiError({
+      const apiError = normalizeApiError({
         status: response.status,
         statusText: response.statusText,
         payload,
       });
+
+      // Record breadcrumb for all API errors (aids debugging in Sentry)
+      addApiErrorBreadcrumb(options.method, options.path, response.status, apiError.code);
+
+      // Report 5xx errors to Sentry (server bugs, not client mistakes)
+      if (response.status >= 500) {
+        captureApiError(apiError, {
+          method: options.method,
+          url: options.path,
+          statusCode: response.status,
+          errorCode: apiError.code,
+        });
+      }
+
+      throw apiError;
     }
 
     return response;
