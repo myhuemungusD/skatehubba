@@ -1,7 +1,7 @@
 import { defineConfig } from "drizzle-kit";
 
 export default defineConfig({
-  out: "./migrations",
+  out: "./drizzle",
   schema: "./packages/shared/schema",
   dialect: "postgresql",
   // DATABASE_URL is only needed for commands that connect to the database

@@ -1,5 +1,5 @@
 {
-  "id": "7876164b-73b3-4c2c-96c4-134a675021df",
+  "id": "8e906ae9-5381-4f48-a5c3-044bad0fc591",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -53,9 +53,7 @@
         "account_lockouts_email_unique": {
           "name": "account_lockouts_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -240,12 +238,8 @@
           "name": "auth_sessions_user_id_custom_users_id_fk",
           "tableFrom": "auth_sessions",
           "tableTo": "custom_users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -255,9 +249,7 @@
         "auth_sessions_token_unique": {
           "name": "auth_sessions_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -404,16 +396,12 @@
         "custom_users_email_unique": {
           "name": "custom_users_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         },
         "custom_users_firebase_uid_unique": {
           "name": "custom_users_firebase_uid_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "firebase_uid"
-          ]
+          "columns": ["firebase_uid"]
         }
       },
       "policies": {},
@@ -572,12 +560,8 @@
           "name": "mfa_secrets_user_id_custom_users_id_fk",
           "tableFrom": "mfa_secrets",
           "tableTo": "custom_users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -587,9 +571,7 @@
         "mfa_secrets_user_id_unique": {
           "name": "mfa_secrets_user_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
-          ]
+          "columns": ["user_id"]
         }
       },
       "policies": {},
@@ -634,16 +616,12 @@
         "usernames_uid_unique": {
           "name": "usernames_uid_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "uid"
-          ]
+          "columns": ["uid"]
         },
         "usernames_username_unique": {
           "name": "usernames_username_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "username"
-          ]
+          "columns": ["username"]
         }
       },
       "policies": {},
@@ -769,12 +747,8 @@
           "name": "battle_vote_state_battle_id_battles_id_fk",
           "tableFrom": "battle_vote_state",
           "tableTo": "battles",
-          "columnsFrom": [
-            "battle_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["battle_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -849,12 +823,8 @@
           "name": "battle_votes_battle_id_battles_id_fk",
           "tableFrom": "battle_votes",
           "tableTo": "battles",
-          "columnsFrom": [
-            "battle_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["battle_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1002,9 +972,7 @@
         "consumed_payment_intents_payment_intent_id_unique": {
           "name": "consumed_payment_intents_payment_intent_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "payment_intent_id"
-          ]
+          "columns": ["payment_intent_id"]
         }
       },
       "policies": {},
@@ -1072,9 +1040,7 @@
         "donations_payment_intent_id_unique": {
           "name": "donations_payment_intent_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "payment_intent_id"
-          ]
+          "columns": ["payment_intent_id"]
         }
       },
       "policies": {},
@@ -1174,9 +1140,7 @@
         "orders_payment_intent_id_unique": {
           "name": "orders_payment_intent_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "payment_intent_id"
-          ]
+          "columns": ["payment_intent_id"]
         }
       },
       "policies": {},
@@ -1257,9 +1221,7 @@
         "products_product_id_unique": {
           "name": "products_product_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "product_id"
-          ]
+          "columns": ["product_id"]
         }
       },
       "policies": {},
@@ -1475,9 +1437,7 @@
         "subscribers_email_unique": {
           "name": "subscribers_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -1587,12 +1547,8 @@
           "name": "challenges_game_id_games_id_fk",
           "tableFrom": "challenges",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -1712,12 +1668,8 @@
           "name": "game_disputes_game_id_games_id_fk",
           "tableFrom": "game_disputes",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         },
@@ -1725,12 +1677,8 @@
           "name": "game_disputes_turn_id_game_turns_id_fk",
           "tableFrom": "game_disputes",
           "tableTo": "game_turns",
-          "columnsFrom": [
-            "turn_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["turn_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -1891,12 +1839,8 @@
           "name": "game_turns_game_id_games_id_fk",
           "tableFrom": "game_turns",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -2239,12 +2183,8 @@
           "name": "check_ins_spot_id_spots_id_fk",
           "tableFrom": "check_ins",
           "tableTo": "spots",
-          "columnsFrom": [
-            "spot_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["spot_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2577,12 +2517,8 @@
           "name": "filmer_requests_check_in_id_check_ins_id_fk",
           "tableFrom": "filmer_requests",
           "tableTo": "check_ins",
-          "columnsFrom": [
-            "check_in_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["check_in_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2590,12 +2526,8 @@
           "name": "filmer_requests_requester_id_custom_users_id_fk",
           "tableFrom": "filmer_requests",
           "tableTo": "custom_users",
-          "columnsFrom": [
-            "requester_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["requester_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2603,12 +2535,8 @@
           "name": "filmer_requests_filmer_id_custom_users_id_fk",
           "tableFrom": "filmer_requests",
           "tableTo": "custom_users",
-          "columnsFrom": [
-            "filmer_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["filmer_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2705,12 +2633,8 @@
           "name": "spot_ratings_spot_id_spots_id_fk",
           "tableFrom": "spot_ratings",
           "tableTo": "spots",
-          "columnsFrom": [
-            "spot_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["spot_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2995,12 +2919,8 @@
           "name": "clip_views_clip_id_trick_clips_id_fk",
           "tableFrom": "clip_views",
           "tableTo": "trick_clips",
-          "columnsFrom": [
-            "clip_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["clip_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3666,9 +3586,7 @@
         "user_profiles_handle_unique": {
           "name": "user_profiles_handle_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "handle"
-          ]
+          "columns": ["handle"]
         }
       },
       "policies": {},
@@ -3762,12 +3680,8 @@
           "name": "device_tokens_user_id_custom_users_id_fk",
           "tableFrom": "device_tokens",
           "tableTo": "custom_users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3777,9 +3691,7 @@
         "device_tokens_token_unique": {
           "name": "device_tokens_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -4663,12 +4575,8 @@
           "name": "user_progress_step_id_tutorial_steps_id_fk",
           "tableFrom": "user_progress",
           "tableTo": "tutorial_steps",
-          "columnsFrom": [
-            "step_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["step_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4684,20 +4592,12 @@
     "public.account_tier": {
       "name": "account_tier",
       "schema": "public",
-      "values": [
-        "free",
-        "pro",
-        "premium"
-      ]
+      "values": ["free", "pro", "premium"]
     },
     "public.filmer_request_status": {
       "name": "filmer_request_status",
       "schema": "public",
-      "values": [
-        "pending",
-        "accepted",
-        "rejected"
-      ]
+      "values": ["pending", "accepted", "rejected"]
     }
   },
   "schemas": {},
