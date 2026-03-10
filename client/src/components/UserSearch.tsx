@@ -4,6 +4,7 @@ import { Search, Swords, UserPlus, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { apiRequest } from "@/lib/api/client";
+import { useToast } from "@/hooks/use-toast";
 import { InviteButton } from "./InviteButton";
 
 interface SearchResult {
@@ -25,6 +26,7 @@ export function UserSearch({ onChallenge, isPending }: UserSearchProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -46,6 +48,7 @@ export function UserSearch({ onChallenge, isPending }: UserSearchProps) {
     } catch {
       setResults([]);
       setHasSearched(true);
+      toast({ title: "Search failed", description: "Please try again.", variant: "destructive" });
     } finally {
       setIsSearching(false);
     }
