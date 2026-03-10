@@ -150,7 +150,12 @@ export function createApp(): express.Express {
   // Raw body for Stripe webhook signature verification (MUST precede express.json())
   app.use("/webhooks/stripe", express.raw({ type: "application/json" }));
 
-  // Body parsing (before CSRF to enable JSON/form requests)
+  // Per-route body size overrides for endpoints that accept large payloads
+  // (avatar base64 uploads, video metadata). MUST precede the global parser.
+  app.use("/api/profile", express.json({ limit: "10mb" }));
+  app.use("/api/trickmint", express.json({ limit: "10mb" }));
+
+  // Body parsing — conservative 256KB global limit (before CSRF to enable JSON/form requests)
   app.use(express.json({ limit: BODY_PARSE_LIMIT }));
   app.use(express.urlencoded({ extended: true, limit: BODY_PARSE_LIMIT }));
 
