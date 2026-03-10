@@ -25,6 +25,7 @@ export default tseslint.config(
       "**/e2e/**",
       "scripts/**",
       "migrations/**",
+      "drizzle/**",
       "benchmarks/**",
       "**/tailwind.config.ts",
       "**/.detoxrc.js",
