@@ -93,6 +93,51 @@ vi.mock("../../config/env", () => ({
   },
 }));
 
+vi.mock("../../db", () => ({
+  getDb: () => ({
+    select: vi.fn().mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+    insert: vi.fn().mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        onConflictDoUpdate: vi.fn().mockReturnValue({
+          then: vi.fn((cb: Function) => cb()),
+        }),
+        returning: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+    update: vi.fn().mockReturnValue({
+      set: vi.fn().mockReturnValue({
+        where: vi.fn().mockResolvedValue([]),
+      }),
+    }),
+    delete: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue([]),
+    }),
+  }),
+}));
+
+vi.mock("@shared/schema", () => ({
+  deviceTokens: {
+    _table: "deviceTokens",
+    id: { name: "id" },
+    userId: { name: "userId" },
+    token: { name: "token" },
+  },
+  customUsers: {
+    _table: "customUsers",
+    id: { name: "id" },
+    pushToken: { name: "pushToken" },
+  },
+}));
+
+vi.mock("drizzle-orm", () => ({
+  eq: (col: any, val: any) => ({ _op: "eq", col, val }),
+  and: (...args: any[]) => ({ _op: "and", args }),
+}));
+
 vi.mock("../../logger", () => ({
   default: {
     info: vi.fn(),

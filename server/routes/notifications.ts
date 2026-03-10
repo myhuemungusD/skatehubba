@@ -16,12 +16,14 @@ import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import {
   customUsers,
+  deviceTokens,
   notifications,
   notificationPreferences,
   DEFAULT_NOTIFICATION_PREFS,
 } from "@shared/schema";
 import { eq, desc, and, sql } from "drizzle-orm";
 import logger from "../logger";
+import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
 
@@ -44,84 +46,137 @@ router.use(authenticateUser);
 
 const pushTokenSchema = z.object({
   token: z.string().min(1).max(500),
+  platform: z.enum(["ios", "android", "web"]).optional().default("android"),
+  deviceName: z.string().max(100).optional(),
 });
 
-router.post("/push-token", async (req, res) => {
-  const parsed = pushTokenSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
-  }
+router.post(
+  "/push-token",
+  asyncHandler(async (req, res) => {
+    const parsed = pushTokenSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    }
 
-  const userId = req.currentUser!.id;
-  const { token } = parsed.data;
+    const userId = req.currentUser!.id;
+    const { token, platform, deviceName } = parsed.data;
 
-  try {
-    const db = getDb();
-    await db
-      .update(customUsers)
-      .set({ pushToken: token, updatedAt: new Date() })
-      .where(eq(customUsers.id, userId));
+    try {
+      const db = getDb();
 
-    logger.info("[Notifications] Push token registered", { userId });
-    res.json({ success: true });
-  } catch (error) {
-    logger.error("[Notifications] Failed to register push token", { error, userId });
-    res.status(500).json({ error: "PUSH_TOKEN_FAILED", message: "Failed to register push token." });
-  }
-});
+      // Upsert into deviceTokens for multi-device support
+      await db
+        .insert(deviceTokens)
+        .values({
+          userId,
+          token,
+          platform,
+          deviceName: deviceName ?? null,
+          lastUsedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: deviceTokens.token,
+          set: {
+            userId,
+            platform,
+            deviceName: deviceName ?? null,
+            lastUsedAt: new Date(),
+          },
+        });
+
+      // Backward compat: also set on customUsers for legacy code paths
+      await db
+        .update(customUsers)
+        .set({ pushToken: token, updatedAt: new Date() })
+        .where(eq(customUsers.id, userId));
+
+      logger.info("[Notifications] Push token registered", { userId, platform });
+      res.json({ success: true });
+    } catch (error) {
+      logger.error("[Notifications] Failed to register push token", { error, userId });
+      res
+        .status(500)
+        .json({ error: "PUSH_TOKEN_FAILED", message: "Failed to register push token." });
+    }
+  })
+);
 
 // ============================================================================
 // DELETE /api/notifications/push-token — Remove push token (on logout)
 // ============================================================================
 
-router.delete("/push-token", async (req, res) => {
-  const userId = req.currentUser!.id;
-
-  try {
-    const db = getDb();
-    await db
-      .update(customUsers)
-      .set({ pushToken: null, updatedAt: new Date() })
-      .where(eq(customUsers.id, userId));
-
-    res.json({ success: true });
-  } catch (error) {
-    logger.error("[Notifications] Failed to remove push token", { error, userId });
-    res
-      .status(500)
-      .json({ error: "PUSH_TOKEN_REMOVE_FAILED", message: "Failed to remove push token." });
-  }
+const deleteTokenSchema = z.object({
+  token: z.string().min(1).max(500).optional(),
 });
+
+router.delete(
+  "/push-token",
+  asyncHandler(async (req, res) => {
+    const userId = req.currentUser!.id;
+    const parsed = deleteTokenSchema.safeParse(req.body);
+    const specificToken = parsed.success ? parsed.data.token : undefined;
+
+    try {
+      const db = getDb();
+
+      if (specificToken) {
+        // Remove a specific device token
+        await db
+          .delete(deviceTokens)
+          .where(and(eq(deviceTokens.userId, userId), eq(deviceTokens.token, specificToken)));
+      } else {
+        // Remove all device tokens for this user (full logout)
+        await db.delete(deviceTokens).where(eq(deviceTokens.userId, userId));
+      }
+
+      // Backward compat: clear legacy pushToken
+      await db
+        .update(customUsers)
+        .set({ pushToken: null, updatedAt: new Date() })
+        .where(eq(customUsers.id, userId));
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error("[Notifications] Failed to remove push token", { error, userId });
+      res
+        .status(500)
+        .json({ error: "PUSH_TOKEN_REMOVE_FAILED", message: "Failed to remove push token." });
+    }
+  })
+);
 
 // ============================================================================
 // GET /api/notifications/preferences — Get notification preferences
 // ============================================================================
 
-router.get("/preferences", async (req, res) => {
-  const userId = req.currentUser!.id;
+router.get(
+  "/preferences",
+  asyncHandler(async (req, res) => {
+    const userId = req.currentUser!.id;
 
-  try {
-    const db = getDb();
-    const [prefs] = await db
-      .select()
-      .from(notificationPreferences)
-      .where(eq(notificationPreferences.userId, userId))
-      .limit(1);
+    try {
+      const db = getDb();
+      const [prefs] = await db
+        .select()
+        .from(notificationPreferences)
+        .where(eq(notificationPreferences.userId, userId))
+        .limit(1);
 
-    if (!prefs) {
-      return res.json(DEFAULT_NOTIFICATION_PREFS);
+      if (!prefs) {
+        return res.json(DEFAULT_NOTIFICATION_PREFS);
+      }
+
+      // Strip internal fields
+      const { id: _id, userId: _userId, updatedAt: _updatedAt, ...publicPrefs } = prefs;
+      res.json(publicPrefs);
+    } catch (error) {
+      logger.error("[Notifications] Failed to get preferences", { error, userId });
+      res
+        .status(500)
+        .json({ error: "PREFERENCES_FETCH_FAILED", message: "Failed to get preferences." });
     }
-
-    // Strip internal fields
-    const { id: _id, userId: _userId, updatedAt: _updatedAt, ...publicPrefs } = prefs;
-    res.json(publicPrefs);
-  } catch (error) {
-    logger.error("[Notifications] Failed to get preferences", { error, userId });
-    res
-      .status(500)
-      .json({ error: "PREFERENCES_FETCH_FAILED", message: "Failed to get preferences." });
-  }
-});
+  })
+);
 
 // ============================================================================
 // PUT /api/notifications/preferences — Update notification preferences
@@ -150,160 +205,179 @@ const preferencesSchema = z.object({
     .optional(),
 });
 
-router.put("/preferences", async (req, res) => {
-  const parsed = preferencesSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
-  }
+router.put(
+  "/preferences",
+  asyncHandler(async (req, res) => {
+    const parsed = preferencesSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+    }
 
-  const userId = req.currentUser!.id;
-  const updates = parsed.data;
+    const userId = req.currentUser!.id;
+    const updates = parsed.data;
 
-  try {
-    const db = getDb();
+    try {
+      const db = getDb();
 
-    // Atomic upsert using ON CONFLICT to avoid TOCTOU race conditions
-    // where concurrent requests could both see "no existing" and both try to insert.
-    await db
-      .insert(notificationPreferences)
-      .values({
-        userId,
-        ...updates,
-        updatedAt: new Date(),
-      })
-      .onConflictDoUpdate({
-        target: notificationPreferences.userId,
-        set: { ...updates, updatedAt: new Date() },
-      });
+      // Atomic upsert using ON CONFLICT to avoid TOCTOU race conditions
+      // where concurrent requests could both see "no existing" and both try to insert.
+      await db
+        .insert(notificationPreferences)
+        .values({
+          userId,
+          ...updates,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: notificationPreferences.userId,
+          set: { ...updates, updatedAt: new Date() },
+        });
 
-    logger.info("[Notifications] Preferences updated", { userId });
-    res.json({ success: true });
-  } catch (error) {
-    logger.error("[Notifications] Failed to update preferences", { error, userId });
-    res
-      .status(500)
-      .json({ error: "PREFERENCES_UPDATE_FAILED", message: "Failed to update preferences." });
-  }
-});
+      logger.info("[Notifications] Preferences updated", { userId });
+      res.json({ success: true });
+    } catch (error) {
+      logger.error("[Notifications] Failed to update preferences", { error, userId });
+      res
+        .status(500)
+        .json({ error: "PREFERENCES_UPDATE_FAILED", message: "Failed to update preferences." });
+    }
+  })
+);
 
 // ============================================================================
 // GET /api/notifications/unread-count — Get unread notification count
 // ============================================================================
 
-router.get("/unread-count", async (req, res) => {
-  const userId = req.currentUser!.id;
+router.get(
+  "/unread-count",
+  asyncHandler(async (req, res) => {
+    const userId = req.currentUser!.id;
 
-  try {
-    const db = getDb();
-    const [result] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(notifications)
-      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+    try {
+      const db = getDb();
+      const [result] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(notifications)
+        .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
 
-    res.json({ count: result?.count ?? 0 });
-  } catch (error) {
-    logger.error("[Notifications] Failed to get unread count", { error, userId });
-    res.status(500).json({ error: "UNREAD_COUNT_FAILED", message: "Failed to get unread count." });
-  }
-});
+      res.json({ count: result?.count ?? 0 });
+    } catch (error) {
+      logger.error("[Notifications] Failed to get unread count", { error, userId });
+      res
+        .status(500)
+        .json({ error: "UNREAD_COUNT_FAILED", message: "Failed to get unread count." });
+    }
+  })
+);
 
 // ============================================================================
 // GET /api/notifications — List notifications (paginated)
 // ============================================================================
 
-router.get("/", async (req, res) => {
-  const userId = req.currentUser!.id;
-  const parsed = paginationSchema.safeParse(req.query);
-  if (!parsed.success) {
-    return res
-      .status(400)
-      .json({ error: "INVALID_PAGINATION", message: "Invalid pagination parameters." });
-  }
-  const { limit, offset } = parsed.data;
+router.get(
+  "/",
+  asyncHandler(async (req, res) => {
+    const userId = req.currentUser!.id;
+    const parsed = paginationSchema.safeParse(req.query);
+    if (!parsed.success) {
+      return res
+        .status(400)
+        .json({ error: "INVALID_PAGINATION", message: "Invalid pagination parameters." });
+    }
+    const { limit, offset } = parsed.data;
 
-  try {
-    const db = getDb();
-    const items = await db
-      .select()
-      .from(notifications)
-      .where(eq(notifications.userId, userId))
-      .orderBy(desc(notifications.createdAt))
-      .limit(limit)
-      .offset(offset);
+    try {
+      const db = getDb();
+      const items = await db
+        .select()
+        .from(notifications)
+        .where(eq(notifications.userId, userId))
+        .orderBy(desc(notifications.createdAt))
+        .limit(limit)
+        .offset(offset);
 
-    const [countResult] = await db
-      .select({ total: sql<number>`count(*)::int` })
-      .from(notifications)
-      .where(eq(notifications.userId, userId));
+      const [countResult] = await db
+        .select({ total: sql<number>`count(*)::int` })
+        .from(notifications)
+        .where(eq(notifications.userId, userId));
 
-    res.json({
-      notifications: items,
-      total: countResult?.total ?? 0,
-      limit,
-      offset,
-    });
-  } catch (error) {
-    logger.error("[Notifications] Failed to list notifications", { error, userId });
-    res
-      .status(500)
-      .json({ error: "NOTIFICATIONS_FETCH_FAILED", message: "Failed to list notifications." });
-  }
-});
+      res.json({
+        notifications: items,
+        total: countResult?.total ?? 0,
+        limit,
+        offset,
+      });
+    } catch (error) {
+      logger.error("[Notifications] Failed to list notifications", { error, userId });
+      res
+        .status(500)
+        .json({ error: "NOTIFICATIONS_FETCH_FAILED", message: "Failed to list notifications." });
+    }
+  })
+);
 
 // ============================================================================
 // POST /api/notifications/:id/read — Mark a single notification as read
 // ============================================================================
 
-router.post("/:id/read", async (req, res) => {
-  const userId = req.currentUser!.id;
-  const notificationId = parseInt(req.params.id, 10);
+router.post(
+  "/:id/read",
+  asyncHandler(async (req, res) => {
+    const userId = req.currentUser!.id;
+    const notificationId = parseInt(req.params.id, 10);
 
-  if (isNaN(notificationId)) {
-    return res
-      .status(400)
-      .json({ error: "INVALID_NOTIFICATION_ID", message: "Invalid notification ID." });
-  }
-
-  try {
-    const db = getDb();
-    const [updated] = await db
-      .update(notifications)
-      .set({ isRead: true, readAt: new Date() })
-      .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)))
-      .returning();
-
-    if (!updated) {
+    if (isNaN(notificationId)) {
       return res
-        .status(404)
-        .json({ error: "NOTIFICATION_NOT_FOUND", message: "Notification not found." });
+        .status(400)
+        .json({ error: "INVALID_NOTIFICATION_ID", message: "Invalid notification ID." });
     }
 
-    res.json({ success: true });
-  } catch (error) {
-    logger.error("[Notifications] Failed to mark as read", { error, userId, notificationId });
-    res.status(500).json({ error: "MARK_READ_FAILED", message: "Failed to mark as read." });
-  }
-});
+    try {
+      const db = getDb();
+      const [updated] = await db
+        .update(notifications)
+        .set({ isRead: true, readAt: new Date() })
+        .where(and(eq(notifications.id, notificationId), eq(notifications.userId, userId)))
+        .returning();
+
+      if (!updated) {
+        return res
+          .status(404)
+          .json({ error: "NOTIFICATION_NOT_FOUND", message: "Notification not found." });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      logger.error("[Notifications] Failed to mark as read", { error, userId, notificationId });
+      res.status(500).json({ error: "MARK_READ_FAILED", message: "Failed to mark as read." });
+    }
+  })
+);
 
 // ============================================================================
 // POST /api/notifications/read-all — Mark all notifications as read
 // ============================================================================
 
-router.post("/read-all", async (req, res) => {
-  const userId = req.currentUser!.id;
+router.post(
+  "/read-all",
+  asyncHandler(async (req, res) => {
+    const userId = req.currentUser!.id;
 
-  try {
-    const db = getDb();
-    await db
-      .update(notifications)
-      .set({ isRead: true, readAt: new Date() })
-      .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
+    try {
+      const db = getDb();
+      await db
+        .update(notifications)
+        .set({ isRead: true, readAt: new Date() })
+        .where(and(eq(notifications.userId, userId), eq(notifications.isRead, false)));
 
-    res.json({ success: true });
-  } catch (error) {
-    logger.error("[Notifications] Failed to mark all as read", { error, userId });
-    res.status(500).json({ error: "MARK_ALL_READ_FAILED", message: "Failed to mark all as read." });
-  }
-});
+      res.json({ success: true });
+    } catch (error) {
+      logger.error("[Notifications] Failed to mark all as read", { error, userId });
+      res
+        .status(500)
+        .json({ error: "MARK_ALL_READ_FAILED", message: "Failed to mark all as read." });
+    }
+  })
+);
 
 export { router as notificationsRouter };

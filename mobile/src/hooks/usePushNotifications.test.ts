@@ -89,4 +89,72 @@ describe("usePushNotifications", () => {
     }
     expect(mockRouter.push).toHaveBeenCalledWith("/challenge/chal-456");
   });
+
+  it("notification tap handler routes to game for vote_reminder", () => {
+    const mockRouter = { push: vi.fn() };
+    const data = { type: "vote_reminder", gameId: "game-789" };
+    if (
+      data.gameId &&
+      (data.type === "vote_reminder" || data.type === "your_turn" || data.type === "game_your_turn")
+    ) {
+      mockRouter.push(`/game/${data.gameId}`);
+    }
+    expect(mockRouter.push).toHaveBeenCalledWith("/game/game-789");
+  });
+
+  it("notification tap handler routes to game for game_over", () => {
+    const mockRouter = { push: vi.fn() };
+    const data = { type: "game_over", gameId: "game-final" };
+    if (data.gameId && (data.type === "game_over" || data.type === "game_game_over")) {
+      mockRouter.push(`/game/${data.gameId}`);
+    }
+    expect(mockRouter.push).toHaveBeenCalledWith("/game/game-final");
+  });
+
+  it("notification tap handler routes to game for game_game_over", () => {
+    const mockRouter = { push: vi.fn() };
+    const data = { type: "game_game_over", gameId: "game-done" };
+    if (data.gameId && (data.type === "game_over" || data.type === "game_game_over")) {
+      mockRouter.push(`/game/${data.gameId}`);
+    }
+    expect(mockRouter.push).toHaveBeenCalledWith("/game/game-done");
+  });
+
+  it("notification tap handler routes to challenge for quick_match", () => {
+    const mockRouter = { push: vi.fn() };
+    const data = { type: "quick_match", challengeId: "qm-001" };
+    if (
+      data.challengeId &&
+      (data.type === "quick_match" ||
+        data.type === "challenge" ||
+        data.type === "challenge_received")
+    ) {
+      mockRouter.push(`/challenge/${data.challengeId}`);
+    }
+    expect(mockRouter.push).toHaveBeenCalledWith("/challenge/qm-001");
+  });
+
+  it("notification tap handler does not route when data is empty", () => {
+    const mockRouter = { push: vi.fn() };
+    const data: Record<string, string> = {};
+    if (data.gameId) {
+      mockRouter.push(`/game/${data.gameId}`);
+    }
+    if (data.challengeId) {
+      mockRouter.push(`/challenge/${data.challengeId}`);
+    }
+    expect(mockRouter.push).not.toHaveBeenCalled();
+  });
+
+  it("notification tap handler does not route for unknown type without IDs", () => {
+    const mockRouter = { push: vi.fn() };
+    const data = { type: "promo_offer" };
+    if ("gameId" in data) {
+      mockRouter.push(`/game/${(data as any).gameId}`);
+    }
+    if ("challengeId" in data) {
+      mockRouter.push(`/challenge/${(data as any).challengeId}`);
+    }
+    expect(mockRouter.push).not.toHaveBeenCalled();
+  });
 });

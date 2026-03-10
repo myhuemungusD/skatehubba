@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { customUsers } from "./auth";
 
 // Notification types enum
 export const NOTIFICATION_TYPES = [
@@ -85,6 +86,32 @@ export const notificationPreferences = pgTable(
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;
 
+// Device tokens — multi-device push notification support
+export const DEVICE_PLATFORMS = ["ios", "android", "web"] as const;
+export type DevicePlatform = (typeof DEVICE_PLATFORMS)[number];
+
+export const deviceTokens = pgTable(
+  "device_tokens",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
+    token: varchar("token", { length: 500 }).notNull().unique(),
+    platform: varchar("platform", { length: 10 }).notNull().default("android"),
+    deviceName: varchar("device_name", { length: 100 }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    lastUsedAt: timestamp("last_used_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userIdx: index("IDX_device_tokens_user").on(table.userId),
+    tokenIdx: uniqueIndex("IDX_device_tokens_token").on(table.token),
+  })
+);
+
+export type DeviceToken = typeof deviceTokens.$inferSelect;
+export type InsertDeviceToken = typeof deviceTokens.$inferInsert;
+
 /** Public-facing notification preferences (no internal DB fields). */
 export interface NotificationPrefs {
   pushEnabled: boolean;
@@ -156,7 +183,7 @@ export function shouldSendForType(
 
 /**
  * Check if the current time falls within the user's quiet hours.
- * Quiet hours are stored as "HH:MM" strings in the user's local time.
+ * Quiet hours are stored as "HH:MM" strings in UTC.
  *
  * Returns true if current time IS within quiet hours (notifications should be suppressed).
  * Supports overnight ranges (e.g., start="22:00", end="07:00").

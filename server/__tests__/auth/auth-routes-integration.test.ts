@@ -71,14 +71,22 @@ vi.mock("../../db", () => ({
     }),
     update: vi.fn().mockReturnValue({
       set: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.updateResult)),
+        where: vi.fn().mockImplementation(() => {
+          const result = Promise.resolve(mockDbReturns.updateResult);
+          (result as any).returning = vi
+            .fn()
+            .mockImplementation(() => Promise.resolve(mockDbReturns.updateResult));
+          return result;
         }),
       }),
     }),
     delete: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        returning: vi.fn().mockImplementation(() => Promise.resolve(mockDbReturns.deleteResult)),
+      where: vi.fn().mockImplementation(() => {
+        const result = Promise.resolve(mockDbReturns.deleteResult);
+        (result as any).returning = vi
+          .fn()
+          .mockImplementation(() => Promise.resolve(mockDbReturns.deleteResult));
+        return result;
       }),
     }),
     execute: vi.fn().mockResolvedValue(undefined),

@@ -48,7 +48,7 @@
 - Google Play Store: REJECTS apps without privacy policy
 - GDPR/CCPA compliance: REQUIRED by law
   **Fix Required:** Create /privacy and /terms pages with proper legal content
-**Resolution:** Pages implemented at `/privacy` and `/terms` (`client/src/pages/privacy.tsx`, `client/src/pages/terms.tsx`).
+  **Resolution:** Pages implemented at `/privacy` and `/terms` (`client/src/pages/privacy.tsx`, `client/src/pages/terms.tsx`).
 
 ---
 
@@ -158,19 +158,15 @@ server/storage.ts: 49 console statements
 
 ### 9. Service Worker Improvements
 
-**Severity:** 🟡 MEDIUM  
-**Location:** public/service-worker.js  
-**Issues:**
+**Severity:** 🟢 RESOLVED
+**Location:** src/sw.ts (compiled via vite-plugin-pwa + Workbox injectManifest)
+**Status:** Resolved — migrated from hand-written public/service-worker.js to Workbox.
 
-- Console.logs in production SW
-- Limited caching strategy (only 3 precached assets)
-- No offline fallback page
-
-**Fix Required:**
-
-- Remove console.logs
-- Expand precache for better offline experience
-- Add offline fallback page
+- Automatic build-asset precaching with hash-based cache busting (85 entries)
+- CacheFirst offline map tiles (OSM + CARTO, 500 entries, 30-day expiry)
+- StaleWhileRevalidate for static assets (JS, CSS, fonts, images)
+- NetworkFirst navigation with 3s timeout and offline.html fallback
+- Legacy cache cleanup on activate (skatehubba-v2, skatehubba-runtime)
 
 ---
 
@@ -259,9 +255,9 @@ Sitemap: https://skatehubba.com/sitemap.xml
 ### Before App Store Submission
 
 - [ ] Fix Stripe secret key
-- [x] Implement Error Boundary *(RESOLVED — see Task 3 in DEPLOYMENT_RUNBOOK.md)*
-- [x] Create Privacy Policy page *(RESOLVED — client/src/pages/privacy.tsx)*
-- [x] Create Terms of Service page *(RESOLVED — client/src/pages/terms.tsx)*
+- [x] Implement Error Boundary _(RESOLVED — see Task 3 in DEPLOYMENT_RUNBOOK.md)_
+- [x] Create Privacy Policy page _(RESOLVED — client/src/pages/privacy.tsx)_
+- [x] Create Terms of Service page _(RESOLVED — client/src/pages/terms.tsx)_
 - [ ] Remove production console.logs
 - [ ] Disable source maps in production
 - [ ] Add complete package.json metadata
