@@ -523,6 +523,26 @@ describe("Tier Routes", () => {
       );
     });
 
+    it("returns 409 when award limit is reached (line 67/110)", async () => {
+      // Set count result to 5 (the MAX_PRO_AWARDS limit)
+      mockDbReturns.countResult = [{ value: 5 }];
+
+      const req = mockRequest({
+        body: { userId: "target-1" },
+        currentUser: { id: "user-1", accountTier: "premium" },
+      });
+      const res = mockResponse();
+
+      await callRoute("POST", "/award-pro", req, res);
+
+      expect(res.status).toHaveBeenCalledWith(409);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error: "AWARD_LIMIT_REACHED",
+        })
+      );
+    });
+
     it("returns 500 when db operation throws", async () => {
       mockTransaction.mockImplementationOnce(() => {
         throw new Error("DB connection lost");
