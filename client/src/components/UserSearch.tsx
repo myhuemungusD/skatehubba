@@ -31,28 +31,31 @@ export function UserSearch({ onChallenge, isPending }: UserSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
-  const search = useCallback(async (q: string) => {
-    if (q.length < 2) {
-      setResults([]);
-      setHasSearched(false);
-      return;
-    }
-    setIsSearching(true);
-    try {
-      const data = await apiRequest<SearchResult[]>({
-        method: "GET",
-        path: `/api/users/search?q=${encodeURIComponent(q)}`,
-      });
-      setResults(data);
-      setHasSearched(true);
-    } catch {
-      setResults([]);
-      setHasSearched(true);
-      toast({ title: "Search failed", description: "Please try again.", variant: "destructive" });
-    } finally {
-      setIsSearching(false);
-    }
-  }, []);
+  const search = useCallback(
+    async (q: string) => {
+      if (q.length < 2) {
+        setResults([]);
+        setHasSearched(false);
+        return;
+      }
+      setIsSearching(true);
+      try {
+        const data = await apiRequest<SearchResult[]>({
+          method: "GET",
+          path: `/api/users/search?q=${encodeURIComponent(q)}`,
+        });
+        setResults(data);
+        setHasSearched(true);
+      } catch {
+        setResults([]);
+        setHasSearched(true);
+        toast({ title: "Search failed", description: "Please try again.", variant: "destructive" });
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [toast]
+  );
 
   useEffect(() => {
     clearTimeout(debounceRef.current);
