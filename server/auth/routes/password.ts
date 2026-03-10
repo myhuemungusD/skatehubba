@@ -10,7 +10,7 @@ import { sensitiveAuthLimiter } from "../../middleware/security.ts";
 import { AuditLogger, getClientIP } from "../audit.ts";
 import logger from "../../logger.ts";
 import { sendPasswordResetEmail as sendBrandedResetEmail } from "../email.ts";
-import { sendError, Errors } from "../../utils/apiError.ts";
+import { Errors } from "../../utils/apiError.ts";
 
 // NOTE: CSRF validation is handled globally by app.use("/api", requireCsrfToken)
 // in server/index.ts. Do not add per-route requireCsrfToken here — it would run
@@ -91,7 +91,7 @@ export function setupPasswordRoutes(app: Express) {
         });
       } catch (error) {
         logger.error("Password change error", { error: String(error) });
-        Errors.internal(res, "PASSWORD_CHANGE_FAILED", "Password change failed");
+        return Errors.internal(res, "PASSWORD_CHANGE_FAILED", "Password change failed");
       }
     }
   );
@@ -131,7 +131,7 @@ export function setupPasswordRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Forgot password error", { error: String(error) });
-      Errors.internal(res, "FORGOT_PASSWORD_FAILED", "Failed to process request");
+      return Errors.internal(res, "FORGOT_PASSWORD_FAILED", "Failed to process request");
     }
   });
 
@@ -185,7 +185,7 @@ export function setupPasswordRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Reset password error", { error: String(error) });
-      Errors.internal(res, "PASSWORD_RESET_FAILED", "Password reset failed");
+      return Errors.internal(res, "PASSWORD_RESET_FAILED", "Password reset failed");
     }
   });
 }

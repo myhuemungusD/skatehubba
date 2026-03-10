@@ -120,7 +120,7 @@ export function setupReauthRoutes(app: Express) {
         });
       } catch (error) {
         logger.error("Identity verification error", { error: String(error) });
-        Errors.internal(res, "VERIFICATION_FAILED", "Identity verification failed");
+        return Errors.internal(res, "VERIFICATION_FAILED", "Identity verification failed");
       }
     }
   );

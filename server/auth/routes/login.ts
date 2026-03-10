@@ -8,8 +8,7 @@ import { AuthService } from "../service.ts";
 import { authenticateUser } from "../middleware.ts";
 import { authLimiter } from "../../middleware/rateLimit.ts";
 import { admin } from "../../admin.ts";
-import { AuditLogger } from "../audit.ts";
-import { getClientIP } from "../audit.ts";
+import { AuditLogger, getClientIP } from "../audit.ts";
 import { LockoutService } from "../lockout.ts";
 import logger from "../../logger.ts";
 import { sendVerificationEmail } from "../email.ts";
@@ -215,7 +214,7 @@ export function setupLoginRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Get user error", { error: String(error) });
-      Errors.internal(res, "USER_FETCH_FAILED", "Failed to get user information");
+      return Errors.internal(res, "USER_FETCH_FAILED", "Failed to get user information");
     }
   });
 
@@ -274,7 +273,7 @@ export function setupLoginRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Logout error", { error: String(error) });
-      Errors.internal(res, "LOGOUT_FAILED", "Logout failed");
+      return Errors.internal(res, "LOGOUT_FAILED", "Logout failed");
     }
   });
 }
