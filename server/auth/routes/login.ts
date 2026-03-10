@@ -3,6 +3,7 @@
  */
 
 import type { Express } from "express";
+import { eq, and } from "drizzle-orm";
 import { AuthService } from "../service.ts";
 import { authenticateUser } from "../middleware.ts";
 import { authLimiter } from "../../middleware/rateLimit.ts";
@@ -13,6 +14,8 @@ import { LockoutService } from "../lockout.ts";
 import logger from "../../logger.ts";
 import { sendVerificationEmail } from "../email.ts";
 import { sendError, Errors } from "../../utils/apiError.ts";
+import { getDb } from "../../db.ts";
+import { customUsers, deviceTokens } from "../../../packages/shared/schema/index";
 
 // NOTE: CSRF validation is handled globally by app.use("/api", requireCsrfToken)
 // in server/index.ts. Do not add per-route requireCsrfToken here.
