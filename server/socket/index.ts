@@ -14,6 +14,7 @@
 import { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import logger from "../logger";
+import { getAllowedOrigins } from "../config/server";
 import { socketAuthMiddleware, stopSocketRateLimitCleanup } from "./auth";
 import { joinRoom, leaveRoom, leaveAllRooms, getRoomStats } from "./rooms";
 import { registerBattleHandlers, cleanupBattleSubscriptions } from "./handlers/battle";
@@ -70,9 +71,7 @@ export function initializeSocketServer(
     httpServer,
     {
       cors: {
-        origin:
-          process.env.ALLOWED_ORIGINS?.split(",") ||
-          (process.env.NODE_ENV === "production" ? false : "*"),
+        origin: getAllowedOrigins(),
         credentials: true,
       },
       // Transport options
@@ -197,8 +196,8 @@ export function initializeSocketServer(
 
   if (!process.env.ALLOWED_ORIGINS && process.env.NODE_ENV === "production") {
     logger.warn(
-      "[Socket] ALLOWED_ORIGINS is not set — all WebSocket connections will be rejected in production. " +
-        "Set ALLOWED_ORIGINS to a comma-separated list of allowed origins."
+      "[Socket] ALLOWED_ORIGINS is not set — only hardcoded production origins will be allowed. " +
+        "Set ALLOWED_ORIGINS to a comma-separated list of additional allowed origins."
     );
   }
 
