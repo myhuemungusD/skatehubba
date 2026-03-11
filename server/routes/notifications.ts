@@ -48,7 +48,11 @@ router.use(authenticateUser);
 const pushTokenSchema = z.object({
   token: z.string().min(1).max(500),
   platform: z.enum(["ios", "android", "web"]).optional().default("android"),
-  deviceName: z.string().max(100).optional(),
+  deviceName: z
+    .string()
+    .max(100)
+    .transform((v) => v.replace(/[<>]/g, "").trim())
+    .optional(),
 });
 
 router.post(

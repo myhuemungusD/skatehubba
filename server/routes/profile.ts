@@ -242,8 +242,8 @@ router.post(
     let uploadedFile: StorageFile | null = null;
 
     try {
-      if (typeof req.body.avatarBase64 === "string" && req.body.avatarBase64.length > 0) {
-        const parsedAvatar = parseAvatarDataUrl(req.body.avatarBase64);
+      if (parsed.data.avatarBase64) {
+        const parsedAvatar = parseAvatarDataUrl(parsed.data.avatarBase64);
         if (!parsedAvatar) {
           await safeRelease(usernameStore, uid);
           return Errors.badRequest(res, "INVALID_AVATAR_FORMAT", "Avatar format is invalid.", {
