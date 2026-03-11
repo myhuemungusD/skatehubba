@@ -75,12 +75,12 @@ export function setupPasswordRoutes(app: Express) {
         await AuditLogger.logPasswordChanged(user.id, user.email, ipAddress, userAgent);
 
         // Refresh the session cookie with the new token
-        if (result.sessionToken) {
-          res.cookie("sessionToken", result.sessionToken, {
+        if (result.newSessionToken) {
+          res.cookie("sessionToken", result.newSessionToken, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
-            maxAge: 24 * 60 * 60 * 1000, // 24 hours
+            maxAge: 24 * 60 * 60 * 1000, // 24 hours (matches login session TTL)
             path: "/",
           });
         }

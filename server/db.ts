@@ -1,7 +1,6 @@
 import { Pool, neonConfig } from "@neondatabase/serverless";
 import { drizzle, NeonDatabase } from "drizzle-orm/neon-serverless";
 import * as schema from "../packages/shared/schema/index";
-import { eq } from "drizzle-orm";
 import { env } from "./config/env";
 import logger from "./logger";
 import { defaultSpots } from "./seeds/defaultSpots";
@@ -103,41 +102,10 @@ export function isDatabaseAvailable(): boolean {
 }
 
 /**
- * Get both display name and handle for a user in a single query path.
- * Queries usernames table first; falls back to customUsers.firstName for display name.
+ * @deprecated Import from `./services/userService` instead.
+ * These re-exports exist only for backward compatibility and will be removed.
  */
-export async function getUserNameInfo(
-  db: Database,
-  userId: string
-): Promise<{ displayName: string; handle: string | null }> {
-  const usernameResult = await db
-    .select({ username: schema.usernames.username })
-    .from(schema.usernames)
-    .where(eq(schema.usernames.uid, userId))
-    .limit(1);
-
-  if (usernameResult[0]?.username) {
-    return { displayName: usernameResult[0].username, handle: usernameResult[0].username };
-  }
-
-  const userResult = await db
-    .select({ firstName: schema.customUsers.firstName })
-    .from(schema.customUsers)
-    .where(eq(schema.customUsers.id, userId))
-    .limit(1);
-
-  return { displayName: userResult[0]?.firstName || "Skater", handle: null };
-}
-
-/** Get user display name. Delegates to {@link getUserNameInfo}. */
-export async function getUserDisplayName(db: Database, userId: string): Promise<string> {
-  return (await getUserNameInfo(db, userId)).displayName;
-}
-
-/** Get user handle (username). Delegates to {@link getUserNameInfo}. */
-export async function getUserHandle(db: Database, userId: string): Promise<string | null> {
-  return (await getUserNameInfo(db, userId)).handle;
-}
+export { getUserNameInfo, getUserDisplayName, getUserHandle } from "./services/userService";
 
 export { db, pool };
 export type { Database };
@@ -172,9 +140,7 @@ export async function initializeDatabase() {
           isActive: true,
         },
       ];
-      for (const step of defaultSteps) {
-        await db.insert(schema.tutorialSteps).values(step);
-      }
+      await db.insert(schema.tutorialSteps).values(defaultSteps);
       logger.info("Tutorial steps seeded successfully");
     } else {
       logger.info("Tutorial steps already initialized");
@@ -185,8 +151,8 @@ export async function initializeDatabase() {
 
     if (existingSpots.length === 0) {
       logger.info(`Seeding ${defaultSpots.length} default skateparks and spots...`);
-      for (const spot of defaultSpots) {
-        await db.insert(schema.spots).values({
+      await db.insert(schema.spots).values(
+        defaultSpots.map((spot) => ({
           name: spot.name,
           description: spot.description,
           spotType: spot.spotType,
@@ -203,8 +169,8 @@ export async function initializeDatabase() {
           checkInCount: 0,
           rating: 0,
           ratingCount: 0,
-        });
-      }
+        }))
+      );
       logger.info("Default skateparks seeded successfully");
     } else {
       logger.info("Spots already exist, skipping default seed");

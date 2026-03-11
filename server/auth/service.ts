@@ -422,7 +422,7 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
     currentSessionToken?: string
-  ): Promise<{ success: boolean; message: string; sessionToken?: string }> {
+  ): Promise<{ success: boolean; message: string; newSessionToken?: string }> {
     // Enforce password complexity at the service layer (defense-in-depth)
     const parsed = passwordSchema.safeParse(newPassword);
     if (!parsed.success) {
@@ -472,12 +472,12 @@ export class AuthService {
       const sessionsDeleted = await this.deleteAllUserSessions(userId);
 
       // Create new session for current device and return the token
-      const newSession = await this.createSession(userId);
+      const { token: newSessionToken } = await this.createSession(userId);
 
       return {
         success: true,
         message: `Password changed. ${sessionsDeleted} other session(s) logged out.`,
-        sessionToken: newSession.token,
+        newSessionToken,
       };
     } else {
       // Delete ALL sessions including current

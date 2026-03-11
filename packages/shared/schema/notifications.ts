@@ -36,7 +36,9 @@ export const notifications = pgTable(
   "notifications",
   {
     id: serial("id").primaryKey(),
-    userId: varchar("user_id", { length: 255 }).notNull(),
+    userId: varchar("user_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
     type: varchar("type", { length: 50 }).notNull(),
     title: varchar("title", { length: 255 }).notNull(),
     body: text("body").notNull(),
@@ -61,7 +63,9 @@ export const notificationPreferences = pgTable(
   "notification_preferences",
   {
     id: serial("id").primaryKey(),
-    userId: varchar("user_id", { length: 255 }).notNull(),
+    userId: varchar("user_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
     // Push notification channels
     pushEnabled: boolean("push_enabled").notNull().default(true),
     emailEnabled: boolean("email_enabled").notNull().default(true),

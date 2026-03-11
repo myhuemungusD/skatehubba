@@ -150,6 +150,7 @@ const {
   validateHoneypot,
   validateEmail,
   validateUserAgent,
+  logIPAddress,
   emailSignupLimiter,
   publicWriteLimiter,
   passwordResetLimiter,
@@ -533,59 +534,69 @@ describe("Security Middleware", () => {
       expect(res.status).not.toHaveBeenCalled();
     });
 
-    it("should allow Googlebot (not in blocked patterns)", () => {
+    it("should allow legitimate bot user agents (Googlebot, curl, python)", () => {
+      for (const ua of ["Googlebot/2.1", "curl/7.68.0", "python-requests/2.28.0", "BingSpider"]) {
+        const req = createReq({
+          get: vi.fn((header: string) => (header === "User-Agent" ? ua : undefined)),
+        });
+        const res = createRes();
+        const next = vi.fn();
+
+        validateUserAgent(req, res, next);
+
+        expect(next).toHaveBeenCalled();
+      }
+    });
+
+    it("should reject known-malicious user agents", () => {
+      for (const ua of ["scraper/1.0", "Nikto/2.1.6", "sqlmap/1.5"]) {
+        const req = createReq({
+          get: vi.fn((header: string) => (header === "User-Agent" ? ua : undefined)),
+        });
+        const res = createRes();
+        const next = vi.fn();
+
+        validateUserAgent(req, res, next);
+
+        expect(next).not.toHaveBeenCalled();
+        expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
+      }
+    });
+  });
+
+  // ===========================================================================
+  // logIPAddress
+  // ===========================================================================
+
+  describe("logIPAddress", () => {
+    it("should use req.ip (respects trust proxy)", () => {
       const req = createReq({
-        get: vi.fn((header: string) => (header === "User-Agent" ? "Googlebot/2.1" : undefined)),
+        headers: {},
+        body: {},
+        ip: "203.0.113.50",
       });
       const res = createRes();
       const next = vi.fn();
 
-      validateUserAgent(req, res, next);
+      logIPAddress(req, res, next);
 
+      expect(req.clientIpAddress).toBe("203.0.113.50");
       expect(next).toHaveBeenCalled();
     });
 
-    it("should allow curl user agent (not in blocked patterns)", () => {
+    it("should fall back to default req.ip when no headers set", () => {
       const req = createReq({
-        get: vi.fn((header: string) => (header === "User-Agent" ? "curl/7.68.0" : undefined)),
+        headers: {},
+        body: {},
       });
       const res = createRes();
       const next = vi.fn();
 
-      validateUserAgent(req, res, next);
+      logIPAddress(req, res, next);
 
+      // req.ip defaults to "127.0.0.1" in mock
+      expect(req.clientIpAddress).toBe("127.0.0.1");
       expect(next).toHaveBeenCalled();
-    });
-
-    it("should allow python user agent (not in blocked patterns)", () => {
-      const req = createReq({
-        get: vi.fn((header: string) =>
-          header === "User-Agent" ? "python-requests/2.28.0" : undefined
-        ),
-      });
-      const res = createRes();
-      const next = vi.fn();
-
-      validateUserAgent(req, res, next);
-
-      expect(next).toHaveBeenCalled();
-    });
-
-    it("should reject spider user agent", () => {
-      const req = createReq({
-        get: vi.fn((header: string) => (header === "User-Agent" ? "BingSpider" : undefined)),
-      });
-      const res = createRes();
-      const next = vi.fn();
-
-      validateUserAgent(req, res, next);
-
-      expect(next).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(403);
-      expect(res.json).toHaveBeenCalledWith({
-        error: "FORBIDDEN",
-        message: "Automated requests not allowed",
-      });
     });
   });
 

@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import net from "net";
 import { env } from "./config/env";
 import logger from "./logger";
 
@@ -40,9 +41,7 @@ export function secureCompare(a: string, b: string): boolean {
   return bufA.length === bufB.length && crypto.timingSafeEqual(paddedA, paddedB);
 }
 
-// IP address validation
+// IP address validation — handles all IPv4 and IPv6 forms (compressed, mapped, etc.)
 export function isValidIP(ip: string): boolean {
-  const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
-  const ipv6Regex = /^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/;
-  return ipv4Regex.test(ip) || ipv6Regex.test(ip);
+  return net.isIP(ip) !== 0;
 }

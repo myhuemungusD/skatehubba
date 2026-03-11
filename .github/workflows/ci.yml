@@ -156,10 +156,10 @@ jobs:
             echo "If this persists, ensure drizzle.config.ts is valid"
             exit 0
           fi
-          if [ -n "$(git status --porcelain migrations/)" ]; then
+          if [ -n "$(git status --porcelain drizzle/)" ]; then
             echo "::error::Migration drift detected — schema changes exist without a committed migration"
             echo "Run 'pnpm db:generate' locally and commit the result"
-            git diff migrations/
+            git diff drizzle/
             exit 1
           fi
           echo "✅ Migrations are in sync with schema"

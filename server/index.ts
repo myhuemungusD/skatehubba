@@ -1,3 +1,5 @@
+// Sentry MUST be imported first to instrument all downstream libraries
+import { captureError, flushSentry } from "./sentry.ts";
 import express from "express";
 import http from "http";
 import path from "path";
@@ -105,9 +107,12 @@ server.listen(port, "0.0.0.0", () => {
 // fire async work that rejects; we log and move on rather than taking down the
 // process and losing the core auth/map experience.
 process.on("unhandledRejection", (reason) => {
+  const error = reason instanceof Error ? reason : new Error(String(reason));
   logger.error("[Server] Unhandled promise rejection — continuing", {
-    reason: reason instanceof Error ? reason.message : String(reason),
+    reason: error.message,
+    stack: error.stack,
   });
+  captureError(error, { source: "unhandledRejection" });
 });
 
 process.on("uncaughtException", (err) => {
@@ -116,8 +121,15 @@ process.on("uncaughtException", (err) => {
     message: err.message,
     stack: err.stack,
   });
-  // Allow logger to flush, then exit — process manager will restart
-  setTimeout(() => process.exit(1), 1000);
+  captureError(err, { source: "uncaughtException" });
+  // Flush Sentry before the process terminates — ensure the crash report
+  // reaches Sentry even if the process exits shortly after.
+  flushSentry(2000).catch(() => {
+    // Swallow flush errors — process may already be dying
+  });
+  // After an uncaught exception Node.js is in an undefined state.
+  // Log and exit; let the process manager (Docker, systemd, k8s) restart.
+  process.exit(1);
 });
 
 // Graceful shutdown
@@ -125,6 +137,7 @@ process.on("SIGTERM", async () => {
   logger.info("[Server] SIGTERM received, shutting down gracefully...");
   if (io) await shutdownSocketServer(io);
   await shutdownRedis();
+  await flushSentry(2000);
   server.close(() => {
     logger.info("[Server] HTTP server closed");
     process.exit(0);
@@ -135,6 +148,7 @@ process.on("SIGINT", async () => {
   logger.info("[Server] SIGINT received, shutting down gracefully...");
   if (io) await shutdownSocketServer(io);
   await shutdownRedis();
+  await flushSentry(2000);
   server.close(() => {
     logger.info("[Server] HTTP server closed");
     process.exit(0);
