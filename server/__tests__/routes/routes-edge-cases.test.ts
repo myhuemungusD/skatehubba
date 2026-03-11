@@ -514,8 +514,13 @@ await import("../../routes/remoteSkate");
 
 function createReq(overrides: any = {}) {
   return {
-    currentUser: { id: "user-1", roles: ["admin"], trustLevel: 1, isActive: true },
-    firebaseUid: "test-uid",
+    currentUser: {
+      id: "user-1",
+      roles: ["admin"],
+      trustLevel: 1,
+      isActive: true,
+      firebaseUid: "user-1",
+    },
     body: {},
     query: {},
     params: {},
@@ -1066,29 +1071,32 @@ describe("Remote Skate Routes — auth failure paths", () => {
     mocks.verifyIdToken.mockResolvedValue({ uid: "user-1" });
   });
 
-  it("returns 401 when token verification throws (covers line ~40)", async () => {
-    mocks.verifyIdToken.mockRejectedValue(new Error("Token expired"));
-    const req = createReq();
+  it("returns 401 when currentUser is missing (no authenticated session)", async () => {
+    const req = createReq({ currentUser: undefined });
     const res = createRes();
     await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ error: "Invalid authentication token" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Firebase account required for remote S.K.A.T.E.",
+    });
   });
 
-  it("returns 401 when no authorization header (covers line 31)", async () => {
-    const req = createReq({ headers: {} });
+  it("returns 401 when currentUser has no firebaseUid", async () => {
+    const req = createReq({
+      currentUser: {
+        id: "user-1",
+        roles: ["admin"],
+        trustLevel: 1,
+        isActive: true,
+        firebaseUid: null,
+      },
+    });
     const res = createRes();
     await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
     expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ error: "Authentication required" });
-  });
-
-  it("returns 401 when auth header is not Bearer format", async () => {
-    const req = createReq({ headers: { authorization: "Token abc123" } });
-    const res = createRes();
-    await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
-    expect(res.status).toHaveBeenCalledWith(401);
-    expect(res.json).toHaveBeenCalledWith({ error: "Authentication required" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Firebase account required for remote S.K.A.T.E.",
+    });
   });
 
   it("returns 404 for round not found (covers line 100)", async () => {
