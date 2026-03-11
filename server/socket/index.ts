@@ -14,6 +14,7 @@
 import { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import logger from "../logger";
+import { getAllowedOrigins } from "../config/server";
 import { socketAuthMiddleware, stopSocketRateLimitCleanup } from "./auth";
 import { joinRoom, leaveRoom, leaveAllRooms, getRoomStats } from "./rooms";
 import { registerBattleHandlers, cleanupBattleSubscriptions } from "./handlers/battle";
@@ -45,7 +46,6 @@ import {
   SOCKET_MAX_HTTP_BUFFER_SIZE,
   SOCKET_MAX_DISCONNECTION_DURATION_MS,
 } from "../config/constants";
-import { getAllowedOrigins } from "../config/server";
 
 // Re-export types for convenience
 export type { ClientToServerEvents, ServerToClientEvents, SocketData } from "./types";
@@ -206,8 +206,8 @@ export function initializeSocketServer(
 
   if (!process.env.ALLOWED_ORIGINS && process.env.NODE_ENV === "production") {
     logger.warn(
-      "[Socket] ALLOWED_ORIGINS is not set — all WebSocket connections will be rejected in production. " +
-        "Set ALLOWED_ORIGINS to a comma-separated list of allowed origins."
+      "[Socket] ALLOWED_ORIGINS is not set — only hardcoded production origins will be allowed. " +
+        "Set ALLOWED_ORIGINS to a comma-separated list of additional allowed origins."
     );
   }
 
