@@ -33,6 +33,8 @@ export default function DiscoverPage() {
     };
   }, [data]);
 
+  const isBusy = isQuickMatching || createGame.isPending;
+
   const handleChallenge = useCallback(
     (opponentId: string) => {
       createGame.mutate(opponentId);
@@ -82,18 +84,18 @@ export default function DiscoverPage() {
       {/* Search */}
       <div className="rounded-xl border border-orange-500/20 bg-gradient-to-br from-orange-500/5 via-transparent to-amber-500/5 p-5">
         <div className="flex items-center gap-2 mb-3">
-          <Swords className="w-4 h-4 text-orange-400" />
+          <Swords className="w-4 h-4 text-orange-400" aria-hidden="true" />
           <h2 className="text-sm font-semibold text-white uppercase tracking-wide">
             Search &amp; Challenge
           </h2>
         </div>
-        <UserSearch onChallenge={handleChallenge} isPending={createGame.isPending} />
+        <UserSearch onChallenge={handleChallenge} isPending={isBusy} />
       </div>
 
       {/* Quick Match */}
       <Button
         onClick={handleQuickMatch}
-        disabled={isQuickMatching || createGame.isPending}
+        disabled={isBusy}
         className="w-full h-12 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-bold text-sm"
       >
         {isQuickMatching ? (
@@ -106,7 +108,7 @@ export default function DiscoverPage() {
 
       {/* Loading state */}
       {isLoading && (
-        <div className="space-y-6">
+        <div className="space-y-6" aria-busy="true" aria-label="Loading skaters">
           {[1, 2, 3].map((i) => (
             <div key={i}>
               <div className="h-4 bg-neutral-700/50 rounded w-32 mb-3" />
@@ -148,7 +150,7 @@ export default function DiscoverPage() {
               title="Top Skaters"
               users={sections.topSkaters}
               onChallenge={handleChallenge}
-              isChallengePending={createGame.isPending}
+              isChallengePending={isBusy}
             />
           )}
 
@@ -158,7 +160,7 @@ export default function DiscoverPage() {
               title="Recently Active"
               users={sections.recentlyActive}
               onChallenge={handleChallenge}
-              isChallengePending={createGame.isPending}
+              isChallengePending={isBusy}
             />
           )}
 
@@ -168,7 +170,7 @@ export default function DiscoverPage() {
               title="New Skaters"
               users={sections.newSkaters}
               onChallenge={handleChallenge}
-              isChallengePending={createGame.isPending}
+              isChallengePending={isBusy}
             />
           )}
 
@@ -176,7 +178,7 @@ export default function DiscoverPage() {
             sections.recentlyActive.length === 0 &&
             sections.newSkaters.length === 0 && (
               <div className="text-center py-16">
-                <Swords className="w-10 h-10 text-neutral-600 mx-auto mb-3" />
+                <Swords className="w-10 h-10 text-neutral-600 mx-auto mb-3" aria-hidden="true" />
                 <h3 className="text-lg font-semibold text-white mb-1">No skaters yet</h3>
                 <p className="text-sm text-neutral-500">Be the first to invite your crew.</p>
               </div>
@@ -208,12 +210,18 @@ function SkaterSection({
   onChallenge: (userId: string) => void;
   isChallengePending: boolean;
 }) {
+  const headingId = `discover-${title.toLowerCase().replace(/\s+/g, "-")}`;
+
   return (
-    <section>
+    <section aria-labelledby={headingId}>
       <div className="flex items-center gap-2 mb-3">
-        {icon}
-        <h2 className="text-sm font-semibold text-white uppercase tracking-wide">{title}</h2>
-        <span className="ml-auto text-xs text-neutral-500">{users.length}</span>
+        <span aria-hidden="true">{icon}</span>
+        <h2 id={headingId} className="text-sm font-semibold text-white uppercase tracking-wide">
+          {title}
+        </h2>
+        <span className="ml-auto text-xs text-neutral-500" aria-label={`${users.length} skaters`}>
+          {users.length}
+        </span>
       </div>
       <div className="space-y-2">
         {users.map((user) => (
@@ -269,9 +277,10 @@ function SkaterCard({
         size="sm"
         onClick={() => onChallenge(user.id)}
         disabled={isChallengePending}
+        aria-label={`Challenge ${user.displayName}`}
         className="shrink-0 bg-orange-500 hover:bg-orange-600 text-black font-semibold h-9 px-3 text-xs min-w-[44px] min-h-[44px]"
       >
-        <Swords className="h-3 w-3 mr-1.5" />
+        <Swords className="h-3 w-3 mr-1.5" aria-hidden="true" />
         Challenge
       </Button>
     </div>
