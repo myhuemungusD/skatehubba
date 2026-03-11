@@ -296,7 +296,7 @@ describe("Auth Flow - Critical Paths", () => {
     it("changePassword returns failure when user not found", async () => {
       mockDbReturns.selectResult = []; // No user found
 
-      const result = await AuthService.changePassword("nonexistent", "old", "new");
+      const result = await AuthService.changePassword("nonexistent", "OldPass123", "NewPass123");
       expect(result.success).toBe(false);
       expect(result.message).toContain("not found");
     });

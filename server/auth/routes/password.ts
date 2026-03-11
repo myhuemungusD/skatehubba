@@ -10,6 +10,7 @@ import { sensitiveAuthLimiter } from "../../middleware/security.ts";
 import { AuditLogger, getClientIP } from "../audit.ts";
 import logger from "../../logger.ts";
 import { sendPasswordResetEmail as sendBrandedResetEmail } from "../email.ts";
+import { Errors } from "../../utils/apiError.ts";
 
 // NOTE: CSRF validation is handled globally by app.use("/api", requireCsrfToken)
 // in server/index.ts. Do not add per-route requireCsrfToken here — it would run
@@ -36,24 +37,27 @@ export function setupPasswordRoutes(app: Express) {
 
         // Validate input (bcrypt truncates at 72 bytes — reject longer passwords)
         if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
-          return res.status(400).json({
-            error: "Password must be at least 8 characters",
-            code: "INVALID_PASSWORD",
-          });
+          return Errors.badRequest(
+            res,
+            "INVALID_PASSWORD",
+            "Password must be at least 8 characters"
+          );
         }
         if (newPassword.length > 72) {
-          return res.status(400).json({
-            error: "Password must be at most 72 characters",
-            code: "INVALID_PASSWORD",
-          });
+          return Errors.badRequest(
+            res,
+            "INVALID_PASSWORD",
+            "Password must be at most 72 characters"
+          );
         }
 
         // Check password requirements
         if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
-          return res.status(400).json({
-            error: "Password must contain uppercase, lowercase, and number",
-            code: "WEAK_PASSWORD",
-          });
+          return Errors.badRequest(
+            res,
+            "WEAK_PASSWORD",
+            "Password must contain uppercase, lowercase, and number"
+          );
         }
 
         const result = await AuthService.changePassword(
@@ -64,16 +68,13 @@ export function setupPasswordRoutes(app: Express) {
         );
 
         if (!result.success) {
-          return res.status(400).json({
-            error: result.message,
-            code: "PASSWORD_CHANGE_FAILED",
-          });
+          return Errors.badRequest(res, "PASSWORD_CHANGE_FAILED", result.message);
         }
 
         // Log the password change
         await AuditLogger.logPasswordChanged(user.id, user.email, ipAddress, userAgent);
 
-        // Set the new session cookie so the user stays logged in
+        // Refresh the session cookie with the new token
         if (result.newSessionToken) {
           res.cookie("sessionToken", result.newSessionToken, {
             httpOnly: true,
@@ -90,7 +91,7 @@ export function setupPasswordRoutes(app: Express) {
         });
       } catch (error) {
         logger.error("Password change error", { error: String(error) });
-        res.status(500).json({ error: "Password change failed" });
+        return Errors.internal(res, "PASSWORD_CHANGE_FAILED", "Password change failed");
       }
     }
   );
@@ -105,7 +106,7 @@ export function setupPasswordRoutes(app: Express) {
       const { email } = req.body;
 
       if (!email || typeof email !== "string") {
-        return res.status(400).json({ error: "Email is required" });
+        return Errors.badRequest(res, "MISSING_EMAIL", "Email is required");
       }
 
       // Generate reset token (returns null if user not found, but we don't reveal this)
@@ -130,7 +131,7 @@ export function setupPasswordRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Forgot password error", { error: String(error) });
-      res.status(500).json({ error: "Failed to process request" });
+      return Errors.internal(res, "FORGOT_PASSWORD_FAILED", "Failed to process request");
     }
   });
 
@@ -144,38 +145,34 @@ export function setupPasswordRoutes(app: Express) {
       const { token, newPassword } = req.body;
 
       if (!token || typeof token !== "string") {
-        return res.status(400).json({ error: "Reset token is required" });
+        return Errors.badRequest(res, "MISSING_TOKEN", "Reset token is required");
       }
 
       if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
-        return res.status(400).json({
-          error: "Password must be at least 8 characters",
-          code: "INVALID_PASSWORD",
-        });
+        return Errors.badRequest(res, "INVALID_PASSWORD", "Password must be at least 8 characters");
       }
       if (newPassword.length > 72) {
-        return res.status(400).json({
-          error: "Password must be at most 72 characters",
-          code: "INVALID_PASSWORD",
-        });
+        return Errors.badRequest(res, "INVALID_PASSWORD", "Password must be at most 72 characters");
       }
 
       // Check password requirements
       if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(newPassword)) {
-        return res.status(400).json({
-          error: "Password must contain uppercase, lowercase, and number",
-          code: "WEAK_PASSWORD",
-        });
+        return Errors.badRequest(
+          res,
+          "WEAK_PASSWORD",
+          "Password must contain uppercase, lowercase, and number"
+        );
       }
 
       const user = await AuthService.resetPassword(token, newPassword);
 
       if (!user) {
         // Generic error to prevent token enumeration
-        return res.status(400).json({
-          error: "Invalid or expired reset link. Please request a new one.",
-          code: "INVALID_TOKEN",
-        });
+        return Errors.badRequest(
+          res,
+          "INVALID_TOKEN",
+          "Invalid or expired reset link. Please request a new one."
+        );
       }
 
       // Log the password reset
@@ -188,7 +185,7 @@ export function setupPasswordRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Reset password error", { error: String(error) });
-      res.status(500).json({ error: "Password reset failed" });
+      return Errors.internal(res, "PASSWORD_RESET_FAILED", "Password reset failed");
     }
   });
 }

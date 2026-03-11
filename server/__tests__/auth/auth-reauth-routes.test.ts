@@ -154,9 +154,9 @@ describe("Reauth Routes", () => {
 
         expect(res.status).toHaveBeenCalledWith(400);
         expect(res.json).toHaveBeenCalledWith({
-          error: "MFA code required for identity verification",
-          code: "MFA_REQUIRED",
-          mfaEnabled: true,
+          error: "MFA_REQUIRED",
+          message: "MFA code required for identity verification",
+          details: { mfaEnabled: true },
         });
       });
 
@@ -168,9 +168,9 @@ describe("Reauth Routes", () => {
 
         expect(res.status).toHaveBeenCalledWith(400);
         expect(res.json).toHaveBeenCalledWith({
-          error: "MFA code required for identity verification",
-          code: "MFA_REQUIRED",
-          mfaEnabled: true,
+          error: "MFA_REQUIRED",
+          message: "MFA code required for identity verification",
+          details: { mfaEnabled: true },
         });
       });
 
@@ -190,8 +190,8 @@ describe("Reauth Routes", () => {
         );
         expect(res.status).toHaveBeenCalledWith(401);
         expect(res.json).toHaveBeenCalledWith({
-          error: "Invalid MFA code",
-          code: "INVALID_MFA",
+          error: "INVALID_MFA",
+          message: "Invalid MFA code",
         });
       });
 
@@ -282,8 +282,8 @@ describe("Reauth Routes", () => {
 
         expect(res.status).toHaveBeenCalledWith(401);
         expect(res.json).toHaveBeenCalledWith({
-          error: "Please sign in again to continue",
-          code: "STALE_TOKEN",
+          error: "STALE_TOKEN",
+          message: "Please sign in again to continue",
         });
         expect(mockRecordRecentAuth).not.toHaveBeenCalled();
       });
@@ -303,8 +303,8 @@ describe("Reauth Routes", () => {
 
         expect(res.status).toHaveBeenCalledWith(401);
         expect(res.json).toHaveBeenCalledWith({
-          error: "Identity verification failed",
-          code: "INVALID_TOKEN",
+          error: "INVALID_TOKEN",
+          message: "Identity verification failed",
         });
         expect(mockRecordRecentAuth).not.toHaveBeenCalled();
       });
@@ -362,8 +362,8 @@ describe("Reauth Routes", () => {
 
         expect(res.status).toHaveBeenCalledWith(401);
         expect(res.json).toHaveBeenCalledWith({
-          error: "Invalid password",
-          code: "INVALID_PASSWORD",
+          error: "INVALID_PASSWORD",
+          message: "Invalid password",
         });
         expect(mockRecordRecentAuth).not.toHaveBeenCalled();
       });
@@ -397,8 +397,8 @@ describe("Reauth Routes", () => {
 
         expect(res.status).toHaveBeenCalledWith(400);
         expect(res.json).toHaveBeenCalledWith({
-          error: "Password required for identity verification",
-          code: "PASSWORD_REQUIRED",
+          error: "PASSWORD_REQUIRED",
+          message: "Password required for identity verification",
         });
         expect(mockRecordRecentAuth).not.toHaveBeenCalled();
       });
@@ -442,7 +442,10 @@ describe("Reauth Routes", () => {
         await routes["POST /api/auth/verify-identity"](req, res);
 
         expect(res.status).toHaveBeenCalledWith(500);
-        expect(res.json).toHaveBeenCalledWith({ error: "Identity verification failed" });
+        expect(res.json).toHaveBeenCalledWith({
+          error: "VERIFICATION_FAILED",
+          message: "Identity verification failed",
+        });
       });
     });
   });

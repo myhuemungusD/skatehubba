@@ -5,7 +5,7 @@
  * Also persists in-app notifications and respects user preferences.
  */
 
-import { Expo, ExpoPushMessage, ExpoPushTicket } from "expo-server-sdk";
+import { Expo, ExpoPushMessage } from "expo-server-sdk";
 import logger from "../logger";
 import { getDb } from "../db";
 import {
@@ -61,7 +61,12 @@ export async function sendPushNotification(
 
     // Send notification
     const tickets = await expo.sendPushNotificationsAsync([message]);
-    const ticket = tickets[0] as ExpoPushTicket;
+    const ticket = tickets[0];
+
+    if (!ticket) {
+      logger.error("[Notification] Push notification failed — no ticket returned");
+      return { success: false, error: "No ticket returned" };
+    }
 
     if (ticket.status === "error") {
       logger.error("[Notification] Push notification failed", {
@@ -274,9 +279,14 @@ async function sendPushToUser(
       // Clean up stale tokens (DeviceNotRegistered)
       const staleTokenIds: number[] = [];
       for (let i = 0; i < tickets.length; i++) {
-        const ticket = tickets[i] as ExpoPushTicket;
-        if (ticket.status === "error" && ticket.details?.error === "DeviceNotRegistered") {
-          staleTokenIds.push(validTokens[i].id);
+        const ticket = tickets[i];
+        const tokenRecord = validTokens[i];
+        if (
+          ticket?.status === "error" &&
+          ticket.details?.error === "DeviceNotRegistered" &&
+          tokenRecord
+        ) {
+          staleTokenIds.push(tokenRecord.id);
         }
       }
 

@@ -1,8 +1,11 @@
 /**
- * Audit Log Service
+ * Audit Log Service (structured logging only — no DB persistence)
  *
- * Provides structured audit trail logging for security-relevant actions.
- * All audit events are logged to a dedicated channel with consistent formatting.
+ * @deprecated Prefer `server/auth/audit.ts` (AuditLogger) for new code.
+ * AuditLogger writes to both the application log AND the audit_logs DB table,
+ * providing a durable, queryable audit trail. This module only writes to the
+ * application log via a child logger. It will be unified into AuditLogger in
+ * a future PR.
  *
  * @module services/auditLog
  */

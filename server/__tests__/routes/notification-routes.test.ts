@@ -237,7 +237,7 @@ describe("Notification Routes", () => {
       await callRoute("POST", "/push-token", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
     it("rejects empty token string", async () => {
@@ -410,7 +410,7 @@ describe("Notification Routes", () => {
       await callRoute("PUT", "/preferences", req, res);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Invalid request" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "VALIDATION_ERROR" }));
     });
 
     it("rejects invalid quiet hours format", async () => {

@@ -132,11 +132,11 @@ describe("validateUserAgent", () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it("rejects missing user agent", () => {
+  it("allows missing user agent", () => {
     const { req, res, next, statusFn } = createMockReqRes();
     validateUserAgent(req, res, next);
-    expect(next).not.toHaveBeenCalled();
-    expect(statusFn).toHaveBeenCalledWith(400);
+    expect(next).toHaveBeenCalled();
+    expect(statusFn).not.toHaveBeenCalled();
   });
 
   it("allows legitimate tools and bots", () => {
@@ -156,12 +156,17 @@ describe("validateUserAgent", () => {
   });
 
   it("rejects malicious user agents", () => {
-    const maliciousAgents = ["scraper-tool", "nikto/2.1", "sqlmap/1.0"];
+    const maliciousAgents = ["scraper-tool", "nikto/2.1", "sqlmap/1.0", "masscan/1.0"];
     for (const ua of maliciousAgents) {
-      const { req, res, next, statusFn } = createMockReqRes({ headers: { "user-agent": ua } });
+      const { req, res, next, statusFn, jsonFn } = createMockReqRes({
+        headers: { "user-agent": ua },
+      });
       validateUserAgent(req, res, next);
       expect(next).not.toHaveBeenCalled();
       expect(statusFn).toHaveBeenCalledWith(400);
+      expect(jsonFn).toHaveBeenCalledWith({
+        error: "Automated requests not allowed",
+      });
     }
   });
 });

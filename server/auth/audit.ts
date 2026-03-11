@@ -77,31 +77,11 @@ export interface AuditLogEntry {
 }
 
 /**
- * Extract client IP address from request
- * Handles proxies and load balancers
+ * Extract client IP address from request.
+ * Delegates to the canonical implementation in server/utils/ip.ts.
+ * Re-exported here to preserve the capital-P naming used by auth route callers.
  */
-export function getClientIP(req: {
-  headers: Record<string, string | string[] | undefined>;
-  socket?: { remoteAddress?: string };
-  ip?: string;
-}): string {
-  // Check for forwarded headers (behind proxy/load balancer)
-  const forwardedFor = req.headers["x-forwarded-for"];
-  if (forwardedFor) {
-    const ips = Array.isArray(forwardedFor) ? forwardedFor[0] : forwardedFor;
-    // Take the first IP (original client)
-    return ips.split(",")[0].trim();
-  }
-
-  // Check for real IP header (Nginx)
-  const realIP = req.headers["x-real-ip"];
-  if (realIP) {
-    return Array.isArray(realIP) ? realIP[0] : realIP;
-  }
-
-  // Fallback to socket address or Express IP
-  return req.ip || req.socket?.remoteAddress || "unknown";
-}
+export { getClientIp as getClientIP } from "../utils/ip.ts";
 
 /**
  * Security Audit Logger
