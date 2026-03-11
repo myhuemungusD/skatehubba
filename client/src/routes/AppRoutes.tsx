@@ -36,6 +36,7 @@ import {
   DashboardPlayRoute,
   DashboardProfileRoute,
   DashboardMapRoute,
+  DashboardDiscoverRoute,
   DashboardRankingsRoute,
   DashboardCheckinsRoute,
   AdminDashboardRoute,
@@ -185,6 +186,11 @@ export default function AppRoutes() {
             <ProtectedRoute path="/play" component={DashboardPlayRoute} allowMissingProfile />
             <ProtectedRoute path="/me" component={DashboardProfileRoute} allowMissingProfile />
             <ProtectedRoute path="/map" component={DashboardMapRoute} allowMissingProfile />
+            <ProtectedRoute
+              path="/discover"
+              component={DashboardDiscoverRoute}
+              allowMissingProfile
+            />
             <ProtectedRoute
               path="/leaderboard"
               component={DashboardRankingsRoute}
