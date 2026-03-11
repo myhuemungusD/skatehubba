@@ -470,13 +470,13 @@ describe("judgeTurn", () => {
     });
   });
 
-  it("returns 400 when response video exists but has lower turnNumber", async () => {
+  it("returns 400 when no response video with higher turnNumber exists", async () => {
     const game = baseGame({ turnPhase: "judge", currentTurn: "p2" });
     const tx = makeTx({
       selectResults: [
         () => Promise.resolve([game]),
         () => Promise.resolve([{ ...baseTurnParam, result: "pending" }]),
-        () => Promise.resolve([{ turnNumber: 0 }]), // turnNumber 0 < turnParam.turnNumber 1
+        () => Promise.resolve([]), // DB filters turnNumber > turn.turnNumber, returns empty
       ],
     });
     const result = await judgeTurn(tx as any, 5, "p2", "landed", baseTurnParam as any);
