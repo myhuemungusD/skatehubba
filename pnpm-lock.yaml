@@ -25,6 +25,9 @@ importers:
 
   .:
     dependencies:
+      '@sentry/node':
+        specifier: ^10.42.0
+        version: 10.42.0
       drizzle-orm:
         specifier: ^0.44.7
         version: 0.44.7(@neondatabase/serverless@1.0.2)(@opentelemetry/api@1.9.0)(@types/pg@8.16.0)(gel@2.2.0)(pg@8.17.2)

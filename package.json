@@ -113,6 +113,7 @@
     ]
   },
   "dependencies": {
+    "@sentry/node": "^10.42.0",
     "drizzle-orm": "^0.44.7",
     "drizzle-zod": "0.7.0",
     "expo-auth-session": "~7.0.10",
