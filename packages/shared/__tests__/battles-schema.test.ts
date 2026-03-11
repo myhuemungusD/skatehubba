@@ -9,6 +9,7 @@
  * the schema is imported.
  */
 
+import { getTableColumns } from "drizzle-orm";
 import {
   battles,
   battleVotes,
@@ -39,7 +40,7 @@ describe("battleVotes table schema (covers line 30 foreign key reference)", () =
   });
 
   it("has battleId column referencing battles table (covers line 30)", () => {
-    const columns = battleVotes as Record<string, any>;
+    const columns = getTableColumns(battleVotes);
     expect(columns.battleId).toBeDefined();
     expect(columns.battleId.name).toBe("battle_id");
   });
@@ -53,7 +54,7 @@ describe("battleVoteState table schema (covers line 46 foreign key reference)", 
   });
 
   it("has battleId as primary key referencing battles table (covers line 46)", () => {
-    const columns = battleVoteState as Record<string, any>;
+    const columns = getTableColumns(battleVoteState);
     expect(columns.battleId).toBeDefined();
     expect(columns.battleId.name).toBe("battle_id");
   });

@@ -85,7 +85,7 @@ describe("getEntriesByCategory", () => {
   });
 
   it("returns empty for nonexistent category", () => {
-    const result = getEntriesByCategory("nonexistent" as any);
+    const result = getEntriesByCategory("nonexistent" as never);
     expect(result.length).toBe(0);
   });
 });
