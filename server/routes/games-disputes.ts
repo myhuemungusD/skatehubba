@@ -48,6 +48,7 @@ router.post("/:id/dispute", async (req, res) => {
       logger.warn("[Games] Unauthorized dispute attempt", {
         gameId,
         userId: currentUserId,
+        ip: req.ip,
         action: "file_dispute",
       });
       return Errors.forbidden(res, "NOT_PARTICIPANT", "Only game participants can file disputes.");

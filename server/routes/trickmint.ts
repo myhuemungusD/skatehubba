@@ -447,6 +447,7 @@ router.delete("/:id", authenticateUser, async (req, res) => {
         clipId,
         userId,
         ownerId: clip.userId,
+        ip: req.ip,
         action: "delete_clip",
       });
       return res.status(403).json({ error: "You can only delete your own clips" });

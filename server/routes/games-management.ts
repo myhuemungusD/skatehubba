@@ -46,6 +46,7 @@ router.post("/:id/forfeit", async (req, res) => {
         logger.warn("[Games] Unauthorized forfeit attempt", {
           gameId,
           userId: currentUserId,
+          ip: req.ip,
           action: "forfeit",
         });
         return { ok: false as const, status: 403, msg: "You are not a player in this game" };
@@ -457,6 +458,7 @@ router.get("/:id", async (req, res) => {
       logger.warn("[Games] Unauthorized game access attempt", {
         gameId,
         userId: currentUserId,
+        ip: req.ip,
         action: "view_game",
       });
       return Errors.forbidden(res, "NOT_PARTICIPANT", "You are not a player in this game.");

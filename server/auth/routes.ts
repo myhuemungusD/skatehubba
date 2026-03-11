@@ -13,26 +13,16 @@
  * @param app - Express application instance
  */
 
-import type { Express, Request, Response, NextFunction } from "express";
+import type { Express } from "express";
 import { setupLoginRoutes } from "./routes/login.ts";
 import { setupMfaRoutes } from "./routes/mfa.ts";
 import { setupEmailVerificationRoutes } from "./routes/emailVerification.ts";
 import { setupPasswordRoutes } from "./routes/password.ts";
 import { setupReauthRoutes } from "./routes/reauth.ts";
-
-/**
- * Prevent caching of auth responses by CDNs and browsers.
- * Auth endpoints return session tokens, user identity, and sensitive state —
- * none of which should ever be served from a shared or local cache.
- */
-function noCacheAuth(_req: Request, res: Response, next: NextFunction): void {
-  res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
-  res.set("Pragma", "no-cache");
-  next();
-}
+import { noCache } from "../middleware/cacheControl.ts";
 
 export function setupAuthRoutes(app: Express) {
-  app.use("/api/auth", noCacheAuth);
+  app.use("/api/auth", noCache);
 
   setupLoginRoutes(app);
   setupMfaRoutes(app);

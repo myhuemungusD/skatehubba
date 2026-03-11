@@ -79,7 +79,7 @@ export function createApp(): express.Express {
         crossOriginEmbedderPolicy: false, // required for cross-origin images/media
         crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
         crossOriginResourcePolicy: { policy: "same-site" },
-        xXssProtection: false, // explicitly disable legacy XSS auditor per OWASP — CSP is the real control
+        xXssProtection: false, // OWASP: disable legacy XSS auditor; CSP is the real control
       })
     );
 
@@ -149,6 +149,7 @@ export function createApp(): express.Express {
   });
 
   // Security.txt — vulnerability disclosure channel (RFC 9116)
+  const securityTxtExpires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
   app.get("/.well-known/security.txt", (_req, res) => {
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.setHeader("Cache-Control", "public, max-age=86400");
@@ -156,7 +157,7 @@ export function createApp(): express.Express {
       [
         "Contact: mailto:security@skatehubba.com",
         "Preferred-Languages: en",
-        `Expires: ${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()}`,
+        `Expires: ${securityTxtExpires}`,
       ].join("\n")
     );
   });
