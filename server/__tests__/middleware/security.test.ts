@@ -173,7 +173,7 @@ describe("isValidIP", () => {
     });
 
     it("should reject invalid IPv4 addresses", () => {
-      expect(isValidIP("256.1.1.1")).toBe(true); // Current regex doesn't validate octets - known limitation
+      expect(isValidIP("256.1.1.1")).toBe(false); // net.isIP correctly rejects out-of-range octets
       expect(isValidIP("192.168.1")).toBe(false);
       expect(isValidIP("192.168.1.1.1")).toBe(false);
       expect(isValidIP("192.168.1.")).toBe(false);
@@ -193,10 +193,10 @@ describe("isValidIP", () => {
       expect(isValidIP("fe80:0000:0000:0000:0000:0000:0000:0001")).toBe(true);
     });
 
-    it("should reject abbreviated IPv6 (current implementation limitation)", () => {
-      // Note: The current regex only supports full-form IPv6
-      expect(isValidIP("::1")).toBe(false); // Loopback - not supported by current regex
-      expect(isValidIP("2001:db8::1")).toBe(false); // Abbreviated - not supported
+    it("should accept abbreviated IPv6 (now uses net.isIP)", () => {
+      expect(isValidIP("::1")).toBe(true); // Loopback
+      expect(isValidIP("2001:db8::1")).toBe(true); // Abbreviated
+      expect(isValidIP("::ffff:192.168.1.1")).toBe(true); // IPv4-mapped
     });
   });
 

@@ -106,8 +106,10 @@ describe("isValidIP", () => {
     expect(isValidIP("2001:0db8:85a3:0000:0000:8a2e:0370:7334")).toBe(true);
   });
 
-  it("rejects invalid IPv6", () => {
-    expect(isValidIP("2001:db8::1")).toBe(false); // compressed IPv6 not matched by regex
+  it("accepts compressed IPv6", () => {
+    expect(isValidIP("2001:db8::1")).toBe(true);
+    expect(isValidIP("::1")).toBe(true);
+    expect(isValidIP("::ffff:192.168.1.1")).toBe(true);
   });
 });
 

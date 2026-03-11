@@ -55,5 +55,8 @@ export function validateOrigin(origin: string | undefined): string {
   return allowed.includes(origin) ? origin : fallback;
 }
 
-/** Express body parser size limit */
-export const BODY_PARSE_LIMIT = "10mb";
+/**
+ * Express body parser size limit.
+ * Conservative default — upload routes apply per-route overrides for larger payloads.
+ */
+export const BODY_PARSE_LIMIT = "256kb";
