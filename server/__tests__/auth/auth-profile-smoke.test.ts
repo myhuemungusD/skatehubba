@@ -1094,8 +1094,9 @@ describe("Auth & Profile Smoke Tests", () => {
     it("should reject avatar exceeding size limit at schema level", async () => {
       const handlers = profileRouteHandlers["POST /create"];
 
-      // Create a data URL with payload > 1.5MB — now caught by Zod max length
-      const largeBuffer = Buffer.alloc(2 * 1024 * 1024, "x");
+      // Create a data URL exceeding the 7 MB schema limit.
+      // 6 MB raw → ~8 MB base64, well over the 7_000_000 char cap.
+      const largeBuffer = Buffer.alloc(6 * 1024 * 1024, "x");
       const largeBase64 = largeBuffer.toString("base64");
       const req = mockRequest({
         body: {

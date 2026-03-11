@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sanitizeText } from "../validation/sanitize";
 import {
   pgEnum,
   pgTable,
@@ -191,37 +192,27 @@ export const checkinNonces = pgTable(
   })
 );
 
-/** Strip HTML angle brackets, control chars, and collapse whitespace. */
-function sanitizeSpotText(input: string): string {
-  // eslint-disable-next-line no-control-regex
-  return input
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
-    .replace(/[<>]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 export const insertSpotSchema = createInsertSchema(spots, {
   name: z
     .string()
     .trim()
     .min(1, "Spot name is required")
     .max(100, "Name too long")
-    .transform(sanitizeSpotText),
+    .transform(sanitizeText),
   description: z
     .string()
     .trim()
     .max(1000, "Description too long")
-    .transform(sanitizeSpotText)
+    .transform(sanitizeText)
     .optional(),
   spotType: z.enum(SPOT_TYPES).optional(),
   tier: z.enum(SPOT_TIERS).optional(),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
-  address: z.string().trim().max(500).transform(sanitizeSpotText).optional(),
-  city: z.string().trim().max(100).transform(sanitizeSpotText).optional(),
-  state: z.string().trim().max(50).transform(sanitizeSpotText).optional(),
-  country: z.string().trim().max(100).transform(sanitizeSpotText).optional(),
+  address: z.string().trim().max(500).transform(sanitizeText).optional(),
+  city: z.string().trim().max(100).transform(sanitizeText).optional(),
+  state: z.string().trim().max(50).transform(sanitizeText).optional(),
+  country: z.string().trim().max(100).transform(sanitizeText).optional(),
   photoUrl: z.string().url("Valid image URL required").optional(),
 }).omit({
   id: true,

@@ -243,6 +243,8 @@ router.post(
 
     try {
       if (parsed.data.avatarBase64) {
+        // Defense-in-depth: schema validates format/MIME/size, but these
+        // runtime guards protect against schema regressions.
         const parsedAvatar = parseAvatarDataUrl(parsed.data.avatarBase64);
         if (!parsedAvatar) {
           await safeRelease(usernameStore, uid);

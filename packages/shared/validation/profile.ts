@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sanitizeText, safeText } from "./sanitize";
 
 export const stanceSchema = z.enum(["regular", "goofy"]);
 
@@ -11,29 +12,22 @@ export const usernameSchema = z
   .regex(/^[a-zA-Z0-9]+$/, "Username can only contain letters and numbers")
   .transform((value) => value.toLowerCase());
 
-/** Strip HTML angle brackets, control chars, and collapse whitespace. */
-function sanitize(input: string): string {
-  // eslint-disable-next-line no-control-regex
-  return input
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, "")
-    .replace(/[<>]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-/** Sanitized optional/nullable string with max length. */
-const safeText = (max: number) => z.string().max(max).transform(sanitize).optional().nullable();
-
 /**
  * avatarBase64 — validated data-URL for avatar upload.
  * Must be a valid data:image/…;base64,… string within the size budget.
- * Max ~1.5 MB base64 ≈ ~1.1 MB decoded image.
+ *
+ * Size budget: server allows 5 MB decoded (MAX_AVATAR_BYTES).
+ * 5 MB decoded ≈ 6.67 MB base64, plus the ~30-char data-URL header ≈ 7 MB.
+ * We cap at 7_000_000 chars to match the server constant.
+ *
+ * Uses `.refine()` instead of `.regex()` to avoid Zod re-compiling the
+ * pattern on every call and to keep the error message clean.
  */
 const avatarBase64Schema = z
   .string()
-  .max(1_500_000, "Avatar data is too large")
-  .regex(
-    /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+=*$/,
+  .max(7_000_000, "Avatar data is too large")
+  .refine(
+    (val) => /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/\n]+=*$/.test(val),
     "Avatar must be a valid base64-encoded image (png, jpeg, webp, or gif)"
   )
   .optional();
@@ -45,7 +39,7 @@ export const profileCreateSchema = z.object({
     (val) => (val === "" ? undefined : val),
     experienceLevelSchema.optional().nullable()
   ),
-  favoriteTricks: z.array(z.string().min(1).max(50).transform(sanitize)).max(20).optional(),
+  favoriteTricks: z.array(z.string().min(1).max(50).transform(sanitizeText)).max(20).optional(),
   bio: safeText(500),
   sponsorFlow: safeText(100),
   sponsorTeam: safeText(100),
