@@ -372,7 +372,7 @@ describe("login routes — uncovered lines", () => {
     await app.execute("POST", "/api/auth/login", req, res);
 
     expect(res._statusCode).toBe(429);
-    expect(res._jsonData).toHaveProperty("code", "ACCOUNT_LOCKED");
+    expect(res._jsonData).toHaveProperty("error", "ACCOUNT_LOCKED");
   });
 
   /**
@@ -429,7 +429,8 @@ describe("login routes — uncovered lines", () => {
     await app.execute("POST", "/api/auth/login", req, res);
 
     expect(res._statusCode).toBe(500);
-    expect(res._jsonData).toHaveProperty("error", "Authentication failed");
+    expect(res._jsonData).toHaveProperty("error", "AUTH_FAILED");
+    expect(res._jsonData).toHaveProperty("message", "Authentication failed");
   });
 });
 
@@ -462,7 +463,8 @@ describe("password routes — uncovered lines", () => {
     await app.execute("POST", "/api/auth/change-password", req, res);
 
     expect(res._statusCode).toBe(500);
-    expect(res._jsonData).toHaveProperty("error", "Password change failed");
+    expect(res._jsonData).toHaveProperty("error", "PASSWORD_CHANGE_FAILED");
+    expect(res._jsonData).toHaveProperty("message", "Password change failed");
   });
 
   /**

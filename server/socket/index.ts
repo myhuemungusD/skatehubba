@@ -14,6 +14,7 @@
 import { Server as HttpServer } from "http";
 import { Server } from "socket.io";
 import logger from "../logger";
+import { getAllowedOrigins } from "../config/server";
 import { socketAuthMiddleware, stopSocketRateLimitCleanup } from "./auth";
 import { joinRoom, leaveRoom, leaveAllRooms, getRoomStats } from "./rooms";
 import { registerBattleHandlers, cleanupBattleSubscriptions } from "./handlers/battle";
@@ -45,7 +46,6 @@ import {
   SOCKET_MAX_HTTP_BUFFER_SIZE,
   SOCKET_MAX_DISCONNECTION_DURATION_MS,
 } from "../config/constants";
-
 // Re-export types for convenience
 export type { ClientToServerEvents, ServerToClientEvents, SocketData } from "./types";
 
@@ -56,9 +56,17 @@ registerRateLimitRules({
   typing: { maxPerWindow: 30, windowMs: 60_000 },
 });
 
-// Track connected sockets for metrics
+// Track connected sockets for metrics.
+// The manual counter is used for real-time logging; getSocketStats() uses
+// io.engine.clientsCount for accuracy (immune to connect/disconnect drift).
 let connectedSockets = 0;
 let healthMonitorInterval: NodeJS.Timeout | null = null;
+let ioRef: Server<
+  ClientToServerEvents,
+  ServerToClientEvents,
+  InterServerEvents,
+  SocketData
+> | null = null;
 
 /**
  * Initialize Socket.io server
@@ -70,9 +78,7 @@ export function initializeSocketServer(
     httpServer,
     {
       cors: {
-        origin:
-          process.env.ALLOWED_ORIGINS?.split(",") ||
-          (process.env.NODE_ENV === "production" ? false : "*"),
+        origin: getAllowedOrigins(),
         credentials: true,
       },
       // Transport options
@@ -91,6 +97,8 @@ export function initializeSocketServer(
       },
     }
   );
+
+  ioRef = io;
 
   // Authentication middleware
   io.use(socketAuthMiddleware);
@@ -197,8 +205,8 @@ export function initializeSocketServer(
 
   if (!process.env.ALLOWED_ORIGINS && process.env.NODE_ENV === "production") {
     logger.warn(
-      "[Socket] ALLOWED_ORIGINS is not set — all WebSocket connections will be rejected in production. " +
-        "Set ALLOWED_ORIGINS to a comma-separated list of allowed origins."
+      "[Socket] ALLOWED_ORIGINS is not set — only hardcoded production origins will be allowed. " +
+        "Set ALLOWED_ORIGINS to a comma-separated list of additional allowed origins."
     );
   }
 
@@ -219,7 +227,7 @@ export async function getSocketStats(): Promise<{
   health: ReturnType<typeof getHealthStats>;
 }> {
   return {
-    connections: connectedSockets,
+    connections: ioRef?.engine?.clientsCount ?? connectedSockets,
     rooms: getRoomStats(),
     presence: await getPresenceStats(),
     health: getHealthStats(),

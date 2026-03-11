@@ -1,10 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import {
-  validateHoneypot,
-  validateEmail,
-  validateUserAgent,
-  logIPAddress,
-} from "./security";
+import { validateHoneypot, validateEmail, validateUserAgent, logIPAddress } from "./security";
 
 function createMockReqRes(
   overrides: {
@@ -137,66 +132,66 @@ describe("validateUserAgent", () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it("rejects missing user agent", () => {
+  it("allows missing user agent", () => {
     const { req, res, next, statusFn } = createMockReqRes();
     validateUserAgent(req, res, next);
-    expect(next).not.toHaveBeenCalled();
-    expect(statusFn).toHaveBeenCalledWith(400);
+    expect(next).toHaveBeenCalled();
+    expect(statusFn).not.toHaveBeenCalled();
   });
 
-  it("rejects bot user agents", () => {
-    const botAgents = [
+  it("allows legitimate tools and bots", () => {
+    const allowedAgents = [
       "Googlebot/2.1",
       "my-crawler",
       "web-spider",
-      "scraper-tool",
       "curl/7.68",
       "Wget/1.21",
       "python-requests/2.28",
     ];
-    for (const ua of botAgents) {
-      const { req, res, next, statusFn } = createMockReqRes({ headers: { "user-agent": ua } });
+    for (const ua of allowedAgents) {
+      const { req, res, next } = createMockReqRes({ headers: { "user-agent": ua } });
+      validateUserAgent(req, res, next);
+      expect(next).toHaveBeenCalled();
+    }
+  });
+
+  it("rejects malicious user agents", () => {
+    const maliciousAgents = ["scraper-tool", "nikto/2.1", "sqlmap/1.0", "masscan/1.0"];
+    for (const ua of maliciousAgents) {
+      const { req, res, next, statusFn, jsonFn } = createMockReqRes({
+        headers: { "user-agent": ua },
+      });
       validateUserAgent(req, res, next);
       expect(next).not.toHaveBeenCalled();
       expect(statusFn).toHaveBeenCalledWith(400);
+      expect(jsonFn).toHaveBeenCalledWith({
+        error: "Automated requests not allowed",
+      });
     }
   });
 });
 
 describe("logIPAddress", () => {
-  it("extracts IP from x-forwarded-for header", () => {
-    const { req, res, next } = createMockReqRes({
-      headers: { "x-forwarded-for": "1.2.3.4" },
-    });
+  it("uses req.ip (respects trust proxy)", () => {
+    const { req, res, next } = createMockReqRes({});
+    req.ip = "203.0.113.50";
     logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("1.2.3.4");
+    expect(req.clientIpAddress).toBe("203.0.113.50");
     expect(next).toHaveBeenCalled();
   });
 
-  it("extracts IP from x-real-ip header", () => {
-    const { req, res, next } = createMockReqRes({
-      headers: { "x-real-ip": "5.6.7.8" },
-    });
+  it("falls back to default when req.ip not set", () => {
+    const { req, res, next } = createMockReqRes({});
     logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("5.6.7.8");
+    // req.ip is undefined in this mock, so clientIpAddress is undefined
+    expect(req.clientIpAddress).toBeUndefined();
     expect(next).toHaveBeenCalled();
   });
 
-  it("falls back to connection.remoteAddress", () => {
-    const { req, res, next } = createMockReqRes({
-      connection: { remoteAddress: "10.0.0.1" },
-    });
+  it("always calls next()", () => {
+    const { req, res, next } = createMockReqRes({});
+    req.ip = "10.0.0.1";
     logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("10.0.0.1");
-    expect(next).toHaveBeenCalled();
-  });
-
-  it("takes first entry from array x-forwarded-for", () => {
-    const { req, res, next } = createMockReqRes({
-      headers: { "x-forwarded-for": ["1.1.1.1", "2.2.2.2"] as any },
-    });
-    logIPAddress(req, res, next);
-    expect(req.clientIpAddress).toBe("1.1.1.1");
     expect(next).toHaveBeenCalled();
   });
 });

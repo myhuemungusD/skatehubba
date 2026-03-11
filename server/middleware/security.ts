@@ -398,7 +398,7 @@ export const validateHoneypot = (req: Request, res: Response, next: NextFunction
     return res.status(400).json({ error: "Invalid submission" });
   }
 
-  next();
+  return next();
 };
 
 /**
@@ -467,7 +467,7 @@ export const validateEmail = (req: Request, res: Response, next: NextFunction) =
 
   // Normalize email
   req.body.email = trimmedEmail.toLowerCase();
-  next();
+  return next();
 };
 
 // User agent validation
@@ -482,19 +482,23 @@ export const validateEmail = (req: Request, res: Response, next: NextFunction) =
 export const validateUserAgent = (req: Request, res: Response, next: NextFunction) => {
   const userAgent = req.get("User-Agent");
 
-  // Block requests without user agent (likely bots)
+  // Allow requests without a user-agent — many legitimate API clients omit it
   if (!userAgent) {
-    return res.status(400).json({ error: "Invalid request" });
+    return next();
   }
 
-  // Block common bot patterns
-  const botPatterns = [/bot/i, /crawler/i, /spider/i, /scraper/i, /curl/i, /wget/i, /python/i];
+  // Only block known-malicious scraper patterns.
+  // Previous version blocked /bot/i, /python/i, /curl/i etc. which also blocked:
+  // - Legitimate monitoring (UptimeRobot, Pingdom, Datadog)
+  // - CI health checks, Googlebot (SEO), testing frameworks
+  // Rate limiting and auth already handle abuse; this is a lightweight first filter.
+  const maliciousPatterns = [/scraper/i, /harvest/i, /nikto/i, /sqlmap/i, /nmap/i, /masscan/i];
 
-  if (botPatterns.some((pattern) => pattern.test(userAgent))) {
+  if (maliciousPatterns.some((pattern) => pattern.test(userAgent))) {
     return res.status(400).json({ error: "Automated requests not allowed" });
   }
 
-  next();
+  return next();
 };
 
 // IP logging middleware
@@ -506,13 +510,7 @@ export const validateUserAgent = (req: Request, res: Response, next: NextFunctio
  * @param next - Express next function
  */
 export const logIPAddress = (req: Request, _res: Response, next: NextFunction) => {
-  // Get real IP address (accounting for proxies)
-  const ip =
-    req.headers["x-forwarded-for"] ||
-    req.headers["x-real-ip"] ||
-    req.connection.remoteAddress ||
-    req.socket.remoteAddress;
-
-  req.clientIpAddress = Array.isArray(ip) ? ip[0] : ip;
-  next();
+  // Use req.ip which respects the Express "trust proxy" setting (configured in app.ts).
+  req.clientIpAddress = req.ip;
+  return next();
 };

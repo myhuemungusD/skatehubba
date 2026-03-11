@@ -8,13 +8,17 @@ import {
   json,
   varchar,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
+import { customUsers } from "./auth";
 
 // Skater profiles table - extended user info
 export const userProfiles = pgTable("user_profiles", {
-  id: varchar("id").primaryKey(),
+  id: varchar("id")
+    .primaryKey()
+    .references(() => customUsers.id, { onDelete: "cascade" }),
   handle: varchar("handle", { length: 50 }).notNull().unique(),
   displayName: varchar("display_name", { length: 100 }),
   bio: text("bio"),
@@ -40,7 +44,9 @@ export const closetItems = pgTable(
     id: varchar("id")
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    userId: varchar("user_id", { length: 255 }).notNull(),
+    userId: varchar("user_id", { length: 255 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
     type: varchar("type", { length: 50 }).notNull(),
     brand: varchar("brand", { length: 100 }).notNull(),
     name: varchar("name", { length: 255 }).notNull(),
@@ -50,13 +56,16 @@ export const closetItems = pgTable(
   },
   (table) => ({
     userIdx: index("IDX_closet_items_user").on(table.userId),
+    uniqueUserItem: uniqueIndex("unique_closet_user_item").on(table.userId, table.type, table.name),
   })
 );
 
 // Onboarding profiles — replaces Firestore profiles collection
 export const onboardingProfiles = pgTable("onboarding_profiles", {
-  uid: varchar("uid", { length: 255 }).primaryKey(),
-  username: varchar("username", { length: 50 }).notNull(),
+  uid: varchar("uid", { length: 255 })
+    .primaryKey()
+    .references(() => customUsers.id, { onDelete: "cascade" }),
+  username: varchar("username", { length: 50 }).notNull().unique(),
   stance: varchar("stance", { length: 20 }),
   experienceLevel: varchar("experience_level", { length: 20 }),
   favoriteTricks: json("favorite_tricks").$type<string[]>().notNull().default([]),

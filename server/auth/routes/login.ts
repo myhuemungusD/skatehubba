@@ -3,18 +3,18 @@
  */
 
 import type { Express } from "express";
+import { eq, and } from "drizzle-orm";
 import { AuthService } from "../service.ts";
 import { authenticateUser } from "../middleware.ts";
 import { authLimiter } from "../../middleware/rateLimit.ts";
 import { admin } from "../../admin.ts";
-import { AuditLogger } from "../audit.ts";
-import { getClientIP } from "../audit.ts";
+import { AuditLogger, getClientIP } from "../audit.ts";
 import { LockoutService } from "../lockout.ts";
 import logger from "../../logger.ts";
 import { sendVerificationEmail } from "../email.ts";
+import { sendError, Errors } from "../../utils/apiError.ts";
 import { getDb } from "../../db.ts";
-import { deviceTokens, customUsers } from "@shared/schema";
-import { eq, and } from "drizzle-orm";
+import { customUsers, deviceTokens } from "../../../packages/shared/schema/index";
 
 // NOTE: CSRF validation is handled globally by app.use("/api", requireCsrfToken)
 // in server/index.ts. Do not add per-route requireCsrfToken here.
@@ -30,7 +30,7 @@ export function setupLoginRoutes(app: Express) {
 
       if (!authHeader.startsWith("Bearer ")) {
         await AuditLogger.logLoginFailure(null, ipAddress, userAgent, "Missing Firebase ID token");
-        return res.status(401).json({ error: "Authentication failed" });
+        return Errors.unauthorized(res, "AUTH_FAILED", "Authentication failed");
       }
 
       const idToken = authHeader.slice("Bearer ".length).trim();
@@ -59,7 +59,7 @@ export function setupLoginRoutes(app: Express) {
             userAgent,
             "Mock token rejected in production"
           );
-          return res.status(401).json({ error: "Authentication failed" });
+          return Errors.unauthorized(res, "AUTH_FAILED", "Authentication failed");
         } else {
           // Verify Firebase ID token (without revocation check for better reliability)
           decoded = await admin.auth().verifyIdToken(idToken);
@@ -71,11 +71,15 @@ export function setupLoginRoutes(app: Express) {
           const lockoutStatus = await LockoutService.checkLockout(email);
           if (lockoutStatus.isLocked && lockoutStatus.unlockAt) {
             await AuditLogger.logLoginFailure(email, ipAddress, userAgent, "Account locked");
-            return res.status(429).json({
-              error: LockoutService.getLockoutMessage(lockoutStatus.unlockAt),
-              code: "ACCOUNT_LOCKED",
-              unlockAt: lockoutStatus.unlockAt.toISOString(),
-            });
+            return sendError(
+              res,
+              429,
+              "ACCOUNT_LOCKED",
+              LockoutService.getLockoutMessage(lockoutStatus.unlockAt),
+              {
+                unlockAt: lockoutStatus.unlockAt.toISOString(),
+              }
+            );
           }
         }
 
@@ -183,12 +187,12 @@ export function setupLoginRoutes(app: Express) {
       } catch (firebaseError) {
         logger.error("Firebase ID token verification failed", { error: String(firebaseError) });
         await AuditLogger.logLoginFailure(null, ipAddress, userAgent, "Invalid Firebase token");
-        return res.status(401).json({ error: "Authentication failed" });
+        return Errors.unauthorized(res, "AUTH_FAILED", "Authentication failed");
       }
     } catch (error) {
       logger.error("Login error", { error: String(error) });
       await AuditLogger.logLoginFailure(null, ipAddress, userAgent, "Internal server error");
-      return res.status(500).json({ error: "Authentication failed" });
+      return Errors.internal(res, "AUTH_FAILED", "Authentication failed");
     }
   });
 
@@ -210,9 +214,7 @@ export function setupLoginRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Get user error", { error: String(error) });
-      res.status(500).json({
-        error: "Failed to get user information",
-      });
+      return Errors.internal(res, "USER_FETCH_FAILED", "Failed to get user information");
     }
   });
 
@@ -271,9 +273,7 @@ export function setupLoginRoutes(app: Express) {
       });
     } catch (error) {
       logger.error("Logout error", { error: String(error) });
-      res.status(500).json({
-        error: "Logout failed",
-      });
+      return Errors.internal(res, "LOGOUT_FAILED", "Logout failed");
     }
   });
 }

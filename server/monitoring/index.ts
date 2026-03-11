@@ -8,7 +8,7 @@
  *   - /api/health/ready for readiness probes
  *   - /api/admin/system-status for the admin dashboard
  *
- * Sentry integration is handled separately by server/sentry.js.
+ * Sentry integration is handled separately by server/sentry.ts.
  */
 
 import type { Express, Request, Response, NextFunction } from "express";
@@ -23,12 +23,26 @@ import { authenticateUser, requireAdmin } from "../auth/middleware";
 // Types
 // ============================================================================
 
+interface RecentError {
+  timestamp: string;
+  method: string;
+  path: string;
+  statusCode: number;
+  errorName: string;
+  message: string;
+  requestId?: string;
+}
+
 interface RequestMetrics {
   totalRequests: number;
   totalErrors: number;
   statusCodes: Record<number, number>;
   latencyHistogram: number[]; // last 1000 request latencies (ms)
   startedAt: Date;
+  /** Sliding window: timestamps of 5xx errors in the last 5 minutes */
+  errorTimestamps: number[];
+  /** Ring buffer of the most recent 50 errors for admin debugging */
+  recentErrors: RecentError[];
 }
 
 interface HealthCheckResult {
@@ -55,6 +69,10 @@ interface SystemStatus {
     totalRequests: number;
     totalErrors: number;
     errorRate: number;
+    /** 5xx error rate over the last 5-minute window */
+    errorRate5m: number;
+    /** Number of 5xx errors in the last 5 minutes */
+    errors5m: number;
     uptimeSeconds: number;
     avgLatencyMs: number;
     p95LatencyMs: number;
@@ -62,6 +80,7 @@ interface SystemStatus {
     requestsPerMinute: number;
     topStatusCodes: Array<{ code: number; count: number }>;
   };
+  recentErrors: RecentError[];
   process: {
     memoryUsageMb: number;
     heapUsedMb: number;
@@ -82,19 +101,53 @@ const metrics: RequestMetrics = {
   statusCodes: {},
   latencyHistogram: [],
   startedAt: new Date(),
+  errorTimestamps: [],
+  recentErrors: [],
 };
 
 const MAX_LATENCY_SAMPLES = 1000;
+const MAX_RECENT_ERRORS = 50;
+const ERROR_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
 
-function recordRequest(statusCode: number, latencyMs: number) {
+function recordRequest(statusCode: number, latencyMs: number, req?: Request) {
   metrics.totalRequests++;
   metrics.statusCodes[statusCode] = (metrics.statusCodes[statusCode] || 0) + 1;
-  if (statusCode >= 500) metrics.totalErrors++;
+
+  if (statusCode >= 500) {
+    metrics.totalErrors++;
+    metrics.errorTimestamps.push(Date.now());
+
+    // Record error details for admin debugging
+    if (req) {
+      metrics.recentErrors.push({
+        timestamp: new Date().toISOString(),
+        method: req.method,
+        path: req.originalUrl || req.path,
+        statusCode,
+        errorName: "ServerError",
+        message: `${statusCode} on ${req.method} ${req.originalUrl || req.path}`,
+        requestId: req.requestId,
+      });
+      if (metrics.recentErrors.length > MAX_RECENT_ERRORS) {
+        metrics.recentErrors.shift();
+      }
+    }
+  }
 
   metrics.latencyHistogram.push(latencyMs);
   if (metrics.latencyHistogram.length > MAX_LATENCY_SAMPLES) {
     metrics.latencyHistogram.shift();
   }
+}
+
+/** Count 5xx errors within the sliding window, pruning stale entries. */
+function getWindowedErrorCount(): number {
+  const cutoff = Date.now() - ERROR_WINDOW_MS;
+  // Prune old entries
+  while (metrics.errorTimestamps.length > 0 && metrics.errorTimestamps[0] < cutoff) {
+    metrics.errorTimestamps.shift();
+  }
+  return metrics.errorTimestamps.length;
 }
 
 function percentile(arr: number[], p: number): number {
@@ -109,13 +162,13 @@ function percentile(arr: number[], p: number): number {
 // ============================================================================
 
 export function metricsMiddleware() {
-  return (_req: Request, res: Response, next: NextFunction) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     const start = process.hrtime.bigint();
 
     res.on("finish", () => {
       const durationNs = Number(process.hrtime.bigint() - start);
       const durationMs = Math.round(durationNs / 1_000_000);
-      recordRequest(res.statusCode, durationMs);
+      recordRequest(res.statusCode, durationMs, req);
     });
 
     next();
@@ -295,13 +348,15 @@ export function registerMonitoringRoutes(app: Express) {
     });
   });
 
-  // Admin-only system status (metrics + health + process info)
+  // Admin-only system status (metrics + health + process info + recent errors)
   app.get("/api/admin/system-status", authenticateUser, requireAdmin, async (_req, res) => {
     const health = await runHealthCheck();
 
     const uptimeSeconds = Math.round((Date.now() - metrics.startedAt.getTime()) / 1000);
     const requestsPerMinute =
       uptimeSeconds > 0 ? Math.round((metrics.totalRequests / uptimeSeconds) * 60) : 0;
+
+    const errors5m = getWindowedErrorCount();
 
     const topStatusCodes = Object.entries(metrics.statusCodes)
       .map(([code, count]) => ({ code: Number(code), count }))
@@ -317,6 +372,9 @@ export function registerMonitoringRoutes(app: Express) {
         totalRequests: metrics.totalRequests,
         totalErrors: metrics.totalErrors,
         errorRate: metrics.totalRequests > 0 ? metrics.totalErrors / metrics.totalRequests : 0,
+        errorRate5m:
+          metrics.totalRequests > 0 ? errors5m / Math.min(metrics.totalRequests, 1000) : 0,
+        errors5m,
         uptimeSeconds,
         avgLatencyMs: Math.round(
           metrics.latencyHistogram.reduce((a, b) => a + b, 0) /
@@ -327,6 +385,7 @@ export function registerMonitoringRoutes(app: Express) {
         requestsPerMinute,
         topStatusCodes,
       },
+      recentErrors: [...metrics.recentErrors].reverse(),
       process: {
         memoryUsageMb: Math.round(memUsage.rss / (1024 * 1024)),
         heapUsedMb: Math.round(memUsage.heapUsed / (1024 * 1024)),

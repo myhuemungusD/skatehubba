@@ -274,7 +274,10 @@ describe("Auth Coverage - Route Error Handlers", () => {
       );
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to get user information" })
+        expect.objectContaining({
+          error: "USER_FETCH_FAILED",
+          message: "Failed to get user information",
+        })
       );
     });
   });
@@ -304,7 +307,9 @@ describe("Auth Coverage - Route Error Handlers", () => {
         })
       );
       expect(res.status).toHaveBeenCalledWith(500);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "Logout failed" }));
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({ error: "LOGOUT_FAILED", message: "Logout failed" })
+      );
 
       // Restore
       AuthService.deleteSession = originalDeleteSession;
@@ -337,7 +342,10 @@ describe("Auth Coverage - Route Error Handlers", () => {
       );
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Failed to process request" })
+        expect.objectContaining({
+          error: "FORGOT_PASSWORD_FAILED",
+          message: "Failed to process request",
+        })
       );
 
       AuthService.generatePasswordResetToken = originalGenerateToken;
@@ -368,7 +376,10 @@ describe("Auth Coverage - Route Error Handlers", () => {
       );
       expect(res.status).toHaveBeenCalledWith(500);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Password reset failed" })
+        expect.objectContaining({
+          error: "PASSWORD_RESET_FAILED",
+          message: "Password reset failed",
+        })
       );
 
       AuthService.resetPassword = originalResetPassword;
