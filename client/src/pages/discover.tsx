@@ -1,6 +1,6 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Link } from "wouter";
-import { Trophy, Clock, Sparkles, Swords, Zap, Loader2 } from "lucide-react";
+import { Trophy, Clock, Sparkles, Swords, Zap, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserSearch } from "@/components/UserSearch";
 import { useDiscoverUsers, type DiscoverUser } from "@/hooks/useDiscoverUsers";
@@ -9,11 +9,29 @@ import { apiRequest } from "@/lib/api/client";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 
+/** Remove users from `list` that already appear in `seen`, then add them to `seen`. */
+function deduplicateSection(list: DiscoverUser[], seen: Set<string>): DiscoverUser[] {
+  const unique = list.filter((u) => !seen.has(u.id));
+  for (const u of unique) seen.add(u.id);
+  return unique;
+}
+
 export default function DiscoverPage() {
-  const { data, isLoading, error } = useDiscoverUsers();
+  const { data, isLoading, error, refetch } = useDiscoverUsers();
   const createGame = useCreateGame();
   const { toast } = useToast();
   const [isQuickMatching, setIsQuickMatching] = useState(false);
+
+  // Deduplicate across sections so a user only appears once (top > recent > new priority)
+  const sections = useMemo(() => {
+    if (!data) return null;
+    const seen = new Set<string>();
+    return {
+      topSkaters: deduplicateSection(data.topSkaters, seen),
+      recentlyActive: deduplicateSection(data.recentlyActive, seen),
+      newSkaters: deduplicateSection(data.newSkaters, seen),
+    };
+  }, [data]);
 
   const handleChallenge = useCallback(
     (opponentId: string) => {
@@ -34,6 +52,10 @@ export default function DiscoverPage() {
         body: {},
       });
       if (result.success) {
+        toast({
+          title: `Matched with ${result.match.opponentName}`,
+          description: "Sending challenge...",
+        });
         createGame.mutate(result.match.opponentId);
       }
     } catch {
@@ -100,47 +122,59 @@ export default function DiscoverPage() {
 
       {/* Error state */}
       {error && !isLoading && (
-        <div className="text-center py-8">
-          <p className="text-sm text-neutral-400">Could not load skaters. Try refreshing.</p>
+        <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4 flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm text-neutral-300">Could not load skaters</p>
+            <p className="text-xs text-neutral-500 truncate">{String(error)}</p>
+          </div>
+          <Button
+            onClick={() => refetch()}
+            variant="ghost"
+            size="sm"
+            className="text-orange-400 hover:text-orange-300 shrink-0"
+          >
+            <RefreshCw className="h-4 w-4 mr-1.5" />
+            Retry
+          </Button>
         </div>
       )}
 
       {/* Discovery sections */}
-      {data && (
+      {sections && (
         <>
-          {data.topSkaters.length > 0 && (
+          {sections.topSkaters.length > 0 && (
             <SkaterSection
               icon={<Trophy className="w-4 h-4 text-yellow-400" />}
               title="Top Skaters"
-              users={data.topSkaters}
+              users={sections.topSkaters}
               onChallenge={handleChallenge}
               isChallengePending={createGame.isPending}
             />
           )}
 
-          {data.recentlyActive.length > 0 && (
+          {sections.recentlyActive.length > 0 && (
             <SkaterSection
               icon={<Clock className="w-4 h-4 text-green-400" />}
               title="Recently Active"
-              users={data.recentlyActive}
+              users={sections.recentlyActive}
               onChallenge={handleChallenge}
               isChallengePending={createGame.isPending}
             />
           )}
 
-          {data.newSkaters.length > 0 && (
+          {sections.newSkaters.length > 0 && (
             <SkaterSection
               icon={<Sparkles className="w-4 h-4 text-blue-400" />}
               title="New Skaters"
-              users={data.newSkaters}
+              users={sections.newSkaters}
               onChallenge={handleChallenge}
               isChallengePending={createGame.isPending}
             />
           )}
 
-          {data.topSkaters.length === 0 &&
-            data.recentlyActive.length === 0 &&
-            data.newSkaters.length === 0 && (
+          {sections.topSkaters.length === 0 &&
+            sections.recentlyActive.length === 0 &&
+            sections.newSkaters.length === 0 && (
               <div className="text-center py-16">
                 <Swords className="w-10 h-10 text-neutral-600 mx-auto mb-3" />
                 <h3 className="text-lg font-semibold text-white mb-1">No skaters yet</h3>
