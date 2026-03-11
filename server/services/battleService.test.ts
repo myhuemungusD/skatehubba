@@ -43,6 +43,7 @@ vi.mock("../../packages/shared/schema", () => ({
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn((field, value) => ({ field, value })),
+  and: vi.fn((...conditions) => ({ and: conditions })),
 }));
 
 import {
@@ -106,13 +107,24 @@ describe("joinBattle", () => {
   });
 
   it("updates battle status and logs event", async () => {
+    // Pre-flight SELECT returns a joinable battle
+    const selectWhereFn = vi
+      .fn()
+      .mockResolvedValue([
+        { id: "battle-1", creatorId: "u1", opponentId: null, status: "waiting" },
+      ]);
+    const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
+    const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
+
+    // Atomic UPDATE returns the joined battle
     const returningFn = vi
       .fn()
       .mockResolvedValue([{ id: "battle-1", opponentId: "u2", status: "active" }]);
-    const whereFn = vi.fn().mockReturnValue({ returning: returningFn });
-    const setFn = vi.fn().mockReturnValue({ where: whereFn });
-    const updateFn = vi.fn().mockReturnValue({ set: setFn });
-    (dbModule as any).db = { update: updateFn };
+    const updateWhereFn = vi.fn().mockReturnValue({ returning: returningFn });
+    const updateSetFn = vi.fn().mockReturnValue({ where: updateWhereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: updateSetFn });
+
+    (dbModule as any).db = { select: selectFn, update: updateFn };
 
     const result = await joinBattle("u2", "battle-1");
     expect(result).toEqual({ success: true });
@@ -120,13 +132,76 @@ describe("joinBattle", () => {
   });
 
   it("throws when battle not found", async () => {
-    const returningFn = vi.fn().mockResolvedValue([]);
-    const whereFn = vi.fn().mockReturnValue({ returning: returningFn });
-    const setFn = vi.fn().mockReturnValue({ where: whereFn });
-    const updateFn = vi.fn().mockReturnValue({ set: setFn });
-    (dbModule as any).db = { update: updateFn };
+    const selectWhereFn = vi.fn().mockResolvedValue([]);
+    const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
+    const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
+    (dbModule as any).db = { select: selectFn };
 
     await expect(joinBattle("u2", "nonexistent")).rejects.toThrow("Battle not found");
+  });
+
+  it("throws when trying to join own battle", async () => {
+    const selectWhereFn = vi
+      .fn()
+      .mockResolvedValue([
+        { id: "battle-1", creatorId: "u1", opponentId: null, status: "waiting" },
+      ]);
+    const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
+    const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
+    (dbModule as any).db = { select: selectFn };
+
+    await expect(joinBattle("u1", "battle-1")).rejects.toThrow("Cannot join your own battle");
+  });
+
+  it("throws when battle is reserved for a different opponent", async () => {
+    const selectWhereFn = vi
+      .fn()
+      .mockResolvedValue([
+        { id: "battle-1", creatorId: "u1", opponentId: "u3", status: "waiting" },
+      ]);
+    const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
+    const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
+    (dbModule as any).db = { select: selectFn };
+
+    await expect(joinBattle("u2", "battle-1")).rejects.toThrow(
+      "This battle is reserved for a specific opponent"
+    );
+  });
+
+  it("throws when battle is no longer waiting", async () => {
+    const selectWhereFn = vi
+      .fn()
+      .mockResolvedValue([{ id: "battle-1", creatorId: "u1", opponentId: null, status: "active" }]);
+    const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
+    const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
+    (dbModule as any).db = { select: selectFn };
+
+    await expect(joinBattle("u2", "battle-1")).rejects.toThrow(
+      "Battle is no longer accepting players"
+    );
+  });
+
+  it("throws when concurrent join wins the race (TOCTOU guard)", async () => {
+    // Pre-flight passes
+    const selectWhereFn = vi
+      .fn()
+      .mockResolvedValue([
+        { id: "battle-1", creatorId: "u1", opponentId: null, status: "waiting" },
+      ]);
+    const selectFromFn = vi.fn().mockReturnValue({ where: selectWhereFn });
+    const selectFn = vi.fn().mockReturnValue({ from: selectFromFn });
+
+    // Atomic UPDATE returns empty (another user won the race)
+    const returningFn = vi.fn().mockResolvedValue([]);
+    const updateWhereFn = vi.fn().mockReturnValue({ returning: returningFn });
+    const updateSetFn = vi.fn().mockReturnValue({ where: updateWhereFn });
+    const updateFn = vi.fn().mockReturnValue({ set: updateSetFn });
+
+    (dbModule as any).db = { select: selectFn, update: updateFn };
+
+    await expect(joinBattle("u2", "battle-1")).rejects.toThrow(
+      "Battle is no longer accepting players"
+    );
   });
 });
 
