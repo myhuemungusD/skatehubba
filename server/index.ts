@@ -122,7 +122,7 @@ process.on("uncaughtException", (err) => {
     stack: err.stack,
   });
   captureError(err, { source: "uncaughtException" });
-  // Flush Sentry before the process might terminate — ensure the crash report
+  // Flush Sentry before the process terminates — ensure the crash report
   // reaches Sentry even if the process exits shortly after.
   flushSentry(2000).catch(() => {
     // Swallow flush errors — process may already be dying

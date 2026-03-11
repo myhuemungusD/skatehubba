@@ -37,20 +37,20 @@ skatehubba/
 
 ## Tech Stack (locked — no substitutions without approval)
 
-| Layer     | Technology                                                        |
-|-----------|-------------------------------------------------------------------|
-| Frontend  | React 18, Vite 6, TypeScript 5.9, Tailwind CSS, shadcn/ui, Zustand |
-| Maps      | Leaflet + React Leaflet + OSM                                     |
-| Backend   | Express, TypeScript, esbuild bundler                              |
-| Database  | PostgreSQL 16 (Neon) + Drizzle ORM + Redis 7                     |
-| Auth      | Firebase Auth + custom JWT                                        |
-| Realtime  | Socket.io                                                         |
-| Mobile    | React Native, Expo (EAS builds)                                   |
-| Testing   | Vitest (unit), Playwright (e2e), Cypress (client e2e)             |
-| CI/CD     | GitHub Actions, CodeQL, Vercel (prod), Docker (staging)           |
-| Monorepo  | pnpm 10+ workspaces, Turborepo                                   |
+| Layer    | Technology                                                         |
+| -------- | ------------------------------------------------------------------ |
+| Frontend | React 18, Vite 6, TypeScript 5.9, Tailwind CSS, shadcn/ui, Zustand |
+| Maps     | Leaflet + React Leaflet + OSM                                      |
+| Backend  | Express, TypeScript, esbuild bundler                               |
+| Database | PostgreSQL 16 (Neon) + Drizzle ORM + Redis 7                       |
+| Auth     | Firebase Auth + custom JWT                                         |
+| Realtime | Socket.io                                                          |
+| Mobile   | React Native, Expo (EAS builds)                                    |
+| Testing  | Vitest (unit), Playwright (e2e), Cypress (client e2e)              |
+| CI/CD    | GitHub Actions, CodeQL, Vercel (prod), Docker (staging)            |
+| Monorepo | pnpm 10+ workspaces, Turborepo                                     |
 
-**Prohibited**: Redux, untyped JS, 
+**Prohibited**: Redux, untyped JS,
 
 ## Key Commands
 

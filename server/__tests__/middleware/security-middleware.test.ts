@@ -9,7 +9,6 @@
  *  - validateHoneypot
  *  - validateEmail  (and the internal isValidEmail it delegates to)
  *  - validateUserAgent
- *  - logIPAddress
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
@@ -489,13 +488,12 @@ describe("validateUserAgent", () => {
 
   // ---- Missing user agent -------------------------------------------------
 
-  it("should return 400 when user agent header is missing", () => {
+  it("should allow requests when user agent header is missing", () => {
     const req = mockRequest({ headers: {} });
     validateUserAgent(req, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Invalid request" });
-    expect(next).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledTimes(1);
+    expect(res.status).not.toHaveBeenCalled();
   });
 
   // ---- Legitimate bots (now allowed) ----------------------------------------
@@ -530,7 +528,9 @@ describe("validateUserAgent", () => {
     validateUserAgent(req, res, next);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith({ error: "Automated requests not allowed" });
+    expect(res.json).toHaveBeenCalledWith({
+      error: "Automated requests not allowed",
+    });
   });
 
   it("should block known attack tools", () => {

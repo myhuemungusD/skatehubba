@@ -24,6 +24,7 @@ import {
 import { eq, desc, and, sql } from "drizzle-orm";
 import logger from "../logger";
 import { asyncHandler } from "../utils/asyncHandler";
+import { Errors } from "../utils/apiError";
 
 const router = Router();
 
@@ -55,7 +56,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const parsed = pushTokenSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+      return Errors.validation(res, parsed.error.flatten());
     }
 
     const userId = req.currentUser!.id;
@@ -94,9 +95,7 @@ router.post(
       res.json({ success: true });
     } catch (error) {
       logger.error("[Notifications] Failed to register push token", { error, userId });
-      res
-        .status(500)
-        .json({ error: "PUSH_TOKEN_FAILED", message: "Failed to register push token." });
+      return Errors.internal(res, "PUSH_TOKEN_FAILED", "Failed to register push token.");
     }
   })
 );
@@ -138,9 +137,7 @@ router.delete(
       res.json({ success: true });
     } catch (error) {
       logger.error("[Notifications] Failed to remove push token", { error, userId });
-      res
-        .status(500)
-        .json({ error: "PUSH_TOKEN_REMOVE_FAILED", message: "Failed to remove push token." });
+      return Errors.internal(res, "PUSH_TOKEN_REMOVE_FAILED", "Failed to remove push token.");
     }
   })
 );
@@ -171,9 +168,7 @@ router.get(
       res.json(publicPrefs);
     } catch (error) {
       logger.error("[Notifications] Failed to get preferences", { error, userId });
-      res
-        .status(500)
-        .json({ error: "PREFERENCES_FETCH_FAILED", message: "Failed to get preferences." });
+      return Errors.internal(res, "PREFERENCES_FETCH_FAILED", "Failed to get preferences.");
     }
   })
 );
@@ -210,7 +205,7 @@ router.put(
   asyncHandler(async (req, res) => {
     const parsed = preferencesSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ error: "Invalid request", issues: parsed.error.flatten() });
+      return Errors.validation(res, parsed.error.flatten());
     }
 
     const userId = req.currentUser!.id;
@@ -237,9 +232,7 @@ router.put(
       res.json({ success: true });
     } catch (error) {
       logger.error("[Notifications] Failed to update preferences", { error, userId });
-      res
-        .status(500)
-        .json({ error: "PREFERENCES_UPDATE_FAILED", message: "Failed to update preferences." });
+      return Errors.internal(res, "PREFERENCES_UPDATE_FAILED", "Failed to update preferences.");
     }
   })
 );
@@ -263,9 +256,7 @@ router.get(
       res.json({ count: result?.count ?? 0 });
     } catch (error) {
       logger.error("[Notifications] Failed to get unread count", { error, userId });
-      res
-        .status(500)
-        .json({ error: "UNREAD_COUNT_FAILED", message: "Failed to get unread count." });
+      return Errors.internal(res, "UNREAD_COUNT_FAILED", "Failed to get unread count.");
     }
   })
 );
@@ -280,9 +271,7 @@ router.get(
     const userId = req.currentUser!.id;
     const parsed = paginationSchema.safeParse(req.query);
     if (!parsed.success) {
-      return res
-        .status(400)
-        .json({ error: "INVALID_PAGINATION", message: "Invalid pagination parameters." });
+      return Errors.badRequest(res, "INVALID_PAGINATION", "Invalid pagination parameters.");
     }
     const { limit, offset } = parsed.data;
 
@@ -309,9 +298,7 @@ router.get(
       });
     } catch (error) {
       logger.error("[Notifications] Failed to list notifications", { error, userId });
-      res
-        .status(500)
-        .json({ error: "NOTIFICATIONS_FETCH_FAILED", message: "Failed to list notifications." });
+      return Errors.internal(res, "NOTIFICATIONS_FETCH_FAILED", "Failed to list notifications.");
     }
   })
 );
@@ -327,9 +314,7 @@ router.post(
     const notificationId = parseInt(req.params.id, 10);
 
     if (isNaN(notificationId)) {
-      return res
-        .status(400)
-        .json({ error: "INVALID_NOTIFICATION_ID", message: "Invalid notification ID." });
+      return Errors.badRequest(res, "INVALID_NOTIFICATION_ID", "Invalid notification ID.");
     }
 
     try {
@@ -341,15 +326,13 @@ router.post(
         .returning();
 
       if (!updated) {
-        return res
-          .status(404)
-          .json({ error: "NOTIFICATION_NOT_FOUND", message: "Notification not found." });
+        return Errors.notFound(res, "NOTIFICATION_NOT_FOUND", "Notification not found.");
       }
 
       res.json({ success: true });
     } catch (error) {
       logger.error("[Notifications] Failed to mark as read", { error, userId, notificationId });
-      res.status(500).json({ error: "MARK_READ_FAILED", message: "Failed to mark as read." });
+      return Errors.internal(res, "MARK_READ_FAILED", "Failed to mark as read.");
     }
   })
 );
@@ -373,9 +356,7 @@ router.post(
       res.json({ success: true });
     } catch (error) {
       logger.error("[Notifications] Failed to mark all as read", { error, userId });
-      res
-        .status(500)
-        .json({ error: "MARK_ALL_READ_FAILED", message: "Failed to mark all as read." });
+      return Errors.internal(res, "MARK_ALL_READ_FAILED", "Failed to mark all as read.");
     }
   })
 );

@@ -8,6 +8,7 @@ import type { CustomUser, InsertCustomUser, AuthSession } from "../../packages/s
 import { env } from "../config/env";
 import { admin } from "../admin.ts";
 import logger from "../logger.ts";
+import { passwordSchema } from "../../packages/shared/schema/validation";
 
 /**
  * Authentication service for SkateHubba
@@ -352,6 +353,10 @@ export class AuthService {
    * @returns Promise resolving to updated user if token is valid, null otherwise
    */
   static async resetPassword(token: string, newPassword: string): Promise<CustomUser | null> {
+    // Enforce password complexity at the service layer (defense-in-depth)
+    const parsed = passwordSchema.safeParse(newPassword);
+    if (!parsed.success) return null;
+
     const [user] = await getDb()
       .select()
       .from(customUsers)
@@ -418,6 +423,12 @@ export class AuthService {
     newPassword: string,
     currentSessionToken?: string
   ): Promise<{ success: boolean; message: string; newSessionToken?: string }> {
+    // Enforce password complexity at the service layer (defense-in-depth)
+    const parsed = passwordSchema.safeParse(newPassword);
+    if (!parsed.success) {
+      return { success: false, message: parsed.error.issues[0].message };
+    }
+
     const user = await this.findUserById(userId);
 
     if (!user) {

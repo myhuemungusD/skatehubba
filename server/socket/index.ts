@@ -46,7 +46,6 @@ import {
   SOCKET_MAX_HTTP_BUFFER_SIZE,
   SOCKET_MAX_DISCONNECTION_DURATION_MS,
 } from "../config/constants";
-
 // Re-export types for convenience
 export type { ClientToServerEvents, ServerToClientEvents, SocketData } from "./types";
 

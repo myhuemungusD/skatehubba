@@ -517,7 +517,7 @@ describe("Auth & Profile Smoke Tests", () => {
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Authentication failed" })
+        expect.objectContaining({ error: "AUTH_FAILED", message: "Authentication failed" })
       );
     });
 
@@ -533,7 +533,7 @@ describe("Auth & Profile Smoke Tests", () => {
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Authentication failed" })
+        expect.objectContaining({ error: "AUTH_FAILED", message: "Authentication failed" })
       );
     });
 
@@ -551,7 +551,7 @@ describe("Auth & Profile Smoke Tests", () => {
 
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "Authentication failed" })
+        expect.objectContaining({ error: "AUTH_FAILED", message: "Authentication failed" })
       );
     });
 
@@ -574,7 +574,7 @@ describe("Auth & Profile Smoke Tests", () => {
       await callHandlers(handlers, req, res);
 
       expect(res.status).toHaveBeenCalledWith(429);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ code: "ACCOUNT_LOCKED" }));
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "ACCOUNT_LOCKED" }));
     });
 
     it("should reject empty Bearer token", async () => {

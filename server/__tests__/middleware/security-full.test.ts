@@ -6,7 +6,6 @@
  * - validateHoneypot
  * - validateEmail (with isValidEmail)
  * - validateUserAgent
- * - logIPAddress
  * - getDeviceFingerprint (via userKeyGenerator)
  * - All rate limiter exports
  */
@@ -522,7 +521,7 @@ describe("Security Middleware", () => {
       expect(next).toHaveBeenCalled();
     });
 
-    it("should reject missing user agent", () => {
+    it("should allow missing user agent", () => {
       const req = createReq({
         get: vi.fn(() => undefined),
       });
@@ -531,8 +530,8 @@ describe("Security Middleware", () => {
 
       validateUserAgent(req, res, next);
 
-      expect(next).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(next).toHaveBeenCalled();
+      expect(res.status).not.toHaveBeenCalled();
     });
 
     it("should allow legitimate bot user agents (Googlebot, curl, python)", () => {

@@ -6,6 +6,7 @@
  * and exported type constants (SPOT_TYPES, SPOT_TIERS).
  */
 
+import { getTableColumns } from "drizzle-orm";
 import {
   SPOT_TYPES,
   SPOT_TIERS,
@@ -73,13 +74,13 @@ describe("spotRatings table schema", () => {
   });
 
   it("has spotId column referencing spots table (covers line 82)", () => {
-    const columns = spotRatings as Record<string, any>;
+    const columns = getTableColumns(spotRatings);
     expect(columns.spotId).toBeDefined();
     expect(columns.spotId.name).toBe("spot_id");
   });
 
   it("has userId column for rating author", () => {
-    const columns = spotRatings as Record<string, any>;
+    const columns = getTableColumns(spotRatings);
     expect(columns.userId).toBeDefined();
     expect(columns.userId.name).toBe("user_id");
   });
@@ -93,7 +94,7 @@ describe("checkIns table schema", () => {
   });
 
   it("has spotId column referencing spots table (covers line 109)", () => {
-    const columns = checkIns as Record<string, any>;
+    const columns = getTableColumns(checkIns);
     expect(columns.spotId).toBeDefined();
     expect(columns.spotId.name).toBe("spot_id");
   });
@@ -112,19 +113,19 @@ describe("filmerRequests table schema", () => {
   });
 
   it("has checkInId referencing checkIns table (covers line 137)", () => {
-    const columns = filmerRequests as Record<string, any>;
+    const columns = getTableColumns(filmerRequests);
     expect(columns.checkInId).toBeDefined();
     expect(columns.checkInId.name).toBe("check_in_id");
   });
 
   it("has requesterId referencing customUsers table (covers line 140)", () => {
-    const columns = filmerRequests as Record<string, any>;
+    const columns = getTableColumns(filmerRequests);
     expect(columns.requesterId).toBeDefined();
     expect(columns.requesterId.name).toBe("requester_id");
   });
 
   it("has filmerId referencing customUsers table (covers line 143)", () => {
-    const columns = filmerRequests as Record<string, any>;
+    const columns = getTableColumns(filmerRequests);
     expect(columns.filmerId).toBeDefined();
     expect(columns.filmerId.name).toBe("filmer_id");
   });
