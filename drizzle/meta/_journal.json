@@ -8,6 +8,13 @@
       "when": 1773135074514,
       "tag": "0000_cold_valkyrie",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773207688285,
+      "tag": "0001_steep_nextwave",
+      "breakpoints": true
     }
   ]
 }
