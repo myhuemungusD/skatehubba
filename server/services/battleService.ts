@@ -82,11 +82,31 @@ export async function createBattle(input: CreateBattleInput) {
 }
 
 /**
- * Join an existing battle
+ * Join an existing battle.
+ * For direct challenges, only the intended opponent may join.
  */
 export async function joinBattle(odv: string, battleId: string) {
   if (!db) {
     throw new Error("Database not available");
+  }
+
+  // Fetch the battle first to validate join eligibility
+  const [existing] = await db.select().from(battles).where(eq(battles.id, battleId));
+
+  if (!existing) {
+    throw new Error("Battle not found");
+  }
+
+  if (existing.creatorId === odv) {
+    throw new Error("Cannot join your own battle");
+  }
+
+  if (existing.opponentId && existing.opponentId !== odv) {
+    throw new Error("This battle is reserved for a specific opponent");
+  }
+
+  if (existing.status !== "waiting") {
+    throw new Error("Battle is no longer accepting players");
   }
 
   const [battle] = await db

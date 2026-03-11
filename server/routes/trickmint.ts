@@ -443,6 +443,12 @@ router.delete("/:id", authenticateUser, async (req, res) => {
     }
 
     if (clip.userId !== userId) {
+      logger.warn("[TrickMint] Unauthorized clip deletion attempt", {
+        clipId,
+        userId,
+        ownerId: clip.userId,
+        action: "delete_clip",
+      });
       return res.status(403).json({ error: "You can only delete your own clips" });
     }
 

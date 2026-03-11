@@ -58,6 +58,8 @@ router.get(
   "/me",
   requireFirebaseUid,
   asyncHandler(async (req, res) => {
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    res.set("Pragma", "no-cache");
     const { firebaseUid } = req as FirebaseAuthedRequest;
 
     try {

@@ -11,6 +11,7 @@ import compression from "compression";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import hpp from "hpp";
 import logger from "./logger.ts";
 import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
 import { apiLimiter } from "./middleware/security.ts";
@@ -78,6 +79,7 @@ export function createApp(): express.Express {
         crossOriginEmbedderPolicy: false, // required for cross-origin images/media
         crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
         crossOriginResourcePolicy: { policy: "same-site" },
+        xXssProtection: false, // explicitly disable legacy XSS auditor per OWASP — CSP is the real control
       })
     );
 
@@ -146,12 +148,29 @@ export function createApp(): express.Express {
     res.send(generateSitemapXml());
   });
 
+  // Security.txt — vulnerability disclosure channel (RFC 9116)
+  app.get("/.well-known/security.txt", (_req, res) => {
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.send(
+      [
+        "Contact: mailto:security@skatehubba.com",
+        "Preferred-Languages: en",
+        `Expires: ${new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()}`,
+      ].join("\n")
+    );
+  });
+
   // Raw body for Stripe webhook signature verification (MUST precede express.json())
   app.use("/webhooks/stripe", express.raw({ type: "application/json" }));
 
   // Body parsing (before CSRF to enable JSON/form requests)
   app.use(express.json({ limit: BODY_PARSE_LIMIT }));
   app.use(express.urlencoded({ extended: true, limit: BODY_PARSE_LIMIT }));
+
+  // HTTP Parameter Pollution protection — collapses duplicate query params
+  // into the last value, preventing array injection that bypasses Zod string validation.
+  app.use(hpp());
 
   // Cookie parsing - MUST come before CSRF token creation
   app.use(cookieParser());
