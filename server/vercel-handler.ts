@@ -61,17 +61,15 @@ export default async function serverHandler(req: IncomingMessage, res: ServerRes
     return resolved(req, res);
   }
 
-  const requiredVars = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET", "MFA_ENCRYPTION_KEY"];
+  const requiredVars = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET", "MFA_ENCRYPTION_KEY", "IP_HASH_SALT"];
   const missingVars = requiredVars.filter((v) => !process.env[v]?.trim());
-
-  const isDeployed = !!process.env.VERCEL_ENV;
 
   const body = JSON.stringify({
     error: "SERVER_INIT_FAILED",
     message: "Server failed to start. Check environment variables in Vercel dashboard.",
-    detail: isDeployed ? undefined : lastInitError?.message,
+    detail: lastInitError?.message,
     missingEnvVars: missingVars.length > 0 ? missingVars : undefined,
-    hint: "Visit /api/env-check for a detailed environment diagnostic.",
+    hint: "Visit /api/health/env for a detailed environment diagnostic (requires admin auth).",
   });
 
   res.writeHead(500, {
