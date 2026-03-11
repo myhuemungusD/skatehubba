@@ -89,9 +89,24 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
 
+  migrate:
+    name: Run Database Migrations
+    needs: [build-and-push, trivy-scan]
+    runs-on: ubuntu-latest
+    environment: staging
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup-pnpm-env
+      - run: pnpm install
+      - name: Run Drizzle migrations
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: pnpm db:migrate
+
   deploy:
     name: Deploy to Staging Server
-    needs: [build-and-push, trivy-scan]
+    needs: [migrate]
     runs-on: ubuntu-latest
     environment: staging
 
@@ -109,24 +124,9 @@ jobs:
             docker compose -f docker-compose.staging.yml up -d --no-deps app
             docker image prune -f
 
-  migrate:
-    name: Run Database Migrations
-    needs: deploy
-    runs-on: ubuntu-latest
-    environment: staging
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/setup-pnpm-env
-      - run: pnpm install
-      - name: Run Drizzle migrations
-        env:
-          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
-        run: pnpm db:migrate
-
   smoke-test:
     name: Smoke Test
-    needs: [deploy, migrate]
+    needs: [deploy]
     runs-on: ubuntu-latest
 
     steps:

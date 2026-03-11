@@ -398,9 +398,14 @@ export async function setterBail(
   const now = new Date();
   const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
 
+  // Guard against corrupted state — both role IDs must be set for active games
+  if (!game.offensivePlayerId || !game.defensivePlayerId) {
+    return { ok: false, status: 500, error: "Game is missing player role assignments" };
+  }
+
   // Roles swap — opponent becomes the setter
-  const newOffensiveId = game.defensivePlayerId!;
-  const newDefensiveId = game.offensivePlayerId!;
+  const newOffensiveId = game.defensivePlayerId;
+  const newDefensiveId = game.offensivePlayerId;
 
   // Check for game over
   const gameOverCheck = isGameOver(newPlayer1Letters, newPlayer2Letters);

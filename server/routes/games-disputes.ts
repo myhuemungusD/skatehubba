@@ -81,7 +81,7 @@ router.post("/:id/dispute", async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    Errors.internal(res, "DISPUTE_FILE_FAILED", "Failed to file dispute.");
+    return Errors.internal(res, "DISPUTE_FILE_FAILED", "Failed to file dispute.");
   }
 });
 
@@ -138,7 +138,7 @@ router.post("/disputes/:disputeId/resolve", requireAdmin, async (req, res) => {
       disputeId,
       userId: currentUserId,
     });
-    Errors.internal(res, "DISPUTE_RESOLVE_FAILED", "Failed to resolve dispute.");
+    return Errors.internal(res, "DISPUTE_RESOLVE_FAILED", "Failed to resolve dispute.");
   }
 });
 

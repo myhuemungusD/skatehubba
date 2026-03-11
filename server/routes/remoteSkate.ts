@@ -106,25 +106,16 @@ const roundResultSchema = z.object({
 });
 
 /**
- * Authenticate via Firebase ID token in Authorization header.
- * Returns the decoded UID or sends 401.
+ * Extract Firebase UID from the authenticated user (set by authenticateUser middleware in routes.ts).
+ * Returns the UID or sends 401 if the user has no linked Firebase account.
  */
-async function verifyFirebaseAuth(req: Request, res: Response): Promise<string | null> {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Authentication required" });
+function getFirebaseUid(req: Request, res: Response): string | null {
+  const uid = req.currentUser?.firebaseUid;
+  if (!uid) {
+    res.status(401).json({ error: "Firebase account required for remote S.K.A.T.E." });
     return null;
   }
-
-  try {
-    const token = authHeader.substring(7);
-    const decoded = await admin.auth().verifyIdToken(token, true);
-    return decoded.uid;
-  } catch (error) {
-    logger.error("[RemoteSkate] Token verification failed", { error: String(error) });
-    res.status(401).json({ error: "Invalid authentication token" });
-    return null;
-  }
+  return uid;
 }
 
 // =============================================================================
@@ -136,7 +127,7 @@ async function verifyFirebaseAuth(req: Request, res: Response): Promise<string |
 // =============================================================================
 
 router.post("/find-or-create", async (req: Request, res: Response) => {
-  const uid = await verifyFirebaseAuth(req, res);
+  const uid = getFirebaseUid(req, res);
   if (!uid) return;
 
   try {
@@ -270,7 +261,7 @@ async function joinGameTransaction(
 }
 
 router.post("/:gameId/join", async (req: Request, res: Response) => {
-  const uid = await verifyFirebaseAuth(req, res);
+  const uid = getFirebaseUid(req, res);
   if (!uid) return;
 
   const { gameId } = req.params;
@@ -315,7 +306,7 @@ router.post("/:gameId/join", async (req: Request, res: Response) => {
 // =============================================================================
 
 router.post("/:gameId/cancel", async (req: Request, res: Response) => {
-  const uid = await verifyFirebaseAuth(req, res);
+  const uid = getFirebaseUid(req, res);
   if (!uid) return;
 
   const { gameId } = req.params;
@@ -371,7 +362,7 @@ router.post("/:gameId/cancel", async (req: Request, res: Response) => {
 // =============================================================================
 
 router.post("/:gameId/rounds/:roundId/set-complete", async (req: Request, res: Response) => {
-  const uid = await verifyFirebaseAuth(req, res);
+  const uid = getFirebaseUid(req, res);
   if (!uid) return;
 
   const { gameId, roundId } = req.params;
@@ -456,7 +447,7 @@ router.post("/:gameId/rounds/:roundId/set-complete", async (req: Request, res: R
 // =============================================================================
 
 router.post("/:gameId/rounds/:roundId/reply-complete", async (req: Request, res: Response) => {
-  const uid = await verifyFirebaseAuth(req, res);
+  const uid = getFirebaseUid(req, res);
   if (!uid) return;
 
   const { gameId, roundId } = req.params;
@@ -544,7 +535,7 @@ router.post("/:gameId/rounds/:roundId/reply-complete", async (req: Request, res:
  * "awaiting_confirmation" so the defense player must confirm or dispute.
  */
 router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Response) => {
-  const uid = await verifyFirebaseAuth(req, res);
+  const uid = getFirebaseUid(req, res);
   if (!uid) return;
 
   const parsed = roundResultSchema.safeParse(req.body);
@@ -645,7 +636,7 @@ router.post("/:gameId/rounds/:roundId/resolve", async (req: Request, res: Respon
  * If the defense disagrees, the round is flagged as "disputed" for manual review.
  */
 router.post("/:gameId/rounds/:roundId/confirm", async (req: Request, res: Response) => {
-  const uid = await verifyFirebaseAuth(req, res);
+  const uid = getFirebaseUid(req, res);
   if (!uid) return;
 
   const parsed = roundResultSchema.safeParse(req.body);
