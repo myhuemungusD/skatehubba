@@ -11,6 +11,7 @@ import compression from "compression";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import hpp from "hpp";
 import logger from "./logger.ts";
 import { captureRequestError } from "./sentry.ts";
 import { ensureCsrfToken, requireCsrfToken } from "./middleware/csrf.ts";
@@ -79,6 +80,7 @@ export function createApp(): express.Express {
         crossOriginEmbedderPolicy: false, // required for cross-origin images/media
         crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
         crossOriginResourcePolicy: { policy: "same-site" },
+        xXssProtection: false, // OWASP: disable legacy XSS auditor; CSP is the real control
       })
     );
 
@@ -147,6 +149,20 @@ export function createApp(): express.Express {
     res.send(generateSitemapXml());
   });
 
+  // Security.txt — vulnerability disclosure channel (RFC 9116)
+  const securityTxtExpires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+  app.get("/.well-known/security.txt", (_req, res) => {
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.send(
+      [
+        "Contact: mailto:security@skatehubba.com",
+        "Preferred-Languages: en",
+        `Expires: ${securityTxtExpires}`,
+      ].join("\n")
+    );
+  });
+
   // Raw body for Stripe webhook signature verification (MUST precede express.json())
   app.use("/webhooks/stripe", express.raw({ type: "application/json" }));
 
@@ -158,6 +174,10 @@ export function createApp(): express.Express {
   // Body parsing — conservative 256KB global limit (before CSRF to enable JSON/form requests)
   app.use(express.json({ limit: BODY_PARSE_LIMIT }));
   app.use(express.urlencoded({ extended: true, limit: BODY_PARSE_LIMIT }));
+
+  // HTTP Parameter Pollution protection — collapses duplicate query params
+  // into the last value, preventing array injection that bypasses Zod string validation.
+  app.use(hpp());
 
   // Cookie parsing - MUST come before CSRF token creation
   app.use(cookieParser());

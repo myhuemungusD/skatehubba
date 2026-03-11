@@ -103,6 +103,8 @@ async function isDuplicateEvent(eventId: string): Promise<boolean> {
  * Bypasses CSRF and auth — verified via Stripe webhook signature.
  */
 router.post("/", async (req: Request, res: Response) => {
+  res.set("Cache-Control", "no-store");
+
   if (!PAYMENTS_ENABLED) {
     logger.info("Stripe webhook received but payment system is disabled");
     return res.status(410).send("Payment system disabled");

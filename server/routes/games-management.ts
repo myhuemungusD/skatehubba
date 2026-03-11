@@ -43,6 +43,12 @@ router.post("/:id/forfeit", async (req, res) => {
       const isPlayer1 = game.player1Id === currentUserId;
       const isPlayer2 = game.player2Id === currentUserId;
       if (!isPlayer1 && !isPlayer2) {
+        logger.warn("[Games] Unauthorized forfeit attempt", {
+          gameId,
+          userId: currentUserId,
+          ip: req.ip,
+          action: "forfeit",
+        });
         return { ok: false as const, status: 403, msg: "You are not a player in this game" };
       }
       if (game.status !== "active") {
@@ -449,6 +455,12 @@ router.get("/:id", async (req, res) => {
     if (!game) return Errors.notFound(res, "GAME_NOT_FOUND", "Game not found.");
 
     if (game.player1Id !== currentUserId && game.player2Id !== currentUserId) {
+      logger.warn("[Games] Unauthorized game access attempt", {
+        gameId,
+        userId: currentUserId,
+        ip: req.ip,
+        action: "view_game",
+      });
       return Errors.forbidden(res, "NOT_PARTICIPANT", "You are not a player in this game.");
     }
 

@@ -207,6 +207,7 @@ function captureRoutes(): Express {
     delete: (path: string, ...handlers: RouteHandler[]) => {
       routeHandlers[`DELETE ${path}`] = handlers;
     },
+    use: vi.fn(),
   };
   return app as Express;
 }
