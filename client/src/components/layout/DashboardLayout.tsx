@@ -1,6 +1,6 @@
 import { type ReactNode, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, MapPin, LogOut, Shield, Settings } from "lucide-react";
+import { Home, MapPin, Users, LogOut, Shield, Settings } from "lucide-react";
 import { useIsMobile } from "../../hooks/use-mobile";
 import { useAuth } from "../../hooks/useAuth";
 import { EmailVerificationBanner } from "../EmailVerificationBanner";
@@ -13,6 +13,7 @@ interface DashboardLayoutProps {
 
 const navItems = [
   { label: "Home", href: "/hub", icon: Home },
+  { label: "Skaters", href: "/discover", icon: Users },
   { label: "Map", href: "/map", icon: MapPin },
 ];
 

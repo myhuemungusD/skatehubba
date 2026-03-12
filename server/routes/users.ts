@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { customUsers, usernames, userProfiles } from "@shared/schema";
-import { ilike, or, eq, and, sql } from "drizzle-orm";
+import { ilike, or, eq, and, sql, desc } from "drizzle-orm";
 import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { userDiscoveryBreaker } from "../utils/circuitBreaker";
 import { userSearchLimiter } from "../middleware/security";
+import logger from "../logger";
 
 const router = Router();
 
@@ -63,6 +64,108 @@ router.get("/search", authenticateUser, async (req, res) => {
   );
 
   res.json(result);
+});
+
+// GET /api/users/discover — categorized user lists for discovery page
+router.get("/discover", authenticateUser, async (req, res) => {
+  const currentUserId = req.currentUser?.id;
+
+  interface DiscoverUser {
+    id: string;
+    displayName: string;
+    handle: string;
+    wins: number;
+    losses: number;
+    stance: string | null;
+  }
+
+  type DiscoverResult = {
+    topSkaters: DiscoverUser[];
+    recentlyActive: DiscoverUser[];
+    newSkaters: DiscoverUser[];
+  };
+  const emptyResult: DiscoverResult = { topSkaters: [], recentlyActive: [], newSkaters: [] };
+
+  try {
+    const result = await userDiscoveryBreaker.execute(async () => {
+      const database = getDb();
+      const excludeSelf = currentUserId
+        ? and(eq(customUsers.isActive, true), sql`${customUsers.id} != ${currentUserId}`)
+        : eq(customUsers.isActive, true);
+
+      const baseSelect = {
+        id: customUsers.id,
+        firstName: customUsers.firstName,
+        lastName: customUsers.lastName,
+        handle: usernames.username,
+        wins: userProfiles.wins,
+        losses: userProfiles.losses,
+        stance: userProfiles.stance,
+      };
+
+      const mapUser = (u: {
+        id: string;
+        firstName: string | null;
+        lastName: string | null;
+        handle: string | null;
+        wins: number | null;
+        losses: number | null;
+        stance: string | null;
+      }): DiscoverUser => ({
+        id: u.id,
+        displayName:
+          u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : u.firstName || "Skater",
+        handle: u.handle || `user${u.id.substring(0, 4)}`,
+        wins: u.wins ?? 0,
+        losses: u.losses ?? 0,
+        stance: u.stance,
+      });
+
+      const [topRaw, recentRaw, newRaw] = await Promise.all([
+        // Top skaters by wins
+        database
+          .select(baseSelect)
+          .from(customUsers)
+          .leftJoin(usernames, eq(usernames.uid, customUsers.firebaseUid))
+          .leftJoin(userProfiles, eq(userProfiles.id, customUsers.firebaseUid))
+          .where(excludeSelf)
+          .orderBy(desc(userProfiles.wins))
+          .limit(10),
+        // Recently active
+        database
+          .select(baseSelect)
+          .from(customUsers)
+          .leftJoin(usernames, eq(usernames.uid, customUsers.firebaseUid))
+          .leftJoin(userProfiles, eq(userProfiles.id, customUsers.firebaseUid))
+          .where(excludeSelf)
+          .orderBy(desc(customUsers.lastLoginAt))
+          .limit(10),
+        // Newest skaters
+        database
+          .select(baseSelect)
+          .from(customUsers)
+          .leftJoin(usernames, eq(usernames.uid, customUsers.firebaseUid))
+          .leftJoin(userProfiles, eq(userProfiles.id, customUsers.firebaseUid))
+          .where(excludeSelf)
+          .orderBy(desc(customUsers.createdAt))
+          .limit(10),
+      ]);
+
+      return {
+        topSkaters: topRaw.map(mapUser),
+        recentlyActive: recentRaw.map(mapUser),
+        newSkaters: newRaw.map(mapUser),
+      };
+    }, emptyResult);
+
+    res.json(result);
+  } catch (error) {
+    logger.error("[Users] Discover endpoint failed", {
+      error: String(error),
+      userId: currentUserId,
+    });
+    res.status(500).json({ error: "Failed to load skaters" });
+  }
 });
 
 // GET /api/users — list users (excluding current user)
