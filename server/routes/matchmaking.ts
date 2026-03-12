@@ -1,8 +1,8 @@
 import { Router } from "express";
 import crypto from "node:crypto";
 import { z } from "zod";
-import { customUsers } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { customUsers, games } from "@shared/schema";
+import { eq, and, or } from "drizzle-orm";
 import { getDb } from "../db";
 import { authenticateUser } from "../auth/middleware";
 import { quickMatchLimiter } from "../middleware/security";
@@ -47,9 +47,26 @@ router.post(
         .where(eq(customUsers.isActive, true))
         .limit(50);
 
-      // Filter out current user and users without push tokens
+      // Exclude opponents who already have a pending challenge from/to the current user
+      const pendingGames = await database
+        .select({ player1Id: games.player1Id, player2Id: games.player2Id })
+        .from(games)
+        .where(
+          and(
+            eq(games.status, "pending"),
+            or(eq(games.player1Id, currentUserId), eq(games.player2Id, currentUserId))
+          )
+        );
+
+      const pendingOpponentIds = new Set(
+        pendingGames
+          .map((g) => (g.player1Id === currentUserId ? g.player2Id : g.player1Id))
+          .filter((id): id is string => id !== null)
+      );
+
+      // Filter out current user, users without push tokens, and users with pending challenges
       const eligibleOpponents = availableOpponents.filter(
-        (u) => u.id !== currentUserId && u.pushToken
+        (u) => u.id !== currentUserId && u.pushToken && !pendingOpponentIds.has(u.id)
       );
 
       if (eligibleOpponents.length === 0) {
