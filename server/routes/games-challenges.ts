@@ -94,7 +94,7 @@ router.post("/create", async (req, res) => {
       error,
       userId: currentUserId,
     });
-    Errors.internal(res, "GAME_CREATE_FAILED", "Failed to create game.");
+    return Errors.internal(res, "GAME_CREATE_FAILED", "Failed to create game.");
   }
 });
 
@@ -177,7 +177,7 @@ router.post("/:id/respond", async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    Errors.internal(res, "GAME_RESPOND_FAILED", "Failed to respond to game.");
+    return Errors.internal(res, "GAME_RESPOND_FAILED", "Failed to respond to game.");
   }
 });
 

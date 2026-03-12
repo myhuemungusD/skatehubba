@@ -123,6 +123,7 @@ function createReq(overrides: any = {}) {
     headers: { authorization: "Bearer valid-token" },
     params: { gameId: "game-1", roundId: "round-1" },
     body: { result: "landed" },
+    currentUser: { firebaseUid: "user-1" },
     ...overrides,
   };
 }
@@ -153,23 +154,22 @@ describe("Remote Skate Routes", () => {
   });
 
   describe("POST /:gameId/rounds/:roundId/resolve", () => {
-    it("should return 401 with no auth header", async () => {
-      const req = createReq({ headers: {} });
+    it("should return 401 when currentUser is missing", async () => {
+      const req = createReq({ currentUser: undefined });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
     });
 
-    it("should return 401 with invalid auth format", async () => {
-      const req = createReq({ headers: { authorization: "Basic token" } });
+    it("should return 401 when currentUser has no firebaseUid", async () => {
+      const req = createReq({ currentUser: { firebaseUid: null } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
     });
 
-    it("should return 401 with invalid token", async () => {
-      mockVerifyIdToken.mockRejectedValue(new Error("invalid token"));
-      const req = createReq();
+    it("should return 401 when firebaseUid is empty", async () => {
+      const req = createReq({ currentUser: { firebaseUid: "" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/resolve", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
@@ -616,8 +616,8 @@ describe("Remote Skate Routes", () => {
   });
 
   describe("POST /:gameId/rounds/:roundId/confirm", () => {
-    it("should return 401 with no auth header", async () => {
-      const req = createReq({ headers: {} });
+    it("should return 401 when currentUser is missing", async () => {
+      const req = createReq({ currentUser: undefined });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
@@ -654,7 +654,7 @@ describe("Remote Skate Routes", () => {
         return await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: { result: "landed" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.json).toHaveBeenCalledWith(
@@ -693,7 +693,7 @@ describe("Remote Skate Routes", () => {
         return await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "missed" } });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: { result: "missed" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.json).toHaveBeenCalledWith(
@@ -732,7 +732,7 @@ describe("Remote Skate Routes", () => {
         return await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "missed" } });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: { result: "missed" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.json).toHaveBeenCalledWith(
@@ -742,7 +742,10 @@ describe("Remote Skate Routes", () => {
 
     it("should return 400 with invalid body", async () => {
       mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
-      const req = createReq({ body: { result: "invalid" } });
+      const req = createReq({
+        currentUser: { firebaseUid: "user-2" },
+        body: { result: "invalid" },
+      });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
@@ -756,7 +759,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: { result: "landed" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(404);
@@ -782,7 +785,10 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({
+        currentUser: { firebaseUid: "outsider" },
+        body: { result: "landed" },
+      });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(403);
@@ -808,7 +814,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: { result: "landed" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
@@ -837,7 +843,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: { result: "landed" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(404);
@@ -874,7 +880,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "landed" } });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: { result: "landed" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
@@ -920,7 +926,7 @@ describe("Remote Skate Routes", () => {
     it("should return 500 on unexpected error", async () => {
       mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockRejectedValue(new Error("Unexpected"));
-      const req = createReq();
+      const req = createReq({ currentUser: { firebaseUid: "user-2" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(500);
@@ -929,7 +935,7 @@ describe("Remote Skate Routes", () => {
     it("should return 500 with non-Error rejection", async () => {
       mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockRejectedValue("string error");
-      const req = createReq();
+      const req = createReq({ currentUser: { firebaseUid: "user-2" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.status).toHaveBeenCalledWith(500);
@@ -941,8 +947,8 @@ describe("Remote Skate Routes", () => {
   // ==========================================================================
 
   describe("POST /find-or-create", () => {
-    it("should return 401 with no auth header", async () => {
-      const req = createReq({ headers: {}, params: {}, body: {} });
+    it("should return 401 when currentUser is missing", async () => {
+      const req = createReq({ currentUser: undefined, params: {}, body: {} });
       const res = createRes();
       await callHandler("POST /find-or-create", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
@@ -1109,8 +1115,8 @@ describe("Remote Skate Routes", () => {
   });
 
   describe("POST /:gameId/join", () => {
-    it("should return 401 with no auth header", async () => {
-      const req = createReq({ headers: {} });
+    it("should return 401 when currentUser is missing", async () => {
+      const req = createReq({ currentUser: undefined });
       const res = createRes();
       await callHandler("POST /:gameId/join", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
@@ -1286,8 +1292,8 @@ describe("Remote Skate Routes", () => {
   });
 
   describe("POST /:gameId/cancel", () => {
-    it("should return 401 with no auth header", async () => {
-      const req = createReq({ headers: {} });
+    it("should return 401 when currentUser is missing", async () => {
+      const req = createReq({ currentUser: undefined });
       const res = createRes();
       await callHandler("POST /:gameId/cancel", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
@@ -1335,7 +1341,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "other-user" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/cancel", req, res);
       expect(res.status).toHaveBeenCalledWith(403);
@@ -1401,8 +1407,8 @@ describe("Remote Skate Routes", () => {
   });
 
   describe("POST /:gameId/rounds/:roundId/set-complete", () => {
-    it("should return 401 with no auth header", async () => {
-      const req = createReq({ headers: {} });
+    it("should return 401 when currentUser is missing", async () => {
+      const req = createReq({ currentUser: undefined });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/set-complete", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
@@ -1502,7 +1508,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/set-complete", req, res);
       expect(res.status).toHaveBeenCalledWith(403);
@@ -1667,8 +1673,8 @@ describe("Remote Skate Routes", () => {
   });
 
   describe("POST /:gameId/rounds/:roundId/reply-complete", () => {
-    it("should return 401 with no auth header", async () => {
-      const req = createReq({ headers: {} });
+    it("should return 401 when currentUser is missing", async () => {
+      const req = createReq({ currentUser: undefined });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.status).toHaveBeenCalledWith(401);
@@ -1704,7 +1710,7 @@ describe("Remote Skate Routes", () => {
         );
       });
 
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.json).toHaveBeenCalledWith({ success: true });
@@ -1766,7 +1772,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
@@ -1802,7 +1808,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.json).toHaveBeenCalledWith({ success: true });
@@ -1836,7 +1842,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.json).toHaveBeenCalledWith({ success: true });
@@ -1845,7 +1851,7 @@ describe("Remote Skate Routes", () => {
     it("should return 500 on unexpected error", async () => {
       mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockRejectedValue(new Error("Unexpected"));
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.status).toHaveBeenCalledWith(500);
@@ -1863,7 +1869,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.status).toHaveBeenCalledWith(404);
@@ -1909,7 +1915,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.status).toHaveBeenCalledWith(400);
@@ -1933,7 +1939,7 @@ describe("Remote Skate Routes", () => {
         await fn(transaction);
       });
 
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.status).toHaveBeenCalledWith(404);
@@ -1942,7 +1948,7 @@ describe("Remote Skate Routes", () => {
     it("should return 500 with non-Error rejection", async () => {
       mockVerifyIdToken.mockResolvedValue({ uid: "user-2" });
       mockTransaction.mockRejectedValue("string error");
-      const req = createReq({ body: {} });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
       expect(res.status).toHaveBeenCalledWith(500);
@@ -2138,7 +2144,7 @@ describe("Remote Skate Routes", () => {
         // Post-transaction game lookup returns non-existent
         mockDocGet.mockResolvedValueOnce({ exists: false, data: () => null });
 
-        const req = createReq({ body: {} });
+        const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: {} });
         const res = createRes();
         await callHandler("POST /:gameId/rounds/:roundId/reply-complete", req, res);
         expect(res.json).toHaveBeenCalledWith({ success: true });
@@ -2406,7 +2412,7 @@ describe("Remote Skate Routes", () => {
         return await fn(transaction);
       });
 
-      const req = createReq({ body: { result: "missed" } });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: { result: "missed" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.json).toHaveBeenCalledWith(
@@ -2455,7 +2461,7 @@ describe("Remote Skate Routes", () => {
         return result;
       });
 
-      const req = createReq({ body: { result: "missed" } });
+      const req = createReq({ currentUser: { firebaseUid: "user-2" }, body: { result: "missed" } });
       const res = createRes();
       await callHandler("POST /:gameId/rounds/:roundId/confirm", req, res);
       expect(res.json).toHaveBeenCalledWith(

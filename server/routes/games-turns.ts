@@ -76,7 +76,7 @@ router.post("/:id/turns", async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    Errors.internal(res, "TURN_SUBMIT_FAILED", "Failed to submit turn.");
+    return Errors.internal(res, "TURN_SUBMIT_FAILED", "Failed to submit turn.");
   }
 });
 
@@ -137,7 +137,7 @@ router.post("/turns/:turnId/judge", async (req, res) => {
       turnId,
       userId: currentUserId,
     });
-    Errors.internal(res, "JUDGE_FAILED", "Failed to judge turn.");
+    return Errors.internal(res, "JUDGE_FAILED", "Failed to judge turn.");
   }
 });
 
@@ -181,7 +181,7 @@ router.post("/:id/setter-bail", async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    Errors.internal(res, "SETTER_BAIL_FAILED", "Failed to process setter bail.");
+    return Errors.internal(res, "SETTER_BAIL_FAILED", "Failed to process setter bail.");
   }
 });
 

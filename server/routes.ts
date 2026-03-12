@@ -45,7 +45,7 @@ export function registerRoutes(app: Express): void {
   app.use("/api/tier", tierRouter);
   app.use("/webhooks/stripe", stripeWebhookRouter);
   app.use("/api/notifications", notificationsRouter);
-  app.use("/api/remote-skate", remoteSkateLimiter, remoteSkateRouter);
+  app.use("/api/remote-skate", remoteSkateLimiter, authenticateUser, remoteSkateRouter);
   app.use("/api/spots", express.json({ limit: UPLOAD_BODY_PARSE_LIMIT }), spotsRouter);
   app.use("/api/posts", postsRouter);
   app.use("/api/users", usersRouter);

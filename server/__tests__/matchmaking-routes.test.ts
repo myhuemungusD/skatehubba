@@ -42,10 +42,17 @@ vi.mock("@shared/schema", () => ({
     pushToken: "pushToken",
     isActive: "isActive",
   },
+  games: {
+    player1Id: "player1Id",
+    player2Id: "player2Id",
+    status: "status",
+  },
 }));
 
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
+  and: vi.fn(),
+  or: vi.fn(),
 }));
 
 // Capture route handlers via mock Router
@@ -89,14 +96,27 @@ function mockRes() {
   return res;
 }
 
-function buildMatchmakingDb(users: any[]) {
+function buildMatchmakingDb(users: any[], pendingGames: any[] = []) {
+  let selectCallCount = 0;
   return {
-    select: vi.fn().mockReturnValue({
-      from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue(users),
+    select: vi.fn().mockImplementation(() => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        // First select: customUsers query
+        return {
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue({
+              limit: vi.fn().mockResolvedValue(users),
+            }),
+          }),
+        };
+      }
+      // Second select: pending games query
+      return {
+        from: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(pendingGames),
         }),
-      }),
+      };
     }),
   };
 }
