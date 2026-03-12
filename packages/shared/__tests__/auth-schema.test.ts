@@ -10,6 +10,7 @@
  * the schema is imported and used.
  */
 
+import { getTableColumns } from "drizzle-orm";
 import {
   customUsers,
   usernames,
@@ -54,8 +55,7 @@ describe("auth schema tables", () => {
   });
 
   it("authSessions has userId column referencing customUsers (covers line 67)", () => {
-    // Access the column configuration to exercise the foreign key reference code
-    const columns = authSessions as Record<string, any>;
+    const columns = getTableColumns(authSessions);
     expect(columns.userId).toBeDefined();
     expect(columns.userId.name).toBe("user_id");
   });
@@ -77,7 +77,7 @@ describe("auth schema tables", () => {
   });
 
   it("mfaSecrets has userId column referencing customUsers (covers line 128)", () => {
-    const columns = mfaSecrets as Record<string, any>;
+    const columns = getTableColumns(mfaSecrets);
     expect(columns.userId).toBeDefined();
     expect(columns.userId.name).toBe("user_id");
   });

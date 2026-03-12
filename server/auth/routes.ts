@@ -19,8 +19,11 @@ import { setupMfaRoutes } from "./routes/mfa.ts";
 import { setupEmailVerificationRoutes } from "./routes/emailVerification.ts";
 import { setupPasswordRoutes } from "./routes/password.ts";
 import { setupReauthRoutes } from "./routes/reauth.ts";
+import { noCache } from "../middleware/cacheControl.ts";
 
 export function setupAuthRoutes(app: Express) {
+  app.use("/api/auth", noCache);
+
   setupLoginRoutes(app);
   setupMfaRoutes(app);
   setupEmailVerificationRoutes(app);

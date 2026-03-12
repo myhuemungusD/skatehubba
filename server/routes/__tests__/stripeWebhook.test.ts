@@ -226,6 +226,7 @@ describe("Stripe Webhook Handler (Server Routes)", () => {
       status: vi.fn().mockReturnThis(),
       send: vi.fn().mockReturnThis(),
       json: vi.fn().mockReturnThis(),
+      set: vi.fn().mockReturnThis(),
     };
     return res;
   }
