@@ -101,9 +101,8 @@ export class SpotStorage {
       .orderBy(desc(spots.createdAt))
       .$dynamic();
 
-    if (filters.limit) {
-      baseQuery.limit(filters.limit);
-    }
+    // Default safety cap prevents unbounded result sets
+    baseQuery.limit(filters.limit ?? 500);
     if (filters.offset) {
       baseQuery.offset(filters.offset);
     }
@@ -348,7 +347,8 @@ export class SpotStorage {
       .from(spots)
       .leftJoin(customUsers, eq(spots.createdBy, customUsers.id))
       .where(and(eq(spots.createdBy, userId), eq(spots.isActive, true)))
-      .orderBy(desc(spots.createdAt));
+      .orderBy(desc(spots.createdAt))
+      .limit(200);
 
     return results.map((row: SpotQueryRow) => ({
       ...row,

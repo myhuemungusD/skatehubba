@@ -11,6 +11,7 @@ import {
   ProfilePage,
   MapPage,
   CheckinsPage,
+  DiscoverPage,
   RankingsPage,
   SpotDetailPage,
   TrickMintPage,
@@ -123,6 +124,16 @@ export function DashboardMapRoute() {
     <DashboardLayout>
       <RouteErrorBoundary fallbackMessage="Failed to load the map.">
         <MapPage />
+      </RouteErrorBoundary>
+    </DashboardLayout>
+  );
+}
+
+export function DashboardDiscoverRoute() {
+  return (
+    <DashboardLayout>
+      <RouteErrorBoundary fallbackMessage="Failed to load skater discovery.">
+        <DiscoverPage />
       </RouteErrorBoundary>
     </DashboardLayout>
   );

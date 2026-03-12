@@ -468,13 +468,15 @@ router.get("/:id", async (req, res) => {
       .select()
       .from(gameTurns)
       .where(eq(gameTurns.gameId, gameId))
-      .orderBy(gameTurns.turnNumber);
+      .orderBy(gameTurns.turnNumber)
+      .limit(50);
 
     const disputes = await db
       .select()
       .from(gameDisputes)
       .where(eq(gameDisputes.gameId, gameId))
-      .orderBy(gameDisputes.createdAt);
+      .orderBy(gameDisputes.createdAt)
+      .limit(50);
 
     const isMyTurn = game.currentTurn === currentUserId;
     const pendingSetTurn = turns.find(
