@@ -92,7 +92,7 @@ router.post("/:id/forfeit", async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    Errors.internal(res, "FORFEIT_FAILED", "Failed to forfeit game.");
+    return Errors.internal(res, "FORFEIT_FAILED", "Failed to forfeit game.");
   }
 });
 
@@ -160,7 +160,7 @@ router.get("/my-games", async (req, res) => {
       error,
       userId: currentUserId,
     });
-    Errors.internal(res, "GAMES_FETCH_FAILED", "Failed to fetch games.");
+    return Errors.internal(res, "GAMES_FETCH_FAILED", "Failed to fetch games.");
   }
 });
 
@@ -282,7 +282,7 @@ router.get("/leaderboard", async (_req, res) => {
     res.json({ entries });
   } catch (error) {
     logger.error("[Games] Failed to fetch leaderboard", { error });
-    Errors.internal(res, "LEADERBOARD_FETCH_FAILED", "Failed to fetch leaderboard.");
+    return Errors.internal(res, "LEADERBOARD_FETCH_FAILED", "Failed to fetch leaderboard.");
   }
 });
 
@@ -429,7 +429,7 @@ router.get("/stats/me", async (req, res) => {
       error,
       userId: currentUserId,
     });
-    Errors.internal(res, "STATS_FETCH_FAILED", "Failed to fetch stats.");
+    return Errors.internal(res, "STATS_FETCH_FAILED", "Failed to fetch stats.");
   }
 });
 
@@ -502,7 +502,7 @@ router.get("/:id", async (req, res) => {
       gameId,
       userId: currentUserId,
     });
-    Errors.internal(res, "GAME_FETCH_FAILED", "Failed to fetch game.");
+    return Errors.internal(res, "GAME_FETCH_FAILED", "Failed to fetch game.");
   }
 });
 
