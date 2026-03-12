@@ -9,6 +9,10 @@ on:
         required: true
         default: "https://skatehubba1.vercel.app"
 
+permissions:
+  contents: read
+  deployments: read
+
 jobs:
   smoke-test:
     if: github.event.deployment_status.state == 'success' || github.event_name == 'workflow_dispatch'
