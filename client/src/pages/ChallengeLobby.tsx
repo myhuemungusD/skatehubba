@@ -313,15 +313,10 @@ export default function ChallengeLobby() {
                   <Swords className="w-9 h-9 text-neutral-600" />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-1">No Games Yet</h3>
-                <p className="text-sm text-neutral-500 mb-6 max-w-xs mx-auto">
-                  Search for a skater above to send your first challenge, or invite your crew to
-                  join.
+                <p className="text-sm text-neutral-500 max-w-xs mx-auto">
+                  Search for a skater above to send your first challenge, or tap &ldquo;Invite a
+                  Friend&rdquo; to bring your crew.
                 </p>
-                <InviteButton
-                  variant="default"
-                  label="Invite Friends"
-                  className="bg-gradient-to-r from-orange-500 to-amber-500 text-black font-bold hover:from-orange-600 hover:to-amber-600 shadow-lg shadow-orange-500/25"
-                />
               </div>
             )}
         </>
@@ -334,14 +329,10 @@ export default function ChallengeLobby() {
             <Swords className="w-9 h-9 text-neutral-600" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-1">Ready to Play</h3>
-          <p className="text-sm text-neutral-500 mb-6 max-w-xs mx-auto">
-            Search for a skater above to send your first S.K.A.T.E. challenge.
+          <p className="text-sm text-neutral-500 max-w-xs mx-auto">
+            Search for a skater above to send your first S.K.A.T.E. challenge, or tap &ldquo;Invite
+            a Friend&rdquo; to bring your crew.
           </p>
-          <InviteButton
-            variant="default"
-            label="Invite Friends"
-            className="bg-gradient-to-r from-orange-500 to-amber-500 text-black font-bold hover:from-orange-600 hover:to-amber-600 shadow-lg shadow-orange-500/25"
-          />
         </div>
       )}
 

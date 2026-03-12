@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Share2, Check, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -23,6 +23,13 @@ export function InviteButton({
   const { toast } = useToast();
   const { profile } = useAuth();
   const [copied, setCopied] = useState(false);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  useEffect(() => {
+    return () => {
+      clearTimeout(copiedTimerRef.current);
+    };
+  }, []);
 
   const username = profile?.username;
   const inviteUrl = username
@@ -54,7 +61,8 @@ export function InviteButton({
       await navigator.clipboard.writeText(clipboardText);
       setCopied(true);
       toast({ title: "Invite link copied!" });
-      setTimeout(() => setCopied(false), 2000);
+      clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       toast({ title: "Could not copy link", variant: "destructive" });
     }
@@ -63,9 +71,12 @@ export function InviteButton({
   if (prominent) {
     return (
       <button
+        type="button"
         onClick={handleInvite}
+        aria-label={username ? `Invite a friend as @${username}` : "Invite a friend to SkateHubba"}
+        data-testid="invite-button-prominent"
         className={cn(
-          "w-full flex items-center gap-4 rounded-xl border-2 border-dashed border-orange-500/40 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/10 p-4 hover:border-orange-500/70 hover:from-orange-500/20 hover:via-amber-500/20 hover:to-orange-500/20 transition-all group active:scale-[0.98]",
+          "w-full flex items-center gap-4 rounded-xl border-2 border-dashed border-orange-500/40 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/10 p-4 hover:border-orange-500/70 hover:from-orange-500/20 hover:via-amber-500/20 hover:to-orange-500/20 transition-all group active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2 focus-visible:ring-offset-neutral-950",
           copied && "border-green-500/50 from-green-500/10 via-green-500/10 to-green-500/10",
           className
         )}
@@ -113,6 +124,7 @@ export function InviteButton({
       variant={variant}
       size={size}
       onClick={handleInvite}
+      data-testid="invite-button"
       className={cn(
         "transition-all duration-200",
         copied && variant !== "ghost" && "border-green-500/50 text-green-400",
