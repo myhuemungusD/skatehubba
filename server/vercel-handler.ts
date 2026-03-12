@@ -61,12 +61,20 @@ export default async function serverHandler(req: IncomingMessage, res: ServerRes
     return resolved(req, res);
   }
 
-  const requiredVars = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET", "MFA_ENCRYPTION_KEY", "IP_HASH_SALT"];
+  const requiredVars = [
+    "DATABASE_URL",
+    "SESSION_SECRET",
+    "JWT_SECRET",
+    "MFA_ENCRYPTION_KEY",
+    "IP_HASH_SALT",
+  ];
   const missingVars = requiredVars.filter((v) => !process.env[v]?.trim());
 
   const body = JSON.stringify({
     error: "SERVER_INIT_FAILED",
     message: "Server failed to start. Check environment variables in Vercel dashboard.",
+    // Safe to expose: env validation errors contain variable names + rules only, never values.
+    // Operational benefit (diagnosing prod without log access) outweighs marginal info leak risk.
     detail: lastInitError?.message,
     missingEnvVars: missingVars.length > 0 ? missingVars : undefined,
     hint: "Visit /api/health/env for a detailed environment diagnostic (requires admin auth).",

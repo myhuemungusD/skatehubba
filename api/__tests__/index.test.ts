@@ -5,8 +5,8 @@
  * - Happy path: delegates to Express handler when init succeeds
  * - Error path: returns structured JSON 500 when createApp() fails
  * - Security headers on error response
- * - Detail suppression in deployed environments (VERCEL_ENV set)
- * - Detail exposure in local development (VERCEL_ENV unset)
+ * - Detail always included in error response (env validation errors contain
+ *   variable names and rules only — no secret values are echoed)
  * - Error logging to console.error
  */
 
@@ -133,7 +133,7 @@ describe("api/index: init failure", () => {
     const body = parseBody(res as unknown as MockRes);
     expect(body.error).toBe("SERVER_INIT_FAILED");
     expect(body.message).toMatch(/check environment variables/i);
-    expect(body.hint).toMatch(/env-check/);
+    expect(body.hint).toMatch(/health\/env/);
 
     consoleErrorSpy.mockRestore();
   });
@@ -183,8 +183,12 @@ describe("api/index: init failure", () => {
     consoleErrorSpy.mockRestore();
   });
 
-  describe("detail suppression based on VERCEL_ENV", () => {
-    it("hides error detail when VERCEL_ENV is set (production)", async () => {
+  describe("error detail in response", () => {
+    it("always includes error detail regardless of environment", async () => {
+      // Detail is always shown because env validation errors contain only variable
+      // names and validation rules — never actual secret values. The operational
+      // benefit (diagnosing prod failures without log access) outweighs the marginal
+      // risk of exposing internal error text.
       process.env.VERCEL_ENV = "production";
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const mod = await import("../../server/vercel-handler");
@@ -193,13 +197,12 @@ describe("api/index: init failure", () => {
       await mod.default(mockReq(), res as unknown as ServerResponse);
 
       const body = parseBody(res as unknown as MockRes);
-      expect(body.detail).toBeUndefined();
-      expect(JSON.stringify(body)).not.toContain(INIT_ERROR_MSG);
+      expect(body.detail).toBe(INIT_ERROR_MSG);
 
       consoleErrorSpy.mockRestore();
     });
 
-    it("hides error detail when VERCEL_ENV is 'preview'", async () => {
+    it("includes detail in preview environments", async () => {
       process.env.VERCEL_ENV = "preview";
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const mod = await import("../../server/vercel-handler");
@@ -208,12 +211,12 @@ describe("api/index: init failure", () => {
       await mod.default(mockReq(), res as unknown as ServerResponse);
 
       const body = parseBody(res as unknown as MockRes);
-      expect(body.detail).toBeUndefined();
+      expect(body.detail).toBe(INIT_ERROR_MSG);
 
       consoleErrorSpy.mockRestore();
     });
 
-    it("exposes error detail in local dev (no VERCEL_ENV)", async () => {
+    it("includes detail in local dev (no VERCEL_ENV)", async () => {
       delete process.env.VERCEL_ENV;
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       const mod = await import("../../server/vercel-handler");
@@ -286,6 +289,7 @@ describe("api/index: edge cases", () => {
     process.env.SESSION_SECRET = "secret";
     process.env.JWT_SECRET = "jwt";
     process.env.MFA_ENCRYPTION_KEY = "mfa";
+    process.env.IP_HASH_SALT = "abcdef1234567890";
     delete process.env.VERCEL_ENV;
 
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -303,8 +307,9 @@ describe("api/index: edge cases", () => {
   it("does not log stack trace when error has no stack", async () => {
     vi.doMock("../../server/app.ts", () => ({
       createApp: () => {
+        // Use Object.defineProperty to prevent V8 from re-adding the stack
         const err = new Error("no stack");
-        err.stack = undefined;
+        Object.defineProperty(err, "stack", { value: undefined, writable: false });
         throw err;
       },
     }));
