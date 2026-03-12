@@ -15,10 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: ./.github/actions/setup-pnpm-env
-      
+
       - name: Verify lockfile is up-to-date
         run: |
           echo "Checking if pnpm-lock.yaml matches package.json..."
@@ -35,8 +33,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Show git ref + commit
         run: |
@@ -84,14 +80,14 @@ jobs:
           EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
           EXPO_PUBLIC_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000"
         run: pnpm vitest run --coverage
-        
+
       - name: Generate Coverage Badge
         if: github.ref == 'refs/heads/main'
         uses: jaywcjlove/coverage-badges-cli@main
         with:
           source: coverage/coverage-summary.json
           output: coverage/badge.svg
-          
+
       - name: Upload Coverage Report
         if: success()
         uses: actions/upload-artifact@v4
@@ -181,8 +177,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: ./.github/actions/setup-pnpm-env
 
@@ -207,8 +201,6 @@ jobs:
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: ./.github/actions/setup-pnpm-env
 
@@ -247,8 +239,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Block insecure Firestore/Storage rules
         run: |
@@ -272,8 +262,6 @@ jobs:
       github.repository == 'myhuemungusD/skatehubba'
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: ./.github/actions/setup-pnpm-env
 
@@ -305,7 +293,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for gitleaks to scan commit ranges
+          # Full history needed for gitleaks to scan commit ranges
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Block merge conflict markers
         run: |
