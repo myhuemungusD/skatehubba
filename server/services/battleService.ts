@@ -2,7 +2,7 @@ import { db } from "../db";
 import { logServerEvent } from "./analyticsService";
 import logger from "../logger";
 import { battles, battleVotes } from "../../packages/shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 /**
  * Battle Service
@@ -82,13 +82,41 @@ export async function createBattle(input: CreateBattleInput) {
 }
 
 /**
- * Join an existing battle
+ * Join an existing battle.
+ * For direct challenges, only the intended opponent may join.
+ *
+ * Race-safety: the UPDATE uses `status = 'waiting'` in its WHERE clause
+ * so only one concurrent caller can transition the battle to "active".
+ * The pre-flight SELECT validates business rules (self-join, opponent
+ * reservation) but is NOT the concurrency guard — the WHERE is.
  */
 export async function joinBattle(odv: string, battleId: string) {
   if (!db) {
     throw new Error("Database not available");
   }
 
+  // Pre-flight: validate join eligibility (readable error messages)
+  const [existing] = await db.select().from(battles).where(eq(battles.id, battleId));
+
+  if (!existing) {
+    throw new Error("Battle not found");
+  }
+
+  if (existing.creatorId === odv) {
+    throw new Error("Cannot join your own battle");
+  }
+
+  if (existing.opponentId && existing.opponentId !== odv) {
+    throw new Error("This battle is reserved for a specific opponent");
+  }
+
+  if (existing.status !== "waiting") {
+    throw new Error("Battle is no longer accepting players");
+  }
+
+  // Atomic update — WHERE includes status guard to prevent TOCTOU races.
+  // If another user joined between our SELECT and this UPDATE, zero rows
+  // match and `returning()` yields nothing.
   const [battle] = await db
     .update(battles)
     .set({
@@ -96,11 +124,11 @@ export async function joinBattle(odv: string, battleId: string) {
       status: "active",
       updatedAt: new Date(),
     })
-    .where(eq(battles.id, battleId))
+    .where(and(eq(battles.id, battleId), eq(battles.status, "waiting")))
     .returning();
 
   if (!battle) {
-    throw new Error("Battle not found");
+    throw new Error("Battle is no longer accepting players");
   }
 
   // Log truth event AFTER successful join

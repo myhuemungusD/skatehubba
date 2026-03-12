@@ -19,6 +19,7 @@ import logger from "../logger";
 import { MAX_AVATAR_BYTES, MAX_USERNAME_GENERATION_ATTEMPTS } from "../config/constants";
 import { Errors } from "../utils/apiError";
 import { asyncHandler } from "../utils/asyncHandler";
+import { noCache } from "../middleware/cacheControl";
 
 const router = Router();
 
@@ -56,6 +57,7 @@ const safeRelease = async (
 
 router.get(
   "/me",
+  noCache,
   requireFirebaseUid,
   asyncHandler(async (req, res) => {
     const { firebaseUid } = req as FirebaseAuthedRequest;
