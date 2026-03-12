@@ -179,8 +179,11 @@ test.describe("SEO & Meta Tags", () => {
   });
 
   test("meta description is present", async ({ page }) => {
+    // page.goto() already waits for "load" which fires after DOMContentLoaded.
+    // Avoid an extra waitForLoadState("domcontentloaded") — the client-side
+    // redirect (RootRedirect → /landing via history.replaceState) can confuse
+    // Playwright's navigation state tracker, causing a timeout.
     await page.goto("/");
-    await page.waitForLoadState("domcontentloaded");
     const desc = page.locator('meta[name="description"]');
     await expect(desc).toBeAttached();
     const content = await desc.getAttribute("content");
@@ -195,11 +198,9 @@ test.describe("SEO & Meta Tags", () => {
   });
 
   test("structured data (JSON-LD) is present", async ({ page }) => {
+    // Same as above: skip waitForLoadState to avoid timeout from client-side
+    // redirect. The static JSON-LD in index.html is available immediately.
     await page.goto("/");
-    await page.waitForLoadState("domcontentloaded");
-
-    // Static JSON-LD is in index.html — use auto-waiting toBeAttached()
-    // instead of the non-waiting count() to avoid race conditions.
     const jsonLd = page.locator('script[type="application/ld+json"]');
     await expect(jsonLd.first()).toBeAttached();
 
