@@ -25,7 +25,8 @@ const BLOCKED_PUBLIC_VARS = [
   "EMAIL_APP_PASSWORD",
   "OPENAI_API_KEY",
   "GOOGLE_AI_API_KEY",
-  "SENTRY_DSN",
+  // NOTE: SENTRY_DSN is intentionally NOT blocked — Sentry DSNs are designed
+  // to be public (they only allow event submission, not read access).
 ];
 
 const PUBLIC_PREFIXES = ["EXPO_PUBLIC_", "VITE_"];

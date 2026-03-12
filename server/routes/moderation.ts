@@ -85,11 +85,11 @@ const modActionSchema = z.object({
     "verify_pro",
     "revoke_pro",
   ]),
-  reasonCode: z.string().min(2).max(50),
+  reasonCode: z.string().min(2).max(50).transform(sanitizeTextField),
   notes: z.string().max(500).transform(sanitizeTextField).optional(),
   reversible: z.boolean().default(true),
   expiresAt: z.string().datetime().optional(),
-  relatedReportId: z.string().max(128).optional(),
+  relatedReportId: z.string().max(128).transform(sanitizeTextField).optional(),
 });
 
 moderationRouter.post(
