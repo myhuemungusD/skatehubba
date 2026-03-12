@@ -9,6 +9,7 @@ const BLOCKED_PUBLIC_VARS = [
   // Server-only secrets that must NEVER be prefixed with EXPO_PUBLIC_ or VITE_
   "FIREBASE_ADMIN_KEY",
   "FIREBASE_PRIVATE_KEY",
+  "FIREBASE_CLIENT_EMAIL",
   "DATABASE_URL",
   "SESSION_SECRET",
   "JWT_SECRET",
@@ -17,6 +18,15 @@ const BLOCKED_PUBLIC_VARS = [
   "REDIS_URL",
   "STRIPE_SECRET_KEY",
   "STRIPE_WEBHOOK_SECRET",
+  "TESTING_STRIPE_SECRET_KEY",
+  "ADMIN_API_KEY",
+  "IP_HASH_SALT",
+  "RESEND_API_KEY",
+  "EMAIL_APP_PASSWORD",
+  "OPENAI_API_KEY",
+  "GOOGLE_AI_API_KEY",
+  // NOTE: SENTRY_DSN is intentionally NOT blocked — Sentry DSNs are designed
+  // to be public (they only allow event submission, not read access).
 ];
 
 const PUBLIC_PREFIXES = ["EXPO_PUBLIC_", "VITE_"];

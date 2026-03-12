@@ -16,7 +16,8 @@ router.use(userSearchLimiter);
 router.get("/search", authenticateUser, async (req, res) => {
   const queryParam = req.query.q;
   // Validate query parameter is a string (prevent array injection)
-  if (typeof queryParam !== "string" || queryParam.length < 2) {
+  // Cap length to prevent excessive LIKE queries
+  if (typeof queryParam !== "string" || queryParam.length < 2 || queryParam.length > 100) {
     return res.json([]);
   }
   const query = queryParam;

@@ -1054,7 +1054,7 @@ describe("Auth & Profile Smoke Tests", () => {
   // ===========================================================================
 
   describe("Avatar Validation", () => {
-    it("should reject invalid avatar data URL format", async () => {
+    it("should reject invalid avatar data URL format at schema level", async () => {
       const handlers = profileRouteHandlers["POST /create"];
 
       const req = mockRequest({
@@ -1067,16 +1067,15 @@ describe("Auth & Profile Smoke Tests", () => {
 
       await callHandlers(handlers, req, res);
 
+      // Schema-level validation catches invalid avatar format before handler runs
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "INVALID_AVATAR_FORMAT" })
-      );
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "INVALID_PAYLOAD" }));
     });
 
-    it("should reject unsupported avatar MIME type", async () => {
+    it("should reject unsupported avatar MIME type at schema level", async () => {
       const handlers = profileRouteHandlers["POST /create"];
 
-      // Create a valid data URL with unsupported MIME type
+      // Create a valid data URL with unsupported MIME type — now rejected by Zod schema
       const fakeBase64 = Buffer.from("fake-image").toString("base64");
       const req = mockRequest({
         body: {
@@ -1088,16 +1087,16 @@ describe("Auth & Profile Smoke Tests", () => {
 
       await callHandlers(handlers, req, res);
 
+      // Schema-level validation catches unsupported MIME types before handler runs
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({ error: "INVALID_AVATAR_TYPE" })
-      );
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "INVALID_PAYLOAD" }));
     });
 
-    it("should reject avatar exceeding size limit", async () => {
+    it("should reject avatar exceeding size limit at schema level", async () => {
       const handlers = profileRouteHandlers["POST /create"];
 
-      // Create a data URL with payload > 5MB
+      // Create a data URL exceeding the 7 MB schema limit.
+      // 6 MB raw → ~8 MB base64, well over the 7_000_000 char cap.
       const largeBuffer = Buffer.alloc(6 * 1024 * 1024, "x");
       const largeBase64 = largeBuffer.toString("base64");
       const req = mockRequest({
@@ -1110,11 +1109,12 @@ describe("Auth & Profile Smoke Tests", () => {
 
       await callHandlers(handlers, req, res);
 
-      expect(res.status).toHaveBeenCalledWith(413);
-      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "AVATAR_TOO_LARGE" }));
+      // Schema-level validation catches oversized avatars before handler runs
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: "INVALID_PAYLOAD" }));
     });
 
-    it("should release username on avatar validation failure", async () => {
+    it("should not reserve username when avatar validation fails at schema level", async () => {
       const handlers = profileRouteHandlers["POST /create"];
 
       const req = mockRequest({
@@ -1127,7 +1127,8 @@ describe("Auth & Profile Smoke Tests", () => {
 
       await callHandlers(handlers, req, res);
 
-      expect(mockRelease).toHaveBeenCalledWith("test-firebase-uid");
+      // Schema validation fails before username reservation, so release is never needed
+      expect(mockRelease).not.toHaveBeenCalled();
     });
   });
 

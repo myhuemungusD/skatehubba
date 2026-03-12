@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { sanitizeText } from "../validation/sanitize";
 import {
   pgEnum,
   pgTable,
@@ -192,16 +193,26 @@ export const checkinNonces = pgTable(
 );
 
 export const insertSpotSchema = createInsertSchema(spots, {
-  name: z.string().trim().min(1, "Spot name is required").max(100, "Name too long"),
-  description: z.string().trim().max(1000, "Description too long").optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Spot name is required")
+    .max(100, "Name too long")
+    .transform(sanitizeText),
+  description: z
+    .string()
+    .trim()
+    .max(1000, "Description too long")
+    .transform(sanitizeText)
+    .optional(),
   spotType: z.enum(SPOT_TYPES).optional(),
   tier: z.enum(SPOT_TIERS).optional(),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
-  address: z.string().trim().max(500).optional(),
-  city: z.string().trim().max(100).optional(),
-  state: z.string().trim().max(50).optional(),
-  country: z.string().trim().max(100).optional(),
+  address: z.string().trim().max(500).transform(sanitizeText).optional(),
+  city: z.string().trim().max(100).transform(sanitizeText).optional(),
+  state: z.string().trim().max(50).transform(sanitizeText).optional(),
+  country: z.string().trim().max(100).transform(sanitizeText).optional(),
   photoUrl: z.string().url("Valid image URL required").optional(),
 }).omit({
   id: true,

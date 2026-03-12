@@ -14,14 +14,15 @@ import {
 } from "../services/moderationStore";
 import { Errors } from "../utils/apiError";
 import { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "../config/constants";
+import { sanitizeTextField } from "../utils/sanitize";
 
 export const moderationRouter = Router();
 
 const reportSchema = z.object({
   targetType: z.enum(["user", "post", "checkin", "comment"]),
   targetId: z.string().min(1).max(128),
-  reason: z.string().min(3).max(100),
-  notes: z.string().max(500).optional(),
+  reason: z.string().min(3).max(100).transform(sanitizeTextField),
+  notes: z.string().max(500).transform(sanitizeTextField).optional(),
 });
 
 moderationRouter.post(
@@ -31,7 +32,12 @@ moderationRouter.post(
   async (req, res) => {
     const parsed = reportSchema.safeParse(req.body);
     if (!parsed.success) {
-      return Errors.validation(res, parsed.error.flatten(), "INVALID_REPORT", "Invalid report data.");
+      return Errors.validation(
+        res,
+        parsed.error.flatten(),
+        "INVALID_REPORT",
+        "Invalid report data."
+      );
     }
 
     const reporterId = req.currentUser?.id;
@@ -60,7 +66,10 @@ moderationRouter.get(
   async (req, res) => {
     const status = typeof req.query.status === "string" ? req.query.status : undefined;
     const page = Math.max(1, Number(req.query.page) || 1);
-    const limit = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(req.query.limit) || DEFAULT_PAGE_SIZE));
+    const limit = Math.min(
+      MAX_PAGE_SIZE,
+      Math.max(1, Number(req.query.limit) || DEFAULT_PAGE_SIZE)
+    );
     const { reports, total } = await listReports(status, page, limit);
     return res.status(200).json({ reports, total, page, limit });
   }
@@ -76,11 +85,11 @@ const modActionSchema = z.object({
     "verify_pro",
     "revoke_pro",
   ]),
-  reasonCode: z.string().min(2).max(50),
-  notes: z.string().max(500).optional(),
+  reasonCode: z.string().min(2).max(50).transform(sanitizeTextField),
+  notes: z.string().max(500).transform(sanitizeTextField).optional(),
   reversible: z.boolean().default(true),
   expiresAt: z.string().datetime().optional(),
-  relatedReportId: z.string().max(128).optional(),
+  relatedReportId: z.string().max(128).transform(sanitizeTextField).optional(),
 });
 
 moderationRouter.post(
@@ -92,7 +101,12 @@ moderationRouter.post(
   async (req, res) => {
     const parsed = modActionSchema.safeParse(req.body);
     if (!parsed.success) {
-      return Errors.validation(res, parsed.error.flatten(), "INVALID_MOD_ACTION", "Invalid moderation action.");
+      return Errors.validation(
+        res,
+        parsed.error.flatten(),
+        "INVALID_MOD_ACTION",
+        "Invalid moderation action."
+      );
     }
 
     const adminId = req.currentUser?.id;
@@ -118,8 +132,8 @@ moderationRouter.post(
 const proVerificationSchema = z.object({
   userId: z.string().min(1),
   status: z.enum(["none", "pending", "verified", "rejected"]),
-  evidence: z.array(z.string().min(3).max(200)).default([]),
-  notes: z.string().max(500).optional(),
+  evidence: z.array(z.string().min(3).max(200).transform(sanitizeTextField)).default([]),
+  notes: z.string().max(500).transform(sanitizeTextField).optional(),
 });
 
 moderationRouter.post(
@@ -131,7 +145,12 @@ moderationRouter.post(
   async (req, res) => {
     const parsed = proVerificationSchema.safeParse(req.body);
     if (!parsed.success) {
-      return Errors.validation(res, parsed.error.flatten(), "INVALID_PRO_VERIFICATION", "Invalid pro verification data.");
+      return Errors.validation(
+        res,
+        parsed.error.flatten(),
+        "INVALID_PRO_VERIFICATION",
+        "Invalid pro verification data."
+      );
     }
 
     const adminId = req.currentUser?.id;

@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   # Lockfile integrity check - fails fast if package.json and lockfile are out of sync
   lockfile_check:
@@ -13,9 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref }}
       - uses: ./.github/actions/setup-pnpm-env
-      
+
       - name: Verify lockfile is up-to-date
         run: |
           echo "Checking if pnpm-lock.yaml matches package.json..."
@@ -33,7 +36,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref }}
 
       - name: Show git ref + commit
         run: |
@@ -81,14 +84,14 @@ jobs:
           EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "000000000000"
           EXPO_PUBLIC_FIREBASE_APP_ID: "1:000000000000:web:0000000000000000"
         run: pnpm vitest run --coverage
-        
+
       - name: Generate Coverage Badge
         if: github.ref == 'refs/heads/main'
         uses: jaywcjlove/coverage-badges-cli@main
         with:
           source: coverage/coverage-summary.json
           output: coverage/badge.svg
-          
+
       - name: Upload Coverage Report
         if: success()
         uses: actions/upload-artifact@v4
@@ -116,6 +119,8 @@ jobs:
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
 
       - uses: ./.github/actions/setup-pnpm-env
 
@@ -143,6 +148,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref }}
 
       - uses: ./.github/actions/setup-pnpm-env
 
@@ -179,7 +186,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref }}
 
       - uses: ./.github/actions/setup-pnpm-env
 
@@ -205,7 +212,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref }}
 
       - uses: ./.github/actions/setup-pnpm-env
 
@@ -245,7 +252,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref }}
 
       - name: Block insecure Firestore/Storage rules
         run: |
@@ -270,7 +277,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref }}
 
       - uses: ./.github/actions/setup-pnpm-env
 
@@ -302,7 +309,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for gitleaks to scan commit ranges
+          # Full history needed for gitleaks to scan commit ranges
+          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref }}
+
+      - name: Fetch base branch for PR comparison
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }} --depth=1
 
       - name: Block merge conflict markers
         run: |
@@ -311,8 +324,11 @@ jobs:
             --exclude-dir=.git \
             --exclude=pnpm-lock.yaml
 
+      - name: Install gitleaks
+        run: |
+          VERSION=$(curl -sS https://api.github.com/repos/gitleaks/gitleaks/releases/latest | grep '"tag_name"' | cut -d'"' -f4)
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/${VERSION}/gitleaks_${VERSION#v}_linux_x64.tar.gz" \
+            | tar -xz -C /usr/local/bin gitleaks
+
       - name: Gitleaks scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        run: gitleaks detect --source=. --verbose --log-opts="$GITHUB_SHA"

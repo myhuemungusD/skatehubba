@@ -16,15 +16,26 @@ const rootDir = join(__dirname, '..');
 // Sensitive patterns that should NEVER be in code
 const FORBIDDEN_PATTERNS = [
   { pattern: /AIza[0-9A-Za-z-_]{35}/, name: 'Google API Key' },
-  { pattern: /-----BEGIN (RSA |EC )?PRIVATE KEY-----/, name: 'Private Key' },
+  { pattern: /-----BEGIN (RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/, name: 'Private Key' },
   { pattern: /ghp_[0-9a-zA-Z]{36}/, name: 'GitHub Personal Access Token' },
-  { pattern: /sk_live_[0-9a-zA-Z]{24,}/, name: 'Stripe Live Key' },
+  { pattern: /gho_[0-9a-zA-Z]{36}/, name: 'GitHub OAuth Token' },
+  { pattern: /github_pat_[0-9a-zA-Z_]{22,}/, name: 'GitHub Fine-Grained PAT' },
+  { pattern: /sk_live_[0-9a-zA-Z]{24,}/, name: 'Stripe Live Secret Key' },
+  { pattern: /rk_live_[0-9a-zA-Z]{24,}/, name: 'Stripe Live Restricted Key' },
+  { pattern: /whsec_[0-9a-zA-Z]{32,}/, name: 'Stripe Webhook Secret' },
   { pattern: /sk-[a-zA-Z0-9]{48}/, name: 'OpenAI API Key' },
+  { pattern: /sk-proj-[a-zA-Z0-9_-]{48,}/, name: 'OpenAI Project Key' },
+  { pattern: /sk-ant-[a-zA-Z0-9_-]{90,}/, name: 'Anthropic API Key' },
   { pattern: /AKIA[0-9A-Z]{16}/, name: 'AWS Access Key ID' },
   { pattern: /mongodb\+srv:\/\/[^\s"']+/, name: 'MongoDB Connection String' },
+  { pattern: /postgres(ql)?:\/\/[^:\s]+:[^@\s]+@[^\s"']+/, name: 'PostgreSQL Connection String with Password' },
   { pattern: /https:\/\/hooks\.slack\.com\/services\/[^\s"']+/, name: 'Slack Webhook URL' },
   { pattern: /xoxb-[0-9A-Za-z-]+/, name: 'Slack Bot Token' },
+  { pattern: /xoxp-[0-9A-Za-z-]+/, name: 'Slack User Token' },
   { pattern: /SG\.[a-zA-Z0-9_-]{22}\.[a-zA-Z0-9_-]{43}/, name: 'SendGrid API Key' },
+  { pattern: /twilio[_\s]*(?:auth|token)[_\s]*[:=]\s*["'][0-9a-f]{32}["']/i, name: 'Twilio Auth Token' },
+  { pattern: /re_[a-zA-Z0-9]{20,}/, name: 'Resend API Key' },
+  { pattern: /neon:\/\/[^\s"']+/, name: 'Neon Database URL' },
 ];
 
 const errors = [];

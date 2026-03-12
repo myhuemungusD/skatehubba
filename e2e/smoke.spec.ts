@@ -170,41 +170,68 @@ test.describe("Legacy Route Redirects", () => {
 // =============================================================================
 
 test.describe("SEO & Meta Tags", () => {
+  // Navigate to /landing — the canonical page crawlers and users see.
+  // The "/" route is a redirect trampoline (RootRedirect → /landing or /hub).
+  // Every navigation in this suite MUST use waitForLoadState("networkidle")
+  // because Vercel preview deployments have cold starts and the JS bundle
+  // (Firebase alone is ~570 KB) can delay the "load" event past the 30 s
+  // test timeout. Without "networkidle", page.goto() may timeout.
+
   test("viewport meta tag is present", async ({ page }) => {
-    await page.goto("/");
-    const viewport = page.locator('meta[name="viewport"]');
-    await expect(viewport).toBeAttached();
-    const content = await viewport.getAttribute("content");
-    expect(content).toContain("width=");
+    await page.goto("/landing");
+    await page.waitForLoadState("networkidle");
+    const content = await page.evaluate(() =>
+      document.querySelector('meta[name="viewport"]')?.getAttribute("content")
+    );
+    expect(content, "viewport meta tag must exist with width directive").toContain("width=");
   });
 
-  test("meta description is present", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForLoadState("domcontentloaded");
-    const desc = page.locator('meta[name="description"]');
-    await expect(desc).toBeAttached();
-    const content = await desc.getAttribute("content");
-    expect(content).toBeTruthy();
-    expect(content!.length).toBeGreaterThan(10);
+  test("meta description is present and well-formed", async ({ page }) => {
+    await page.goto("/landing");
+    await page.waitForLoadState("networkidle");
+    const content = await page.evaluate(() =>
+      document.querySelector('meta[name="description"]')?.getAttribute("content")
+    );
+    expect(content, "meta description tag must exist in <head>").toBeTruthy();
+    expect(content!.length, "meta description must be meaningful (>10 chars)").toBeGreaterThan(10);
+    expect(
+      content!.length,
+      "meta description should fit in SERP snippet (≤160 chars)"
+    ).toBeLessThanOrEqual(160);
   });
 
   test("charset is declared", async ({ page }) => {
-    await page.goto("/");
-    const charset = page.locator('meta[charset], meta[http-equiv="Content-Type"]');
-    await expect(charset.first()).toBeAttached();
+    await page.goto("/landing");
+    await page.waitForLoadState("networkidle");
+    const hasCharset = await page.evaluate(
+      () =>
+        !!(
+          document.querySelector("meta[charset]") ||
+          document.querySelector('meta[http-equiv="Content-Type"]')
+        )
+    );
+    expect(hasCharset, "charset declaration must exist").toBe(true);
   });
 
-  test("structured data (JSON-LD) is present", async ({ page }) => {
-    await page.goto("/");
-    await page.waitForLoadState("domcontentloaded");
+  test("structured data (JSON-LD) is valid schema.org", async ({ page }) => {
+    await page.goto("/landing");
+    // Wait for networkidle to ensure both the static JSON-LD from index.html
+    // and the React-injected JSON-LD (StructuredData.tsx via createPortal)
+    // are present in the DOM.
+    await page.waitForLoadState("networkidle");
+    const jsonLdContents = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('script[type="application/ld+json"]')).map(
+        (el) => el.textContent
+      )
+    );
+    expect(jsonLdContents.length, "at least one JSON-LD block must exist").toBeGreaterThan(0);
 
-    // Static JSON-LD is in index.html — use auto-waiting toBeAttached()
-    // instead of the non-waiting count() to avoid race conditions.
-    const jsonLd = page.locator('script[type="application/ld+json"]');
-    await expect(jsonLd.first()).toBeAttached();
-
-    const text = await jsonLd.first().textContent();
-    expect(text).toBeTruthy();
-    expect(() => JSON.parse(text!)).not.toThrow();
+    // Validate every JSON-LD block is parseable and uses schema.org
+    for (const raw of jsonLdContents) {
+      expect(raw, "JSON-LD script must have content").toBeTruthy();
+      const parsed = JSON.parse(raw!);
+      expect(parsed["@context"], "JSON-LD must reference schema.org").toBe("https://schema.org");
+      expect(parsed["@type"], "JSON-LD must declare a @type").toBeTruthy();
+    }
   });
 });

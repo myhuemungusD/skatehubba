@@ -78,7 +78,8 @@ adminRouter.get("/stats", ...adminMiddleware, async (_req, res) => {
 adminRouter.get("/users", ...adminMiddleware, async (req, res) => {
   try {
     const db = getDb();
-    const search = typeof req.query.search === "string" ? req.query.search : undefined;
+    const rawSearch = typeof req.query.search === "string" ? req.query.search : undefined;
+    const search = rawSearch && rawSearch.length <= 200 ? rawSearch : undefined;
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(
       MAX_PAGE_SIZE,
