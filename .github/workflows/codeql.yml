@@ -24,7 +24,8 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
-      # Removed fetch-depth: 0 to reduce API calls
+      with:
+        ref: ${{ github.head_ref || github.ref }}
 
     - name: Initialize CodeQL
       uses: github/codeql-action/init@v4
