@@ -22,6 +22,7 @@ const VARS_TO_CHECK = [
   { name: "SESSION_SECRET", required: true, mask: true },
   { name: "JWT_SECRET", required: true, mask: true },
   { name: "MFA_ENCRYPTION_KEY", required: true, mask: true },
+  { name: "IP_HASH_SALT", required: true, mask: true },
 
   // Firebase Admin — auth won't work without at least one option
   { name: "FIREBASE_ADMIN_KEY", required: false, mask: true },

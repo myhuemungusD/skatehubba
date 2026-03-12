@@ -297,7 +297,7 @@ if (missing.length > 0) {
  * will fail.
  */
 function printServerVarChecklist() {
-  const serverRequired = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET", "MFA_ENCRYPTION_KEY"];
+  const serverRequired = ["DATABASE_URL", "SESSION_SECRET", "JWT_SECRET", "MFA_ENCRYPTION_KEY", "IP_HASH_SALT"];
   // FIREBASE_ADMIN_KEY (full service-account JSON) is the easiest option.
   // Alternatively, set all three individual vars below.
   const firebaseAdmin = ["FIREBASE_ADMIN_KEY", "FIREBASE_PROJECT_ID", "FIREBASE_CLIENT_EMAIL", "FIREBASE_PRIVATE_KEY"];
