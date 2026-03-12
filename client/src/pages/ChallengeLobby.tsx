@@ -74,6 +74,9 @@ export default function ChallengeLobby() {
         <UserSearch onChallenge={handleCreateChallenge} isPending={createGame.isPending} />
       </div>
 
+      {/* Invite a Friend — prominent CTA */}
+      <InviteButton prominent />
+
       {/* Find Skaters CTA */}
       <Link
         href="/discover"
@@ -120,7 +123,11 @@ export default function ChallengeLobby() {
                 </Link>
               )}
             </div>
-            <InviteButton size="sm" label="Invite" className="shrink-0" />
+            <InviteButton
+              size="sm"
+              label="Invite"
+              className="shrink-0 bg-orange-500/10 border-orange-500/30 text-orange-400 hover:bg-orange-500/20 hover:border-orange-500/50 font-semibold"
+            />
           </div>
           {myStats && <PlayerStats stats={myStats} />}
           {!myStats && isStatsLoading && (
