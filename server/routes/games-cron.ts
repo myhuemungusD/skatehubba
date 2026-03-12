@@ -27,7 +27,8 @@ export async function forfeitExpiredGames(): Promise<{ forfeited: number }> {
     const expiredGames = await db
       .select()
       .from(games)
-      .where(and(eq(games.status, "active"), lt(games.deadlineAt!, now)));
+      .where(and(eq(games.status, "active"), lt(games.deadlineAt!, now)))
+      .limit(200);
 
     let forfeitedCount = 0;
 
@@ -99,7 +100,8 @@ export async function notifyDeadlineWarnings(): Promise<{
     const urgentGames = await db
       .select()
       .from(games)
-      .where(and(eq(games.status, "active"), lt(games.deadlineAt!, oneHourFromNow)));
+      .where(and(eq(games.status, "active"), lt(games.deadlineAt!, oneHourFromNow)))
+      .limit(200);
 
     let notifiedCount = 0;
 
@@ -152,7 +154,8 @@ export async function forfeitStalledGames(): Promise<{ forfeited: number }> {
     const stalledGames = await db
       .select()
       .from(games)
-      .where(and(eq(games.status, "active"), lt(games.createdAt!, hardCapCutoff)));
+      .where(and(eq(games.status, "active"), lt(games.createdAt!, hardCapCutoff)))
+      .limit(200);
 
     let forfeitedCount = 0;
 

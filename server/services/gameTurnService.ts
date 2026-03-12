@@ -220,19 +220,21 @@ export async function judgeTurn(
   if (!currentTurn || currentTurn.result !== "pending")
     return { ok: false, status: 400, error: "Turn has already been judged" };
 
-  // Verify defender has submitted their response video
-  const responseVideos = await tx
-    .select()
+  // Verify defender has submitted their response video (existence check only)
+  const [responseExists] = await tx
+    .select({ id: gameTurns.id })
     .from(gameTurns)
     .where(
       and(
         eq(gameTurns.gameId, game.id),
         eq(gameTurns.playerId, playerId),
-        eq(gameTurns.turnType, "response")
+        eq(gameTurns.turnType, "response"),
+        sql`${gameTurns.turnNumber} > ${turn.turnNumber}`
       )
-    );
+    )
+    .limit(1);
 
-  const hasResponseForThisRound = responseVideos.some((rv) => rv.turnNumber > turn.turnNumber);
+  const hasResponseForThisRound = !!responseExists;
 
   if (!hasResponseForThisRound)
     return { ok: false, status: 400, error: "You must submit your response video before judging" };
