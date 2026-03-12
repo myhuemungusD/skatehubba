@@ -19,13 +19,9 @@ import { admin } from "../admin";
 import type { Firestore, Transaction } from "firebase-admin/firestore";
 import logger from "../logger";
 import type { Request, Response } from "express";
-import { remoteSkateLimiter } from "../middleware/security";
 import { sendGameNotificationToUser, type TurnRole } from "../services/gameNotificationService";
 
 const router = Router();
-
-// Apply rate limiting to all remote-skate write endpoints
-router.use(remoteSkateLimiter);
 
 import { SKATE_WORD, SKATE_LETTERS_TO_LOSE } from "./games-shared";
 

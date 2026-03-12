@@ -59,7 +59,9 @@ router.post(
         );
 
       const pendingOpponentIds = new Set(
-        pendingGames.map((g) => (g.player1Id === currentUserId ? g.player2Id : g.player1Id))
+        pendingGames
+          .map((g) => (g.player1Id === currentUserId ? g.player2Id : g.player1Id))
+          .filter((id): id is string => id !== null)
       );
 
       // Filter out current user, users without push tokens, and users with pending challenges
