@@ -170,15 +170,16 @@ test.describe("Legacy Route Redirects", () => {
 // =============================================================================
 
 test.describe("SEO & Meta Tags", () => {
-  // Test SEO on /landing — the stable page crawlers and users actually see.
-  // The "/" route is a redirect trampoline (RootRedirect → /landing or /hub)
-  // which introduces flakiness with Playwright's navigation state tracking.
-  // All other smoke tests that hit "/" use waitForLoadState("networkidle")
-  // to survive the redirect; SEO tests don't need that overhead — just hit
-  // the canonical landing page directly.
+  // Navigate to /landing — the canonical page crawlers and users see.
+  // The "/" route is a redirect trampoline (RootRedirect → /landing or /hub).
+  // Every navigation in this suite MUST use waitForLoadState("networkidle")
+  // because Vercel preview deployments have cold starts and the JS bundle
+  // (Firebase alone is ~570 KB) can delay the "load" event past the 30 s
+  // test timeout. Without "networkidle", page.goto() may timeout.
 
   test("viewport meta tag is present", async ({ page }) => {
     await page.goto("/landing");
+    await page.waitForLoadState("networkidle");
     const content = await page.evaluate(() =>
       document.querySelector('meta[name="viewport"]')?.getAttribute("content")
     );
@@ -187,6 +188,7 @@ test.describe("SEO & Meta Tags", () => {
 
   test("meta description is present and well-formed", async ({ page }) => {
     await page.goto("/landing");
+    await page.waitForLoadState("networkidle");
     const content = await page.evaluate(() =>
       document.querySelector('meta[name="description"]')?.getAttribute("content")
     );
@@ -200,6 +202,7 @@ test.describe("SEO & Meta Tags", () => {
 
   test("charset is declared", async ({ page }) => {
     await page.goto("/landing");
+    await page.waitForLoadState("networkidle");
     const hasCharset = await page.evaluate(
       () =>
         !!(
@@ -212,9 +215,10 @@ test.describe("SEO & Meta Tags", () => {
 
   test("structured data (JSON-LD) is valid schema.org", async ({ page }) => {
     await page.goto("/landing");
-    // The static JSON-LD in index.html is present before any JS executes.
-    // React also injects additional JSON-LD via createPortal (StructuredData.tsx)
-    // after mount, but we only assert on the static one for reliability.
+    // Wait for networkidle to ensure both the static JSON-LD from index.html
+    // and the React-injected JSON-LD (StructuredData.tsx via createPortal)
+    // are present in the DOM.
+    await page.waitForLoadState("networkidle");
     const jsonLdContents = await page.evaluate(() =>
       Array.from(document.querySelectorAll('script[type="application/ld+json"]')).map(
         (el) => el.textContent
