@@ -6,6 +6,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { EmailVerificationBanner } from "../EmailVerificationBanner";
 import NotificationBell from "../NotificationBell";
 import { InviteButton } from "../InviteButton";
+import HesherChat from "../HesherChat";
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -125,6 +126,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <div className="mx-auto max-w-4xl px-6 py-8">{children}</div>
           </div>
         </main>
+        <HesherChat />
       </div>
     );
   }
@@ -188,6 +190,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           })}
         </div>
       </nav>
+      <HesherChat />
     </div>
   );
 }
