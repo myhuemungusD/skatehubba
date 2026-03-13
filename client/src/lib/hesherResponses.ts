@@ -3,6 +3,9 @@
  *
  * Responses are organized by topic and matched via keyword patterns.
  * No external API key required.
+ *
+ * IMPORTANT: Order matters — more specific patterns must come before
+ * broader catch-all patterns. Matching is first-match-wins.
  */
 
 interface HesherResponse {
@@ -11,7 +14,7 @@ interface HesherResponse {
 }
 
 const responses: HesherResponse[] = [
-  // Greetings
+  // ── Greetings (exact start-of-message match, low collision risk) ──
   {
     pattern: /^(hey|hi|hello|yo|sup|what'?s up|howdy)\b/i,
     replies: [
@@ -21,7 +24,7 @@ const responses: HesherResponse[] = [
     ],
   },
 
-  // S.K.A.T.E. game — how to play
+  // ── S.K.A.T.E. game — how to play (specific: requires "how" + "play/start" + "game/skate") ──
   {
     pattern: /how.*(play|start|begin|work).*(skate|game|s\.?k\.?a\.?t\.?e)/i,
     replies: [
@@ -29,7 +32,7 @@ const responses: HesherResponse[] = [
     ],
   },
 
-  // S.K.A.T.E. game — general
+  // ── S.K.A.T.E. game — general ──
   {
     pattern: /(skate|s\.?k\.?a\.?t\.?e)\s*(game|match|battle|challenge)/i,
     replies: [
@@ -38,7 +41,7 @@ const responses: HesherResponse[] = [
     ],
   },
 
-  // Challenge / how to challenge
+  // ── Challenge / how to challenge (specific: "challenge" keyword) ──
   {
     pattern: /(how|where).*(challenge|invite|1v1|versus)/i,
     replies: [
@@ -46,7 +49,7 @@ const responses: HesherResponse[] = [
     ],
   },
 
-  // Tricks / filming
+  // ── Tricks / filming ──
   {
     pattern: /(trick|film|record|video|upload|submit)/i,
     replies: [
@@ -55,7 +58,7 @@ const responses: HesherResponse[] = [
     ],
   },
 
-  // Turn / deadline / timer
+  // ── Turn / deadline / timer ──
   {
     pattern: /(turn|deadline|timer|24.?hour|time.?limit|expire)/i,
     replies: [
@@ -63,7 +66,7 @@ const responses: HesherResponse[] = [
     ],
   },
 
-  // Forfeit
+  // ── Forfeit ──
   {
     pattern: /(forfeit|quit|give up|surrender|leave game)/i,
     replies: [
@@ -71,24 +74,24 @@ const responses: HesherResponse[] = [
     ],
   },
 
-  // Spots / map
+  // ── Check-in (before spots, since "check in" is more specific) ──
   {
-    pattern: /(spot|map|location|find.*place|skatepark|park|where.*skate)/i,
+    pattern: /(check.?in|check in|checking in)/i,
+    replies: [
+      "Check-ins let you mark that you're at a spot. Go to the **Map**, find the spot you're at, and hit **Check In**. It uses your location to verify you're actually there. Stack up check-ins to build your skater cred!",
+    ],
+  },
+
+  // ── Spots / map ──
+  {
+    pattern: /(spot|skatepark|park|where.*skate)/i,
     replies: [
       "Check out the **Map** page to find skate spots near you! You can:\n- Browse spots on the interactive map\n- Filter by type (street, park, DIY, etc.)\n- Check in when you're at a spot\n- Add new spots you discover\n\nEvery spot shows who's been there and when.",
       "The Map is your go-to for finding skate spots. Tap any pin to see details, check-ins, and ratings. Found a new spot? You can add it right from the map!",
     ],
   },
 
-  // Check-in
-  {
-    pattern: /(check.?in|check in|checking in|geo|verify)/i,
-    replies: [
-      "Check-ins let you mark that you're at a spot. Go to the **Map**, find the spot you're at, and hit **Check In**. It uses your location to verify you're actually there. Stack up check-ins to build your skater cred!",
-    ],
-  },
-
-  // Profile / settings
+  // ── Profile / settings ──
   {
     pattern: /(profile|setting|account|username|stance|edit.*profile|setup)/i,
     replies: [
@@ -96,15 +99,7 @@ const responses: HesherResponse[] = [
     ],
   },
 
-  // Navigation / where is
-  {
-    pattern: /(where|find|navigate|how.*get|menu|nav|go to)/i,
-    replies: [
-      "Here's the main nav:\n- **Home** — your hub with recent activity\n- **Skaters** — discover and find other skaters\n- **Map** — find and check into skate spots\n- **Play** — start or continue S.K.A.T.E. games\n- **Settings** — manage your profile\n\nOn mobile, use the bottom nav bar. On desktop, it's the sidebar on the left.",
-    ],
-  },
-
-  // XP / levels / leaderboard
+  // ── XP / levels / leaderboard ──
   {
     pattern: /(xp|experience|level|rank|leaderboard|score|points)/i,
     replies: [
@@ -112,15 +107,23 @@ const responses: HesherResponse[] = [
     ],
   },
 
-  // Help / what can you do
+  // ── Help / what can you do ──
   {
-    pattern: /(help|what can you|what do you|how.*use|guide|tutorial)/i,
+    pattern: /(help|what can you|what do you|tutorial)/i,
     replies: [
       'I can help with:\n- **S.K.A.T.E. games** — how to play, challenge friends, rules\n- **Spots & Map** — finding spots, checking in\n- **Profile** — setting up your account\n- **Navigation** — finding your way around the app\n\nJust ask me anything! Try: "How do I start a S.K.A.T.E. game?"',
     ],
   },
 
-  // Thanks
+  // ── Navigation / where is (BROAD — must be near the bottom) ──
+  {
+    pattern: /(navigate|how.*get to|menu|nav\b|go to|where.*find|where.*is)/i,
+    replies: [
+      "Here's the main nav:\n- **Home** — your hub with recent activity\n- **Skaters** — discover and find other skaters\n- **Map** — find and check into skate spots\n- **Play** — start or continue S.K.A.T.E. games\n- **Settings** — manage your profile\n\nOn mobile, use the bottom nav bar. On desktop, it's the sidebar on the left.",
+    ],
+  },
+
+  // ── Thanks ──
   {
     pattern: /(thank|thanks|thx|appreciate|cheers)/i,
     replies: [
@@ -130,7 +133,7 @@ const responses: HesherResponse[] = [
     ],
   },
 
-  // Bye
+  // ── Bye ──
   {
     pattern: /(bye|later|peace|see ya|cya|gtg|gotta go)/i,
     replies: [

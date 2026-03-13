@@ -11,11 +11,16 @@ interface ChatMessage {
 }
 
 const STORAGE_KEY = "hesher-chat-messages";
+const MAX_MESSAGES = 100;
+const MAX_INPUT_LENGTH = 500;
 
 function loadMessages(): ChatMessage[] {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : [];
+    if (!stored) return [];
+    const parsed: ChatMessage[] = JSON.parse(stored);
+    // Trim to max on load in case older data exceeded the limit
+    return parsed.slice(-MAX_MESSAGES);
   } catch {
     return [];
   }
@@ -23,7 +28,7 @@ function loadMessages(): ChatMessage[] {
 
 function saveMessages(messages: ChatMessage[]) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-MAX_MESSAGES)));
   } catch {
     // localStorage may be full or unavailable
   }
@@ -36,6 +41,12 @@ export default function HesherChat() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const inputValueRef = useRef("");
+
+  // Keep ref in sync with input state for use in callbacks
+  useEffect(() => {
+    inputValueRef.current = input;
+  }, [input]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -69,11 +80,11 @@ export default function HesherChat() {
   }, [isOpen, messages.length]);
 
   const sendMessage = useCallback(() => {
-    const trimmed = input.trim();
+    const trimmed = inputValueRef.current.trim();
     if (!trimmed) return;
 
     const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
+      id: crypto.randomUUID(),
       text: trimmed,
       isAI: false,
       timestamp: Date.now(),
@@ -88,18 +99,17 @@ export default function HesherChat() {
       () => {
         const response = getHesherResponse(trimmed);
         const aiMsg: ChatMessage = {
-          id: `ai-${Date.now()}`,
+          id: crypto.randomUUID(),
           text: response,
-          isAI: false, // will be set properly below
+          isAI: true,
           timestamp: Date.now(),
         };
-        aiMsg.isAI = true;
         setMessages((prev) => [...prev, aiMsg]);
         setIsTyping(false);
       },
       400 + Math.random() * 600
     );
-  }, [input]);
+  }, []);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -108,10 +118,10 @@ export default function HesherChat() {
     }
   };
 
-  const clearChat = () => {
+  const clearChat = useCallback(() => {
     setMessages([]);
     localStorage.removeItem(STORAGE_KEY);
-  };
+  }, []);
 
   return (
     <>
@@ -206,6 +216,7 @@ export default function HesherChat() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Ask Hesher anything..."
+                maxLength={MAX_INPUT_LENGTH}
                 className="flex-1 bg-neutral-800 text-white rounded-xl px-4 py-2.5 text-sm border border-neutral-600 focus:border-yellow-400 focus:outline-none placeholder:text-neutral-500"
                 data-testid="hesher-input"
               />

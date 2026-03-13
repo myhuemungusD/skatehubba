@@ -55,5 +55,4 @@ export function registerRoutes(app: Express): void {
   app.use("/api/stats", statsRouter);
   app.use("/api/cron", cronRouter);
   app.use("/api/tutorial", tutorialRouter);
-  app.use("/api", tutorialRouter); // mounts /api/users/:userId/progress and /api/users/:userId/onboarding
 }

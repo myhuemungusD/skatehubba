@@ -1,8 +1,9 @@
 import { Router } from "express";
 import { eq, and } from "drizzle-orm";
-import { tutorialSteps, userProgress } from "@shared/schema";
+import { tutorialSteps, userProgress, updateUserProgressSchema } from "@shared/schema";
 import { getDb } from "../db";
 import logger from "../logger";
+import { authenticateUser } from "../auth/middleware";
 
 const router = Router();
 
@@ -55,11 +56,11 @@ router.get("/steps/:id", async (req, res) => {
   }
 });
 
-// GET /api/users/:userId/progress — get user's tutorial progress
-router.get("/users/:userId/progress", async (req, res) => {
+// GET /api/tutorial/progress — get authenticated user's tutorial progress
+router.get("/progress", authenticateUser, async (req, res) => {
   try {
     const database = getDb();
-    const { userId } = req.params;
+    const userId = req.currentUser!.id;
 
     const progress = await database
       .select()
@@ -75,19 +76,31 @@ router.get("/users/:userId/progress", async (req, res) => {
   }
 });
 
-// POST /api/users/:userId/progress — create progress entry for a step
-router.post("/users/:userId/progress", async (req, res) => {
+// POST /api/tutorial/progress — create progress entry for a step
+router.post("/progress", authenticateUser, async (req, res) => {
   try {
     const database = getDb();
-    const { userId } = req.params;
+    const userId = req.currentUser!.id;
     const { stepId, completed, timeSpent, interactionData } = req.body;
 
-    if (!stepId) {
-      res.status(400).json({ error: "stepId is required" });
+    if (typeof stepId !== "number" || !Number.isInteger(stepId) || stepId < 1) {
+      res.status(400).json({ error: "stepId must be a positive integer" });
       return;
     }
 
-    // Check for existing progress (upsert-like behavior)
+    // Verify the step exists
+    const [step] = await database
+      .select()
+      .from(tutorialSteps)
+      .where(eq(tutorialSteps.id, stepId))
+      .limit(1);
+
+    if (!step) {
+      res.status(404).json({ error: "Tutorial step not found" });
+      return;
+    }
+
+    // Check for existing progress — return 409 if already exists
     const [existing] = await database
       .select()
       .from(userProgress)
@@ -95,7 +108,7 @@ router.post("/users/:userId/progress", async (req, res) => {
       .limit(1);
 
     if (existing) {
-      res.json(existing);
+      res.status(409).json({ error: "Progress entry already exists", existing });
       return;
     }
 
@@ -104,8 +117,9 @@ router.post("/users/:userId/progress", async (req, res) => {
       .values({
         userId,
         stepId,
-        completed: completed ?? false,
-        timeSpent: timeSpent ?? 0,
+        completed: completed === true,
+        completedAt: completed === true ? new Date() : null,
+        timeSpent: typeof timeSpent === "number" ? timeSpent : 0,
         interactionData: interactionData ?? null,
       })
       .returning();
@@ -119,11 +133,11 @@ router.post("/users/:userId/progress", async (req, res) => {
   }
 });
 
-// PATCH /api/users/:userId/progress/:stepId — update progress for a step
-router.patch("/users/:userId/progress/:stepId", async (req, res) => {
+// PATCH /api/tutorial/progress/:stepId — update progress for a step
+router.patch("/progress/:stepId", authenticateUser, async (req, res) => {
   try {
     const database = getDb();
-    const { userId } = req.params;
+    const userId = req.currentUser!.id;
     const stepId = parseInt(req.params.stepId, 10);
 
     if (isNaN(stepId)) {
@@ -131,13 +145,25 @@ router.patch("/users/:userId/progress/:stepId", async (req, res) => {
       return;
     }
 
-    const { completed, timeSpent, interactionData } = req.body;
+    // Validate body with Zod schema
+    const parsed = updateUserProgressSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid request body", details: parsed.error.flatten() });
+      return;
+    }
+
+    const { completed, timeSpent, interactionData } = parsed.data;
 
     const updates: Record<string, unknown> = {};
     if (completed !== undefined) updates.completed = completed;
     if (timeSpent !== undefined) updates.timeSpent = timeSpent;
     if (interactionData !== undefined) updates.interactionData = interactionData;
     if (completed === true) updates.completedAt = new Date();
+
+    if (Object.keys(updates).length === 0) {
+      res.status(400).json({ error: "No valid fields to update" });
+      return;
+    }
 
     const [updated] = await database
       .update(userProgress)
@@ -159,13 +185,11 @@ router.patch("/users/:userId/progress/:stepId", async (req, res) => {
   }
 });
 
-// PATCH /api/users/:userId/onboarding — mark onboarding as complete
-router.patch("/users/:userId/onboarding", async (req, res) => {
+// GET /api/tutorial/onboarding — get onboarding completion status
+router.get("/onboarding", authenticateUser, async (req, res) => {
   try {
-    // Onboarding completion is tracked by having all tutorial steps completed
-    // This endpoint is a convenience wrapper
     const database = getDb();
-    const { userId } = req.params;
+    const userId = req.currentUser!.id;
 
     const allSteps = await database
       .select()
