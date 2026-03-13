@@ -92,6 +92,7 @@ export async function recordClipView(
     // If the error is a unique constraint violation, the user already viewed —
     // silently skip. PostgreSQL error code 23505 = unique_violation.
     if (error instanceof Error && "code" in error && (error as { code: string }).code === "23505") {
+      logger.debug("[TrickMint] Duplicate view skipped", { clipId, userId });
       return;
     }
     logger.error("[TrickMint] View recording failed", {

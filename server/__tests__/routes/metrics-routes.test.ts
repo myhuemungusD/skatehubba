@@ -34,6 +34,12 @@ vi.mock("../../auth/middleware", () => ({
     req.currentUser = req.currentUser || { id: "user-1", roles: [] };
     next();
   },
+  requireAdmin: (req: any, res: any, next: any) => {
+    if (!req.currentUser?.roles?.includes("admin")) {
+      return res.status(403).json({ error: "ADMIN_REQUIRED", message: "Admin access required." });
+    }
+    next();
+  },
   requireRecentAuth: vi.fn((_req: any, _res: any, next: any) => next()),
 }));
 

@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { Router } from "express";
 import { sql } from "drizzle-orm";
 import { getDb } from "../db";
-import { authenticateUser } from "../auth/middleware";
+import { authenticateUser, requireAdmin } from "../auth/middleware";
 import {
   WAB_AU_SNAPSHOT,
   WAB_AU_TREND_12_WEEKS,
@@ -16,17 +16,6 @@ import logger from "../logger";
 import { Errors } from "../utils/apiError";
 
 export const metricsRouter = Router();
-
-/**
- * Check if user has admin role
- */
-function requireAdmin(req: Request, res: Response, next: () => void) {
-  const user = req.currentUser;
-  if (!user?.roles?.includes("admin")) {
-    return Errors.forbidden(res, "ADMIN_REQUIRED", "Admin access required.");
-  }
-  next();
-}
 
 /**
  * GET /api/metrics/wab-au
