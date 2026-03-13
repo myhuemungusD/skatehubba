@@ -157,18 +157,22 @@ router.post("/", async (req: Request, res: Response) => {
         break;
       }
 
+      // TODO: Implement subscription state sync when payments are re-enabled.
+      // Should update user tier in DB to reflect Stripe subscription status.
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
-        logger.info("Subscription updated (no-op for now)", {
+        logger.info("Subscription updated (no-op — payments disabled)", {
           subscriptionId: subscription.id,
           status: subscription.status,
         });
         break;
       }
 
+      // TODO: Implement tier downgrade when subscription is cancelled.
+      // Should revoke premium status and notify the user.
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        logger.info("Subscription deleted (no-op for now)", {
+        logger.info("Subscription deleted (no-op — payments disabled)", {
           subscriptionId: subscription.id,
         });
         break;
