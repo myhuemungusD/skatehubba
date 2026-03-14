@@ -258,6 +258,7 @@ describe("env-check: var checking logic", () => {
     delete process.env.SESSION_SECRET;
     delete process.env.JWT_SECRET;
     delete process.env.MFA_ENCRYPTION_KEY;
+    delete process.env.IP_HASH_SALT;
     delete process.env.FIREBASE_ADMIN_KEY;
     delete process.env.FIREBASE_PROJECT_ID;
     delete process.env.REDIS_URL;
@@ -279,6 +280,7 @@ describe("env-check: var checking logic", () => {
     process.env.SESSION_SECRET = "session-secret-value";
     process.env.JWT_SECRET = "jwt-secret-value";
     process.env.MFA_ENCRYPTION_KEY = "mfa-encryption-key-value";
+    process.env.IP_HASH_SALT = "ip-hash-salt-value";
 
     const handler = await getHandler();
     const res = mockRes();
@@ -295,6 +297,7 @@ describe("env-check: var checking logic", () => {
     process.env.SESSION_SECRET = "session-secret-value";
     process.env.JWT_SECRET = "jwt-secret-value";
     process.env.MFA_ENCRYPTION_KEY = "mfa-encryption-key-value";
+    process.env.IP_HASH_SALT = "ip-hash-salt-value";
 
     const handler = await getHandler();
     const res = mockRes();
@@ -342,7 +345,7 @@ describe("env-check: var checking logic", () => {
   });
 
   it("masks sensitive values to 2 characters", async () => {
-    process.env.DATABASE_URL = "postgres://user:pass@host/db";
+    process.env.DATABASE_URL = "postgres://localhost/testdb";
 
     const handler = await getHandler();
     const res = mockRes();
@@ -360,7 +363,7 @@ describe("env-check: var checking logic", () => {
       })
     );
     // Must NOT contain the full value
-    expect(JSON.stringify(body)).not.toContain("postgres://user:pass");
+    expect(JSON.stringify(body)).not.toContain("postgres://localhost/testdb");
   });
 
   it("shows full value for non-masked vars", async () => {
@@ -397,7 +400,8 @@ describe("env-check: var checking logic", () => {
     expect(requiredNames).toContain("SESSION_SECRET");
     expect(requiredNames).toContain("JWT_SECRET");
     expect(requiredNames).toContain("MFA_ENCRYPTION_KEY");
-    expect(requiredNames).toHaveLength(4);
+    expect(requiredNames).toContain("IP_HASH_SALT");
+    expect(requiredNames).toHaveLength(5);
 
     expect(optionalNames).toContain("FIREBASE_PROJECT_ID");
     expect(optionalNames).toContain("NODE_ENV");
@@ -418,6 +422,7 @@ describe("env-check: payload metadata", () => {
     process.env.SESSION_SECRET = "s";
     process.env.JWT_SECRET = "j";
     process.env.MFA_ENCRYPTION_KEY = "m";
+    process.env.IP_HASH_SALT = "i";
   });
 
   it("includes timestamp in ISO format", async () => {
