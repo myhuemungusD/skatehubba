@@ -24,6 +24,7 @@ import { matchmakingRouter } from "./routes/matchmaking";
 import { betaSignupRouter } from "./routes/betaSignup";
 import { statsRouter } from "./routes/stats";
 import { cronRouter } from "./routes/cron";
+import { tutorialRouter } from "./routes/tutorial";
 
 export function registerRoutes(app: Express): void {
   setupAuthRoutes(app);
@@ -53,4 +54,5 @@ export function registerRoutes(app: Express): void {
   app.use("/api/beta-signup", emailSignupLimiter, betaSignupRouter);
   app.use("/api/stats", statsRouter);
   app.use("/api/cron", cronRouter);
+  app.use("/api/tutorial", tutorialRouter);
 }

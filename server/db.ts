@@ -4,6 +4,7 @@ import * as schema from "../packages/shared/schema/index";
 import { env } from "./config/env";
 import logger from "./logger";
 import { defaultSpots } from "./seeds/defaultSpots";
+import { defaultTutorialSteps } from "./seeds/tutorialSteps";
 
 // Provide an explicit WebSocket implementation for the Neon serverless driver.
 // The global WebSocket may be unavailable in bundled serverless environments
@@ -21,7 +22,9 @@ let db: Database | null = null;
 let pool: Pool | null = null;
 
 try {
-  if (env.DATABASE_URL && env.DATABASE_URL !== "postgresql://dummy:dummy@localhost:5432/dummy") {
+  // Sentinel value used in .env.example — skip connection if URL is the placeholder
+  const isDummyUrl = env.DATABASE_URL?.includes("dummy") && env.DATABASE_URL?.includes("localhost");
+  if (env.DATABASE_URL && !isDummyUrl) {
     pool = new Pool({
       connectionString: env.DATABASE_URL,
       max: env.DB_POOL_MAX,
@@ -130,17 +133,7 @@ export async function initializeDatabase() {
 
     if (existingSteps.length === 0) {
       logger.info("Seeding tutorial steps...");
-      const defaultSteps = [
-        {
-          title: "Welcome to SkateHubba",
-          description: "Learn the basics of navigating the skate community",
-          type: "intro" as const,
-          content: { videoUrl: "https://example.com/intro-video" },
-          order: 1,
-          isActive: true,
-        },
-      ];
-      await db.insert(schema.tutorialSteps).values(defaultSteps);
+      await db.insert(schema.tutorialSteps).values(defaultTutorialSteps);
       logger.info("Tutorial steps seeded successfully");
     } else {
       logger.info("Tutorial steps already initialized");
