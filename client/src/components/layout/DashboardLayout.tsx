@@ -108,6 +108,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               </Link>
             )}
             <button
+              type="button"
               onClick={handleLogout}
               className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors w-full"
               data-testid="nav-signout"

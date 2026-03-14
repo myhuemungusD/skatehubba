@@ -157,11 +157,16 @@ export default function ChallengeLobby() {
 
       {/* API error banner — non-blocking, shows inline with retry */}
       {gamesError && (
-        <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-orange-400 shrink-0" />
+        <div
+          role="alert"
+          className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4 flex items-center gap-3"
+        >
+          <AlertCircle className="w-5 h-5 text-orange-400 shrink-0" aria-hidden="true" />
           <div className="flex-1 min-w-0">
             <p className="text-sm text-neutral-300">Could not load your games</p>
-            <p className="text-xs text-neutral-500 truncate">{String(gamesError)}</p>
+            <p className="text-xs text-neutral-500 truncate">
+              {gamesError instanceof Error ? gamesError.message : String(gamesError)}
+            </p>
           </div>
           <Button
             onClick={() => refetch()}
