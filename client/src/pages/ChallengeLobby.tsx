@@ -74,6 +74,9 @@ export default function ChallengeLobby() {
         <UserSearch onChallenge={handleCreateChallenge} isPending={createGame.isPending} />
       </div>
 
+      {/* Invite a Friend — prominent CTA */}
+      <InviteButton prominent />
+
       {/* Find Skaters CTA */}
       <Link
         href="/discover"
@@ -120,7 +123,11 @@ export default function ChallengeLobby() {
                 </Link>
               )}
             </div>
-            <InviteButton size="sm" label="Invite" className="shrink-0" />
+            <InviteButton
+              size="sm"
+              label="Invite"
+              className="shrink-0 bg-orange-500/10 border-orange-500/30 text-orange-400 hover:bg-orange-500/20 hover:border-orange-500/50 font-semibold"
+            />
           </div>
           {myStats && <PlayerStats stats={myStats} />}
           {!myStats && isStatsLoading && (
@@ -150,11 +157,16 @@ export default function ChallengeLobby() {
 
       {/* API error banner — non-blocking, shows inline with retry */}
       {gamesError && (
-        <div className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-orange-400 shrink-0" />
+        <div
+          role="alert"
+          className="rounded-xl border border-orange-500/30 bg-orange-500/5 p-4 flex items-center gap-3"
+        >
+          <AlertCircle className="w-5 h-5 text-orange-400 shrink-0" aria-hidden="true" />
           <div className="flex-1 min-w-0">
             <p className="text-sm text-neutral-300">Could not load your games</p>
-            <p className="text-xs text-neutral-500 truncate">{String(gamesError)}</p>
+            <p className="text-xs text-neutral-500 truncate">
+              {gamesError instanceof Error ? gamesError.message : String(gamesError)}
+            </p>
           </div>
           <Button
             onClick={() => refetch()}
@@ -306,15 +318,10 @@ export default function ChallengeLobby() {
                   <Swords className="w-9 h-9 text-neutral-600" />
                 </div>
                 <h3 className="text-lg font-semibold text-white mb-1">No Games Yet</h3>
-                <p className="text-sm text-neutral-500 mb-6 max-w-xs mx-auto">
-                  Search for a skater above to send your first challenge, or invite your crew to
-                  join.
+                <p className="text-sm text-neutral-500 max-w-xs mx-auto">
+                  Search for a skater above to send your first challenge, or tap &ldquo;Invite a
+                  Friend&rdquo; to bring your crew.
                 </p>
-                <InviteButton
-                  variant="default"
-                  label="Invite Friends"
-                  className="bg-gradient-to-r from-orange-500 to-amber-500 text-black font-bold hover:from-orange-600 hover:to-amber-600 shadow-lg shadow-orange-500/25"
-                />
               </div>
             )}
         </>
@@ -327,14 +334,10 @@ export default function ChallengeLobby() {
             <Swords className="w-9 h-9 text-neutral-600" />
           </div>
           <h3 className="text-lg font-semibold text-white mb-1">Ready to Play</h3>
-          <p className="text-sm text-neutral-500 mb-6 max-w-xs mx-auto">
-            Search for a skater above to send your first S.K.A.T.E. challenge.
+          <p className="text-sm text-neutral-500 max-w-xs mx-auto">
+            Search for a skater above to send your first S.K.A.T.E. challenge, or tap &ldquo;Invite
+            a Friend&rdquo; to bring your crew.
           </p>
-          <InviteButton
-            variant="default"
-            label="Invite Friends"
-            className="bg-gradient-to-r from-orange-500 to-amber-500 text-black font-bold hover:from-orange-600 hover:to-amber-600 shadow-lg shadow-orange-500/25"
-          />
         </div>
       )}
 
