@@ -276,7 +276,7 @@ async function main() {
 
   console.log("Connecting to database...");
   const pool = new Pool({ connectionString: databaseUrl, max: 5 });
-  const db = drizzle(pool, { schema });
+  const db = drizzle({ client: pool, schema });
 
   // Fetch existing spots to avoid duplicates
   console.log("Loading existing spots for dedup...");

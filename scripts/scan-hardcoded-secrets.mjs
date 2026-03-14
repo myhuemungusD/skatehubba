@@ -104,8 +104,14 @@ for (const fullPath of filesToScan) {
     for (const { pattern, name } of FORBIDDEN_PATTERNS) {
       const match = content.match(pattern);
       if (match) {
-        // Double-check it's not an example/test pattern
-        if (match[0].includes('EXAMPLE') || match[0].includes('example')) {
+        // Double-check it's not an example/test/dummy pattern
+        const matchLower = match[0].toLowerCase();
+        if (
+          matchLower.includes('example') ||
+          matchLower.includes('dummy') ||
+          matchLower.includes('user:pass@host') ||
+          matchLower.includes('test:test@localhost')
+        ) {
           continue;
         }
 

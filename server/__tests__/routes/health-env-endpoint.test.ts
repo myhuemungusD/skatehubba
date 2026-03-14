@@ -43,6 +43,12 @@ vi.mock("../../db", () => ({
     };
   },
   isDatabaseAvailable: () => !mockGetDbShouldThrow,
+  pool: {
+    query: async () => {
+      if (mockDbQueryError) throw mockDbQueryError;
+      return "ok";
+    },
+  },
 }));
 
 vi.mock("../../redis", () => ({ getRedisClient: () => null }));

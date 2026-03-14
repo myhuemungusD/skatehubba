@@ -151,7 +151,7 @@ async function main() {
   const pool = new Pool({ connectionString: databaseUrl, max: 5 });
 
   try {
-    const db = drizzle(pool, { schema });
+    const db = drizzle({ client: pool, schema });
 
     // 4. List all Firebase Auth users
     console.log("Fetching users from Firebase Auth...\n");

@@ -45,6 +45,12 @@ vi.mock("../../db", () => ({
       return mockDbQueryResult;
     },
   }),
+  pool: {
+    query: async () => {
+      if (mockDbQueryError) throw mockDbQueryError;
+      return mockDbQueryResult;
+    },
+  },
 }));
 
 // Redis mock

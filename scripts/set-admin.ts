@@ -65,7 +65,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const db = drizzle(pool);
+const db = drizzle({ client: pool });
 
 // Simple email validation
 function isValidEmail(email: string): boolean {

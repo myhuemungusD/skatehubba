@@ -1,5 +1,6 @@
 import { Pool, neonConfig } from "@neondatabase/serverless";
-import { drizzle, NeonDatabase } from "drizzle-orm/neon-serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import type { NeonDatabase } from "drizzle-orm/neon-serverless";
 import * as schema from "../packages/shared/schema/index";
 import { env } from "./config/env";
 import logger from "./logger";
@@ -51,7 +52,8 @@ try {
       }
     );
 
-    db = drizzle(pool, { schema });
+    // Use the new drizzle({ client }) API required by @neondatabase/serverless v1.0+
+    db = drizzle({ client: pool, schema });
     logger.info("Neon serverless database pool created", {
       max: env.DB_POOL_MAX,
       idleTimeoutMillis: env.DB_POOL_IDLE_TIMEOUT_MS,

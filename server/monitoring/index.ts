@@ -12,10 +12,9 @@
  */
 
 import type { Express, Request, Response, NextFunction } from "express";
-import { isDatabaseAvailable, getDb } from "../db";
+import { isDatabaseAvailable, pool as dbPool } from "../db";
 import { getRedisClient } from "../redis";
 import logger from "../logger";
-import { sql } from "drizzle-orm";
 import { checkFfmpegAvailable } from "../services/videoTranscoder";
 import { authenticateUser, requireAdmin } from "../auth/middleware";
 
@@ -180,16 +179,21 @@ export function metricsMiddleware() {
 // ============================================================================
 
 async function checkDatabase(): Promise<ComponentHealth> {
-  if (!isDatabaseAvailable()) {
+  if (!isDatabaseAvailable() || !dbPool) {
     return { status: "down", detail: "Database not initialised" };
   }
   const start = Date.now();
   try {
-    const db = getDb();
-    await db.execute(sql`SELECT 1`);
+    // Query the pool directly instead of going through Drizzle ORM.
+    // This gives a more reliable health signal and better error messages.
+    await dbPool.query("SELECT 1");
     return { status: "up", latencyMs: Date.now() - start };
   } catch (err) {
-    return { status: "down", latencyMs: Date.now() - start, detail: String(err) };
+    const detail =
+      err instanceof Error
+        ? `${err.message}${err.cause ? ` | cause: ${err.cause}` : ""}`
+        : String(err);
+    return { status: "down", latencyMs: Date.now() - start, detail };
   }
 }
 

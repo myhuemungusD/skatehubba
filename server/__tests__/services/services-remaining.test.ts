@@ -1705,6 +1705,9 @@ describe("Monitoring — version fallback and admin system status", () => {
         execute: vi.fn().mockResolvedValue("ok"),
       }),
       isDatabaseAvailable: vi.fn(() => true),
+      pool: {
+        query: vi.fn().mockResolvedValue("ok"),
+      },
     }));
 
     vi.doMock("../../redis", () => ({
@@ -1779,6 +1782,9 @@ describe("Monitoring — version fallback and admin system status", () => {
         execute: vi.fn().mockResolvedValue("ok"),
       }),
       isDatabaseAvailable: vi.fn(() => true),
+      pool: {
+        query: vi.fn().mockResolvedValue("ok"),
+      },
     }));
 
     vi.doMock("../../redis", () => ({
