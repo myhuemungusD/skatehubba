@@ -2,6 +2,7 @@ import http from "http";
 import { createApp } from "./app";
 import logger from "./logger";
 import { env } from "./config/env";
+import { pool } from "./db";
 
 const app = createApp();
 const server = http.createServer(app);
@@ -14,7 +15,11 @@ server.listen(PORT, () => {
 // Graceful shutdown
 const shutdown = () => {
   logger.info("Shutting down...");
-  server.close(() => {
+  server.close(async () => {
+    if (pool) {
+      await pool.end().catch(() => {});
+      logger.info("Database pool drained.");
+    }
     logger.info("Server closed.");
     process.exit(0);
   });

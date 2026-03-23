@@ -82,30 +82,34 @@ router.post("/:id/rate", authenticateUser, async (req, res) => {
   try {
     const db = getDb();
 
-    // Upsert rating
-    await db
-      .insert(spotRatings)
-      .values({ spotId, userId: currentUserId, rating })
-      .onConflictDoUpdate({
-        target: [spotRatings.spotId, spotRatings.userId],
-        set: { rating, updatedAt: new Date() },
-      });
+    const result = await db.transaction(async (tx) => {
+      // Upsert rating
+      await tx
+        .insert(spotRatings)
+        .values({ spotId, userId: currentUserId, rating })
+        .onConflictDoUpdate({
+          target: [spotRatings.spotId, spotRatings.userId],
+          set: { rating, updatedAt: new Date() },
+        });
 
-    // Recalculate average
-    const [avg] = await db
-      .select({
-        avgRating: sql<number>`avg(${spotRatings.rating})::double precision`,
-        count: sql<number>`count(*)::int`,
-      })
-      .from(spotRatings)
-      .where(eq(spotRatings.spotId, spotId));
+      // Recalculate average
+      const [avg] = await tx
+        .select({
+          avgRating: sql<number>`avg(${spotRatings.rating})::double precision`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(spotRatings)
+        .where(eq(spotRatings.spotId, spotId));
 
-    await db
-      .update(spots)
-      .set({ rating: avg.avgRating || 0, ratingCount: avg.count || 0, updatedAt: new Date() })
-      .where(eq(spots.id, spotId));
+      await tx
+        .update(spots)
+        .set({ rating: avg.avgRating || 0, ratingCount: avg.count || 0, updatedAt: new Date() })
+        .where(eq(spots.id, spotId));
 
-    res.json({ rating: avg.avgRating, ratingCount: avg.count });
+      return avg;
+    });
+
+    res.json({ rating: result.avgRating, ratingCount: result.count });
   } catch (error) {
     logger.error("[Spots] Failed to rate spot", { error, spotId, userId: currentUserId });
     return Errors.internal(res, "RATE_FAILED", "Failed to rate spot.");
@@ -125,16 +129,19 @@ router.post("/:id/check-in", authenticateUser, async (req, res) => {
     const [spot] = await db.select().from(spots).where(eq(spots.id, spotId)).limit(1);
     if (!spot) return Errors.notFound(res, "SPOT_NOT_FOUND", "Spot not found.");
 
-    const [checkIn] = await db
-      .insert(checkIns)
-      .values({ userId: currentUserId, spotId })
-      .returning();
+    const checkIn = await db.transaction(async (tx) => {
+      const [ci] = await tx
+        .insert(checkIns)
+        .values({ userId: currentUserId, spotId })
+        .returning();
 
-    // Increment check-in count
-    await db
-      .update(spots)
-      .set({ checkInCount: sql`${spots.checkInCount} + 1`, updatedAt: new Date() })
-      .where(eq(spots.id, spotId));
+      await tx
+        .update(spots)
+        .set({ checkInCount: sql`${spots.checkInCount} + 1`, updatedAt: new Date() })
+        .where(eq(spots.id, spotId));
+
+      return ci;
+    });
 
     res.status(201).json({ checkIn });
   } catch (error) {

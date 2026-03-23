@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { admin } from "../admin";
 import { AuthService } from "./service";
+import { DatabaseUnavailableError } from "../db";
 import "../types/express.d";
 import logger from "../logger";
 
@@ -61,6 +62,10 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
     req.currentUser = { ...user, roles };
     next();
   } catch (error) {
+    // Database down → 503 not 401
+    if (error instanceof DatabaseUnavailableError) {
+      return res.status(503).json({ error: "DATABASE_UNAVAILABLE", message: "Service temporarily unavailable." });
+    }
     logger.error("Authentication error", { error: String(error) });
     res.status(401).json({ error: GENERIC_AUTH_ERROR });
   }

@@ -93,48 +93,57 @@ export function registerRoutes(app: Express) {
     const currentUserId = req.currentUser!.id;
     const { handle, displayName, bio, stance, homeSpot, photoURL } = req.body;
 
-    if (!handle || typeof handle !== "string" || handle.length < 3 || handle.length > 50) {
-      return res.status(400).json({ error: "Handle must be 3-50 characters." });
+    if (!handle || typeof handle !== "string" || !/^[a-zA-Z0-9_]+$/.test(handle) || handle.length < 3 || handle.length > 50) {
+      return res.status(400).json({ error: "Handle must be 3-50 alphanumeric characters or underscores." });
     }
 
     try {
       const db = getDb();
+      const normalizedHandle = handle.toLowerCase();
 
-      const [profile] = await db
-        .insert(userProfiles)
-        .values({
-          id: currentUserId,
-          handle,
-          displayName: displayName || null,
-          bio: bio || null,
-          stance: stance || "regular",
-          homeSpot: homeSpot || null,
-          photoURL: photoURL || null,
-        })
-        .onConflictDoUpdate({
-          target: userProfiles.id,
-          set: {
-            handle,
+      const profile = await db.transaction(async (tx) => {
+        const [p] = await tx
+          .insert(userProfiles)
+          .values({
+            id: currentUserId,
+            handle: normalizedHandle,
             displayName: displayName || null,
             bio: bio || null,
             stance: stance || "regular",
             homeSpot: homeSpot || null,
             photoURL: photoURL || null,
-            updatedAt: new Date(),
-          },
-        })
-        .returning();
+          })
+          .onConflictDoUpdate({
+            target: userProfiles.id,
+            set: {
+              handle: normalizedHandle,
+              displayName: displayName || null,
+              bio: bio || null,
+              stance: stance || "regular",
+              homeSpot: homeSpot || null,
+              photoURL: photoURL || null,
+              updatedAt: new Date(),
+            },
+          })
+          .returning();
 
-      await db
-        .insert(usernames)
-        .values({ uid: currentUserId, username: handle.toLowerCase() })
-        .onConflictDoUpdate({
-          target: usernames.uid,
-          set: { username: handle.toLowerCase() },
-        });
+        await tx
+          .insert(usernames)
+          .values({ uid: currentUserId, username: normalizedHandle })
+          .onConflictDoUpdate({
+            target: usernames.uid,
+            set: { username: normalizedHandle },
+          });
+
+        return p;
+      });
 
       res.json({ profile });
     } catch (error) {
+      const msg = error instanceof Error ? error.message : "";
+      if (msg.includes("unique") || msg.includes("duplicate")) {
+        return res.status(409).json({ error: "Handle already taken." });
+      }
       logger.error("[Profile] Failed to save profile", { error, userId: currentUserId });
       res.status(500).json({ error: "Failed to save profile" });
     }

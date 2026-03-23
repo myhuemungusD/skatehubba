@@ -217,10 +217,25 @@ router.post("/:id/forfeit", async (req, res) => {
         return { ok: true as const, game: updated };
       }
 
-      // Game continues without the forfeiter
+      // Game continues without the forfeiter — must rotate if they were setter/current turn
+      const updates: Record<string, unknown> = { players: updatedPlayers, updatedAt: now };
+
+      if (game.setterId === currentUserId || game.currentTurn === currentUserId) {
+        // Find next active player to become setter
+        const activeIds = active.map((p: GamePlayer) => p.id);
+        const currentIdx = activeIds.indexOf(game.setterId === currentUserId ? activeIds[0] : game.setterId!);
+        const nextSetterId = activeIds[(currentIdx + 1) % activeIds.length] || activeIds[0];
+
+        updates.setterId = nextSetterId;
+        updates.currentTurn = nextSetterId;
+        updates.turnPhase = "set_trick";
+        updates.currentResponderIdx = null;
+        updates.deadlineAt = new Date(now.getTime() + TURN_DEADLINE_MS);
+      }
+
       const [updated] = await tx
         .update(games)
-        .set({ players: updatedPlayers, updatedAt: now })
+        .set(updates)
         .where(eq(games.id, gameId))
         .returning();
       return { ok: true as const, game: updated };
@@ -294,12 +309,17 @@ router.get("/leaderboard", async (_req, res) => {
 
 router.get("/:id", async (req, res) => {
   const gameId = req.params.id;
+  const currentUserId = req.currentUser!.id;
 
   try {
     const db = getDb();
     const [game] = await db.select().from(games).where(eq(games.id, gameId)).limit(1);
 
     if (!game) return Errors.notFound(res, "GAME_NOT_FOUND", "Game not found.");
+
+    // Only participants can view game details
+    const isParticipant = game.players.some((p: GamePlayer) => p.id === currentUserId);
+    if (!isParticipant) return Errors.forbidden(res, "NOT_PARTICIPANT", "You are not a participant in this game.");
 
     const turns = await db
       .select()

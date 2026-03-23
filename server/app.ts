@@ -30,9 +30,13 @@ export function createApp(): express.Express {
     allowedOrigins.push("http://localhost:3000", "http://localhost:5173");
   }
 
+  if (process.env.NODE_ENV === "production" && allowedOrigins.length === 0) {
+    logger.warn("ALLOWED_ORIGINS is empty in production — CORS will reject all cross-origin requests");
+  }
+
   app.use(
     cors({
-      origin: allowedOrigins.length > 0 ? allowedOrigins : true,
+      origin: allowedOrigins.length > 0 ? allowedOrigins : process.env.NODE_ENV !== "production",
       credentials: true,
     })
   );

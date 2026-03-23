@@ -1,85 +1,50 @@
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import crypto from "crypto";
 import { getDb } from "../db";
+import { DatabaseUnavailableError } from "../db";
 import { customUsers, type CustomUser } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import { env } from "../config/env";
 import logger from "../logger";
 
 /**
- * Auth service — stripped to MVP essentials.
- * Password hashing, JWT generation, user lookup by Firebase UID.
+ * Auth service — Firebase identity + PostgreSQL user records.
+ * No JWT, no password hashing — Firebase handles identity.
  */
 export class AuthService {
-  private static readonly JWT_SECRET = env.JWT_SECRET;
-  private static readonly SALT_ROUNDS = 12;
-  private static readonly TOKEN_EXPIRY = "24h";
-
-  static async hashPassword(password: string): Promise<string> {
-    return bcrypt.hash(password, this.SALT_ROUNDS);
-  }
-
-  static async verifyPassword(password: string, hash: string): Promise<boolean> {
-    return bcrypt.compare(password, hash);
-  }
-
-  static generateJWT(userId: string): string {
-    return jwt.sign(
-      { userId, type: "access", jti: crypto.randomBytes(16).toString("hex") },
-      this.JWT_SECRET,
-      { expiresIn: this.TOKEN_EXPIRY }
-    );
-  }
-
   /**
    * Look up a user by their Firebase UID.
    * This is the primary lookup path — Firebase handles identity,
    * we store the user record in PostgreSQL.
+   *
+   * Throws on database errors (instead of swallowing them as null)
+   * so auth middleware can distinguish "not found" from "DB down".
    */
   static async findUserByFirebaseUid(firebaseUid: string): Promise<CustomUser | null> {
-    try {
-      const db = getDb();
-      const [user] = await db
-        .select()
-        .from(customUsers)
-        .where(eq(customUsers.firebaseUid, firebaseUid))
-        .limit(1);
-      return user ?? null;
-    } catch (error) {
-      logger.error("Failed to find user by Firebase UID", { error: String(error) });
-      return null;
-    }
+    const db = getDb(); // Throws DatabaseUnavailableError if DB not connected
+    const [user] = await db
+      .select()
+      .from(customUsers)
+      .where(eq(customUsers.firebaseUid, firebaseUid))
+      .limit(1);
+    return user ?? null;
   }
 
   static async findUserById(id: string): Promise<CustomUser | null> {
-    try {
-      const db = getDb();
-      const [user] = await db
-        .select()
-        .from(customUsers)
-        .where(eq(customUsers.id, id))
-        .limit(1);
-      return user ?? null;
-    } catch (error) {
-      logger.error("Failed to find user by ID", { error: String(error) });
-      return null;
-    }
+    const db = getDb();
+    const [user] = await db
+      .select()
+      .from(customUsers)
+      .where(eq(customUsers.id, id))
+      .limit(1);
+    return user ?? null;
   }
 
   static async findUserByEmail(email: string): Promise<CustomUser | null> {
-    try {
-      const db = getDb();
-      const [user] = await db
-        .select()
-        .from(customUsers)
-        .where(eq(customUsers.email, email.toLowerCase()))
-        .limit(1);
-      return user ?? null;
-    } catch (error) {
-      logger.error("Failed to find user by email", { error: String(error) });
-      return null;
-    }
+    const db = getDb();
+    const [user] = await db
+      .select()
+      .from(customUsers)
+      .where(eq(customUsers.email, email.toLowerCase()))
+      .limit(1);
+    return user ?? null;
   }
 
   /**
