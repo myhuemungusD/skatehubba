@@ -1,225 +1,114 @@
-/**
- * Authentication Page
- *
- * Production-grade authentication UI with sign-in and sign-up tabs.
- * Supports email/password and Google OAuth authentication.
- *
- * @module pages/auth
- */
-
-import { useState, useEffect, useCallback } from "react";
-import { Link, useLocation } from "wouter";
-
-import { Card } from "../components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
-import { useToast } from "../hooks/use-toast";
+import { useState } from "react";
+import { Redirect } from "wouter";
 import { useAuth } from "../hooks/useAuth";
-import { useAuthStore } from "../store/authStore";
-import { logger } from "../lib/logger";
-import { setAuthPersistence } from "../lib/firebase";
-import { getAuthErrorMessage, isAuthConfigError } from "../lib/firebase/auth-errors";
-import { isEmbeddedBrowser } from "./auth/authSchemas";
-import { SignInTab } from "./auth/SignInTab";
-import { SignUpTab } from "./auth/SignUpTab";
-import { ForgotPasswordModal } from "./auth/ForgotPasswordModal";
 
-export default function AuthPage() {
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
-  const auth = useAuth();
+export function AuthPage() {
+  const { isAuthenticated, signInWithEmail, signUpWithEmail, signInWithGoogle, error, clearError } =
+    useAuth();
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const [activeTab, setActiveTab] = useState<"signin" | "signup">(() => {
-    if (typeof window === "undefined") return "signup";
-    const params = new URLSearchParams(window.location.search);
-    const tab = params.get("tab");
-    return tab === "signin" ? "signin" : "signup";
-  });
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [inEmbeddedBrowser, setInEmbeddedBrowser] = useState(false);
-  const [googleError, setGoogleError] = useState<string | null>(null);
+  if (isAuthenticated) return <Redirect to="/hub" />;
 
-  // H8: Parse ?next= param with hardened open-redirect protection
-  const getNextUrl = (): string => {
-    if (typeof window === "undefined") return "/hub";
-    const params = new URLSearchParams(window.location.search);
-    const next = params.get("next");
-    if (next) {
-      try {
-        const decoded = decodeURIComponent(next);
-        // Reject absolute URLs and protocol-relative URLs
-        if (/^[a-z][a-z0-9+.-]*:/i.test(decoded)) return "/hub";
-        if (decoded.startsWith("//")) return "/hub";
-        if (!decoded.startsWith("/")) return "/hub";
-        // Reject double-encoded payloads
-        if (/%[0-9a-f]{2}/i.test(decoded)) return "/hub";
-        // Reject auth-loop paths
-        if (/^\/(auth|signin|signup|login|logout)(\/|$|\?)/i.test(decoded)) return "/hub";
-        return decoded;
-      } catch {
-        // Invalid encoding
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      if (isSignUp) {
+        await signUpWithEmail(email, password);
+      } else {
+        await signInWithEmail(email, password);
       }
+    } catch {
+      // Error is already set in store
+    } finally {
+      setSubmitting(false);
     }
-    return "/hub";
   };
 
-  // Redirect when authenticated and profile status is known.
-  // Sign-up tab handles its own navigation (creates profile inline then
-  // redirects to /hub), so we only auto-redirect from the sign-in tab.
-  useEffect(() => {
-    if (!auth?.isAuthenticated || auth?.profileStatus === "unknown") return;
-
-    if (auth.profileStatus === "exists") {
-      setLocation(getNextUrl());
-    } else if (auth.profileStatus === "missing") {
-      // New users (e.g. first Google sign-in) need to create a username/profile
-      const nextUrl = getNextUrl();
-      const setupUrl =
-        nextUrl !== "/hub"
-          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
-          : "/profile/setup";
-      setLocation(setupUrl);
-    }
-  }, [auth?.isAuthenticated, auth?.profileStatus, activeTab, setLocation]);
-
-  // Check for embedded browser on mount
-  useEffect(() => {
-    const isEmbedded = isEmbeddedBrowser();
-    setInEmbeddedBrowser(isEmbedded);
-    logger.log("[AuthPage] User agent:", navigator.userAgent);
-    logger.log("[AuthPage] Is embedded browser:", isEmbedded);
-  }, []);
-
-  // Redirect after sign-in completes (email or Google).
-  // Reads directly from the Zustand store to get the latest state
-  // (the hook value may be stale since we're inside an async handler).
-  const redirectAfterSignIn = useCallback(() => {
-    const { profileStatus } = useAuthStore.getState();
-    if (profileStatus === "exists") {
-      setLocation(getNextUrl());
-    } else if (profileStatus === "missing") {
-      const nextUrl = getNextUrl();
-      const setupUrl =
-        nextUrl !== "/hub"
-          ? `/profile/setup?next=${encodeURIComponent(nextUrl)}`
-          : "/profile/setup";
-      setLocation(setupUrl);
-    } else {
-      // Fallback: profile status couldn't be determined, go to hub
-      setLocation(getNextUrl());
-    }
-  }, [setLocation]);
-
-  const handleGoogleSignIn = async () => {
-    if (!auth?.signInWithGoogle) {
-      toast({
-        title: "Error",
-        description: "Authentication not ready. Please refresh.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setIsGoogleLoading(true);
-    setGoogleError(null);
+  const handleGoogle = async () => {
+    setSubmitting(true);
     try {
-      await setAuthPersistence(true);
-      await auth.signInWithGoogle();
-      toast({
-        title: "Welcome!",
-        description: "You have successfully signed in with Google.",
-      });
-      redirectAfterSignIn();
-    } catch (error) {
-      const message = getAuthErrorMessage(error);
-      if (isAuthConfigError(error)) {
-        setGoogleError(message);
-      }
-      toast({
-        title: "Google Sign In Failed",
-        description: message,
-        variant: "destructive",
-      });
+      await signInWithGoogle();
+    } catch {
+      // Error is already set in store
     } finally {
-      setIsGoogleLoading(false);
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#181818] flex flex-col items-center justify-center p-2 sm:p-4">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-3 sm:mb-6">
-          <div className="flex items-center justify-center mb-1 sm:mb-2">
-            <span className="text-4xl mr-2"></span>
-            <h1 className="text-2xl sm:text-3xl font-bold text-white">SkateHubba</h1>
+    <div className="min-h-screen bg-gray-950 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <h1 className="text-2xl font-bold text-center mb-8 text-brand-500">SkateHubba</h1>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="email" className="block text-sm text-gray-400 mb-1">Email</label>
+            <input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); clearError(); }}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              placeholder="you@example.com"
+            />
           </div>
-          <p className="text-gray-400 text-sm sm:text-base">Find and share the best skate spots</p>
+
+          <div>
+            <label htmlFor="password" className="block text-sm text-gray-400 mb-1">Password</label>
+            <input
+              id="password"
+              type="password"
+              required
+              minLength={8}
+              value={password}
+              onChange={(e) => { setPassword(e.target.value); clearError(); }}
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              placeholder="Min 8 characters"
+            />
+          </div>
+
+          {error && (
+            <p className="text-red-400 text-sm">{error}</p>
+          )}
+
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full py-2.5 bg-brand-500 rounded-lg font-medium hover:bg-brand-600 transition-colors disabled:opacity-50"
+          >
+            {submitting ? "..." : isSignUp ? "Sign Up" : "Sign In"}
+          </button>
+        </form>
+
+        <div className="my-4 flex items-center gap-2">
+          <div className="flex-1 h-px bg-gray-800" />
+          <span className="text-xs text-gray-500">or</span>
+          <div className="flex-1 h-px bg-gray-800" />
         </div>
 
-        {/* Google sign-in config error */}
-        {googleError && (
-          <div className="bg-red-900/30 border border-red-600/50 rounded-lg p-4 mb-4">
-            <p className="text-red-200 text-sm font-semibold mb-1">Google Sign-In Error</p>
-            <p className="text-red-300/80 text-sm">{googleError}</p>
-          </div>
-        )}
+        <button
+          onClick={handleGoogle}
+          disabled={submitting}
+          className="w-full py-2.5 bg-gray-800 border border-gray-700 rounded-lg font-medium hover:bg-gray-700 transition-colors disabled:opacity-50"
+        >
+          Continue with Google
+        </button>
 
-        {/* Auth Card */}
-        <Card className="bg-[#232323] border-gray-700">
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "signin" | "signup")}>
-            <TabsList className="grid w-full grid-cols-2 h-10 bg-[#181818]">
-              <TabsTrigger
-                value="signin"
-                className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
-              >
-                Sign In
-              </TabsTrigger>
-              <TabsTrigger
-                value="signup"
-                className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
-              >
-                Sign Up
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="signin" className="mt-0">
-              <SignInTab
-                signIn={auth?.signInWithEmail}
-                onGoogleSignIn={handleGoogleSignIn}
-                isGoogleLoading={isGoogleLoading}
-                isExternalLoading={auth?.loading ?? false}
-                inEmbeddedBrowser={inEmbeddedBrowser}
-                onForgotPassword={() => setShowForgotPassword(true)}
-                onSuccess={redirectAfterSignIn}
-              />
-            </TabsContent>
-
-            <TabsContent value="signup" className="mt-0">
-              <SignUpTab
-                signUp={auth?.signUpWithEmail}
-                onGoogleSignIn={handleGoogleSignIn}
-                isGoogleLoading={isGoogleLoading}
-                isExternalLoading={auth?.loading ?? false}
-                inEmbeddedBrowser={inEmbeddedBrowser}
-              />
-            </TabsContent>
-          </Tabs>
-        </Card>
-
-        {/* Back to Home */}
-        <div className="text-center mt-3 sm:mt-6">
-          <Link href="/landing" className="text-gray-400 hover:text-white text-sm">
-            Back to Home
-          </Link>
-        </div>
+        <p className="text-center text-sm text-gray-500 mt-6">
+          {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
+          <button
+            onClick={() => { setIsSignUp(!isSignUp); clearError(); }}
+            className="text-brand-500 hover:underline"
+          >
+            {isSignUp ? "Sign in" : "Sign up"}
+          </button>
+        </p>
       </div>
-
-      {showForgotPassword && (
-        <ForgotPasswordModal
-          onClose={() => setShowForgotPassword(false)}
-          resetPassword={auth?.resetPassword}
-        />
-      )}
     </div>
   );
 }

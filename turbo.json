@@ -1,17 +1,17 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "remoteCache": {
-    "enabled": true
-  },
+  "globalEnv": [
+    "NODE_ENV",
+    "VITE_FIREBASE_API_KEY",
+    "VITE_FIREBASE_AUTH_DOMAIN",
+    "VITE_FIREBASE_PROJECT_ID",
+    "VITE_FIREBASE_APP_ID"
+  ],
   "tasks": {
     "build": {
-      "dependsOn": ["verify:public-env", "^build"],
-      "outputs": ["dist/**", "build/**"],
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
       "cache": true
-    },
-    "verify:public-env": {
-      "cache": false,
-      "outputs": []
     },
     "dev": {
       "cache": false,

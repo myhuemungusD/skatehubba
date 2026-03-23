@@ -5,15 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1773135074514,
-      "tag": "0000_cold_valkyrie",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1773207688285,
-      "tag": "0001_steep_nextwave",
+      "when": 1774308826014,
+      "tag": "0000_complex_mongoose",
       "breakpoints": true
     }
   ]

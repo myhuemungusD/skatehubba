@@ -3,80 +3,28 @@ import {
   pgTable,
   text,
   integer,
-  boolean,
   timestamp,
-  json,
   varchar,
-  index,
-  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
-import { sql } from "drizzle-orm";
 import { customUsers } from "./auth";
 
-// Skater profiles table - extended user info
+/**
+ * Skater profiles — extended user info for the platform.
+ * Stripped to MVP: handle, display, stance, stats. No closet, no filmer, no XP.
+ */
 export const userProfiles = pgTable("user_profiles", {
-  id: varchar("id")
+  id: varchar("id", { length: 36 })
     .primaryKey()
     .references(() => customUsers.id, { onDelete: "cascade" }),
   handle: varchar("handle", { length: 50 }).notNull().unique(),
   displayName: varchar("display_name", { length: 100 }),
   bio: text("bio"),
-  photoURL: varchar("photo_url", { length: 500 }),
+  photoURL: text("photo_url"),
   stance: varchar("stance", { length: 20 }).default("regular"),
   homeSpot: varchar("home_spot", { length: 255 }),
   wins: integer("wins").notNull().default(0),
   losses: integer("losses").notNull().default(0),
-  xp: integer("xp").notNull().default(0),
-  // Dispute reputation: permanent, visible penalty count
-  disputePenalties: integer("dispute_penalties").notNull().default(0),
-  roles: json("roles").$type<{ filmer?: boolean }>(),
-  filmerRepScore: integer("filmer_rep_score").notNull().default(0),
-  filmerVerified: boolean("filmer_verified").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// Closet items table - collectible gear
-export const closetItems = pgTable(
-  "closet_items",
-  {
-    id: varchar("id")
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    userId: varchar("user_id", { length: 255 })
-      .notNull()
-      .references(() => customUsers.id, { onDelete: "cascade" }),
-    type: varchar("type", { length: 50 }).notNull(),
-    brand: varchar("brand", { length: 100 }).notNull(),
-    name: varchar("name", { length: 255 }).notNull(),
-    imageUrl: varchar("image_url", { length: 500 }).notNull(),
-    rarity: varchar("rarity", { length: 50 }),
-    acquiredAt: timestamp("acquired_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    userIdx: index("IDX_closet_items_user").on(table.userId),
-    uniqueUserItem: uniqueIndex("unique_closet_user_item").on(table.userId, table.type, table.name),
-  })
-);
-
-// Onboarding profiles — replaces Firestore profiles collection
-export const onboardingProfiles = pgTable("onboarding_profiles", {
-  uid: varchar("uid", { length: 255 })
-    .primaryKey()
-    .references(() => customUsers.id, { onDelete: "cascade" }),
-  username: varchar("username", { length: 50 }).notNull().unique(),
-  stance: varchar("stance", { length: 20 }),
-  experienceLevel: varchar("experience_level", { length: 20 }),
-  favoriteTricks: json("favorite_tricks").$type<string[]>().notNull().default([]),
-  bio: text("bio"),
-  sponsorFlow: varchar("sponsor_flow", { length: 255 }),
-  sponsorTeam: varchar("sponsor_team", { length: 255 }),
-  hometownShop: varchar("hometown_shop", { length: 255 }),
-  spotsVisited: integer("spots_visited").notNull().default(0),
-  crewName: varchar("crew_name", { length: 100 }),
-  credibilityScore: integer("credibility_score").notNull().default(0),
-  avatarUrl: varchar("avatar_url", { length: 500 }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -86,13 +34,5 @@ export const insertUserProfileSchema = createInsertSchema(userProfiles).omit({
   updatedAt: true,
 });
 
-export const insertClosetItemSchema = createInsertSchema(closetItems).omit({
-  id: true,
-  acquiredAt: true,
-});
-
 export type UserProfile = typeof userProfiles.$inferSelect;
 export type InsertUserProfile = z.infer<typeof insertUserProfileSchema>;
-export type ClosetItem = typeof closetItems.$inferSelect;
-export type InsertClosetItem = z.infer<typeof insertClosetItemSchema>;
-export type OnboardingProfile = typeof onboardingProfiles.$inferSelect;

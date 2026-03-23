@@ -1,133 +1,59 @@
 import { z } from "zod";
 import {
-  pgEnum,
   pgTable,
-  text,
-  serial,
-  integer,
   boolean,
   timestamp,
-  json,
   varchar,
   uuid,
+  integer,
   index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { usernameSchema, passwordSchema } from "./validation";
 
-// Authentication tables
-export const accountTierEnum = pgEnum("account_tier", ["free", "pro", "premium"]);
+/**
+ * Core user table — one row per Firebase-authenticated user.
+ * Firebase is identity-only; all user data lives here in PostgreSQL.
+ */
+export const customUsers = pgTable(
+  "custom_users",
+  {
+    id: varchar("id", { length: 36 })
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    email: varchar("email", { length: 255 }).notNull().unique(),
+    passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+    firstName: varchar("first_name", { length: 100 }),
+    lastName: varchar("last_name", { length: 100 }),
+    firebaseUid: varchar("firebase_uid", { length: 128 }).unique(),
+    isEmailVerified: boolean("is_email_verified").notNull().default(false),
+    isActive: boolean("is_active").notNull().default(true),
+    trustLevel: integer("trust_level").notNull().default(0),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    firebaseUidIdx: index("IDX_users_firebase_uid").on(table.firebaseUid),
+    emailIdx: index("IDX_users_email").on(table.email),
+  })
+);
 
-export const customUsers = pgTable("custom_users", {
-  id: varchar("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-  firstName: varchar("first_name", { length: 100 }),
-  lastName: varchar("last_name", { length: 100 }),
-  firebaseUid: varchar("firebase_uid", { length: 128 }).unique(),
-  pushToken: varchar("push_token", { length: 255 }), // Expo push token for notifications
-  isEmailVerified: boolean("is_email_verified").notNull().default(false),
-  emailVerificationToken: varchar("email_verification_token", { length: 255 }),
-  emailVerificationExpires: timestamp("email_verification_expires", { withTimezone: true }),
-  resetPasswordToken: varchar("reset_password_token", { length: 255 }),
-  resetPasswordExpires: timestamp("reset_password_expires", { withTimezone: true }),
-  isActive: boolean("is_active").notNull().default(true),
-  trustLevel: integer("trust_level").notNull().default(0),
-  accountTier: accountTierEnum("account_tier").default("free").notNull(),
-  proAwardedBy: varchar("pro_awarded_by", { length: 255 }),
-  premiumPurchasedAt: timestamp("premium_purchased_at", { withTimezone: true }),
-  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
+/**
+ * Username reservation — guarantees uniqueness across the platform.
+ * Decoupled from customUsers so usernames can be changed without touching auth.
+ */
 export const usernames = pgTable("usernames", {
   id: uuid("id").primaryKey().defaultRandom(),
-  uid: varchar("uid", { length: 128 }).notNull().unique(),
+  uid: varchar("uid", { length: 128 })
+    .notNull()
+    .unique()
+    .references(() => customUsers.id, { onDelete: "cascade" }),
   username: varchar("username", { length: 20 }).notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export const authSessions = pgTable("auth_sessions", {
-  id: varchar("id")
-    .primaryKey()
-    .default(sql`gen_random_uuid()`),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => customUsers.id, { onDelete: "cascade" }),
-  token: text("token").notNull().unique(),
-  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// Security audit logs for compliance and threat detection
-export const auditLogs = pgTable(
-  "audit_logs",
-  {
-    id: serial("id").primaryKey(),
-    eventType: varchar("event_type", { length: 50 }).notNull(),
-    userId: varchar("user_id", { length: 255 }),
-    email: varchar("email", { length: 255 }),
-    ipAddress: varchar("ip_address", { length: 45 }).notNull(), // IPv6 can be up to 45 chars
-    userAgent: text("user_agent"),
-    metadata: json("metadata").$type<Record<string, unknown>>(),
-    success: boolean("success").notNull(),
-    errorMessage: text("error_message"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    eventTypeIdx: index("IDX_audit_event_type").on(table.eventType),
-    userIdIdx: index("IDX_audit_user_id").on(table.userId),
-    ipIdx: index("IDX_audit_ip").on(table.ipAddress),
-    createdAtIdx: index("IDX_audit_created_at").on(table.createdAt),
-  })
-);
-
-// Login attempts tracking for account lockout
-export const loginAttempts = pgTable(
-  "login_attempts",
-  {
-    id: serial("id").primaryKey(),
-    email: varchar("email", { length: 255 }).notNull(),
-    ipAddress: varchar("ip_address", { length: 45 }).notNull(),
-    success: boolean("success").notNull(),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    emailIdx: index("IDX_login_attempts_email").on(table.email),
-    ipIdx: index("IDX_login_attempts_ip").on(table.ipAddress),
-    createdAtIdx: index("IDX_login_attempts_created_at").on(table.createdAt),
-  })
-);
-
-// Account lockout tracking
-export const accountLockouts = pgTable("account_lockouts", {
-  id: serial("id").primaryKey(),
-  email: varchar("email", { length: 255 }).notNull().unique(),
-  lockedAt: timestamp("locked_at", { withTimezone: true }).notNull(),
-  unlockAt: timestamp("unlock_at", { withTimezone: true }).notNull(),
-  failedAttempts: integer("failed_attempts").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// MFA secrets for TOTP authentication
-export const mfaSecrets = pgTable("mfa_secrets", {
-  id: serial("id").primaryKey(),
-  userId: varchar("user_id")
-    .notNull()
-    .references(() => customUsers.id, { onDelete: "cascade" })
-    .unique(),
-  secret: varchar("secret", { length: 255 }).notNull(), // Encrypted TOTP secret
-  backupCodes: json("backup_codes").$type<string[]>(), // Hashed backup codes
-  enabled: boolean("enabled").notNull().default(false),
-  verifiedAt: timestamp("verified_at", { withTimezone: true }),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-});
-
-// Auth validation schemas
+// Validation schemas
 export const registerSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: passwordSchema,
@@ -145,29 +71,9 @@ export const insertUserSchema = z.object({
   password: passwordSchema,
 });
 
-export const verifyEmailSchema = z.object({
-  token: z.string().min(1, "Verification token is required"),
-});
-
-export const forgotPasswordSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-});
-
-export const resetPasswordSchema = z.object({
-  token: z.string().min(1, "Reset token is required"),
-  password: passwordSchema,
-});
-
-export const ACCOUNT_TIERS = ["free", "pro", "premium"] as const;
-export type AccountTier = (typeof ACCOUNT_TIERS)[number];
-
+// Types
 export type CustomUser = typeof customUsers.$inferSelect;
 export type InsertCustomUser = typeof customUsers.$inferInsert;
-export type AuthSession = typeof authSessions.$inferSelect;
-export type InsertAuthSession = typeof authSessions.$inferInsert;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
-export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
-export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
-export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;

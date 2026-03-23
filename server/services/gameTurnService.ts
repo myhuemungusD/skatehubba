@@ -1,14 +1,31 @@
 /**
- * Game Turn Service - S.K.A.T.E. turn submission and judging
+ * Game Turn Service — Multiplayer S.K.A.T.E. (2-5 players)
  *
- * Extracted from route handlers to keep business logic testable
- * and route handlers thin (HTTP concerns only).
+ * Turn flow for N players:
+ *   1. Setter sets a trick (SET phase)
+ *   2. Each non-setter responds in order (RESPOND phase, one at a time)
+ *   3. After each response, the setter judges it (JUDGE phase)
+ *   4. After all responders are judged, check eliminations, rotate setter
+ *
+ * A player is eliminated when they spell S-K-A-T-E (5 letters).
+ * Last player standing wins.
  */
 
-import { games, gameTurns } from "@shared/schema";
-import { eq, and, sql } from "drizzle-orm";
-import { TURN_DEADLINE_MS, SKATE_LETTERS, isGameOver } from "../routes/games-shared";
+import { games, gameTurns, userProfiles, type GamePlayer } from "@shared/schema";
+import { eq, sql } from "drizzle-orm";
 import type { Database } from "../db";
+import logger from "../logger";
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+const SKATE_LETTERS = "SKATE";
+const SKATE_LETTERS_TO_LOSE = 5;
+const TURN_DEADLINE_MS = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_VIDEO_DURATION_MS = 15_000; // 15 seconds
+
+export { TURN_DEADLINE_MS, MAX_VIDEO_DURATION_MS };
 
 // ============================================================================
 // Types
@@ -42,18 +59,16 @@ type SubmitTurnSuccess = {
   ok: true;
   turn: typeof gameTurns.$inferSelect;
   message: string;
-  notify: { playerId: string; opponentName: string } | null;
+  notify: Notification[];
 };
 
 type JudgeTurnSuccess = {
   ok: true;
-  response: {
-    game: typeof games.$inferSelect;
-    turn: Record<string, unknown>;
-    gameOver: boolean;
-    winnerId?: string | null;
-    message: string;
-  };
+  game: typeof games.$inferSelect;
+  turn: Record<string, unknown>;
+  gameOver: boolean;
+  winnerId?: string | null;
+  message: string;
   notifications: Notification[];
 };
 
@@ -71,66 +86,145 @@ export type JudgeTurnResult = TxError | JudgeTurnSuccess;
 export type SetterBailResult = TxError | SetterBailSuccess;
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+function activePlayers(players: GamePlayer[]): GamePlayer[] {
+  return players.filter((p) => !p.isEliminated);
+}
+
+function playerName(players: GamePlayer[], id: string): string {
+  return players.find((p) => p.id === id)?.name || "Skater";
+}
+
+/** Find the next non-eliminated responder index after `currentIdx` */
+function nextResponderIdx(
+  players: GamePlayer[],
+  setterId: string,
+  afterIdx: number | null
+): number | null {
+  const startIdx = afterIdx === null ? 0 : afterIdx + 1;
+  for (let i = startIdx; i < players.length; i++) {
+    if (players[i].id !== setterId && !players[i].isEliminated) {
+      return i;
+    }
+  }
+  return null;
+}
+
+/** Pick the next setter: the next active player after current setter */
+function nextSetter(players: GamePlayer[], currentSetterId: string): string | null {
+  const active = activePlayers(players);
+  if (active.length < 2) return null;
+  const currentIdx = active.findIndex((p) => p.id === currentSetterId);
+  const nextIdx = (currentIdx + 1) % active.length;
+  return active[nextIdx].id;
+}
+
+/** Apply a letter to a player, return updated players array */
+function applyLetter(players: GamePlayer[], playerId: string): GamePlayer[] {
+  return players.map((p) => {
+    if (p.id !== playerId) return p;
+    const newLetters = p.letters + (SKATE_LETTERS[p.letters.length] || "");
+    return { ...p, letters: newLetters, isEliminated: newLetters.length >= SKATE_LETTERS_TO_LOSE };
+  });
+}
+
+/** Check if the game is over (1 or fewer active players remaining) */
+function checkGameOver(players: GamePlayer[]): { over: boolean; winnerId: string | null } {
+  const active = activePlayers(players);
+  if (active.length <= 1) {
+    return { over: true, winnerId: active[0]?.id ?? null };
+  }
+  return { over: false, winnerId: null };
+}
+
+/** Update win/loss stats on userProfiles when a game ends */
+async function updateWinLossStats(
+  tx: Database,
+  players: GamePlayer[],
+  winnerId: string | null
+): Promise<void> {
+  for (const player of players) {
+    try {
+      if (player.id === winnerId) {
+        await tx
+          .update(userProfiles)
+          .set({ wins: sql`${userProfiles.wins} + 1`, updatedAt: new Date() })
+          .where(eq(userProfiles.id, player.id));
+      } else {
+        await tx
+          .update(userProfiles)
+          .set({ losses: sql`${userProfiles.losses} + 1`, updatedAt: new Date() })
+          .where(eq(userProfiles.id, player.id));
+      }
+    } catch (err) {
+      // Non-critical: don't fail the game completion if stats update fails
+      logger.warn("Failed to update win/loss stats", {
+        playerId: player.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}
+
+// ============================================================================
 // Submit Turn
 // ============================================================================
 
-/**
- * Submit a trick (set) or response video within a transaction.
- * Validates game state, creates the turn record, and advances game phase.
- */
 export async function submitTurn(tx: Database, input: SubmitTurnInput): Promise<SubmitTurnResult> {
   const { gameId, playerId, trickDescription, videoUrl, videoDurationMs, thumbnailUrl } = input;
 
-  // Lock game row to prevent concurrent turn submissions
   await tx.execute(sql`SELECT id FROM games WHERE id = ${gameId} FOR UPDATE`);
-
   const [game] = await tx.select().from(games).where(eq(games.id, gameId)).limit(1);
 
   if (!game) return { ok: false, status: 404, error: "Game not found" };
-
-  const isPlayer1 = game.player1Id === playerId;
-  const isPlayer2 = game.player2Id === playerId;
-  if (!isPlayer1 && !isPlayer2)
-    return { ok: false, status: 403, error: "You are not a player in this game" };
   if (game.status !== "active") return { ok: false, status: 400, error: "Game is not active" };
+
+  const players: GamePlayer[] = game.players;
+  const isPlayer = players.some((p) => p.id === playerId);
+  if (!isPlayer) return { ok: false, status: 403, error: "You are not a player in this game" };
+
+  const playerObj = players.find((p) => p.id === playerId)!;
+  if (playerObj.isEliminated) return { ok: false, status: 400, error: "You are eliminated" };
   if (game.currentTurn !== playerId) return { ok: false, status: 400, error: "Not your turn" };
 
-  // Check deadline
-  if (game.deadlineAt && new Date(game.deadlineAt) < new Date())
-    return { ok: false, status: 400, error: "Turn deadline has passed. Game forfeited." };
+  if (game.deadlineAt && new Date(game.deadlineAt) < new Date()) {
+    return { ok: false, status: 400, error: "Turn deadline has passed" };
+  }
 
-  // Determine turn type based on phase
   const turnPhase = game.turnPhase || "set_trick";
   let turnType: "set" | "response";
 
   if (turnPhase === "set_trick") {
-    if (playerId !== game.offensivePlayerId)
-      return { ok: false, status: 400, error: "Only the offensive player can set a trick" };
+    if (playerId !== game.setterId) {
+      return { ok: false, status: 400, error: "Only the setter can set a trick" };
+    }
     turnType = "set";
   } else if (turnPhase === "respond_trick") {
-    if (playerId !== game.defensivePlayerId)
-      return { ok: false, status: 400, error: "Only the defensive player can respond" };
+    if (playerId === game.setterId) {
+      return { ok: false, status: 400, error: "The setter does not respond to their own trick" };
+    }
     turnType = "response";
   } else {
     return { ok: false, status: 400, error: "Current phase does not accept video submissions" };
   }
 
-  // Get turn count
+  // Count existing turns for turn number
   const turnCountResult = await tx
     .select({ count: sql<number>`count(*)::int` })
     .from(gameTurns)
     .where(eq(gameTurns.gameId, gameId));
 
   const turnNumber = (turnCountResult[0]?.count || 0) + 1;
-  const playerName = isPlayer1 ? game.player1Name : game.player2Name;
+  const name = playerName(players, playerId);
 
-  // Create the turn record
   const [newTurn] = await tx
     .insert(gameTurns)
     .values({
       gameId,
       playerId,
-      playerName: playerName || "Skater",
+      playerName: name,
       turnNumber,
       turnType,
       trickDescription,
@@ -145,11 +239,20 @@ export async function submitTurn(tx: Database, input: SubmitTurnInput): Promise<
   const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
 
   if (turnType === "set") {
+    // After setter sets, find the first responder
+    const firstIdx = nextResponderIdx(players, playerId, null);
+    if (firstIdx === null) {
+      return { ok: false, status: 500, error: "No responders available" };
+    }
+
+    const responderId = players[firstIdx].id;
+
     await tx
       .update(games)
       .set({
-        currentTurn: game.defensivePlayerId,
+        currentTurn: responderId,
         turnPhase: "respond_trick",
+        currentResponderIdx: firstIdx,
         lastTrickDescription: trickDescription,
         lastTrickBy: playerId,
         deadlineAt: deadline,
@@ -160,16 +263,21 @@ export async function submitTurn(tx: Database, input: SubmitTurnInput): Promise<
     return {
       ok: true,
       turn: newTurn,
-      message: "Trick set. Sent.",
-      notify: game.defensivePlayerId
-        ? { playerId: game.defensivePlayerId, opponentName: playerName || "Opponent" }
-        : null,
+      message: "Trick set. Waiting for responses.",
+      notify: [
+        {
+          playerId: responderId,
+          type: "your_turn",
+          data: { gameId, opponentName: name },
+        },
+      ],
     };
   } else {
+    // Response submitted — setter now judges this response
     await tx
       .update(games)
       .set({
-        currentTurn: game.defensivePlayerId,
+        currentTurn: game.setterId,
         turnPhase: "judge",
         deadlineAt: deadline,
         updatedAt: now,
@@ -179,8 +287,10 @@ export async function submitTurn(tx: Database, input: SubmitTurnInput): Promise<
     return {
       ok: true,
       turn: newTurn,
-      message: "Response sent. Now judge the trick.",
-      notify: null,
+      message: "Response sent. Waiting for judgment.",
+      notify: game.setterId
+        ? [{ playerId: game.setterId, type: "your_turn", data: { gameId, opponentName: name } }]
+        : [],
     };
   }
 }
@@ -189,11 +299,6 @@ export async function submitTurn(tx: Database, input: SubmitTurnInput): Promise<
 // Judge Turn
 // ============================================================================
 
-/**
- * Judge a turn (LAND or BAIL) within a transaction.
- * Validates game state, applies SKATE letter logic, handles game-over detection,
- * and determines role swaps.
- */
 export async function judgeTurn(
   tx: Database,
   turnId: number,
@@ -201,43 +306,22 @@ export async function judgeTurn(
   result: "landed" | "missed",
   turn: typeof gameTurns.$inferSelect
 ): Promise<JudgeTurnResult> {
-  // Lock game row to prevent concurrent judge/forfeit/dispute
   await tx.execute(sql`SELECT id FROM games WHERE id = ${turn.gameId} FOR UPDATE`);
-
   const [game] = await tx.select().from(games).where(eq(games.id, turn.gameId)).limit(1);
 
   if (!game) return { ok: false, status: 404, error: "Game not found" };
-  if (playerId !== game.defensivePlayerId)
-    return { ok: false, status: 403, error: "Only the defending player can judge" };
-  if (game.turnPhase !== "judge")
+  if (playerId !== game.setterId) {
+    return { ok: false, status: 403, error: "Only the setter can judge" };
+  }
+  if (game.turnPhase !== "judge") {
     return { ok: false, status: 400, error: "Game is not in judging phase" };
-  if (game.currentTurn !== playerId)
-    return { ok: false, status: 400, error: "Not your turn to judge" };
+  }
 
-  // Re-check turn result inside transaction (prevents double-judge race)
+  // Prevent double-judge
   const [currentTurn] = await tx.select().from(gameTurns).where(eq(gameTurns.id, turnId)).limit(1);
-
-  if (!currentTurn || currentTurn.result !== "pending")
+  if (!currentTurn || currentTurn.result !== "pending") {
     return { ok: false, status: 400, error: "Turn has already been judged" };
-
-  // Verify defender has submitted their response video (existence check only)
-  const [responseExists] = await tx
-    .select({ id: gameTurns.id })
-    .from(gameTurns)
-    .where(
-      and(
-        eq(gameTurns.gameId, game.id),
-        eq(gameTurns.playerId, playerId),
-        eq(gameTurns.turnType, "response"),
-        sql`${gameTurns.turnNumber} > ${turn.turnNumber}`
-      )
-    )
-    .limit(1);
-
-  const hasResponseForThisRound = !!responseExists;
-
-  if (!hasResponseForThisRound)
-    return { ok: false, status: 400, error: "You must submit your response video before judging" };
+  }
 
   const now = new Date();
 
@@ -247,117 +331,132 @@ export async function judgeTurn(
     .set({ result, judgedBy: playerId, judgedAt: now })
     .where(eq(gameTurns.id, turnId));
 
-  // Apply SKATE letter logic
-  const isPlayer1 = game.player1Id === playerId;
-  let newPlayer1Letters = game.player1Letters;
-  let newPlayer2Letters = game.player2Letters;
-  let newOffensiveId: string;
-  let newDefensiveId: string;
+  let updatedPlayers: GamePlayer[] = game.players;
+  const responderId = turn.playerId;
 
-  // Active games must have both role IDs set; guard against corrupt state.
-  if (!game.offensivePlayerId || !game.defensivePlayerId) {
-    return { ok: false, status: 500, error: "Game is missing player role assignments" };
-  }
-
+  // MISSED = responder gets a letter
   if (result === "missed") {
-    // BAIL: defensive player gets a letter, roles STAY the same
-    if (isPlayer1) {
-      newPlayer1Letters += SKATE_LETTERS[newPlayer1Letters.length] || "";
-    } else {
-      newPlayer2Letters += SKATE_LETTERS[newPlayer2Letters.length] || "";
-    }
-    newOffensiveId = game.offensivePlayerId;
-    newDefensiveId = game.defensivePlayerId;
-  } else {
-    // LAND: roles swap
-    newOffensiveId = game.defensivePlayerId;
-    newDefensiveId = game.offensivePlayerId;
+    updatedPlayers = applyLetter(updatedPlayers, responderId);
   }
 
-  // Check for game over
-  const gameOverCheck = isGameOver(newPlayer1Letters, newPlayer2Letters);
+  // Check if there are more responders after this one
+  const currentRespIdx = game.currentResponderIdx;
+  const nextRespIdx = nextResponderIdx(updatedPlayers, game.setterId!, currentRespIdx);
+
   const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
 
-  if (gameOverCheck.over) {
-    const winnerId = gameOverCheck.loserId === "player1" ? game.player2Id : game.player1Id;
+  // Check for game over after potential elimination
+  const gameOverCheck = checkGameOver(updatedPlayers);
 
+  if (gameOverCheck.over) {
     const [updatedGame] = await tx
       .update(games)
       .set({
-        player1Letters: newPlayer1Letters,
-        player2Letters: newPlayer2Letters,
+        players: updatedPlayers,
         status: "completed",
-        winnerId,
+        winnerId: gameOverCheck.winnerId,
         completedAt: now,
         updatedAt: now,
         turnPhase: null,
         currentTurn: null,
         deadlineAt: null,
+        currentResponderIdx: null,
       })
       .where(eq(games.id, game.id))
       .returning();
 
+    await updateWinLossStats(tx, updatedPlayers, gameOverCheck.winnerId);
+
     return {
       ok: true,
-      response: {
-        game: updatedGame,
-        turn: { ...turn, result, judgedBy: playerId, judgedAt: now },
-        gameOver: true,
-        winnerId,
-        message: "Game over.",
-      },
-      notifications: [game.player1Id, game.player2Id].filter(Boolean).map((pid) => ({
-        playerId: pid as string,
+      game: updatedGame,
+      turn: { ...turn, result, judgedBy: playerId, judgedAt: now },
+      gameOver: true,
+      winnerId: gameOverCheck.winnerId,
+      message: "Game over.",
+      notifications: updatedPlayers.map((p) => ({
+        playerId: p.id,
         type: "game_over" as const,
         data: {
           gameId: game.id,
-          winnerId: winnerId || undefined,
-          youWon: pid === winnerId,
-          opponentName:
-            (pid === game.player1Id ? game.player2Name : game.player1Name) || "Opponent",
+          winnerId: gameOverCheck.winnerId || undefined,
+          youWon: p.id === gameOverCheck.winnerId,
         },
       })),
     };
-  } else {
+  }
+
+  if (nextRespIdx !== null) {
+    // More responders to go — next responder's turn
+    const nextResponderId = updatedPlayers[nextRespIdx].id;
+
     const [updatedGame] = await tx
       .update(games)
       .set({
-        player1Letters: newPlayer1Letters,
-        player2Letters: newPlayer2Letters,
-        currentTurn: newOffensiveId,
-        turnPhase: "set_trick",
-        offensivePlayerId: newOffensiveId,
-        defensivePlayerId: newDefensiveId,
+        players: updatedPlayers,
+        currentTurn: nextResponderId,
+        turnPhase: "respond_trick",
+        currentResponderIdx: nextRespIdx,
         deadlineAt: deadline,
         updatedAt: now,
       })
       .where(eq(games.id, game.id))
       .returning();
 
-    const letterMessage = result === "missed" ? "BAIL. Letter earned." : "LAND. Roles swap.";
+    const letterMsg = result === "missed" ? "BAIL. Letter earned." : "LAND.";
 
     return {
       ok: true,
-      response: {
-        game: updatedGame,
-        turn: { ...turn, result, judgedBy: playerId, judgedAt: now },
-        gameOver: false,
-        message: letterMessage,
-      },
+      game: updatedGame,
+      turn: { ...turn, result, judgedBy: playerId, judgedAt: now },
+      gameOver: false,
+      message: `${letterMsg} Next responder up.`,
       notifications: [
         {
-          playerId: newOffensiveId,
-          type: "your_turn" as const,
-          data: {
-            gameId: game.id,
-            opponentName:
-              (newOffensiveId === game.player1Id ? game.player2Name : game.player1Name) ||
-              "Opponent",
-          },
+          playerId: nextResponderId,
+          type: "your_turn",
+          data: { gameId: game.id, opponentName: playerName(updatedPlayers, game.setterId!) },
         },
       ],
     };
   }
+
+  // All responders judged — round complete. Rotate setter.
+  const newSetterId = nextSetter(updatedPlayers, game.setterId!);
+  if (!newSetterId) {
+    return { ok: false, status: 500, error: "Could not determine next setter" };
+  }
+
+  const [updatedGame] = await tx
+    .update(games)
+    .set({
+      players: updatedPlayers,
+      currentTurn: newSetterId,
+      turnPhase: "set_trick",
+      setterId: newSetterId,
+      currentResponderIdx: null,
+      deadlineAt: deadline,
+      updatedAt: now,
+    })
+    .where(eq(games.id, game.id))
+    .returning();
+
+  const letterMsg = result === "missed" ? "BAIL. Letter earned." : "LAND.";
+
+  return {
+    ok: true,
+    game: updatedGame,
+    turn: { ...turn, result, judgedBy: playerId, judgedAt: now },
+    gameOver: false,
+    message: `${letterMsg} Round complete. New setter up.`,
+    notifications: [
+      {
+        playerId: newSetterId,
+        type: "your_turn",
+        data: { gameId: game.id, opponentName: "all" },
+      },
+    ],
+  };
 }
 
 // ============================================================================
@@ -365,101 +464,82 @@ export async function judgeTurn(
 // ============================================================================
 
 /**
- * Setter bails on their own trick — they take the letter themselves.
- * This is a real S.K.A.T.E. rule: if you can't land what you set,
- * you eat the letter and your opponent becomes the setter.
+ * Setter bails on their own trick — they take the letter.
+ * Roles rotate: next active player becomes setter.
  */
 export async function setterBail(
   tx: Database,
   gameId: string,
   playerId: string
 ): Promise<SetterBailResult> {
-  // Lock game row
   await tx.execute(sql`SELECT id FROM games WHERE id = ${gameId} FOR UPDATE`);
-
   const [game] = await tx.select().from(games).where(eq(games.id, gameId)).limit(1);
 
   if (!game) return { ok: false, status: 404, error: "Game not found" };
   if (game.status !== "active") return { ok: false, status: 400, error: "Game is not active" };
-  if (game.offensivePlayerId !== playerId)
+  if (game.setterId !== playerId) {
     return { ok: false, status: 403, error: "Only the setter can declare a bail" };
-  if (game.turnPhase !== "set_trick")
+  }
+  if (game.turnPhase !== "set_trick") {
     return { ok: false, status: 400, error: "Can only bail during set trick phase" };
-
-  const isPlayer1 = game.player1Id === playerId;
-  let newPlayer1Letters = game.player1Letters;
-  let newPlayer2Letters = game.player2Letters;
-
-  // Setter takes a letter
-  if (isPlayer1) {
-    newPlayer1Letters += SKATE_LETTERS[newPlayer1Letters.length] || "";
-  } else {
-    newPlayer2Letters += SKATE_LETTERS[newPlayer2Letters.length] || "";
   }
 
+  let updatedPlayers = applyLetter(game.players, playerId);
   const now = new Date();
   const deadline = new Date(now.getTime() + TURN_DEADLINE_MS);
 
-  // Guard against corrupted state — both role IDs must be set for active games
-  if (!game.offensivePlayerId || !game.defensivePlayerId) {
-    return { ok: false, status: 500, error: "Game is missing player role assignments" };
-  }
-
-  // Roles swap — opponent becomes the setter
-  const newOffensiveId = game.defensivePlayerId;
-  const newDefensiveId = game.offensivePlayerId;
-
-  // Check for game over
-  const gameOverCheck = isGameOver(newPlayer1Letters, newPlayer2Letters);
+  const gameOverCheck = checkGameOver(updatedPlayers);
 
   if (gameOverCheck.over) {
-    const winnerId = gameOverCheck.loserId === "player1" ? game.player2Id : game.player1Id;
-
     const [updatedGame] = await tx
       .update(games)
       .set({
-        player1Letters: newPlayer1Letters,
-        player2Letters: newPlayer2Letters,
+        players: updatedPlayers,
         status: "completed",
-        winnerId,
+        winnerId: gameOverCheck.winnerId,
         completedAt: now,
         updatedAt: now,
         turnPhase: null,
         currentTurn: null,
         deadlineAt: null,
+        currentResponderIdx: null,
       })
       .where(eq(games.id, gameId))
       .returning();
+
+    await updateWinLossStats(tx, updatedPlayers, gameOverCheck.winnerId);
 
     return {
       ok: true,
       game: updatedGame,
       gameOver: true,
-      winnerId,
+      winnerId: gameOverCheck.winnerId,
       message: "You bailed your own trick. Game over.",
-      notifications: [game.player1Id, game.player2Id].filter(Boolean).map((pid) => ({
-        playerId: pid as string,
+      notifications: updatedPlayers.map((p) => ({
+        playerId: p.id,
         type: "game_over" as const,
         data: {
           gameId: game.id,
-          winnerId: winnerId || undefined,
-          youWon: pid === winnerId,
-          opponentName:
-            (pid === game.player1Id ? game.player2Name : game.player1Name) || "Opponent",
+          winnerId: gameOverCheck.winnerId || undefined,
+          youWon: p.id === gameOverCheck.winnerId,
         },
       })),
     };
   }
 
+  const newSetterId = nextSetter(updatedPlayers, playerId);
+  if (!newSetterId) {
+    return { ok: false, status: 500, error: "Could not determine next setter" };
+  }
+
   const [updatedGame] = await tx
     .update(games)
     .set({
-      player1Letters: newPlayer1Letters,
-      player2Letters: newPlayer2Letters,
-      currentTurn: newOffensiveId,
+      players: updatedPlayers,
+      currentTurn: newSetterId,
       turnPhase: "set_trick",
-      offensivePlayerId: newOffensiveId,
-      defensivePlayerId: newDefensiveId,
+      setterId: newSetterId,
+      currentResponderIdx: null,
       deadlineAt: deadline,
       updatedAt: now,
     })
@@ -470,15 +550,12 @@ export async function setterBail(
     ok: true,
     game: updatedGame,
     gameOver: false,
-    message: "You bailed your own trick. Letter earned. Roles swap.",
+    message: "You bailed your own trick. Letter earned. New setter up.",
     notifications: [
       {
-        playerId: newOffensiveId,
-        type: "your_turn" as const,
-        data: {
-          gameId: game.id,
-          opponentName: (isPlayer1 ? game.player1Name : game.player2Name) || "Opponent",
-        },
+        playerId: newSetterId,
+        type: "your_turn",
+        data: { gameId: game.id, opponentName: playerName(updatedPlayers, playerId) },
       },
     ],
   };

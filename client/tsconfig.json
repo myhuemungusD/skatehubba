@@ -1,27 +1,22 @@
 {
-  "extends": "../tsconfig.json",
   "compilerOptions": {
+    "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "jsx": "react-jsx",
-    "types": ["vite/client"],
-    "baseUrl": ".",
-    "rootDir": "..",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@shared/*": ["../packages/shared/*"],
-      "@shared": ["../packages/shared/index"]
-    }
+      "@shared/*": ["../packages/shared/*"]
+    },
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true
   },
-  "include": ["src", "../packages/shared", "vite.config.ts", "postcss.config.js", "index.html"],
-  "exclude": [
-    "../packages/shared/__tests__/**",
-    "src/**/*.test.ts",
-    "src/**/*.test.tsx",
-    "src/**/*.spec.ts",
-    "src/**/*.spec.tsx",
-    "src/**/_archived/**",
-    "src/sw.ts"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules"]
 }

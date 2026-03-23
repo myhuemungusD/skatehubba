@@ -1,125 +1,26 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
-import tsconfigPaths from "vite-tsconfig-paths";
-import { VitePWA } from "vite-plugin-pwa";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import path from "path";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-export default defineConfig(({ mode }) => {
-  const rootEnv = loadEnv(mode, path.resolve(__dirname, ".."), ["VITE_", "EXPO_PUBLIC_"]);
-
-  // ── Build-tool config (consumed by vite.config.ts only, never bundled into app) ──
-  // These intentionally use VITE_ prefix — they configure the build tool, not the app.
-  // App-facing env vars MUST use EXPO_PUBLIC_ (see packages/config/src/envContract.ts).
-  // ── Defence-in-depth: scrub server secrets from the client bundle ──────────
-  // If someone accidentally sets a server secret with EXPO_PUBLIC_ or VITE_
-  // prefix, Vite will inline it. This blocklist replaces known dangerous keys
-  // with undefined so the value never reaches the browser even if the env var
-  // is mis-configured. The verify-public-env.mjs script also blocks the build,
-  // but this is belt-and-suspenders.
-  const BLOCKED_SECRET_SUFFIXES = [
-    "FIREBASE_ADMIN_KEY",
-    "FIREBASE_PRIVATE_KEY",
-    "DATABASE_URL",
-    "SESSION_SECRET",
-    "JWT_SECRET",
-    "MFA_ENCRYPTION_KEY",
-    "CRON_SECRET",
-    "REDIS_URL",
-    "STRIPE_SECRET_KEY",
-    "STRIPE_WEBHOOK_SECRET",
-  ];
-  const secretScrubDefines: Record<string, string> = {};
-  for (const suffix of BLOCKED_SECRET_SUFFIXES) {
-    for (const prefix of ["EXPO_PUBLIC_", "VITE_"]) {
-      const key = `${prefix}${suffix}`;
-      // Override import.meta.env.KEY to undefined regardless of actual value
-      secretScrubDefines[`import.meta.env.${key}`] = "undefined";
-    }
-  }
-
-  const apiTarget = rootEnv.VITE_API_PROXY_TARGET || "http://localhost:3001";
-  const sourcemap = rootEnv.VITE_SOURCEMAP === "true";
-  const dropConsole = rootEnv.VITE_DROP_CONSOLE === "true";
-  const chunkLimit = Number(rootEnv.VITE_CHUNK_SIZE_WARNING_LIMIT || 900);
-
-  return {
-    plugins: [
-      react(),
-      tsconfigPaths({ projects: [path.resolve(__dirname, "./tsconfig.json")] }),
-      VitePWA({
-        registerType: "autoUpdate",
-        strategies: "injectManifest",
-        srcDir: "src",
-        filename: "sw.ts",
-        injectRegister: "auto",
-        manifest: {
-          name: "SkateHubba",
-          short_name: "SkateHubba",
-          start_url: "/",
-          scope: "/",
-          display: "standalone",
-          background_color: "#181818",
-          theme_color: "#ff6a00",
-          icons: [
-            { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
-            { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
-            { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
-          ],
-        },
-        includeAssets: ["offline.html", "favicon.ico", "apple-touch-icon.png"],
-        injectManifest: {
-          maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
-          globPatterns: ["**/*.{js,css,html,png,svg,ico,woff,woff2}"],
-        },
-        devOptions: { enabled: false },
-      }),
-    ],
-    envDir: path.resolve(__dirname, ".."),
-    // Expose both VITE_ and EXPO_PUBLIC_ prefixed env vars for universal compatibility
-    envPrefix: ["VITE_", "EXPO_PUBLIC_"],
-    server: {
-      host: "0.0.0.0",
-      port: 3000,
-      strictPort: true,
-      headers: {
-        "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
-      },
-      proxy: {
-        "/api": {
-          target: apiTarget,
-          changeOrigin: true,
-        },
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "src"),
+      "@shared": path.resolve(__dirname, "../packages/shared"),
+    },
+  },
+  server: {
+    port: 3000,
+    proxy: {
+      "/api": {
+        target: "http://localhost:3001",
+        changeOrigin: true,
       },
     },
-    build: {
-      outDir: "dist",
-      emptyOutDir: true,
-      sourcemap,
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (!id.includes("node_modules")) return;
-            if (id.includes("firebase")) return "firebase";
-            if (id.includes("leaflet")) return "leaflet";
-            if (id.includes("framer-motion")) return "motion";
-            if (id.includes("lucide-react")) return "icons";
-            if (id.includes("@radix-ui")) return "radix";
-            return "vendor";
-          },
-        },
-      },
-      chunkSizeWarningLimit: Number.isFinite(chunkLimit) ? chunkLimit : 900,
-    },
-    define: {
-      // Scrub server secrets that were accidentally given a public prefix
-      ...secretScrubDefines,
-    },
-    esbuild: {
-      drop: dropConsole ? ["console", "debugger"] : [],
-    },
-    publicDir: "public",
-  };
+  },
+  build: {
+    outDir: "dist",
+    sourcemap: "hidden",
+  },
 });

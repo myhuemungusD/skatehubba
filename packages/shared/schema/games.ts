@@ -4,84 +4,141 @@ import {
   text,
   serial,
   integer,
-  boolean,
   timestamp,
   varchar,
   index,
+  jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
+import { customUsers } from "./auth";
 
-// Game status enum: pending (waiting for accept), active (in progress), completed, declined, forfeited
+// ============================================================================
+// Enums
+// ============================================================================
+
 export const GAME_STATUSES = ["pending", "active", "completed", "declined", "forfeited"] as const;
 export type GameStatus = (typeof GAME_STATUSES)[number];
 
-// Turn phase: describes what the current player must do
-// "set_trick" = offensive player records a trick video
-// "respond_trick" = defensive player watches + records response video
-// "judge" = defensive player judges the offensive trick (LAND/BAIL)
 export const TURN_PHASES = ["set_trick", "respond_trick", "judge"] as const;
 export type TurnPhase = (typeof TURN_PHASES)[number];
 
-// Turn result enum
+export const TURN_TYPES = ["set", "response"] as const;
+export type TurnType = (typeof TURN_TYPES)[number];
+
 export const TURN_RESULTS = ["landed", "missed", "pending"] as const;
 export type TurnResult = (typeof TURN_RESULTS)[number];
 
-// S.K.A.T.E. Games table — async, turn-based, ruthless
+export const MIN_PLAYERS = 2;
+export const MAX_PLAYERS = 5;
+export const SKATE_LETTERS = "SKATE";
+export const SKATE_LETTERS_TO_LOSE = 5;
+
+// ============================================================================
+// Player state stored as JSONB array on the game row
+// ============================================================================
+
+/**
+ * Each player in a multiplayer S.K.A.T.E. game.
+ * Stored as a JSONB array on the `games` table — no join tables, no N player columns.
+ *
+ * Note: `name` is denormalized at game creation for display. Changing a display
+ * name after the game starts won't retroactively update game records (intentional).
+ */
+export interface GamePlayer {
+  id: string;
+  name: string;
+  letters: string; // "", "S", "SK", ... "SKATE"
+  isEliminated: boolean;
+}
+
+export const gamePlayerSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  letters: z.string().max(5),
+  isEliminated: z.boolean(),
+});
+
+// ============================================================================
+// Games table — 2-5 player async S.K.A.T.E.
+// ============================================================================
+
 export const games = pgTable(
   "games",
   {
-    id: varchar("id")
+    id: varchar("id", { length: 36 })
       .primaryKey()
       .default(sql`gen_random_uuid()`),
-    player1Id: varchar("player1_id", { length: 255 }).notNull(),
-    player1Name: varchar("player1_name", { length: 255 }).notNull(),
-    player2Id: varchar("player2_id", { length: 255 }),
-    player2Name: varchar("player2_name", { length: 255 }),
+
+    /** Player who created the game */
+    creatorId: varchar("creator_id", { length: 36 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "restrict" }),
+
+    /** JSONB array of GamePlayer objects — the source of truth for letters/elimination */
+    players: jsonb("players").$type<GamePlayer[]>().notNull().default(sql`'[]'::jsonb`),
+
+    /** How many players are required before the game starts */
+    maxPlayers: integer("max_players").notNull().default(2),
+
     status: varchar("status", { length: 50 }).notNull().default("pending"),
-    currentTurn: varchar("current_turn", { length: 255 }),
-    // Async turn phase tracking
+
+    /** ID of the player whose turn it is right now */
+    currentTurn: varchar("current_turn", { length: 36 }),
+
+    /** What the current player needs to do */
     turnPhase: varchar("turn_phase", { length: 50 }).default("set_trick"),
-    offensivePlayerId: varchar("offensive_player_id", { length: 255 }),
-    defensivePlayerId: varchar("defensive_player_id", { length: 255 }),
-    player1Letters: varchar("player1_letters", { length: 5 }).notNull().default(""),
-    player2Letters: varchar("player2_letters", { length: 5 }).notNull().default(""),
-    winnerId: varchar("winner_id", { length: 255 }),
+
+    /** The player currently setting tricks (offensive role) */
+    setterId: varchar("setter_id", { length: 36 }),
+
+    /** Index into `players` of the defender who must respond next.
+     *  After setter submits, each non-setter responds in order. */
+    currentResponderIdx: integer("current_responder_idx"),
+
+    /** Last trick description for UI display */
     lastTrickDescription: text("last_trick_description"),
-    lastTrickBy: varchar("last_trick_by", { length: 255 }),
-    // Dispute tracking: max 1 per player per game
-    player1DisputeUsed: boolean("player1_dispute_used").notNull().default(false),
-    player2DisputeUsed: boolean("player2_dispute_used").notNull().default(false),
+    lastTrickBy: varchar("last_trick_by", { length: 36 }),
+
+    /** 24-hour turn deadline */
     deadlineAt: timestamp("deadline_at", { withTimezone: true }),
+
+    winnerId: varchar("winner_id", { length: 36 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (table) => ({
-    player1Idx: index("IDX_games_player1").on(table.player1Id),
-    player2Idx: index("IDX_games_player2").on(table.player2Id),
+    creatorIdx: index("IDX_games_creator").on(table.creatorId),
     statusDeadlineIdx: index("IDX_games_status_deadline").on(table.status, table.deadlineAt),
+    winnerIdx: index("IDX_games_winner").on(table.winnerId),
   })
 );
 
-// Game turns/history table — each turn = one video clip (set or response)
+// ============================================================================
+// Game turns — each turn = one video clip (set or response)
+// ============================================================================
+
 export const gameTurns = pgTable(
   "game_turns",
   {
     id: serial("id").primaryKey(),
-    gameId: varchar("game_id", { length: 255 })
+    gameId: varchar("game_id", { length: 36 })
       .notNull()
       .references(() => games.id, { onDelete: "restrict" }),
-    playerId: varchar("player_id", { length: 255 }).notNull(),
+    playerId: varchar("player_id", { length: 36 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "restrict" }),
     playerName: varchar("player_name", { length: 255 }).notNull(),
     turnNumber: integer("turn_number").notNull(),
     turnType: varchar("turn_type", { length: 20 }).notNull().default("set"),
     trickDescription: text("trick_description").notNull(),
-    videoUrl: varchar("video_url", { length: 500 }),
+    videoUrl: text("video_url"),
     videoDurationMs: integer("video_duration_ms"),
-    thumbnailUrl: varchar("thumbnail_url", { length: 500 }),
+    thumbnailUrl: text("thumbnail_url"),
     result: varchar("result", { length: 50 }).notNull().default("pending"),
-    judgedBy: varchar("judged_by", { length: 255 }),
+    judgedBy: varchar("judged_by", { length: 36 }),
     judgedAt: timestamp("judged_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -89,86 +146,39 @@ export const gameTurns = pgTable(
     gameIdx: index("IDX_game_turns_game").on(table.gameId),
     playerIdx: index("IDX_game_turns_player").on(table.playerId),
     gameResultIdx: index("IDX_game_turns_game_result").on(table.gameId, table.result),
+    uniqueTurnNumber: uniqueIndex("UQ_game_turn_number").on(table.gameId, table.turnNumber),
   })
 );
 
-// Dispute table — max 1 per player per game, final resolution
-export const gameDisputes = pgTable(
-  "game_disputes",
-  {
-    id: serial("id").primaryKey(),
-    gameId: varchar("game_id", { length: 255 })
-      .notNull()
-      .references(() => games.id, { onDelete: "restrict" }),
-    turnId: integer("turn_id")
-      .notNull()
-      .references(() => gameTurns.id, { onDelete: "restrict" }),
-    disputedBy: varchar("disputed_by", { length: 255 }).notNull(),
-    againstPlayerId: varchar("against_player_id", { length: 255 }).notNull(),
-    originalResult: varchar("original_result", { length: 50 }).notNull(),
-    finalResult: varchar("final_result", { length: 50 }),
-    resolvedBy: varchar("resolved_by", { length: 255 }),
-    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
-    penaltyAppliedTo: varchar("penalty_applied_to", { length: 255 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    gameIdx: index("IDX_game_disputes_game").on(table.gameId),
-    disputedByIdx: index("IDX_game_disputes_disputed_by").on(table.disputedBy),
-  })
-);
+// ============================================================================
+// Validation schemas
+// ============================================================================
 
-// Challenges table - SKATE game challenge requests
-export const challenges = pgTable(
-  "challenges",
-  {
-    id: varchar("id")
-      .primaryKey()
-      .default(sql`gen_random_uuid()`),
-    challengerId: varchar("challenger_id", { length: 255 }).notNull(),
-    challengedId: varchar("challenged_id", { length: 255 }).notNull(),
-    status: varchar("status", { length: 50 }).notNull().default("pending"),
-    gameId: varchar("game_id", { length: 255 }).references(() => games.id, {
-      onDelete: "set null",
-    }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => ({
-    challengerIdx: index("IDX_challenges_challenger").on(table.challengerId),
-    challengedIdx: index("IDX_challenges_challenged").on(table.challengedId),
-    statusIdx: index("IDX_challenges_status").on(table.status),
-  })
-);
-
-export const insertGameSchema = createInsertSchema(games).omit({
+export const insertGameSchema = createInsertSchema(games, {
+  status: z.enum(GAME_STATUSES).default("pending"),
+  turnPhase: z.enum(TURN_PHASES).optional(),
+  maxPlayers: z.number().int().min(MIN_PLAYERS).max(MAX_PLAYERS).default(2),
+  players: z.array(gamePlayerSchema).default([]),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
   completedAt: true,
 });
 
-export const insertGameTurnSchema = createInsertSchema(gameTurns).omit({
+export const insertGameTurnSchema = createInsertSchema(gameTurns, {
+  turnType: z.enum(TURN_TYPES).default("set"),
+  result: z.enum(TURN_RESULTS).default("pending"),
+}).omit({
   id: true,
   createdAt: true,
 });
 
-export const insertGameDisputeSchema = createInsertSchema(gameDisputes).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertChallengeSchema = createInsertSchema(challenges).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
+// ============================================================================
+// Types
+// ============================================================================
 
 export type Game = typeof games.$inferSelect;
 export type InsertGame = z.infer<typeof insertGameSchema>;
 export type GameTurn = typeof gameTurns.$inferSelect;
 export type InsertGameTurn = z.infer<typeof insertGameTurnSchema>;
-export type GameDispute = typeof gameDisputes.$inferSelect;
-export type InsertGameDispute = z.infer<typeof insertGameDisputeSchema>;
-export type Challenge = typeof challenges.$inferSelect;
-export type InsertChallenge = z.infer<typeof insertChallengeSchema>;

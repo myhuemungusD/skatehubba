@@ -1,297 +1,153 @@
-import { Router, type Request } from "express";
-import { z } from "zod";
-import { spotStorage } from "../storage/spots";
-import { insertSpotSchema } from "@shared/schema";
-import {
-  checkInIpLimiter,
-  perUserCheckInLimiter,
-  perUserSpotWriteLimiter,
-  publicWriteLimiter,
-  spotRatingLimiter,
-  spotDiscoveryLimiter,
-} from "../middleware/security";
-import { requireCsrfToken } from "../middleware/csrf";
-import { authenticateUser, requireEmailVerification } from "../auth/middleware";
-import { requirePaidOrPro } from "../middleware/requirePaidOrPro";
-import { validateBody } from "../middleware/validation";
-import { verifyAndCheckIn } from "../services/spotService";
-import { discoverSkateparks, isAreaCached } from "../services/osmDiscovery";
-import { logAuditEvent } from "../services/auditLog";
-import { verifyReplayProtection } from "../services/replayProtection";
-import { SpotCheckInSchema, type SpotCheckInRequest } from "@shared/validation/spotCheckIn";
-import { getClientIp } from "../utils/ip";
-import { spotDiscoveryBreaker } from "../utils/circuitBreaker";
+/**
+ * Spots routes — CRUD for skate spots on the map.
+ * Simplified for MVP: no replay protection, no circuit breaker, no OSM discovery.
+ */
+
+import { Router } from "express";
+import { getDb } from "../db";
+import { spots, spotRatings, checkIns, insertSpotSchema, rateSpotSchema } from "@shared/schema";
+import { eq, sql, desc } from "drizzle-orm";
+import { authenticateUser, optionalAuthentication } from "../auth/middleware";
+import { Errors } from "../utils/apiError";
 import logger from "../logger";
 
 const router = Router();
 
-// GET /api/spots — list all spots
-router.get("/", async (_req, res) => {
-  const spots = await spotDiscoveryBreaker.execute(() => spotStorage.getAllSpots(), []);
-  res.json(spots);
+// GET /api/spots — List all active spots
+router.get("/", optionalAuthentication, async (_req, res) => {
+  try {
+    const db = getDb();
+    const allSpots = await db
+      .select()
+      .from(spots)
+      .where(eq(spots.isActive, true))
+      .orderBy(desc(spots.createdAt));
+
+    res.json({ spots: allSpots });
+  } catch (error) {
+    logger.error("[Spots] Failed to fetch spots", { error });
+    return Errors.internal(res, "FETCH_FAILED", "Failed to fetch spots.");
+  }
 });
 
-// GET /api/spots/discover — discover skateparks near user's location from OpenStreetMap
-router.get("/discover", spotDiscoveryLimiter, async (req, res) => {
-  const lat = Number(req.query.lat);
-  const lng = Number(req.query.lng);
-
-  if (
-    !Number.isFinite(lat) ||
-    !Number.isFinite(lng) ||
-    lat < -90 ||
-    lat > 90 ||
-    lng < -180 ||
-    lng > 180
-  ) {
-    return res.status(400).json({
-      error: "INVALID_COORDINATES",
-      message: "Valid lat and lng query parameters are required.",
-    });
-  }
-
-  const EMPTY_DISCOVERY = {
-    discovered: 0,
-    added: 0,
-    spots: [] as Awaited<ReturnType<typeof spotStorage.getAllSpots>>,
-  };
-
-  const result = await spotDiscoveryBreaker.execute(async () => {
-    // Fast path: if we already discovered for this area, just return existing spots
-    if (await isAreaCached(lat, lng)) {
-      const allSpots = await spotStorage.getAllSpots();
-      return { discovered: 0, added: 0, cached: true, spots: allSpots };
-    }
-
-    const discovered = await discoverSkateparks(lat, lng);
-    let added = 0;
-
-    for (const spot of discovered) {
-      // Skip if a spot with the same name already exists nearby
-      const isDuplicate = await spotStorage.checkDuplicate(spot.name, spot.lat, spot.lng);
-      if (isDuplicate) continue;
-
-      const created = await spotStorage.createSpot({
-        name: spot.name,
-        description: spot.description,
-        spotType: spot.spotType,
-        lat: spot.lat,
-        lng: spot.lng,
-        address: spot.address || undefined,
-        city: spot.city || undefined,
-        state: spot.state || undefined,
-        country: spot.country || "USA",
-        createdBy: "system",
-      });
-      // Mark OSM-sourced spots as verified since they're real confirmed places
-      await spotStorage.verifySpot(created.id);
-      added++;
-    }
-
-    // Return all spots (including newly added ones)
-    const allSpots = await spotStorage.getAllSpots();
-    return { discovered: discovered.length, added, spots: allSpots };
-  }, EMPTY_DISCOVERY);
-
-  return res.json(result);
-});
-
-// GET /api/spots/:spotId — get a single spot
-router.get("/:spotId", async (req, res) => {
-  const spotId = Number(req.params.spotId);
-  if (Number.isNaN(spotId)) {
-    return res.status(400).json({ error: "INVALID_SPOT_ID", message: "Invalid spot ID." });
-  }
+// GET /api/spots/:id — Single spot detail
+router.get("/:id", optionalAuthentication, async (req, res) => {
+  const spotId = parseInt(req.params.id, 10);
+  if (isNaN(spotId)) return Errors.badRequest(res, "INVALID_ID", "Invalid spot ID.");
 
   try {
-    const spot = await spotStorage.getSpotById(spotId);
-    if (!spot) {
-      return res.status(404).json({ error: "SPOT_NOT_FOUND", message: "Spot not found." });
-    }
-    return res.json(spot);
+    const db = getDb();
+    const [spot] = await db.select().from(spots).where(eq(spots.id, spotId)).limit(1);
+    if (!spot) return Errors.notFound(res, "SPOT_NOT_FOUND", "Spot not found.");
+    res.json({ spot });
   } catch (error) {
-    logger.error("Failed to fetch spot", {
-      spotId,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return res.status(500).json({ error: "SPOT_FETCH_FAILED", message: "Failed to load spot." });
+    logger.error("[Spots] Failed to fetch spot", { error, spotId });
+    return Errors.internal(res, "FETCH_FAILED", "Failed to fetch spot.");
   }
 });
 
-const spotRatingSchema = z.object({
-  rating: z.number().int().min(1).max(5),
+// POST /api/spots — Create a new spot (authenticated)
+router.post("/", authenticateUser, async (req, res) => {
+  const parsed = insertSpotSchema.safeParse(req.body);
+  if (!parsed.success) return Errors.validation(res, parsed.error.flatten());
+
+  const currentUserId = req.currentUser!.id;
+
+  try {
+    const db = getDb();
+    const [spot] = await db
+      .insert(spots)
+      .values({ ...parsed.data, createdBy: currentUserId })
+      .returning();
+
+    logger.info("[Spots] Spot created", { spotId: spot.id, userId: currentUserId });
+    res.status(201).json({ spot });
+  } catch (error) {
+    logger.error("[Spots] Failed to create spot", { error, userId: currentUserId });
+    return Errors.internal(res, "CREATE_FAILED", "Failed to create spot.");
+  }
 });
 
-// POST /api/spots/:spotId/rate — rate a spot
-router.post(
-  "/:spotId/rate",
-  authenticateUser,
-  requirePaidOrPro,
-  spotRatingLimiter,
-  validateBody(spotRatingSchema),
-  async (req, res) => {
-    const spotId = Number(req.params.spotId);
-    if (Number.isNaN(spotId)) {
-      return res.status(400).json({ error: "INVALID_SPOT_ID", message: "Invalid spot ID." });
-    }
+// POST /api/spots/:id/rate — Rate a spot (1-5)
+router.post("/:id/rate", authenticateUser, async (req, res) => {
+  const spotId = parseInt(req.params.id, 10);
+  if (isNaN(spotId)) return Errors.badRequest(res, "INVALID_ID", "Invalid spot ID.");
 
-    const { rating } = (req as Request & { validatedBody: { rating: number } }).validatedBody;
-    const userId = req.currentUser!.id;
+  const parsed = rateSpotSchema.safeParse(req.body);
+  if (!parsed.success) return Errors.validation(res, parsed.error.flatten());
+  const { rating } = parsed.data;
 
-    await spotStorage.updateRating(spotId, rating, userId);
-    const updated = await spotStorage.getSpotById(spotId);
+  const currentUserId = req.currentUser!.id;
 
-    if (!updated) {
-      return res.status(404).json({ error: "SPOT_NOT_FOUND", message: "Spot not found." });
-    }
+  try {
+    const db = getDb();
 
-    return res.status(200).json(updated);
-  }
-);
-
-// POST /api/spots — create a new spot
-router.post(
-  "/",
-  authenticateUser,
-  requirePaidOrPro,
-  requireEmailVerification,
-  publicWriteLimiter,
-  perUserSpotWriteLimiter,
-  requireCsrfToken,
-  validateBody(insertSpotSchema),
-  async (req, res) => {
-    type InsertSpot = z.infer<typeof insertSpotSchema>;
-    const spotPayload = req.body as InsertSpot;
-
-    // Check for duplicate spots (same name + similar coords)
-    const isDuplicate = await spotStorage.checkDuplicate(
-      spotPayload.name,
-      spotPayload.lat,
-      spotPayload.lng
-    );
-
-    if (isDuplicate) {
-      logAuditEvent({
-        action: "spot.rejected.duplicate",
-        userId: req.currentUser!.id,
-        ip: getClientIp(req),
-        metadata: {
-          name: spotPayload.name,
-          lat: spotPayload.lat,
-          lng: spotPayload.lng,
-        },
-      });
-      return res.status(409).json({
-        error: "A spot with this name already exists at this location.",
-      });
-    }
-
-    // Creation: Pass 'createdBy' from the authenticated session
-    const spot = await spotStorage.createSpot({
-      ...spotPayload,
-      createdBy: req.currentUser!.id,
-    });
-
-    logAuditEvent({
-      action: "spot.created",
-      userId: req.currentUser!.id,
-      ip: getClientIp(req),
-      metadata: {
-        spotId: spot.id,
-        lat: spot.lat,
-        lng: spot.lng,
-      },
-    });
-
-    return res.status(201).json(spot);
-  }
-);
-
-// POST /api/spots/check-in — check in at a spot
-router.post(
-  "/check-in",
-  authenticateUser,
-  requirePaidOrPro,
-  checkInIpLimiter,
-  perUserCheckInLimiter,
-  validateBody(SpotCheckInSchema),
-  async (req, res) => {
-    const parsedBody = req.body as SpotCheckInRequest;
-
-    const userId = req.currentUser?.id;
-    if (!userId) {
-      return res.status(401).json({ error: "UNAUTHORIZED", message: "Authentication required." });
-    }
-
-    const { spotId, lat, lng, accuracy, nonce, clientTimestamp } = parsedBody;
-
-    const replayCheck = await verifyReplayProtection(userId, {
-      spotId,
-      lat,
-      lng,
-      nonce,
-      clientTimestamp,
-    });
-    if (!replayCheck.ok) {
-      const status = replayCheck.reason === "replay_detected" ? 409 : 400;
-      const message =
-        replayCheck.reason === "replay_detected"
-          ? "Replay detected."
-          : "Invalid check-in timestamp.";
-      logAuditEvent({
-        action: "spot.checkin.rejected",
-        userId,
-        ip: getClientIp(req),
-        metadata: {
-          spotId,
-          reason: replayCheck.reason,
-        },
-      });
-      return res.status(status).json({
-        error: replayCheck.reason === "replay_detected" ? "REPLAY_DETECTED" : "INVALID_TIMESTAMP",
-        message,
-      });
-    }
-
-    try {
-      const result = await verifyAndCheckIn(userId, spotId, lat, lng, accuracy);
-      if (!result.success) {
-        logAuditEvent({
-          action: "spot.checkin.denied",
-          userId,
-          ip: getClientIp(req),
-          metadata: {
-            spotId,
-            reason: result.message,
-          },
+    const result = await db.transaction(async (tx) => {
+      // Upsert rating
+      await tx
+        .insert(spotRatings)
+        .values({ spotId, userId: currentUserId, rating })
+        .onConflictDoUpdate({
+          target: [spotRatings.spotId, spotRatings.userId],
+          set: { rating, updatedAt: new Date() },
         });
-        return res.status(422).json({
-          message: result.message,
-          code: result.code,
-          distance: result.distance,
-          radius: result.radius,
-        });
-      }
 
-      logAuditEvent({
-        action: "spot.checkin.approved",
-        userId,
-        ip: getClientIp(req),
-        metadata: {
-          spotId,
-          checkInId: result.checkInId,
-        },
-      });
+      // Recalculate average
+      const [avg] = await tx
+        .select({
+          avgRating: sql<number>`avg(${spotRatings.rating})::double precision`,
+          count: sql<number>`count(*)::int`,
+        })
+        .from(spotRatings)
+        .where(eq(spotRatings.spotId, spotId));
 
-      return res.status(200).json(result);
-    } catch (error) {
-      if (error instanceof Error && error.message === "Spot not found") {
-        return res.status(404).json({ error: "SPOT_NOT_FOUND", message: "Spot not found." });
-      }
+      await tx
+        .update(spots)
+        .set({ rating: avg.avgRating || 0, ratingCount: avg.count || 0, updatedAt: new Date() })
+        .where(eq(spots.id, spotId));
 
-      return res.status(500).json({ error: "CHECKIN_FAILED", message: "Check-in failed." });
-    }
+      return avg;
+    });
+
+    res.json({ rating: result.avgRating, ratingCount: result.count });
+  } catch (error) {
+    logger.error("[Spots] Failed to rate spot", { error, spotId, userId: currentUserId });
+    return Errors.internal(res, "RATE_FAILED", "Failed to rate spot.");
   }
-);
+});
 
-export const spotsRouter = router;
+// POST /api/spots/:id/check-in — Check in at a spot
+router.post("/:id/check-in", authenticateUser, async (req, res) => {
+  const spotId = parseInt(req.params.id, 10);
+  if (isNaN(spotId)) return Errors.badRequest(res, "INVALID_ID", "Invalid spot ID.");
+
+  const currentUserId = req.currentUser!.id;
+
+  try {
+    const db = getDb();
+
+    const [spot] = await db.select().from(spots).where(eq(spots.id, spotId)).limit(1);
+    if (!spot) return Errors.notFound(res, "SPOT_NOT_FOUND", "Spot not found.");
+
+    const checkIn = await db.transaction(async (tx) => {
+      const [ci] = await tx
+        .insert(checkIns)
+        .values({ userId: currentUserId, spotId })
+        .returning();
+
+      await tx
+        .update(spots)
+        .set({ checkInCount: sql`${spots.checkInCount} + 1`, updatedAt: new Date() })
+        .where(eq(spots.id, spotId));
+
+      return ci;
+    });
+
+    res.status(201).json({ checkIn });
+  } catch (error) {
+    logger.error("[Spots] Failed to check in", { error, spotId, userId: currentUserId });
+    return Errors.internal(res, "CHECKIN_FAILED", "Failed to check in.");
+  }
+});
+
+export { router as spotsRouter };
