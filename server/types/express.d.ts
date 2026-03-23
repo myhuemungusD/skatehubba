@@ -1,4 +1,4 @@
-import type { CustomUser } from "../../packages/shared/schema";
+import type { CustomUser } from "@shared/schema";
 
 export type AuthenticatedUser = CustomUser & {
   roles: string[];

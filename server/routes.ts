@@ -5,6 +5,8 @@
  */
 import type { Express } from "express";
 import { authenticateUser } from "./auth/middleware";
+import { admin } from "./admin";
+import { AuthService } from "./auth/service";
 import { gamesRouter } from "./routes/games";
 import { spotsRouter } from "./routes/spots";
 import { getDb } from "./db";
@@ -17,10 +19,27 @@ export function registerRoutes(app: Express) {
   // Auth routes — minimal: sync Firebase user to PostgreSQL, get profile
   // ============================================================================
 
-  /** POST /api/auth/login — Sync Firebase user to PostgreSQL on first login */
-  app.post("/api/auth/login", authenticateUser, async (req, res) => {
+  /**
+   * POST /api/auth/login — Sync Firebase user to PostgreSQL on first login.
+   * Does NOT use authenticateUser middleware because new users won't have
+   * a PG row yet. Instead, verifies the Firebase token directly and upserts.
+   */
+  app.post("/api/auth/login", async (req, res) => {
     try {
-      const user = req.currentUser!;
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const token = authHeader.substring(7);
+      const decoded = await admin.auth().verifyIdToken(token, true);
+
+      const user = await AuthService.upsertFromFirebase(
+        decoded.uid,
+        decoded.email || "",
+        decoded.name
+      );
+
       res.json({
         user: {
           id: user.id,
@@ -31,7 +50,7 @@ export function registerRoutes(app: Express) {
         },
       });
     } catch (error) {
-      logger.error("[Auth] Login sync failed", { error });
+      logger.error("[Auth] Login sync failed", { error: String(error) });
       res.status(500).json({ error: "Login failed" });
     }
   });

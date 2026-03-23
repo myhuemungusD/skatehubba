@@ -2,9 +2,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { getDb } from "../db";
-import { customUsers } from "../../packages/shared/schema/index";
+import { customUsers, type CustomUser } from "@shared/schema";
 import { eq } from "drizzle-orm";
-import type { CustomUser } from "../../packages/shared/schema/index";
 import { env } from "../config/env";
 import logger from "../logger";
 
