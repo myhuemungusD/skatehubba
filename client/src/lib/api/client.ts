@@ -20,38 +20,57 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiRequest<T>(options: RequestOptions): Promise<T> {
-  const { method, path, body, signal } = options;
-
+async function getAuthHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
-
-  // Attach Firebase ID token if available — getIdToken(true) forces refresh if expired
   const user = auth.currentUser;
   if (user) {
     try {
       const token = await user.getIdToken();
       headers["Authorization"] = `Bearer ${token}`;
     } catch {
-      // Token refresh failed — let the request proceed without auth
-      // The server will return 401, and the client can handle re-auth
+      // Token fetch failed — request proceeds without auth
     }
   }
+  return headers;
+}
 
-  let res: Response;
+async function doFetch(
+  method: string,
+  path: string,
+  headers: Record<string, string>,
+  body?: unknown,
+  signal?: AbortSignal
+): Promise<Response> {
   try {
-    res = await fetch(`${API_BASE}${path}`, {
+    return await fetch(`${API_BASE}${path}`, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
       signal,
     });
   } catch (err) {
-    if (err instanceof DOMException && err.name === "AbortError") {
-      throw err; // Let abort errors propagate as-is
-    }
+    if (err instanceof DOMException && err.name === "AbortError") throw err;
     throw new ApiError(0, "NETWORK_ERROR", "Network error. Check your connection.");
+  }
+}
+
+export async function apiRequest<T>(options: RequestOptions): Promise<T> {
+  const { method, path, body, signal } = options;
+  const headers = await getAuthHeaders();
+
+  let res = await doFetch(method, path, headers, body, signal);
+
+  // On 401, try refreshing the token once and retry
+  if (res.status === 401 && auth.currentUser) {
+    try {
+      const freshToken = await auth.currentUser.getIdToken(true);
+      headers["Authorization"] = `Bearer ${freshToken}`;
+      res = await doFetch(method, path, headers, body, signal);
+    } catch {
+      // Force-refresh failed — fall through to the error below
+    }
   }
 
   if (!res.ok) {

@@ -43,7 +43,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             )}
             <button
               onClick={() => signOut()}
-              className="text-xs text-gray-500 hover:text-white transition-colors"
+              className="text-xs text-gray-500 hover:text-white transition-colors min-h-[44px] flex items-center px-2"
             >
               Sign out
             </button>
@@ -58,7 +58,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex-1 py-3 text-center text-xs font-medium transition-colors ${
+              className={`flex-1 py-4 text-center text-xs font-medium transition-colors ${
                 location === item.href
                   ? "text-brand-500"
                   : "text-gray-500"

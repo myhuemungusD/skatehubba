@@ -20,14 +20,20 @@ interface Spot {
 export function MapPage() {
   const [spots, setSpots] = useState<Spot[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Spot | null>(null);
 
   useEffect(() => {
+    const controller = new AbortController();
     api
-      .get<{ spots: Spot[] }>("/spots")
+      .get<{ spots: Spot[] }>("/spots", controller.signal)
       .then((data) => setSpots(data.spots))
-      .catch(() => {})
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setError("Failed to load spots.");
+      })
       .finally(() => setLoading(false));
+    return () => controller.abort();
   }, []);
 
   return (
@@ -36,6 +42,8 @@ export function MapPage() {
 
       {loading ? (
         <p className="text-gray-500">Loading spots...</p>
+      ) : error ? (
+        <p className="text-red-400">{error}</p>
       ) : (
         <div className="rounded-xl overflow-hidden border border-gray-800" style={{ height: "60vh" }}>
           <SpotMap spots={spots} onSelect={setSelected} />
@@ -59,7 +67,8 @@ export function MapPage() {
             </div>
             <button
               onClick={() => setSelected(null)}
-              className="text-gray-500 hover:text-white"
+              className="text-gray-500 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Close spot detail"
             >
               x
             </button>

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Redirect } from "wouter";
 import { useAuth } from "../hooks/useAuth";
 import { api } from "../lib/api/client";
 import { useAuthStore } from "../store/authStore";
@@ -18,8 +18,7 @@ export function ProfileSetupPage() {
   const [saving, setSaving] = useState(false);
 
   if (hasProfile) {
-    navigate("/hub");
-    return null;
+    return <Redirect to="/hub" />;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {

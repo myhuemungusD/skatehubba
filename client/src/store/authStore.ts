@@ -7,6 +7,7 @@ import {
   GoogleAuthProvider,
   signOut as firebaseSignOut,
   type User as FirebaseUser,
+  type Unsubscribe,
 } from "firebase/auth";
 import { auth } from "../lib/firebase/config";
 import { api } from "../lib/api/client";
@@ -40,7 +41,7 @@ interface AuthState {
   initialized: boolean;
   error: string | null;
 
-  initialize: () => void;
+  initialize: () => Unsubscribe;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -49,7 +50,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set, _get) => ({
+export const useAuthStore = create<AuthState>((set) => ({
   firebaseUser: null,
   backendUser: null,
   profile: null,
@@ -58,7 +59,7 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
   error: null,
 
   initialize: () => {
-    onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         try {
           const data = await api.get<{ user: BackendUser; profile: UserProfile | null }>(
@@ -96,13 +97,13 @@ export const useAuthStore = create<AuthState>((set, _get) => ({
         });
       }
     });
+    return unsubscribe;
   },
 
   signInWithEmail: async (email, password) => {
     set({ loading: true, error: null });
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // onAuthStateChanged will handle the rest
     } catch (err) {
       set({ loading: false, error: err instanceof Error ? err.message : "Sign in failed" });
       throw err;

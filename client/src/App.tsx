@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Switch, Route, Redirect } from "wouter";
+import { Switch, Route, Redirect, Link } from "wouter";
 import { useAuth } from "./hooks/useAuth";
 import { useAuthStore } from "./store/authStore";
 import { AuthPage } from "./pages/AuthPage";
@@ -20,11 +20,18 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireProfile({ children }: { children: React.ReactNode }) {
+  const { hasProfile } = useAuth();
+  if (!hasProfile) return <Redirect to="/profile/setup" />;
+  return <>{children}</>;
+}
+
 export function App() {
   const initialize = useAuthStore((s) => s.initialize);
 
   useEffect(() => {
-    initialize();
+    const unsubscribe = initialize();
+    return () => unsubscribe();
   }, [initialize]);
 
   const { initialized, loading, isAuthenticated, hasProfile } = useAuth();
@@ -52,29 +59,29 @@ export function App() {
       {/* Dashboard routes */}
       <Route path="/hub">
         <ProtectedRoute>
-          {!hasProfile ? <Redirect to="/profile/setup" /> : <DashboardLayout><HubPage /></DashboardLayout>}
+          <RequireProfile><DashboardLayout><HubPage /></DashboardLayout></RequireProfile>
         </ProtectedRoute>
       </Route>
       <Route path="/play">
         <ProtectedRoute>
-          {!hasProfile ? <Redirect to="/profile/setup" /> : <DashboardLayout><PlayPage /></DashboardLayout>}
+          <RequireProfile><DashboardLayout><PlayPage /></DashboardLayout></RequireProfile>
         </ProtectedRoute>
       </Route>
       <Route path="/game/:id">
         {(params) => (
           <ProtectedRoute>
-            <DashboardLayout><GamePage gameId={params.id} /></DashboardLayout>
+            <RequireProfile><DashboardLayout><GamePage gameId={params.id} /></DashboardLayout></RequireProfile>
           </ProtectedRoute>
         )}
       </Route>
       <Route path="/map">
         <ProtectedRoute>
-          <DashboardLayout><MapPage /></DashboardLayout>
+          <RequireProfile><DashboardLayout><MapPage /></DashboardLayout></RequireProfile>
         </ProtectedRoute>
       </Route>
       <Route path="/leaderboard">
         <ProtectedRoute>
-          <DashboardLayout><LeaderboardPage /></DashboardLayout>
+          <RequireProfile><DashboardLayout><LeaderboardPage /></DashboardLayout></RequireProfile>
         </ProtectedRoute>
       </Route>
 
@@ -83,7 +90,8 @@ export function App() {
         <div className="min-h-screen flex items-center justify-center bg-gray-950 text-white">
           <div className="text-center">
             <h1 className="text-4xl font-bold mb-2">404</h1>
-            <p className="text-gray-400">Page not found</p>
+            <p className="text-gray-400 mb-4">Page not found</p>
+            <Link href="/" className="text-brand-500 hover:underline">Go home</Link>
           </div>
         </div>
       </Route>

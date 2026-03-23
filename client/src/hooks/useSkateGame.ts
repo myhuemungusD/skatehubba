@@ -56,7 +56,10 @@ export function useGameDetails(gameId: string | undefined) {
     queryKey: ["game", gameId],
     queryFn: () => api.get<{ game: Game; turns: GameTurn[] }>(`/games/${gameId}`),
     enabled: !!gameId,
-    refetchInterval: 10_000, // Poll every 10s for active games
+    refetchInterval: (query) => {
+      const status = query.state.data?.game.status;
+      return status === "active" || status === "pending" ? 10_000 : false;
+    },
   });
 }
 
@@ -106,7 +109,8 @@ export function useJudgeTurn() {
         `/games/turns/${turnId}/judge`,
         { result }
       ),
-    onSuccess: () => {
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["game", data.game.id] });
       qc.invalidateQueries({ queryKey: ["myGames"] });
     },
   });
