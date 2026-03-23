@@ -1,513 +1,125 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { getDb } from "../db.ts";
-import { customUsers, authSessions } from "../../packages/shared/schema/index";
-import { eq, and, gt } from "drizzle-orm";
-import type { CustomUser, InsertCustomUser, AuthSession } from "../../packages/shared/schema/index";
+import { getDb } from "../db";
+import { customUsers } from "../../packages/shared/schema/index";
+import { eq } from "drizzle-orm";
+import type { CustomUser } from "../../packages/shared/schema/index";
 import { env } from "../config/env";
-import { admin } from "../admin.ts";
-import logger from "../logger.ts";
-import { passwordSchema } from "../../packages/shared/schema/validation";
+import logger from "../logger";
 
 /**
- * Authentication service for SkateHubba
- * Handles user registration, login, password management, and session management
- * Supports both Firebase and traditional email/password authentication
+ * Auth service — stripped to MVP essentials.
+ * Password hashing, JWT generation, user lookup by Firebase UID.
  */
 export class AuthService {
   private static readonly JWT_SECRET = env.JWT_SECRET;
   private static readonly SALT_ROUNDS = 12;
-  private static readonly TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
-  private static readonly EMAIL_TOKEN_EXPIRY = 24 * 60 * 60 * 1000; // 24 hours
+  private static readonly TOKEN_EXPIRY = "24h";
 
-  /**
-   * Hash a plaintext password using bcrypt
-   *
-   * Uses bcrypt with 12 salt rounds for secure password hashing.
-   * Bcrypt is chosen for its adaptive nature - it remains secure as hardware
-   * improves by allowing the number of rounds to be increased over time.
-   *
-   * @param password - The plaintext password to hash
-   * @returns Promise resolving to the hashed password
-   */
   static async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, this.SALT_ROUNDS);
   }
 
-  /**
-   * Verify a plaintext password against a bcrypt hash
-   * @param password - The plaintext password to verify
-   * @param hash - The bcrypt hash to compare against
-   * @returns Promise resolving to true if password matches, false otherwise
-   */
   static async verifyPassword(password: string, hash: string): Promise<boolean> {
     return bcrypt.compare(password, hash);
   }
 
-  /**
-   * Generate a JWT token for a user
-   * @param userId - The user's unique identifier
-   * @returns JWT token string valid for 24 hours
-   */
   static generateJWT(userId: string): string {
     return jwt.sign(
-      {
-        userId,
-        type: "access",
-        jti: crypto.randomBytes(16).toString("hex"), // Unique token ID
-      },
+      { userId, type: "access", jti: crypto.randomBytes(16).toString("hex") },
       this.JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: this.TOKEN_EXPIRY }
     );
   }
 
   /**
-   * Verify and decode a JWT token
-   * @param token - The JWT token to verify
-   * @returns Object containing userId if valid, null if invalid or expired
+   * Look up a user by their Firebase UID.
+   * This is the primary lookup path — Firebase handles identity,
+   * we store the user record in PostgreSQL.
    */
-  static verifyJWT(token: string): { userId: string } | null {
+  static async findUserByFirebaseUid(firebaseUid: string): Promise<CustomUser | null> {
     try {
-      interface JWTPayload {
-        userId: string;
-        type: string;
-        jti: string;
-        iat: number;
-        exp: number;
-      }
-      const decoded = jwt.verify(token, this.JWT_SECRET) as JWTPayload;
-      return { userId: decoded.userId };
-    } catch {
+      const db = getDb();
+      const [user] = await db
+        .select()
+        .from(customUsers)
+        .where(eq(customUsers.firebaseUid, firebaseUid))
+        .limit(1);
+      return user ?? null;
+    } catch (error) {
+      logger.error("Failed to find user by Firebase UID", { error: String(error) });
+      return null;
+    }
+  }
+
+  static async findUserById(id: string): Promise<CustomUser | null> {
+    try {
+      const db = getDb();
+      const [user] = await db
+        .select()
+        .from(customUsers)
+        .where(eq(customUsers.id, id))
+        .limit(1);
+      return user ?? null;
+    } catch (error) {
+      logger.error("Failed to find user by ID", { error: String(error) });
+      return null;
+    }
+  }
+
+  static async findUserByEmail(email: string): Promise<CustomUser | null> {
+    try {
+      const db = getDb();
+      const [user] = await db
+        .select()
+        .from(customUsers)
+        .where(eq(customUsers.email, email.toLowerCase()))
+        .limit(1);
+      return user ?? null;
+    } catch (error) {
+      logger.error("Failed to find user by email", { error: String(error) });
       return null;
     }
   }
 
   /**
-   * Generate a secure random token for email verification
-   * @returns 64-character hexadecimal token
+   * Create or update a user from Firebase Auth data.
+   * Called during first login — creates the PostgreSQL row if it doesn't exist.
    */
-  static generateSecureToken(): string {
-    return crypto.randomBytes(32).toString("hex");
-  }
+  static async upsertFromFirebase(
+    firebaseUid: string,
+    email: string,
+    displayName?: string
+  ): Promise<CustomUser> {
+    const db = getDb();
+    const existing = await this.findUserByFirebaseUid(firebaseUid);
 
-  /**
-   * Create a new user account
-   * @param userData - User registration data
-   * @param userData.email - User's email address
-   * @param userData.password - User's password (plain text, will be hashed)
-   * @param userData.firstName - User's first name
-   * @param userData.lastName - User's last name
-   * @param userData.firebaseUid - Optional Firebase UID for Firebase-authenticated users
-   * @returns Promise resolving to created user and email verification token
-   */
-  static async createUser(userData: {
-    email: string;
-    password: string;
-    firstName: string;
-    lastName: string;
-    firebaseUid?: string;
-    isEmailVerified?: boolean;
-  }): Promise<{ user: CustomUser; emailToken: string }> {
-    const passwordHash = userData.firebaseUid
-      ? "firebase-auth-user" // Placeholder for Firebase users
-      : await this.hashPassword(userData.password);
-    const emailToken = this.generateSecureToken();
-    const emailTokenExpiry = new Date(Date.now() + this.EMAIL_TOKEN_EXPIRY);
+    if (existing) {
+      const [updated] = await db
+        .update(customUsers)
+        .set({ lastLoginAt: new Date(), updatedAt: new Date() })
+        .where(eq(customUsers.id, existing.id))
+        .returning();
+      return updated;
+    }
 
-    const [user] = await getDb()
+    const [firstName, ...rest] = (displayName || "Skater").split(" ");
+    const lastName = rest.join(" ") || null;
+
+    const [newUser] = await db
       .insert(customUsers)
       .values({
-        email: userData.email.toLowerCase().trim(),
-        passwordHash,
-        firstName: userData.firstName.trim(),
-        lastName: userData.lastName.trim(),
-        firebaseUid: userData.firebaseUid || null,
-        emailVerificationToken: emailToken,
-        emailVerificationExpires: emailTokenExpiry,
-        isEmailVerified: userData.isEmailVerified ?? false,
-        isActive: true,
-      })
-      .returning();
-
-    return { user, emailToken };
-  }
-
-  /**
-   * Find a user by their email address
-   * @param email - Email address to search for (case-insensitive)
-   * @returns Promise resolving to user object if found, null otherwise
-   */
-  static async findUserByEmail(email: string): Promise<CustomUser | null> {
-    const [user] = await getDb()
-      .select()
-      .from(customUsers)
-      .where(eq(customUsers.email, email.toLowerCase().trim()));
-
-    return user || null;
-  }
-
-  /**
-   * Find a user by their unique ID
-   * @param id - User ID to search for
-   * @returns Promise resolving to user object if found, null otherwise
-   */
-  static async findUserById(id: string): Promise<CustomUser | null> {
-    const [user] = await getDb().select().from(customUsers).where(eq(customUsers.id, id));
-
-    return user || null;
-  }
-
-  /**
-   * Find a user by their Firebase UID
-   * @param firebaseUid - Firebase authentication UID
-   * @returns Promise resolving to user object if found, null otherwise
-   */
-  static async findUserByFirebaseUid(firebaseUid: string): Promise<CustomUser | null> {
-    const [user] = await getDb()
-      .select()
-      .from(customUsers)
-      .where(eq(customUsers.firebaseUid, firebaseUid));
-
-    return user || null;
-  }
-
-  /**
-   * Verify a user's email address using verification token
-   * @param token - Email verification token sent to user
-   * @returns Promise resolving to updated user if token is valid, null otherwise
-   */
-  static async verifyEmail(token: string): Promise<CustomUser | null> {
-    // Atomic UPDATE...WHERE...RETURNING — combines lookup and nullification
-    // into a single query to prevent TOCTOU race conditions where a token
-    // could be replayed between a SELECT and a separate UPDATE.
-    const [updatedUser] = await getDb()
-      .update(customUsers)
-      .set({
-        isEmailVerified: true,
-        emailVerificationToken: null,
-        emailVerificationExpires: null,
-        updatedAt: new Date(),
-      })
-      .where(
-        and(
-          eq(customUsers.emailVerificationToken, token),
-          gt(customUsers.emailVerificationExpires, new Date())
-        )
-      )
-      .returning();
-
-    return updatedUser ?? null;
-  }
-
-  /**
-   * Verify a user's email by their user ID (for Firebase users)
-   * @param userId - User ID to verify
-   * @returns Promise resolving to updated user if found, null otherwise
-   */
-  static async verifyEmailByUserId(userId: string): Promise<CustomUser | null> {
-    const [updatedUser] = await getDb()
-      .update(customUsers)
-      .set({
-        isEmailVerified: true,
-        emailVerificationToken: null,
-        emailVerificationExpires: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(customUsers.id, userId))
-      .returning();
-
-    return updatedUser;
-  }
-
-  /**
-   * Hash a session token for storage.
-   * Only the hash is persisted; the raw JWT is never stored in the database.
-   */
-  static hashToken(token: string): string {
-    return crypto.createHash("sha256").update(token).digest("hex");
-  }
-
-  /**
-   * Create a new authentication session for a user
-   * @param userId - User ID to create session for
-   * @returns Promise resolving to JWT token and session record
-   *
-   * NOTE: Session tokens are stored as SHA256 hashes (not raw JWTs) for security.
-   * This means existing sessions with raw tokens will be invalidated on deploy.
-   * Users with pre-existing sessions will need to re-authenticate.
-   * Consider purging old sessions during deployment if needed.
-   */
-  static async createSession(userId: string): Promise<{ token: string; session: AuthSession }> {
-    const token = this.generateJWT(userId);
-    const tokenHash = this.hashToken(token);
-    const expiresAt = new Date(Date.now() + this.TOKEN_EXPIRY);
-
-    const [session] = await getDb()
-      .insert(authSessions)
-      .values({
-        userId,
-        token: tokenHash,
-        expiresAt,
-      })
-      .returning();
-
-    return { token, session };
-  }
-
-  /**
-   * Validate a session token and retrieve associated user
-   * @param token - Session JWT token to validate
-   * @returns Promise resolving to user if session is valid, null otherwise
-   */
-  static async validateSession(token: string): Promise<CustomUser | null> {
-    // First verify JWT
-    const decoded = this.verifyJWT(token);
-    if (!decoded) return null;
-
-    // Look up session by token hash (raw token is never stored)
-    const tokenHash = this.hashToken(token);
-    const [session] = await getDb()
-      .select()
-      .from(authSessions)
-      .where(and(eq(authSessions.token, tokenHash), gt(authSessions.expiresAt, new Date())));
-
-    if (!session) return null;
-
-    // Get user
-    return this.findUserById(session.userId);
-  }
-
-  /**
-   * Delete a session (logout)
-   * @param token - Session token to delete
-   * @returns Promise that resolves when session is deleted
-   */
-  static async deleteSession(token: string): Promise<void> {
-    const tokenHash = this.hashToken(token);
-    await getDb().delete(authSessions).where(eq(authSessions.token, tokenHash));
-  }
-
-  /**
-   * Delete ALL sessions for a user (security: password change, account compromise)
-   * @param userId - User ID to invalidate all sessions for
-   * @returns Promise resolving to number of sessions deleted
-   */
-  static async deleteAllUserSessions(userId: string): Promise<number> {
-    const result = await getDb()
-      .delete(authSessions)
-      .where(eq(authSessions.userId, userId))
-      .returning();
-
-    return result.length;
-  }
-
-  /**
-   * Update the last login timestamp for a user
-   * @param userId - User ID to update
-   * @returns Promise that resolves when update is complete
-   */
-  static async updateLastLogin(userId: string): Promise<void> {
-    await getDb()
-      .update(customUsers)
-      .set({
+        email: email.toLowerCase(),
+        passwordHash: "", // Firebase handles auth
+        firebaseUid,
+        firstName,
+        lastName,
+        isEmailVerified: true, // Firebase verified it
         lastLoginAt: new Date(),
-        updatedAt: new Date(),
       })
-      .where(eq(customUsers.id, userId));
-  }
-
-  /**
-   * Generate a password reset token for a user
-   * @param email - Email address of user requesting password reset
-   * @returns Promise resolving to reset token if user exists, null otherwise
-   *
-   * NOTE: Does not require email verification. The reset email itself
-   * proves ownership of the address. Blocking unverified users locked
-   * them out permanently if they forgot their password before verifying.
-   */
-  static async generatePasswordResetToken(email: string): Promise<string | null> {
-    const user = await this.findUserByEmail(email);
-    if (!user) return null;
-
-    const resetToken = this.generateSecureToken();
-    const resetExpiry = new Date(Date.now() + this.EMAIL_TOKEN_EXPIRY);
-
-    await getDb()
-      .update(customUsers)
-      .set({
-        resetPasswordToken: resetToken,
-        resetPasswordExpires: resetExpiry,
-        updatedAt: new Date(),
-      })
-      .where(eq(customUsers.id, user.id));
-
-    return resetToken;
-  }
-
-  /**
-   * Reset a user's password using a reset token
-   * SECURITY: Invalidates ALL existing sessions after password reset
-   * @param token - Password reset token
-   * @param newPassword - New password (plain text, will be hashed)
-   * @returns Promise resolving to updated user if token is valid, null otherwise
-   */
-  static async resetPassword(token: string, newPassword: string): Promise<CustomUser | null> {
-    // Enforce password complexity at the service layer (defense-in-depth)
-    const parsed = passwordSchema.safeParse(newPassword);
-    if (!parsed.success) return null;
-
-    const [user] = await getDb()
-      .select()
-      .from(customUsers)
-      .where(
-        and(
-          eq(customUsers.resetPasswordToken, token),
-          gt(customUsers.resetPasswordExpires, new Date())
-        )
-      );
-
-    if (!user) return null;
-
-    const passwordHash = await this.hashPassword(newPassword);
-
-    // Update Firebase password so signInWithEmailAndPassword works with the new password.
-    // Without this, the custom DB and Firebase diverge and the user can never sign in.
-    if (user.firebaseUid) {
-      try {
-        await admin.auth().updateUser(user.firebaseUid, { password: newPassword });
-      } catch (err) {
-        logger.error("Failed to update Firebase password during reset", {
-          userId: user.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        // Don't block the reset — the custom DB update still succeeds.
-        // The user can re-authenticate via Google OAuth if Firebase update failed.
-      }
-    }
-
-    // Completing a password reset proves email ownership — mark verified.
-    const [updatedUser] = await getDb()
-      .update(customUsers)
-      .set({
-        passwordHash,
-        resetPasswordToken: null,
-        resetPasswordExpires: null,
-        isEmailVerified: true,
-        emailVerificationToken: null,
-        emailVerificationExpires: null,
-        updatedAt: new Date(),
-      })
-      .where(eq(customUsers.id, user.id))
       .returning();
 
-    // SECURITY: Invalidate ALL sessions after password change
-    // This ensures any compromised sessions are logged out
-    await this.deleteAllUserSessions(user.id);
-
-    return updatedUser;
-  }
-
-  /**
-   * Change user password (requires current password)
-   * SECURITY: Invalidates ALL existing sessions except current one
-   * @param userId - User ID
-   * @param currentPassword - Current password for verification
-   * @param newPassword - New password (plain text, will be hashed)
-   * @param currentSessionToken - Current session to preserve (optional)
-   * @returns Promise resolving to success status and message
-   */
-  static async changePassword(
-    userId: string,
-    currentPassword: string,
-    newPassword: string,
-    currentSessionToken?: string
-  ): Promise<{ success: boolean; message: string; newSessionToken?: string }> {
-    // Enforce password complexity at the service layer (defense-in-depth)
-    const parsed = passwordSchema.safeParse(newPassword);
-    if (!parsed.success) {
-      return { success: false, message: parsed.error.issues[0].message };
-    }
-
-    const user = await this.findUserById(userId);
-
-    if (!user) {
-      return { success: false, message: "User not found" };
-    }
-
-    // Skip password verification for Firebase users
-    if (user.passwordHash !== "firebase-auth-user") {
-      const isValid = await this.verifyPassword(currentPassword, user.passwordHash);
-      if (!isValid) {
-        return { success: false, message: "Current password is incorrect" };
-      }
-    }
-
-    const passwordHash = await this.hashPassword(newPassword);
-
-    // Update Firebase password so signInWithEmailAndPassword stays in sync.
-    if (user.firebaseUid) {
-      try {
-        await admin.auth().updateUser(user.firebaseUid, { password: newPassword });
-      } catch (err) {
-        logger.error("Failed to update Firebase password during change", {
-          userId: user.id,
-          error: err instanceof Error ? err.message : String(err),
-        });
-        return { success: false, message: "Password change failed. Please try again." };
-      }
-    }
-
-    await getDb()
-      .update(customUsers)
-      .set({
-        passwordHash,
-        updatedAt: new Date(),
-      })
-      .where(eq(customUsers.id, userId));
-
-    // SECURITY: Invalidate all sessions except current one
-    if (currentSessionToken) {
-      // Delete all sessions, then recreate current one
-      const sessionsDeleted = await this.deleteAllUserSessions(userId);
-
-      // Create new session for current device and return the token
-      const { token: newSessionToken } = await this.createSession(userId);
-
-      return {
-        success: true,
-        message: `Password changed. ${sessionsDeleted} other session(s) logged out.`,
-        newSessionToken,
-      };
-    } else {
-      // Delete ALL sessions including current
-      await this.deleteAllUserSessions(userId);
-      return {
-        success: true,
-        message: "Password changed. All sessions have been logged out.",
-      };
-    }
-  }
-
-  /**
-   * Update user information
-   * @param userId - User ID to update
-   * @param updates - Partial user data to update
-   * @returns Promise resolving to updated user if found, null otherwise
-   */
-  static async updateUser(
-    userId: string,
-    updates: Partial<InsertCustomUser>
-  ): Promise<CustomUser | null> {
-    const [updatedUser] = await getDb()
-      .update(customUsers)
-      .set({
-        ...updates,
-        updatedAt: new Date(),
-      })
-      .where(eq(customUsers.id, userId))
-      .returning();
-
-    return updatedUser || null;
+    return newUser;
   }
 }

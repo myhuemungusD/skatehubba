@@ -1,204 +1,65 @@
-import { getApiBaseUrl } from "@skatehubba/config";
 import { auth } from "../firebase/config";
-import { ApiError, normalizeApiError } from "./errors";
-import { isDevAdmin } from "../devAdmin";
-import { addApiErrorBreadcrumb, captureApiError } from "../../sentry";
 
-export interface ApiRequestOptions<TBody = unknown> {
+const API_BASE = "/api";
+
+interface RequestOptions {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
-  body?: TBody;
-  headers?: HeadersInit;
-  nonce?: string;
+  body?: unknown;
   signal?: AbortSignal;
-  /**
-   * Request timeout in milliseconds. Defaults to 30000 (30 seconds).
-   * Set to 0 to disable timeout.
-   */
-  timeout?: number;
 }
 
-const isAbsoluteUrl = (value: string): boolean => /^https?:\/\//i.test(value);
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    public code: string,
+    message: string
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
 
-export const buildApiUrl = (path: string): string => {
-  if (isAbsoluteUrl(path)) return path;
-  const base = getApiBaseUrl().replace(/\/+$/, "");
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${base}${normalizedPath}`;
-};
+export async function apiRequest<T>(options: RequestOptions): Promise<T> {
+  const { method, path, body, signal } = options;
 
-/** H7: RFC 6265 compliant CSRF token extraction using regex (handles '=' in values) */
-export const getCsrfToken = (): string | undefined => {
-  if (typeof document === "undefined") return undefined;
-  const match = document.cookie.match(/(?:^|;\s*)csrfToken=([^;]*)/);
-  return match?.[1] ? decodeURIComponent(match[1]) : undefined;
-};
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
 
-const getAuthToken = async (): Promise<string | null> => {
+  // Attach Firebase ID token if available
   const user = auth.currentUser;
-  if (!user) return null;
-  return user.getIdToken();
-};
-
-const parseJsonSafely = async (response: Response): Promise<unknown> => {
-  const contentType = response.headers.get("content-type") || "";
-
-  // Standard JSON response
-  if (contentType.includes("application/json")) {
-    try {
-      return await response.json();
-    } catch {
-      return undefined;
-    }
+  if (user) {
+    const token = await user.getIdToken();
+    headers["Authorization"] = `Bearer ${token}`;
   }
 
-  // Non-JSON error responses (Vercel generic 500, HTML error pages, etc.)
-  // Try to extract something useful from the body for error reporting.
-  if (!response.ok) {
-    try {
-      const text = await response.text();
-      // If the text looks like JSON (e.g., missing content-type header), parse it
-      if (text.startsWith("{") || text.startsWith("[")) {
-        return JSON.parse(text);
-      }
-      // Return a synthetic payload so normalizeApiError can extract a message
-      if (text.length > 0 && text.length < 500 && !text.includes("<html")) {
-        return { message: text.trim() };
-      }
-    } catch {
-      // Ignore — we'll fall through to the default error message
-    }
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+    signal,
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: "UNKNOWN", message: res.statusText }));
+    throw new ApiError(res.status, data.error || "UNKNOWN", data.message || "Request failed");
   }
 
-  return undefined;
-};
+  return res.json();
+}
 
-const buildHeaders = async (options: ApiRequestOptions<unknown>): Promise<HeadersInit> => {
-  const headers = new Headers({ Accept: "application/json" });
+// Convenience methods
+export const api = {
+  get: <T>(path: string, signal?: AbortSignal) =>
+    apiRequest<T>({ method: "GET", path, signal }),
 
-  if (options.headers) {
-    const incoming = new Headers(options.headers);
-    incoming.forEach((value, key) => {
-      headers.set(key, value);
-    });
-  }
+  post: <T>(path: string, body?: unknown) =>
+    apiRequest<T>({ method: "POST", path, body }),
 
-  if (options.body !== undefined) {
-    headers.set("Content-Type", "application/json");
-  }
+  put: <T>(path: string, body?: unknown) =>
+    apiRequest<T>({ method: "PUT", path, body }),
 
-  if (options.nonce) {
-    headers.set("X-Nonce", options.nonce);
-  }
-
-  const csrfToken = getCsrfToken();
-  if (csrfToken && options.method !== "GET") {
-    headers.set("X-CSRF-Token", csrfToken);
-  }
-
-  // Dev admin bypass — sends header that backend recognizes in non-production
-  if (isDevAdmin()) {
-    headers.set("X-Dev-Admin", "true");
-  }
-
-  const token = await getAuthToken();
-  if (token) {
-    headers.set("Authorization", `Bearer ${token}`);
-  }
-
-  return headers;
-};
-
-export const apiRequestRaw = async <TBody = unknown>(
-  options: ApiRequestOptions<TBody>
-): Promise<Response> => {
-  const headers = await buildHeaders(options);
-  const body = options.body !== undefined ? JSON.stringify(options.body) : undefined;
-
-  // Setup timeout handling
-  const timeout = options.timeout ?? 30000; // Default 30s
-  const controller = new AbortController();
-  let timeoutId: ReturnType<typeof setTimeout> | undefined;
-
-  // Use provided signal or create one with timeout
-  const signal = options.signal ?? controller.signal;
-
-  if (timeout > 0 && !options.signal) {
-    timeoutId = setTimeout(() => controller.abort(), timeout);
-  }
-
-  try {
-    const response = await fetch(buildApiUrl(options.path), {
-      method: options.method,
-      headers,
-      body,
-      credentials: "include",
-      signal,
-    });
-
-    if (!response.ok) {
-      const payload = await parseJsonSafely(response);
-      const apiError = normalizeApiError({
-        status: response.status,
-        statusText: response.statusText,
-        payload,
-      });
-
-      // Record breadcrumb for all API errors (aids debugging in Sentry)
-      addApiErrorBreadcrumb(options.method, options.path, response.status, apiError.code);
-
-      // Report 5xx errors to Sentry (server bugs, not client mistakes)
-      if (response.status >= 500) {
-        captureApiError(apiError, {
-          method: options.method,
-          url: options.path,
-          statusCode: response.status,
-          errorCode: apiError.code,
-        });
-      }
-
-      throw apiError;
-    }
-
-    return response;
-  } catch (error) {
-    // Timeout: our own AbortController fired (only when no external signal was provided)
-    if (error instanceof DOMException && error.name === "AbortError" && !options.signal) {
-      throw new ApiError(
-        "The request took too long. Check your connection and try again.",
-        "TIMEOUT",
-        undefined,
-        { timeout, originalError: error }
-      );
-    }
-
-    // Network failure (e.g. "Failed to fetch" when offline or CORS blocked)
-    if (error instanceof TypeError && error.message.toLowerCase().includes("fetch")) {
-      throw new ApiError(
-        "Network error. Check your connection and try again.",
-        "NETWORK_ERROR",
-        undefined,
-        { originalError: error }
-      );
-    }
-
-    throw error;
-  } finally {
-    if (timeoutId) {
-      clearTimeout(timeoutId);
-    }
-  }
-};
-
-export const apiRequest = async <TResponse, TBody = unknown>(
-  options: ApiRequestOptions<TBody>
-): Promise<TResponse> => {
-  const response = await apiRequestRaw(options);
-  const payload = await parseJsonSafely(response);
-
-  if (payload === undefined) {
-    throw new ApiError("Expected JSON response", "UNKNOWN", response.status);
-  }
-
-  return payload as TResponse;
+  delete: <T>(path: string) =>
+    apiRequest<T>({ method: "DELETE", path }),
 };

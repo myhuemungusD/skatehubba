@@ -1,48 +1,24 @@
-import crypto from "node:crypto";
 import type { Request, Response, NextFunction } from "express";
-import { AuthService } from "./service.ts";
-import type { CustomUser as _CustomUser } from "../../packages/shared/schema/index";
-import type { AuthenticatedUser as _AuthenticatedUser } from "../types/express.d.ts";
-import { admin } from "../admin.ts";
-import "../types/express.d.ts";
-import logger from "../logger.ts";
-import { getRedisClient } from "../redis.ts";
+import { admin } from "../admin";
+import { AuthService } from "./service";
+import "../types/express.d";
+import logger from "../logger";
 
 // Fail-fast: prevent dev bypass from ever being active in production
 if (process.env.NODE_ENV === "production" && process.env.DEV_ADMIN_BYPASS === "true") {
   throw new Error("FATAL: DEV_ADMIN_BYPASS must never be enabled in production");
 }
 
-// Re-authentication window (5 minutes)
-const REAUTH_WINDOW_MS = 5 * 60 * 1000;
-const REAUTH_TTL_SECONDS = Math.ceil(REAUTH_WINDOW_MS / 1000);
-const REAUTH_KEY_PREFIX = "reauth:";
-
-// Fallback in-memory store when Redis is unavailable
-const recentAuthsFallback = new Map<string, number>();
-let warnedReauthFallback = false;
-
 /**
- * Authentication middleware to protect routes
- *
- * Verifies user authentication through:
- * 1. HttpOnly session cookie (preferred - XSS safe)
- * 2. Firebase ID token in Authorization header (fallback)
- *
- * Adds authenticated user to req.currentUser if valid
- *
- * @param req - Express request object
- * @param res - Express response object
- * @param next - Express next function
+ * Core auth middleware — Firebase ID token verification only.
+ * No session cookies, no Redis, no MFA. Just verify the Bearer token,
+ * look up the user in PostgreSQL, and attach to req.currentUser.
  */
 export const authenticateUser = async (req: Request, res: Response, next: NextFunction) => {
-  // Generic error message to prevent information leakage
   const GENERIC_AUTH_ERROR = "Authentication failed";
 
   try {
-    // Dev-only admin bypass — allows e2e testing without Firebase auth
-    // BLOCKED in staging and production: only active in development and test
-    // Requires explicit opt-in via DEV_ADMIN_BYPASS=true to prevent accidental exposure
+    // Dev-only admin bypass for e2e testing
     if (
       (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test") &&
       process.env.DEV_ADMIN_BYPASS === "true" &&
@@ -57,315 +33,57 @@ export const authenticateUser = async (req: Request, res: Response, next: NextFu
         lastName: "Admin",
         isActive: true,
         isEmailVerified: true,
-        accountTier: "pro" as const,
         trustLevel: 100,
         roles: ["admin"],
+        lastLoginAt: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
-        pushToken: null,
-        proAwardedBy: null,
-        premiumPurchasedAt: null,
-        emailVerificationToken: null,
-        emailVerificationExpires: null,
-        resetPasswordToken: null,
-        resetPasswordExpires: null,
-        lastLoginAt: new Date(),
       };
       return next();
     }
 
-    // Option 1: Check for HttpOnly session cookie (PREFERRED - XSS safe)
-    const sessionToken = req.cookies?.sessionToken;
-
-    if (sessionToken) {
-      try {
-        // Verify session JWT and get user
-        const user = await AuthService.validateSession(sessionToken);
-
-        if (!user) {
-          return res.status(401).json({ error: GENERIC_AUTH_ERROR });
-        }
-
-        if (!user.isActive) {
-          // Don't reveal that account is deactivated specifically
-          return res.status(401).json({ error: GENERIC_AUTH_ERROR });
-        }
-
-        // Attach user with roles (from Firebase custom claims if available)
-        const roles: string[] = [];
-        if (user.firebaseUid) {
-          try {
-            const firebaseUser = await admin.auth().getUser(user.firebaseUid);
-            if (firebaseUser.customClaims?.admin) roles.push("admin");
-          } catch {
-            // Ignore Firebase errors, proceed without roles
-          }
-        }
-        req.currentUser = { ...user, roles };
-        return next();
-      } catch (sessionError) {
-        logger.error("Session verification failed", { error: String(sessionError) });
-        // Fall through to try Authorization header
-      }
-    }
-
-    // Option 2: Fallback to Authorization header (for backward compatibility)
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({ error: GENERIC_AUTH_ERROR });
     }
 
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const token = authHeader.substring(7);
+    const decoded = await admin.auth().verifyIdToken(token, true);
+    const user = await AuthService.findUserByFirebaseUid(decoded.uid);
 
-    try {
-      // Verify Firebase ID token
-      const decoded = await admin.auth().verifyIdToken(token, true);
-      const user = await AuthService.findUserByFirebaseUid(decoded.uid);
-
-      if (!user) {
-        // Don't reveal that user doesn't exist
-        return res.status(401).json({ error: GENERIC_AUTH_ERROR });
-      }
-
-      if (!user.isActive) {
-        // Don't reveal that account is deactivated specifically
-        return res.status(401).json({ error: GENERIC_AUTH_ERROR });
-      }
-
-      // Extract roles from Firebase custom claims
-      const roles: string[] = [];
-      if (decoded.admin) roles.push("admin");
-
-      req.currentUser = { ...user, roles };
-      next();
-    } catch (firebaseError) {
-      logger.error("Firebase token verification failed", { error: String(firebaseError) });
+    if (!user || !user.isActive) {
       return res.status(401).json({ error: GENERIC_AUTH_ERROR });
     }
+
+    const roles: string[] = [];
+    if (decoded.admin) roles.push("admin");
+
+    req.currentUser = { ...user, roles };
+    next();
   } catch (error) {
     logger.error("Authentication error", { error: String(error) });
-    res.status(500).json({ error: GENERIC_AUTH_ERROR });
+    res.status(401).json({ error: GENERIC_AUTH_ERROR });
   }
 };
 
 /**
- * Optional authentication middleware
- *
- * Attempts to authenticate user but doesn't require authentication.
- * Useful for endpoints that provide different content for authenticated vs unauthenticated users.
- * Sets req.currentUser if authentication succeeds, continues either way.
- *
- * @param req - Express request object
- * @param res - Express response object
- * @param next - Express next function
+ * Optional auth — same as authenticateUser but doesn't reject unauthenticated requests.
  */
 export const optionalAuthentication = async (req: Request, _res: Response, next: NextFunction) => {
   try {
-    // Option 1: Check for HttpOnly session cookie (preferred, matches authenticateUser)
-    const sessionToken = req.cookies?.sessionToken;
-    if (sessionToken) {
-      try {
-        const user = await AuthService.validateSession(sessionToken);
-        if (user && user.isActive) {
-          const roles: string[] = [];
-          if (user.firebaseUid) {
-            try {
-              const firebaseUser = await admin.auth().getUser(user.firebaseUid);
-              if (firebaseUser.customClaims?.admin) roles.push("admin");
-            } catch {
-              // Ignore Firebase errors, proceed without roles
-            }
-          }
-          req.currentUser = { ...user, roles };
-          return next();
-        }
-      } catch {
-        // Ignore session errors in optional mode, fall through to Bearer check
-      }
-    }
-
-    // Option 2: Fallback to Authorization header
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
       const token = authHeader.substring(7);
-      try {
-        const decoded = await admin.auth().verifyIdToken(token, true);
-        const user = await AuthService.findUserByFirebaseUid(decoded.uid);
-        if (user && user.isActive) {
-          const roles: string[] = [];
-          if (decoded.admin) roles.push("admin");
-          req.currentUser = { ...user, roles };
-        }
-      } catch {
-        // Ignore authentication errors in optional mode
+      const decoded = await admin.auth().verifyIdToken(token, true);
+      const user = await AuthService.findUserByFirebaseUid(decoded.uid);
+      if (user && user.isActive) {
+        const roles: string[] = [];
+        if (decoded.admin) roles.push("admin");
+        req.currentUser = { ...user, roles };
       }
     }
     next();
   } catch {
-    // Ignore authentication errors in optional mode
     next();
-  }
-};
-
-/**
- * Email verification requirement middleware
- *
- * Requires that the authenticated user has verified their email address.
- * Must be used after authenticateUser middleware.
- *
- * @param req - Express request object with currentUser
- * @param res - Express response object
- * @param next - Express next function
- */
-export const requireEmailVerification = (req: Request, res: Response, next: NextFunction) => {
-  if (!req.currentUser) {
-    return res.status(401).json({ error: "Authentication failed" });
-  }
-
-  if (!req.currentUser.isEmailVerified) {
-    return res.status(403).json({
-      error: "Email verification required",
-      code: "EMAIL_NOT_VERIFIED",
-    });
-  }
-
-  next();
-};
-
-/**
- * Re-authentication middleware for sensitive operations
- *
- * Requires user to have authenticated within the last 5 minutes.
- * Used for high-risk operations like:
- * - Changing email address
- * - Changing password
- * - Enabling/disabling MFA
- * - Deleting account
- * - Changing payment methods
- *
- * Usage: Apply after authenticateUser middleware
- * Client must call /api/auth/verify-identity first to confirm identity
- *
- * @param req - Express request object with currentUser
- * @param res - Express response object
- * @param next - Express next function
- */
-export const requireRecentAuth = async (req: Request, res: Response, next: NextFunction) => {
-  if (!req.currentUser) {
-    return res.status(401).json({ error: "Authentication failed" });
-  }
-
-  const userId = req.currentUser.id;
-  const redis = getRedisClient();
-
-  let isRecent = false;
-
-  if (redis) {
-    const val = await redis.get(`${REAUTH_KEY_PREFIX}${userId}`);
-    isRecent = val !== null;
-  } else {
-    const lastAuth = recentAuthsFallback.get(userId);
-    isRecent = !!lastAuth && Date.now() - lastAuth <= REAUTH_WINDOW_MS;
-  }
-
-  if (!isRecent) {
-    return res.status(403).json({
-      error: "Please verify your identity to continue",
-      code: "REAUTH_REQUIRED",
-      message: "This action requires recent authentication. Please re-enter your password.",
-    });
-  }
-
-  next();
-};
-
-/**
- * Record a successful re-authentication for a user
- * Call this after verifying user's password/MFA for sensitive operations
- *
- * @param userId - User ID to record re-auth for
- */
-export function recordRecentAuth(userId: string): void {
-  const redis = getRedisClient();
-
-  if (redis) {
-    redis.set(`${REAUTH_KEY_PREFIX}${userId}`, String(Date.now()), "EX", REAUTH_TTL_SECONDS);
-  } else {
-    if (!warnedReauthFallback) {
-      logger.warn(
-        "[RecentAuth] Redis unavailable — using in-memory fallback (unreliable in multi-instance deployments)"
-      );
-      warnedReauthFallback = true;
-    }
-    recentAuthsFallback.set(userId, Date.now());
-
-    // Clean up old entries periodically using crypto for unbiased randomness
-    if (crypto.randomInt(10) === 0) {
-      const cutoff = Date.now() - REAUTH_WINDOW_MS;
-      for (const [id, timestamp] of recentAuthsFallback.entries()) {
-        if (timestamp < cutoff) {
-          recentAuthsFallback.delete(id);
-        }
-      }
-    }
-  }
-}
-
-/**
- * Clear re-authentication status for a user
- * Call this after sensitive operation completes or on logout
- *
- * @param userId - User ID to clear re-auth for
- */
-export function clearRecentAuth(userId: string): void {
-  const redis = getRedisClient();
-
-  if (redis) {
-    redis.del(`${REAUTH_KEY_PREFIX}${userId}`);
-  } else {
-    recentAuthsFallback.delete(userId);
-  }
-}
-
-/**
- * Admin role requirement middleware
- *
- * Requires that the authenticated user has admin privileges.
- * Must be used after authenticateUser middleware.
- */
-export const requireAdmin = async (req: Request, res: Response, next: NextFunction) => {
-  if (!req.currentUser) {
-    return res.status(401).json({ error: "Authentication failed" });
-  }
-
-  try {
-    // Check roles already populated by authenticateUser (covers both
-    // cookie-authenticated and bearer-token-authenticated admins)
-    if (req.currentUser.roles?.includes("admin")) {
-      return next();
-    }
-
-    // Fallback: re-verify Firebase custom claims from Authorization header
-    // (in case authenticateUser didn't populate roles for this path)
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith("Bearer ")) {
-      const token = authHeader.substring(7);
-      const decoded = await admin.auth().verifyIdToken(token);
-
-      if (decoded.admin === true || (decoded.roles as string[])?.includes("admin")) {
-        return next();
-      }
-    }
-
-    return res.status(403).json({
-      error: "Admin access required",
-      code: "ADMIN_REQUIRED",
-    });
-  } catch (error) {
-    logger.error("Admin check failed", { error: String(error) });
-    return res.status(403).json({
-      error: "Admin access required",
-      code: "ADMIN_REQUIRED",
-    });
   }
 };

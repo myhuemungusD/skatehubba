@@ -1,193 +1,79 @@
-import { type ReactNode, useCallback } from "react";
 import { Link, useLocation } from "wouter";
-import { Home, MapPin, Users, LogOut, Shield, Settings } from "lucide-react";
-import { useIsMobile } from "../../hooks/use-mobile";
 import { useAuth } from "../../hooks/useAuth";
-import { EmailVerificationBanner } from "../EmailVerificationBanner";
-import NotificationBell from "../NotificationBell";
-import { InviteButton } from "../InviteButton";
-
-interface DashboardLayoutProps {
-  children: ReactNode;
-}
 
 const navItems = [
-  { label: "Home", href: "/hub", icon: Home },
-  { label: "Skaters", href: "/discover", icon: Users },
-  { label: "Map", href: "/map", icon: MapPin },
+  { href: "/hub", label: "Home" },
+  { href: "/play", label: "Play" },
+  { href: "/map", label: "Map" },
+  { href: "/leaderboard", label: "Leaderboard" },
 ];
 
-export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [location, setLocation] = useLocation();
-  const isMobile = useIsMobile();
-  const auth = useAuth();
+export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const { profile, signOut } = useAuth();
 
-  const handleLogout = useCallback(async () => {
-    try {
-      await auth?.signOut?.();
-    } catch {
-      // Best-effort logout
-    } finally {
-      setLocation("/");
-    }
-  }, [auth, setLocation]);
-
-  // Desktop layout with sidebar
-  if (!isMobile) {
-    return (
-      <div className="min-h-screen bg-neutral-950 text-white flex">
-        {/* Desktop Sidebar */}
-        <aside className="fixed left-0 top-0 h-full w-64 border-r border-neutral-800 bg-neutral-900/50 backdrop-blur-sm z-40 flex flex-col">
-          <div className="p-6 flex items-center justify-between">
-            <div>
-              <Link href="/hub" className="flex items-center gap-2">
-                <span className="text-2xl font-bold text-yellow-400">SkateHubba</span>
-              </Link>
-              {auth.profile?.username && (
-                <Link
-                  href={`/skater/${auth.profile.username}`}
-                  className="text-xs text-neutral-400 hover:text-yellow-400 transition-colors mt-1 block"
-                >
-                  @{auth.profile.username}
-                </Link>
-              )}
-            </div>
-            <NotificationBell />
-          </div>
-          <nav className="px-4 py-2 flex-1" role="navigation" aria-label="Main navigation">
-            <ul className="space-y-1">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = location.split("?")[0] === item.href;
-
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-                        isActive
-                          ? "bg-yellow-400/10 text-yellow-400"
-                          : "text-neutral-400 hover:bg-neutral-800 hover:text-white"
-                      }`}
-                      aria-current={isActive ? "page" : undefined}
-                      data-testid={`nav-${item.label.toLowerCase()}`}
-                    >
-                      <Icon className="h-5 w-5" aria-hidden="true" />
-                      <span>{item.label}</span>
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
-          {/* Invite + Admin + Logout at bottom of sidebar */}
-          <div className="px-4 py-4 border-t border-neutral-800 space-y-1">
-            <InviteButton
-              variant="ghost"
-              className="w-full justify-start gap-3 px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white"
-              label="Invite Skater"
-            />
-            <Link
-              href="/me"
-              className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors w-full"
-              data-testid="nav-settings"
-              aria-label="Settings"
-            >
-              <Settings className="h-5 w-5" aria-hidden="true" />
-              <span>Settings</span>
-            </Link>
-            {auth.isAdmin && (
-              <Link
-                href="/admin"
-                className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-orange-400 hover:bg-orange-500/10 transition-colors w-full"
-                data-testid="nav-admin"
-              >
-                <Shield className="h-5 w-5" aria-hidden="true" />
-                <span>Admin</span>
-              </Link>
-            )}
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-neutral-400 hover:bg-neutral-800 hover:text-white transition-colors w-full"
-              data-testid="nav-signout"
-            >
-              <LogOut className="h-5 w-5" aria-hidden="true" />
-              <span>Sign Out</span>
-            </button>
-          </div>
-        </aside>
-
-        {/* Main content area */}
-        <main className="flex-1 ml-64">
-          <EmailVerificationBanner />
-          <div className="min-h-screen">
-            <div className="mx-auto max-w-4xl px-6 py-8">{children}</div>
-          </div>
-        </main>
-      </div>
-    );
-  }
-
-  // Mobile layout with bottom navigation
   return (
-    <div className="min-h-screen bg-neutral-950 text-white flex flex-col">
-      <EmailVerificationBanner />
-      {/* Mobile top bar with notification bell */}
-      <header className="sticky top-0 z-30 flex items-center justify-between border-b border-neutral-800 bg-neutral-950/95 px-4 py-2 backdrop-blur-sm">
-        <div className="flex items-center gap-1.5 min-w-0 flex-1 mr-1">
-          <span className="text-lg font-bold text-yellow-400 shrink-0">SkateHubba</span>
-          {auth.profile?.username && (
-            <Link
-              href={`/skater/${auth.profile.username}`}
-              className="text-sm text-neutral-400 hover:text-yellow-400 transition-colors truncate"
-            >
-              @{auth.profile.username}
-            </Link>
-          )}
-        </div>
-        <div className="flex items-center gap-1">
-          <InviteButton variant="ghost" size="icon" />
-          <Link
-            href="/me"
-            className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
-            aria-label="Settings"
-          >
-            <Settings className="h-5 w-5" />
+    <div className="min-h-screen bg-gray-950 text-white">
+      {/* Top bar */}
+      <header className="border-b border-gray-800 bg-gray-900/80 backdrop-blur sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
+          <Link href="/hub" className="text-lg font-bold text-brand-500">
+            SkateHubba
           </Link>
-          <NotificationBell />
-        </div>
-      </header>
-      <main className="flex-1 overflow-y-auto pb-[calc(4rem+env(safe-area-inset-bottom)+1rem)] [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-        <div className="mx-auto w-full max-w-md px-4 pt-4">{children}</div>
-      </main>
-      <nav
-        className="fixed bottom-0 left-0 right-0 border-t border-neutral-800 bg-neutral-950/95 pb-[env(safe-area-inset-bottom)]"
-        role="navigation"
-        aria-label="Dashboard navigation"
-      >
-        <div className="mx-auto flex max-w-md items-center justify-between px-2 py-2">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.split("?")[0] === item.href;
 
-            return (
+          <nav className="hidden md:flex gap-1">
+            {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex min-w-[64px] flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-xs font-medium transition-colors ${
-                  isActive ? "text-yellow-400" : "text-neutral-400 hover:text-white"
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  location === item.href
+                    ? "bg-brand-500/20 text-brand-500"
+                    : "text-gray-400 hover:text-white hover:bg-gray-800"
                 }`}
-                aria-current={isActive ? "page" : undefined}
-                data-testid={`nav-${item.label.toLowerCase()}`}
               >
-                <Icon className="h-5 w-5" aria-hidden="true" />
-                <span>{item.label}</span>
+                {item.label}
               </Link>
-            );
-          })}
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-3">
+            {profile && (
+              <span className="text-sm text-gray-400">@{profile.handle}</span>
+            )}
+            <button
+              onClick={() => signOut()}
+              className="text-xs text-gray-500 hover:text-white transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Mobile bottom nav */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-gray-900 border-t border-gray-800">
+        <div className="flex">
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex-1 py-3 text-center text-xs font-medium transition-colors ${
+                location === item.href
+                  ? "text-brand-500"
+                  : "text-gray-500"
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
         </div>
       </nav>
+
+      {/* Content */}
+      <main className="max-w-7xl mx-auto px-4 py-6 pb-24 md:pb-6">
+        {children}
+      </main>
     </div>
   );
 }

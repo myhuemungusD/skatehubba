@@ -1,17 +1,10 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "remoteCache": {
-    "enabled": true
-  },
   "tasks": {
     "build": {
-      "dependsOn": ["verify:public-env", "^build"],
-      "outputs": ["dist/**", "build/**"],
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
       "cache": true
-    },
-    "verify:public-env": {
-      "cache": false,
-      "outputs": []
     },
     "dev": {
       "cache": false,

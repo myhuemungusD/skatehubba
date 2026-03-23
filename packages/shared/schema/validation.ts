@@ -14,15 +14,3 @@ export const passwordSchema = z
     /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
     "Password must contain at least one uppercase letter, one lowercase letter, and one number"
   );
-
-export const paymentAmountSchema = z
-  .number()
-  .min(0.5, "Amount must be at least $0.50")
-  .max(10000, "Amount cannot exceed $10,000");
-
-export const sanitizedStringSchema = z
-  .string()
-  .trim()
-  .max(1000, "String too long")
-  // CodeQL: Bad HTML filtering regex / polynomial regex on uncontrolled data
-  .refine((str) => !str.includes("<") && !str.includes(">"), "HTML is not allowed");

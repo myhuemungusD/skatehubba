@@ -1,7 +1,4 @@
 packages:
-  - "api"
   - "client"
   - "server"
-  - "mobile"
-  - "functions"
   - "packages/*"
