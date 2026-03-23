@@ -12,6 +12,7 @@ import {
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { customUsers } from "./auth";
 
 // Spot types
 export const SPOT_TYPES = [
@@ -33,8 +34,8 @@ export const spots = pgTable(
     id: serial("id").primaryKey(),
     name: text("name").notNull(),
     description: text("description"),
-    spotType: varchar("spot_type", { length: 50 }).default("street"),
-    tier: varchar("tier", { length: 20 }).default("bronze"),
+    spotType: varchar("spot_type", { length: 50 }).notNull().default("street"),
+    tier: varchar("tier", { length: 20 }).notNull().default("bronze"),
     lat: doublePrecision("lat").notNull(),
     lng: doublePrecision("lng").notNull(),
     address: text("address"),
@@ -42,7 +43,9 @@ export const spots = pgTable(
     state: varchar("state", { length: 50 }),
     country: varchar("country", { length: 100 }).default("USA"),
     photoUrl: text("photo_url"),
-    createdBy: varchar("created_by", { length: 255 }),
+    createdBy: varchar("created_by", { length: 36 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "restrict" }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     verified: boolean("verified").notNull().default(false),
@@ -65,7 +68,9 @@ export const spotRatings = pgTable(
     spotId: integer("spot_id")
       .notNull()
       .references(() => spots.id, { onDelete: "cascade" }),
-    userId: varchar("user_id", { length: 255 }).notNull(),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
     rating: integer("rating").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
@@ -83,7 +88,9 @@ export const checkIns = pgTable(
   "check_ins",
   {
     id: serial("id").primaryKey(),
-    userId: varchar("user_id", { length: 255 }).notNull(),
+    userId: varchar("user_id", { length: 36 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "cascade" }),
     spotId: integer("spot_id")
       .notNull()
       .references(() => spots.id, { onDelete: "cascade" }),
@@ -99,8 +106,8 @@ export const checkIns = pgTable(
 export const insertSpotSchema = createInsertSchema(spots, {
   name: z.string().trim().min(1, "Spot name is required").max(100, "Name too long"),
   description: z.string().trim().max(1000, "Description too long").optional(),
-  spotType: z.enum(SPOT_TYPES).optional(),
-  tier: z.enum(SPOT_TIERS).optional(),
+  spotType: z.enum(SPOT_TYPES).default("street"),
+  tier: z.enum(SPOT_TIERS).default("bronze"),
   lat: z.number().min(-90).max(90),
   lng: z.number().min(-180).max(180),
   address: z.string().trim().max(500).optional(),
@@ -118,6 +125,10 @@ export const insertSpotSchema = createInsertSchema(spots, {
   rating: true,
   ratingCount: true,
   createdBy: true,
+});
+
+export const rateSpotSchema = z.object({
+  rating: z.number().int().min(1, "Rating must be at least 1").max(5, "Rating must be at most 5"),
 });
 
 // Types

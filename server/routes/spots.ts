@@ -5,7 +5,7 @@
 
 import { Router } from "express";
 import { getDb } from "../db";
-import { spots, spotRatings, checkIns, insertSpotSchema } from "@shared/schema";
+import { spots, spotRatings, checkIns, insertSpotSchema, rateSpotSchema } from "@shared/schema";
 import { eq, sql, desc } from "drizzle-orm";
 import { authenticateUser, optionalAuthentication } from "../auth/middleware";
 import { Errors } from "../utils/apiError";
@@ -73,10 +73,9 @@ router.post("/:id/rate", authenticateUser, async (req, res) => {
   const spotId = parseInt(req.params.id, 10);
   if (isNaN(spotId)) return Errors.badRequest(res, "INVALID_ID", "Invalid spot ID.");
 
-  const rating = req.body.rating;
-  if (typeof rating !== "number" || rating < 1 || rating > 5) {
-    return Errors.badRequest(res, "INVALID_RATING", "Rating must be 1-5.");
-  }
+  const parsed = rateSpotSchema.safeParse(req.body);
+  if (!parsed.success) return Errors.validation(res, parsed.error.flatten());
+  const { rating } = parsed.data;
 
   const currentUserId = req.currentUser!.id;
 

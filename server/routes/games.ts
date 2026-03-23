@@ -189,12 +189,13 @@ router.post("/:id/forfeit", async (req, res) => {
       const now = new Date();
 
       if (active.length <= 1) {
+        const winnerId = active[0]?.id ?? null;
         const [updated] = await tx
           .update(games)
           .set({
             players: updatedPlayers,
             status: "forfeited",
-            winnerId: active[0]?.id ?? null,
+            winnerId,
             completedAt: now,
             updatedAt: now,
             turnPhase: null,
@@ -203,6 +204,16 @@ router.post("/:id/forfeit", async (req, res) => {
           })
           .where(eq(games.id, gameId))
           .returning();
+
+        // Update win/loss stats
+        for (const p of updatedPlayers) {
+          if (p.id === winnerId) {
+            await tx.update(userProfiles).set({ wins: sql`${userProfiles.wins} + 1`, updatedAt: now }).where(eq(userProfiles.id, p.id));
+          } else {
+            await tx.update(userProfiles).set({ losses: sql`${userProfiles.losses} + 1`, updatedAt: now }).where(eq(userProfiles.id, p.id));
+          }
+        }
+
         return { ok: true as const, game: updated };
       }
 

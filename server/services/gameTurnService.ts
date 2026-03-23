@@ -11,9 +11,10 @@
  * Last player standing wins.
  */
 
-import { games, gameTurns, type GamePlayer } from "@shared/schema";
+import { games, gameTurns, userProfiles, type GamePlayer } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
 import type { Database } from "../db";
+import logger from "../logger";
 
 // ============================================================================
 // Constants
@@ -136,6 +137,35 @@ function checkGameOver(players: GamePlayer[]): { over: boolean; winnerId: string
     return { over: true, winnerId: active[0]?.id ?? null };
   }
   return { over: false, winnerId: null };
+}
+
+/** Update win/loss stats on userProfiles when a game ends */
+async function updateWinLossStats(
+  tx: Database,
+  players: GamePlayer[],
+  winnerId: string | null
+): Promise<void> {
+  for (const player of players) {
+    try {
+      if (player.id === winnerId) {
+        await tx
+          .update(userProfiles)
+          .set({ wins: sql`${userProfiles.wins} + 1`, updatedAt: new Date() })
+          .where(eq(userProfiles.id, player.id));
+      } else {
+        await tx
+          .update(userProfiles)
+          .set({ losses: sql`${userProfiles.losses} + 1`, updatedAt: new Date() })
+          .where(eq(userProfiles.id, player.id));
+      }
+    } catch (err) {
+      // Non-critical: don't fail the game completion if stats update fails
+      logger.warn("Failed to update win/loss stats", {
+        playerId: player.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 }
 
 // ============================================================================
@@ -335,6 +365,8 @@ export async function judgeTurn(
       .where(eq(games.id, game.id))
       .returning();
 
+    await updateWinLossStats(tx, updatedPlayers, gameOverCheck.winnerId);
+
     return {
       ok: true,
       game: updatedGame,
@@ -474,6 +506,8 @@ export async function setterBail(
       })
       .where(eq(games.id, gameId))
       .returning();
+
+    await updateWinLossStats(tx, updatedPlayers, gameOverCheck.winnerId);
 
     return {
       ok: true,

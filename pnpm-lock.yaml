@@ -124,9 +124,15 @@ importers:
       express:
         specifier: ^4.18.2
         version: 4.22.1
+      express-rate-limit:
+        specifier: ^8.3.1
+        version: 8.3.1(express@4.22.1)
       firebase-admin:
         specifier: ^13.0.0
         version: 13.6.0
+      helmet:
+        specifier: ^8.1.0
+        version: 8.1.0
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.3
@@ -152,6 +158,9 @@ importers:
       '@types/express-serve-static-core':
         specifier: ^4.19.8
         version: 4.19.8
+      '@types/helmet':
+        specifier: ^4.0.0
+        version: 4.0.0
       '@types/jsonwebtoken':
         specifier: ^9.0.7
         version: 9.0.10
@@ -1544,6 +1553,10 @@ packages:
   '@types/geojson@7946.0.16':
     resolution: {integrity: sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==}
 
+  '@types/helmet@4.0.0':
+    resolution: {integrity: sha512-ONIn/nSNQA57yRge3oaMQESef/6QhoeX7llWeDli0UZIfz8TQMkfNPTXA8VnnyeA1WUjG2pGqdjEIueYonMdfQ==}
+    deprecated: This is a stub types definition. helmet provides its own type definitions, so you do not need this installed.
+
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
 
@@ -2020,6 +2033,12 @@ packages:
     resolution: {integrity: sha512-i/2XbnSz/uxRCU6+NdVJgKWDTM427+MqYbkQzD321DuCQJUqOuJKIA0IM2+W2xtYHdKOmZ4dR6fExsd4SXL+WQ==}
     engines: {node: '>=6'}
 
+  express-rate-limit@8.3.1:
+    resolution: {integrity: sha512-D1dKN+cmyPWuvB+G2SREQDzPY1agpBIcTa9sJxOPMCNeH3gwzhqJRDWCXW3gg0y//+LQ/8j52JbMROWyrKdMdw==}
+    engines: {node: '>= 16'}
+    peerDependencies:
+      express: '>= 4.11'
+
   express@4.22.1:
     resolution: {integrity: sha512-F2X8g9P1X7uCPZMA3MVf9wcTqlyNp7IhH5qPCI0izhaOIYXaW9L535tGA3qmjRzpH+bZczqq7hVKxTR4NWnu+g==}
     engines: {node: '>= 0.10.0'}
@@ -2171,6 +2190,10 @@ packages:
     resolution: {integrity: sha512-0hJU9SCPvmMzIBdZFqNPXWa6dqh7WdH0cII9y+CyS8rG3nL48Bclra9HmKhVVUHyPWNH5Y7xDwAB7bfgSjkUMQ==}
     engines: {node: '>= 0.4'}
 
+  helmet@8.1.0:
+    resolution: {integrity: sha512-jOiHyAZsmnr8LqoPGmCjYAaiuWwjAPLgY8ZX2XrmHawt99/u1y6RgrZMTeoPfpUbV96HOalYgz1qzkRbw54Pmg==}
+    engines: {node: '>=18.0.0'}
+
   html-entities@2.6.0:
     resolution: {integrity: sha512-kig+rMn/QOVRvr7c86gQ8lWXq+Hkv6CbAH1hLu+RG338StTpE8Z0b44SDVaqVu7HGKf27frdmUYEs9hTUX/cLQ==}
 
@@ -2202,6 +2225,10 @@ packages:
 
   inherits@2.0.4:
     resolution: {integrity: sha512-k/vGaX4/Yla3WzyMCvTQOXYeIHvqOKtnqBduzTHpzpQZzAskKMhZ2K+EnBiSM9zGSoIFeMpXKxa4dYeZIQqewQ==}
+
+  ip-address@10.1.0:
+    resolution: {integrity: sha512-XXADHxXmvT9+CRxhXg56LJovE+bmWnEWB78LB83VZTprKTmaC5QfruXocxzTZ2Kl0DNwKuBdlIhjL8LeY8Sf8Q==}
+    engines: {node: '>= 12'}
 
   ipaddr.js@1.9.1:
     resolution: {integrity: sha512-0KI/607xoxSToH7GjN1FfSbLoU0+btTicjsQSWQlh/hZykN8KpmMf7uYwPW3R+akZ6R/w18ZlXSHBYXiYUPO3g==}
@@ -4273,6 +4300,10 @@ snapshots:
 
   '@types/geojson@7946.0.16': {}
 
+  '@types/helmet@4.0.0':
+    dependencies:
+      helmet: 8.1.0
+
   '@types/http-errors@2.0.5': {}
 
   '@types/jsonwebtoken@9.0.10':
@@ -4790,6 +4821,11 @@ snapshots:
   event-target-shim@5.0.1:
     optional: true
 
+  express-rate-limit@8.3.1(express@4.22.1):
+    dependencies:
+      express: 4.22.1
+      ip-address: 10.1.0
+
   express@4.22.1:
     dependencies:
       accepts: 1.3.8
@@ -5069,6 +5105,8 @@ snapshots:
     dependencies:
       function-bind: 1.1.2
 
+  helmet@8.1.0: {}
+
   html-entities@2.6.0:
     optional: true
 
@@ -5113,6 +5151,8 @@ snapshots:
   idb@7.1.1: {}
 
   inherits@2.0.4: {}
+
+  ip-address@10.1.0: {}
 
   ipaddr.js@1.9.1: {}
 

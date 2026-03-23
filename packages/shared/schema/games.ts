@@ -7,10 +7,12 @@ import {
   timestamp,
   varchar,
   index,
-  json,
+  jsonb,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
+import { customUsers } from "./auth";
 
 // ============================================================================
 // Enums
@@ -22,6 +24,9 @@ export type GameStatus = (typeof GAME_STATUSES)[number];
 export const TURN_PHASES = ["set_trick", "respond_trick", "judge"] as const;
 export type TurnPhase = (typeof TURN_PHASES)[number];
 
+export const TURN_TYPES = ["set", "response"] as const;
+export type TurnType = (typeof TURN_TYPES)[number];
+
 export const TURN_RESULTS = ["landed", "missed", "pending"] as const;
 export type TurnResult = (typeof TURN_RESULTS)[number];
 
@@ -31,12 +36,15 @@ export const SKATE_LETTERS = "SKATE";
 export const SKATE_LETTERS_TO_LOSE = 5;
 
 // ============================================================================
-// Player state stored as JSON array on the game row
+// Player state stored as JSONB array on the game row
 // ============================================================================
 
 /**
  * Each player in a multiplayer S.K.A.T.E. game.
- * Stored as a JSON array on the `games` table — no join tables, no N player columns.
+ * Stored as a JSONB array on the `games` table — no join tables, no N player columns.
+ *
+ * Note: `name` is denormalized at game creation for display. Changing a display
+ * name after the game starts won't retroactively update game records (intentional).
  */
 export interface GamePlayer {
   id: string;
@@ -45,6 +53,13 @@ export interface GamePlayer {
   isEliminated: boolean;
 }
 
+export const gamePlayerSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  letters: z.string().max(5),
+  isEliminated: z.boolean(),
+});
+
 // ============================================================================
 // Games table — 2-5 player async S.K.A.T.E.
 // ============================================================================
@@ -52,15 +67,17 @@ export interface GamePlayer {
 export const games = pgTable(
   "games",
   {
-    id: varchar("id")
+    id: varchar("id", { length: 36 })
       .primaryKey()
       .default(sql`gen_random_uuid()`),
 
     /** Player who created the game */
-    creatorId: varchar("creator_id", { length: 255 }).notNull(),
+    creatorId: varchar("creator_id", { length: 36 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "restrict" }),
 
-    /** JSON array of GamePlayer objects — the source of truth for letters/elimination */
-    players: json("players").$type<GamePlayer[]>().notNull().default([]),
+    /** JSONB array of GamePlayer objects — the source of truth for letters/elimination */
+    players: jsonb("players").$type<GamePlayer[]>().notNull().default(sql`'[]'::jsonb`),
 
     /** How many players are required before the game starts */
     maxPlayers: integer("max_players").notNull().default(2),
@@ -68,13 +85,13 @@ export const games = pgTable(
     status: varchar("status", { length: 50 }).notNull().default("pending"),
 
     /** ID of the player whose turn it is right now */
-    currentTurn: varchar("current_turn", { length: 255 }),
+    currentTurn: varchar("current_turn", { length: 36 }),
 
     /** What the current player needs to do */
     turnPhase: varchar("turn_phase", { length: 50 }).default("set_trick"),
 
     /** The player currently setting tricks (offensive role) */
-    setterId: varchar("setter_id", { length: 255 }),
+    setterId: varchar("setter_id", { length: 36 }),
 
     /** Index into `players` of the defender who must respond next.
      *  After setter submits, each non-setter responds in order. */
@@ -82,12 +99,12 @@ export const games = pgTable(
 
     /** Last trick description for UI display */
     lastTrickDescription: text("last_trick_description"),
-    lastTrickBy: varchar("last_trick_by", { length: 255 }),
+    lastTrickBy: varchar("last_trick_by", { length: 36 }),
 
     /** 24-hour turn deadline */
     deadlineAt: timestamp("deadline_at", { withTimezone: true }),
 
-    winnerId: varchar("winner_id", { length: 255 }),
+    winnerId: varchar("winner_id", { length: 36 }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -95,6 +112,7 @@ export const games = pgTable(
   (table) => ({
     creatorIdx: index("IDX_games_creator").on(table.creatorId),
     statusDeadlineIdx: index("IDX_games_status_deadline").on(table.status, table.deadlineAt),
+    winnerIdx: index("IDX_games_winner").on(table.winnerId),
   })
 );
 
@@ -106,19 +124,21 @@ export const gameTurns = pgTable(
   "game_turns",
   {
     id: serial("id").primaryKey(),
-    gameId: varchar("game_id", { length: 255 })
+    gameId: varchar("game_id", { length: 36 })
       .notNull()
       .references(() => games.id, { onDelete: "restrict" }),
-    playerId: varchar("player_id", { length: 255 }).notNull(),
+    playerId: varchar("player_id", { length: 36 })
+      .notNull()
+      .references(() => customUsers.id, { onDelete: "restrict" }),
     playerName: varchar("player_name", { length: 255 }).notNull(),
     turnNumber: integer("turn_number").notNull(),
     turnType: varchar("turn_type", { length: 20 }).notNull().default("set"),
     trickDescription: text("trick_description").notNull(),
-    videoUrl: varchar("video_url", { length: 500 }),
+    videoUrl: text("video_url"),
     videoDurationMs: integer("video_duration_ms"),
-    thumbnailUrl: varchar("thumbnail_url", { length: 500 }),
+    thumbnailUrl: text("thumbnail_url"),
     result: varchar("result", { length: 50 }).notNull().default("pending"),
-    judgedBy: varchar("judged_by", { length: 255 }),
+    judgedBy: varchar("judged_by", { length: 36 }),
     judgedAt: timestamp("judged_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   },
@@ -126,6 +146,7 @@ export const gameTurns = pgTable(
     gameIdx: index("IDX_game_turns_game").on(table.gameId),
     playerIdx: index("IDX_game_turns_player").on(table.playerId),
     gameResultIdx: index("IDX_game_turns_game_result").on(table.gameId, table.result),
+    uniqueTurnNumber: uniqueIndex("UQ_game_turn_number").on(table.gameId, table.turnNumber),
   })
 );
 
@@ -133,14 +154,22 @@ export const gameTurns = pgTable(
 // Validation schemas
 // ============================================================================
 
-export const insertGameSchema = createInsertSchema(games).omit({
+export const insertGameSchema = createInsertSchema(games, {
+  status: z.enum(GAME_STATUSES).default("pending"),
+  turnPhase: z.enum(TURN_PHASES).optional(),
+  maxPlayers: z.number().int().min(MIN_PLAYERS).max(MAX_PLAYERS).default(2),
+  players: z.array(gamePlayerSchema).default([]),
+}).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
   completedAt: true,
 });
 
-export const insertGameTurnSchema = createInsertSchema(gameTurns).omit({
+export const insertGameTurnSchema = createInsertSchema(gameTurns, {
+  turnType: z.enum(TURN_TYPES).default("set"),
+  result: z.enum(TURN_RESULTS).default("pending"),
+}).omit({
   id: true,
   createdAt: true,
 });

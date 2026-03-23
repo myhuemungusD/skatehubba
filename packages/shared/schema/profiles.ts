@@ -14,13 +14,13 @@ import { customUsers } from "./auth";
  * Stripped to MVP: handle, display, stance, stats. No closet, no filmer, no XP.
  */
 export const userProfiles = pgTable("user_profiles", {
-  id: varchar("id")
+  id: varchar("id", { length: 36 })
     .primaryKey()
     .references(() => customUsers.id, { onDelete: "cascade" }),
   handle: varchar("handle", { length: 50 }).notNull().unique(),
   displayName: varchar("display_name", { length: 100 }),
   bio: text("bio"),
-  photoURL: varchar("photo_url", { length: 500 }),
+  photoURL: text("photo_url"),
   stance: varchar("stance", { length: 20 }).default("regular"),
   homeSpot: varchar("home_spot", { length: 255 }),
   wins: integer("wins").notNull().default(0),

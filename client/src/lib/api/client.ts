@@ -27,19 +27,32 @@ export async function apiRequest<T>(options: RequestOptions): Promise<T> {
     "Content-Type": "application/json",
   };
 
-  // Attach Firebase ID token if available
+  // Attach Firebase ID token if available — getIdToken(true) forces refresh if expired
   const user = auth.currentUser;
   if (user) {
-    const token = await user.getIdToken();
-    headers["Authorization"] = `Bearer ${token}`;
+    try {
+      const token = await user.getIdToken();
+      headers["Authorization"] = `Bearer ${token}`;
+    } catch {
+      // Token refresh failed — let the request proceed without auth
+      // The server will return 401, and the client can handle re-auth
+    }
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-    signal,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal,
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "AbortError") {
+      throw err; // Let abort errors propagate as-is
+    }
+    throw new ApiError(0, "NETWORK_ERROR", "Network error. Check your connection.");
+  }
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({ error: "UNKNOWN", message: res.statusText }));

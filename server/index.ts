@@ -23,3 +23,11 @@ const shutdown = () => {
 
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
+
+// Catch unhandled rejections to prevent silent crashes
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled rejection", {
+    error: reason instanceof Error ? reason.message : String(reason),
+    stack: reason instanceof Error ? reason.stack : undefined,
+  });
+});
